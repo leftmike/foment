@@ -74,7 +74,7 @@ typedef struct
     int Label;
 } FWriteSharedCtx;
 
-#define AsWriteSharedCtx(ctx) ((FWriteSharedCtx *) (ctx))
+#define ToWriteSharedCtx(ctx) ((FWriteSharedCtx *) (ctx))
 void WriteSharedObject(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx);
 
 void SetupPrettyPrint();

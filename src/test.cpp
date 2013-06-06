@@ -161,5 +161,16 @@ int RunTest(FObject env, int argc, char * argv[])
     }
 
     PutStringC(StandardOutput, "Passed.\n");
+
+    FCh s[16];
+    int sl;
+
+    PutStringC(StandardOutput, "Bytes Allocated: ");
+    sl = NumberAsString(BytesAllocated, s, 10);
+    PutString(StandardOutput, s, sl);
+    PutCh(StandardOutput, '\n');
+
+AllowGC();
+
     return(0);
 }

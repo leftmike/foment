@@ -43,6 +43,7 @@ void ClosePort(FObject port)
         {
             AsPort(port)->CloseFn(AsPort(port)->Context, AsPort(port)->Object);
             AsPort(port)->Context = 0;
+            AsObject(port);
         }
     }
 }
@@ -61,7 +62,10 @@ FObject MakePort(FObject nam, FInputPort * inp, FOutputPort * outp, FPortLocatio
     port->CloseFn = cfn;
     port->Context = ctx;
     port->Object = obj;
-    return(AsObject(port));
+
+    obj = AsObject(port);
+    FAssert(ObjectLength(obj) == sizeof(FPort));
+    return(obj);
 }
 
 // ---- FILE Input and Output Ports ----
@@ -75,21 +79,21 @@ typedef struct
     int LineNumber;
 } FILEContext;
 
-#define AsFileContext(ctx) ((FILEContext *) (ctx))
+#define ToFileContext(ctx) ((FILEContext *) (ctx))
 
 static FCh FILEGetCh(void * ctx, FObject obj, int * eof)
 {
-    if (AsFileContext(ctx)->PeekedFlag)
+    if (ToFileContext(ctx)->PeekedFlag)
     {
-        AsFileContext(ctx)->PeekedFlag = 0;
+        ToFileContext(ctx)->PeekedFlag = 0;
         *eof = 0;
-        return(AsFileContext(ctx)->PeekedCh);
+        return(ToFileContext(ctx)->PeekedCh);
     }
 
-    int ch = fgetc(AsFileContext(ctx)->File);
+    int ch = fgetc(ToFileContext(ctx)->File);
     *eof = (ch == EOF ? 1 : 0);
     if (ch == '\n')
-        AsFileContext(ctx)->LineNumber += 1;
+        ToFileContext(ctx)->LineNumber += 1;
     return(ch);
 }
 
@@ -97,24 +101,24 @@ static FCh FILEPeekCh(void * ctx, FObject obj, int * eof)
 {
     *eof = 0;
 
-    if (AsFileContext(ctx)->PeekedFlag)
-        return(AsFileContext(ctx)->PeekedCh);
+    if (ToFileContext(ctx)->PeekedFlag)
+        return(ToFileContext(ctx)->PeekedCh);
 
-    int ch = fgetc(AsFileContext(ctx)->File);
+    int ch = fgetc(ToFileContext(ctx)->File);
     if (ch == EOF)
     {
         *eof = 1;
         return(ch);
     }
 
-    AsFileContext(ctx)->PeekedFlag = 1;
-    AsFileContext(ctx)->PeekedCh = ch;
+    ToFileContext(ctx)->PeekedFlag = 1;
+    ToFileContext(ctx)->PeekedCh = ch;
     return(ch);
 }
 
 static void FILEPutCh(void * ctx, FObject obj, FCh ch)
 {
-    fputc(ch, AsFileContext(ctx)->File);
+    fputc(ch, ToFileContext(ctx)->File);
 }
 
 static void FILEPutString(void * ctx, FObject obj, FCh * s, int sl)
@@ -122,28 +126,28 @@ static void FILEPutString(void * ctx, FObject obj, FCh * s, int sl)
     int sdx;
 
     for (sdx = 0; sdx < sl; sdx++)
-        fputc(s[sdx], AsFileContext(ctx)->File);
+        fputc(s[sdx], ToFileContext(ctx)->File);
 }
 
 static void FILEPutStringC(void * ctx, FObject obj, char * s)
 {
-    fputs(s, AsFileContext(ctx)->File);
+    fputs(s, ToFileContext(ctx)->File);
 }
 
 static void FILEClose(void *ctx, FObject obj)
 {
     FAssert(ctx != 0);
-    FAssert(AsFileContext(ctx)->File != 0);
+    FAssert(ToFileContext(ctx)->File != 0);
 
-    if (AsFileContext(ctx)->DontCloseFile == 0)
-        fclose(AsFileContext(ctx)->File);
+    if (ToFileContext(ctx)->DontCloseFile == 0)
+        fclose(ToFileContext(ctx)->File);
 
     free(ctx);
 }
 
 static int FILEGetLocation(void * ctx, FObject obj)
 {
-    return(AsFileContext(ctx)->LineNumber);
+    return(ToFileContext(ctx)->LineNumber);
 }
 
 static FInputPort FILEInputPort = {FILEGetCh, FILEPeekCh};
@@ -278,30 +282,33 @@ typedef struct
     int Count;
 } StringOutputContext;
 
-#define AsStringOutputContext(ctx) ((StringOutputContext *) (ctx))
+#define ToStringOutputContext(ctx) ((StringOutputContext *) (ctx))
 
 static void StringOutputPutCh(void * ctx, FObject obj, FCh ch)
 {
     FAssert(BoxP(obj));
 
-    AsStringOutputContext(ctx)->Count += 1;
-    AsBox(obj)->Value = MakePair(MakeCharacter(ch), Unbox(obj));
+    ToStringOutputContext(ctx)->Count += 1;
+//    AsBox(obj)->Value = MakePair(MakeCharacter(ch), Unbox(obj));
+    Modify(FBox, obj, Value, MakePair(MakeCharacter(ch), Unbox(obj)));
 }
 
 static void StringOutputPutString(void * ctx, FObject obj, FCh * s, int sl)
 {
     FAssert(BoxP(obj));
 
-    AsStringOutputContext(ctx)->Count += sl;
-    AsBox(obj)->Value = MakePair(MakeString(s, sl), Unbox(obj));
+    ToStringOutputContext(ctx)->Count += sl;
+//    AsBox(obj)->Value = MakePair(MakeString(s, sl), Unbox(obj));
+    Modify(FBox, obj, Value, MakePair(MakeString(s, sl), Unbox(obj)));
 }
 
 static void StringOutputPutStringC(void * ctx, FObject obj, char * s)
 {
     FAssert(BoxP(obj));
 
-    AsStringOutputContext(ctx)->Count += strlen(s);
-    AsBox(obj)->Value = MakePair(MakeStringC(s), Unbox(obj));
+    ToStringOutputContext(ctx)->Count += strlen(s);
+//    AsBox(obj)->Value = MakePair(MakeStringC(s), Unbox(obj));
+    Modify(FBox, obj, Value, MakePair(MakeStringC(s), Unbox(obj)));
 }
 
 static void StringOutputClose(void * ctx, FObject obj)
@@ -329,7 +336,7 @@ FObject GetOutputString(FObject port)
     FAssert(AsPort(port)->Output == &StringOutputPort);
     FAssert(BoxP(AsPort(port)->Object));
 
-    int idx = AsStringOutputContext(AsPort(port)->Context)->Count;
+    int idx = ToStringOutputContext(AsPort(port)->Context)->Count;
     FObject s = MakeStringCh(idx, 0);
     FObject lst = Unbox(AsPort(port)->Object);
 
@@ -818,20 +825,20 @@ void WriteSharedObject(FObject port, FObject obj, int df, FWriteFn wfn, void * c
 {
     if (SharedObjectP(obj))
     {
-        FObject val = HashtableRef(AsWriteSharedCtx(ctx)->Hashtable, obj, FalseObject, EqP,
+        FObject val = HashtableRef(ToWriteSharedCtx(ctx)->Hashtable, obj, FalseObject, EqP,
                 EqHash);
 
         if (BooleanP(val))
         {
             if (val == TrueObject)
             {
-                AsWriteSharedCtx(ctx)->Label += 1;
-                HashtableSet(AsWriteSharedCtx(ctx)->Hashtable, obj,
-                        MakeFixnum(AsWriteSharedCtx(ctx)->Label), EqP, EqHash);
+                ToWriteSharedCtx(ctx)->Label += 1;
+                HashtableSet(ToWriteSharedCtx(ctx)->Hashtable, obj,
+                        MakeFixnum(ToWriteSharedCtx(ctx)->Label), EqP, EqHash);
 
                 PutCh(port, '#');
                 FCh s[8];
-                int sl = NumberAsString(AsWriteSharedCtx(ctx)->Label, s, 10);
+                int sl = NumberAsString(ToWriteSharedCtx(ctx)->Label, s, 10);
                 PutString(port, s, sl);
                 PutCh(port, '=');
             }
@@ -842,7 +849,7 @@ void WriteSharedObject(FObject port, FObject obj, int df, FWriteFn wfn, void * c
                 for (;;)
                 {
                     wfn(port, First(obj), df, wfn, ctx);
-                    if (PairP(Rest(obj)) && HashtableRef(AsWriteSharedCtx(ctx)->Hashtable,
+                    if (PairP(Rest(obj)) && HashtableRef(ToWriteSharedCtx(ctx)->Hashtable,
                             Rest(obj), FalseObject, EqP, EqHash) == FalseObject)
                     {
                         PutCh(port, ' ');

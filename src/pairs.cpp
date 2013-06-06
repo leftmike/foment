@@ -13,7 +13,10 @@ FObject MakePair(FObject first, FObject rest)
     FPair * pair = (FPair *) MakeObject(PairTag, sizeof(FPair));
     pair->First = first;
     pair->Rest = rest;
-    return(AsObject(pair));
+
+    FObject obj = AsObject(pair);
+    FAssert(ObjectLength(obj) == sizeof(FPair));
+    return(obj);
 }
 
 int ListLength(FObject obj)
@@ -46,7 +49,8 @@ FObject ReverseListModify(FObject list)
 
         FObject obj = list;
         list = Rest(list);
-        AsPair(obj)->Rest = rlist;
+//        AsPair(obj)->Rest = rlist;
+        Modify(FPair, obj, Rest, rlist);
         rlist = obj;
     }
 
@@ -120,7 +124,8 @@ Define("set-car!", SetCarPrimitive)(int argc, FObject argv[])
     if (PairP(argv[0]) == 0)
         RaiseExceptionC(Assertion, "set-car!", "set-car!: expected a pair", List(argv[0]));
 
-    AsPair(argv[0])->First = argv[1];
+//    AsPair(argv[0])->First = argv[1];
+    Modify(FPair, argv[0], First, argv[1]);
 
     return(NoValueObject);
 }
@@ -199,7 +204,8 @@ Define("append", AppendPrimitive)(int argc, FObject argv[])
 
             FObject obj = lst;
             lst = Rest(lst);
-            AsPair(obj)->Rest = ret;
+//            AsPair(obj)->Rest = ret;
+            Modify(FPair, obj, Rest, ret);
             ret = obj;
         }
   }

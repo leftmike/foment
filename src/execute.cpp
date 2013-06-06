@@ -17,16 +17,23 @@ static FObject DynamicEnvironment;
 
 // ---- Procedure ----
 
-FObject MakeProcedure(FObject nam, FObject cv, int ac, FObject ra)
+static FObject MakeProcedure(FObject nam, FObject cv, int ac, FObject ra, unsigned int fl)
 {
     FProcedure * p = (FProcedure *) MakeObject(ProcedureTag, sizeof(FProcedure));
     p->Name = SyntaxToDatum(nam);
     p->Code = cv;
     p->RestArg = ra;
     p->ArgCount = ac;
-    p->Flags = 0;
+    p->Flags = fl;
 
-    return(AsObject(p));
+    FObject obj = AsObject(p);
+    FAssert(ObjectLength(obj) == sizeof(FProcedure));
+    return(obj);
+}
+
+FObject MakeProcedure(FObject nam, FObject cv, int ac, FObject ra)
+{
+    return(MakeProcedure(nam, cv, ac, ra, 0));
 }
 
 // ---- Instruction ----
@@ -290,7 +297,8 @@ FObject Execute(FObject op, int argc, FObject argv[])
                 FAssert(AStackPtr > 0);
 
                 AStackPtr -= 1;
-                AsVector(Frame)->Vector[InstructionArg(obj)] = AStack[AStackPtr];
+//                AsVector(Frame)->Vector[InstructionArg(obj)] = AStack[AStackPtr];
+                ModifyVector(Frame, InstructionArg(obj), AStack[AStackPtr]);
                 break;
 
             case GetVectorOpcode:
@@ -307,8 +315,9 @@ FObject Execute(FObject op, int argc, FObject argv[])
                 FAssert(VectorP(AStack[AStackPtr - 1]));
                 FAssert(InstructionArg(obj) < AsVector(AStack[AStackPtr - 1])->Length);
 
-                AsVector(AStack[AStackPtr - 1])->Vector[InstructionArg(obj)] =
-                        AStack[AStackPtr - 2];
+//                AsVector(AStack[AStackPtr - 1])->Vector[InstructionArg(obj)] =
+//                        AStack[AStackPtr - 2];
+                ModifyVector(AStack[AStackPtr - 1], InstructionArg(obj), AStack[AStackPtr - 2]);
                 AStackPtr -= 2;
                 break;
 
@@ -338,11 +347,14 @@ FObject Execute(FObject op, int argc, FObject argv[])
                 {
                     FAssert(AsGlobal(AStack[AStackPtr - 1])->Interactive == TrueObject);
 
-                    AsGlobal(AStack[AStackPtr - 1])->Box = MakeBox(AStack[AStackPtr - 2]);
-                    AsGlobal(AStack[AStackPtr - 1])->State = GlobalDefined;
+//                    AsGlobal(AStack[AStackPtr - 1])->Box = MakeBox(AStack[AStackPtr - 2]);
+                    Modify(FGlobal, AStack[AStackPtr - 1], Box, MakeBox(AStack[AStackPtr - 2]));
+//                    AsGlobal(AStack[AStackPtr - 1])->State = GlobalDefined;
+                    Modify(FGlobal, AStack[AStackPtr - 1], State, GlobalDefined);
                 }
 
-                AsBox(AsGlobal(AStack[AStackPtr - 1])->Box)->Value = AStack[AStackPtr - 2];
+//                AsBox(AsGlobal(AStack[AStackPtr - 1])->Box)->Value = AStack[AStackPtr - 2];
+                Modify(FBox, AsGlobal(AStack[AStackPtr - 1])->Box, Value, AStack[AStackPtr - 2]);
                 AStackPtr -= 2;
                 break;
 
@@ -357,7 +369,8 @@ FObject Execute(FObject op, int argc, FObject argv[])
                 FAssert(AStackPtr > 1);
                 FAssert(BoxP(AStack[AStackPtr - 1]));
 
-                AsBox(AStack[AStackPtr - 1])->Value = AStack[AStackPtr - 2];
+//                AsBox(AStack[AStackPtr - 1])->Value = AStack[AStackPtr - 2];
+                Modify(FBox, AStack[AStackPtr - 1], Value, AStack[AStackPtr - 2]);
                 AStackPtr -= 2;
                 break;
 
@@ -497,8 +510,7 @@ FObject Execute(FObject op, int argc, FObject argv[])
                 v[1] = AStack[AStackPtr];
                 v[2] = MakeInstruction(TailCallOpcode, 0);
                 FObject proc = MakeProcedure(NoValueObject, MakeVector(3, v, NoValueObject), 0,
-                        FalseObject);
-                AsProcedure(proc)->Flags |= PROCEDURE_FLAG_CLOSURE;
+                        FalseObject, PROCEDURE_FLAG_CLOSURE);
                 AStack[AStackPtr - 1] = proc;
                 break;
             }
@@ -759,7 +771,8 @@ Define("set-parameter!", SetParameterPrimitive)(int argc, FObject argv[])
 
         if (First(First(lst)) == argv[0])
         {
-            AsPair(First(lst))->Rest = argv[2];
+//            AsPair(First(lst))->Rest = argv[2];
+            Modify(FPair, First(lst), Rest, argv[2]);
             return(NoValueObject);
         }
 
@@ -768,7 +781,8 @@ Define("set-parameter!", SetParameterPrimitive)(int argc, FObject argv[])
 
     FAssert(lst == EmptyListObject);
 
-    AsPair(argv[1])->Rest = argv[2];
+//    AsPair(argv[1])->Rest = argv[2];
+    Modify(FPair, argv[1], Rest, argv[2]);
     return(NoValueObject);
 }
 
@@ -783,6 +797,8 @@ Define("procedure->parameter", ProcedureToParameterPrimitive)(int argc, FObject 
                  "procedure->parameter: expected a procedure", List(argv[0]));
 
     AsProcedure(argv[0])->Flags |= PROCEDURE_FLAG_PARAMETER;
+    AsObject(argv[0]);
+
     return(NoValueObject);
 }
 

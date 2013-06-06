@@ -317,7 +317,8 @@ static void AssignVariableIndexes(FObject pvars, int idx)
         FAssert(PairP(pvars));
         FAssert(PatternVariableP(First(pvars)));
 
-        AsPatternVariable(First(pvars))->Index = MakeFixnum(idx);
+//        AsPatternVariable(First(pvars))->Index = MakeFixnum(idx);
+        Modify(FPatternVariable, First(pvars), Index, MakeFixnum(idx));
         pvars = Rest(pvars);
         idx += 1;
     }
@@ -416,9 +417,13 @@ static int AddVarToTemplateRepeat(FObject var, FObject trs)
         {
             if (ListFind(AsVector(AsTemplateRepeat(tr)->Variables)->Vector[rc], var)
                     == 0)
-                AsVector(AsTemplateRepeat(tr)->Variables)->Vector[rc] =
-                        MakePair(var,
-                        AsVector(AsTemplateRepeat(tr)->Variables)->Vector[rc]);
+            {
+//                AsVector(AsTemplateRepeat(tr)->Variables)->Vector[rc] =
+//                        MakePair(var,
+//                        AsVector(AsTemplateRepeat(tr)->Variables)->Vector[rc]);
+                ModifyVector(AsTemplateRepeat(tr)->Variables, rc,
+                        MakePair(var, AsVector(AsTemplateRepeat(tr)->Variables)->Vector[rc]));
+            }
 
             rd -= 1;
             if (rd == 0)
@@ -465,8 +470,10 @@ static FObject CompileTemplate(FObject form, FObject pvars, FObject ellip, FObje
             FAssert(rc > 0);
 
             FObject tr = MakeTemplateRepeat(ellip, rc);
-            AsTemplateRepeat(tr)->Template = CompileTemplate(form, pvars, ellip, rpt,
-                    MakePair(tr, trs), 1);
+//            AsTemplateRepeat(tr)->Template = CompileTemplate(form, pvars, ellip, rpt,
+//                    MakePair(tr, trs), 1);
+            Modify(FTemplateRepeat, tr, Template, CompileTemplate(form, pvars, ellip, rpt,
+                    MakePair(tr, trs), 1));
 
             for (int rc = 0; rc < AsFixnum(AsTemplateRepeat(tr)->RepeatCount); rc++)
                 if (AsVector(AsTemplateRepeat(tr)->Variables)->Vector[rc]
@@ -475,8 +482,9 @@ static FObject CompileTemplate(FObject form, FObject pvars, FObject ellip, FObje
                             "syntax-rules: missing repeated pattern variable for <ellipsis> in template",
                             List(form, tpl));
 
-            AsTemplateRepeat(tr)->Rest = CompileTemplate(form, pvars, ellip, tpl, trs,
-                    0);
+//            AsTemplateRepeat(tr)->Rest = CompileTemplate(form, pvars, ellip, tpl, trs,
+//                    0);
+            Modify(FTemplateRepeat, tr, Rest, CompileTemplate(form, pvars, ellip, tpl, trs, 0));
 
             return(tr);
         }

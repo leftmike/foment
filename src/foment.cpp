@@ -148,7 +148,10 @@ FObject MakeBox(FObject val)
 {
     FBox * bx = (FBox *) MakeObject(BoxTag, sizeof(FBox));
     bx->Value = val;
-    return(AsObject(bx));
+
+    FObject obj = AsObject(bx);
+    FAssert(ObjectLength(obj) == sizeof(FBox));
+    return(obj);
 }
 
 // ---- Hashtables ----
@@ -284,14 +287,13 @@ FObject MakeHashtable(int nb)
     return(AsObject(ht));
 }
 
-static FObject DoHashtableRef(FObject ht, FObject key, FObject ** pprev, FEquivFn efn, FHashFn hfn)
+static FObject DoHashtableRef(FObject ht, FObject key, FEquivFn efn, FHashFn hfn)
 {
     FAssert(HashtableP(ht));
 
     unsigned int idx = hfn(key) % (unsigned int) VectorLen(AsHashtable(ht)->Buckets);
 
     FObject node = AsVector(AsHashtable(ht)->Buckets)->Vector[idx];
-    FObject * prev = AsVector(AsHashtable(ht)->Buckets)->Vector + idx;
 
     while (node != EmptyListObject)
     {
@@ -301,12 +303,8 @@ static FObject DoHashtableRef(FObject ht, FObject key, FObject ** pprev, FEquivF
         if (efn(First(First(node)), key))
             break;
 
-        prev = &AsPair(node)->Rest;
         node = Rest(node);
     }
-
-    if (pprev != 0)
-        *pprev = prev;
 
     return(node);
 }
@@ -315,7 +313,7 @@ FObject HashtableRef(FObject ht, FObject key, FObject def, FEquivFn efn, FHashFn
 {
     FAssert(HashtableP(ht));
 
-    FObject node = DoHashtableRef(ht, key, 0, efn, hfn);
+    FObject node = DoHashtableRef(ht, key, efn, hfn);
     if (PairP(node))
         return(Rest(First(node)));
     return(def);
@@ -347,18 +345,24 @@ void HashtableSet(FObject ht, FObject key, FObject val, FEquivFn efn, FHashFn hf
 {
     FAssert(HashtableP(ht));
 
-    FObject node = DoHashtableRef(ht, key, 0, efn, hfn);
+    FObject node = DoHashtableRef(ht, key, efn, hfn);
     if (PairP(node))
-        AsPair(First(node))->Rest = val;
+    {
+//        AsPair(First(node))->Rest = val;
+        Modify(FPair, First(node), Rest, val);
+    }
     else
     {
         unsigned int idx = hfn(key) % (unsigned int) VectorLen(AsHashtable(ht)->Buckets);
 
-        AsVector(AsHashtable(ht)->Buckets)->Vector[idx] =
-                MakePair(MakePair(key, val),
-                AsVector(AsHashtable(ht)->Buckets)->Vector[idx]);
+//        AsVector(AsHashtable(ht)->Buckets)->Vector[idx] =
+//                MakePair(MakePair(key, val),
+//                AsVector(AsHashtable(ht)->Buckets)->Vector[idx]);
+        ModifyVector(AsHashtable(ht)->Buckets, idx,
+                MakePair(MakePair(key, val), AsVector(AsHashtable(ht)->Buckets)->Vector[idx]));
 
-        AsHashtable(ht)->Size = MakeFixnum(AsFixnum(AsHashtable(ht)->Size) + 1);
+//        AsHashtable(ht)->Size = MakeFixnum(AsFixnum(AsHashtable(ht)->Size) + 1);
+        Modify(FHashtable, ht, Size, MakeFixnum(AsFixnum(AsHashtable(ht)->Size) + 1));
     }
 }
 
@@ -366,13 +370,38 @@ void HashtableDelete(FObject ht, FObject key, FEquivFn efn, FHashFn hfn)
 {
     FAssert(HashtableP(ht));
 
-    FObject * prev;
-    FObject node = DoHashtableRef(ht, key, &prev, efn, hfn);
-    if (PairP(node))
+    unsigned int idx = hfn(key) % (unsigned int) VectorLen(AsHashtable(ht)->Buckets);
+
+    FObject node = AsVector(AsHashtable(ht)->Buckets)->Vector[idx];
+    FObject prev = NoValueObject;
+
+    while (node != EmptyListObject)
     {
-        *prev = Rest(node);
-        FAssert(AsFixnum(AsHashtable(ht)->Size) > 0);
-        AsHashtable(ht)->Size = MakeFixnum(AsFixnum(AsHashtable(ht)->Size) - 1);
+        FAssert(PairP(node));
+        FAssert(PairP(First(node)));
+
+        if (efn(First(First(node)), key))
+        {
+            if (PairP(prev))
+            {
+//                AsPair(prev)->Rest = Rest(node);
+                Modify(FPair, prev, Rest, Rest(node));
+            }
+            else
+            {
+//                AsVector(AsHashtable(ht)->Buckets)->Vector[idx] = Rest(node);
+                ModifyVector(AsHashtable(ht)->Buckets, idx, Rest(node));
+            }
+
+            FAssert(AsFixnum(AsHashtable(ht)->Size) > 0);
+//            AsHashtable(ht)->Size = MakeFixnum(AsFixnum(AsHashtable(ht)->Size) - 1);
+            Modify(FHashtable, ht, Size, MakeFixnum(AsFixnum(AsHashtable(ht)->Size) - 1));
+
+            break;
+        }
+
+        prev = node;
+        node = Rest(node);
     }
 }
 
@@ -380,7 +409,7 @@ int HashtableContainsP(FObject ht, FObject key, FEquivFn efn, FHashFn hfn)
 {
     FAssert(HashtableP(ht));
 
-    FObject node = DoHashtableRef(ht, key, 0, efn, hfn);
+    FObject node = DoHashtableRef(ht, key, efn, hfn);
     if (PairP(node))
         return(1);
     return(0);
@@ -411,7 +440,10 @@ void HashtableWalkUpdate(FObject ht, FWalkUpdateFn wfn, FObject ctx)
 
             FObject val = wfn(First(First(lst)), Rest(First(lst)), ctx);
             if (val != Rest(First(lst)))
-                AsPair(First(lst))->Rest = val;
+            {
+//                AsPair(First(lst))->Rest = val;
+                Modify(FPair, First(lst), Rest, val);
+            }
 
             lst = Rest(lst);
         }
@@ -428,7 +460,7 @@ void HashtableWalkDelete(FObject ht, FWalkDeleteFn wfn, FObject ctx)
     for (int idx = 0; idx < len; idx++)
     {
         FObject lst = AsVector(bkts)->Vector[idx];
-        FObject * prev = AsVector(bkts)->Vector + idx;
+        FObject prev = NoValueObject;
 
         while (PairP(lst))
         {
@@ -436,14 +468,20 @@ void HashtableWalkDelete(FObject ht, FWalkDeleteFn wfn, FObject ctx)
 
             if (wfn(First(First(lst)), Rest(First(lst)), ctx))
             {
-                lst = Rest(lst);
-                *prev = lst;
+                if (PairP(prev))
+                {
+//                    AsPair(prev)->Rest = Rest(lst);
+                    Modify(FPair, prev, Rest, Rest(lst));
+                }
+                else
+                {
+//                    AsVector(bkts)->Vector[idx] = Rest(lst);
+                    ModifyVector(bkts, idx, Rest(lst));
+                }
             }
-            else
-            {
-                prev = &AsPair(lst)->Rest;
-                lst = Rest(lst);
-            }
+
+            prev = lst;
+            lst = Rest(lst);
         }
     }
 }
@@ -487,6 +525,9 @@ FObject StringToSymbol(FObject str)
         NextSymbolHash += 1;
 
         obj = AsObject(sym);
+
+        FAssert(ObjectLength(obj) == sizeof(FSymbol));
+
         HashtableSet(SymbolHashtable, str, obj, StringEqualP, StringHash);
     }
 
@@ -510,6 +551,9 @@ FObject StringLengthToSymbol(FCh * s, int sl)
         NextSymbolHash += 1;
 
         obj = AsObject(sym);
+
+        FAssert(ObjectLength(obj) == sizeof(FSymbol));
+
         HashtableSet(SymbolHashtable, sym->String, obj, StringEqualP, StringHash);
     }
 
@@ -592,7 +636,9 @@ FObject MakePrimitive(FPrimitive * prim)
     FPrimitive * p = (FPrimitive *) MakeObject(PrimitiveTag, sizeof(FPrimitive));
     memcpy(p, prim, sizeof(FPrimitive));
 
-    return(AsObject(p));
+    FObject obj = AsObject(p);
+    FAssert(ObjectLength(obj) == sizeof(FPrimitive));
+    return(obj);
 }
 
 void DefinePrimitive(FObject env, FObject lib, FPrimitive * prim)
@@ -745,8 +791,7 @@ int EqualP(FObject obj1, FObject obj2)
             return(0);
 
         for (int idx = 0; idx < VectorLen(obj1); idx++)
-            if (EqualP(AsVector(obj1)->Vector[idx],
-                    AsVector(obj2)->Vector[idx]) == 0)
+            if (EqualP(AsVector(obj1)->Vector[idx], AsVector(obj2)->Vector[idx]) == 0)
                 return(0);
         return(1);
     }
@@ -918,6 +963,8 @@ void SetupFoment(int argc, char * argv[])
             sizeof(HashtableFieldsC) / sizeof(char *), HashtableFieldsC);
     AsHashtable(SymbolHashtable)->Record.RecordType = HashtableRecordType;
     AsHashtable(SymbolHashtable)->Record.NumFields = AsRecordType(HashtableRecordType)->NumFields;
+    AsObject(SymbolHashtable);
+    FAssert(ObjectLength(SymbolHashtable) == sizeof(FHashtable));
 
     SetupLibrary();
     ExceptionRecordType = MakeRecordTypeC("exception",

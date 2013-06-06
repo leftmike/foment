@@ -14,8 +14,10 @@ static FObject EnterScope(FObject bd)
     FAssert(BindingP(bd));
     FAssert(SyntacticEnvP(AsBinding(bd)->SyntacticEnv));
 
-    AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings = MakePair(bd,
-            AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings);
+//    AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings = MakePair(bd,
+//            AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings);
+    Modify(FSyntacticEnv, AsBinding(bd)->SyntacticEnv, LocalBindings, MakePair(bd,
+            AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings));
 
     return(bd);
 }
@@ -39,8 +41,10 @@ static void LeaveScope(FObject bd)
     FAssert(PairP(AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings));
     FAssert(First(AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings) == bd);
 
-    AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings =
-            Rest(AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings);
+//    AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings =
+//            Rest(AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings);
+    Modify(FSyntacticEnv, AsBinding(bd)->SyntacticEnv, LocalBindings,
+            Rest(AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings));
 }
 
 FObject ResolveIdentifier(FObject se, FObject id)
@@ -94,7 +98,10 @@ FObject SyntaxToDatum(FObject obj)
     {
         FObject vec = MakeVector(VectorLen(obj), 0, FalseObject);
         for (int idx = 0; idx < VectorLen(vec); idx++)
-            AsVector(vec)->Vector[idx] = SyntaxToDatum(AsVector(obj)->Vector[idx]);
+        {
+//            AsVector(vec)->Vector[idx] = SyntaxToDatum(AsVector(obj)->Vector[idx]);
+            ModifyVector(vec, idx, SyntaxToDatum(AsVector(obj)->Vector[idx]));
+        }
 
         return(vec);
     }
@@ -114,7 +121,10 @@ FObject DatumToSyntax(FObject obj)
     {
         FObject vec = MakeVector(VectorLen(obj), 0, FalseObject);
         for (int idx = 0; idx < VectorLen(vec); idx++)
-            AsVector(vec)->Vector[idx] = DatumToSyntax(AsVector(obj)->Vector[idx]);
+        {
+//            AsVector(vec)->Vector[idx] = DatumToSyntax(AsVector(obj)->Vector[idx]);
+            ModifyVector(vec, idx, DatumToSyntax(AsVector(obj)->Vector[idx]));
+        }
 
         return(vec);
     }
@@ -182,7 +192,8 @@ static FObject AddFormal(FObject se, FObject ss, FObject bs, FObject id, FObject
     }
 
     FAssert(PairP(lst));
-    AsPair(lst)->Rest = MakePair(MakeBinding(se, id, ra), EmptyListObject);
+//    AsPair(lst)->Rest = MakePair(MakeBinding(se, id, ra), EmptyListObject);
+    Modify(FPair, lst, Rest, MakePair(MakeBinding(se, id, ra), EmptyListObject));
 
     return(bs);
 }
@@ -260,7 +271,8 @@ static FObject AddBinding(FObject se, FObject ss, FObject bs, FObject id, FObjec
     }
 
     FAssert(PairP(lst));
-    AsPair(lst)->Rest = MakePair(MakeBinding(se, id, FalseObject), EmptyListObject);
+//    AsPair(lst)->Rest = MakePair(MakeBinding(se, id, FalseObject), EmptyListObject);
+    Modify(FPair, lst, Rest, MakePair(MakeBinding(se, id, FalseObject), EmptyListObject));
 
     return(bs);
 }
@@ -304,7 +316,8 @@ static FObject SPassLetInit(FObject se, FObject ss, FObject lb, FObject nlb, FOb
             RaiseException(Syntax, SpecialSyntaxToSymbol(ss),
                     SpecialSyntaxMsgC(ss, "expected a transformer"), List(lb, First(Rest(vi))));
 
-        AsBinding(bd)->Syntax = expr;
+//        AsBinding(bd)->Syntax = expr;
+        Modify(FBinding, bd, Syntax, expr);
 
         return(MakePair(MakePair(bd, EmptyListObject), nlb));
     }
@@ -598,7 +611,8 @@ static FObject AddCaseDatum(FObject dtm, FObject dtms, FObject cse)
     }
 
     FAssert(PairP(lst));
-    AsPair(lst)->Rest = MakePair(dtm, EmptyListObject);
+//    AsPair(lst)->Rest = MakePair(dtm, EmptyListObject);
+    Modify(FPair, lst, Rest, MakePair(dtm, EmptyListObject));
 
     return(dtms);
 }
@@ -1279,7 +1293,8 @@ FObject GatherVariablesAndSyntax(FObject se, FObject dlst, FObject bs)
                 RaiseExceptionC(Syntax, "define-syntax", "define-syntax: expected a transformer",
                         List(expr, First(Rest(Rest(expr)))));
 
-            AsBinding(First(bs))->Syntax = trans;
+//            AsBinding(First(bs))->Syntax = trans;
+            Modify(FBinding, First(bs), Syntax, trans);
             bs = Rest(bs);
         }
 

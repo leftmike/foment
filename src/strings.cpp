@@ -22,7 +22,9 @@ FObject MakeString(FCh * s, int sl)
             ns->String[idx] = s[idx];
     }
 
-    return(AsObject(ns));
+    FObject obj = AsObject(ns);
+    FAssert(ObjectLength(obj) == AlignLength(sizeof(FString) + sl * sizeof(FCh)));
+    return(obj);
 }
 
 FObject MakeStringCh(int sl, FCh ch)
@@ -188,16 +190,19 @@ FObject FoldCaseString(FObject s)
     return(ns);
 }
 
-unsigned int StringLengthHash(FCh * s, int sl)
+unsigned int ByteLengthHash(char * b, int bl)
 {
-    const char * p;
     unsigned int h = 0;
 
-    sl *= sizeof(FCh);
-    for (p = (const char *) s; sl > 0; p++, sl--)
-        h = ((h << 5) + h) + *p;
+    for (; bl > 0; b++, bl--)
+        h = ((h << 5) + h) + *b;
 
     return(h);
+}
+
+unsigned int StringLengthHash(FCh * s, int sl)
+{
+    return(ByteLengthHash((char *) s, sl * sizeof(FCh)));
 }
 
 unsigned int StringHash(FObject obj)

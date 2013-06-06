@@ -22,7 +22,9 @@ FObject MakeVector(int vl, FObject * v, FObject obj)
         for (idx = 0; idx < vl; idx++)
             nv->Vector[idx] = v[idx];
 
-    return(AsObject(nv));
+    obj = AsObject(nv);
+    FAssert(ObjectLength(obj) == sizeof(FVector) + (vl - 1) * sizeof(FObject));
+    return(obj);
 }
 
 FObject ListToVector(FObject obj)
@@ -39,7 +41,9 @@ FObject ListToVector(FObject obj)
         obj = Rest(obj);
     }
 
-    return(AsObject(nv));
+    obj = AsObject(nv);
+    FAssert(ObjectLength(obj) == sizeof(FVector) + (vl - 1) * sizeof(FObject));
+    return(obj);
 }
 
 FObject VectorToList(FObject vec)
@@ -106,7 +110,8 @@ Define("vector-set!", VectorSetPrimitive)(int argc, FObject argv[])
     if (AsFixnum(argv[1]) < 0 || AsFixnum(argv[1]) >= AsVector(argv[0])->Length)
         RaiseExceptionC(Assertion, "vector-set!", "vector-set!: invalid index", List(argv[1]));
 
-    AsVector(argv[0])->Vector[AsFixnum(argv[1])] = argv[2];
+//    AsVector(argv[0])->Vector[AsFixnum(argv[1])] = argv[2];
+    ModifyVector(argv[0], AsFixnum(argv[1]), argv[2]);
     return(NoValueObject);
 }
 
@@ -134,7 +139,9 @@ FObject MakeBytevector(int vl, FByte * v)
             nv->Vector[idx] = v[idx];
     }
 
-    return(AsObject(nv));
+    FObject obj = AsObject(nv);
+    FAssert(ObjectLength(obj) == AlignLength(sizeof(FBytevector) + (vl - 1) * sizeof(FByte)));
+    return(obj);
 }
 
 FObject U8ListToBytevector(FObject obj)
@@ -155,7 +162,9 @@ FObject U8ListToBytevector(FObject obj)
         obj = Rest(obj);
     }
 
-    return(AsObject(nv));
+    obj = AsObject(nv);
+    FAssert(ObjectLength(obj) == AlignLength(sizeof(FBytevector) + (vl - 1) * sizeof(FByte)));
+    return(obj);
 }
 
 static int BytevectorEqualP(FObject obj1, FObject obj2)

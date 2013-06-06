@@ -216,4 +216,3 @@ typedef enum
 } FOpcode;
 
 #endif // __EXECUTE_HPP__
-

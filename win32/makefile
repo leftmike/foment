@@ -3,7 +3,7 @@
 #
 
 CLDEBUG = /nologo /MD /W3 /Gm /EHsc /Zi /Od /c /Fodebug/ /DFOMENT_DEBUG /DFOMENT_TEST\
-        /DFOMENT_WIN32
+        /DFOMENT_GCCHK /DFOMENT_WIN32
 CLRELEASE = /nologo /MD /W3 /O1sy /Gs /GA /EHsc /Forelease/ /c /DFOMENT_TEST /DFOMENT_WIN32
 
 all: debug release debug\foment.exe release\foment.exe
@@ -65,7 +65,7 @@ debug\txt2cpp.exe: debug\txt2cpp.obj
     debug\txt2cpp.obj
 
 debug\foment.obj: ..\src\foment.cpp ..\src\foment.hpp
-debug\gc.obj: ..\src\gc.cpp ..\src\foment.hpp
+debug\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\io.hpp
 debug\compile.obj: ..\src\compile.cpp ..\src\foment.hpp ..\src\compile.hpp
 debug\synrules.obj: ..\src\synrules.cpp ..\src\foment.hpp ..\src\compile.hpp
 debug\synpass.obj: ..\src\synpass.cpp ..\src\foment.hpp ..\src\compile.hpp
@@ -84,7 +84,7 @@ debug\startup.obj: debug\startup.cpp
 debug\test.obj: ..\src\test.cpp ..\src\foment.hpp
 
 release\foment.obj: ..\src\foment.cpp ..\src\foment.hpp
-release\gc.obj: ..\src\gc.cpp ..\src\foment.hpp
+release\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\io.hpp
 release\compile.obj: ..\src\compile.cpp ..\src\foment.hpp ..\src\compile.hpp
 release\synrules.obj: ..\src\synrules.cpp ..\src\foment.hpp ..\src\compile.hpp
 release\synpass.obj: ..\src\synpass.cpp ..\src\foment.hpp ..\src\compile.hpp

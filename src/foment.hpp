@@ -60,10 +60,6 @@ Bugs:
 #ifndef __FOMENT_HPP__
 #define __FOMENT_HPP__
 
-#ifdef FOMENT_TEST
-#define FOMENT_GCCHK 1
-#endif // FOMENT_TEST
-
 #ifdef FOMENT_DEBUG
 void FAssertFailed(char * fn, int ln, char * expr);
 #define FAssert(expr)\
@@ -117,7 +113,6 @@ typedef enum
 } FObjectTag;
 
 #define ObjectP(obj) ((((FImmediate) (obj)) & 0x3) == 0x0)
-#define AsObject(ptr) ((FObject) (ptr))
 
 #define ImmediateTag(obj) (((FImmediate) (obj)) & 0xF)
 #define ImmediateP(obj, it) (ImmediateTag((obj)) == it)
@@ -145,21 +140,29 @@ inline FObjectTag ObjectTag(FObject obj)
     return((FObjectTag) (ObjectP(obj) ? AsObjectHeader(obj)->Tag : 0));
 }
 
-/*
-typedef unsigned int * FObjectBase;
-#define ObjectBase(obj) (((FObjectBase) (obj))[-1])
-#define ObjectLength(obj) (ObjectBase(obj) >> 8) * 4
+int ObjectLength(FObject obj);
+#ifdef FOMENT_DEBUG
+int AlignLength(int len);
+#endif // FOMENT_DEBUG
 
-inline FObjectTag ObjectTag(FObject obj)
-{
-    FAssert(ObjectP(obj) == 0 || ((ObjectBase(obj) & 0xFF) < BadDogTag));
-    return((FObjectTag) (ObjectP(obj) ? ObjectBase(obj) & 0xFF : 0));
-}
-*/
+#ifdef FOMENT_GCCHK
+void AllowGC();
+#else // FOMENT_GCCHK
+#define AllowGC()
+#endif // FOMENT_GCCHK
 
-void ModifyObject(FObject obj, int off, FObject val);
+#ifdef FOMENT_GCCHK
+FObject AsObject(FObject obj);
+#else // FOMENT_GCCHK
+#define AsObject(ptr) ((FObject) (ptr))
+#endif // FOMENT_GCCHK
+
+void ModifyVector(FObject obj, int idx, FObject val);
 #define Modify(type, obj, slot, val)\
     ModifyObject(obj, (int) &(((type *) 0)->slot), val)
+
+// Do not directly call ModifyObject; use Modify instead.
+void ModifyObject(FObject obj, int off, FObject val);
 
 //
 // ---- Immediate Types ----
@@ -334,6 +337,7 @@ int ChWhitespaceP(FCh ch);
 FCh ChUpCase(FCh ch);
 FCh ChDownCase(FCh ch);
 FObject FoldCaseString(FObject s);
+unsigned int ByteLengthHash(char * b, int bl);
 unsigned int StringLengthHash(FCh * s, int sl);
 unsigned int StringHash(FObject obj);
 int StringEqualP(FObject obj1, FObject obj2);

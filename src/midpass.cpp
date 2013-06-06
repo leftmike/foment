@@ -115,7 +115,7 @@ static void MPassLetFormals(FMiddlePass * mp, FLambda * lam, FObject lb)
 
     FAssert(lb == EmptyListObject);
 }
-
+/*
 static void MPassLetFormalsInits(FMiddlePass * mp, FLambda * lam, FObject lb, FObject * plb)
 {
     while (PairP(lb))
@@ -136,6 +136,41 @@ static void MPassLetFormalsInits(FMiddlePass * mp, FLambda * lam, FObject lb, FO
     }
 
     FAssert(lb == EmptyListObject);
+}
+*/
+static FObject MPassLetFormalsInits(FMiddlePass * mp, FLambda * lam, FObject lb)
+{
+    FObject ret = lb;
+    FObject plb = NoValueObject;
+
+    while (PairP(lb))
+    {
+        FObject vi = First(lb);
+
+        FAssert(PairP(vi));
+        FAssert(PairP(First(vi)));
+        FAssert(PairP(Rest(vi)));
+        FAssert(Rest(Rest(vi)) == EmptyListObject);
+
+        if (mp->LetFormalsInitFn(lam, First(vi), First(Rest(vi))) == 0)
+        {
+            if (PairP(plb))
+            {
+//                AsPair(plb)->Rest = Rest(lb);
+                Modify(FPair, plb, Rest, Rest(lb));
+            }
+            else
+                ret = Rest(lb);
+        }
+        else
+            plb = lb;
+
+        lb = Rest(lb);
+    }
+
+    FAssert(lb == EmptyListObject);
+
+    return(ret);
 }
 
 static void MPassLetInits(FMiddlePass * mp, FLambda * lam, FObject lb)
@@ -232,8 +267,17 @@ static void MPassSpecialSyntax(FMiddlePass * mp, FLambda * lam, FObject expr, in
         }
         else
         {
+//            if (mp->LetFormalsInitFn != 0)
+//                MPassLetFormalsInits(mp, lam, First(Rest(expr)), &(AsPair(Rest(expr))->First));
             if (mp->LetFormalsInitFn != 0)
-                MPassLetFormalsInits(mp, lam, First(Rest(expr)), &(AsPair(Rest(expr))->First));
+            {
+                FObject ret = MPassLetFormalsInits(mp, lam, First(Rest(expr)));
+                if (ret != First(Rest(expr)))
+                {
+//                    AsPair(Rest(expr))->First = ret;
+                    Modify(FPair, Rest(expr), First, ret);
+                }
+            }
 
             MPassLetInits(mp, lam, First(Rest(expr)));
         }
@@ -354,7 +398,8 @@ static void MPassLambda(FMiddlePass * mp, FLambda * enc, FLambda * lam, int cf)
 {
     if (lam->MiddlePass != mp->MiddlePass)
     {
-        lam->MiddlePass = mp->MiddlePass;
+//        lam->MiddlePass = mp->MiddlePass;
+        Modify(FLambda, lam, MiddlePass, mp->MiddlePass);
 
         if (mp->LambdaBeforeFn != 0)
             mp->LambdaBeforeFn(enc, lam, cf);
@@ -384,14 +429,19 @@ static void MOneLambdaBefore(FLambda * enc, FLambda * lam, int cf)
     if (cf == 0)
     {
         FAssert(lam->Escapes == FalseObject);
-        lam->Escapes = TrueObject;
+
+//        lam->Escapes = TrueObject;
+        Modify(FLambda, lam, Escapes, TrueObject);
     }
 }
 
 static void MOneCaseLambda(FLambda * enc, FCaseLambda * cl, int cf)
 {
     if (cf == 0)
-        cl->Escapes = TrueObject;
+    {
+//        cl->Escapes = TrueObject;
+        Modify(FCaseLambda, cl, Escapes, TrueObject);
+    }
 }
 
 static void MOneReference(FLambda * lam, FObject pair, FReference * ref, int cf)
@@ -401,9 +451,13 @@ static void MOneReference(FLambda * lam, FObject pair, FReference * ref, int cf)
     if (BindingP(bd))
     {
         if (cf == 0)
-            AsBinding(bd)->Escapes = TrueObject;
+        {
+//            AsBinding(bd)->Escapes = TrueObject;
+            Modify(FBinding, bd, Escapes, TrueObject);
+        }
 
-        AsBinding(bd)->UseCount = MakeFixnum(AsFixnum(AsBinding(bd)->UseCount) + 1);
+//        AsBinding(bd)->UseCount = MakeFixnum(AsFixnum(AsBinding(bd)->UseCount) + 1);
+        Modify(FBinding, bd, UseCount, MakeFixnum(AsFixnum(AsBinding(bd)->UseCount) + 1));
     }
 }
 
@@ -411,7 +465,10 @@ static void MOneSetReference(FLambda * lam, FReference * ref)
 {
     FObject bd = ref->Binding;
     if (BindingP(bd))
-        AsBinding(bd)->SetCount = MakeFixnum(AsFixnum(AsBinding(bd)->SetCount) + 1);
+    {
+//        AsBinding(bd)->SetCount = MakeFixnum(AsFixnum(AsBinding(bd)->SetCount) + 1);
+        Modify(FBinding, bd, SetCount, MakeFixnum(AsFixnum(AsBinding(bd)->SetCount) + 1));
+    }
 }
 
 static FMiddlePass MOne =
@@ -442,15 +499,22 @@ static void MTwoLambdaFormal(FLambda * lam, FBinding * bd)
 {
     if (bd->RestArg == TrueObject || bd->UseCount != MakeFixnum(1)
             && bd->SetCount != MakeFixnum(0))
-        lam->MayInline = FalseObject;
+    {
+//        lam->MayInline = FalseObject;
+        Modify(FLambda, lam, MayInline, FalseObject);
+    }
 }
 
 static void MTwoLambdaBefore(FLambda * enc, FLambda * lam, int cf)
 {
-    lam->ArgCount = MakeFixnum(ListLength(lam->Bindings));
+//    lam->ArgCount = MakeFixnum(ListLength(lam->Bindings));
+    Modify(FLambda, lam, ArgCount, MakeFixnum(ListLength(lam->Bindings)));
 
     if (enc != 0)
-        enc->MayInline = FalseObject;
+    {
+//        enc->MayInline = FalseObject;
+        Modify(FLambda, enc, MayInline, FalseObject);
+    }
 }
 
 static FObject CompileInlineTemplate(FObject flst, FObject expr)
@@ -486,14 +550,20 @@ static FObject CompileInlineTemplate(FObject flst, FObject expr)
 static void MTwoLambdaAfter(FLambda * enc, FLambda * lam, int cf)
 {
     if (Config.InlineProcedures == 0)
-        lam->MayInline = FalseObject;
+    {
+//        lam->MayInline = FalseObject;
+        Modify(FLambda, lam, MayInline, FalseObject);
+    }
 
     if (lam->MayInline != FalseObject)
     {
         FAssert(FixnumP(lam->MayInline));
 
         if (AsFixnum(lam->MayInline) > 2)
-            lam->MayInline = FalseObject;
+        {
+//            lam->MayInline = FalseObject;
+            Modify(FLambda, lam, MayInline, FalseObject);
+        }
         else
         {
             FAssert(lam->RestArg == FalseObject);
@@ -503,7 +573,8 @@ static void MTwoLambdaAfter(FLambda * enc, FLambda * lam, int cf)
 //WritePretty(StandardOutput, lam->MayInline, 0);
 //PutCh(StandardOutput, '\n');
 
-            lam->MayInline = CompileInlineTemplate(lam->Bindings, lam->Body);
+//            lam->MayInline = CompileInlineTemplate(lam->Bindings, lam->Body);
+            Modify(FLambda, lam, MayInline, CompileInlineTemplate(lam->Bindings, lam->Body));
         }
     }
 }
@@ -518,7 +589,8 @@ static void MTwoReference(FLambda * lam, FObject pair, FReference * ref, int cf)
         {
             FAssert(PairP(pair));
 
-            AsPair(pair)->First = AsBinding(bd)->Constant;
+//            AsPair(pair)->First = AsBinding(bd)->Constant;
+            Modify(FPair, pair, First, AsBinding(bd)->Constant);
         }
     }
     else
@@ -532,7 +604,10 @@ static void MTwoReference(FLambda * lam, FObject pair, FReference * ref, int cf)
         if (Config.InlineImports
                 && (AsGlobal(gl)->Interactive == FalseObject || Config.InteractiveLikeLibrary)
                 && AsGlobal(gl)->State == GlobalImported)
-            AsPair(pair)->First = Unbox(AsGlobal(gl)->Box);
+        {
+//            AsPair(pair)->First = Unbox(AsGlobal(gl)->Box);
+            Modify(FPair, pair, First, Unbox(AsGlobal(gl)->Box));
+        }
     }
 }
 
@@ -557,8 +632,10 @@ static void MTwoLetInitCaseLambda(FCaseLambda * cl, FObject nam, FObject ef)
 {
     FAssert(cl->Name == NoValueObject);
 
-    cl->Name = nam;
-    cl->Escapes = ef;
+//    cl->Name = nam;
+    Modify(FCaseLambda, cl, Name, nam);
+//    cl->Escapes = ef;
+    Modify(FCaseLambda, cl, Escapes, ef);
 
     FObject cases = cl->Cases;
 
@@ -567,8 +644,10 @@ static void MTwoLetInitCaseLambda(FCaseLambda * cl, FObject nam, FObject ef)
         FAssert(LambdaP(First(cases)));
         FAssert(AsLambda(First(cases))->Name == NoValueObject);
 
-        AsLambda(First(cases))->Name = nam;
-        AsLambda(First(cases))->Escapes = ef;
+//        AsLambda(First(cases))->Name = nam;
+        Modify(FLambda, First(cases), Name, nam);
+//        AsLambda(First(cases))->Escapes = ef;
+        Modify(FLambda, First(cases), Escapes, ef);
 
         cases = Rest(cases);
     }
@@ -587,8 +666,10 @@ static int MTwoLetFormalsInit(FLambda * lam, FObject flst, FObject init)
         {
             FAssert(AsLambda(init)->Name == NoValueObject);
 
-            AsLambda(init)->Escapes = bd->Escapes;
-            AsLambda(init)->Name = bd->Identifier;
+//            AsLambda(init)->Escapes = bd->Escapes;
+            Modify(FLambda, init, Escapes, bd->Escapes);
+//            AsLambda(init)->Name = bd->Identifier;
+            Modify(FLambda, init, Name, bd->Identifier);
         }
 
         if (CaseLambdaP(init))
@@ -596,7 +677,8 @@ static int MTwoLetFormalsInit(FLambda * lam, FObject flst, FObject init)
 
         if (AsFixnum(bd->SetCount) == 0 && ConstantP(init))
         {
-            bd->Constant = init;
+//            bd->Constant = init;
+            Modify(FBinding, bd, Constant, init);
             return(0);
         }
     }
@@ -609,7 +691,10 @@ static void MTwoSpecialSyntax(FLambda * lam, FObject expr)
     FAssert(PairP(expr));
 
     if (First(expr) != QuoteSyntax && First(expr) != BeginSyntax)
-        lam->MayInline = FalseObject;
+    {
+//        lam->MayInline = FalseObject;
+        Modify(FLambda, lam, MayInline, FalseObject);
+    }
 }
 
 static void MTwoProcedureCall(FLambda * lam, FObject expr)
@@ -618,7 +703,8 @@ static void MTwoProcedureCall(FLambda * lam, FObject expr)
     {
         FAssert(FixnumP(lam->MayInline));
 
-        lam->MayInline = MakeFixnum(AsFixnum(lam->MayInline) + 1);
+//        lam->MayInline = MakeFixnum(AsFixnum(lam->MayInline) + 1);
+        Modify(FLambda, lam, MayInline, MakeFixnum(AsFixnum(lam->MayInline) + 1));
     }
 }
 
@@ -680,8 +766,10 @@ static void MThreeProcedureCall(FLambda * lam, FObject expr)
 //PutCh(StandardOutput, '\n');
 
         FObject exp = ExpandInlineTemplate(Rest(expr), AsLambda(First(expr))->MayInline);
-        AsPair(expr)->First = BeginSyntax;
-        AsPair(expr)->Rest = exp;
+//        AsPair(expr)->First = BeginSyntax;
+        Modify(FPair, expr, First, BeginSyntax);
+//        AsPair(expr)->Rest = exp;
+        Modify(FPair, expr, Rest, exp);
     }
 }
 
@@ -708,25 +796,37 @@ static FMiddlePass MThree =
 
 static void MFourLambdaFormal(FLambda * lam, FBinding * bd)
 {
-    bd->Level = lam->Level;
+//    bd->Level = lam->Level;
+    Modify(FBinding, bd, Level, lam->Level);
 
-    bd->Slot = MakeFixnum(AsFixnum(lam->ArgCount) - AsFixnum(lam->SlotCount) + 1);
-    lam->SlotCount = MakeFixnum(AsFixnum(lam->SlotCount) + 1);
+//    bd->Slot = MakeFixnum(AsFixnum(lam->ArgCount) - AsFixnum(lam->SlotCount) + 1);
+    Modify(FBinding, bd, Slot, MakeFixnum(AsFixnum(lam->ArgCount) - AsFixnum(lam->SlotCount) + 1));
+//    lam->SlotCount = MakeFixnum(AsFixnum(lam->SlotCount) + 1);
+    Modify(FLambda, lam, SlotCount, MakeFixnum(AsFixnum(lam->SlotCount) + 1));
 
     if (bd->RestArg == TrueObject)
-        lam->RestArg = TrueObject;
+    {
+//        lam->RestArg = TrueObject;
+        Modify(FLambda, lam, RestArg, TrueObject);
+    }
 }
 
 static void MFourLambdaBefore(FLambda * enc, FLambda * lam, int cf)
 {
-    lam->SlotCount = MakeFixnum(1); // Slot 0 is reserved for the enclosing frame.
+//    lam->SlotCount = MakeFixnum(1); // Slot 0 is reserved for the enclosing frame.
+    Modify(FLambda, lam, SlotCount, MakeFixnum(1)); // Slot 0 is reserved for the enclosing frame.
 
     if (enc == 0)
-        lam->Level = MakeFixnum(1);
+    {
+//        lam->Level = MakeFixnum(1);
+        Modify(FLambda, lam, Level, MakeFixnum(1));
+    }
     else
     {
-        lam->Level = MakeFixnum(AsFixnum(enc->Level) + 1);
-        enc->UseStack = FalseObject;
+//        lam->Level = MakeFixnum(AsFixnum(enc->Level) + 1);
+        Modify(FLambda, lam, Level, MakeFixnum(AsFixnum(enc->Level) + 1));
+//        enc->UseStack = FalseObject;
+        Modify(FLambda, enc, UseStack, FalseObject);
     }
 }
 
@@ -734,10 +834,13 @@ static void MFourLetFormal(FLambda * lam, FBinding * bd)
 {
     FAssert(bd->Constant == NoValueObject);
 
-    bd->Level = lam->Level;
+//    bd->Level = lam->Level;
+    Modify(FBinding, bd, Level, lam->Level);
 
-    bd->Slot = lam->SlotCount;
-    lam->SlotCount = MakeFixnum(AsFixnum(lam->SlotCount) + 1);
+//    bd->Slot = lam->SlotCount;
+    Modify(FBinding, bd, Slot, lam->SlotCount);
+//    lam->SlotCount = MakeFixnum(AsFixnum(lam->SlotCount) + 1);
+    Modify(FLambda, lam, SlotCount, MakeFixnum(AsFixnum(lam->SlotCount) + 1));
 }
 
 static FMiddlePass MFour =

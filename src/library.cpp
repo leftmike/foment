@@ -81,13 +81,16 @@ int EnvironmentDefine(FObject env, FObject sym, FObject val)
     {
         FAssert(BoxP(AsGlobal(gl)->Box));
 
-        AsGlobal(gl)->Box = MakeBox(NoValueObject);
+//        AsGlobal(gl)->Box = MakeBox(NoValueObject);
+        Modify(FGlobal, gl, Box, MakeBox(NoValueObject));
     }
 
     FAssert(BoxP(AsGlobal(gl)->Box));
 
-    AsBox(AsGlobal(gl)->Box)->Value = val;
-    AsGlobal(gl)->State = GlobalDefined;
+//    AsBox(AsGlobal(gl)->Box)->Value = val;
+    Modify(FBox, AsGlobal(gl)->Box, Value, val);
+//    AsGlobal(gl)->State = GlobalDefined;
+    Modify(FGlobal, gl, State, GlobalDefined);
 
     return(0);
 }
@@ -100,14 +103,19 @@ FObject EnvironmentSet(FObject env, FObject sym, FObject val)
     FAssert(GlobalP(gl));
     FAssert(BoxP(AsGlobal(gl)->Box));
 
-    AsBox(AsGlobal(gl)->Box)->Value = val;
+//    AsBox(AsGlobal(gl)->Box)->Value = val;
+    Modify(FBox, AsGlobal(gl)->Box, Value, val);
     if (AsGlobal(gl)->State == GlobalUndefined)
-        AsGlobal(gl)->State = GlobalDefined;
+    {
+//        AsGlobal(gl)->State = GlobalDefined;
+        Modify(FGlobal, gl, State, GlobalDefined);
+    }
     else
     {
         FAssert(AsGlobal(gl)->State == GlobalDefined);
 
-        AsGlobal(gl)->State = GlobalModified;
+//        AsGlobal(gl)->State = GlobalModified;
+        Modify(FGlobal, gl, State, GlobalModified);
     }
 
     return(gl);
@@ -142,8 +150,10 @@ static int EnvironmentImportGlobal(FObject env, FObject gl)
         if (AsEnvironment(env)->Interactive == FalseObject)
             return(1);
 
-        AsGlobal(ogl)->Box = AsGlobal(gl)->Box;
-        AsGlobal(ogl)->State = AsGlobal(gl)->State;
+//        AsGlobal(ogl)->Box = AsGlobal(gl)->Box;
+        Modify(FGlobal, ogl, Box, AsGlobal(gl)->Box);
+//        AsGlobal(ogl)->State = AsGlobal(gl)->State;
+        Modify(FGlobal, ogl, State, AsGlobal(gl)->State);
     }
     else
        HashtableSet(AsEnvironment(env)->Hashtable, AsGlobal(gl)->Name, gl, EqP, EqHash);
@@ -235,8 +245,9 @@ static FObject MakeLibrary(FObject nam, FObject exports, FObject proc)
     lib->Exports = exports;
     lib->OnStartup = proc;
 
-    LoadedLibraries = MakePair(AsObject(lib), LoadedLibraries);
-    return(AsObject(lib));
+    FObject obj = AsObject(lib);
+    LoadedLibraries = MakePair(obj, LoadedLibraries);
+    return(obj);
 }
 
 FObject MakeLibrary(FObject nam)
@@ -251,7 +262,8 @@ static void LibraryExportByName(FObject lib, FObject gl, FObject nam)
     FAssert(SymbolP(nam));
     FAssert(GlobalP(Assq(nam, AsLibrary(lib)->Exports)) == 0);
 
-    AsLibrary(lib)->Exports = MakePair(MakePair(nam, gl), AsLibrary(lib)->Exports);
+//    AsLibrary(lib)->Exports = MakePair(MakePair(nam, gl), AsLibrary(lib)->Exports);
+    Modify(FLibrary, lib, Exports, MakePair(MakePair(nam, gl), AsLibrary(lib)->Exports));
 }
 
 void LibraryExport(FObject lib, FObject gl)
@@ -545,7 +557,8 @@ static FObject DoImportSet(FObject env, FObject is, FObject form, FObject * pill
         {
             FAssert(GlobalP(First(lst)));
 
-            AsGlobal(First(lst))->Name = PrefixSymbol(prfx, AsGlobal(First(lst))->Name);
+//            AsGlobal(First(lst))->Name = PrefixSymbol(prfx, AsGlobal(First(lst))->Name);
+            Modify(FGlobal, First(lst), Name, PrefixSymbol(prfx, AsGlobal(First(lst))->Name));
             lst = Rest(lst);
         }
 
@@ -586,7 +599,10 @@ static FObject DoImportSet(FObject env, FObject is, FObject form, FObject * pill
 
             FObject nm = CheckForRename(AsGlobal(First(lst))->Name, Rest(Rest(is)));
             if (SymbolP(nm))
-                AsGlobal(First(lst))->Name = nm;
+            {
+//                AsGlobal(First(lst))->Name = nm;
+                Modify(FGlobal, First(lst), Name, nm);
+            }
 
             lst = Rest(lst);
         }
@@ -964,7 +980,8 @@ static FObject CompileLibraryCode(FObject env, FObject lst, FObject ill)
             slst = Rest(slst);
         }
 
-        AsPair(slst)->Rest = blst;
+//        AsPair(slst)->Rest = blst;
+        Modify(FPair, slst, Rest, blst);
     }
 
     body = AddOnStartupToBody(ill, body);

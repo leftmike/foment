@@ -130,7 +130,8 @@ static void SetJump(FObject tgt, FObject src, FOpcode op)
     }
 
     FAssert(PairP(src));
-    AsPair(src)->First = MakeInstruction(op, cnt);
+//    AsPair(src)->First = MakeInstruction(op, cnt);
+    Modify(FPair, src, First, MakeInstruction(op, cnt));
 }
 
 static FObject GPassOr(FLambda * lam, FObject cdl, FObject expr, FContFlag cf)
@@ -817,8 +818,10 @@ FObject GPassLambda(FLambda * lam)
     if (ProcedureP(lam->Procedure))
         return(lam->Procedure);
 
-    lam->Procedure = MakeProcedure(lam->Name, NoValueObject, AsFixnum(lam->ArgCount),
-            lam->RestArg);
+//    lam->Procedure = MakeProcedure(lam->Name, NoValueObject, AsFixnum(lam->ArgCount),
+//            lam->RestArg);
+    Modify(FLambda, lam, Procedure,
+            MakeProcedure(lam->Name, NoValueObject, AsFixnum(lam->ArgCount), lam->RestArg));
 
     FObject cdl = EmptyListObject;
 
@@ -863,11 +866,13 @@ FObject GPassLambda(FLambda * lam)
                     AsFixnum(lam->SlotCount) - (AsFixnum(lam->ArgCount) + 1)), cdl);
     }
 
-    lam->BodyIndex = MakeFixnum(ListLength(cdl));
+//    lam->BodyIndex = MakeFixnum(ListLength(cdl));
+    Modify(FLambda, lam, BodyIndex, MakeFixnum(ListLength(cdl)));
     cdl = GPassSequence(lam, cdl, lam->Body, TailCallFlag);
 
     FAssert(ProcedureP(lam->Procedure));
 
-    AsProcedure(lam->Procedure)->Code = ListToVector(ReverseListModify(cdl));
+//    AsProcedure(lam->Procedure)->Code = ListToVector(ReverseListModify(cdl));
+    Modify(FProcedure, lam->Procedure, Code, ListToVector(ReverseListModify(cdl)));
     return(lam->Procedure);
 }
