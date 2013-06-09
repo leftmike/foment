@@ -4,7 +4,8 @@ Foment
 
 */
 
-#include <stdio.h>
+//#include <stdio.h>
+#include <malloc.h>
 #include "foment.hpp"
 #include "execute.hpp"
 
@@ -66,7 +67,11 @@ static char * Opcodes[] =
     "duplicate",
     "return",
     "call",
+    "call-proc",
+    "call-prim",
     "tail-call",
+    "tail-call-proc",
+    "tail-call-prim",
     "set-arg-count",
     "make-closure",
     "if-false",
@@ -101,88 +106,118 @@ void WriteInstruction(FObject port, FObject obj, int df)
 
 // --------
 
-static int AStackSize = 1024 * 4;
-static FObject AStack[1024 * 4];
-static int AStackPtr;
+/*
+FExecuteState es; is a stack variable
+void EnterExecute(FExecuteState * es);
+void LeaveExecute(FExecuteState * es);
 
-static int CStackSize = 1024 * 16;
-static FObject CStack[1024 * 16];
-static int CStackPtr;
+try
+{
+    EnterExecute(&es);
+    
+    
+}
+finally
+{
+    LeaveExecute(&es);
+}
+*/
+
+typedef struct
+{
+    int AStackSize;
+    FObject * AStack;
+    int AStackPtr;
+
+    int CStackSize;
+    FObject * CStack;
+    int CStackPtr;
+
+    FObject Proc;
+    FObject Frame;
+    int IP;
+    int ArgCount;
+} FExecuteState;
 
 FObject Execute(FObject op, int argc, FObject argv[])
 {
-    AStackPtr = 0;
+    FExecuteState es;
+
+    es.AStackSize = 1024 * 4;
+    es.AStack = (FObject *) malloc(es.AStackSize * sizeof(FObject));
+    es.AStackPtr = 0;
+
+    es.CStackSize = 1024 * 16;
+    es.CStack = (FObject *) malloc(es.CStackSize * sizeof(FObject));
 
     int adx;
     for (adx = 0; adx < argc; adx++)
     {
-        AStack[AStackPtr] = argv[adx];
-        AStackPtr += 1;
+        es.AStack[es.AStackPtr] = argv[adx];
+        es.AStackPtr += 1;
     }
 
-    CStackPtr = 0;
-    FObject Proc = op;
-    FAssert(ProcedureP(Proc));
-    FAssert(VectorP(AsProcedure(Proc)->Code));
+    es.CStackPtr = 0;
+    es.Proc = op;
+    FAssert(ProcedureP(es.Proc));
+    FAssert(VectorP(AsProcedure(es.Proc)->Code));
 
-    FObject * cv = AsVector(AsProcedure(Proc)->Code)->Vector;
-    int IP = 0;
-    FObject Frame = NoValueObject;
-    int ArgCount = argc;
+    es.IP = 0;
+    es.Frame = NoValueObject;
+    es.ArgCount = argc;
 
     for (;;)
     {
-        FAssert(VectorP(AsProcedure(Proc)->Code));
-        FAssert(AsVector(AsProcedure(Proc)->Code)->Vector == cv);
-        FAssert(IP >= 0);
-        FAssert(IP < AsVector(AsProcedure(Proc)->Code)->Length);
+        FAssert(VectorP(AsProcedure(es.Proc)->Code));
+        FAssert(es.IP >= 0);
+        FAssert(es.IP < AsVector(AsProcedure(es.Proc)->Code)->Length);
 
-        FObject obj = cv[IP];
-        IP += 1;
+        FObject obj = AsVector(AsProcedure(es.Proc)->Code)->Vector[es.IP];
+        es.IP += 1;
 
         if (InstructionP(obj) == 0)
         {
-            AStack[AStackPtr] = obj;
-            AStackPtr += 1;
+            es.AStack[es.AStackPtr] = obj;
+            es.AStackPtr += 1;
 //Write(StandardOutput, obj, 0);
 //printf("\n");
         }
         else
         {
-//printf("%s.%d %d %d\n", Opcodes[InstructionOpcode(obj)], InstructionArg(obj), CStackPtr, AStackPtr);
+//printf("%s.%d %d %d\n", Opcodes[InstructionOpcode(obj)], InstructionArg(obj), es.CStackPtr, es.AStackPtr);
             switch (InstructionOpcode(obj))
             {
             case CheckCountOpcode:
-                if (ArgCount != InstructionArg(obj))
-                    RaiseException(Assertion, AsProcedure(Proc)->Name, WrongNumberOfArguments,
+                if (es.ArgCount != InstructionArg(obj))
+                    RaiseException(Assertion, AsProcedure(es.Proc)->Name, WrongNumberOfArguments,
                             EmptyListObject);
                 break;
 
             case RestArgOpcode:
                 FAssert(InstructionArg(obj) >= 0);
 
-                if (ArgCount < InstructionArg(obj))
-                    RaiseException(Assertion, AsProcedure(Proc)->Name, WrongNumberOfArguments,
+                if (es.ArgCount < InstructionArg(obj))
+                    RaiseException(Assertion, AsProcedure(es.Proc)->Name, WrongNumberOfArguments,
                             EmptyListObject);
-                else if (ArgCount == InstructionArg(obj))
+                else if (es.ArgCount == InstructionArg(obj))
                 {
-                    AStack[AStackPtr] = EmptyListObject;
-                    AStackPtr += 1;
+                    es.AStack[es.AStackPtr] = EmptyListObject;
+                    es.AStackPtr += 1;
                 }
                 else
                 {
                     FObject lst = EmptyListObject;
 
-                    int ac = ArgCount;
+                    int ac = es.ArgCount;
                     while (ac > InstructionArg(obj))
                     {
-                        AStackPtr -= 1;
-                        lst = MakePair(AStack[AStackPtr], lst);
+                        es.AStackPtr -= 1;
+                        lst = MakePair(es.AStack[es.AStackPtr], lst);
                         ac -= 1;
                     }
 
-                    AStack[AStackPtr] = lst;
-                    AStackPtr += 1;
+                    es.AStack[es.AStackPtr] = lst;
+                    es.AStackPtr += 1;
                 }
                 break;
 
@@ -194,13 +229,13 @@ FObject Execute(FObject op, int argc, FObject argv[])
                 int ac = InstructionArg(obj);
                 while (ac > 0)
                 {
-                    AStackPtr -= 1;
-                    lst = MakePair(AStack[AStackPtr], lst);
+                    es.AStackPtr -= 1;
+                    lst = MakePair(es.AStack[es.AStackPtr], lst);
                     ac -= 1;
                 }
 
-                AStack[AStackPtr] = lst;
-                AStackPtr += 1;
+                es.AStack[es.AStackPtr] = lst;
+                es.AStackPtr += 1;
                 break;
             }
 
@@ -210,11 +245,11 @@ FObject Execute(FObject op, int argc, FObject argv[])
 
                 while (arg > 0)
                 {
-                    FAssert(AStackPtr > 0);
+                    FAssert(es.AStackPtr > 0);
 
-                    AStackPtr -= 1;
-                    CStack[CStackPtr] = AStack[AStackPtr];
-                    CStackPtr += 1;
+                    es.AStackPtr -= 1;
+                    es.CStack[es.CStackPtr] = es.AStack[es.AStackPtr];
+                    es.CStackPtr += 1;
                     arg -= 1;
                 }
                 break;
@@ -226,8 +261,8 @@ FObject Execute(FObject op, int argc, FObject argv[])
 
                 while (arg > 0)
                 {
-                    CStack[CStackPtr] = NoValueObject;
-                    CStackPtr += 1;
+                    es.CStack[es.CStackPtr] = NoValueObject;
+                    es.CStackPtr += 1;
                     arg -= 1;
                 }
 
@@ -235,354 +270,400 @@ FObject Execute(FObject op, int argc, FObject argv[])
             }
 
             case PushWantValuesOpcode:
-                CStack[CStackPtr] = WantValuesObject;
-                CStackPtr += 1;
+                es.CStack[es.CStackPtr] = WantValuesObject;
+                es.CStackPtr += 1;
                 break;
 
             case PopCStackOpcode:
-                FAssert(CStackPtr >= InstructionArg(obj));
+                FAssert(es.CStackPtr >= InstructionArg(obj));
 
-                CStackPtr -= InstructionArg(obj);
+                es.CStackPtr -= InstructionArg(obj);
                 break;
 
             case SaveFrameOpcode:
-                CStack[CStackPtr] = Frame;
-                CStackPtr += 1;
+                es.CStack[es.CStackPtr] = es.Frame;
+                es.CStackPtr += 1;
                 break;
 
             case RestoreFrameOpcode:
-                FAssert(CStackPtr > 0);
+                FAssert(es.CStackPtr > 0);
 
-                CStackPtr -= 1;
-                Frame = CStack[CStackPtr];
+                es.CStackPtr -= 1;
+                es.Frame = es.CStack[es.CStackPtr];
                 break;
 
             case MakeFrameOpcode:
-                Frame = MakeVector(InstructionArg(obj), 0, NoValueObject);
+                es.Frame = MakeVector(InstructionArg(obj), 0, NoValueObject);
                 break;
 
             case PushFrameOpcode:
-                AStack[AStackPtr] = Frame;
-                AStackPtr += 1;
+                es.AStack[es.AStackPtr] = es.Frame;
+                es.AStackPtr += 1;
                 break;
 
             case GetCStackOpcode:
-                FAssert(InstructionArg(obj) <= CStackPtr);
+                FAssert(InstructionArg(obj) <= es.CStackPtr);
                 FAssert(InstructionArg(obj) > 0);
 
-                AStack[AStackPtr] = CStack[CStackPtr - InstructionArg(obj)];
-                AStackPtr += 1;
+                es.AStack[es.AStackPtr] = es.CStack[es.CStackPtr - InstructionArg(obj)];
+                es.AStackPtr += 1;
                 break;
 
             case SetCStackOpcode:
-                FAssert(InstructionArg(obj) <= CStackPtr);
+                FAssert(InstructionArg(obj) <= es.CStackPtr);
                 FAssert(InstructionArg(obj) > 0);
-                FAssert(AStackPtr > 0);
+                FAssert(es.AStackPtr > 0);
 
-                AStackPtr -= 1;
-                CStack[CStackPtr - InstructionArg(obj)] = AStack[AStackPtr];
+                es.AStackPtr -= 1;
+                es.CStack[es.CStackPtr - InstructionArg(obj)] = es.AStack[es.AStackPtr];
                 break;
 
             case GetFrameOpcode:
-                FAssert(VectorP(Frame));
-                FAssert(InstructionArg(obj) < AsVector(Frame)->Length);
+                FAssert(VectorP(es.Frame));
+                FAssert(InstructionArg(obj) < AsVector(es.Frame)->Length);
 
-                AStack[AStackPtr] = AsVector(Frame)->Vector[InstructionArg(obj)];
-                AStackPtr += 1;
+                es.AStack[es.AStackPtr] = AsVector(es.Frame)->Vector[InstructionArg(obj)];
+                es.AStackPtr += 1;
                 break;
 
             case SetFrameOpcode:
-                FAssert(VectorP(Frame));
-                FAssert(InstructionArg(obj) < AsVector(Frame)->Length);
-                FAssert(AStackPtr > 0);
+                FAssert(VectorP(es.Frame));
+                FAssert(InstructionArg(obj) < AsVector(es.Frame)->Length);
+                FAssert(es.AStackPtr > 0);
 
-                AStackPtr -= 1;
-//                AsVector(Frame)->Vector[InstructionArg(obj)] = AStack[AStackPtr];
-                ModifyVector(Frame, InstructionArg(obj), AStack[AStackPtr]);
+                es.AStackPtr -= 1;
+//                AsVector(es.Frame)->Vector[InstructionArg(obj)] = es.AStack[es.AStackPtr];
+                ModifyVector(es.Frame, InstructionArg(obj), es.AStack[es.AStackPtr]);
                 break;
 
             case GetVectorOpcode:
-                FAssert(AStackPtr > 0);
-                FAssert(VectorP(AStack[AStackPtr - 1]));
-                FAssert(InstructionArg(obj) < AsVector(AStack[AStackPtr - 1])->Length);
+                FAssert(es.AStackPtr > 0);
+                FAssert(VectorP(es.AStack[es.AStackPtr - 1]));
+                FAssert(InstructionArg(obj) < AsVector(es.AStack[es.AStackPtr - 1])->Length);
 
-                AStack[AStackPtr - 1] = AsVector(AStack[AStackPtr - 1])->Vector[
+                es.AStack[es.AStackPtr - 1] = AsVector(es.AStack[es.AStackPtr - 1])->Vector[
                         InstructionArg(obj)];
                 break;
 
             case SetVectorOpcode:
-                FAssert(AStackPtr > 1);
-                FAssert(VectorP(AStack[AStackPtr - 1]));
-                FAssert(InstructionArg(obj) < AsVector(AStack[AStackPtr - 1])->Length);
+                FAssert(es.AStackPtr > 1);
+                FAssert(VectorP(es.AStack[es.AStackPtr - 1]));
+                FAssert(InstructionArg(obj) < AsVector(es.AStack[es.AStackPtr - 1])->Length);
 
-//                AsVector(AStack[AStackPtr - 1])->Vector[InstructionArg(obj)] =
-//                        AStack[AStackPtr - 2];
-                ModifyVector(AStack[AStackPtr - 1], InstructionArg(obj), AStack[AStackPtr - 2]);
-                AStackPtr -= 2;
+//                AsVector(es.AStack[es.AStackPtr - 1])->Vector[InstructionArg(obj)] =
+//                        es.AStack[es.AStackPtr - 2];
+                ModifyVector(es.AStack[es.AStackPtr - 1], InstructionArg(obj), es.AStack[es.AStackPtr - 2]);
+                es.AStackPtr -= 2;
                 break;
 
             case GetGlobalOpcode:
-                FAssert(AStackPtr > 0);
-                FAssert(GlobalP(AStack[AStackPtr - 1]));
-                FAssert(BoxP(AsGlobal(AStack[AStackPtr - 1])->Box));
+                FAssert(es.AStackPtr > 0);
+                FAssert(GlobalP(es.AStack[es.AStackPtr - 1]));
+                FAssert(BoxP(AsGlobal(es.AStack[es.AStackPtr - 1])->Box));
 
-                if (AsGlobal(AStack[AStackPtr - 1])->State == GlobalUndefined)
+                if (AsGlobal(es.AStack[es.AStackPtr - 1])->State == GlobalUndefined)
                 {
-                    FAssert(AsGlobal(AStack[AStackPtr - 1])->Interactive == TrueObject);
+                    FAssert(AsGlobal(es.AStack[es.AStackPtr - 1])->Interactive == TrueObject);
 
-                    RaiseException(Assertion, AsProcedure(Proc)->Name, UndefinedMessage,
-                            List(AStack[AStackPtr - 1]));
+                    RaiseException(Assertion, AsProcedure(es.Proc)->Name, UndefinedMessage,
+                            List(es.AStack[es.AStackPtr - 1]));
                 }
 
-                AStack[AStackPtr - 1] = Unbox(AsGlobal(AStack[AStackPtr - 1])->Box);
+                es.AStack[es.AStackPtr - 1] = Unbox(AsGlobal(es.AStack[es.AStackPtr - 1])->Box);
                 break;
 
             case SetGlobalOpcode:
-                FAssert(AStackPtr > 1);
-                FAssert(GlobalP(AStack[AStackPtr - 1]));
-                FAssert(BoxP(AsGlobal(AStack[AStackPtr - 1])->Box));
+                FAssert(es.AStackPtr > 1);
+                FAssert(GlobalP(es.AStack[es.AStackPtr - 1]));
+                FAssert(BoxP(AsGlobal(es.AStack[es.AStackPtr - 1])->Box));
 
-                if (AsGlobal(AStack[AStackPtr - 1])->State == GlobalImported
-                        || AsGlobal(AStack[AStackPtr - 1])->State == GlobalImportedModified)
+                if (AsGlobal(es.AStack[es.AStackPtr - 1])->State == GlobalImported
+                        || AsGlobal(es.AStack[es.AStackPtr - 1])->State == GlobalImportedModified)
                 {
-                    FAssert(AsGlobal(AStack[AStackPtr - 1])->Interactive == TrueObject);
+                    FAssert(AsGlobal(es.AStack[es.AStackPtr - 1])->Interactive == TrueObject);
 
-//                    AsGlobal(AStack[AStackPtr - 1])->Box = MakeBox(AStack[AStackPtr - 2]);
-                    Modify(FGlobal, AStack[AStackPtr - 1], Box, MakeBox(AStack[AStackPtr - 2]));
-//                    AsGlobal(AStack[AStackPtr - 1])->State = GlobalDefined;
-                    Modify(FGlobal, AStack[AStackPtr - 1], State, GlobalDefined);
+//                    AsGlobal(es.AStack[es.AStackPtr - 1])->Box = MakeBox(es.AStack[es.AStackPtr - 2]);
+                    Modify(FGlobal, es.AStack[es.AStackPtr - 1], Box, MakeBox(es.AStack[es.AStackPtr - 2]));
+//                    AsGlobal(es.AStack[es.AStackPtr - 1])->State = GlobalDefined;
+                    Modify(FGlobal, es.AStack[es.AStackPtr - 1], State, GlobalDefined);
                 }
 
-//                AsBox(AsGlobal(AStack[AStackPtr - 1])->Box)->Value = AStack[AStackPtr - 2];
-                Modify(FBox, AsGlobal(AStack[AStackPtr - 1])->Box, Value, AStack[AStackPtr - 2]);
-                AStackPtr -= 2;
+//                AsBox(AsGlobal(es.AStack[es.AStackPtr - 1])->Box)->Value = es.AStack[es.AStackPtr - 2];
+                Modify(FBox, AsGlobal(es.AStack[es.AStackPtr - 1])->Box, Value, es.AStack[es.AStackPtr - 2]);
+                es.AStackPtr -= 2;
                 break;
 
             case GetBoxOpcode:
-                FAssert(AStackPtr > 0);
-                FAssert(BoxP(AStack[AStackPtr - 1]));
+                FAssert(es.AStackPtr > 0);
+                FAssert(BoxP(es.AStack[es.AStackPtr - 1]));
 
-                AStack[AStackPtr - 1] = Unbox(AStack[AStackPtr - 1]);
+                es.AStack[es.AStackPtr - 1] = Unbox(es.AStack[es.AStackPtr - 1]);
                 break;
 
             case SetBoxOpcode:
-                FAssert(AStackPtr > 1);
-                FAssert(BoxP(AStack[AStackPtr - 1]));
+                FAssert(es.AStackPtr > 1);
+                FAssert(BoxP(es.AStack[es.AStackPtr - 1]));
 
-//                AsBox(AStack[AStackPtr - 1])->Value = AStack[AStackPtr - 2];
-                Modify(FBox, AStack[AStackPtr - 1], Value, AStack[AStackPtr - 2]);
-                AStackPtr -= 2;
+//                AsBox(es.AStack[es.AStackPtr - 1])->Value = es.AStack[es.AStackPtr - 2];
+                Modify(FBox, es.AStack[es.AStackPtr - 1], Value, es.AStack[es.AStackPtr - 2]);
+                es.AStackPtr -= 2;
                 break;
 
             case DiscardResultOpcode:
-                FAssert(AStackPtr >= 1);
+                FAssert(es.AStackPtr >= 1);
 
-                AStackPtr -= 1;
+                es.AStackPtr -= 1;
                 break;
 
             case PopAStackOpcode:
-                FAssert(AStackPtr >= InstructionArg(obj));
+                FAssert(es.AStackPtr >= InstructionArg(obj));
 
-                AStackPtr -= InstructionArg(obj);
+                es.AStackPtr -= InstructionArg(obj);
                 break;
 
             case DuplicateOpcode:
-                FAssert(AStackPtr >= 1);
+                FAssert(es.AStackPtr >= 1);
 
-                AStack[AStackPtr] = AStack[AStackPtr - 1];
-                AStackPtr += 1;
+                es.AStack[es.AStackPtr] = es.AStack[es.AStackPtr - 1];
+                es.AStackPtr += 1;
                 break;
 
             case ReturnOpcode:
-                if (CStackPtr == 0)
+                if (es.CStackPtr == 0)
                 {
-                    FAssert(AStackPtr == 1);
-                    return(AStack[0]);
+                    FAssert(es.AStackPtr == 1);
+
+                    FObject ret = es.AStack[0];
+                    free(es.AStack);
+                    free(es.CStack);
+                    return(ret);
                 }
 
-                FAssert(CStackPtr >= 2);
-                FAssert(FixnumP(CStack[CStackPtr - 1]));
-                FAssert(ProcedureP(CStack[CStackPtr - 2]));
+                FAssert(es.CStackPtr >= 2);
+                FAssert(FixnumP(es.CStack[es.CStackPtr - 1]));
+                FAssert(ProcedureP(es.CStack[es.CStackPtr - 2]));
 
-                CStackPtr -= 1;
-                IP = AsFixnum(CStack[CStackPtr]);
-                CStackPtr -= 1;
-                Proc = CStack[CStackPtr];
+                es.CStackPtr -= 1;
+                es.IP = AsFixnum(es.CStack[es.CStackPtr]);
+                es.CStackPtr -= 1;
+                es.Proc = es.CStack[es.CStackPtr];
 
-                FAssert(VectorP(AsProcedure(Proc)->Code));
+                FAssert(VectorP(AsProcedure(es.Proc)->Code));
 
-                cv = AsVector(AsProcedure(Proc)->Code)->Vector;
-                Frame = NoValueObject;
+                es.Frame = NoValueObject;
                 break;
 
             case CallOpcode:
-            {
-                FAssert(AStackPtr > 0);
+                FAssert(es.AStackPtr > 0);
 
-                AStackPtr -= 1;
-                FObject op = AStack[AStackPtr];
+                es.AStackPtr -= 1;
+                op = es.AStack[es.AStackPtr];
                 if (ProcedureP(op))
                 {
-                    CStack[CStackPtr] = Proc;
-                    CStackPtr += 1;
-                    CStack[CStackPtr] = MakeFixnum(IP);
-                    CStackPtr += 1;
+CallProcedure:
+                    es.CStack[es.CStackPtr] = es.Proc;
+                    es.CStackPtr += 1;
+                    es.CStack[es.CStackPtr] = MakeFixnum(es.IP);
+                    es.CStackPtr += 1;
 
-                    Proc = op;
-                    FAssert(VectorP(AsProcedure(Proc)->Code));
+                    es.Proc = op;
+                    FAssert(VectorP(AsProcedure(es.Proc)->Code));
 
-                    cv = AsVector(AsProcedure(Proc)->Code)->Vector;
-                    IP = 0;
-                    Frame = NoValueObject;
+                    es.IP = 0;
+                    es.Frame = NoValueObject;
                 }
                 else if (PrimitiveP(op))
                 {
-                    FAssert(AStackPtr >= ArgCount);
+CallPrimitive:
+                    FAssert(es.AStackPtr >= es.ArgCount);
 
-                    AStackPtr -= ArgCount;
-                    AStack[AStackPtr] = AsPrimitive(op)->PrimitiveFn(ArgCount, AStack + AStackPtr);
-                    AStackPtr += 1;
+                    FObject ret = AsPrimitive(op)->PrimitiveFn(es.ArgCount,
+                            es.AStack + es.AStackPtr - es.ArgCount);
+                    es.AStackPtr -= es.ArgCount;
+                    es.AStack[es.AStackPtr] = ret;
+                    es.AStackPtr += 1;
                 }
                 else
-                    RaiseException(Assertion, AsProcedure(Proc)->Name, NotCallable, List(op));
+                    RaiseException(Assertion, AsProcedure(es.Proc)->Name, NotCallable, List(op));
                 break;
-            }
+
+            case CallProcOpcode:
+                FAssert(es.AStackPtr > 0);
+
+                es.AStackPtr -= 1;
+                op = es.AStack[es.AStackPtr];
+
+                FAssert(ProcedureP(op));
+                goto CallProcedure;
+
+            case CallPrimOpcode:
+                FAssert(es.AStackPtr > 0);
+
+                es.AStackPtr -= 1;
+                op = es.AStack[es.AStackPtr];
+
+                FAssert(PrimitiveP(op));
+                goto CallPrimitive;
 
             case TailCallOpcode:
-            {
-                FAssert(AStackPtr > 0);
+                FAssert(es.AStackPtr > 0);
 
-                AStackPtr -= 1;
-                FObject op = AStack[AStackPtr];
+                es.AStackPtr -= 1;
+                op = es.AStack[es.AStackPtr];
                 if (ProcedureP(op))
                 {
-                    Proc = op;
-                    FAssert(VectorP(AsProcedure(Proc)->Code));
+TailCallProcedure:
+                    es.Proc = op;
+                    FAssert(VectorP(AsProcedure(es.Proc)->Code));
 
-                    cv = AsVector(AsProcedure(Proc)->Code)->Vector;
-                    IP = 0;
-                    Frame = NoValueObject;
+                    es.IP = 0;
+                    es.Frame = NoValueObject;
                 }
                 else if (PrimitiveP(op))
                 {
-                    FAssert(AStackPtr >= ArgCount);
+TailCallPrimitive:
+                    FAssert(es.AStackPtr >= es.ArgCount);
 
-                    AStackPtr -= ArgCount;
-                    AStack[AStackPtr] = AsPrimitive(op)->PrimitiveFn(ArgCount, AStack + AStackPtr);
-                    AStackPtr += 1;
+                    FObject ret = AsPrimitive(op)->PrimitiveFn(es.ArgCount,
+                            es.AStack + es.AStackPtr - es.ArgCount);
+                    es.AStackPtr -= es.ArgCount;
+                    es.AStack[es.AStackPtr] = ret;
+                    es.AStackPtr += 1;
 
-                    if (CStackPtr == 0)
+                    if (es.CStackPtr == 0)
                     {
-                        FAssert(AStackPtr == 1);
-                        return(AStack[0]);
+                        FAssert(es.AStackPtr == 1);
+
+                        FObject ret = es.AStack[0];
+                        free(es.AStack);
+                        free(es.CStack);
+                        return(ret);
                     }
 
-                    FAssert(CStackPtr >= 2);
+                    FAssert(es.CStackPtr >= 2);
 
-                    CStackPtr -= 1;
-                    IP = AsFixnum(CStack[CStackPtr]);
-                    CStackPtr -= 1;
-                    Proc = CStack[CStackPtr];
+                    es.CStackPtr -= 1;
+                    es.IP = AsFixnum(es.CStack[es.CStackPtr]);
+                    es.CStackPtr -= 1;
+                    es.Proc = es.CStack[es.CStackPtr];
 
-                    FAssert(ProcedureP(Proc));
-                    FAssert(VectorP(AsProcedure(Proc)->Code));
+                    FAssert(ProcedureP(es.Proc));
+                    FAssert(VectorP(AsProcedure(es.Proc)->Code));
 
-                    cv = AsVector(AsProcedure(Proc)->Code)->Vector;
-                    Frame = NoValueObject;
+                    es.Frame = NoValueObject;
                 }
                 else
-                    RaiseException(Assertion, AsProcedure(Proc)->Name, NotCallable, List(op));
+                    RaiseException(Assertion, AsProcedure(es.Proc)->Name, NotCallable, List(op));
                 break;
-            }
+
+            case TailCallProcOpcode:
+                FAssert(es.AStackPtr > 0);
+
+                es.AStackPtr -= 1;
+                op = es.AStack[es.AStackPtr];
+
+                FAssert(ProcedureP(op));
+
+                goto TailCallProcedure;
+
+            case TailCallPrimOpcode:
+                FAssert(es.AStackPtr > 0);
+
+                es.AStackPtr -= 1;
+                op = es.AStack[es.AStackPtr];
+
+                FAssert(PrimitiveP(op));
+
+                goto TailCallPrimitive;
 
             case SetArgCountOpcode:
-                ArgCount = InstructionArg(obj);
+                es.ArgCount = InstructionArg(obj);
                 break;
 
             case MakeClosureOpcode:
             {
-                FAssert(AStackPtr > 0);
+                FAssert(es.AStackPtr > 0);
 
                 FObject v[3];
 
-                AStackPtr -= 1;
-                v[0] = AStack[AStackPtr - 1];
-                v[1] = AStack[AStackPtr];
+                es.AStackPtr -= 1;
+                v[0] = es.AStack[es.AStackPtr - 1];
+                v[1] = es.AStack[es.AStackPtr];
                 v[2] = MakeInstruction(TailCallOpcode, 0);
                 FObject proc = MakeProcedure(NoValueObject, MakeVector(3, v, NoValueObject), 0,
                         FalseObject, PROCEDURE_FLAG_CLOSURE);
-                AStack[AStackPtr - 1] = proc;
+                es.AStack[es.AStackPtr - 1] = proc;
                 break;
             }
 
             case IfFalseOpcode:
-                FAssert(AStackPtr > 0);
-                FAssert(IP + InstructionArg(obj) >= 0);
+                FAssert(es.AStackPtr > 0);
+                FAssert(es.IP + InstructionArg(obj) >= 0);
 
-                AStackPtr -= 1;
-                if (AStack[AStackPtr] == FalseObject)
-                    IP += InstructionArg(obj);
+                es.AStackPtr -= 1;
+                if (es.AStack[es.AStackPtr] == FalseObject)
+                    es.IP += InstructionArg(obj);
                 break;
 
             case IfEqvPOpcode:
-                FAssert(AStackPtr > 1);
-                FAssert(IP + InstructionArg(obj) >= 0);
+                FAssert(es.AStackPtr > 1);
+                FAssert(es.IP + InstructionArg(obj) >= 0);
 
-                AStackPtr -= 1;
-                if (AStack[AStackPtr] == AStack[AStackPtr - 1])
-                    IP += InstructionArg(obj);
+                es.AStackPtr -= 1;
+                if (es.AStack[es.AStackPtr] == es.AStack[es.AStackPtr - 1])
+                    es.IP += InstructionArg(obj);
                 break;
 
             case GotoRelativeOpcode:
-                FAssert(IP + InstructionArg(obj) >= 0);
+                FAssert(es.IP + InstructionArg(obj) >= 0);
 
-                IP += InstructionArg(obj);
+                es.IP += InstructionArg(obj);
                 break;
 
             case GotoAbsoluteOpcode:
                 FAssert(InstructionArg(obj) >= 0);
 
-                IP = InstructionArg(obj);
+                es.IP = InstructionArg(obj);
                 break;
 
             case CheckValuesOpcode:
-                FAssert(AStackPtr > 0);
+                FAssert(es.AStackPtr > 0);
                 FAssert(InstructionArg(obj) != 1);
 
-                if (ValuesCountP(AStack[AStackPtr - 1]))
+                if (ValuesCountP(es.AStack[es.AStackPtr - 1]))
                 {
-                    AStackPtr -= 1;
-                    if (AsValuesCount(AStack[AStackPtr]) != InstructionArg(obj))
-                        RaiseException(Assertion, AsProcedure(Proc)->Name,
+                    es.AStackPtr -= 1;
+                    if (AsValuesCount(es.AStack[es.AStackPtr]) != InstructionArg(obj))
+                        RaiseException(Assertion, AsProcedure(es.Proc)->Name,
                                 UnexpectedNumberOfValues, EmptyListObject);
                 }
                 else
-                    RaiseException(Assertion, AsProcedure(Proc)->Name, UnexpectedNumberOfValues,
+                    RaiseException(Assertion, AsProcedure(es.Proc)->Name, UnexpectedNumberOfValues,
                             EmptyListObject);
                 break;
 
             case RestValuesOpcode:
             {
-                FAssert(AStackPtr > 0);
+                FAssert(es.AStackPtr > 0);
                 FAssert(InstructionArg(obj) >= 0);
 
                 int vc;
 
-                if (ValuesCountP(AStack[AStackPtr - 1]))
+                if (ValuesCountP(es.AStack[es.AStackPtr - 1]))
                 {
-                    AStackPtr -= 1;
-                    vc = AsValuesCount(AStack[AStackPtr]);
+                    es.AStackPtr -= 1;
+                    vc = AsValuesCount(es.AStack[es.AStackPtr]);
                 }
                 else
                     vc = 1;
 
                 if (vc < InstructionArg(obj))
-                    RaiseException(Assertion, AsProcedure(Proc)->Name, UnexpectedNumberOfValues,
+                    RaiseException(Assertion, AsProcedure(es.Proc)->Name, UnexpectedNumberOfValues,
                             EmptyListObject);
                 else if (vc == InstructionArg(obj))
                 {
-                    AStack[AStackPtr] = EmptyListObject;
-                    AStackPtr += 1;
+                    es.AStack[es.AStackPtr] = EmptyListObject;
+                    es.AStackPtr += 1;
                 }
                 else
                 {
@@ -590,50 +671,50 @@ FObject Execute(FObject op, int argc, FObject argv[])
 
                     while (vc > InstructionArg(obj))
                     {
-                        AStackPtr -= 1;
-                        lst = MakePair(AStack[AStackPtr], lst);
+                        es.AStackPtr -= 1;
+                        lst = MakePair(es.AStack[es.AStackPtr], lst);
                         vc -= 1;
                     }
 
-                    AStack[AStackPtr] = lst;
-                    AStackPtr += 1;
+                    es.AStack[es.AStackPtr] = lst;
+                    es.AStackPtr += 1;
                 }
 
                 break;
             }
 
             case ValuesOpcode:
-                if (ArgCount != 1)
+                if (es.ArgCount != 1)
                 {
-                    if (CStackPtr >= 3 && WantValuesObjectP(CStack[CStackPtr - 3]))
+                    if (es.CStackPtr >= 3 && WantValuesObjectP(es.CStack[es.CStackPtr - 3]))
                     {
-                        AStack[AStackPtr] = MakeValuesCount(ArgCount);
-                        AStackPtr += 1;
+                        es.AStack[es.AStackPtr] = MakeValuesCount(es.ArgCount);
+                        es.AStackPtr += 1;
                     }
                     else
                     {
-                        FAssert(CStackPtr >= 2);
-                        FAssert(FixnumP(CStack[CStackPtr - 1]));
-                        FAssert(ProcedureP(CStack[CStackPtr - 2]));
-                        FAssert(VectorP(AsProcedure(CStack[CStackPtr - 2])->Code));
+                        FAssert(es.CStackPtr >= 2);
+                        FAssert(FixnumP(es.CStack[es.CStackPtr - 1]));
+                        FAssert(ProcedureP(es.CStack[es.CStackPtr - 2]));
+                        FAssert(VectorP(AsProcedure(es.CStack[es.CStackPtr - 2])->Code));
 
-                        FObject cd = AsVector(AsProcedure(CStack[CStackPtr - 2])->Code)->Vector[
-                                AsFixnum(CStack[CStackPtr - 1])];
+                        FObject cd = AsVector(AsProcedure(es.CStack[es.CStackPtr - 2])->Code)->Vector[
+                                AsFixnum(es.CStack[es.CStackPtr - 1])];
                         if (InstructionP(cd) == 0 || InstructionOpcode(cd) != DiscardResultOpcode)
                            RaiseExceptionC(Assertion, "values",
                                    "values: caller not expecting multiple values",
-                                   List(AsProcedure(CStack[CStackPtr - 2])->Name));
+                                   List(AsProcedure(es.CStack[es.CStackPtr - 2])->Name));
 
-                        if (ArgCount == 0)
+                        if (es.ArgCount == 0)
                         {
-                            AStack[AStackPtr] = NoValueObject;
-                            AStackPtr += 1;
+                            es.AStack[es.AStackPtr] = NoValueObject;
+                            es.AStackPtr += 1;
                         }
                         else
                         {
-                            FAssert(AStackPtr >= ArgCount);
+                            FAssert(es.AStackPtr >= es.ArgCount);
 
-                            AStackPtr -= (ArgCount - 1);
+                            es.AStackPtr -= (es.ArgCount - 1);
                         }
                     }
                 }
@@ -641,37 +722,37 @@ FObject Execute(FObject op, int argc, FObject argv[])
 
             case ApplyOpcode:
             {
-                if (ArgCount < 2)
+                if (es.ArgCount < 2)
                    RaiseExceptionC(Assertion, "apply", "apply: expected at least two arguments",
                            EmptyListObject);
 
-                FObject prc = AStack[AStackPtr - ArgCount];
-                FObject lst = AStack[AStackPtr - 1];
+                FObject prc = es.AStack[es.AStackPtr - es.ArgCount];
+                FObject lst = es.AStack[es.AStackPtr - 1];
 
-                int adx = ArgCount;
+                int adx = es.ArgCount;
                 while (adx > 2)
                 {
-                    AStack[AStackPtr - adx] = AStack[AStackPtr - adx + 1];
+                    es.AStack[es.AStackPtr - adx] = es.AStack[es.AStackPtr - adx + 1];
                     adx -= 1;
                 }
 
-                ArgCount -= 2;
-                AStackPtr -= 2;
+                es.ArgCount -= 2;
+                es.AStackPtr -= 2;
 
                 FObject ptr = lst;
                 while (PairP(ptr))
                 {
-                    AStack[AStackPtr] = First(ptr);
-                    AStackPtr += 1;
-                    ArgCount += 1;
+                    es.AStack[es.AStackPtr] = First(ptr);
+                    es.AStackPtr += 1;
+                    es.ArgCount += 1;
                     ptr = Rest(ptr);
                 }
 
                 if (ptr != EmptyListObject)
                    RaiseExceptionC(Assertion, "apply", "apply: expected a proper list", List(lst));
 
-                AStack[AStackPtr] = prc;
-                AStackPtr += 1;
+                es.AStack[es.AStackPtr] = prc;
+                es.AStackPtr += 1;
                 break;
             }
 
@@ -681,25 +762,23 @@ FObject Execute(FObject op, int argc, FObject argv[])
 
                 while (cc > 0)
                 {
-                    FAssert(VectorP(AsProcedure(Proc)->Code));
-                    FAssert(AsVector(AsProcedure(Proc)->Code)->Vector == cv);
-                    FAssert(IP + idx >= 0);
-                    FAssert(IP + idx < AsVector(AsProcedure(Proc)->Code)->Length);
+                    FAssert(VectorP(AsProcedure(es.Proc)->Code));
+                    FAssert(es.IP + idx >= 0);
+                    FAssert(es.IP + idx < AsVector(AsProcedure(es.Proc)->Code)->Length);
 
-                    FObject prc = cv[IP + idx];
+                    FObject prc = AsVector(AsProcedure(es.Proc)->Code)->Vector[es.IP + idx];
 
                     FAssert(ProcedureP(prc));
 
                     if ((AsProcedure(prc)->RestArg == TrueObject
-                            && ArgCount + 1 >= AsProcedure(prc)->ArgCount)
-                            || AsProcedure(prc)->ArgCount == ArgCount)
+                            && es.ArgCount + 1 >= AsProcedure(prc)->ArgCount)
+                            || AsProcedure(prc)->ArgCount == es.ArgCount)
                     {
-                        Proc = prc;
-                        FAssert(VectorP(AsProcedure(Proc)->Code));
+                        es.Proc = prc;
+                        FAssert(VectorP(AsProcedure(es.Proc)->Code));
 
-                        cv = AsVector(AsProcedure(Proc)->Code)->Vector;
-                        IP = 0;
-                        Frame = NoValueObject;
+                        es.IP = 0;
+                        es.Frame = NoValueObject;
 
                         break;
                     }
@@ -710,7 +789,7 @@ FObject Execute(FObject op, int argc, FObject argv[])
 
                 if (cc == 0)
                     RaiseExceptionC(Assertion, "case-lambda", "case-lambda: no matching case",
-                            List(MakeFixnum(ArgCount)));
+                            List(MakeFixnum(es.ArgCount)));
                 break;
 
             }
@@ -814,14 +893,22 @@ void SetupExecute()
     FObject v[2];
 
     WrongNumberOfArguments = MakeStringC("wrong number of arguments");
+    Root(&WrongNumberOfArguments);
+
     NotCallable = MakeStringC("not callable");
+    Root(&NotCallable);
+
     UnexpectedNumberOfValues = MakeStringC("unexpected number of values");
+    Root(&UnexpectedNumberOfValues);
+
     UndefinedMessage = MakeStringC("variable is undefined");
+    Root(&UndefinedMessage);
 
     for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 
     DynamicEnvironment = EmptyListObject;
+    Root(&DynamicEnvironment);
 
     v[0] = MakeInstruction(ValuesOpcode, 0);
     v[1] = MakeInstruction(ReturnOpcode, 0);

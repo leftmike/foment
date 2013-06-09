@@ -14,7 +14,6 @@ To Do:
 -- RunProgram
 
 -- inline primitives in GPassExpression
--- opcodes for (tail) calling a procedure and a primitive
 
 -- define-record-type
 -- guard
@@ -23,6 +22,8 @@ To Do:
 -- debugging information
 
 -- strings and srfi-13
+
+-- number tags should require only a single test by sharing part of a tag
 
 -- garbage collection
 
@@ -41,15 +42,10 @@ Garbage Collection:
 -- all object modifications need to check to see if a older generation is now pointing to a younger
     generation
 -- GC does not occur during an allocation, only at AllowGC points for all threads
--- Modify(type, obj, slot, val)
-#define Modify(type, obj, slot, val)\
-    ModifyObject(obj, &(((type *) 0)->slot), val)
-
--- length of an object is determined from Tag and then a length field for some objects like
-    vectors, strings, and records
 
 Bugs:
 
+-- Execute does not check for CStack or AStack overflow
 -- parameters are broken for threads
 -- string input ports have not been tested at all
 -- OpenInputFile and OpenOutFile don't convert the filename to C very carefully
@@ -140,10 +136,7 @@ inline FObjectTag ObjectTag(FObject obj)
     return((FObjectTag) (ObjectP(obj) ? AsObjectHeader(obj)->Tag : 0));
 }
 
-int ObjectLength(FObject obj);
-#ifdef FOMENT_DEBUG
-int AlignLength(int len);
-#endif // FOMENT_DEBUG
+void Root(FObject * rt);
 
 #ifdef FOMENT_GCCHK
 void AllowGC();
@@ -163,6 +156,11 @@ void ModifyVector(FObject obj, int idx, FObject val);
 
 // Do not directly call ModifyObject; use Modify instead.
 void ModifyObject(FObject obj, int off, FObject val);
+
+#ifdef FOMENT_DEBUG
+int ObjectLength(FObject obj);
+int AlignLength(int len);
+#endif // FOMENT_DEBUG
 
 //
 // ---- Immediate Types ----

@@ -131,10 +131,14 @@ typedef enum
     // AStackPtr -= 1; Proc = AStack[AStackPtr];
     // IP = 0;
     CallOpcode,
+    CallProcOpcode,
+    CallPrimOpcode,
 
     // AStackPtr -= 1; Proc = AStack[AStackPtr];
     // IP = 0;
     TailCallOpcode,
+    TailCallProcOpcode,
+    TailCallPrimOpcode,
 
     // ArgCount = <arg>;
     SetArgCountOpcode,

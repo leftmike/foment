@@ -4,9 +4,6 @@ Foment
 
 */
 
-#include <stdio.h>
-
-#include <windows.h>
 #include <malloc.h>
 #include "foment.hpp"
 #include "io.hpp"
@@ -119,11 +116,16 @@ FObject MakeObject(FObjectTag tag, unsigned int sz)
     return(obj);
 }
 
+void Root(FObject * rt)
+{
+    
+    
+    
+}
+
 /*
 //    AsPair(argv[0])->Rest = argv[1];
     Modify(FPair, argv[0], Rest, argv[1]);
-
-AllowGC does a check of all checksums
 */
 
 #ifdef FOMENT_GCCHK
@@ -208,7 +210,8 @@ void SetupGC()
 
     BytesAllocated = 0;
 
-    HeapBase = (char *) VirtualAlloc(0, 1024 * 1024 * 5, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+//    HeapBase = (char *) VirtualAlloc(0, 1024 * 1024 * 5, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    HeapBase = (char *) malloc(1024 * 1024 * 5);
     FAssert(HeapBase != 0);
 
     HeapPointer = HeapBase;

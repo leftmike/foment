@@ -954,7 +954,11 @@ void SetupFoment(int argc, char * argv[])
     SetupGC();
 
     HashtableRecordType = NoValueObject;
+    Root(&HashtableRecordType);
+
     SymbolHashtable = MakeObject(RecordTag, sizeof(FHashtable));
+    Root(&SymbolHashtable);
+
     AsHashtable(SymbolHashtable)->Record.RecordType = HashtableRecordType;
     AsHashtable(SymbolHashtable)->Buckets = MakeVector(23, 0, EmptyListObject);
     AsHashtable(SymbolHashtable)->Size = MakeFixnum(0);
@@ -969,20 +973,35 @@ void SetupFoment(int argc, char * argv[])
     SetupLibrary();
     ExceptionRecordType = MakeRecordTypeC("exception",
             sizeof(ExceptionFieldsC) / sizeof(char *), ExceptionFieldsC);
+    Root(&ExceptionRecordType);
 
     EllipsisSymbol = StringCToSymbol("...");
+    Root(&EllipsisSymbol);
 
     Assertion = StringCToSymbol("assertion-violation");
+    Root(&Assertion);
+
     Restriction = StringCToSymbol("implementation-restriction");
+    Root(&Restriction);
+
     Lexical = StringCToSymbol("lexical-violation");
+    Root(&Lexical);
+
     Syntax = StringCToSymbol("syntax-violation");
+    Root(&Syntax);
+
     Error = StringCToSymbol("error-violation");
+    Root(&Error);
 
     FObject nam = List(StringCToSymbol("foment"), StringCToSymbol("bedrock"));
     Bedrock = MakeEnvironment(nam, FalseObject);
+    Root(&Bedrock);
 
     LoadedLibraries = EmptyListObject;
+    Root(&LoadedLibraries);
+
     BedrockLibrary = MakeLibrary(nam);
+    Root(&BedrockLibrary);
 
     for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
@@ -992,12 +1011,19 @@ void SetupFoment(int argc, char * argv[])
                 MakeImmediate(n, SpecialSyntaxTag)));
 
     Features = EmptyListObject;
+    Root(&Features);
+
     for (int idx = 0; idx < sizeof(FeaturesC) / sizeof(char *); idx++)
         Features = MakePair(StringCToSymbol(FeaturesC[idx]), Features);
 
     FullCommandLine = MakeCommandLine(argc, argv);
+    Root(&FullCommandLine);
+
     CommandLine = FullCommandLine;
+    Root(&CommandLine);
+
     LibraryPath = MakePair(MakeStringC("."), EmptyListObject);
+    Root(&LibraryPath);
 
     if (argc > 0)
     {

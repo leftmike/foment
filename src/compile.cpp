@@ -360,38 +360,78 @@ void SetupCompile()
 {
     SyntacticEnvRecordType = MakeRecordTypeC("syntactic-env",
             sizeof(SyntacticEnvFieldsC) / sizeof(char *), SyntacticEnvFieldsC);
+    Root(&SyntacticEnvRecordType);
+
     BindingRecordType = MakeRecordTypeC("binding", sizeof(BindingFieldsC) / sizeof(char *),
             BindingFieldsC);
+    Root(&BindingRecordType);
+
     ReferenceRecordType = MakeRecordTypeC("reference", sizeof(ReferenceFieldsC) / sizeof(char *),
             ReferenceFieldsC);
+    Root(&ReferenceRecordType);
+
     LambdaRecordType = MakeRecordTypeC("lambda", sizeof(LambdaFieldsC) / sizeof(char *),
             LambdaFieldsC);
+    Root(&LambdaRecordType);
+
     CaseLambdaRecordType = MakeRecordTypeC("case-lambda",
             sizeof(CaseLambdaFieldsC) / sizeof(char *), CaseLambdaFieldsC);
+    Root(&CaseLambdaRecordType);
+
     InlineVariableRecordType = MakeRecordTypeC("inline-variable",
             sizeof(InlineVariableFieldsC) / sizeof(char *), InlineVariableFieldsC);
+    Root(&InlineVariableRecordType);
+
     IdentifierRecordType = MakeRecordTypeC("identifier",
             sizeof(IdentifierFieldsC) / sizeof(char *), IdentifierFieldsC);
+    Root(&IdentifierRecordType);
 
     ElseReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("else"), 0));
+    Root(&ElseReference);
+
     ArrowReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("=>"), 0));
+    Root(&ArrowReference);
+
     LibraryReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("library"), 0));
+    Root(&LibraryReference);
+
     AndReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("and"), 0));
+    Root(&AndReference);
+
     OrReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("or"), 0));
+    Root(&OrReference);
+
     NotReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("not"), 0));
+    Root(&NotReference);
+
     QuasiquoteReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("quasiquote"), 0));
+    Root(&QuasiquoteReference);
+
     UnquoteReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("unquote"), 0));
+    Root(&UnquoteReference);
+
     UnquoteSplicingReference = MakeReference(Bedrock,
             MakeIdentifier(StringCToSymbol("unquote-splicing"), 0));
+    Root(&UnquoteSplicingReference);
+
     ConsReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("cons"), 0));
+    Root(&ConsReference);
+
     AppendReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("append"), 0));
+    Root(&AppendReference);
+
     ListToVectorReference = MakeReference(Bedrock,
             MakeIdentifier(StringCToSymbol("list->vector"), 0));
+    Root(&ListToVectorReference);
 
     UnderscoreSymbol = StringCToSymbol("_");
+    Root(&UnderscoreSymbol);
+
     TagSymbol = StringCToSymbol("tag");
+    Root(&TagSymbol);
 
     InteractionEnv = NoValueObject;
+    Root(&InteractionEnv);
 
     SetupSyntaxRules();
 

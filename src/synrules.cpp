@@ -865,12 +865,21 @@ void SetupSyntaxRules()
 {
     SyntaxRulesRecordType = MakeRecordTypeC("syntax-rules",
             sizeof(SyntaxRulesFieldsC) / sizeof(char *), SyntaxRulesFieldsC);
+    Root(&SyntaxRulesRecordType);
+
     PatternVariableRecordType = MakeRecordTypeC("pattern-variable",
             sizeof(PatternVariableFieldsC) / sizeof(char *), PatternVariableFieldsC);
+    Root(&PatternVariableRecordType);
+
     PatternRepeatRecordType = MakeRecordTypeC("pattern-repeat",
             sizeof(PatternRepeatFieldsC) / sizeof(char *), PatternRepeatFieldsC);
+    Root(&PatternRepeatRecordType);
+
     TemplateRepeatRecordType = MakeRecordTypeC("template-repeat",
             sizeof(TemplateRepeatFieldsC) / sizeof(char *), TemplateRepeatFieldsC);
+    Root(&TemplateRepeatRecordType);
+
     SyntaxRuleRecordType = MakeRecordTypeC("syntax-rule",
             sizeof(SyntaxRuleFieldsC) / sizeof(char *), SyntaxRuleFieldsC);
+    Root(&SyntaxRuleRecordType);
 }

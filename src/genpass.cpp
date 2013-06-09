@@ -660,7 +660,12 @@ static FObject GPassMakeCall(FLambda * lam, FObject cdl, FObject op, int argc, F
         if (lam->UseStack == TrueObject)
             cdl = MakePair(MakeInstruction(PopCStackOpcode, AsFixnum(lam->SlotCount)), cdl);
 
-        cdl = MakePair(MakeInstruction(TailCallOpcode, 0), cdl);
+        if (ProcedureP(op))
+            cdl = MakePair(MakeInstruction(TailCallProcOpcode, 0), cdl);
+        else if (PrimitiveP(op))
+            cdl = MakePair(MakeInstruction(TailCallPrimOpcode, 0), cdl);
+        else
+            cdl = MakePair(MakeInstruction(TailCallOpcode, 0), cdl);
     }
     else
     {
@@ -670,7 +675,12 @@ static FObject GPassMakeCall(FLambda * lam, FObject cdl, FObject op, int argc, F
         if (cf == MultipleValuesFlag)
             cdl = MakePair(MakeInstruction(PushWantValuesOpcode, 0), cdl);
 
-        cdl = MakePair(MakeInstruction(CallOpcode, 0), cdl);
+        if (ProcedureP(op))
+            cdl = MakePair(MakeInstruction(CallProcOpcode, 0), cdl);
+        else if (PrimitiveP(op))
+            cdl = MakePair(MakeInstruction(CallPrimOpcode, 0), cdl);
+        else
+            cdl = MakePair(MakeInstruction(CallOpcode, 0), cdl);
 
         if (cf == MultipleValuesFlag)
             cdl = MakePair(MakeInstruction(PopCStackOpcode, 1), cdl);

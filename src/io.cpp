@@ -1404,12 +1404,22 @@ static FPrimitive * Primitives[] =
 void SetupIO()
 {
     StandardInput = MakeFILEPort(MakeStringC("--standard-input--"), stdin, 1, 0, 1);
+    Root(&StandardInput);
+
     StandardOutput = MakeFILEPort(MakeStringC("--standard-output--"), stdout, 0, 1, 1);
+    Root(&StandardOutput);
 
     QuoteSymbol = StringCToSymbol("quote");
+    Root(&QuoteSymbol);
+
     QuasiquoteSymbol = StringCToSymbol("quasiquote");
+    Root(&QuasiquoteSymbol);
+
     UnquoteSymbol = StringCToSymbol("unquote");
+    Root(&UnquoteSymbol);
+
     UnquoteSplicingSymbol = StringCToSymbol("unquote-splicing");
+    Root(&UnquoteSplicingSymbol);
 
     for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
