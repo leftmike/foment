@@ -219,4 +219,23 @@ typedef enum
     CaseLambdaOpcode
 } FOpcode;
 
+typedef struct
+{
+    int AStackSize;
+    FObject * AStack;
+    int AStackPtr;
+
+    int CStackSize;
+    FObject * CStack;
+    int CStackPtr;
+
+    FObject Proc;
+    FObject Frame;
+    int IP;
+    int ArgCount;
+} FExecuteState;
+
+void EnterExecute(FExecuteState * es);
+void LeaveExecute(FExecuteState * es);
+
 #endif // __EXECUTE_HPP__

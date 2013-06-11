@@ -27,6 +27,7 @@ void FAssertFailed(char * fn, int ln, char * expr)
 {
     printf("FAssert: %s (%d)%s\n", expr, ln, fn);
 
+    *((char *) 0) = 0;
     exit(1);
 }
 #endif // FOMENT_DEBUG
@@ -160,14 +161,14 @@ unsigned int EqHash(FObject obj)
 {
     if (SymbolP(obj))
         return(AsFixnum(AsSymbol(obj)->Hash));
+    else if (ObjectP(obj))
+        return(AsObjectHeader(obj)->Hash);
     return((unsigned int) obj);
 }
 
 unsigned int EqvHash(FObject obj)
 {
-    if (SymbolP(obj))
-        return(AsFixnum(AsSymbol(obj)->Hash));
-    return((unsigned int) obj);
+    return(EqHash(obj));
 }
 
 #define MaxHashDepth 128
@@ -913,6 +914,8 @@ static void SetupScheme()
     LibraryExport(BedrockLibrary, EnvironmentLookup(Bedrock, StringCToSymbol("and")));
 
     FObject port = MakeStringCInputPort(StartupCode);
+    Root(&port);
+
     for (;;)
     {
         FObject obj = Read(port, 1, 0);
@@ -921,6 +924,8 @@ static void SetupScheme()
             break;
         Eval(obj, Bedrock);
     }
+
+    DropRoot();
 }
 
 static char * FeaturesC[] =
@@ -960,14 +965,17 @@ void SetupFoment(int argc, char * argv[])
     Root(&SymbolHashtable);
 
     AsHashtable(SymbolHashtable)->Record.RecordType = HashtableRecordType;
-    AsHashtable(SymbolHashtable)->Buckets = MakeVector(23, 0, EmptyListObject);
+    AsHashtable(SymbolHashtable)->Buckets = MakeVector(941, 0, EmptyListObject);
     AsHashtable(SymbolHashtable)->Size = MakeFixnum(0);
 
     HashtableRecordType = MakeRecordTypeC("hashtable",
             sizeof(HashtableFieldsC) / sizeof(char *), HashtableFieldsC);
     AsHashtable(SymbolHashtable)->Record.RecordType = HashtableRecordType;
     AsHashtable(SymbolHashtable)->Record.NumFields = AsRecordType(HashtableRecordType)->NumFields;
-    AsObject(SymbolHashtable);
+
+#ifdef FOMENT_GCCHK
+    CheckSumObject(SymbolHashtable);
+#endif // FOMENT_GCCHK
     FAssert(ObjectLength(SymbolHashtable) == sizeof(FHashtable));
 
     SetupLibrary();
@@ -1045,6 +1053,7 @@ void SetupFoment(int argc, char * argv[])
     SetupNumbers();
     SetupScheme();
 
-    EnvironmentSetC(Bedrock, "standard-input", StandardInput);
-    EnvironmentSetC(Bedrock, "standard-output", StandardOutput);
+    LibraryExport(BedrockLibrary, EnvironmentSetC(Bedrock, "standard-input", StandardInput));
+    LibraryExport(BedrockLibrary, EnvironmentSetC(Bedrock, "standard-output", StandardOutput));
+    LibraryExport(BedrockLibrary, EnvironmentSetC(Bedrock, "symbol-hashtable", SymbolHashtable));
 }

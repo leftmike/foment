@@ -1098,10 +1098,16 @@ void SetupLibrary()
 {
     EnvironmentRecordType = MakeRecordTypeC("environment",
             sizeof(EnvironmentFieldsC) / sizeof(char *), EnvironmentFieldsC);
+    Root(&EnvironmentRecordType);
+
     GlobalRecordType = MakeRecordTypeC("global", sizeof(GlobalFieldsC) / sizeof(char *),
             GlobalFieldsC);
+    Root(&GlobalRecordType);
+
     LibraryRecordType = MakeRecordTypeC("library", sizeof(LibraryFieldsC) / sizeof(char *),
             LibraryFieldsC);
+    Root(&LibraryRecordType);
 
     NoValuePrimitiveObject = MakePrimitive(&NoValuePrimitive);
+    Root(&NoValuePrimitiveObject);
 }

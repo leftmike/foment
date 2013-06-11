@@ -2,24 +2,47 @@
 
 Foment
 
+Garbage Collection:
+-- C code does not have to worry about it if it doesn't want to, other than Modify
+-- #define AllowGC() if (GCRequired) ReadyToGC(<this thread>)
+-- StartAllowGC() and StopAllowGC() to denote a block of code where GC can occur; typically
+    around a potentially lengthy IO operation
+-- Root(obj) used to tell GC about a temporary root object; exceptions and return need to
+    stop rooting objects; rooting extra objects is ok, if it simplifies the C code
+-- generational collector
+-- copying collector for 1st generation
+-- mark-release or mark-compact for 2nd generation
+-- each thread has an allocation block for the 1st generation: no syncronization necessary to
+    allocate an object
+-- all object modifications need to check to see if a older generation is now pointing to a younger
+    generation
+-- GC does not occur during an allocation, only at AllowGC points for all threads
+
+-- use a table lookup for fix length objects:
+int FixedLength[] = {sizeof(FPair), ...};
+
 */
 
+#include <stdio.h>
 #include <malloc.h>
+#include <string.h>
 #include "foment.hpp"
+#include "execute.hpp"
 #include "io.hpp"
 
 unsigned int BytesAllocated;
-static char * HeapBase;
-static char * HeapPointer;
 
-void GarbageCollect()
-{
-    // EqHash and EqvHash assume that objects don't move (ie. change addresses)
-    
-    
-    
-    
-}
+static char * FirstSpace;
+static int FirstSpaceSize;
+static int FirstSpaceUsed;
+static char * SecondSpace;
+
+static int UsedRoots = 0;
+static FObject * Roots[128];
+static unsigned short Hash = 0;
+
+static FExecuteState * ExecuteState = 0;
+int GCRequired = 1;
 
 const static unsigned int Align4[4] = {0, 3, 2, 1};
 
@@ -81,8 +104,8 @@ int ObjectLength(FObject obj)
     case PrimitiveTag:
         return(sizeof(FPrimitive));
 
-//    default:
-//        FAssert(0);
+    default:
+        FAssert(0);
     }
 
     return(0);
@@ -96,12 +119,13 @@ FObject MakeObject(FObjectTag tag, unsigned int sz)
     len += Align4[len % 4];
     FAssert(len % 4 == 0);
     FAssert(len >= sz);
+    FAssert(len >= sizeof(FObject));
 
-//    FObjectHeader * oh = (FObjectHeader *) malloc(len + sizeof(FObjectHeader));
-    FObjectHeader * oh = (FObjectHeader *) HeapPointer;
-    HeapPointer += len + sizeof(FObjectHeader);
+    FObjectHeader * oh = (FObjectHeader *) (FirstSpace + FirstSpaceUsed);
+    FirstSpaceUsed += len + sizeof(FObjectHeader);
 
-    oh->Hash = 0;
+    oh->Hash = Hash;
+    Hash += 1;
     oh->Tag = tag;
     oh->GCFlags = 0;
 
@@ -118,24 +142,40 @@ FObject MakeObject(FObjectTag tag, unsigned int sz)
 
 void Root(FObject * rt)
 {
-    
-    
-    
+    UsedRoots += 1;
+
+    FAssert(UsedRoots < sizeof(Roots) / sizeof(FObject *));
+
+    Roots[UsedRoots - 1] = rt;
 }
 
-/*
-//    AsPair(argv[0])->Rest = argv[1];
-    Modify(FPair, argv[0], Rest, argv[1]);
-*/
+void DropRoot()
+{
+    UsedRoots -= 1;
+}
+
+void EnterExecute(FExecuteState * es)
+{
+    FAssert(ExecuteState == 0);
+
+    ExecuteState = es;
+}
+
+void LeaveExecute(FExecuteState * es)
+{
+    FAssert(ExecuteState == es);
+
+    ExecuteState = 0;
+}
 
 #ifdef FOMENT_GCCHK
-void AllowGC()
+static void VerifyCheckSums()
 {
-    char * hp = HeapBase;
+    char * sp = FirstSpace;
 
-    while (hp < HeapPointer)
+    while (sp < FirstSpace + FirstSpaceUsed)
     {
-        FObjectHeader * oh = (FObjectHeader *) hp;
+        FObjectHeader * oh = (FObjectHeader *) sp;
         FObject obj = (FObject) (oh + 1);
 
         if (StringP(obj) || BytevectorP(obj))
@@ -161,19 +201,23 @@ void AllowGC()
             }
         }
 
-        hp += ObjectLength(obj) + sizeof(FObjectHeader);
+        sp += ObjectLength(obj) + sizeof(FObjectHeader);
     }
 
-    FAssert(hp == HeapPointer);
+    FAssert(sp == FirstSpace + FirstSpaceUsed);
 }
 
-FObject AsObject(FObject obj)
+void CheckSumObject(FObject obj)
 {
     if (StringP(obj) || BytevectorP(obj))
         AsObjectHeader(obj)->CheckSum = 0;
     else
         AsObjectHeader(obj)->CheckSum = ByteLengthHash((char *) obj, ObjectLength(obj));
+}
 
+FObject AsObject(FObject obj)
+{
+    CheckSumObject(obj);
     return(obj);
 }
 #endif // FOMENT_GCCHK
@@ -187,7 +231,9 @@ void ModifyVector(FObject obj, int idx, FObject val)
     
     
     
-    AsObject(obj);
+#ifdef FOMENT_GCCHK
+    CheckSumObject(obj);
+#endif // FOMENT_GCCHK
 }
 
 void ModifyObject(FObject obj, int off, FObject val)
@@ -198,7 +244,125 @@ void ModifyObject(FObject obj, int off, FObject val)
     
     
     
-    AsObject(obj);
+#ifdef FOMENT_GCCHK
+    CheckSumObject(obj);
+#endif // FOMENT_GCCHK
+}
+
+#define GCFORWARD 0x80
+
+#define FowardedP(obj) (AsObjectHeader(obj)->GCFlags & GCFORWARD)
+
+static void Alive(FObject * pobj)
+{
+    FObject obj = *pobj;
+
+    if (ObjectP(obj))
+    {
+        if (FowardedP(obj))
+            *pobj = *((FObject *) obj);
+        else
+        {
+            int len = ObjectLength(obj);
+            FObjectHeader * oh = (FObjectHeader *) (FirstSpace + FirstSpaceUsed);
+            FirstSpaceUsed += len + sizeof(FObjectHeader);
+            FObject nobj = (FObject) (oh + 1);
+
+            memcpy(oh, AsObjectHeader(obj), len + sizeof(FObjectHeader));
+
+            AsObjectHeader(obj)->GCFlags |= GCFORWARD;
+            *((FObject *) obj) = nobj;
+            *pobj = nobj;
+
+            switch (ObjectTag(nobj))
+            {
+            case PairTag:
+                Alive(&(AsPair(nobj)->First));
+                Alive(&(AsPair(nobj)->Rest));
+                break;
+
+            case BoxTag:
+                Alive(&(AsBox(nobj)->Value));
+                break;
+
+            case StringTag:
+                break;
+
+            case VectorTag:
+                for (int vdx = 0; vdx < AsVector(nobj)->Length; vdx++)
+                    Alive(AsVector(nobj)->Vector + vdx);
+                break;
+
+            case BytevectorTag:
+                break;
+
+            case PortTag:
+                Alive(&(AsPort(nobj)->Name));
+                Alive(&(AsPort(nobj)->Object));
+                break;
+
+            case ProcedureTag:
+                Alive(&(AsProcedure(nobj)->Name));
+                Alive(&(AsProcedure(nobj)->Code));
+                Alive(&(AsProcedure(nobj)->RestArg));
+                break;
+
+            case SymbolTag:
+                Alive(&(AsSymbol(nobj)->String));
+                Alive(&(AsSymbol(nobj)->Hash));
+                break;
+
+            case RecordTypeTag:
+                Alive(&(AsRecordType(nobj)->Name));
+                for (int fdx = 0; fdx < AsRecordType(nobj)->NumFields; fdx++)
+                    Alive(AsRecordType(nobj)->Fields + fdx);
+                break;
+
+            case RecordTag:
+                Alive(&(AsGenericRecord(nobj)->Record.RecordType));
+                for (int fdx = 0; fdx < AsGenericRecord(nobj)->Record.NumFields; fdx++)
+                    Alive(AsGenericRecord(nobj)->Fields + fdx);
+                break;
+
+            case PrimitiveTag:
+                break;
+
+            default:
+                FAssert(0);
+
+#ifdef FOMENT_GCCHK
+            CheckSumObject(nobj);
+#endif // FOMENT_GCCHK
+            }
+        }
+    }
+}
+
+void GarbageCollect()
+{
+#ifdef FOMENT_GCCHK
+//    VerifyCheckSums();
+#endif // FOMENT_GCCHK
+
+    char * tmp = FirstSpace;
+    FirstSpace = SecondSpace;
+    SecondSpace = tmp;
+    FirstSpaceUsed = 0;
+
+    for (int rdx = 0; rdx < UsedRoots; rdx++)
+        Alive(Roots[rdx]);
+
+    if (ExecuteState != 0)
+    {
+        for (int adx = 0; adx < ExecuteState->AStackPtr; adx++)
+            Alive(ExecuteState->AStack + adx);
+
+        for (int cdx = 0; cdx < ExecuteState->CStackPtr; cdx++)
+            Alive(ExecuteState->CStack + cdx);
+
+        Alive(&ExecuteState->Proc);
+        Alive(&ExecuteState->Frame);
+    }
 }
 
 void SetupGC()
@@ -210,9 +374,12 @@ void SetupGC()
 
     BytesAllocated = 0;
 
-//    HeapBase = (char *) VirtualAlloc(0, 1024 * 1024 * 5, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    HeapBase = (char *) malloc(1024 * 1024 * 5);
-    FAssert(HeapBase != 0);
+    FirstSpaceSize = 1024 * 1024 * 5 - 256;
+    FirstSpace = (char *) malloc(FirstSpaceSize);
+    SecondSpace = (char *) malloc(FirstSpaceSize);
 
-    HeapPointer = HeapBase;
+    FAssert(FirstSpace != 0);
+    FAssert(SecondSpace != 0);
+
+    FirstSpaceUsed = 0;
 }

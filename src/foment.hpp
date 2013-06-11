@@ -27,22 +27,6 @@ To Do:
 
 -- garbage collection
 
-Garbage Collection:
--- C code does not have to worry about it if it doesn't want to, other than Modify
--- #define AllowGC() if (GCRequired) ReadyToGC(<this thread>)
--- StartAllowGC() and StopAllowGC() to denote a block of code where GC can occur; typically
-    around a potentially lengthy IO operation
--- Root(obj) used to tell GC about a temporary root object; exceptions and return need to
-    stop rooting objects; rooting extra objects is ok, if it simplifies the C code
--- generational collector
--- copying collector for 1st generation
--- mark-release or mark-compact for 2nd generation
--- each thread has an allocation block for the 1st generation: no syncronization necessary to
-    allocate an object
--- all object modifications need to check to see if a older generation is now pointing to a younger
-    generation
--- GC does not occur during an allocation, only at AllowGC points for all threads
-
 Bugs:
 
 -- Execute does not check for CStack or AStack overflow
@@ -62,10 +46,6 @@ void FAssertFailed(char * fn, int ln, char * expr);
     if (! (expr)) FAssertFailed(__FILE__, __LINE__, #expr)
 #else // FOMENT_DEBUG
 #define FAssert(expr)
-#endif // FOMENT_DEBUG
-
-#ifdef FOMENT_DEBUG
-#define HardwareBreak() *((char *) 0) = 0
 #endif // FOMENT_DEBUG
 
 typedef void * FObject;
@@ -137,20 +117,26 @@ inline FObjectTag ObjectTag(FObject obj)
 }
 
 void Root(FObject * rt);
+void DropRoot();
+
+extern int GCRequired;
+void GarbageCollect();
+#define AllowGC() if (GCRequired) GarbageCollect()
 
 #ifdef FOMENT_GCCHK
-void AllowGC();
-#else // FOMENT_GCCHK
-#define AllowGC()
-#endif // FOMENT_GCCHK
-
-#ifdef FOMENT_GCCHK
+void CheckSumObject(FObject obj);
 FObject AsObject(FObject obj);
 #else // FOMENT_GCCHK
 #define AsObject(ptr) ((FObject) (ptr))
+#define CheckSumObject(obj)
 #endif // FOMENT_GCCHK
 
 void ModifyVector(FObject obj, int idx, FObject val);
+
+/*
+//    AsPair(argv[0])->Rest = argv[1];
+    Modify(FPair, argv[0], Rest, argv[1]);
+*/
 #define Modify(type, obj, slot, val)\
     ModifyObject(obj, (int) &(((type *) 0)->slot), val)
 
@@ -615,7 +601,6 @@ typedef struct
 {
     FObject Name;
     FObject Code;
-    FObject Special;
     FObject RestArg;
     int ArgCount;
     unsigned int Flags;

@@ -17,6 +17,8 @@ static void LoadFile(FObject fn, FObject env)
     try
     {
         FObject port = OpenInputFile(fn, 1);
+        Root(&port);
+        Root(&env);
 
         for (;;)
         {
@@ -38,11 +40,17 @@ static void LoadFile(FObject fn, FObject env)
         WritePretty(StandardOutput, obj, 0);
         PutCh(StandardOutput, '\n');
     }
+
+    DropRoot();
+    DropRoot();
 }
 
 static int RunRepl(FObject env)
 {
     int ln = 1;
+
+    Root(&env);
+
     for (;;)
     {
         try
@@ -80,6 +88,8 @@ static int RunRepl(FObject env)
 
         ln = GetLocation(StandardInput) + 1;
     }
+
+    DropRoot();
 
     return(0);
 }

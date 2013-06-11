@@ -43,7 +43,10 @@ void ClosePort(FObject port)
         {
             AsPort(port)->CloseFn(AsPort(port)->Context, AsPort(port)->Object);
             AsPort(port)->Context = 0;
-            AsObject(port);
+
+#ifdef FOMENT_GCCHK
+            CheckSumObject(port);
+#endif // FOMENT_GCCHK
         }
     }
 }

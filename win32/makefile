@@ -65,7 +65,7 @@ debug\txt2cpp.exe: debug\txt2cpp.obj
     debug\txt2cpp.obj
 
 debug\foment.obj: ..\src\foment.cpp ..\src\foment.hpp
-debug\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\io.hpp
+debug\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\io.hpp
 debug\compile.obj: ..\src\compile.cpp ..\src\foment.hpp ..\src\compile.hpp
 debug\synrules.obj: ..\src\synrules.cpp ..\src\foment.hpp ..\src\compile.hpp
 debug\synpass.obj: ..\src\synpass.cpp ..\src\foment.hpp ..\src\compile.hpp
@@ -84,7 +84,7 @@ debug\startup.obj: debug\startup.cpp
 debug\test.obj: ..\src\test.cpp ..\src\foment.hpp
 
 release\foment.obj: ..\src\foment.cpp ..\src\foment.hpp
-release\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\io.hpp
+release\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\io.hpp
 release\compile.obj: ..\src\compile.cpp ..\src\foment.hpp ..\src\compile.hpp
 release\synrules.obj: ..\src\synrules.cpp ..\src\foment.hpp ..\src\compile.hpp
 release\synpass.obj: ..\src\synpass.cpp ..\src\foment.hpp ..\src\compile.hpp

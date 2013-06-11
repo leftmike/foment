@@ -14,11 +14,18 @@ static int TestFile(char * fn, FObject env)
     try
     {
         FObject port = OpenInputFile(MakeStringC(fn), 1);
+        FObject obj = NoValueObject;
+        FObject exp = NoValueObject;
+
+        Root(&env);
+        Root(&port);
+        Root(&obj);
+        Root(&exp);
 
         for (;;)
         {
             int ln = GetLocation(port) + 1;
-            FObject obj = Read(port, 1, 0);
+            obj = Read(port, 1, 0);
             if (obj == EndOfFileObject)
                 break;
             if (PairP(obj) && IdentifierP(First(obj))
@@ -36,7 +43,7 @@ static int TestFile(char * fn, FObject env)
                 }
 
                 FObject ret = Eval(First(Rest(Rest(obj))), env);
-                FObject exp = SyntaxToDatum(First(Rest(obj)));
+                exp = SyntaxToDatum(First(Rest(obj)));
                 if (EqualP(ret, exp) == 0)
                 {
                     FCh s[16];
@@ -70,7 +77,7 @@ static int TestFile(char * fn, FObject env)
                     return(1);
                 }
 
-                FObject exp = SyntaxToDatum(First(Rest(obj)));
+                exp = SyntaxToDatum(First(Rest(obj)));
                 if (PairP(exp) == 0)
                 {
                     PutStringC(StandardOutput,
@@ -134,6 +141,11 @@ static int TestFile(char * fn, FObject env)
         return(1);
     }
 
+    DropRoot();
+    DropRoot();
+    DropRoot();
+    DropRoot();
+
     return(0);
 }
 
@@ -141,8 +153,13 @@ int RunTest(FObject env, int argc, char * argv[])
 {
     int ret;
 
+    Root(&env);
+
     MustEqualSymbol = StringCToSymbol("must-equal");
+    Root(&MustEqualSymbol);
+
     MustRaiseSymbol = StringCToSymbol("must-raise");
+    Root(&MustRaiseSymbol);
 
     PutStringC(StandardOutput, "Testing.\n");
 
