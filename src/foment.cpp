@@ -10,17 +10,7 @@ Foment
 #include "foment.hpp"
 
 FConfig Config = {1, 1, 1, 0};
-
-FObject Bedrock;
-FObject BedrockLibrary;
-FObject EllipsisSymbol;
-FObject Features;
-FObject CommandLine;
-FObject FullCommandLine;
-FObject LibraryPath;
-
-FObject HashtableRecordType;
-FObject ExceptionRecordType;
+FRoots R;
 
 #ifdef FOMENT_DEBUG
 void FAssertFailed(char * fn, int ln, char * expr)
@@ -130,7 +120,8 @@ void WriteSpecialSyntax(FObject port, FObject obj, int df)
 Define("boolean?", BooleanPPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(Assertion, "boolean?", "boolean?: expected one argument", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "boolean?", "boolean?: expected one argument",
+                EmptyListObject);
 
     return(BooleanP(argv[0]) ? TrueObject : FalseObject);
 }
@@ -138,7 +129,7 @@ Define("boolean?", BooleanPPrimitive)(int argc, FObject argv[])
 Define("not", NotPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(Assertion, "not", "not: expected one argument", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "not", "not: expected one argument", EmptyListObject);
 
     return(argv[0] == FalseObject ? TrueObject : FalseObject);
 }
@@ -225,7 +216,8 @@ unsigned int EqualHash(FObject obj)
 Define("eq-hash", EqHashPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(Assertion, "eq-hash", "eq-hash: expected one argument", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "eq-hash", "eq-hash: expected one argument",
+                EmptyListObject);
 
     return(MakeFixnum(EqHash(argv[0])));
 }
@@ -233,7 +225,8 @@ Define("eq-hash", EqHashPrimitive)(int argc, FObject argv[])
 Define("eqv-hash", EqvHashPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(Assertion, "eqv-hash", "eqv-hash: expected one argument", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "eqv-hash", "eqv-hash: expected one argument",
+                EmptyListObject);
 
     return(MakeFixnum(EqvHash(argv[0])));
 }
@@ -241,7 +234,7 @@ Define("eqv-hash", EqvHashPrimitive)(int argc, FObject argv[])
 Define("equal-hash", EqualHashPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(Assertion, "equal-hash", "equal-hash: expected one argument",
+        RaiseExceptionC(R.Assertion, "equal-hash", "equal-hash: expected one argument",
                 EmptyListObject);
 
     return(MakeFixnum(EqualHash(argv[0])));
@@ -281,7 +274,7 @@ FObject MakeHashtable(int nb)
             }
     }
 
-    FHashtable * ht = (FHashtable *) MakeRecord(HashtableRecordType);
+    FHashtable * ht = (FHashtable *) MakeRecord(R.HashtableRecordType);
     ht->Buckets = MakeVector(nb, 0, EmptyListObject);
     ht->Size = MakeFixnum(0);
 
@@ -510,14 +503,13 @@ void HashtableWalkVisit(FObject ht, FWalkVisitFn wfn, FObject ctx)
 
 // ---- Symbols ----
 
-static FObject SymbolHashtable;
 static unsigned int NextSymbolHash = 1;
 
 FObject StringToSymbol(FObject str)
 {
     FAssert(StringP(str));
 
-    FObject obj = HashtableRef(SymbolHashtable, str, FalseObject, StringEqualP, StringHash);
+    FObject obj = HashtableRef(R.SymbolHashtable, str, FalseObject, StringEqualP, StringHash);
     if (obj == FalseObject)
     {
         FSymbol * sym = (FSymbol *) MakeObject(SymbolTag, sizeof(FSymbol));
@@ -529,7 +521,7 @@ FObject StringToSymbol(FObject str)
 
         FAssert(ObjectLength(obj) == sizeof(FSymbol));
 
-        HashtableSet(SymbolHashtable, str, obj, StringEqualP, StringHash);
+        HashtableSet(R.SymbolHashtable, str, obj, StringEqualP, StringHash);
     }
 
     FAssert(SymbolP(obj));
@@ -543,7 +535,7 @@ FObject StringCToSymbol(char * s)
 
 FObject StringLengthToSymbol(FCh * s, int sl)
 {
-    FObject obj = HashtableStringRef(SymbolHashtable, s, sl, FalseObject);
+    FObject obj = HashtableStringRef(R.SymbolHashtable, s, sl, FalseObject);
     if (obj == FalseObject)
     {
         FSymbol * sym = (FSymbol *) MakeObject(SymbolTag, sizeof(FSymbol));
@@ -555,7 +547,7 @@ FObject StringLengthToSymbol(FCh * s, int sl)
 
         FAssert(ObjectLength(obj) == sizeof(FSymbol));
 
-        HashtableSet(SymbolHashtable, sym->String, obj, StringEqualP, StringHash);
+        HashtableSet(R.SymbolHashtable, sym->String, obj, StringEqualP, StringHash);
     }
 
     FAssert(SymbolP(obj));
@@ -655,7 +647,7 @@ FObject MakeException(FObject typ, FObject who, FObject msg, FObject lst)
 {
     FAssert(sizeof(FException) == sizeof(ExceptionFieldsC) + sizeof(FRecord));
 
-    FException * exc = (FException *) MakeRecord(ExceptionRecordType);
+    FException * exc = (FException *) MakeRecord(R.ExceptionRecordType);
     exc->Type = typ;
     exc->Who = who;
     exc->Message = msg;
@@ -679,20 +671,14 @@ void Raise(FObject obj)
     throw obj;
 }
 
-FObject Assertion;
-FObject Restriction;
-FObject Lexical;
-FObject Syntax;
-FObject Error;
-
 Define("error", ErrorPrimitive)(int argc, FObject argv[])
 {
     if (argc < 1)
-        RaiseExceptionC(Assertion, "error", "error: expected at least one argument",
+        RaiseExceptionC(R.Assertion, "error", "error: expected at least one argument",
                 EmptyListObject);
 
     if (StringP(argv[0]) == 0)
-        RaiseExceptionC(Assertion, "error", "error: expected a string", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "error", "error: expected a string", List(argv[0]));
 
     FObject lst = EmptyListObject;
     while (argc > 1)
@@ -701,7 +687,7 @@ Define("error", ErrorPrimitive)(int argc, FObject argv[])
         lst = MakePair(argv[argc], lst);
     }
 
-    throw MakeException(Assertion, StringCToSymbol("error"), argv[0], lst);
+    throw MakeException(R.Assertion, StringCToSymbol("error"), argv[0], lst);
 
     return(NoValueObject);
 }
@@ -709,17 +695,20 @@ Define("error", ErrorPrimitive)(int argc, FObject argv[])
 Define("full-error", FullErrorPrimitive)(int argc, FObject argv[])
 {
     if (argc < 3)
-        RaiseExceptionC(Assertion, "full-error", "full-error: expected at least three arguments",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "full-error",
+                "full-error: expected at least three arguments", EmptyListObject);
 
     if (SymbolP(argv[0]) == 0)
-        RaiseExceptionC(Assertion, "full-error", "full-error: expected a symbol", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "full-error", "full-error: expected a symbol",
+                List(argv[0]));
 
     if (SymbolP(argv[1]) == 0)
-        RaiseExceptionC(Assertion, "full-error", "full-error: expected a symbol", List(argv[1]));
+        RaiseExceptionC(R.Assertion, "full-error", "full-error: expected a symbol",
+                List(argv[1]));
 
     if (StringP(argv[2]) == 0)
-        RaiseExceptionC(Assertion, "full-error", "full-error: expected a string", List(argv[2]));
+        RaiseExceptionC(R.Assertion, "full-error", "full-error: expected a string",
+                List(argv[2]));
 
     FObject lst = EmptyListObject;
     while (argc > 3)
@@ -817,7 +806,7 @@ int EqualP(FObject obj1, FObject obj2)
 Define("eq?", EqPPrimitive)(int argc, FObject argv[])
 {
     if (argc != 2)
-        RaiseExceptionC(Assertion, "eq?", "eq?: expected two arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "eq?", "eq?: expected two arguments", EmptyListObject);
 
     return(EqP(argv[0], argv[1]) ? TrueObject : FalseObject);
 }
@@ -825,7 +814,7 @@ Define("eq?", EqPPrimitive)(int argc, FObject argv[])
 Define("eqv?", EqvPPrimitive)(int argc, FObject argv[])
 {
     if (argc != 2)
-        RaiseExceptionC(Assertion, "eqv?", "eqv?: expected two arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "eqv?", "eqv?: expected two arguments", EmptyListObject);
 
     return(EqvP(argv[0], argv[1]) ? TrueObject : FalseObject);
 }
@@ -833,7 +822,8 @@ Define("eqv?", EqvPPrimitive)(int argc, FObject argv[])
 Define("equal?", EqualPPrimitive)(int argc, FObject argv[])
 {
     if (argc != 2)
-        RaiseExceptionC(Assertion, "equal?", "equal?: expected two arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "equal?", "equal?: expected two arguments",
+                EmptyListObject);
 
     return(EqualP(argv[0], argv[1]) ? TrueObject : FalseObject);
 }
@@ -843,10 +833,10 @@ Define("equal?", EqualPPrimitive)(int argc, FObject argv[])
 Define("command-line", CommandLinePrimitive)(int argc, FObject argv[])
 {
     if (argc != 0)
-        RaiseExceptionC(Assertion, "command-line", "command-line: expected no arguments",
+        RaiseExceptionC(R.Assertion, "command-line", "command-line: expected no arguments",
                 EmptyListObject);
 
-    return(CommandLine);
+    return(R.CommandLine);
 }
 
 // Foment specific
@@ -854,28 +844,28 @@ Define("command-line", CommandLinePrimitive)(int argc, FObject argv[])
 Define("loaded-libraries", LoadedLibrariesPrimitive)(int argc, FObject argv[])
 {
     if (argc != 0)
-        RaiseExceptionC(Assertion, "loaded-libraries", "loaded-libraries: expected no arguments",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "loaded-libraries",
+                "loaded-libraries: expected no arguments", EmptyListObject);
 
-    return(LoadedLibraries);
+    return(R.LoadedLibraries);
 }
 
 Define("library-path", LibraryPathPrimitive)(int argc, FObject argv[])
 {
     if (argc != 0)
-        RaiseExceptionC(Assertion, "library-path", "library-path: expected no arguments",
+        RaiseExceptionC(R.Assertion, "library-path", "library-path: expected no arguments",
                 EmptyListObject);
 
-    return(LibraryPath);
+    return(R.LibraryPath);
 }
 
 Define("full-command-line", FullCommandLinePrimitive)(int argc, FObject argv[])
 {
     if (argc != 0)
-        RaiseExceptionC(Assertion, "full-command-line", "full-command-line: expected no arguments",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "full-command-line",
+                "full-command-line: expected no arguments", EmptyListObject);
 
-    return(FullCommandLine);
+    return(R.FullCommandLine);
 }
 
 // ---- Primitives ----
@@ -909,12 +899,12 @@ static void SetupScheme()
             "(syntax-rules ()"
                 "((and) #t)"
                 "((and test) test)"
-                "((and test1 test2 ...) (if test1 (and test2 ...) #f))))", 1), Bedrock);
+                "((and test1 test2 ...) (if test1 (and test2 ...) #f))))", 1), R.Bedrock);
 
-    LibraryExport(BedrockLibrary, EnvironmentLookup(Bedrock, StringCToSymbol("and")));
+    LibraryExport(R.BedrockLibrary, EnvironmentLookup(R.Bedrock, StringCToSymbol("and")));
 
     FObject port = MakeStringCInputPort(StartupCode);
-    Root(&port);
+    PushRoot(&port);
 
     for (;;)
     {
@@ -922,10 +912,10 @@ static void SetupScheme()
 
         if (obj == EndOfFileObject)
             break;
-        Eval(obj, Bedrock);
+        Eval(obj, R.Bedrock);
     }
 
-    DropRoot();
+    PopRoot();
 }
 
 static char * FeaturesC[] =
@@ -958,80 +948,59 @@ void SetupFoment(int argc, char * argv[])
 {
     SetupGC();
 
-    HashtableRecordType = NoValueObject;
-    Root(&HashtableRecordType);
+    FObject * rv = (FObject *) &R;
+    for (int rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
+        rv[rdx] = NoValueObject;
 
-    SymbolHashtable = MakeObject(RecordTag, sizeof(FHashtable));
-    Root(&SymbolHashtable);
+//    HashtableRecordType = NoValueObject;
+    FAssert(R.HashtableRecordType == NoValueObject);
+    R.SymbolHashtable = MakeObject(RecordTag, sizeof(FHashtable));
 
-    AsHashtable(SymbolHashtable)->Record.RecordType = HashtableRecordType;
-    AsHashtable(SymbolHashtable)->Buckets = MakeVector(941, 0, EmptyListObject);
-    AsHashtable(SymbolHashtable)->Size = MakeFixnum(0);
+    AsHashtable(R.SymbolHashtable)->Record.RecordType = R.HashtableRecordType;
+    AsHashtable(R.SymbolHashtable)->Buckets = MakeVector(941, 0, EmptyListObject);
+    AsHashtable(R.SymbolHashtable)->Size = MakeFixnum(0);
 
-    HashtableRecordType = MakeRecordTypeC("hashtable",
+    R.HashtableRecordType = MakeRecordTypeC("hashtable",
             sizeof(HashtableFieldsC) / sizeof(char *), HashtableFieldsC);
-    AsHashtable(SymbolHashtable)->Record.RecordType = HashtableRecordType;
-    AsHashtable(SymbolHashtable)->Record.NumFields = AsRecordType(HashtableRecordType)->NumFields;
+    AsHashtable(R.SymbolHashtable)->Record.RecordType = R.HashtableRecordType;
+    AsHashtable(R.SymbolHashtable)->Record.NumFields =
+            AsRecordType(R.HashtableRecordType)->NumFields;
 
 #ifdef FOMENT_GCCHK
-    CheckSumObject(SymbolHashtable);
+    CheckSumObject(R.SymbolHashtable);
 #endif // FOMENT_GCCHK
-    FAssert(ObjectLength(SymbolHashtable) == sizeof(FHashtable));
+    FAssert(ObjectLength(R.SymbolHashtable) == sizeof(FHashtable));
 
     SetupLibrary();
-    ExceptionRecordType = MakeRecordTypeC("exception",
+    R.ExceptionRecordType = MakeRecordTypeC("exception",
             sizeof(ExceptionFieldsC) / sizeof(char *), ExceptionFieldsC);
-    Root(&ExceptionRecordType);
-
-    EllipsisSymbol = StringCToSymbol("...");
-    Root(&EllipsisSymbol);
-
-    Assertion = StringCToSymbol("assertion-violation");
-    Root(&Assertion);
-
-    Restriction = StringCToSymbol("implementation-restriction");
-    Root(&Restriction);
-
-    Lexical = StringCToSymbol("lexical-violation");
-    Root(&Lexical);
-
-    Syntax = StringCToSymbol("syntax-violation");
-    Root(&Syntax);
-
-    Error = StringCToSymbol("error-violation");
-    Root(&Error);
+    R.EllipsisSymbol = StringCToSymbol("...");
+    R.Assertion = StringCToSymbol("assertion-violation");
+    R.Restriction = StringCToSymbol("implementation-restriction");
+    R.Lexical = StringCToSymbol("lexical-violation");
+    R.Syntax = StringCToSymbol("syntax-violation");
+    R.Error = StringCToSymbol("error-violation");
 
     FObject nam = List(StringCToSymbol("foment"), StringCToSymbol("bedrock"));
-    Bedrock = MakeEnvironment(nam, FalseObject);
-    Root(&Bedrock);
-
-    LoadedLibraries = EmptyListObject;
-    Root(&LoadedLibraries);
-
-    BedrockLibrary = MakeLibrary(nam);
-    Root(&BedrockLibrary);
+    R.Bedrock = MakeEnvironment(nam, FalseObject);
+    R.LoadedLibraries = EmptyListObject;
+    R.BedrockLibrary = MakeLibrary(nam);
 
     for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
-        DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
+        DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 
     for (int n = 0; n < sizeof(SpecialSyntaxes) / sizeof(char *); n++)
-        LibraryExport(BedrockLibrary, EnvironmentSetC(Bedrock, SpecialSyntaxes[n],
+        LibraryExport(R.BedrockLibrary, EnvironmentSetC(R.Bedrock, SpecialSyntaxes[n],
                 MakeImmediate(n, SpecialSyntaxTag)));
 
-    Features = EmptyListObject;
-    Root(&Features);
+    R.Features = EmptyListObject;
 
     for (int idx = 0; idx < sizeof(FeaturesC) / sizeof(char *); idx++)
-        Features = MakePair(StringCToSymbol(FeaturesC[idx]), Features);
+        R.Features = MakePair(StringCToSymbol(FeaturesC[idx]), R.Features);
 
-    FullCommandLine = MakeCommandLine(argc, argv);
-    Root(&FullCommandLine);
-
-    CommandLine = FullCommandLine;
-    Root(&CommandLine);
-
-    LibraryPath = MakePair(MakeStringC("."), EmptyListObject);
-    Root(&LibraryPath);
+    R.FullCommandLine = MakeCommandLine(argc, argv);
+    R.CommandLine = R.FullCommandLine;
+    R.LibraryPath = MakePair(MakeStringC("."), EmptyListObject);
 
     if (argc > 0)
     {
@@ -1039,7 +1008,7 @@ void SetupFoment(int argc, char * argv[])
         if (s != 0)
         {
             *s = 0;
-            LibraryPath = MakePair(MakeStringC(argv[0]), LibraryPath);
+            R.LibraryPath = MakePair(MakeStringC(argv[0]), R.LibraryPath);
             *s = PathCh;
         }
     }
@@ -1053,7 +1022,10 @@ void SetupFoment(int argc, char * argv[])
     SetupNumbers();
     SetupScheme();
 
-    LibraryExport(BedrockLibrary, EnvironmentSetC(Bedrock, "standard-input", StandardInput));
-    LibraryExport(BedrockLibrary, EnvironmentSetC(Bedrock, "standard-output", StandardOutput));
-    LibraryExport(BedrockLibrary, EnvironmentSetC(Bedrock, "symbol-hashtable", SymbolHashtable));
+    LibraryExport(R.BedrockLibrary,
+            EnvironmentSetC(R.Bedrock, "standard-input", R.StandardInput));
+    LibraryExport(R.BedrockLibrary,
+            EnvironmentSetC(R.Bedrock, "standard-output", R.StandardOutput));
+    LibraryExport(R.BedrockLibrary,
+            EnvironmentSetC(R.Bedrock, "symbol-hashtable", R.SymbolHashtable));
 }

@@ -17,10 +17,10 @@ static int TestFile(char * fn, FObject env)
         FObject obj = NoValueObject;
         FObject exp = NoValueObject;
 
-        Root(&env);
-        Root(&port);
-        Root(&obj);
-        Root(&exp);
+        PushRoot(&env);
+        PushRoot(&port);
+        PushRoot(&obj);
+        PushRoot(&exp);
 
         for (;;)
         {
@@ -34,10 +34,10 @@ static int TestFile(char * fn, FObject env)
                 if (PairP(Rest(obj)) == 0 || PairP(Rest(Rest(obj))) == 0 ||
                         Rest(Rest(Rest(obj))) != EmptyListObject)
                 {
-                    PutStringC(StandardOutput,
+                    PutStringC(R.StandardOutput,
                             "test: expected (must-equal <expected> <expression>): ");
-                    WritePretty(StandardOutput, SyntaxToDatum(obj), 0);
-                    PutCh(StandardOutput, '\n');
+                    WritePretty(R.StandardOutput, SyntaxToDatum(obj), 0);
+                    PutCh(R.StandardOutput, '\n');
 
                     return(1);
                 }
@@ -49,16 +49,16 @@ static int TestFile(char * fn, FObject env)
                     FCh s[16];
                     int sl;
 
-                    PutStringC(StandardOutput, fn);
-                    PutCh(StandardOutput, '@');
+                    PutStringC(R.StandardOutput, fn);
+                    PutCh(R.StandardOutput, '@');
                     sl = NumberAsString(ln, s, 10);
-                    PutString(StandardOutput, s, sl);
+                    PutString(R.StandardOutput, s, sl);
 
-                    PutStringC(StandardOutput, " must-equal: expected: ");
-                    WritePretty(StandardOutput, exp, 0);
-                    PutStringC(StandardOutput, " got: ");
-                    WritePretty(StandardOutput, ret, 0);
-                    PutCh(StandardOutput, '\n');
+                    PutStringC(R.StandardOutput, " must-equal: expected: ");
+                    WritePretty(R.StandardOutput, exp, 0);
+                    PutStringC(R.StandardOutput, " got: ");
+                    WritePretty(R.StandardOutput, ret, 0);
+                    PutCh(R.StandardOutput, '\n');
 
                     return(1);
                 }
@@ -69,10 +69,10 @@ static int TestFile(char * fn, FObject env)
                 if (PairP(Rest(obj)) == 0 || PairP(Rest(Rest(obj))) == 0 ||
                         Rest(Rest(Rest(obj))) != EmptyListObject)
                 {
-                    PutStringC(StandardOutput,
+                    PutStringC(R.StandardOutput,
                             "test: expected (must-raise <exception> <expression>): ");
-                    WritePretty(StandardOutput, SyntaxToDatum(obj), 0);
-                    PutCh(StandardOutput, '\n');
+                    WritePretty(R.StandardOutput, SyntaxToDatum(obj), 0);
+                    PutCh(R.StandardOutput, '\n');
 
                     return(1);
                 }
@@ -80,10 +80,10 @@ static int TestFile(char * fn, FObject env)
                 exp = SyntaxToDatum(First(Rest(obj)));
                 if (PairP(exp) == 0)
                 {
-                    PutStringC(StandardOutput,
+                    PutStringC(R.StandardOutput,
                             "test: expected (<type> [<who>]) for <exception>: ");
-                    WritePretty(StandardOutput, exp, 0);
-                    PutCh(StandardOutput, '\n');
+                    WritePretty(R.StandardOutput, exp, 0);
+                    PutCh(R.StandardOutput, '\n');
 
                     return(1);
                 }
@@ -95,12 +95,12 @@ static int TestFile(char * fn, FObject env)
                     FCh s[16];
                     int sl;
 
-                    PutStringC(StandardOutput, fn);
-                    PutCh(StandardOutput, '@');
+                    PutStringC(R.StandardOutput, fn);
+                    PutCh(R.StandardOutput, '@');
                     sl = NumberAsString(ln, s, 10);
-                    PutString(StandardOutput, s, sl);
+                    PutString(R.StandardOutput, s, sl);
 
-                    PutStringC(StandardOutput, " must-raise: no exception raised\n");
+                    PutStringC(R.StandardOutput, " must-raise: no exception raised\n");
 
                     return(1);
                 }
@@ -112,16 +112,16 @@ static int TestFile(char * fn, FObject env)
                         FCh s[16];
                         int sl;
 
-                        PutStringC(StandardOutput, fn);
-                        PutCh(StandardOutput, '@');
+                        PutStringC(R.StandardOutput, fn);
+                        PutCh(R.StandardOutput, '@');
                         sl = NumberAsString(ln, s, 10);
-                        PutString(StandardOutput, s, sl);
+                        PutString(R.StandardOutput, s, sl);
 
-                        PutStringC(StandardOutput, " must-raise: expected: ");
-                        WritePretty(StandardOutput, exp, 0);
-                        PutStringC(StandardOutput, " got: ");
-                        WritePretty(StandardOutput, exc, 0);
-                        PutCh(StandardOutput, '\n');
+                        PutStringC(R.StandardOutput, " must-raise: expected: ");
+                        WritePretty(R.StandardOutput, exp, 0);
+                        PutStringC(R.StandardOutput, " got: ");
+                        WritePretty(R.StandardOutput, exc, 0);
+                        PutCh(R.StandardOutput, '\n');
 
                         return(1);
                     }
@@ -134,17 +134,17 @@ static int TestFile(char * fn, FObject env)
     catch (FObject obj)
     {
         if (ExceptionP(obj) == 0)
-            PutStringC(StandardOutput, "exception: ");
-        WritePretty(StandardOutput, obj, 0);
-        PutCh(StandardOutput, '\n');
+            PutStringC(R.StandardOutput, "exception: ");
+        WritePretty(R.StandardOutput, obj, 0);
+        PutCh(R.StandardOutput, '\n');
 
         return(1);
     }
 
-    DropRoot();
-    DropRoot();
-    DropRoot();
-    DropRoot();
+    PopRoot();
+    PopRoot();
+    PopRoot();
+    PopRoot();
 
     return(0);
 }
@@ -153,39 +153,39 @@ int RunTest(FObject env, int argc, char * argv[])
 {
     int ret;
 
-    Root(&env);
+    PushRoot(&env);
 
     MustEqualSymbol = StringCToSymbol("must-equal");
-    Root(&MustEqualSymbol);
+    PushRoot(&MustEqualSymbol);
 
     MustRaiseSymbol = StringCToSymbol("must-raise");
-    Root(&MustRaiseSymbol);
+    PushRoot(&MustRaiseSymbol);
 
-    PutStringC(StandardOutput, "Testing.\n");
+    PutStringC(R.StandardOutput, "Testing.\n");
 
     for (int adx = 0; adx < argc; adx++)
     {
-        PutStringC(StandardOutput, "    ");
-        PutStringC(StandardOutput, argv[adx]);
-        PutCh(StandardOutput, '\n');
+        PutStringC(R.StandardOutput, "    ");
+        PutStringC(R.StandardOutput, argv[adx]);
+        PutCh(R.StandardOutput, '\n');
 
         ret = TestFile(argv[adx], env);
         if (ret != 0)
         {
-            PutStringC(StandardOutput, "Failed.");
+            PutStringC(R.StandardOutput, "Failed.");
             return(ret);
         }
     }
 
-    PutStringC(StandardOutput, "Passed.\n");
+    PutStringC(R.StandardOutput, "Passed.\n");
 
     FCh s[16];
     int sl;
 
-    PutStringC(StandardOutput, "Bytes Allocated: ");
+    PutStringC(R.StandardOutput, "Bytes Allocated: ");
     sl = NumberAsString(BytesAllocated, s, 10);
-    PutString(StandardOutput, s, sl);
-    PutCh(StandardOutput, '\n');
+    PutString(R.StandardOutput, s, sl);
+    PutCh(R.StandardOutput, '\n');
 
 AllowGC();
 

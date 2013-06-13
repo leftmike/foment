@@ -287,10 +287,11 @@ int StringCEqualP(char * s, FObject obj)
 Define("string-hash", StringHashPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(Assertion, "string-hash", "string-hash: expected one argument",
+        RaiseExceptionC(R.Assertion, "string-hash", "string-hash: expected one argument",
                 EmptyListObject);
     if (StringP(argv[0]) == 0)
-        RaiseExceptionC(Assertion, "string-hash", "string-hash: expected a string", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "string-hash",
+                "string-hash: expected a string", List(argv[0]));
 
     return(MakeFixnum(StringHash(argv[0])));
 }
@@ -298,12 +299,12 @@ Define("string-hash", StringHashPrimitive)(int argc, FObject argv[])
 Define("string=?", StringEqualPPrimitive)(int argc, FObject argv[])
 {
     if (argc != 2)
-        RaiseExceptionC(Assertion, "string=?", "string=?: expected two arguments",
+        RaiseExceptionC(R.Assertion, "string=?", "string=?: expected two arguments",
                 EmptyListObject);
     if (StringP(argv[0]) == 0)
-        RaiseExceptionC(Assertion, "string=?", "string=?: expected a string", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "string=?", "string=?: expected a string", List(argv[0]));
     if (StringP(argv[1]) == 0)
-        RaiseExceptionC(Assertion, "string=?", "string=?: expected a string", List(argv[1]));
+        RaiseExceptionC(R.Assertion, "string=?", "string=?: expected a string", List(argv[1]));
 
     return(StringEqualP(argv[0], argv[1]) ? TrueObject : FalseObject);
 }
@@ -317,5 +318,5 @@ static FPrimitive * Primitives[] =
 void SetupStrings()
 {
     for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
-        DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
+        DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

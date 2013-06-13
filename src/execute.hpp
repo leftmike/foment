@@ -7,10 +7,6 @@ Foment
 #ifndef __EXECUTE_HPP__
 #define __EXECUTE_HPP__
 
-extern FObject WrongNumberOfArguments;
-extern FObject NotCallable;
-extern FObject UnexpectedNumberOfValues;
-
 // ---- Instruction ----
 
 #define MakeInstruction(op, arg)\

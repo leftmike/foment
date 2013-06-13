@@ -17,8 +17,8 @@ static void LoadFile(FObject fn, FObject env)
     try
     {
         FObject port = OpenInputFile(fn, 1);
-        Root(&port);
-        Root(&env);
+        PushRoot(&port);
+        PushRoot(&env);
 
         for (;;)
         {
@@ -28,28 +28,28 @@ static void LoadFile(FObject fn, FObject env)
             FObject ret = Eval(obj, env);
             if (ret != NoValueObject)
             {
-                WritePretty(StandardOutput, ret, 0);
-                PutCh(StandardOutput, '\n');
+                WritePretty(R.StandardOutput, ret, 0);
+                PutCh(R.StandardOutput, '\n');
             }
         }
     }
     catch (FObject obj)
     {
         if (ExceptionP(obj) == 0)
-            PutStringC(StandardOutput, "exception: ");
-        WritePretty(StandardOutput, obj, 0);
-        PutCh(StandardOutput, '\n');
+            PutStringC(R.StandardOutput, "exception: ");
+        WritePretty(R.StandardOutput, obj, 0);
+        PutCh(R.StandardOutput, '\n');
     }
 
-    DropRoot();
-    DropRoot();
+    PopRoot();
+    PopRoot();
 }
 
 static int RunRepl(FObject env)
 {
     int ln = 1;
 
-    Root(&env);
+    PushRoot(&env);
 
     for (;;)
     {
@@ -58,38 +58,38 @@ static int RunRepl(FObject env)
             FCh s[16];
             int sl;
 
-            PutCh(StandardOutput, '{');
+            PutCh(R.StandardOutput, '{');
             sl = NumberAsString(BytesAllocated, s, 10);
-            PutString(StandardOutput, s, sl);
-            PutStringC(StandardOutput, "} ");
+            PutString(R.StandardOutput, s, sl);
+            PutStringC(R.StandardOutput, "} ");
             BytesAllocated = 0;
 
             sl = NumberAsString(ln, s, 10);
-            PutString(StandardOutput, s, sl);
-            PutStringC(StandardOutput, " =] ");
+            PutString(R.StandardOutput, s, sl);
+            PutStringC(R.StandardOutput, " =] ");
 
-            FObject obj = Read(StandardInput, 1, 0);
+            FObject obj = Read(R.StandardInput, 1, 0);
             if (obj == EndOfFileObject)
                 break;
             FObject ret = Eval(obj, env);
             if (ret != NoValueObject)
             {
-                WritePretty(StandardOutput, ret, 0);
-                PutCh(StandardOutput, '\n');
+                WritePretty(R.StandardOutput, ret, 0);
+                PutCh(R.StandardOutput, '\n');
             }
         }
         catch (FObject obj)
         {
             if (ExceptionP(obj) == 0)
-                PutStringC(StandardOutput, "exception: ");
-            WritePretty(StandardOutput, obj, 0);
-            PutCh(StandardOutput, '\n');
+                PutStringC(R.StandardOutput, "exception: ");
+            WritePretty(R.StandardOutput, obj, 0);
+            PutCh(R.StandardOutput, '\n');
         }
 
-        ln = GetLocation(StandardInput) + 1;
+        ln = GetLocation(R.StandardInput) + 1;
     }
 
-    DropRoot();
+    PopRoot();
 
     return(0);
 }
@@ -142,7 +142,7 @@ int main(int argc, char * argv[])
     catch (FObject obj)
     {
         printf("Unexpected exception: SetupFoment: %x\n", obj);
-        WritePretty(StandardOutput, obj, 0);
+        WritePretty(R.StandardOutput, obj, 0);
         return(1);
     }
 
@@ -188,8 +188,8 @@ int main(int argc, char * argv[])
                     FObject ret = Eval(ReadStringC(argv[adx], 1), GetInteractionEnv());
                     if (argv[adx - 1][1] == 'p')
                     {
-                        WritePretty(StandardOutput, ret, 0);
-                        PutCh(StandardOutput, '\n');
+                        WritePretty(R.StandardOutput, ret, 0);
+                        PutCh(R.StandardOutput, '\n');
                     }
 
                     break;
@@ -201,7 +201,7 @@ int main(int argc, char * argv[])
 
                 case 'A':
                 {
-                    FObject lp = LibraryPath;
+                    FObject lp = R.LibraryPath;
 
                     for (;;)
                     {
@@ -218,7 +218,7 @@ int main(int argc, char * argv[])
                 }
 
                 case 'I':
-                    LibraryPath = MakePair(MakeStringC(argv[adx]), LibraryPath);
+                    R.LibraryPath = MakePair(MakeStringC(argv[adx]), R.LibraryPath);
                     break;
 
                 default:
@@ -231,7 +231,7 @@ int main(int argc, char * argv[])
         }
 
         FAssert(adx <= argc);
-        CommandLine = MakeCommandLine(argc - adx, argv + adx);
+        R.CommandLine = MakeCommandLine(argc - adx, argv + adx);
 
         if (mode == ReplMode || adx == argc)
             return(RunRepl(GetInteractionEnv()));
@@ -254,7 +254,7 @@ int main(int argc, char * argv[])
             if (s != 0)
             {
                 *s = 0;
-                LibraryPath = MakePair(MakeStringC(argv[adx]), LibraryPath);
+                R.LibraryPath = MakePair(MakeStringC(argv[adx]), R.LibraryPath);
                 *s = PathCh;
             }
         }
@@ -266,9 +266,9 @@ int main(int argc, char * argv[])
     catch (FObject obj)
     {
         if (ExceptionP(obj) == 0)
-            PutStringC(StandardOutput, "exception: ");
-        WritePretty(StandardOutput, obj, 0);
-        PutCh(StandardOutput, '\n');
+            PutStringC(R.StandardOutput, "exception: ");
+        WritePretty(R.StandardOutput, obj, 0);
+        PutCh(R.StandardOutput, '\n');
 
         return(1);
     }

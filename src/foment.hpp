@@ -29,6 +29,7 @@ To Do:
 
 Bugs:
 
+-- execute.cpp: DynamicEnvironment needs to be put someplace
 -- Execute does not check for CStack or AStack overflow
 -- parameters are broken for threads
 -- string input ports have not been tested at all
@@ -116,8 +117,9 @@ inline FObjectTag ObjectTag(FObject obj)
     return((FObjectTag) (ObjectP(obj) ? AsObjectHeader(obj)->Tag : 0));
 }
 
-void Root(FObject * rt);
-void DropRoot();
+void PushRoot(FObject * rt);
+void PopRoot();
+void ClearRoots();
 
 extern int GCRequired;
 void GarbageCollect();
@@ -368,9 +370,6 @@ int InputPortP(FObject obj);
 int OutputPortP(FObject obj);
 void ClosePort(FObject port);
 
-extern FObject StandardInput;
-extern FObject StandardOutput;
-
 FObject OpenInputFile(FObject fn, int ref);
 FObject OpenOutputFile(FObject fn, int ref);
 
@@ -435,7 +434,7 @@ inline int RecordP(FObject obj, FObject rt)
 
 // ---- Hashtables ----
 
-#define HashtableP(obj) RecordP(obj, HashtableRecordType)
+#define HashtableP(obj) RecordP(obj, R.HashtableRecordType)
 #define AsHashtable(obj) ((FHashtable *) (obj))
 
 typedef int (*FEquivFn)(FObject obj1, FObject obj2);
@@ -461,8 +460,6 @@ unsigned int HashtableSize(FObject ht);
 void HashtableWalkUpdate(FObject ht, FWalkUpdateFn wfn, FObject ctx);
 void HashtableWalkDelete(FObject ht, FWalkDeleteFn wfn, FObject ctx);
 void HashtableWalkVisit(FObject ht, FWalkVisitFn wfn, FObject ctx);
-
-extern FObject HashtableRecordType;
 
 // ---- Symbols ----
 
@@ -504,7 +501,7 @@ void DefinePrimitive(FObject env, FObject lib, FPrimitive * prim);
 
 // ---- Environments ----
 
-#define EnvironmentP(obj) RecordP(obj, EnvironmentRecordType)
+#define EnvironmentP(obj) RecordP(obj, R.EnvironmentRecordType)
 #define AsEnvironment(obj) ((FEnvironment *) (obj))
 
 typedef struct
@@ -526,11 +523,9 @@ FObject EnvironmentGet(FObject env, FObject sym);
 void EnvironmentImportLibrary(FObject env, FObject nam);
 void EnvironmentImport(FObject env, FObject form);
 
-extern FObject EnvironmentRecordType;
-
 // ---- Globals ----
 
-#define GlobalP(obj) RecordP(obj, GlobalRecordType)
+#define GlobalP(obj) RecordP(obj, R.GlobalRecordType)
 #define AsGlobal(obj) ((FGlobal *) (obj))
 
 typedef struct
@@ -544,8 +539,6 @@ typedef struct
     FObject Interactive;
 } FGlobal;
 
-extern FObject GlobalRecordType;
-
 #define GlobalUndefined MakeFixnum(0)
 #define GlobalDefined MakeFixnum(1)
 #define GlobalModified MakeFixnum(2)
@@ -554,7 +547,7 @@ extern FObject GlobalRecordType;
 
 // ---- Libraries ----
 
-#define LibraryP(obj) RecordP(obj, LibraryRecordType)
+#define LibraryP(obj) RecordP(obj, R.LibraryRecordType)
 #define AsLibrary(obj) ((FLibrary *) (obj))
 
 typedef struct
@@ -568,13 +561,9 @@ typedef struct
 FObject MakeLibrary(FObject nam);
 void LibraryExport(FObject lib, FObject gl);
 
-extern FObject LibraryRecordType;
-extern FObject LoadedLibraries;
-
 // ---- Syntax Rules ----
 
-#define SyntaxRulesP(obj) RecordP(obj, SyntaxRulesRecordType)
-extern FObject SyntaxRulesRecordType;
+#define SyntaxRulesP(obj) RecordP(obj, R.SyntaxRulesRecordType)
 
 // ---- Identifiers ----
 
@@ -588,9 +577,7 @@ typedef struct
 } FIdentifier;
 
 #define AsIdentifier(obj) ((FIdentifier *) (obj))
-#define IdentifierP(obj) RecordP(obj, IdentifierRecordType)
-
-extern FObject IdentifierRecordType;
+#define IdentifierP(obj) RecordP(obj, R.IdentifierRecordType)
 
 FObject MakeIdentifier(FObject sym, int ln);
 FObject WrapIdentifier(FObject id, FObject se);
@@ -627,20 +614,12 @@ typedef struct
 } FException;
 
 #define AsException(obj) ((FException *) (obj))
-#define ExceptionP(obj) RecordP(obj, ExceptionRecordType)
-
-extern FObject ExceptionRecordType;
+#define ExceptionP(obj) RecordP(obj, R.ExceptionRecordType)
 
 FObject MakeException(FObject typ, FObject who, FObject msg, FObject lst);
 void RaiseException(FObject typ, FObject who, FObject msg, FObject lst);
 void RaiseExceptionC(FObject typ, char * who, char * msg, FObject lst);
 void Raise(FObject obj);
-
-extern FObject Assertion;
-extern FObject Restriction;
-extern FObject Lexical;
-extern FObject Syntax;
-extern FObject Error;
 
 // ---- Config ----
 
@@ -656,12 +635,79 @@ extern FConfig Config;
 
 // ----------------
 
-extern FObject Bedrock;
-extern FObject BedrockLibrary;
-extern FObject EllipsisSymbol;
-extern FObject Features;
-extern FObject CommandLine;
-extern FObject LibraryPath;
+typedef struct
+{
+    FObject Bedrock;
+    FObject BedrockLibrary;
+    FObject EllipsisSymbol;
+    FObject Features;
+    FObject CommandLine;
+    FObject FullCommandLine;
+    FObject LibraryPath;
+
+    FObject SymbolHashtable;
+
+    FObject HashtableRecordType;
+    FObject ExceptionRecordType;
+
+    FObject Assertion;
+    FObject Restriction;
+    FObject Lexical;
+    FObject Syntax;
+    FObject Error;
+
+    FObject LoadedLibraries;
+
+    FObject UnderscoreSymbol;
+    FObject TagSymbol;
+
+    FObject SyntacticEnvRecordType;
+    FObject BindingRecordType;
+    FObject IdentifierRecordType;
+    FObject LambdaRecordType;
+    FObject CaseLambdaRecordType;
+    FObject InlineVariableRecordType;
+    FObject ReferenceRecordType;
+
+    FObject ElseReference;
+    FObject ArrowReference;
+    FObject LibraryReference;
+    FObject AndReference;
+    FObject OrReference;
+    FObject NotReference;
+    FObject QuasiquoteReference;
+    FObject UnquoteReference;
+    FObject UnquoteSplicingReference;
+    FObject ConsReference;
+    FObject AppendReference;
+    FObject ListToVectorReference;
+    FObject InteractionEnv;
+
+    FObject StandardInput;
+    FObject StandardOutput;
+    FObject QuoteSymbol;
+    FObject QuasiquoteSymbol;
+    FObject UnquoteSymbol;
+    FObject UnquoteSplicingSymbol;
+
+    FObject SyntaxRulesRecordType;
+    FObject PatternVariableRecordType;
+    FObject PatternRepeatRecordType;
+    FObject TemplateRepeatRecordType;
+    FObject SyntaxRuleRecordType;
+
+    FObject EnvironmentRecordType;
+    FObject GlobalRecordType;
+    FObject LibraryRecordType;
+    FObject NoValuePrimitiveObject;
+
+    FObject WrongNumberOfArguments;
+    FObject NotCallable;
+    FObject UnexpectedNumberOfValues;
+    FObject UndefinedMessage;
+} FRoots;
+
+extern FRoots R;
 
 extern unsigned int BytesAllocated;
 

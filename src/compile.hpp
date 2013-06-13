@@ -7,21 +7,6 @@ Foment
 #ifndef __COMPILE_HPP__
 #define __COMPILE_HPP__
 
-extern FObject UnderscoreSymbol;
-extern FObject TagSymbol;
-extern FObject ElseReference;
-extern FObject ArrowReference;
-extern FObject LibraryReference;
-extern FObject AndReference;
-extern FObject OrReference;
-extern FObject NotReference;
-extern FObject QuasiquoteReference;
-extern FObject UnquoteReference;
-extern FObject UnquoteSplicingReference;
-extern FObject ConsReference;
-extern FObject AppendReference;
-extern FObject ListToVectorReference;
-
 // ---- SyntacticEnv ----
 
 typedef struct
@@ -32,9 +17,7 @@ typedef struct
 } FSyntacticEnv;
 
 #define AsSyntacticEnv(obj) ((FSyntacticEnv *) (obj))
-#define SyntacticEnvP(obj) RecordP(obj, SyntacticEnvRecordType)
-
-extern FObject SyntacticEnvRecordType;
+#define SyntacticEnvP(obj) RecordP(obj, R.SyntacticEnvRecordType)
 
 FObject MakeSyntacticEnv(FObject obj);
 
@@ -58,9 +41,7 @@ typedef struct
 } FBinding;
 
 #define AsBinding(obj) ((FBinding *) (obj))
-#define BindingP(obj) RecordP(obj, BindingRecordType)
-
-extern FObject BindingRecordType;
+#define BindingP(obj) RecordP(obj, R.BindingRecordType)
 
 FObject MakeBinding(FObject se, FObject id, FObject ra);
 
@@ -74,9 +55,7 @@ typedef struct
 } FReference;
 
 #define AsReference(obj) ((FReference *) (obj))
-#define ReferenceP(obj) RecordP(obj, ReferenceRecordType)
-
-extern FObject ReferenceRecordType;
+#define ReferenceP(obj) RecordP(obj, R.ReferenceRecordType)
 
 FObject MakeReference(FObject be, FObject id);
 
@@ -105,9 +84,7 @@ typedef struct
 } FLambda;
 
 #define AsLambda(obj) ((FLambda *) (obj))
-#define LambdaP(obj) RecordP(obj, LambdaRecordType)
-
-extern FObject LambdaRecordType;
+#define LambdaP(obj) RecordP(obj, R.LambdaRecordType)
 
 FObject MakeLambda(FObject nam, FObject bs, FObject body);
 
@@ -123,9 +100,7 @@ typedef struct
 } FCaseLambda;
 
 #define AsCaseLambda(obj) ((FCaseLambda *) (obj))
-#define CaseLambdaP(obj) RecordP(obj, CaseLambdaRecordType)
-
-extern FObject CaseLambdaRecordType;
+#define CaseLambdaP(obj) RecordP(obj, R.CaseLambdaRecordType)
 
 FObject MakeCaseLambda(FObject cases);
 
@@ -139,9 +114,7 @@ typedef struct
 } FInlineVariable;
 
 #define AsInlineVariable(obj) ((FInlineVariable *) (obj))
-#define InlineVariableP(obj) RecordP(obj, InlineVariableRecordType)
-
-extern FObject InlineVariableRecordType;
+#define InlineVariableP(obj) RecordP(obj, R.InlineVariableRecordType)
 
 FObject MakeInlineVariable(int idx);
 

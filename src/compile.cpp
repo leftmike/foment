@@ -7,27 +7,8 @@ Foment
 #include "foment.hpp"
 #include "compile.hpp"
 
-FObject UnderscoreSymbol;
-FObject TagSymbol;
-
-FObject ElseReference;
-FObject ArrowReference;
-FObject LibraryReference;
-FObject AndReference;
-FObject OrReference;
-FObject NotReference;
-FObject QuasiquoteReference;
-FObject UnquoteReference;
-FObject UnquoteSplicingReference;
-FObject ConsReference;
-FObject AppendReference;
-FObject ListToVectorReference;
-
-static FObject InteractionEnv;
-
 // ---- SyntacticEnv ----
 
-FObject SyntacticEnvRecordType;
 static char * SyntacticEnvFieldsC[] = {"global-bindings", "local-bindings"};
 
 FObject MakeSyntacticEnv(FObject obj)
@@ -35,7 +16,7 @@ FObject MakeSyntacticEnv(FObject obj)
     FAssert(sizeof(FSyntacticEnv) == sizeof(SyntacticEnvFieldsC) + sizeof(FRecord));
     FAssert(EnvironmentP(obj) || SyntacticEnvP(obj));
 
-    FSyntacticEnv * se = (FSyntacticEnv *) MakeRecord(SyntacticEnvRecordType);
+    FSyntacticEnv * se = (FSyntacticEnv *) MakeRecord(R.SyntacticEnvRecordType);
     if (EnvironmentP(obj))
     {
         se->GlobalBindings = obj;
@@ -52,7 +33,6 @@ FObject MakeSyntacticEnv(FObject obj)
 
 // ---- Binding ----
 
-FObject BindingRecordType;
 static char * BindingFieldsC[] = {"identifier", "syntax", "syntactic-env", "rest-arg", "use-count",
     "set-count", "escapes", "level", "slot", "constant"};
 
@@ -63,7 +43,7 @@ FObject MakeBinding(FObject se, FObject id, FObject ra)
     FAssert(IdentifierP(id));
     FAssert(ra == TrueObject || ra == FalseObject);
 
-    FBinding * b = (FBinding *) MakeRecord(BindingRecordType);
+    FBinding * b = (FBinding *) MakeRecord(R.BindingRecordType);
     b->Identifier = id;
     b->Syntax = NoValueObject;
     b->SyntacticEnv = se;
@@ -83,7 +63,6 @@ FObject MakeBinding(FObject se, FObject id, FObject ra)
 
 static int IdentifierMagic = 0;
 
-FObject IdentifierRecordType;
 static char * IdentifierFieldsC[] = {"symbol", "line-number", "magic", "syntactic-env"};
 
 FObject MakeIdentifier(FObject sym, int ln)
@@ -91,7 +70,7 @@ FObject MakeIdentifier(FObject sym, int ln)
     FAssert(sizeof(FIdentifier) == sizeof(IdentifierFieldsC) + sizeof(FRecord));
     FAssert(SymbolP(sym));
 
-    FIdentifier * i = (FIdentifier *) MakeRecord(IdentifierRecordType);
+    FIdentifier * i = (FIdentifier *) MakeRecord(R.IdentifierRecordType);
     i->Symbol = sym;
     i->LineNumber = MakeFixnum(ln);
 
@@ -113,7 +92,7 @@ FObject WrapIdentifier(FObject id, FObject se)
     FAssert(sizeof(FIdentifier) == sizeof(IdentifierFieldsC) + sizeof(FRecord));
     FAssert(SyntacticEnvP(se));
 
-    FIdentifier * i = (FIdentifier *) MakeRecord(IdentifierRecordType);
+    FIdentifier * i = (FIdentifier *) MakeRecord(R.IdentifierRecordType);
     i->Symbol = AsIdentifier(id)->Symbol;
     i->LineNumber = AsIdentifier(id)->LineNumber;
     i->Magic = AsIdentifier(id)->Magic;
@@ -124,7 +103,6 @@ FObject WrapIdentifier(FObject id, FObject se)
 
 // ---- Lambda ----
 
-FObject LambdaRecordType;
 static char * LambdaFieldsC[] = {"name", "bindings", "body", "rest-arg", "arg-count",
     "escapes", "use-stack", "level", "slot-count", "middle-pass", "procedure", "body-index",
     "may-inline"};
@@ -133,7 +111,7 @@ FObject MakeLambda(FObject nam, FObject bs, FObject body)
 {
     FAssert(sizeof(FLambda) == sizeof(LambdaFieldsC) + sizeof(FRecord));
 
-    FLambda * l = (FLambda *) MakeRecord(LambdaRecordType);
+    FLambda * l = (FLambda *) MakeRecord(R.LambdaRecordType);
     l->Name = nam;
     l->Bindings = bs;
     l->Body = body;
@@ -156,14 +134,13 @@ FObject MakeLambda(FObject nam, FObject bs, FObject body)
 
 // ---- CaseLambda ----
 
-FObject CaseLambdaRecordType;
 static char * CaseLambdaFieldsC[] = {"cases", "name", "escapes"};
 
 FObject MakeCaseLambda(FObject cases)
 {
     FAssert(sizeof(FCaseLambda) == sizeof(CaseLambdaFieldsC) + sizeof(FRecord));
 
-    FCaseLambda * cl = (FCaseLambda *) MakeRecord(CaseLambdaRecordType);
+    FCaseLambda * cl = (FCaseLambda *) MakeRecord(R.CaseLambdaRecordType);
     cl->Cases = cases;
     cl->Name = NoValueObject;
     cl->Escapes = FalseObject;
@@ -173,7 +150,6 @@ FObject MakeCaseLambda(FObject cases)
 
 // ---- InlineVariable ----
 
-FObject InlineVariableRecordType;
 static char * InlineVariableFieldsC[] = {"index"};
 
 FObject MakeInlineVariable(int idx)
@@ -182,7 +158,7 @@ FObject MakeInlineVariable(int idx)
 
     FAssert(idx >= 0);
 
-    FInlineVariable * iv = (FInlineVariable *) MakeRecord(InlineVariableRecordType);
+    FInlineVariable * iv = (FInlineVariable *) MakeRecord(R.InlineVariableRecordType);
     iv->Index = MakeFixnum(idx);
 
     return(AsObject(iv));
@@ -190,7 +166,6 @@ FObject MakeInlineVariable(int idx)
 
 // ---- Reference ----
 
-FObject ReferenceRecordType;
 static char * ReferenceFieldsC[] = {"binding", "identifier"};
 
 FObject MakeReference(FObject be, FObject id)
@@ -199,7 +174,7 @@ FObject MakeReference(FObject be, FObject id)
     FAssert(BindingP(be) || EnvironmentP(be));
     FAssert(IdentifierP(id));
 
-    FReference * r = (FReference *) MakeRecord(ReferenceRecordType);
+    FReference * r = (FReference *) MakeRecord(R.ReferenceRecordType);
     r->Binding = be;
     r->Identifier = id;
 
@@ -219,14 +194,14 @@ FObject CompileLambda(FObject env, FObject name, FObject formals, FObject body)
 
 FObject GetInteractionEnv()
 {
-    if (EnvironmentP(InteractionEnv) == 0)
+    if (EnvironmentP(R.InteractionEnv) == 0)
     {
-        InteractionEnv = MakeEnvironment(List(StringCToSymbol("interaction")), TrueObject);
-        EnvironmentImportLibrary(InteractionEnv,
+        R.InteractionEnv = MakeEnvironment(List(StringCToSymbol("interaction")), TrueObject);
+        EnvironmentImportLibrary(R.InteractionEnv,
                 List(StringCToSymbol("scheme"), StringCToSymbol("base")));
     }
 
-    return(InteractionEnv);
+    return(R.InteractionEnv);
 }
 
 // ----------------
@@ -234,11 +209,11 @@ FObject GetInteractionEnv()
 Define("compile-eval", CompileEvalPrimitive)(int argc, FObject argv[])
 {
     if (argc != 2)
-        RaiseExceptionC(Assertion, "compile-eval", "compile-eval: expected two arguments",
+        RaiseExceptionC(R.Assertion, "compile-eval", "compile-eval: expected two arguments",
                 EmptyListObject);
 
     if (EnvironmentP(argv[1]) == 0)
-        RaiseExceptionC(Assertion, "compile-eval", "compile-eval: expected an environment",
+        RaiseExceptionC(R.Assertion, "compile-eval", "compile-eval: expected an environment",
                 List(argv[1]));
 
     return(CompileEval(DatumToSyntax(argv[0]), argv[1]));
@@ -247,7 +222,7 @@ Define("compile-eval", CompileEvalPrimitive)(int argc, FObject argv[])
 Define("interaction-environment", InteractionEnvironmentPrimitive)(int argc, FObject argv[])
 {
     if (argc != 0)
-        RaiseExceptionC(Assertion, "interaction-environment",
+        RaiseExceptionC(R.Assertion, "interaction-environment",
                 "interaction-environment: expected no arguments", EmptyListObject);
 
     return(GetInteractionEnv());
@@ -256,21 +231,21 @@ Define("interaction-environment", InteractionEnvironmentPrimitive)(int argc, FOb
 Define("compile", CompilePrimitive)(int argc, FObject argv[])
 {
     if (argc < 2 || argc > 3)
-        RaiseExceptionC(Assertion, "compile", "compile: expected two or three arguments",
+        RaiseExceptionC(R.Assertion, "compile", "compile: expected two or three arguments",
                 EmptyListObject);
 
     if (argc == 2)
-        return(CompileLambda(Bedrock, NoValueObject, argv[0], argv[1]));
-    return(CompileLambda(Bedrock, argv[0], argv[1], argv[2]));
+        return(CompileLambda(R.Bedrock, NoValueObject, argv[0], argv[1]));
+    return(CompileLambda(R.Bedrock, argv[0], argv[1], argv[2]));
 }
 
 Define("syntax-pass", SyntaxPassPrimitive)(int argc, FObject argv[])
 {
     if (argc < 2 || argc > 3)
-        RaiseExceptionC(Assertion, "syntax-pass", "syntax-pass: expected two or three arguments",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "syntax-pass",
+                "syntax-pass: expected two or three arguments", EmptyListObject);
 
-    FObject se = MakeSyntacticEnv(Bedrock);
+    FObject se = MakeSyntacticEnv(R.Bedrock);
 
     if (argc == 2)
         return(SPassLambda(se, NoValueObject, DatumToSyntax(argv[0]), DatumToSyntax(argv[1])));
@@ -281,11 +256,11 @@ Define("syntax-pass", SyntaxPassPrimitive)(int argc, FObject argv[])
 Define("middle-pass", MiddlePassPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(Assertion, "middle-pass", "middle-pass: expected one argument",
+        RaiseExceptionC(R.Assertion, "middle-pass", "middle-pass: expected one argument",
                 EmptyListObject);
 
     if (LambdaP(argv[0]) == 0)
-        RaiseExceptionC(Assertion, "middle-pass", "middle-pass: expected a lambda",
+        RaiseExceptionC(R.Assertion, "middle-pass", "middle-pass: expected a lambda",
                 List(argv[0]));
 
     MPassLambda(AsLambda(argv[0]));
@@ -295,11 +270,11 @@ Define("middle-pass", MiddlePassPrimitive)(int argc, FObject argv[])
 Define("generate-pass", GeneratePassPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(Assertion, "generate-pass", "generate-pass: expected one argument",
+        RaiseExceptionC(R.Assertion, "generate-pass", "generate-pass: expected one argument",
                 EmptyListObject);
 
     if (LambdaP(argv[0]) == 0)
-        RaiseExceptionC(Assertion, "generate-pass", "generate-pass: expected a lambda",
+        RaiseExceptionC(R.Assertion, "generate-pass", "generate-pass: expected a lambda",
                 List(argv[0]));
 
     return(GPassLambda(AsLambda(argv[0])));
@@ -307,38 +282,41 @@ Define("generate-pass", GeneratePassPrimitive)(int argc, FObject argv[])
 
 Define("keyword", KeywordPrimitive)(int argc, FObject argv[])
 {
-    FObject env = Bedrock;
+    FObject env = R.Bedrock;
 
     if (argc != 1)
-        RaiseExceptionC(Assertion, "keyword", "keyword: expected one argument", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "keyword", "keyword: expected one argument",
+                EmptyListObject);
 
     if (SymbolP(argv[0]) == 0)
-        RaiseExceptionC(Assertion, "keyword", "keyword: expected a symbol", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "keyword", "keyword: expected a symbol", List(argv[0]));
 
     FObject val = EnvironmentGet(env, argv[0]);
     if (SpecialSyntaxP(val) == 0)
-        RaiseExceptionC(Assertion, "keyword", "keyword: symbol is not bound to special syntax",
-                List(argv[0]));
+        RaiseExceptionC(R.Assertion, "keyword",
+                "keyword: symbol is not bound to special syntax", List(argv[0]));
 
     return(val);
 }
 
 Define("syntax", SyntaxPrimitive)(int argc, FObject argv[])
 {
-    FObject env = Bedrock;
+    FObject env = R.Bedrock;
 
     if (argc != 1)
-        RaiseExceptionC(Assertion, "syntax", "syntax: expected one argument", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "syntax", "syntax: expected one argument",
+                EmptyListObject);
 
-    return(ExpandExpression(MakeSyntacticEnv(Bedrock), DatumToSyntax(argv[0])));
+    return(ExpandExpression(MakeSyntacticEnv(R.Bedrock), DatumToSyntax(argv[0])));
 }
 
 Define("unsyntax", UnsyntaxPrimitive)(int argc, FObject argv[])
 {
-    FObject env = Bedrock;
+    FObject env = R.Bedrock;
 
     if (argc != 1)
-        RaiseExceptionC(Assertion, "unsyntax", "unsyntax: expected one argument", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "unsyntax", "unsyntax: expected one argument",
+                EmptyListObject);
 
     return(SyntaxToDatum(argv[0]));
 }
@@ -358,83 +336,46 @@ static FPrimitive * Primitives[] =
 
 void SetupCompile()
 {
-    SyntacticEnvRecordType = MakeRecordTypeC("syntactic-env",
+    R.SyntacticEnvRecordType = MakeRecordTypeC("syntactic-env",
             sizeof(SyntacticEnvFieldsC) / sizeof(char *), SyntacticEnvFieldsC);
-    Root(&SyntacticEnvRecordType);
-
-    BindingRecordType = MakeRecordTypeC("binding", sizeof(BindingFieldsC) / sizeof(char *),
+    R.BindingRecordType = MakeRecordTypeC("binding", sizeof(BindingFieldsC) / sizeof(char *),
             BindingFieldsC);
-    Root(&BindingRecordType);
-
-    ReferenceRecordType = MakeRecordTypeC("reference", sizeof(ReferenceFieldsC) / sizeof(char *),
-            ReferenceFieldsC);
-    Root(&ReferenceRecordType);
-
-    LambdaRecordType = MakeRecordTypeC("lambda", sizeof(LambdaFieldsC) / sizeof(char *),
+    R.ReferenceRecordType = MakeRecordTypeC("reference",
+            sizeof(ReferenceFieldsC) / sizeof(char *), ReferenceFieldsC);
+    R.LambdaRecordType = MakeRecordTypeC("lambda", sizeof(LambdaFieldsC) / sizeof(char *),
             LambdaFieldsC);
-    Root(&LambdaRecordType);
-
-    CaseLambdaRecordType = MakeRecordTypeC("case-lambda",
+    R.CaseLambdaRecordType = MakeRecordTypeC("case-lambda",
             sizeof(CaseLambdaFieldsC) / sizeof(char *), CaseLambdaFieldsC);
-    Root(&CaseLambdaRecordType);
-
-    InlineVariableRecordType = MakeRecordTypeC("inline-variable",
+    R.InlineVariableRecordType = MakeRecordTypeC("inline-variable",
             sizeof(InlineVariableFieldsC) / sizeof(char *), InlineVariableFieldsC);
-    Root(&InlineVariableRecordType);
-
-    IdentifierRecordType = MakeRecordTypeC("identifier",
+    R.IdentifierRecordType = MakeRecordTypeC("identifier",
             sizeof(IdentifierFieldsC) / sizeof(char *), IdentifierFieldsC);
-    Root(&IdentifierRecordType);
 
-    ElseReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("else"), 0));
-    Root(&ElseReference);
-
-    ArrowReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("=>"), 0));
-    Root(&ArrowReference);
-
-    LibraryReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("library"), 0));
-    Root(&LibraryReference);
-
-    AndReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("and"), 0));
-    Root(&AndReference);
-
-    OrReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("or"), 0));
-    Root(&OrReference);
-
-    NotReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("not"), 0));
-    Root(&NotReference);
-
-    QuasiquoteReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("quasiquote"), 0));
-    Root(&QuasiquoteReference);
-
-    UnquoteReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("unquote"), 0));
-    Root(&UnquoteReference);
-
-    UnquoteSplicingReference = MakeReference(Bedrock,
+    R.ElseReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("else"), 0));
+    R.ArrowReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("=>"), 0));
+    R.LibraryReference = MakeReference(R.Bedrock,
+            MakeIdentifier(StringCToSymbol("library"), 0));
+    R.AndReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("and"), 0));
+    R.OrReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("or"), 0));
+    R.NotReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("not"), 0));
+    R.QuasiquoteReference = MakeReference(R.Bedrock,
+            MakeIdentifier(StringCToSymbol("quasiquote"), 0));
+    R.UnquoteReference = MakeReference(R.Bedrock,
+            MakeIdentifier(StringCToSymbol("unquote"), 0));
+    R.UnquoteSplicingReference = MakeReference(R.Bedrock,
             MakeIdentifier(StringCToSymbol("unquote-splicing"), 0));
-    Root(&UnquoteSplicingReference);
-
-    ConsReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("cons"), 0));
-    Root(&ConsReference);
-
-    AppendReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("append"), 0));
-    Root(&AppendReference);
-
-    ListToVectorReference = MakeReference(Bedrock,
+    R.ConsReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("cons"), 0));
+    R.AppendReference = MakeReference(R.Bedrock,
+            MakeIdentifier(StringCToSymbol("append"), 0));
+    R.ListToVectorReference = MakeReference(R.Bedrock,
             MakeIdentifier(StringCToSymbol("list->vector"), 0));
-    Root(&ListToVectorReference);
 
-    UnderscoreSymbol = StringCToSymbol("_");
-    Root(&UnderscoreSymbol);
-
-    TagSymbol = StringCToSymbol("tag");
-    Root(&TagSymbol);
-
-    InteractionEnv = NoValueObject;
-    Root(&InteractionEnv);
+    R.UnderscoreSymbol = StringCToSymbol("_");
+    R.TagSymbol = StringCToSymbol("tag");
+    R.InteractionEnv = NoValueObject;
 
     SetupSyntaxRules();
 
     for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
-        DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
+        DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

@@ -140,7 +140,7 @@ FObject MakeObject(FObjectTag tag, unsigned int sz)
     return(obj);
 }
 
-void Root(FObject * rt)
+void PushRoot(FObject * rt)
 {
     UsedRoots += 1;
 
@@ -149,9 +149,16 @@ void Root(FObject * rt)
     Roots[UsedRoots - 1] = rt;
 }
 
-void DropRoot()
+void PopRoot()
 {
+    FAssert(UsedRoots > 0);
+
     UsedRoots -= 1;
+}
+
+void ClearRoots()
+{
+    UsedRoots = 0;
 }
 
 void EnterExecute(FExecuteState * es)
@@ -182,9 +189,9 @@ static void VerifyCheckSums()
         {
             if (AsObjectHeader(obj)->CheckSum != 0)
             {
-                PutStringC(StandardOutput, "CheckSum != 0: ");
-                WritePretty(StandardOutput, obj, 0);
-                PutCh(StandardOutput, '\n');
+                PutStringC(R.StandardOutput, "CheckSum != 0: ");
+                WritePretty(R.StandardOutput, obj, 0);
+                PutCh(R.StandardOutput, '\n');
 
                 FAssert(0);
             }
@@ -193,9 +200,9 @@ static void VerifyCheckSums()
         {
             if (AsObjectHeader(obj)->CheckSum != ByteLengthHash((char *) obj, ObjectLength(obj)))
             {
-                PutStringC(StandardOutput, "CheckSum Bad: ");
-                WritePretty(StandardOutput, obj, 0);
-                PutCh(StandardOutput, '\n');
+                PutStringC(R.StandardOutput, "CheckSum Bad: ");
+                WritePretty(R.StandardOutput, obj, 0);
+                PutCh(R.StandardOutput, '\n');
 
                 FAssert(0);
             }
@@ -348,6 +355,10 @@ void GarbageCollect()
     FirstSpace = SecondSpace;
     SecondSpace = tmp;
     FirstSpaceUsed = 0;
+
+    FObject * rv = (FObject *) &R;
+    for (int rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
+        Alive(rv + rdx);
 
     for (int rdx = 0; rdx < UsedRoots; rdx++)
         Alive(Roots[rdx]);

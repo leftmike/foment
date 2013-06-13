@@ -9,11 +9,6 @@ Foment
 #include "foment.hpp"
 #include "execute.hpp"
 
-FObject WrongNumberOfArguments;
-FObject NotCallable;
-FObject UnexpectedNumberOfValues;
-FObject UndefinedMessage;
-
 static FObject DynamicEnvironment;
 
 // ---- Procedure ----
@@ -161,16 +156,16 @@ FObject Execute(FObject op, int argc, FObject argv[])
                 {
                 case CheckCountOpcode:
                     if (es.ArgCount != InstructionArg(obj))
-                        RaiseException(Assertion, AsProcedure(es.Proc)->Name,
-                                WrongNumberOfArguments, EmptyListObject);
+                        RaiseException(R.Assertion, AsProcedure(es.Proc)->Name,
+                                R.WrongNumberOfArguments, EmptyListObject);
                     break;
 
                 case RestArgOpcode:
                     FAssert(InstructionArg(obj) >= 0);
 
                     if (es.ArgCount < InstructionArg(obj))
-                        RaiseException(Assertion, AsProcedure(es.Proc)->Name,
-                                WrongNumberOfArguments, EmptyListObject);
+                        RaiseException(R.Assertion, AsProcedure(es.Proc)->Name,
+                                R.WrongNumberOfArguments, EmptyListObject);
                     else if (es.ArgCount == InstructionArg(obj))
                     {
                         es.AStack[es.AStackPtr] = EmptyListObject;
@@ -338,7 +333,7 @@ FObject Execute(FObject op, int argc, FObject argv[])
                     {
                         FAssert(AsGlobal(es.AStack[es.AStackPtr - 1])->Interactive == TrueObject);
 
-                        RaiseException(Assertion, AsProcedure(es.Proc)->Name, UndefinedMessage,
+                        RaiseException(R.Assertion, AsProcedure(es.Proc)->Name, R.UndefinedMessage,
                                 List(es.AStack[es.AStackPtr - 1]));
                     }
 
@@ -464,7 +459,7 @@ CallPrimitive:
                         es.AStackPtr += 1;
                     }
                     else
-                        RaiseException(Assertion, AsProcedure(es.Proc)->Name, NotCallable,
+                        RaiseException(R.Assertion, AsProcedure(es.Proc)->Name, R.NotCallable,
                                 List(op));
                     break;
 
@@ -536,7 +531,7 @@ TailCallPrimitive:
                         es.Frame = NoValueObject;
                     }
                     else
-                        RaiseException(Assertion, AsProcedure(es.Proc)->Name, NotCallable,
+                        RaiseException(R.Assertion, AsProcedure(es.Proc)->Name, R.NotCallable,
                                 List(op));
                     break;
 
@@ -618,12 +613,12 @@ TailCallPrimitive:
                     {
                         es.AStackPtr -= 1;
                         if (AsValuesCount(es.AStack[es.AStackPtr]) != InstructionArg(obj))
-                            RaiseException(Assertion, AsProcedure(es.Proc)->Name,
-                                    UnexpectedNumberOfValues, EmptyListObject);
+                            RaiseException(R.Assertion, AsProcedure(es.Proc)->Name,
+                                    R.UnexpectedNumberOfValues, EmptyListObject);
                     }
                     else
-                        RaiseException(Assertion, AsProcedure(es.Proc)->Name,
-                                UnexpectedNumberOfValues, EmptyListObject);
+                        RaiseException(R.Assertion, AsProcedure(es.Proc)->Name,
+                                R.UnexpectedNumberOfValues, EmptyListObject);
                     break;
 
                 case RestValuesOpcode:
@@ -642,8 +637,8 @@ TailCallPrimitive:
                         vc = 1;
 
                     if (vc < InstructionArg(obj))
-                        RaiseException(Assertion, AsProcedure(es.Proc)->Name,
-                                UnexpectedNumberOfValues, EmptyListObject);
+                        RaiseException(R.Assertion, AsProcedure(es.Proc)->Name,
+                                R.UnexpectedNumberOfValues, EmptyListObject);
                     else if (vc == InstructionArg(obj))
                     {
                         es.AStack[es.AStackPtr] = EmptyListObject;
@@ -687,7 +682,7 @@ TailCallPrimitive:
                                     AsFixnum(es.CStack[es.CStackPtr - 1])];
                             if (InstructionP(cd) == 0 || InstructionOpcode(cd)
                                     != DiscardResultOpcode)
-                               RaiseExceptionC(Assertion, "values",
+                               RaiseExceptionC(R.Assertion, "values",
                                        "values: caller not expecting multiple values",
                                        List(AsProcedure(es.CStack[es.CStackPtr - 2])->Name));
 
@@ -709,7 +704,7 @@ TailCallPrimitive:
                 case ApplyOpcode:
                 {
                     if (es.ArgCount < 2)
-                       RaiseExceptionC(Assertion, "apply",
+                       RaiseExceptionC(R.Assertion, "apply",
                                "apply: expected at least two arguments", EmptyListObject);
 
                     FObject prc = es.AStack[es.AStackPtr - es.ArgCount];
@@ -735,7 +730,7 @@ TailCallPrimitive:
                     }
 
                     if (ptr != EmptyListObject)
-                       RaiseExceptionC(Assertion, "apply", "apply: expected a proper list",
+                       RaiseExceptionC(R.Assertion, "apply", "apply: expected a proper list",
                                List(lst));
 
                     es.AStack[es.AStackPtr] = prc;
@@ -775,8 +770,8 @@ TailCallPrimitive:
                     }
 
                     if (cc == 0)
-                        RaiseExceptionC(Assertion, "case-lambda", "case-lambda: no matching case",
-                                List(MakeFixnum(es.ArgCount)));
+                        RaiseExceptionC(R.Assertion, "case-lambda",
+                                "case-lambda: no matching case", List(MakeFixnum(es.ArgCount)));
                     break;
 
                 }
@@ -795,15 +790,15 @@ TailCallPrimitive:
 Define("get-parameter", GetParameterPrimitive)(int argc, FObject argv[])
 {
     if (argc != 2)
-        RaiseExceptionC(Assertion, "get-parameter", "get-parameter: expected two arguments",
+        RaiseExceptionC(R.Assertion, "get-parameter", "get-parameter: expected two arguments",
                 EmptyListObject);
 
     if (ParameterP(argv[0]) == 0)
-        RaiseExceptionC(Assertion, "get-parameter", "get-parameter: expected a parameter",
+        RaiseExceptionC(R.Assertion, "get-parameter", "get-parameter: expected a parameter",
                 List(argv[0]));
 
     if (PairP(argv[1]) == 0)
-        RaiseExceptionC(Assertion, "get-parameter", "get-parameter: expected a pair",
+        RaiseExceptionC(R.Assertion, "get-parameter", "get-parameter: expected a pair",
                 List(argv[1]));
 
     FObject lst = DynamicEnvironment;
@@ -825,15 +820,15 @@ Define("get-parameter", GetParameterPrimitive)(int argc, FObject argv[])
 Define("set-parameter!", SetParameterPrimitive)(int argc, FObject argv[])
 {
     if (argc != 3)
-        RaiseExceptionC(Assertion, "set-parameter!", "set-parameter!: expected three arguments",
+        RaiseExceptionC(R.Assertion, "set-parameter!", "set-parameter!: expected three arguments",
                 EmptyListObject);
 
     if (ParameterP(argv[0]) == 0)
-        RaiseExceptionC(Assertion, "set-parameter!", "set-parameter!: expected a parameter",
+        RaiseExceptionC(R.Assertion, "set-parameter!", "set-parameter!: expected a parameter",
                 List(argv[0]));
 
     if (PairP(argv[1]) == 0)
-        RaiseExceptionC(Assertion, "set-parameter!", "set-parameter!: expected a pair",
+        RaiseExceptionC(R.Assertion, "set-parameter!", "set-parameter!: expected a pair",
                 List(argv[1]));
 
     FObject lst = DynamicEnvironment;
@@ -861,11 +856,11 @@ Define("set-parameter!", SetParameterPrimitive)(int argc, FObject argv[])
 Define("procedure->parameter", ProcedureToParameterPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(Assertion, "procedure->parameter",
+        RaiseExceptionC(R.Assertion, "procedure->parameter",
                 "procedure->parameter: expected one argument", EmptyListObject);
 
     if (ProcedureP(argv[0]) == 0)
-         RaiseExceptionC(Assertion, "procedure->parameter",
+         RaiseExceptionC(R.Assertion, "procedure->parameter",
                  "procedure->parameter: expected a procedure", List(argv[0]));
 
     AsProcedure(argv[0])->Flags |= PROCEDURE_FLAG_PARAMETER;
@@ -887,35 +882,27 @@ void SetupExecute()
 {
     FObject v[2];
 
-    WrongNumberOfArguments = MakeStringC("wrong number of arguments");
-    Root(&WrongNumberOfArguments);
-
-    NotCallable = MakeStringC("not callable");
-    Root(&NotCallable);
-
-    UnexpectedNumberOfValues = MakeStringC("unexpected number of values");
-    Root(&UnexpectedNumberOfValues);
-
-    UndefinedMessage = MakeStringC("variable is undefined");
-    Root(&UndefinedMessage);
+    R.WrongNumberOfArguments = MakeStringC("wrong number of arguments");
+    R.NotCallable = MakeStringC("not callable");
+    R.UnexpectedNumberOfValues = MakeStringC("unexpected number of values");
+    R.UndefinedMessage = MakeStringC("variable is undefined");
 
     for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
-        DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
+        DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 
     DynamicEnvironment = EmptyListObject;
-    Root(&DynamicEnvironment);
 
     v[0] = MakeInstruction(ValuesOpcode, 0);
     v[1] = MakeInstruction(ReturnOpcode, 0);
 
-    LibraryExport(BedrockLibrary,
-            EnvironmentSetC(Bedrock, "values", MakeProcedure(StringCToSymbol("values"),
+    LibraryExport(R.BedrockLibrary,
+            EnvironmentSetC(R.Bedrock, "values", MakeProcedure(StringCToSymbol("values"),
             MakeVector(2, v, NoValueObject), 1, TrueObject)));
 
     v[0] = MakeInstruction(ApplyOpcode, 0);
     v[1] = MakeInstruction(TailCallOpcode, 0);
 
-    LibraryExport(BedrockLibrary,
-            EnvironmentSetC(Bedrock, "apply", MakeProcedure(StringCToSymbol("apply"),
+    LibraryExport(R.BedrockLibrary,
+            EnvironmentSetC(R.Bedrock, "apply", MakeProcedure(StringCToSymbol("apply"),
             MakeVector(2, v, NoValueObject), 2, TrueObject)));
 }

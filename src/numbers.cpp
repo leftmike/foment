@@ -12,7 +12,7 @@ Define("+", SumPrimitive)(int argc, FObject argv[])
     for (int adx = 0; adx < argc; adx++)
     {
         if (FixnumP(argv[adx]) == 0)
-            RaiseExceptionC(Assertion, "+", "+: expected a fixnum", List(argv[adx]));
+            RaiseExceptionC(R.Assertion, "+", "+: expected a fixnum", List(argv[adx]));
 
         ret += AsFixnum(argv[adx]);
     }
@@ -26,7 +26,7 @@ Define("*", ProductPrimitive)(int argc, FObject argv[])
     for (int adx = 0; adx < argc; adx++)
     {
         if (FixnumP(argv[adx]) == 0)
-            RaiseExceptionC(Assertion, "*", "*: expected a fixnum", List(argv[adx]));
+            RaiseExceptionC(R.Assertion, "*", "*: expected a fixnum", List(argv[adx]));
 
         ret *= AsFixnum(argv[adx]);
     }
@@ -37,10 +37,10 @@ Define("*", ProductPrimitive)(int argc, FObject argv[])
 Define("-", DifferencePrimitive)(int argc, FObject argv[])
 {
     if (argc < 1)
-        RaiseExceptionC(Assertion, "-", "-: expected at least one argument", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "-", "-: expected at least one argument", EmptyListObject);
 
     if (FixnumP(argv[0]) == 0)
-        RaiseExceptionC(Assertion, "-", "-: expected a fixnum", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "-", "-: expected a fixnum", List(argv[0]));
 
     if (argc == 1)
         return(MakeFixnum(-AsFixnum(argv[0])));
@@ -49,7 +49,7 @@ Define("-", DifferencePrimitive)(int argc, FObject argv[])
     for (int adx = 1; adx < argc; adx++)
     {
         if (FixnumP(argv[adx]) == 0)
-            RaiseExceptionC(Assertion, "-", "-: expected a fixnum", List(argv[adx]));
+            RaiseExceptionC(R.Assertion, "-", "-: expected a fixnum", List(argv[adx]));
 
         ret -= AsFixnum(argv[adx]);
     }
@@ -60,15 +60,15 @@ Define("-", DifferencePrimitive)(int argc, FObject argv[])
 Define("/", QuotientPrimitive)(int argc, FObject argv[])
 {
     if (argc < 1)
-        RaiseExceptionC(Assertion, "/", "/: expected at least one argument", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "/", "/: expected at least one argument", EmptyListObject);
 
     if (FixnumP(argv[0]) == 0)
-        RaiseExceptionC(Assertion, "/", "/: expected a fixnum", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "/", "/: expected a fixnum", List(argv[0]));
 
     if (argc == 1)
     {
         if (AsFixnum(argv[0]) == 0)
-            RaiseExceptionC(Assertion, "/", "/: zero not allowed", List(argv[0]));
+            RaiseExceptionC(R.Assertion, "/", "/: zero not allowed", List(argv[0]));
 
         return(MakeFixnum(1 / AsFixnum(argv[0])));
     }
@@ -78,10 +78,10 @@ Define("/", QuotientPrimitive)(int argc, FObject argv[])
     for (int adx = 1; adx < argc; adx++)
     {
         if (FixnumP(argv[adx]) == 0)
-            RaiseExceptionC(Assertion, "/", "/: expected a fixnum", List(argv[adx]));
+            RaiseExceptionC(R.Assertion, "/", "/: expected a fixnum", List(argv[adx]));
 
         if (AsFixnum(argv[adx]) == 0)
-            RaiseExceptionC(Assertion, "/", "/: zero not allowed", List(argv[adx]));
+            RaiseExceptionC(R.Assertion, "/", "/: zero not allowed", List(argv[adx]));
 
         ret /= AsFixnum(argv[adx]);
     }
@@ -92,15 +92,15 @@ Define("/", QuotientPrimitive)(int argc, FObject argv[])
 Define("=", EqualPrimitive)(int argc, FObject argv[])
 {
     if (argc < 2)
-        RaiseExceptionC(Assertion, "=", "=: expected at least two arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "=", "=: expected at least two arguments", EmptyListObject);
 
     if (FixnumP(argv[0]) == 0)
-        RaiseExceptionC(Assertion, "=", "=: expected a fixnum", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "=", "=: expected a fixnum", List(argv[0]));
 
     for (int adx = 1; adx < argc; adx++)
     {
         if (FixnumP(argv[adx]) == 0)
-            RaiseExceptionC(Assertion, "=", "=: expected a fixnum", List(argv[adx]));
+            RaiseExceptionC(R.Assertion, "=", "=: expected a fixnum", List(argv[adx]));
 
         if (AsFixnum(argv[adx - 1]) != AsFixnum(argv[adx]))
             return(FalseObject);
@@ -112,15 +112,15 @@ Define("=", EqualPrimitive)(int argc, FObject argv[])
 Define("<", LessThanPrimitive)(int argc, FObject argv[])
 {
     if (argc < 2)
-        RaiseExceptionC(Assertion, "<", "<: expected at least two arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "<", "<: expected at least two arguments", EmptyListObject);
 
     if (FixnumP(argv[0]) == 0)
-        RaiseExceptionC(Assertion, "<", "<: expected a fixnum", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "<", "<: expected a fixnum", List(argv[0]));
 
     for (int adx = 1; adx < argc; adx++)
     {
         if (FixnumP(argv[adx]) == 0)
-            RaiseExceptionC(Assertion, "<", "<: expected a fixnum", List(argv[adx]));
+            RaiseExceptionC(R.Assertion, "<", "<: expected a fixnum", List(argv[adx]));
 
         if (AsFixnum(argv[adx - 1]) >= AsFixnum(argv[adx]))
             return(FalseObject);
@@ -132,15 +132,15 @@ Define("<", LessThanPrimitive)(int argc, FObject argv[])
 Define(">", GreaterThanPrimitive)(int argc, FObject argv[])
 {
     if (argc < 2)
-        RaiseExceptionC(Assertion, ">", ">: expected at least two arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, ">", ">: expected at least two arguments", EmptyListObject);
 
     if (FixnumP(argv[0]) == 0)
-        RaiseExceptionC(Assertion, ">", ">: expected a fixnum", List(argv[0]));
+        RaiseExceptionC(R.Assertion, ">", ">: expected a fixnum", List(argv[0]));
 
     for (int adx = 1; adx < argc; adx++)
     {
         if (FixnumP(argv[adx]) == 0)
-            RaiseExceptionC(Assertion, ">", ">: expected a fixnum", List(argv[adx]));
+            RaiseExceptionC(R.Assertion, ">", ">: expected a fixnum", List(argv[adx]));
 
         if (AsFixnum(argv[adx - 1]) <= AsFixnum(argv[adx]))
             return(FalseObject);
@@ -152,15 +152,15 @@ Define(">", GreaterThanPrimitive)(int argc, FObject argv[])
 Define("<=", LessThanEqualPrimitive)(int argc, FObject argv[])
 {
     if (argc < 2)
-        RaiseExceptionC(Assertion, "<=", "<=: expected at least two arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "<=", "<=: expected at least two arguments", EmptyListObject);
 
     if (FixnumP(argv[0]) == 0)
-        RaiseExceptionC(Assertion, "<=", "<=: expected a fixnum", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "<=", "<=: expected a fixnum", List(argv[0]));
 
     for (int adx = 1; adx < argc; adx++)
     {
         if (FixnumP(argv[adx]) == 0)
-            RaiseExceptionC(Assertion, "<=", "<=: expected a fixnum", List(argv[adx]));
+            RaiseExceptionC(R.Assertion, "<=", "<=: expected a fixnum", List(argv[adx]));
 
         if (AsFixnum(argv[adx - 1]) > AsFixnum(argv[adx]))
             return(FalseObject);
@@ -172,15 +172,15 @@ Define("<=", LessThanEqualPrimitive)(int argc, FObject argv[])
 Define(">=", GreaterThanEqualPrimitive)(int argc, FObject argv[])
 {
     if (argc < 2)
-        RaiseExceptionC(Assertion, ">=", ">=: expected at least two arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, ">=", ">=: expected at least two arguments", EmptyListObject);
 
     if (FixnumP(argv[0]) == 0)
-        RaiseExceptionC(Assertion, ">=", ">=: expected a fixnum", List(argv[0]));
+        RaiseExceptionC(R.Assertion, ">=", ">=: expected a fixnum", List(argv[0]));
 
     for (int adx = 1; adx < argc; adx++)
     {
         if (FixnumP(argv[adx]) == 0)
-            RaiseExceptionC(Assertion, ">=", ">=: expected a fixnum", List(argv[adx]));
+            RaiseExceptionC(R.Assertion, ">=", ">=: expected a fixnum", List(argv[adx]));
 
         if (AsFixnum(argv[adx - 1]) < AsFixnum(argv[adx]))
             return(FalseObject);
@@ -192,10 +192,10 @@ Define(">=", GreaterThanEqualPrimitive)(int argc, FObject argv[])
 Define("zero?", ZeroPPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(Assertion, "zero?", "zero?: expected one argument", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "zero?", "zero?: expected one argument", EmptyListObject);
 
     if (FixnumP(argv[0]) == 0)
-        RaiseExceptionC(Assertion, "zero?", "zero?: expected a fixnum", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "zero?", "zero?: expected a fixnum", List(argv[0]));
 
     return(AsFixnum(argv[0]) == 0 ? TrueObject : FalseObject);
 }
@@ -203,10 +203,10 @@ Define("zero?", ZeroPPrimitive)(int argc, FObject argv[])
 Define("odd?", OddPPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(Assertion, "odd?", "odd?: expected one argument", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "odd?", "odd?: expected one argument", EmptyListObject);
 
     if (FixnumP(argv[0]) == 0)
-        RaiseExceptionC(Assertion, "odd?", "odd?: expected a fixnum", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "odd?", "odd?: expected a fixnum", List(argv[0]));
 
     return(AsFixnum(argv[0]) % 2 != 0 ? TrueObject : FalseObject);
 }
@@ -214,10 +214,10 @@ Define("odd?", OddPPrimitive)(int argc, FObject argv[])
 Define("even?", EvenPPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(Assertion, "even?", "even?: expected one argument", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "even?", "even?: expected one argument", EmptyListObject);
 
     if (FixnumP(argv[0]) == 0)
-        RaiseExceptionC(Assertion, "even?", "even?: expected a fixnum", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "even?", "even?: expected a fixnum", List(argv[0]));
 
     return(AsFixnum(argv[0]) % 2 == 0 ? TrueObject : FalseObject);
 }
@@ -225,13 +225,13 @@ Define("even?", EvenPPrimitive)(int argc, FObject argv[])
 Define("expt", ExptPrimitive)(int argc, FObject argv[])
 {
     if (argc != 2)
-        RaiseExceptionC(Assertion, "expt", "expt: expected two arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "expt", "expt: expected two arguments", EmptyListObject);
 
     if (FixnumP(argv[0]) == 0)
-        RaiseExceptionC(Assertion, "expt", "expt: expected a fixnum", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "expt", "expt: expected a fixnum", List(argv[0]));
 
     if (FixnumP(argv[1]) == 0)
-        RaiseExceptionC(Assertion, "expt", "expt: expected a fixnum", List(argv[1]));
+        RaiseExceptionC(R.Assertion, "expt", "expt: expected a fixnum", List(argv[1]));
 
     int x = AsFixnum(argv[0]);
     int n = AsFixnum(argv[1]);
@@ -248,10 +248,10 @@ Define("expt", ExptPrimitive)(int argc, FObject argv[])
 Define("abs", AbsPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(Assertion, "abs", "abs: expected one argument", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "abs", "abs: expected one argument", EmptyListObject);
 
     if (FixnumP(argv[0]) == 0)
-        RaiseExceptionC(Assertion, "abs", "abs: expected a fixnum", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "abs", "abs: expected a fixnum", List(argv[0]));
 
     return(AsFixnum(argv[0]) < 0 ? MakeFixnum(- AsFixnum(argv[0])) : argv[0]);
 }
@@ -259,10 +259,10 @@ Define("abs", AbsPrimitive)(int argc, FObject argv[])
 Define("sqrt", SqrtPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(Assertion, "sqrt", "sqrt: expected one argument", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "sqrt", "sqrt: expected one argument", EmptyListObject);
 
     if (FixnumP(argv[0]) == 0)
-        RaiseExceptionC(Assertion, "sqrt", "sqrt: expected a fixnum", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "sqrt", "sqrt: expected a fixnum", List(argv[0]));
 
     int n = AsFixnum(argv[0]);
     int x = 1;
@@ -295,5 +295,5 @@ static FPrimitive * Primitives[] =
 void SetupNumbers()
 {
     for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
-        DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
+        DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

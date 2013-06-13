@@ -114,19 +114,19 @@ Define("write-pretty", WritePrettyPrimitive)(int argc, FObject argv[])
     FObject port;
 
     if (argc < 1 || argc > 2)
-        RaiseExceptionC(Assertion, "write-pretty", "write-pretty: expected one or two arguments",
+        RaiseExceptionC(R.Assertion, "write-pretty", "write-pretty: expected one or two arguments",
                 EmptyListObject);
 
     if (argc == 2)
     {
         if (OutputPortP(argv[1]) == 0)
-            RaiseExceptionC(Assertion, "write-pretty",
+            RaiseExceptionC(R.Assertion, "write-pretty",
                     "write-pretty: expected an output port", List(argv[1]));
 
         port = argv[1];
     }
     else
-        port = StandardOutput;
+        port = R.StandardOutput;
 
     WritePretty(port, argv[0], 0);
 
@@ -138,19 +138,19 @@ Define("display-pretty", DisplayPrettyPrimitive)(int argc, FObject argv[])
     FObject port;
 
     if (argc < 1 || argc > 2)
-        RaiseExceptionC(Assertion, "display-pretty",
+        RaiseExceptionC(R.Assertion, "display-pretty",
                 "display-pretty: expected one or two arguments", EmptyListObject);
 
     if (argc == 2)
     {
         if (OutputPortP(argv[1]) == 0)
-            RaiseExceptionC(Assertion, "display-pretty",
+            RaiseExceptionC(R.Assertion, "display-pretty",
                     "display-pretty: expected an output port", List(argv[1]));
 
         port = argv[1];
     }
     else
-        port = StandardOutput;
+        port = R.StandardOutput;
 
     WritePretty(port, argv[0], 1);
 
@@ -166,5 +166,5 @@ static FPrimitive * Primitives[] =
 void SetupPrettyPrint()
 {
     for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
-        DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
+        DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }
