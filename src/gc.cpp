@@ -21,6 +21,12 @@ Garbage Collection:
 -- use a table lookup for fix length objects:
 int FixedLength[] = {sizeof(FPair), ...};
 
+-- copying collector: black-grey-white objects to remove recursion
+-- copying collector: change from single pair of blocks to a list of blocks
+-- mark collector: add generations
+-- mark collector: mark-sweep always full collection
+-- mark collector: mark-compact always full collection
+-- mark collector: partial and full collections
 */
 
 #include <stdio.h>
@@ -176,7 +182,7 @@ void LeaveExecute(FExecuteState * es)
 }
 
 #ifdef FOMENT_GCCHK
-static void VerifyCheckSums()
+void VerifyCheckSums()
 {
     char * sp = FirstSpace;
 
@@ -202,6 +208,7 @@ static void VerifyCheckSums()
             {
                 PutStringC(R.StandardOutput, "CheckSum Bad: ");
                 WritePretty(R.StandardOutput, obj, 0);
+//                Write(R.StandardOutput, obj, 0);
                 PutCh(R.StandardOutput, '\n');
 
                 FAssert(0);
@@ -277,6 +284,8 @@ static void Alive(FObject * pobj)
 
             memcpy(oh, AsObjectHeader(obj), len + sizeof(FObjectHeader));
 
+            FAssert(ObjectLength(nobj) == ObjectLength(obj));
+
             AsObjectHeader(obj)->GCFlags |= GCFORWARD;
             *((FObject *) obj) = nobj;
             *pobj = nobj;
@@ -336,11 +345,11 @@ static void Alive(FObject * pobj)
 
             default:
                 FAssert(0);
+            }
 
 #ifdef FOMENT_GCCHK
             CheckSumObject(nobj);
 #endif // FOMENT_GCCHK
-            }
         }
     }
 }
@@ -348,7 +357,7 @@ static void Alive(FObject * pobj)
 void GarbageCollect()
 {
 #ifdef FOMENT_GCCHK
-//    VerifyCheckSums();
+    VerifyCheckSums();
 #endif // FOMENT_GCCHK
 
     char * tmp = FirstSpace;

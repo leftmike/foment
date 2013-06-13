@@ -952,7 +952,6 @@ void SetupFoment(int argc, char * argv[])
     for (int rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
         rv[rdx] = NoValueObject;
 
-//    HashtableRecordType = NoValueObject;
     FAssert(R.HashtableRecordType == NoValueObject);
     R.SymbolHashtable = MakeObject(RecordTag, sizeof(FHashtable));
 

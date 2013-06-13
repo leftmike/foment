@@ -126,6 +126,7 @@ void GarbageCollect();
 #define AllowGC() if (GCRequired) GarbageCollect()
 
 #ifdef FOMENT_GCCHK
+void VerifyCheckSums();
 void CheckSumObject(FObject obj);
 FObject AsObject(FObject obj);
 #else // FOMENT_GCCHK
