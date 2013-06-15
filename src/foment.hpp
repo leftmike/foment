@@ -122,8 +122,8 @@ void PopRoot();
 void ClearRoots();
 
 extern int GCRequired;
-void GarbageCollect();
-#define AllowGC() if (GCRequired) GarbageCollect()
+void Collect();
+#define AllowGC() if (GCRequired) Collect()
 
 #ifdef FOMENT_GCCHK
 void VerifyCheckSums();

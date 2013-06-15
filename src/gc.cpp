@@ -21,15 +21,13 @@ Garbage Collection:
 -- use a table lookup for fix length objects:
 int FixedLength[] = {sizeof(FPair), ...};
 
--- copying collector: black-grey-white objects to remove recursion
--- copying collector: change from single pair of blocks to a list of blocks
 -- mark collector: add generations
 -- mark collector: mark-sweep always full collection
 -- mark collector: mark-compact always full collection
 -- mark collector: partial and full collections
 */
 
-#include <stdio.h>
+//#include <stdio.h>
 #include <malloc.h>
 #include <string.h>
 #include "foment.hpp"
@@ -38,10 +36,17 @@ int FixedLength[] = {sizeof(FPair), ...};
 
 unsigned int BytesAllocated;
 
-static char * FirstSpace;
-static int FirstSpaceSize;
-static int FirstSpaceUsed;
-static char * SecondSpace;
+typedef struct _FSection
+{
+    struct _FSection * Next;
+    unsigned int Used;
+    unsigned int Size;
+    char Space[1];
+} FSection;
+
+static FSection * ActiveSection;
+static FSection * CurrentSections;
+static FSection * ReserveSections;
 
 static int UsedRoots = 0;
 static FObject * Roots[128];
@@ -127,8 +132,16 @@ FObject MakeObject(FObjectTag tag, unsigned int sz)
     FAssert(len >= sz);
     FAssert(len >= sizeof(FObject));
 
-    FObjectHeader * oh = (FObjectHeader *) (FirstSpace + FirstSpaceUsed);
-    FirstSpaceUsed += len + sizeof(FObjectHeader);
+    if (ActiveSection->Used + len + sizeof(FObjectHeader) > ActiveSection->Size)
+    {
+        ActiveSection = ActiveSection->Next;
+
+        FAssert(ActiveSection != 0);
+        FAssert(ActiveSection->Used == 0);
+    }
+
+    FObjectHeader * oh = (FObjectHeader *) (ActiveSection->Space + ActiveSection->Used);
+    ActiveSection->Used += len + sizeof(FObjectHeader);
 
     oh->Hash = Hash;
     Hash += 1;
@@ -184,41 +197,49 @@ void LeaveExecute(FExecuteState * es)
 #ifdef FOMENT_GCCHK
 void VerifyCheckSums()
 {
-    char * sp = FirstSpace;
+    FSection * sec = CurrentSections;
 
-    while (sp < FirstSpace + FirstSpaceUsed)
+    while (sec != 0)
     {
-        FObjectHeader * oh = (FObjectHeader *) sp;
-        FObject obj = (FObject) (oh + 1);
+        char * sp = sec->Space;
 
-        if (StringP(obj) || BytevectorP(obj))
+        while (sp < sec->Space + sec->Used)
         {
-            if (AsObjectHeader(obj)->CheckSum != 0)
+            FObjectHeader * oh = (FObjectHeader *) sp;
+            FObject obj = (FObject) (oh + 1);
+
+            if (StringP(obj) || BytevectorP(obj))
             {
-                PutStringC(R.StandardOutput, "CheckSum != 0: ");
-                WritePretty(R.StandardOutput, obj, 0);
-                PutCh(R.StandardOutput, '\n');
+                if (AsObjectHeader(obj)->CheckSum != 0)
+                {
+                    PutStringC(R.StandardOutput, "CheckSum != 0: ");
+                    WritePretty(R.StandardOutput, obj, 0);
+                    PutCh(R.StandardOutput, '\n');
 
-                FAssert(0);
+                    FAssert(0);
+                }
             }
-        }
-        else
-        {
-            if (AsObjectHeader(obj)->CheckSum != ByteLengthHash((char *) obj, ObjectLength(obj)))
+            else
             {
-                PutStringC(R.StandardOutput, "CheckSum Bad: ");
-                WritePretty(R.StandardOutput, obj, 0);
-//                Write(R.StandardOutput, obj, 0);
-                PutCh(R.StandardOutput, '\n');
+                if (AsObjectHeader(obj)->CheckSum
+                        != ByteLengthHash((char *) obj, ObjectLength(obj)))
+                {
+                    PutStringC(R.StandardOutput, "CheckSum Bad: ");
+                    WritePretty(R.StandardOutput, obj, 0);
+//                    Write(R.StandardOutput, obj, 0);
+                    PutCh(R.StandardOutput, '\n');
 
-                FAssert(0);
+                    FAssert(0);
+                }
             }
+
+            sp += ObjectLength(obj) + sizeof(FObjectHeader);
         }
 
-        sp += ObjectLength(obj) + sizeof(FObjectHeader);
+        FAssert(sp == sec->Space + sec->Used);
+
+        sec = sec->Next;
     }
-
-    FAssert(sp == FirstSpace + FirstSpaceUsed);
 }
 
 void CheckSumObject(FObject obj)
@@ -278,8 +299,18 @@ static void Alive(FObject * pobj)
         else
         {
             int len = ObjectLength(obj);
-            FObjectHeader * oh = (FObjectHeader *) (FirstSpace + FirstSpaceUsed);
-            FirstSpaceUsed += len + sizeof(FObjectHeader);
+
+            if (ActiveSection->Used + len + sizeof(FObjectHeader) > ActiveSection->Size)
+            {
+                ActiveSection = ActiveSection->Next;
+
+                FAssert(ActiveSection != 0);
+                FAssert(ActiveSection->Used == 0);
+            }
+
+            FObjectHeader * oh = (FObjectHeader *) (ActiveSection->Space + ActiveSection->Used);
+            ActiveSection->Used += len + sizeof(FObjectHeader);
+
             FObject nobj = (FObject) (oh + 1);
 
             memcpy(oh, AsObjectHeader(obj), len + sizeof(FObjectHeader));
@@ -289,81 +320,28 @@ static void Alive(FObject * pobj)
             AsObjectHeader(obj)->GCFlags |= GCFORWARD;
             *((FObject *) obj) = nobj;
             *pobj = nobj;
-
-            switch (ObjectTag(nobj))
-            {
-            case PairTag:
-                Alive(&(AsPair(nobj)->First));
-                Alive(&(AsPair(nobj)->Rest));
-                break;
-
-            case BoxTag:
-                Alive(&(AsBox(nobj)->Value));
-                break;
-
-            case StringTag:
-                break;
-
-            case VectorTag:
-                for (int vdx = 0; vdx < AsVector(nobj)->Length; vdx++)
-                    Alive(AsVector(nobj)->Vector + vdx);
-                break;
-
-            case BytevectorTag:
-                break;
-
-            case PortTag:
-                Alive(&(AsPort(nobj)->Name));
-                Alive(&(AsPort(nobj)->Object));
-                break;
-
-            case ProcedureTag:
-                Alive(&(AsProcedure(nobj)->Name));
-                Alive(&(AsProcedure(nobj)->Code));
-                Alive(&(AsProcedure(nobj)->RestArg));
-                break;
-
-            case SymbolTag:
-                Alive(&(AsSymbol(nobj)->String));
-                Alive(&(AsSymbol(nobj)->Hash));
-                break;
-
-            case RecordTypeTag:
-                Alive(&(AsRecordType(nobj)->Name));
-                for (int fdx = 0; fdx < AsRecordType(nobj)->NumFields; fdx++)
-                    Alive(AsRecordType(nobj)->Fields + fdx);
-                break;
-
-            case RecordTag:
-                Alive(&(AsGenericRecord(nobj)->Record.RecordType));
-                for (int fdx = 0; fdx < AsGenericRecord(nobj)->Record.NumFields; fdx++)
-                    Alive(AsGenericRecord(nobj)->Fields + fdx);
-                break;
-
-            case PrimitiveTag:
-                break;
-
-            default:
-                FAssert(0);
-            }
-
-#ifdef FOMENT_GCCHK
-            CheckSumObject(nobj);
-#endif // FOMENT_GCCHK
         }
     }
 }
 
-void GarbageCollect()
+void Collect()
 {
 #ifdef FOMENT_GCCHK
     VerifyCheckSums();
 #endif // FOMENT_GCCHK
 
-    char * tmp = FirstSpace;
-    FirstSpace = SecondSpace;
-    SecondSpace = tmp;
-    FirstSpaceUsed = 0;
+    FSection * sec = ReserveSections;
+    ReserveSections = CurrentSections;
+    CurrentSections = sec;
+    ActiveSection = CurrentSections;
+
+    FAssert(sec == CurrentSections);
+
+    while (sec != 0)
+    {
+        sec->Used = 0;
+        sec = sec->Next;
+    }
 
     FObject * rv = (FObject *) &R;
     for (int rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
@@ -383,7 +361,92 @@ void GarbageCollect()
         Alive(&ExecuteState->Proc);
         Alive(&ExecuteState->Frame);
     }
+
+    sec = CurrentSections;
+    while (sec != 0)
+    {
+        char * sp = sec->Space;
+
+        while (sp < sec->Space + sec->Used)
+        {
+            FObjectHeader * oh = (FObjectHeader *) sp;
+            FObject obj = (FObject) (oh + 1);
+
+            if (ObjectP(obj))
+            {
+                switch (ObjectTag(obj))
+                {
+                case PairTag:
+                    Alive(&(AsPair(obj)->First));
+                    Alive(&(AsPair(obj)->Rest));
+                    break;
+
+                case BoxTag:
+                    Alive(&(AsBox(obj)->Value));
+                    break;
+
+                case StringTag:
+                    break;
+
+                case VectorTag:
+                    for (int vdx = 0; vdx < AsVector(obj)->Length; vdx++)
+                        Alive(AsVector(obj)->Vector + vdx);
+                    break;
+
+                case BytevectorTag:
+                    break;
+
+                case PortTag:
+                    Alive(&(AsPort(obj)->Name));
+                    Alive(&(AsPort(obj)->Object));
+                    break;
+
+                case ProcedureTag:
+                    Alive(&(AsProcedure(obj)->Name));
+                    Alive(&(AsProcedure(obj)->Code));
+                    Alive(&(AsProcedure(obj)->RestArg));
+                    break;
+
+                case SymbolTag:
+                    Alive(&(AsSymbol(obj)->String));
+                    Alive(&(AsSymbol(obj)->Hash));
+                    break;
+
+                case RecordTypeTag:
+                    Alive(&(AsRecordType(obj)->Name));
+                    for (int fdx = 0; fdx < AsRecordType(obj)->NumFields; fdx++)
+                        Alive(AsRecordType(obj)->Fields + fdx);
+                    break;
+
+                case RecordTag:
+                    Alive(&(AsGenericRecord(obj)->Record.RecordType));
+                    for (int fdx = 0; fdx < AsGenericRecord(obj)->Record.NumFields; fdx++)
+                        Alive(AsGenericRecord(obj)->Fields + fdx);
+                    break;
+
+                case PrimitiveTag:
+                    break;
+
+                default:
+                    FAssert(0);
+                }
+
+#ifdef FOMENT_GCCHK
+                CheckSumObject(obj);
+#endif // FOMENT_GCCHK
+            }
+
+            sp += ObjectLength(obj) + sizeof(FObjectHeader);
+        }
+
+        FAssert(sp == sec->Space + sec->Used);
+
+        sec = sec->Next;
+    }
 }
+
+#define SECTION_SIZE (128 * 1024 - 256)
+#define SECTION_COUNT 16
 
 void SetupGC()
 {
@@ -394,12 +457,28 @@ void SetupGC()
 
     BytesAllocated = 0;
 
-    FirstSpaceSize = 1024 * 1024 * 5 - 256;
-    FirstSpace = (char *) malloc(FirstSpaceSize);
-    SecondSpace = (char *) malloc(FirstSpaceSize);
+    CurrentSections = 0;
+    ReserveSections = 0;
+    for (int idx = 0; idx < SECTION_COUNT; idx++)
+    {
+        FSection * s = (FSection *) malloc(SECTION_SIZE + sizeof(FSection) - sizeof(char));
 
-    FAssert(FirstSpace != 0);
-    FAssert(SecondSpace != 0);
+        FAssert(s != 0);
 
-    FirstSpaceUsed = 0;
+        s->Next = CurrentSections;
+        s->Used = 0;
+        s->Size = SECTION_SIZE;
+        CurrentSections = s;
+
+        s = (FSection *) malloc(SECTION_SIZE + sizeof(FSection) - sizeof(char));
+
+        FAssert(s != 0);
+
+        s->Next = ReserveSections;
+        s->Used = 0;
+        s->Size = SECTION_SIZE;
+        ReserveSections = s;
+    }
+
+    ActiveSection = CurrentSections;
 }
