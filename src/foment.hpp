@@ -711,6 +711,7 @@ typedef struct
 extern FRoots R;
 
 extern unsigned int BytesAllocated;
+extern unsigned int CollectionCount;
 
 FObject Eval(FObject obj, FObject env);
 FObject GetInteractionEnv();

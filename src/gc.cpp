@@ -21,20 +21,40 @@ Garbage Collection:
 -- use a table lookup for fix length objects:
 int FixedLength[] = {sizeof(FPair), ...};
 
--- mark collector: add generations
--- mark collector: mark-sweep always full collection
 -- mark collector: mark-compact always full collection
 -- mark collector: partial and full collections
 */
 
-//#include <stdio.h>
+#include <stdio.h>
 #include <malloc.h>
 #include <string.h>
 #include "foment.hpp"
 #include "execute.hpp"
 #include "io.hpp"
 
+// GCFlags in FObjectHeader
+
+#define GCAGEMASK 0x0F
+#define GCMARK    0x20
+#define GCMATURE  0x40
+#define GCFORWARD 0x80
+
+#define SetAge(obj, age)\
+    AsObjectHeader(obj)->GCFlags = ((AsObjectHeader(obj)->GCFlags & ~GCAGEMASK) | (age))
+#define GetAge(obj) (AsObjectHeader(obj)->GCFlags & GCAGEMASK)
+
+#define SetMark(obj) AsObjectHeader(obj)->GCFlags |= GCMARK
+#define ClearMark(obj) AsObjectHeader(obj)->GCFlags &= ~GCMARK
+#define MarkP(obj) (AsObjectHeader(obj)->GCFlags & GCMARK)
+
+#define SetMature(obj) AsObjectHeader(obj)->GCFlags |= GCMATURE
+#define MatureP(obj) (AsObjectHeader(obj)->GCFlags & GCMATURE)
+
+#define SetForward(obj) AsObjectHeader(obj)->GCFlags |= GCFORWARD
+#define ForwardedP(obj) (AsObjectHeader(obj)->GCFlags & GCFORWARD)
+
 unsigned int BytesAllocated;
+unsigned int CollectionCount;
 
 typedef struct _FSection
 {
@@ -53,7 +73,21 @@ static FObject * Roots[128];
 static unsigned short Hash = 0;
 
 static FExecuteState * ExecuteState = 0;
-int GCRequired = 1;
+int GCRequired = 0;
+
+#define GCSECTION_SIZE (128 * 1024 - 256)
+#define GCSECTION_COUNT 2
+#define GCMATURE_AGE 4
+
+typedef struct _FMature
+{
+    struct _FMature * Next;
+} FMature;
+
+static FMature * Mature;
+
+static FObject ScanStack[1024];
+static int ScanIndex;
 
 const static unsigned int Align4[4] = {0, 3, 2, 1};
 
@@ -122,14 +156,9 @@ int ObjectLength(FObject obj)
     return(0);
 }
 
-FObject MakeObject(FObjectTag tag, unsigned int sz)
+static FObjectHeader * AllocateNursery(unsigned int len)
 {
-    FAssert(tag < BadDogTag);
-
-    unsigned int len = sz;
-    len += Align4[len % 4];
     FAssert(len % 4 == 0);
-    FAssert(len >= sz);
     FAssert(len >= sizeof(FObject));
 
     if (ActiveSection->Used + len + sizeof(FObjectHeader) > ActiveSection->Size)
@@ -143,10 +172,38 @@ FObject MakeObject(FObjectTag tag, unsigned int sz)
     FObjectHeader * oh = (FObjectHeader *) (ActiveSection->Space + ActiveSection->Used);
     ActiveSection->Used += len + sizeof(FObjectHeader);
 
+    if (ActiveSection->Next == 0 && ActiveSection->Used > (ActiveSection->Size * 3) / 4)
+        GCRequired = 1;
+
+    return(oh);
+}
+
+static FObjectHeader * AllocateMature(unsigned int len)
+{
+    FMature * m = (FMature *) malloc(sizeof(FMature) + len + sizeof(FObjectHeader));
+    m->Next = Mature;
+    Mature = m;
+
+    return((FObjectHeader *) (m + 1));
+}
+
+FObject MakeObject(FObjectTag tag, unsigned int sz)
+{
+    FAssert(tag < BadDogTag);
+
+    unsigned int len = sz;
+    len += Align4[len % 4];
+
+    FAssert(len >= sz);
+
+    FObjectHeader * oh = AllocateNursery(len);
+//FObjectHeader * oh = AllocateMature(len);
+
     oh->Hash = Hash;
     Hash += 1;
     oh->Tag = tag;
     oh->GCFlags = 0;
+//oh->GCFlags = GCMATURE;
 
     BytesAllocated += len + sizeof(FObjectHeader);
 
@@ -195,6 +252,34 @@ void LeaveExecute(FExecuteState * es)
 }
 
 #ifdef FOMENT_GCCHK
+static void VerifyObject(FObject obj)
+{
+    if (StringP(obj) || BytevectorP(obj))
+    {
+        if (AsObjectHeader(obj)->CheckSum != 0)
+        {
+            PutStringC(R.StandardOutput, "CheckSum != 0: ");
+            WritePretty(R.StandardOutput, obj, 0);
+            PutCh(R.StandardOutput, '\n');
+
+            FAssert(0);
+        }
+    }
+    else
+    {
+        if (AsObjectHeader(obj)->CheckSum
+                != ByteLengthHash((char *) obj, ObjectLength(obj)))
+        {
+            PutStringC(R.StandardOutput, "CheckSum Bad: ");
+            WritePretty(R.StandardOutput, obj, 0);
+//            Write(R.StandardOutput, obj, 0);
+            PutCh(R.StandardOutput, '\n');
+
+            FAssert(0);
+        }
+    }
+}
+
 void VerifyCheckSums()
 {
     FSection * sec = CurrentSections;
@@ -207,31 +292,7 @@ void VerifyCheckSums()
         {
             FObjectHeader * oh = (FObjectHeader *) sp;
             FObject obj = (FObject) (oh + 1);
-
-            if (StringP(obj) || BytevectorP(obj))
-            {
-                if (AsObjectHeader(obj)->CheckSum != 0)
-                {
-                    PutStringC(R.StandardOutput, "CheckSum != 0: ");
-                    WritePretty(R.StandardOutput, obj, 0);
-                    PutCh(R.StandardOutput, '\n');
-
-                    FAssert(0);
-                }
-            }
-            else
-            {
-                if (AsObjectHeader(obj)->CheckSum
-                        != ByteLengthHash((char *) obj, ObjectLength(obj)))
-                {
-                    PutStringC(R.StandardOutput, "CheckSum Bad: ");
-                    WritePretty(R.StandardOutput, obj, 0);
-//                    Write(R.StandardOutput, obj, 0);
-                    PutCh(R.StandardOutput, '\n');
-
-                    FAssert(0);
-                }
-            }
+            VerifyObject(obj);
 
             sp += ObjectLength(obj) + sizeof(FObjectHeader);
         }
@@ -239,6 +300,17 @@ void VerifyCheckSums()
         FAssert(sp == sec->Space + sec->Used);
 
         sec = sec->Next;
+    }
+
+    FMature * m = Mature;
+    while (m != 0)
+    {
+        FObjectHeader * oh = (FObjectHeader *) (m + 1);
+
+        if (oh->Tag != 0)
+            VerifyObject((FObject) (oh + 1));
+
+        m = m->Next;
     }
 }
 
@@ -284,32 +356,49 @@ void ModifyObject(FObject obj, int off, FObject val)
 #endif // FOMENT_GCCHK
 }
 
-#define GCFORWARD 0x80
-
-#define FowardedP(obj) (AsObjectHeader(obj)->GCFlags & GCFORWARD)
-
 static void Alive(FObject * pobj)
 {
     FObject obj = *pobj;
 
     if (ObjectP(obj))
     {
-        if (FowardedP(obj))
+        if (MatureP(obj))
+        {
+            FAssert(ForwardedP(obj) == 0);
+
+            if (MarkP(obj) == 0)
+            {
+                SetMark(obj);
+
+                FAssert(ScanIndex < sizeof(ScanStack) / sizeof(FObject));
+
+                ScanStack[ScanIndex] = obj;
+                ScanIndex += 1;
+            }
+        }
+        else if (ForwardedP(obj))
+        {
+            FAssert(MatureP(obj) == 0);
+
             *pobj = *((FObject *) obj);
+        }
         else
         {
             int len = ObjectLength(obj);
+            FObjectHeader * oh;
 
-            if (ActiveSection->Used + len + sizeof(FObjectHeader) > ActiveSection->Size)
-            {
-                ActiveSection = ActiveSection->Next;
+            FAssert(GetAge(obj) < GCMATURE_AGE);
 
-                FAssert(ActiveSection != 0);
-                FAssert(ActiveSection->Used == 0);
-            }
+            SetAge(obj, GetAge(obj) + 1);
 
-            FObjectHeader * oh = (FObjectHeader *) (ActiveSection->Space + ActiveSection->Used);
-            ActiveSection->Used += len + sizeof(FObjectHeader);
+            FAssert(MarkP(obj) == 0);
+            FAssert(MatureP(obj) == 0);
+            FAssert(ForwardedP(obj) == 0);
+
+            if (GetAge(obj) == GCMATURE_AGE)
+                oh = AllocateMature(len);
+            else
+                oh = AllocateNursery(len);
 
             FObject nobj = (FObject) (oh + 1);
 
@@ -317,18 +406,110 @@ static void Alive(FObject * pobj)
 
             FAssert(ObjectLength(nobj) == ObjectLength(obj));
 
-            AsObjectHeader(obj)->GCFlags |= GCFORWARD;
+            SetForward(obj);
             *((FObject *) obj) = nobj;
             *pobj = nobj;
+
+            if (GetAge(nobj) == GCMATURE_AGE)
+            {
+                SetMark(nobj);
+                SetMature(nobj);
+
+                FAssert(ScanIndex < sizeof(ScanStack) / sizeof(FObject));
+
+                ScanStack[ScanIndex] = nobj;
+                ScanIndex += 1;
+            }
         }
     }
 }
 
+static void ScanObject(FObject obj)
+{
+    FAssert(ObjectP(obj));
+
+    switch (ObjectTag(obj))
+    {
+    case PairTag:
+        Alive(&(AsPair(obj)->First));
+        Alive(&(AsPair(obj)->Rest));
+        break;
+
+    case BoxTag:
+        Alive(&(AsBox(obj)->Value));
+        break;
+
+    case StringTag:
+        break;
+
+    case VectorTag:
+        for (int vdx = 0; vdx < AsVector(obj)->Length; vdx++)
+            Alive(AsVector(obj)->Vector + vdx);
+        break;
+
+    case BytevectorTag:
+        break;
+
+    case PortTag:
+        Alive(&(AsPort(obj)->Name));
+        Alive(&(AsPort(obj)->Object));
+        break;
+
+    case ProcedureTag:
+        Alive(&(AsProcedure(obj)->Name));
+        Alive(&(AsProcedure(obj)->Code));
+        Alive(&(AsProcedure(obj)->RestArg));
+        break;
+
+    case SymbolTag:
+        Alive(&(AsSymbol(obj)->String));
+        Alive(&(AsSymbol(obj)->Hash));
+        break;
+
+    case RecordTypeTag:
+        Alive(&(AsRecordType(obj)->Name));
+        for (int fdx = 0; fdx < AsRecordType(obj)->NumFields; fdx++)
+            Alive(AsRecordType(obj)->Fields + fdx);
+        break;
+
+    case RecordTag:
+        Alive(&(AsGenericRecord(obj)->Record.RecordType));
+        for (int fdx = 0; fdx < AsGenericRecord(obj)->Record.NumFields; fdx++)
+            Alive(AsGenericRecord(obj)->Fields + fdx);
+        break;
+
+    case PrimitiveTag:
+        break;
+
+    default:
+        FAssert(0);
+    }
+
+#ifdef FOMENT_GCCHK
+    CheckSumObject(obj);
+#endif // FOMENT_GCCHK
+}
+
 void Collect()
 {
+//printf("%d ", CollectionCount);
+//printf("Collecting...");
 #ifdef FOMENT_GCCHK
     VerifyCheckSums();
 #endif // FOMENT_GCCHK
+
+    FAssert(GCRequired != 0);
+    GCRequired = 0;
+
+    FMature * m;
+
+    for (m = Mature; m != 0; m = m->Next)
+    {
+        FObjectHeader * oh = (FObjectHeader *) (m + 1);
+        oh->GCFlags &= ~GCMARK;
+    }
+
+    ScanIndex = 0;
 
     FSection * sec = ReserveSections;
     ReserveSections = CurrentSections;
@@ -363,90 +544,60 @@ void Collect()
     }
 
     sec = CurrentSections;
-    while (sec != 0)
+    char * sp = sec->Space;
+    while (ScanIndex > 0 || sp < ActiveSection->Space + ActiveSection->Used)
     {
-        char * sp = sec->Space;
+        while (ScanIndex > 0)
+        {
+            ScanIndex -= 1;
+            FObject obj = ScanStack[ScanIndex];
+
+            FAssert(ObjectP(obj));
+            FAssert(MatureP(obj));
+            FAssert(GetAge(obj) == GCMATURE_AGE);
+
+            ScanObject(obj);
+        }
 
         while (sp < sec->Space + sec->Used)
         {
             FObjectHeader * oh = (FObjectHeader *) sp;
             FObject obj = (FObject) (oh + 1);
-
-            if (ObjectP(obj))
-            {
-                switch (ObjectTag(obj))
-                {
-                case PairTag:
-                    Alive(&(AsPair(obj)->First));
-                    Alive(&(AsPair(obj)->Rest));
-                    break;
-
-                case BoxTag:
-                    Alive(&(AsBox(obj)->Value));
-                    break;
-
-                case StringTag:
-                    break;
-
-                case VectorTag:
-                    for (int vdx = 0; vdx < AsVector(obj)->Length; vdx++)
-                        Alive(AsVector(obj)->Vector + vdx);
-                    break;
-
-                case BytevectorTag:
-                    break;
-
-                case PortTag:
-                    Alive(&(AsPort(obj)->Name));
-                    Alive(&(AsPort(obj)->Object));
-                    break;
-
-                case ProcedureTag:
-                    Alive(&(AsProcedure(obj)->Name));
-                    Alive(&(AsProcedure(obj)->Code));
-                    Alive(&(AsProcedure(obj)->RestArg));
-                    break;
-
-                case SymbolTag:
-                    Alive(&(AsSymbol(obj)->String));
-                    Alive(&(AsSymbol(obj)->Hash));
-                    break;
-
-                case RecordTypeTag:
-                    Alive(&(AsRecordType(obj)->Name));
-                    for (int fdx = 0; fdx < AsRecordType(obj)->NumFields; fdx++)
-                        Alive(AsRecordType(obj)->Fields + fdx);
-                    break;
-
-                case RecordTag:
-                    Alive(&(AsGenericRecord(obj)->Record.RecordType));
-                    for (int fdx = 0; fdx < AsGenericRecord(obj)->Record.NumFields; fdx++)
-                        Alive(AsGenericRecord(obj)->Fields + fdx);
-                    break;
-
-                case PrimitiveTag:
-                    break;
-
-                default:
-                    FAssert(0);
-                }
-
-#ifdef FOMENT_GCCHK
-                CheckSumObject(obj);
-#endif // FOMENT_GCCHK
-            }
+            ScanObject(obj);
 
             sp += ObjectLength(obj) + sizeof(FObjectHeader);
         }
 
         FAssert(sp == sec->Space + sec->Used);
 
-        sec = sec->Next;
+        if (sec != ActiveSection)
+        {
+            sec = sec->Next;
+            sp = sec->Space;
+        }
     }
+
+sec = ReserveSections;
+while (sec != 0)
+{
+    memset(sec->Space, 0, sec->Size);
+    sec = sec->Next;
 }
 
-#define SECTION_SIZE (128 * 1024 - 256)
-#define SECTION_COUNT 16
+m = Mature;
+while (m != 0)
+{
+    FObjectHeader * oh = (FObjectHeader *) (m + 1);
+
+    if ((oh->GCFlags & GCMARK) == 0)
+        memset(oh, 0, sizeof(FObjectHeader));
+
+    m = m->Next;
+}
+//printf("Done.\n");
+
+    CollectionCount += 1;
+}
 
 void SetupGC()
 {
@@ -454,31 +605,35 @@ void SetupGC()
     FAssert(sizeof(FObject) == sizeof(char *));
     FAssert(sizeof(FFixnum) <= sizeof(FImmediate));
     FAssert(sizeof(FCh) <= sizeof(FImmediate));
+    FAssert(GCMATURE_AGE <= GCAGEMASK);
 
     BytesAllocated = 0;
+    CollectionCount = 0;
 
     CurrentSections = 0;
     ReserveSections = 0;
-    for (int idx = 0; idx < SECTION_COUNT; idx++)
+    for (int idx = 0; idx < GCSECTION_COUNT; idx++)
     {
-        FSection * s = (FSection *) malloc(SECTION_SIZE + sizeof(FSection) - sizeof(char));
+        FSection * s = (FSection *) malloc(GCSECTION_SIZE + sizeof(FSection) - sizeof(char));
 
         FAssert(s != 0);
 
         s->Next = CurrentSections;
         s->Used = 0;
-        s->Size = SECTION_SIZE;
+        s->Size = GCSECTION_SIZE;
         CurrentSections = s;
 
-        s = (FSection *) malloc(SECTION_SIZE + sizeof(FSection) - sizeof(char));
+        s = (FSection *) malloc(GCSECTION_SIZE + sizeof(FSection) - sizeof(char));
 
         FAssert(s != 0);
 
         s->Next = ReserveSections;
         s->Used = 0;
-        s->Size = SECTION_SIZE;
+        s->Size = GCSECTION_SIZE;
         ReserveSections = s;
     }
 
     ActiveSection = CurrentSections;
+
+    Mature = 0;
 }

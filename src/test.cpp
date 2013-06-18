@@ -185,6 +185,9 @@ int RunTest(FObject env, int argc, char * argv[])
     PutStringC(R.StandardOutput, "Bytes Allocated: ");
     sl = NumberAsString(BytesAllocated, s, 10);
     PutString(R.StandardOutput, s, sl);
+    PutStringC(R.StandardOutput, " Collection Count: ");
+    sl = NumberAsString(CollectionCount, s, 10);
+    PutString(R.StandardOutput, s, sl);
     PutCh(R.StandardOutput, '\n');
 
     AllowGC();
