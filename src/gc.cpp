@@ -18,11 +18,12 @@ Garbage Collection:
     generation
 -- GC does not occur during an allocation, only at AllowGC points for all threads
 
--- use a table lookup for fix length objects:
-int FixedLength[] = {sizeof(FPair), ...};
-
+-- rearrange FRecordType and FRecord/FGenericRecord to be the same as FVector so that gc
+    can treat them the same
+-- have FString record the length as bytes so that gc can treat FBytevector and FString the same
+-- think through how gc and the rest of the system use type tags
+-- mark collector: don't use malloc/free for memory allocator
 -- mark collector: mark-compact always full collection
--- mark collector: partial and full collections
 */
 
 #include <stdio.h>
@@ -34,17 +35,22 @@ int FixedLength[] = {sizeof(FPair), ...};
 
 // GCFlags in FObjectHeader
 
-#define GCAGEMASK 0x0F
-#define GCMARK    0x20
-#define GCMATURE  0x40
-#define GCFORWARD 0x80
+#define GCAGEMASK  0x0F
+#define GCMODIFIED 0x10
+#define GCMARK     0x20
+#define GCMATURE   0x40
+#define GCFORWARD  0x80
 
 #define SetAge(obj, age)\
     AsObjectHeader(obj)->GCFlags = ((AsObjectHeader(obj)->GCFlags & ~GCAGEMASK) | (age))
 #define GetAge(obj) (AsObjectHeader(obj)->GCFlags & GCAGEMASK)
 
+#define SetModified(obj) AsObjectHeader(obj)->GCFlags |= GCMODIFIED
+#define ClearModified(obj) AsObjectHeader(obj)->GCFlags &= ~GCMODIFIED
+#define ModifiedP(obj) (AsObjectHeader(obj)->GCFlags & GCMODIFIED)
+
 #define SetMark(obj) AsObjectHeader(obj)->GCFlags |= GCMARK
-#define ClearMark(obj) AsObjectHeader(obj)->GCFlags &= ~GCMARK
+#define ClearMark(oh) oh->GCFlags &= ~GCMARK
 #define MarkP(obj) (AsObjectHeader(obj)->GCFlags & GCMARK)
 
 #define SetMature(obj) AsObjectHeader(obj)->GCFlags |= GCMATURE
@@ -75,9 +81,11 @@ static unsigned short Hash = 0;
 static FExecuteState * ExecuteState = 0;
 int GCRequired = 0;
 
-#define GCSECTION_SIZE (128 * 1024 - 256)
-#define GCSECTION_COUNT 2
-#define GCMATURE_AGE 4
+#define GCSECTION_SIZE (64 * 1024 - 256)
+#define GCSECTION_COUNT 4
+#define GCMATURE_AGE 2
+#define GCMAXIMUM_YOUNG_SIZE 1024
+#define GCFULL_PARTIAL 3
 
 typedef struct _FMature
 {
@@ -88,6 +96,9 @@ static FMature * Mature;
 
 static FObject ScanStack[1024];
 static int ScanIndex;
+
+static FObject Modified[1024 * 4];
+static int ModifiedCount;
 
 const static unsigned int Align4[4] = {0, 3, 2, 1};
 
@@ -163,9 +174,11 @@ static FObjectHeader * AllocateNursery(unsigned int len)
 
     if (ActiveSection->Used + len + sizeof(FObjectHeader) > ActiveSection->Size)
     {
+        if (ActiveSection->Next == 0)
+            return(0);
+
         ActiveSection = ActiveSection->Next;
 
-        FAssert(ActiveSection != 0);
         FAssert(ActiveSection->Used == 0);
     }
 
@@ -187,6 +200,7 @@ static FObjectHeader * AllocateMature(unsigned int len)
     return((FObjectHeader *) (m + 1));
 }
 
+static void RecordModify(FObject obj);
 FObject MakeObject(FObjectTag tag, unsigned int sz)
 {
     FAssert(tag < BadDogTag);
@@ -196,14 +210,32 @@ FObject MakeObject(FObjectTag tag, unsigned int sz)
 
     FAssert(len >= sz);
 
-    FObjectHeader * oh = AllocateNursery(len);
-//FObjectHeader * oh = AllocateMature(len);
+/*    FObjectHeader * oh = AllocateNursery(len);
+
+    FAssert(oh != 0);
+
+    oh->GCFlags = 0;
+*/
+    FObjectHeader * oh = 0;
+
+    if (len <= GCMAXIMUM_YOUNG_SIZE)
+    {
+        oh = AllocateNursery(len);
+        if (oh != 0)
+            oh->GCFlags = 0;
+    }
+
+    if (oh == 0)
+    {
+        oh = AllocateMature(len);
+        oh->GCFlags = GCMATURE | GCMATURE_AGE;
+
+        RecordModify((FObject) (oh + 1));
+    }
 
     oh->Hash = Hash;
     Hash += 1;
     oh->Tag = tag;
-    oh->GCFlags = 0;
-//oh->GCFlags = GCMATURE;
 
     BytesAllocated += len + sizeof(FObjectHeader);
 
@@ -329,15 +361,31 @@ FObject AsObject(FObject obj)
 }
 #endif // FOMENT_GCCHK
 
+static void RecordModify(FObject obj)
+{
+    FAssert(ModifiedCount < sizeof(Modified) / sizeof(FObject));
+    FAssert(ObjectP(obj));
+    FAssert(MatureP(obj));
+
+    if (ModifiedP(obj) == 0)
+    {
+        SetModified(obj);
+
+        Modified[ModifiedCount] = obj;
+        ModifiedCount += 1;
+    }
+}
+
 void ModifyVector(FObject obj, int idx, FObject val)
 {
     FAssert(VectorP(obj));
     FAssert(idx >= 0 && idx < AsVector(obj)->Length);
 
     AsVector(obj)->Vector[idx] = val;
-    
-    
-    
+
+    if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0)
+        RecordModify(obj);
+
 #ifdef FOMENT_GCCHK
     CheckSumObject(obj);
 #endif // FOMENT_GCCHK
@@ -345,27 +393,31 @@ void ModifyVector(FObject obj, int idx, FObject val)
 
 void ModifyObject(FObject obj, int off, FObject val)
 {
+    FAssert(ObjectP(obj));
     FAssert(off % sizeof(FObject) == 0);
 
     ((FObject *) obj)[off / sizeof(FObject)] = val;
-    
-    
-    
+
+    if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0)
+        RecordModify(obj);
+
 #ifdef FOMENT_GCCHK
     CheckSumObject(obj);
 #endif // FOMENT_GCCHK
 }
 
-static void Alive(FObject * pobj)
+static void ScanObject(FObject * pobj, int fcf)
 {
     FObject obj = *pobj;
 
-    if (ObjectP(obj))
-    {
-        if (MatureP(obj))
-        {
-            FAssert(ForwardedP(obj) == 0);
+    FAssert(ObjectP(obj));
 
+    if (MatureP(obj))
+    {
+        FAssert(ForwardedP(obj) == 0);
+
+        if (fcf)
+        {
             if (MarkP(obj) == 0)
             {
                 SetMark(obj);
@@ -376,67 +428,68 @@ static void Alive(FObject * pobj)
                 ScanIndex += 1;
             }
         }
-        else if (ForwardedP(obj))
-        {
-            FAssert(MatureP(obj) == 0);
+    }
+    else if (ForwardedP(obj))
+    {
+        FAssert(MatureP(obj) == 0);
 
-            *pobj = *((FObject *) obj);
-        }
+        *pobj = *((FObject *) obj);
+    }
+    else
+    {
+        int len = ObjectLength(obj);
+        FObjectHeader * oh;
+
+        FAssert(GetAge(obj) < GCMATURE_AGE);
+
+        SetAge(obj, GetAge(obj) + 1);
+
+        FAssert(MarkP(obj) == 0);
+        FAssert(MatureP(obj) == 0);
+        FAssert(ForwardedP(obj) == 0);
+
+        if (GetAge(obj) == GCMATURE_AGE)
+            oh = AllocateMature(len);
         else
+            oh = AllocateNursery(len);
+
+        FObject nobj = (FObject) (oh + 1);
+
+        memcpy(oh, AsObjectHeader(obj), len + sizeof(FObjectHeader));
+
+        FAssert(ObjectLength(nobj) == ObjectLength(obj));
+
+        SetForward(obj);
+        *((FObject *) obj) = nobj;
+        *pobj = nobj;
+
+        if (GetAge(nobj) == GCMATURE_AGE)
         {
-            int len = ObjectLength(obj);
-            FObjectHeader * oh;
+            SetMark(nobj);
+            SetMature(nobj);
 
-            FAssert(GetAge(obj) < GCMATURE_AGE);
+            FAssert(ScanIndex < sizeof(ScanStack) / sizeof(FObject));
 
-            SetAge(obj, GetAge(obj) + 1);
-
-            FAssert(MarkP(obj) == 0);
-            FAssert(MatureP(obj) == 0);
-            FAssert(ForwardedP(obj) == 0);
-
-            if (GetAge(obj) == GCMATURE_AGE)
-                oh = AllocateMature(len);
-            else
-                oh = AllocateNursery(len);
-
-            FObject nobj = (FObject) (oh + 1);
-
-            memcpy(oh, AsObjectHeader(obj), len + sizeof(FObjectHeader));
-
-            FAssert(ObjectLength(nobj) == ObjectLength(obj));
-
-            SetForward(obj);
-            *((FObject *) obj) = nobj;
-            *pobj = nobj;
-
-            if (GetAge(nobj) == GCMATURE_AGE)
-            {
-                SetMark(nobj);
-                SetMature(nobj);
-
-                FAssert(ScanIndex < sizeof(ScanStack) / sizeof(FObject));
-
-                ScanStack[ScanIndex] = nobj;
-                ScanIndex += 1;
-            }
+            ScanStack[ScanIndex] = nobj;
+            ScanIndex += 1;
         }
     }
 }
 
-static void ScanObject(FObject obj)
+static void CheckModified(FObject obj)
 {
-    FAssert(ObjectP(obj));
-
     switch (ObjectTag(obj))
     {
     case PairTag:
-        Alive(&(AsPair(obj)->First));
-        Alive(&(AsPair(obj)->Rest));
+        if (ObjectP(First(obj)) && MatureP(First(obj)) == 0)
+            RecordModify(obj);
+        if (ObjectP(Rest(obj)) && MatureP(Rest(obj)) == 0)
+            RecordModify(obj);
         break;
 
     case BoxTag:
-        Alive(&(AsBox(obj)->Value));
+        if (ObjectP(AsBox(obj)->Value) && MatureP(AsBox(obj)->Value) == 0)
+            RecordModify(obj);
         break;
 
     case StringTag:
@@ -444,38 +497,148 @@ static void ScanObject(FObject obj)
 
     case VectorTag:
         for (int vdx = 0; vdx < AsVector(obj)->Length; vdx++)
-            Alive(AsVector(obj)->Vector + vdx);
+            if (ObjectP(AsVector(obj)->Vector[vdx])
+                    && MatureP(AsVector(obj)->Vector[vdx]) == 0)
+            {
+                RecordModify(obj);
+                break;
+            }
         break;
 
     case BytevectorTag:
         break;
 
     case PortTag:
-        Alive(&(AsPort(obj)->Name));
-        Alive(&(AsPort(obj)->Object));
+        if (ObjectP(AsPort(obj)->Name) && MatureP(AsPort(obj)->Name) == 0)
+            RecordModify(obj);
+        if (ObjectP(AsPort(obj)->Object) && MatureP(AsPort(obj)->Object) == 0)
+            RecordModify(obj);
         break;
 
     case ProcedureTag:
-        Alive(&(AsProcedure(obj)->Name));
-        Alive(&(AsProcedure(obj)->Code));
-        Alive(&(AsProcedure(obj)->RestArg));
+        if (ObjectP(AsProcedure(obj)->Name) && MatureP(AsProcedure(obj)->Name) == 0)
+            RecordModify(obj);
+        if (ObjectP(AsProcedure(obj)->Code) && MatureP(AsProcedure(obj)->Code) == 0)
+            RecordModify(obj);
+        if (ObjectP(AsProcedure(obj)->RestArg) && MatureP(AsProcedure(obj)->RestArg) == 0)
+            RecordModify(obj);
         break;
 
     case SymbolTag:
-        Alive(&(AsSymbol(obj)->String));
-        Alive(&(AsSymbol(obj)->Hash));
+        if (ObjectP(AsSymbol(obj)->String) && MatureP(AsSymbol(obj)->String) == 0)
+            RecordModify(obj);
+        if (ObjectP(AsSymbol(obj)->Hash) && MatureP(AsSymbol(obj)->Hash) == 0)
+            RecordModify(obj);
         break;
 
     case RecordTypeTag:
-        Alive(&(AsRecordType(obj)->Name));
+        if (ObjectP(AsRecordType(obj)->Name) && MatureP(AsRecordType(obj)->Name) == 0)
+        {
+            RecordModify(obj);
+            break;
+        }
+
         for (int fdx = 0; fdx < AsRecordType(obj)->NumFields; fdx++)
-            Alive(AsRecordType(obj)->Fields + fdx);
+            if (ObjectP(AsRecordType(obj)->Fields[fdx])
+                    && MatureP(AsRecordType(obj)->Fields[fdx]) == 0)
+            {
+                RecordModify(obj);
+                break;
+            }
         break;
 
     case RecordTag:
-        Alive(&(AsGenericRecord(obj)->Record.RecordType));
+        if (ObjectP(AsGenericRecord(obj)->Record.RecordType)
+                && MatureP(AsGenericRecord(obj)->Record.RecordType) == 0)
+        {
+            RecordModify(obj);
+            break;
+        }
+
         for (int fdx = 0; fdx < AsGenericRecord(obj)->Record.NumFields; fdx++)
-            Alive(AsGenericRecord(obj)->Fields + fdx);
+            if (ObjectP(AsGenericRecord(obj)->Fields[fdx])
+                    && MatureP(AsGenericRecord(obj)->Fields[fdx]) == 0)
+            {
+                RecordModify(obj);
+                break;
+            }
+        break;
+
+    case PrimitiveTag:
+        break;
+
+    default:
+        FAssert(0);
+    }
+}
+
+static void ScanChildren(FObject obj, int fcf)
+{
+    FAssert(ObjectP(obj));
+
+    switch (ObjectTag(obj))
+    {
+    case PairTag:
+        if (ObjectP(First(obj)))
+            ScanObject(&(AsPair(obj)->First), fcf);
+        if (ObjectP(Rest(obj)))
+            ScanObject(&(AsPair(obj)->Rest), fcf);
+        break;
+
+    case BoxTag:
+        if (ObjectP(AsBox(obj)->Value))
+            ScanObject(&(AsBox(obj)->Value), fcf);
+        break;
+
+    case StringTag:
+        break;
+
+    case VectorTag:
+        for (int vdx = 0; vdx < AsVector(obj)->Length; vdx++)
+            if (ObjectP(AsVector(obj)->Vector[vdx]))
+                ScanObject(AsVector(obj)->Vector + vdx, fcf);
+        break;
+
+    case BytevectorTag:
+        break;
+
+    case PortTag:
+        if (ObjectP(AsPort(obj)->Name))
+            ScanObject(&(AsPort(obj)->Name), fcf);
+        if (ObjectP(AsPort(obj)->Object))
+            ScanObject(&(AsPort(obj)->Object), fcf);
+        break;
+
+    case ProcedureTag:
+        if (ObjectP(AsProcedure(obj)->Name))
+            ScanObject(&(AsProcedure(obj)->Name), fcf);
+        if (ObjectP(AsProcedure(obj)->Code))
+            ScanObject(&(AsProcedure(obj)->Code), fcf);
+        if (ObjectP(AsProcedure(obj)->RestArg))
+            ScanObject(&(AsProcedure(obj)->RestArg), fcf);
+        break;
+
+    case SymbolTag:
+        if (ObjectP(AsSymbol(obj)->String))
+            ScanObject(&(AsSymbol(obj)->String), fcf);
+        if (ObjectP(AsSymbol(obj)->Hash))
+            ScanObject(&(AsSymbol(obj)->Hash), fcf);
+        break;
+
+    case RecordTypeTag:
+        if (ObjectP(AsRecordType(obj)->Name))
+            ScanObject(&(AsRecordType(obj)->Name), fcf);
+        for (int fdx = 0; fdx < AsRecordType(obj)->NumFields; fdx++)
+            if (ObjectP(AsRecordType(obj)->Fields[fdx]))
+                ScanObject(AsRecordType(obj)->Fields + fdx, fcf);
+        break;
+
+    case RecordTag:
+        if (ObjectP(AsGenericRecord(obj)->Record.RecordType))
+            ScanObject(&(AsGenericRecord(obj)->Record.RecordType), fcf);
+        for (int fdx = 0; fdx < AsGenericRecord(obj)->Record.NumFields; fdx++)
+            if (ObjectP(AsGenericRecord(obj)->Fields[fdx]))
+                ScanObject(AsGenericRecord(obj)->Fields + fdx, fcf);
         break;
 
     case PrimitiveTag:
@@ -485,29 +648,30 @@ static void ScanObject(FObject obj)
         FAssert(0);
     }
 
+    if (MatureP(obj))
+        CheckModified(obj);
+
 #ifdef FOMENT_GCCHK
     CheckSumObject(obj);
 #endif // FOMENT_GCCHK
 }
 
-void Collect()
+static void Collect(int fcf)
 {
-//printf("%d ", CollectionCount);
-//printf("Collecting...");
-#ifdef FOMENT_GCCHK
-    VerifyCheckSums();
-#endif // FOMENT_GCCHK
-
-    FAssert(GCRequired != 0);
-    GCRequired = 0;
-
-    FMature * m;
-
-    for (m = Mature; m != 0; m = m->Next)
+    if (fcf)
     {
-        FObjectHeader * oh = (FObjectHeader *) (m + 1);
-        oh->GCFlags &= ~GCMARK;
+printf("Full Collection...");
+
+        FMature * m;
+
+        for (m = Mature; m != 0; m = m->Next)
+        {
+            FObjectHeader * oh = (FObjectHeader *) (m + 1);
+            ClearMark(oh);
+        }
     }
+    else
+printf("Partial Collection...");
 
     ScanIndex = 0;
 
@@ -526,26 +690,56 @@ void Collect()
 
     FObject * rv = (FObject *) &R;
     for (int rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
-        Alive(rv + rdx);
+        if (ObjectP(rv[rdx]))
+            ScanObject(rv + rdx, fcf);
 
     for (int rdx = 0; rdx < UsedRoots; rdx++)
-        Alive(Roots[rdx]);
+        if (ObjectP(*Roots[rdx]))
+            ScanObject(Roots[rdx], fcf);
 
     if (ExecuteState != 0)
     {
         for (int adx = 0; adx < ExecuteState->AStackPtr; adx++)
-            Alive(ExecuteState->AStack + adx);
+            if (ObjectP(ExecuteState->AStack[adx]))
+                ScanObject(ExecuteState->AStack + adx, fcf);
 
         for (int cdx = 0; cdx < ExecuteState->CStackPtr; cdx++)
-            Alive(ExecuteState->CStack + cdx);
+            if (ObjectP(ExecuteState->CStack[cdx]))
+                ScanObject(ExecuteState->CStack + cdx, fcf);
 
-        Alive(&ExecuteState->Proc);
-        Alive(&ExecuteState->Frame);
+        if (ObjectP(ExecuteState->Proc))
+            ScanObject(&ExecuteState->Proc, fcf);
+        if (ObjectP(ExecuteState->Frame))
+            ScanObject(&ExecuteState->Frame, fcf);
+    }
+
+    if (fcf)
+    {
+        while (ModifiedCount > 0)
+        {
+            ModifiedCount -= 1;
+
+            FAssert(ObjectP(Modified[ModifiedCount]));
+            FAssert(ModifiedP(Modified[ModifiedCount]));
+
+            ClearModified(Modified[ModifiedCount]);
+        }
+    }
+    else
+    {
+        for (int idx = 0; idx < ModifiedCount; idx++)
+        {
+            FAssert(ObjectP(Modified[idx]));
+            FAssert(ModifiedP(Modified[idx]));
+
+            ScanChildren(Modified[idx], fcf);
+        }
     }
 
     sec = CurrentSections;
     char * sp = sec->Space;
-    while (ScanIndex > 0 || sp < ActiveSection->Space + ActiveSection->Used)
+    while (ScanIndex > 0 || sec != ActiveSection
+            || sp < ActiveSection->Space + ActiveSection->Used)
     {
         while (ScanIndex > 0)
         {
@@ -556,14 +750,14 @@ void Collect()
             FAssert(MatureP(obj));
             FAssert(GetAge(obj) == GCMATURE_AGE);
 
-            ScanObject(obj);
+            ScanChildren(obj, fcf);
         }
 
         while (sp < sec->Space + sec->Used)
         {
             FObjectHeader * oh = (FObjectHeader *) sp;
             FObject obj = (FObject) (oh + 1);
-            ScanObject(obj);
+            ScanChildren(obj, fcf);
 
             sp += ObjectLength(obj) + sizeof(FObjectHeader);
         }
@@ -577,26 +771,52 @@ void Collect()
         }
     }
 
-sec = ReserveSections;
-while (sec != 0)
-{
-    memset(sec->Space, 0, sec->Size);
-    sec = sec->Next;
+    if (fcf)
+    {
+        FMature ** pm = &Mature;
+        FMature * m = Mature;
+        while (m != 0)
+        {
+            FObjectHeader * oh = (FObjectHeader *) (m + 1);
+
+            if ((oh->GCFlags & GCMARK) == 0)
+            {
+                *pm = m->Next;
+                free(m);
+                m = *pm;
+            }
+            else
+            {
+                pm = &m->Next;
+                m = m->Next;
+            }
+        }
+    }
+
+    printf("Done.\n");
 }
 
-m = Mature;
-while (m != 0)
+void Collect()
 {
-    FObjectHeader * oh = (FObjectHeader *) (m + 1);
-
-    if ((oh->GCFlags & GCMARK) == 0)
-        memset(oh, 0, sizeof(FObjectHeader));
-
-    m = m->Next;
-}
-//printf("Done.\n");
-
     CollectionCount += 1;
+
+#ifdef FOMENT_GCCHK
+    VerifyCheckSums();
+#endif // FOMENT_GCCHK
+
+    FAssert(GCRequired != 0);
+    GCRequired = 0;
+
+    Collect(CollectionCount % GCFULL_PARTIAL == 0);
+
+#ifdef FOMENT_GCCHK
+    FSection * sec = ReserveSections;
+    while (sec != 0)
+    {
+        memset(sec->Space, 0, sec->Size);
+        sec = sec->Next;
+    }
+#endif // FOMENT_GCCHK
 }
 
 void SetupGC()
@@ -636,4 +856,6 @@ void SetupGC()
     ActiveSection = CurrentSections;
 
     Mature = 0;
+
+    ModifiedCount = 0;
 }

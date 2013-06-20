@@ -12,7 +12,6 @@ Foment
 FConfig Config = {1, 1, 1, 0};
 FRoots R;
 
-#ifdef FOMENT_DEBUG
 void FAssertFailed(char * fn, int ln, char * expr)
 {
     printf("FAssert: %s (%d)%s\n", expr, ln, fn);
@@ -20,7 +19,6 @@ void FAssertFailed(char * fn, int ln, char * expr)
 //    *((char *) 0) = 0;
     exit(1);
 }
-#endif // FOMENT_DEBUG
 
 // ---- Immediates ----
 
