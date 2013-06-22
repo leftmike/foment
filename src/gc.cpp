@@ -18,10 +18,18 @@ Garbage Collection:
     generation
 -- GC does not occur during an allocation, only at AllowGC points for all threads
 
--- rearrange FRecordType and FRecord/FGenericRecord to be the same as FVector so that gc
-    can treat them the same
--- have FString record the length as bytes so that gc can treat FBytevector and FString the same
--- think through how gc and the rest of the system use type tags
+-- pointer tag for pairs
+-- pointer tag for doubles
+
+PairTag       01
+DoubleTag     10
+
+-- young objects start with an FObject containing the TypeTag or a forwarding pointer
+
+-- remove explicit unsigned int from Pairs
+-- merge some of the fields in FProcedure into Reserved
+-- merge Hash into Reserved in FSymbol
+
 -- mark collector: don't use malloc/free for memory allocator
 -- mark collector: mark-compact always full collection
 */
@@ -124,19 +132,19 @@ int ObjectLength(FObject obj)
 
     case StringTag:
     {
-        int len = sizeof(FString) + sizeof(FCh) * AsString(obj)->Length;
+        int len = sizeof(FString) + sizeof(FCh) * StringLength(obj);
         len += Align4[len % 4];
         return(len);
     }
 
     case VectorTag:
-        FAssert(AsVector(obj)->Length >= 0);
+        FAssert(VectorLength(obj) >= 0);
 
-        return(sizeof(FVector) + sizeof(FObject) * (AsVector(obj)->Length - 1));
+        return(sizeof(FVector) + sizeof(FObject) * (VectorLength(obj) - 1));
 
     case BytevectorTag:
     {
-        int len = sizeof(FBytevector) + sizeof(FByte) * (AsBytevector(obj)->Length - 1);
+        int len = sizeof(FBytevector) + sizeof(FByte) * (BytevectorLength(obj) - 1);
         len += Align4[len % 4];
         return(len);
     }
@@ -151,11 +159,10 @@ int ObjectLength(FObject obj)
         return(sizeof(FSymbol));
 
     case RecordTypeTag:
-        return(sizeof(FRecordType) + sizeof(FObject) * (AsRecordType(obj)->NumFields - 1));
+        return(sizeof(FRecordType) + sizeof(FObject) * (RecordTypeNumFields(obj) - 1));
 
     case RecordTag:
-        return(sizeof(FGenericRecord) + sizeof(FObject)
-                * (AsGenericRecord(obj)->Record.NumFields - 1));
+        return(sizeof(FGenericRecord) + sizeof(FObject) * (RecordNumFields(obj) - 1));
 
     case PrimitiveTag:
         return(sizeof(FPrimitive));
@@ -243,7 +250,7 @@ FObject MakeObject(FObjectTag tag, unsigned int sz)
 
     FAssert(oh == AsObjectHeader(obj));
     FAssert(ObjectP(obj));
-    FAssert(ObjectTag(obj) == tag);
+//    FAssert(ObjectTag(obj) == tag);
 
     return(obj);
 }
@@ -283,84 +290,6 @@ void LeaveExecute(FExecuteState * es)
     ExecuteState = 0;
 }
 
-#ifdef FOMENT_GCCHK
-static void VerifyObject(FObject obj)
-{
-    if (StringP(obj) || BytevectorP(obj))
-    {
-        if (AsObjectHeader(obj)->CheckSum != 0)
-        {
-            PutStringC(R.StandardOutput, "CheckSum != 0: ");
-            WritePretty(R.StandardOutput, obj, 0);
-            PutCh(R.StandardOutput, '\n');
-
-            FAssert(0);
-        }
-    }
-    else
-    {
-        if (AsObjectHeader(obj)->CheckSum
-                != ByteLengthHash((char *) obj, ObjectLength(obj)))
-        {
-            PutStringC(R.StandardOutput, "CheckSum Bad: ");
-            WritePretty(R.StandardOutput, obj, 0);
-//            Write(R.StandardOutput, obj, 0);
-            PutCh(R.StandardOutput, '\n');
-
-            FAssert(0);
-        }
-    }
-}
-
-void VerifyCheckSums()
-{
-    FSection * sec = CurrentSections;
-
-    while (sec != 0)
-    {
-        char * sp = sec->Space;
-
-        while (sp < sec->Space + sec->Used)
-        {
-            FObjectHeader * oh = (FObjectHeader *) sp;
-            FObject obj = (FObject) (oh + 1);
-            VerifyObject(obj);
-
-            sp += ObjectLength(obj) + sizeof(FObjectHeader);
-        }
-
-        FAssert(sp == sec->Space + sec->Used);
-
-        sec = sec->Next;
-    }
-
-    FMature * m = Mature;
-    while (m != 0)
-    {
-        FObjectHeader * oh = (FObjectHeader *) (m + 1);
-
-        if (oh->Tag != 0)
-            VerifyObject((FObject) (oh + 1));
-
-        m = m->Next;
-    }
-}
-
-void CheckSumObject(FObject obj)
-{
-    if (StringP(obj) || BytevectorP(obj))
-        AsObjectHeader(obj)->CheckSum = 0;
-    else
-        AsObjectHeader(obj)->CheckSum = ByteLengthHash((char *) obj, ObjectLength(obj));
-}
-
-FObject AsObject(FObject obj)
-{
-    CheckSumObject(obj);
-    return(obj);
-}
-#endif // FOMENT_GCCHK
-
 static void RecordModify(FObject obj)
 {
     FAssert(ModifiedCount < sizeof(Modified) / sizeof(FObject));
@@ -376,19 +305,15 @@ static void RecordModify(FObject obj)
     }
 }
 
-void ModifyVector(FObject obj, int idx, FObject val)
+void ModifyVector(FObject obj, unsigned int idx, FObject val)
 {
     FAssert(VectorP(obj));
-    FAssert(idx >= 0 && idx < AsVector(obj)->Length);
+    FAssert(idx < VectorLength(obj));
 
     AsVector(obj)->Vector[idx] = val;
 
     if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0)
         RecordModify(obj);
-
-#ifdef FOMENT_GCCHK
-    CheckSumObject(obj);
-#endif // FOMENT_GCCHK
 }
 
 void ModifyObject(FObject obj, int off, FObject val)
@@ -400,10 +325,6 @@ void ModifyObject(FObject obj, int off, FObject val)
 
     if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0)
         RecordModify(obj);
-
-#ifdef FOMENT_GCCHK
-    CheckSumObject(obj);
-#endif // FOMENT_GCCHK
 }
 
 static void ScanObject(FObject * pobj, int fcf)
@@ -496,7 +417,7 @@ static void CheckModified(FObject obj)
         break;
 
     case VectorTag:
-        for (int vdx = 0; vdx < AsVector(obj)->Length; vdx++)
+        for (unsigned int vdx = 0; vdx < VectorLength(obj); vdx++)
             if (ObjectP(AsVector(obj)->Vector[vdx])
                     && MatureP(AsVector(obj)->Vector[vdx]) == 0)
             {
@@ -532,13 +453,7 @@ static void CheckModified(FObject obj)
         break;
 
     case RecordTypeTag:
-        if (ObjectP(AsRecordType(obj)->Name) && MatureP(AsRecordType(obj)->Name) == 0)
-        {
-            RecordModify(obj);
-            break;
-        }
-
-        for (int fdx = 0; fdx < AsRecordType(obj)->NumFields; fdx++)
+        for (unsigned int fdx = 0; fdx < RecordTypeNumFields(obj); fdx++)
             if (ObjectP(AsRecordType(obj)->Fields[fdx])
                     && MatureP(AsRecordType(obj)->Fields[fdx]) == 0)
             {
@@ -548,14 +463,7 @@ static void CheckModified(FObject obj)
         break;
 
     case RecordTag:
-        if (ObjectP(AsGenericRecord(obj)->Record.RecordType)
-                && MatureP(AsGenericRecord(obj)->Record.RecordType) == 0)
-        {
-            RecordModify(obj);
-            break;
-        }
-
-        for (int fdx = 0; fdx < AsGenericRecord(obj)->Record.NumFields; fdx++)
+        for (unsigned int fdx = 0; fdx < RecordNumFields(obj); fdx++)
             if (ObjectP(AsGenericRecord(obj)->Fields[fdx])
                     && MatureP(AsGenericRecord(obj)->Fields[fdx]) == 0)
             {
@@ -594,7 +502,7 @@ static void ScanChildren(FObject obj, int fcf)
         break;
 
     case VectorTag:
-        for (int vdx = 0; vdx < AsVector(obj)->Length; vdx++)
+        for (unsigned int vdx = 0; vdx < VectorLength(obj); vdx++)
             if (ObjectP(AsVector(obj)->Vector[vdx]))
                 ScanObject(AsVector(obj)->Vector + vdx, fcf);
         break;
@@ -626,17 +534,13 @@ static void ScanChildren(FObject obj, int fcf)
         break;
 
     case RecordTypeTag:
-        if (ObjectP(AsRecordType(obj)->Name))
-            ScanObject(&(AsRecordType(obj)->Name), fcf);
-        for (int fdx = 0; fdx < AsRecordType(obj)->NumFields; fdx++)
+        for (unsigned int fdx = 0; fdx < RecordTypeNumFields(obj); fdx++)
             if (ObjectP(AsRecordType(obj)->Fields[fdx]))
                 ScanObject(AsRecordType(obj)->Fields + fdx, fcf);
         break;
 
     case RecordTag:
-        if (ObjectP(AsGenericRecord(obj)->Record.RecordType))
-            ScanObject(&(AsGenericRecord(obj)->Record.RecordType), fcf);
-        for (int fdx = 0; fdx < AsGenericRecord(obj)->Record.NumFields; fdx++)
+        for (unsigned int fdx = 0; fdx < RecordNumFields(obj); fdx++)
             if (ObjectP(AsGenericRecord(obj)->Fields[fdx]))
                 ScanObject(AsGenericRecord(obj)->Fields + fdx, fcf);
         break;
@@ -650,10 +554,6 @@ static void ScanChildren(FObject obj, int fcf)
 
     if (MatureP(obj))
         CheckModified(obj);
-
-#ifdef FOMENT_GCCHK
-    CheckSumObject(obj);
-#endif // FOMENT_GCCHK
 }
 
 static void Collect(int fcf)
@@ -799,10 +699,6 @@ printf("Partial Collection...");
 void Collect()
 {
     CollectionCount += 1;
-
-#ifdef FOMENT_GCCHK
-    VerifyCheckSums();
-#endif // FOMENT_GCCHK
 
     FAssert(GCRequired != 0);
     GCRequired = 0;

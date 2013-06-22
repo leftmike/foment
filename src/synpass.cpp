@@ -96,8 +96,8 @@ FObject SyntaxToDatum(FObject obj)
 
     if (VectorP(obj))
     {
-        FObject vec = MakeVector(VectorLen(obj), 0, FalseObject);
-        for (int idx = 0; idx < VectorLen(vec); idx++)
+        FObject vec = MakeVector(VectorLength(obj), 0, FalseObject);
+        for (unsigned int idx = 0; idx < VectorLength(vec); idx++)
         {
 //            AsVector(vec)->Vector[idx] = SyntaxToDatum(AsVector(obj)->Vector[idx]);
             ModifyVector(vec, idx, SyntaxToDatum(AsVector(obj)->Vector[idx]));
@@ -119,8 +119,8 @@ FObject DatumToSyntax(FObject obj)
 
     if (VectorP(obj))
     {
-        FObject vec = MakeVector(VectorLen(obj), 0, FalseObject);
-        for (int idx = 0; idx < VectorLen(vec); idx++)
+        FObject vec = MakeVector(VectorLength(obj), 0, FalseObject);
+        for (unsigned int idx = 0; idx < VectorLength(vec); idx++)
         {
 //            AsVector(vec)->Vector[idx] = DatumToSyntax(AsVector(obj)->Vector[idx]);
             ModifyVector(vec, idx, DatumToSyntax(AsVector(obj)->Vector[idx]));

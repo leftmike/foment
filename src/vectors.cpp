@@ -8,13 +8,13 @@ Foment
 
 // ---- Vectors ----
 
-FObject MakeVector(int vl, FObject * v, FObject obj)
+FObject MakeVector(unsigned int vl, FObject * v, FObject obj)
 {
     FVector * nv = (FVector *) MakeObject(VectorTag, sizeof(FVector) + (vl - 1)
             * sizeof(FObject));
-    nv->Length = vl;
+    nv->Length = (vl << RESERVED_BITS) | VectorTag;
 
-    int idx;
+    unsigned int idx;
     if (v == 0)
         for (idx = 0; idx < vl; idx++)
             nv->Vector[idx] = obj;
@@ -23,19 +23,21 @@ FObject MakeVector(int vl, FObject * v, FObject obj)
             nv->Vector[idx] = v[idx];
 
     obj = AsObject(nv);
+
     FAssert(ObjectLength(obj) == sizeof(FVector) + (vl - 1) * sizeof(FObject));
+    FAssert(VectorLength(obj) == vl);
+
     return(obj);
 }
 
 FObject ListToVector(FObject obj)
 {
-    int vl = ListLength(obj);
+    unsigned int vl = ListLength(obj);
     FVector * nv = (FVector *) MakeObject(VectorTag, sizeof(FVector) + (vl - 1)
             * sizeof(FObject));
-    nv->Length = vl;
+    nv->Length = (vl << RESERVED_BITS) | VectorTag;
 
-    int idx;
-    for (idx = 0; idx < vl; idx++)
+    for (unsigned int idx = 0; idx < vl; idx++)
     {
         nv->Vector[idx] = First(obj);
         obj = Rest(obj);
@@ -43,6 +45,8 @@ FObject ListToVector(FObject obj)
 
     obj = AsObject(nv);
     FAssert(ObjectLength(obj) == sizeof(FVector) + (vl - 1) * sizeof(FObject));
+    FAssert(VectorLength(obj) == vl);
+
     return(obj);
 }
 
@@ -51,7 +55,7 @@ FObject VectorToList(FObject vec)
     FAssert(VectorP(vec));
 
     FObject lst = EmptyListObject;
-    for (int idx = VectorLen(vec) - 1; idx >= 0; idx--)
+    for (int idx = (int) VectorLength(vec) - 1; idx >= 0; idx--)
         lst = MakePair(AsVector(vec)->Vector[idx], lst);
 
     return(lst);
@@ -90,7 +94,7 @@ Define("vector-ref", VectorRefPrimitive)(int argc, FObject argv[])
     if (FixnumP(argv[1]) == 0)
         RaiseExceptionC(R.Assertion, "vector-ref", "vector-ref: expected a fixnum", List(argv[1]));
 
-    if (AsFixnum(argv[1]) < 0 || AsFixnum(argv[1]) >= AsVector(argv[0])->Length)
+    if (AsFixnum(argv[1]) < 0 || AsFixnum(argv[1]) >= (FFixnum) VectorLength(argv[0]))
         RaiseExceptionC(R.Assertion, "vector-ref", "vector-ref: invalid index", List(argv[1]));
 
     return(AsVector(argv[0])->Vector[AsFixnum(argv[1])]);
@@ -110,7 +114,7 @@ Define("vector-set!", VectorSetPrimitive)(int argc, FObject argv[])
         RaiseExceptionC(R.Assertion, "vector-set!",
                 "vector-set!: expected a fixnum", List(argv[1]));
 
-    if (AsFixnum(argv[1]) < 0 || AsFixnum(argv[1]) >= AsVector(argv[0])->Length)
+    if (AsFixnum(argv[1]) < 0 || AsFixnum(argv[1]) >= (FFixnum) VectorLength(argv[0]))
         RaiseExceptionC(R.Assertion, "vector-set!", "vector-set!: invalid index", List(argv[1]));
 
 //    AsVector(argv[0])->Vector[AsFixnum(argv[1])] = argv[2];
@@ -129,33 +133,31 @@ Define("list->vector", ListToVectorPrimitive)(int argc, FObject argv[])
 
 // ---- Bytevectors ----
 
-FObject MakeBytevector(int vl, FByte * v)
+FObject MakeBytevector(unsigned int vl, FByte * v)
 {
     FBytevector * nv = (FBytevector *) MakeObject(BytevectorTag, sizeof(FBytevector)
             + (vl - 1) * sizeof(FByte));
-    nv->Length = vl;
+    nv->Length = (vl << RESERVED_BITS) | BytevectorTag;
 
     if (v != 0)
-    {
-        int idx;
-        for (idx = 0; idx < vl; idx++)
+        for (unsigned int idx = 0; idx < vl; idx++)
             nv->Vector[idx] = v[idx];
-    }
 
     FObject obj = AsObject(nv);
     FAssert(ObjectLength(obj) == AlignLength(sizeof(FBytevector) + (vl - 1) * sizeof(FByte)));
+    FAssert(BytevectorLength(obj) == vl);
+
     return(obj);
 }
 
 FObject U8ListToBytevector(FObject obj)
 {
-    int vl = ListLength(obj);
+    unsigned int vl = ListLength(obj);
     FBytevector * nv = (FBytevector *) MakeObject(BytevectorTag, sizeof(FBytevector)
             + (vl - 1) * sizeof(FByte));
-    nv->Length = vl;
+    nv->Length = (vl << RESERVED_BITS) | BytevectorTag;
 
-    int idx;
-    for (idx = 0; idx < vl; idx++)
+    for (unsigned int idx = 0; idx < vl; idx++)
     {
         if (FixnumP(First(obj)) == 0 || AsFixnum(First(obj)) > 0xFF
                 || AsFixnum(First(obj)) < 0)
@@ -167,6 +169,8 @@ FObject U8ListToBytevector(FObject obj)
 
     obj = AsObject(nv);
     FAssert(ObjectLength(obj) == AlignLength(sizeof(FBytevector) + (vl - 1) * sizeof(FByte)));
+    FAssert(BytevectorLength(obj) == vl);
+
     return(obj);
 }
 
@@ -181,7 +185,7 @@ unsigned int BytevectorHash(FObject obj)
 {
     FAssert(BytevectorP(obj));
 
-    int vl = AsBytevector(obj)->Length;
+    int vl = BytevectorLength(obj);
     FByte * v = AsBytevector(obj)->Vector;
     const char * p;
     unsigned int h = 0;

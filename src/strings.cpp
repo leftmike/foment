@@ -9,30 +9,28 @@ Foment
 
 // ---- Strings ----
 
-FObject MakeString(FCh * s, int sl)
+FObject MakeString(FCh * s, unsigned int sl)
 {
     FString * ns = (FString *) MakeObject(StringTag, sizeof(FString) + sl * sizeof(FCh));
-    ns->Length = sl;
-    ns->String[ns->Length] = 0;
+    ns->Length = ((sl * sizeof(FCh)) << RESERVED_BITS) | StringTag;
+    ns->String[sl] = 0;
 
     if (s != 0)
-    {
-        int idx;
-        for (idx = 0; idx < sl; idx++)
+        for (unsigned int idx = 0; idx < sl; idx++)
             ns->String[idx] = s[idx];
-    }
 
     FObject obj = AsObject(ns);
     FAssert(ObjectLength(obj) == AlignLength(sizeof(FString) + sl * sizeof(FCh)));
+    FAssert(StringLength(obj) == sl);
+
     return(obj);
 }
 
-FObject MakeStringCh(int sl, FCh ch)
+FObject MakeStringCh(unsigned int sl, FCh ch)
 {
     FString * s = AsString(MakeString(0, sl));
 
-    int idx;
-    for (idx = 0; idx < sl; idx++)
+    for (unsigned int idx = 0; idx < sl; idx++)
         s->String[idx] = ch;
 
     return(AsObject(s));
@@ -40,10 +38,9 @@ FObject MakeStringCh(int sl, FCh ch)
 
 FObject MakeStringF(FString * s)
 {
-    FString * ns = AsString(MakeString(0, s->Length));
+    FString * ns = AsString(MakeString(0, StringLength(s)));
 
-    int idx;
-    for (idx = 0; idx < s->Length; idx++)
+    for (unsigned int idx = 0; idx < StringLength(s); idx++)
         ns->String[idx] = s->String[idx];
 
     return(AsObject(ns));
@@ -69,7 +66,7 @@ void StringToC(FObject s, char * b, int bl)
 
     for (idx = 0; idx < bl - 1; idx++)
     {
-        if (idx == AsString(s)->Length)
+        if (idx == (int) StringLength(s))
             break;
 
         b[idx] = (char) AsString(s)->String[idx];
@@ -181,10 +178,10 @@ FObject FoldCaseString(FObject s)
 {
     FAssert(StringP(s));
 
-    int sl = AsString(s)->Length;
+    unsigned int sl = StringLength(s);
     FString * ns = AsString(MakeString(0, sl));
 
-    for (int idx = 0; idx < sl; idx++)
+    for (unsigned int idx = 0; idx < sl; idx++)
         ns->String[idx] = ChDownCase(AsString(s)->String[idx]);
 
     return(ns);
@@ -209,7 +206,7 @@ unsigned int StringHash(FObject obj)
 {
     FAssert(StringP(obj));
 
-    return(StringLengthHash(AsString(obj)->String, AsString(obj)->Length));
+    return(StringLengthHash(AsString(obj)->String, StringLength(obj)));
 }
 
 static int ChCompare(FCh ch1, FCh ch2)
@@ -224,24 +221,20 @@ static int ChCiCompare(FCh ch1, FCh ch2)
 
 static int StringCompare(FString * str1, FString * str2)
 {
-    int sdx;
-
-    for (sdx = 0; sdx < str1->Length && sdx < str2->Length; sdx++)
+    for (unsigned int sdx = 0; sdx < StringLength(str1) && sdx < StringLength(str2); sdx++)
         if (str1->String[sdx] != str2->String[sdx])
             return(str1->String[sdx] - str2->String[sdx]);
 
-    return(str1->Length - str2->Length);
+    return(StringLength(str1) - StringLength(str2));
 }
 
 static int StringCiCompare(FString * str1, FString * str2)
 {
-    int sdx;
-
-    for (sdx = 0; sdx < str1->Length && sdx < str2->Length; sdx++)
+    for (unsigned int sdx = 0; sdx < StringLength(str1) && sdx < StringLength(str2); sdx++)
         if (ChCiCompare(str1->String[sdx], str2->String[sdx]))
             return(ChCiCompare(str1->String[sdx], str2->String[sdx]));
 
-    return(str1->Length - str2->Length);
+    return(StringLength(str1) - StringLength(str2));
 }
 
 int StringEqualP(FObject obj1, FObject obj2)
@@ -259,7 +252,7 @@ int StringLengthEqualP(FCh * s, int sl, FObject obj)
     FAssert(StringP(obj));
     int sdx;
 
-    if (sl !=  AsString(obj)->Length)
+    if (sl !=  StringLength(obj))
         return(0);
 
     for (sdx = 0; sdx < sl; sdx++)
@@ -274,7 +267,7 @@ int StringCEqualP(char * s, FObject obj)
     FAssert(StringP(obj));
 
     int sl = strlen(s);
-    if (sl != AsString(obj)->Length)
+    if (sl != StringLength(obj))
         return(0);
 
     for (int sdx = 0; sdx < sl; sdx++)

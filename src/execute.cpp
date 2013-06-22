@@ -16,6 +16,7 @@ static FObject DynamicEnvironment;
 static FObject MakeProcedure(FObject nam, FObject cv, int ac, FObject ra, unsigned int fl)
 {
     FProcedure * p = (FProcedure *) MakeObject(ProcedureTag, sizeof(FProcedure));
+    p->Reserved = ProcedureTag;
     p->Name = SyntaxToDatum(nam);
     p->Code = cv;
     p->RestArg = ra;
@@ -137,7 +138,7 @@ FObject Execute(FObject op, int argc, FObject argv[])
 
             FAssert(VectorP(AsProcedure(es.Proc)->Code));
             FAssert(es.IP >= 0);
-            FAssert(es.IP < AsVector(AsProcedure(es.Proc)->Code)->Length);
+            FAssert(es.IP < (int) VectorLength(AsProcedure(es.Proc)->Code));
 
             FObject obj = AsVector(AsProcedure(es.Proc)->Code)->Vector[es.IP];
             es.IP += 1;
@@ -287,7 +288,7 @@ FObject Execute(FObject op, int argc, FObject argv[])
 
                 case GetFrameOpcode:
                     FAssert(VectorP(es.Frame));
-                    FAssert(InstructionArg(obj) < AsVector(es.Frame)->Length);
+                    FAssert(InstructionArg(obj) < VectorLength(es.Frame));
 
                     es.AStack[es.AStackPtr] = AsVector(es.Frame)->Vector[InstructionArg(obj)];
                     es.AStackPtr += 1;
@@ -295,7 +296,7 @@ FObject Execute(FObject op, int argc, FObject argv[])
 
                 case SetFrameOpcode:
                     FAssert(VectorP(es.Frame));
-                    FAssert(InstructionArg(obj) < AsVector(es.Frame)->Length);
+                    FAssert(InstructionArg(obj) < VectorLength(es.Frame));
                     FAssert(es.AStackPtr > 0);
 
                     es.AStackPtr -= 1;
@@ -306,7 +307,7 @@ FObject Execute(FObject op, int argc, FObject argv[])
                 case GetVectorOpcode:
                     FAssert(es.AStackPtr > 0);
                     FAssert(VectorP(es.AStack[es.AStackPtr - 1]));
-                    FAssert(InstructionArg(obj) < AsVector(es.AStack[es.AStackPtr - 1])->Length);
+                    FAssert(InstructionArg(obj) < VectorLength(es.AStack[es.AStackPtr - 1]));
 
                     es.AStack[es.AStackPtr - 1] = AsVector(es.AStack[es.AStackPtr - 1])->Vector[
                             InstructionArg(obj)];
@@ -315,7 +316,7 @@ FObject Execute(FObject op, int argc, FObject argv[])
                 case SetVectorOpcode:
                     FAssert(es.AStackPtr > 1);
                     FAssert(VectorP(es.AStack[es.AStackPtr - 1]));
-                    FAssert(InstructionArg(obj) < AsVector(es.AStack[es.AStackPtr - 1])->Length);
+                    FAssert(InstructionArg(obj) < VectorLength(es.AStack[es.AStackPtr - 1]));
 
 //                    AsVector(es.AStack[es.AStackPtr - 1])->Vector[InstructionArg(obj)] =
 //                            es.AStack[es.AStackPtr - 2];
@@ -746,7 +747,7 @@ TailCallPrimitive:
                     {
                         FAssert(VectorP(AsProcedure(es.Proc)->Code));
                         FAssert(es.IP + idx >= 0);
-                        FAssert(es.IP + idx < AsVector(AsProcedure(es.Proc)->Code)->Length);
+                        FAssert(es.IP + idx < (int) VectorLength(AsProcedure(es.Proc)->Code));
 
                         FObject prc = AsVector(AsProcedure(es.Proc)->Code)->Vector[es.IP + idx];
 
@@ -864,9 +865,6 @@ Define("procedure->parameter", ProcedureToParameterPrimitive)(int argc, FObject 
                  "procedure->parameter: expected a procedure", List(argv[0]));
 
     AsProcedure(argv[0])->Flags |= PROCEDURE_FLAG_PARAMETER;
-#ifdef FOMENT_GCCHK
-    CheckSumObject(argv[0]);
-#endif // FOMENT_GCCHK
 
     return(NoValueObject);
 }

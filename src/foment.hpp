@@ -58,14 +58,13 @@ typedef enum
 {
     // Immediate Types
 
-    FixnumTag = 0x01,        // 0bxxxx0001
-    CharacterTag = 0x02,     // 0bxxxx0010
-    MiscellaneousTag = 0x03, // 0bxxxx0011
-    IllegalTag = 0x04,       // 0bxxxx0100
-    SpecialSyntaxTag = 0x05, // 0bxxxx0101
-    InstructionTag = 0x06,   // 0bxxxx0110
-    ValuesCountTag = 0x07,   // 0bxxxx0111
-    IllegalTag2 = 0x08       // 0bxxxx1000
+    FixnumTag = 0x07,        // 0bxxx00111
+    CharacterTag = 0x0B,     // 0bxxx01011
+    MiscellaneousTag = 0x0F, // 0bxxx01111
+    SpecialSyntaxTag = 0x13, // 0bxxx10011
+    InstructionTag = 0x17,   // 0bxxx10111
+    ValuesCountTag = 0x1B,   // 0bxxx11011
+    UnusedTag = 0x1F         // 0bxxx11111
 } FImmediateTag;
 
 typedef enum
@@ -90,12 +89,13 @@ typedef enum
 } FObjectTag;
 
 #define ObjectP(obj) ((((FImmediate) (obj)) & 0x3) == 0x0)
+#define AsObject(ptr) ((FObject) (ptr))
 
-#define ImmediateTag(obj) (((FImmediate) (obj)) & 0xF)
+#define ImmediateTag(obj) (((FImmediate) (obj)) & 0x1F)
 #define ImmediateP(obj, it) (ImmediateTag((obj)) == it)
 #define MakeImmediate(val, it)\
-    ((FObject *) ((((FImmediate) (val)) << 4) | (it & 0xF)))
-#define AsValue(obj) (((FImmediate) (obj)) >> 4)
+    ((FObject *) ((((FImmediate) (val)) << 5) | (it & 0x1F)))
+#define AsValue(obj) (((FImmediate) (obj)) >> 5)
 
 // ---- Memory Management ----
 
@@ -106,15 +106,16 @@ typedef struct
     unsigned short Hash;
     unsigned char Tag;
     unsigned char GCFlags;
-#ifdef FOMENT_GCCHK
-    unsigned int CheckSum;
-#endif // FOMENT_GCCHK
 } FObjectHeader;
 
-#define AsObjectHeader(obj) (((FObjectHeader *) (obj)) - 1)
+#define RESERVED_BITS 6
+#define RESERVED_TAGMASK 0x1F
+
+#define AsObjectHeader(obj) (((FObjectHeader *) (((FImmediate) (obj)) & ~0x3)) - 1)
 inline FObjectTag ObjectTag(FObject obj)
 {
-    return((FObjectTag) (ObjectP(obj) ? AsObjectHeader(obj)->Tag : 0));
+//    return((FObjectTag) (ObjectP(obj) ? AsObjectHeader(obj)->Tag : 0));
+    return((FObjectTag) (ObjectP(obj) ? *((unsigned int *) (obj)) & RESERVED_TAGMASK : 0));
 }
 
 void PushRoot(FObject * rt);
@@ -125,16 +126,7 @@ extern int GCRequired;
 void Collect();
 #define AllowGC() if (GCRequired) Collect()
 
-#ifdef FOMENT_GCCHK
-void VerifyCheckSums();
-void CheckSumObject(FObject obj);
-FObject AsObject(FObject obj);
-#else // FOMENT_GCCHK
-#define AsObject(ptr) ((FObject) (ptr))
-#define CheckSumObject(obj)
-#endif // FOMENT_GCCHK
-
-void ModifyVector(FObject obj, int idx, FObject val);
+void ModifyVector(FObject obj, unsigned int idx, FObject val);
 
 /*
 //    AsPair(argv[0])->Rest = argv[1];
@@ -157,8 +149,8 @@ int AlignLength(int len);
 
 #define FixnumP(obj) ImmediateP((obj), FixnumTag)
 #define MakeFixnum(n)\
-    ((FObject *) ((((FFixnum) (n)) << 4) | (FixnumTag & 0xF)))
-#define AsFixnum(obj) (((FFixnum) (obj)) >> 4)
+    ((FObject *) ((((FFixnum) (n)) << 5) | (FixnumTag & 0x1F)))
+#define AsFixnum(obj) (((FFixnum) (obj)) >> 5)
 
 #define CharacterP(obj) ImmediateP(obj, CharacterTag)
 #define MakeCharacter(ch) MakeImmediate(ch, CharacterTag)
@@ -256,6 +248,11 @@ FObject SpecialSyntaxMsgC(FObject obj, char * msg);
 
 typedef struct
 {
+    
+    
+    unsigned int Reserved; // To be removed.
+    
+    
     FObject First;
     FObject Rest;
 } FPair;
@@ -290,6 +287,7 @@ FObject Assq(FObject obj, FObject alst);
 
 typedef struct
 {
+    unsigned int Reserved;
     FObject Value;
 } FBox;
 
@@ -308,13 +306,22 @@ inline FObject Unbox(FObject bx)
 
 typedef struct
 {
-    int Length;
+    unsigned int Length;
     FCh String[1];
 } FString;
 
-FObject MakeString(FCh * s, int sl);
-FObject MakeStringCh(int sl, FCh ch);
+FObject MakeString(FCh * s, unsigned int sl);
+FObject MakeStringCh(unsigned int sl, FCh ch);
 FObject MakeStringC(char * s);
+
+inline unsigned int StringLength(FObject obj)
+{
+    unsigned int sl = AsString(obj)->Length >> RESERVED_BITS;
+    FAssert(sl % sizeof(FCh) == 0);
+
+    return(sl / sizeof(FCh));
+}
+
 void StringToC(FObject s, char * b, int bl);
 int StringAsNumber(FCh * s, int sl, FFixnum * np);
 int NumberAsString(FFixnum n, FCh * s, FFixnum b);
@@ -339,15 +346,15 @@ unsigned int BytevectorHash(FObject obj);
 
 typedef struct
 {
-    int Length;
+    unsigned int Length;
     FObject Vector[1];
 } FVector;
 
-FObject MakeVector(int vl, FObject * v, FObject obj);
+FObject MakeVector(unsigned int vl, FObject * v, FObject obj);
 FObject ListToVector(FObject obj);
 FObject VectorToList(FObject vec);
 
-#define VectorLen(vec) (AsVector(vec)->Length)
+#define VectorLength(obj) ((AsVector(obj)->Length) >> RESERVED_BITS)
 
 // ---- Bytevectors ----
 
@@ -357,12 +364,14 @@ FObject VectorToList(FObject vec);
 typedef unsigned char FByte;
 typedef struct
 {
-    int Length;
+    unsigned int Length;
     FByte Vector[1];
 } FBytevector;
 
-FObject MakeBytevector(int vl, FByte * v);
+FObject MakeBytevector(unsigned int vl, FByte * v);
 FObject U8ListToBytevector(FObject obj);
+
+#define BytevectorLength(obj) ((AsBytevector(obj)->Length) >> RESERVED_BITS)
 
 // ---- Ports ----
 
@@ -401,13 +410,15 @@ FObject GetOutputString(FObject port);
 
 typedef struct
 {
-    FObject Name;
-    int NumFields;
+    unsigned int NumFields;
     FObject Fields[1];
 } FRecordType;
 
-FObject MakeRecordType(FObject nam, int nf, FObject flds[]);
-FObject MakeRecordTypeC(char * nam, int nf, char * flds[]);
+FObject MakeRecordType(FObject nam, unsigned int nf, FObject flds[]);
+FObject MakeRecordTypeC(char * nam, unsigned int nf, char * flds[]);
+
+#define RecordTypeName(obj) AsRecordType(obj)->Fields[0]
+#define RecordTypeNumFields(obj) (AsRecordType(obj)->NumFields >> RESERVED_BITS)
 
 // ---- Records ----
 
@@ -416,13 +427,13 @@ FObject MakeRecordTypeC(char * nam, int nf, char * flds[]);
 
 typedef struct
 {
+    unsigned int NumFields; // RecordType is include in the number of fields.
     FObject RecordType;
-    int NumFields;
 } FRecord;
 
 typedef struct
 {
-    FRecord Record;
+    unsigned int NumFields;
     FObject Fields[1];
 } FGenericRecord;
 
@@ -430,8 +441,10 @@ FObject MakeRecord(FObject rt);
 
 inline int RecordP(FObject obj, FObject rt)
 {
-    return(GenericRecordP(obj) && AsGenericRecord(obj)->Record.RecordType == rt);
+    return(GenericRecordP(obj) && AsGenericRecord(obj)->Fields[0] == rt);
 }
+
+#define RecordNumFields(obj) (AsGenericRecord(obj)->NumFields >> RESERVED_BITS)
 
 // ---- Hashtables ----
 
@@ -469,6 +482,7 @@ void HashtableWalkVisit(FObject ht, FWalkVisitFn wfn, FObject ctx);
 
 typedef struct
 {
+    unsigned int Reserved;
     FObject String;
     FObject Hash;
 } FSymbol;
@@ -486,6 +500,7 @@ FObject PrefixSymbol(FObject str, FObject sym);
 typedef FObject (*FPrimitiveFn)(int argc, FObject argv[]);
 typedef struct
 {
+    unsigned int Reserved;
     FPrimitiveFn PrimitiveFn;
     char * Name;
     char * Filename;
@@ -494,7 +509,7 @@ typedef struct
 
 #define Define(name, fn)\
     static FObject fn ## Fn(int argc, FObject argv[]);\
-    static FPrimitive fn = {fn ## Fn, name, __FILE__, __LINE__};\
+    static FPrimitive fn = {PrimitiveTag, fn ## Fn, name, __FILE__, __LINE__};\
     static FObject fn ## Fn
 
 FObject MakePrimitive(FPrimitive * prim);
@@ -587,6 +602,7 @@ FObject WrapIdentifier(FObject id, FObject se);
 
 typedef struct
 {
+    unsigned int Reserved;
     FObject Name;
     FObject Code;
     FObject RestArg;

@@ -11,6 +11,11 @@ Foment
 FObject MakePair(FObject first, FObject rest)
 {
     FPair * pair = (FPair *) MakeObject(PairTag, sizeof(FPair));
+    
+    
+    pair->Reserved = PairTag; // To be removed.
+    
+    
     pair->First = first;
     pair->Rest = rest;
 

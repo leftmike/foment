@@ -36,10 +36,6 @@ void ClosePort(FObject port)
         {
             AsPort(port)->CloseFn(AsPort(port)->Context, AsPort(port)->Object);
             AsPort(port)->Context = 0;
-
-#ifdef FOMENT_GCCHK
-            CheckSumObject(port);
-#endif // FOMENT_GCCHK
         }
     }
 }
@@ -51,6 +47,7 @@ FObject MakePort(FObject nam, FInputPort * inp, FOutputPort * outp, FPortLocatio
     FAssert(ctx != 0);
 
     FPort * port = (FPort *) MakeObject(PortTag, sizeof(FPort));
+    port->Reserved = PortTag;
     port->Name = nam;
     port->Input = inp;
     port->Output = outp;
@@ -171,10 +168,10 @@ FObject OpenInputFile(FObject fn, int ref)
 
     char cfn[256];
 
-    for (int idx = 0; idx < AsString(fn)->Length && idx < sizeof(cfn); idx++)
+    for (unsigned int idx = 0; idx < StringLength(fn) && idx < sizeof(cfn); idx++)
         cfn[idx] = (char) AsString(fn)->String[idx];
 
-    cfn[AsString(fn)->Length >= sizeof(cfn) ? sizeof(cfn) - 1 : AsString(fn)->Length] = 0;
+    cfn[StringLength(fn) >= sizeof(cfn) ? sizeof(cfn) - 1 : StringLength(fn)] = 0;
 
     FILE * f = fopen(cfn, "r");
     if (f == 0)
@@ -195,10 +192,10 @@ FObject OpenOutputFile(FObject fn, int ref)
 
     char cfn[256];
 
-    for (int idx = 0; idx < AsString(fn)->Length && idx < sizeof(cfn); idx++)
+    for (unsigned int idx = 0; idx < StringLength(fn) && idx < sizeof(cfn); idx++)
         cfn[idx] = (char) AsString(fn)->String[idx];
 
-    cfn[AsString(fn)->Length >= sizeof(cfn) ? sizeof(cfn) - 1 : AsString(fn)->Length] = 0;
+    cfn[StringLength(fn) >= sizeof(cfn) ? sizeof(cfn) - 1 : StringLength(fn)] = 0;
 
     FILE * f = fopen(cfn, "w");
     if (f == 0)
@@ -226,7 +223,7 @@ static FCh StringInputGetCh(void * ctx, FObject obj, int * eof)
 
     StringInputContext * sic = (StringInputContext *) ctx;
 
-    if (AsString(obj)->Length == sic->Index)
+    if (StringLength(obj) == sic->Index)
     {
         *eof = 1;
         return(0);
@@ -244,7 +241,7 @@ static FCh StringInputPeekCh(void * ctx, FObject obj, int * eof)
 
     StringInputContext * sic = (StringInputContext *) ctx;
 
-    if (AsString(obj)->Length == sic->Index)
+    if (StringLength(obj) == sic->Index)
     {
         *eof = 1;
         return(0);
@@ -347,9 +344,9 @@ FObject GetOutputString(FObject port)
         {
             FAssert(StringP(First(lst)));
 
-            idx -= AsString(First(lst))->Length;
+            idx -= (int) StringLength(First(lst));
 
-            for (int sdx = 0; sdx < AsString(First(lst))->Length; sdx++)
+            for (unsigned int sdx = 0; sdx < StringLength(First(lst)); sdx++)
                 AsString(s)->String[idx + sdx] = AsString(First(lst))->String[sdx];
         }
 
@@ -784,7 +781,7 @@ Again:
                 cnt = FindSharedObjects(ht, Unbox(obj), cnt, cof);
             else if (VectorP(obj))
             {
-                for (int idx = 0; idx < VectorLen(obj); idx++)
+                for (unsigned int idx = 0; idx < VectorLength(obj); idx++)
                     cnt = FindSharedObjects(ht, AsVector(obj)->Vector[idx], cnt, cof);
             }
             else if (ProcedureP(obj))
@@ -793,10 +790,7 @@ Again:
             {
                 FAssert(GenericRecordP(obj));
 
-                FObject rt = AsGenericRecord(obj)->Record.RecordType;
-                FAssert(RecordTypeP(rt));
-
-                for (int fdx = 0; fdx < AsRecordType(rt)->NumFields; fdx++)
+                for (unsigned int fdx = 0; fdx < RecordNumFields(obj); fdx++)
                     cnt = FindSharedObjects(ht, AsGenericRecord(obj)->Fields[fdx], cnt, cof);
             }
 
@@ -990,17 +984,15 @@ static void WriteGenericObject(FObject port, FObject obj, int df, FWriteFn wfn, 
     case StringTag:
         if (df == 0)
             PutCh(port, '"');
-        PutString(port, AsString(obj)->String, AsString(obj)->Length);
+        PutString(port, AsString(obj)->String, StringLength(obj));
         if (df == 0)
             PutCh(port, '"');
         break;
 
     case VectorTag:
     {
-        int idx;
-
         PutStringC(port, "#(");
-        for (idx = 0; idx < VectorLen(obj); idx++)
+        for (unsigned idx = 0; idx < VectorLength(obj); idx++)
         {
             if (idx > 0)
                 PutCh(port, ' ');
@@ -1013,12 +1005,11 @@ static void WriteGenericObject(FObject port, FObject obj, int df, FWriteFn wfn, 
 
     case BytevectorTag:
     {
-        int idx;
         FCh s[8];
         int sl;
 
         PutStringC(port, "#u8(");
-        for (idx = 0; idx < AsBytevector(obj)->Length; idx++)
+        for (unsigned int idx = 0; idx < BytevectorLength(obj); idx++)
         {
             if (idx > 0)
                 PutCh(port, ' ');
@@ -1050,8 +1041,7 @@ static void WriteGenericObject(FObject port, FObject obj, int df, FWriteFn wfn, 
         if (StringP(AsPort(obj)->Name))
         {
             PutCh(port, ' ');
-            PutString(port, AsString(AsPort(obj)->Name)->String,
-                    AsString(AsPort(obj)->Name)->Length);
+            PutString(port, AsString(AsPort(obj)->Name)->String, StringLength(AsPort(obj)->Name));
         }
 
         PutCh(port, '>');
@@ -1086,7 +1076,7 @@ static void WriteGenericObject(FObject port, FObject obj, int df, FWriteFn wfn, 
 
     case SymbolTag:
         PutString(port, AsString(AsSymbol(obj)->String)->String,
-                AsString(AsSymbol(obj)->String)->Length);
+                StringLength(AsSymbol(obj)->String));
         break;
 
     case RecordTypeTag:
@@ -1097,9 +1087,9 @@ static void WriteGenericObject(FObject port, FObject obj, int df, FWriteFn wfn, 
         PutStringC(port, "#<record-type: #x");
         PutString(port, s, sl);
         PutCh(port, ' ');
-        wfn(port, AsRecordType(obj)->Name, df, wfn, ctx);
+        wfn(port, RecordTypeName(obj), df, wfn, ctx);
 
-        for (int fdx = 0; fdx < AsRecordType(obj)->NumFields; fdx += 1)
+        for (unsigned int fdx = 1; fdx < RecordTypeNumFields(obj); fdx += 1)
         {
             PutCh(port, ' ');
             wfn(port, AsRecordType(obj)->Fields[fdx], df, wfn, ctx);
@@ -1111,16 +1101,16 @@ static void WriteGenericObject(FObject port, FObject obj, int df, FWriteFn wfn, 
 
     case RecordTag:
     {
-        FObject rt = AsGenericRecord(obj)->Record.RecordType;
+        FObject rt = AsGenericRecord(obj)->Fields[0];
         FCh s[16];
         int sl = NumberAsString((FFixnum) obj, s, 16);
 
         PutStringC(port, "#<(");
-        wfn(port, AsRecordType(rt)->Name, df, wfn, ctx);
+        wfn(port, RecordTypeName(rt), df, wfn, ctx);
         PutStringC(port, ": #x");
         PutString(port, s, sl);
 
-        for (int fdx = 0; fdx < AsRecordType(rt)->NumFields; fdx++)
+        for (unsigned int fdx = 1; fdx < RecordNumFields(obj); fdx++)
         {
             PutCh(port, ' ');
             wfn(port, AsRecordType(rt)->Fields[fdx], df, wfn, ctx);

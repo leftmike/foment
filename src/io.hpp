@@ -42,6 +42,7 @@ typedef void (*FCloseFn)(void * ctx, FObject obj);
 
 typedef struct
 {
+    unsigned int Reserved;
     FObject Name;
     FInputPort * Input;
     FOutputPort * Output;

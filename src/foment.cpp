@@ -16,7 +16,7 @@ void FAssertFailed(char * fn, int ln, char * expr)
 {
     printf("FAssert: %s (%d)%s\n", expr, ln, fn);
 
-//    *((char *) 0) = 0;
+    *((char *) 0) = 0;
     exit(1);
 }
 
@@ -137,6 +137,7 @@ Define("not", NotPrimitive)(int argc, FObject argv[])
 FObject MakeBox(FObject val)
 {
     FBox * bx = (FBox *) MakeObject(BoxTag, sizeof(FBox));
+    bx->Reserved = BoxTag;
     bx->Value = val;
 
     FObject obj = AsObject(bx);
@@ -192,11 +193,11 @@ static unsigned int DoEqualHash(FObject obj, int d)
         return(StringHash(obj));
     else if (VectorP(obj))
     {
-        if (VectorLen(obj) == 0)
+        if (VectorLength(obj) == 0)
             return(1);
 
         h = 0;
-        for (int idx = 0; idx < VectorLen(obj) && idx < MaxHashDepth; idx++)
+        for (unsigned int idx = 0; idx < VectorLength(obj) && idx < MaxHashDepth; idx++)
             h += (h << 5) + DoEqualHash(AsVector(obj)->Vector[idx], d + 1);
         return(h);
     }
@@ -283,7 +284,7 @@ static FObject DoHashtableRef(FObject ht, FObject key, FEquivFn efn, FHashFn hfn
 {
     FAssert(HashtableP(ht));
 
-    unsigned int idx = hfn(key) % (unsigned int) VectorLen(AsHashtable(ht)->Buckets);
+    unsigned int idx = hfn(key) % (unsigned int) VectorLength(AsHashtable(ht)->Buckets);
 
     FObject node = AsVector(AsHashtable(ht)->Buckets)->Vector[idx];
 
@@ -316,7 +317,7 @@ FObject HashtableStringRef(FObject ht, FCh * s, int sl, FObject def)
     FAssert(HashtableP(ht));
 
     unsigned int idx = StringLengthHash(s, sl)
-            % (unsigned int) VectorLen(AsHashtable(ht)->Buckets);
+            % (unsigned int) VectorLength(AsHashtable(ht)->Buckets);
     FObject node = AsVector(AsHashtable(ht)->Buckets)->Vector[idx];
 
     while (node != EmptyListObject)
@@ -345,7 +346,7 @@ void HashtableSet(FObject ht, FObject key, FObject val, FEquivFn efn, FHashFn hf
     }
     else
     {
-        unsigned int idx = hfn(key) % (unsigned int) VectorLen(AsHashtable(ht)->Buckets);
+        unsigned int idx = hfn(key) % (unsigned int) VectorLength(AsHashtable(ht)->Buckets);
 
 //        AsVector(AsHashtable(ht)->Buckets)->Vector[idx] =
 //                MakePair(MakePair(key, val),
@@ -362,7 +363,7 @@ void HashtableDelete(FObject ht, FObject key, FEquivFn efn, FHashFn hfn)
 {
     FAssert(HashtableP(ht));
 
-    unsigned int idx = hfn(key) % (unsigned int) VectorLen(AsHashtable(ht)->Buckets);
+    unsigned int idx = hfn(key) % (unsigned int) VectorLength(AsHashtable(ht)->Buckets);
 
     FObject node = AsVector(AsHashtable(ht)->Buckets)->Vector[idx];
     FObject prev = NoValueObject;
@@ -420,7 +421,7 @@ void HashtableWalkUpdate(FObject ht, FWalkUpdateFn wfn, FObject ctx)
     FAssert(HashtableP(ht));
 
     FObject bkts = AsHashtable(ht)->Buckets;
-    int len = VectorLen(bkts);
+    int len = VectorLength(bkts);
 
     for (int idx = 0; idx < len; idx++)
     {
@@ -447,7 +448,7 @@ void HashtableWalkDelete(FObject ht, FWalkDeleteFn wfn, FObject ctx)
     FAssert(HashtableP(ht));
 
     FObject bkts = AsHashtable(ht)->Buckets;
-    int len = VectorLen(bkts);
+    int len = VectorLength(bkts);
 
     for (int idx = 0; idx < len; idx++)
     {
@@ -483,7 +484,7 @@ void HashtableWalkVisit(FObject ht, FWalkVisitFn wfn, FObject ctx)
     FAssert(HashtableP(ht));
 
     FObject bkts = AsHashtable(ht)->Buckets;
-    int len = VectorLen(bkts);
+    int len = VectorLength(bkts);
 
     for (int idx = 0; idx < len; idx++)
     {
@@ -511,6 +512,7 @@ FObject StringToSymbol(FObject str)
     if (obj == FalseObject)
     {
         FSymbol * sym = (FSymbol *) MakeObject(SymbolTag, sizeof(FSymbol));
+        sym->Reserved = SymbolTag;
         sym->String = str;
         sym->Hash = MakeFixnum(NextSymbolHash);
         NextSymbolHash += 1;
@@ -537,6 +539,7 @@ FObject StringLengthToSymbol(FCh * s, int sl)
     if (obj == FalseObject)
     {
         FSymbol * sym = (FSymbol *) MakeObject(SymbolTag, sizeof(FSymbol));
+        sym->Reserved = SymbolTag;
         sym->String = MakeString(s, sl);
         sym->Hash = MakeFixnum(NextSymbolHash);
         NextSymbolHash += 1;
@@ -557,13 +560,12 @@ FObject PrefixSymbol(FObject str, FObject sym)
     FAssert(StringP(str));
     FAssert(SymbolP(sym));
 
-    FObject nstr = MakeStringCh(AsString(str)->Length + AsString(AsSymbol(sym)->String)->Length,
-            0);
-    int sdx;
-    for (sdx = 0; sdx < AsString(str)->Length; sdx++)
+    FObject nstr = MakeStringCh(StringLength(str) + StringLength(AsSymbol(sym)->String), 0);
+    unsigned int sdx;
+    for (sdx = 0; sdx < StringLength(str); sdx++)
         AsString(nstr)->String[sdx] = AsString(str)->String[sdx];
 
-    for (int idx = 0; idx < AsString(AsSymbol(sym)->String)->Length; idx++)
+    for (unsigned int idx = 0; idx < StringLength(AsSymbol(sym)->String); idx++)
         AsString(nstr)->String[sdx + idx] = AsString(AsSymbol(sym)->String)->String[idx];
 
     return(StringToSymbol(nstr));
@@ -571,32 +573,32 @@ FObject PrefixSymbol(FObject str, FObject sym)
 
 // ---- Record Types ----
 
-FObject MakeRecordType(FObject nam, int nf, FObject flds[])
+FObject MakeRecordType(FObject nam, unsigned int nf, FObject flds[])
 {
     FAssert(SymbolP(nam));
 
     FRecordType * rt = (FRecordType *) MakeObject(RecordTypeTag,
-            sizeof(FRecordType) + sizeof(FObject) * (nf - 1));
-    rt->Name = nam;
-    rt->NumFields = nf;
+            sizeof(FRecordType) + sizeof(FObject) * nf);
+    rt->NumFields = ((nf + 1) << RESERVED_BITS) | RecordTypeTag;
+    rt->Fields[0] = nam;
 
-    for (int fdx = 0; fdx < nf; fdx++)
+    for (unsigned int fdx = 1; fdx < nf + 1; fdx++)
     {
-        FAssert(SymbolP(flds[fdx]));
+        FAssert(SymbolP(flds[fdx - 1]));
 
-        rt->Fields[fdx] = flds[fdx];
+        rt->Fields[fdx] = flds[fdx - 1];
     }
 
     return(AsObject(rt));
 }
 
-FObject MakeRecordTypeC(char * nam, int nf, char * flds[])
+FObject MakeRecordTypeC(char * nam, unsigned int nf, char * flds[])
 {
     FObject oflds[32];
 
     FAssert(nf <= sizeof(oflds) / sizeof(FObject));
 
-    for (int fdx = 0; fdx < nf; fdx++)
+    for (unsigned int fdx = 0; fdx < nf; fdx++)
         oflds[fdx] = StringCToSymbol(flds[fdx]);
 
     return(MakeRecordType(StringCToSymbol(nam), nf, oflds));
@@ -608,13 +610,13 @@ FObject MakeRecord(FObject rt)
 {
     FAssert(RecordTypeP(rt));
 
-    int nf = AsRecordType(rt)->NumFields;
+    unsigned int nf = RecordTypeNumFields(rt);
     FGenericRecord * r = (FGenericRecord *) MakeObject(RecordTag,
-            sizeof(FGenericRecord) + sizeof(FObject) * (nf - 1));
-    r->Record.RecordType = rt;
-    r->Record.NumFields = nf;
+            sizeof(FGenericRecord) + sizeof(FObject) * nf);
+    r->NumFields = ((nf + 1) << RESERVED_BITS) | RecordTag;
+    r->Fields[0] = rt;
 
-    for (int fdx = 0; fdx < nf; fdx++)
+    for (unsigned int fdx = 1; fdx <= nf; fdx++)
         r->Fields[fdx] = NoValueObject;
 
     return(AsObject(r));
@@ -775,10 +777,10 @@ int EqualP(FObject obj1, FObject obj2)
         if (VectorP(obj2) == 0)
             return(0);
 
-        if (VectorLen(obj1) != VectorLen(obj2))
+        if (VectorLength(obj1) != VectorLength(obj2))
             return(0);
 
-        for (int idx = 0; idx < VectorLen(obj1); idx++)
+        for (unsigned int idx = 0; idx < VectorLength(obj1); idx++)
             if (EqualP(AsVector(obj1)->Vector[idx], AsVector(obj2)->Vector[idx]) == 0)
                 return(0);
         return(1);
@@ -789,10 +791,10 @@ int EqualP(FObject obj1, FObject obj2)
         if (BytevectorP(obj2) == 0)
             return(0);
 
-        if (AsBytevector(obj1)->Length != AsBytevector(obj2)->Length)
+        if (BytevectorLength(obj1) != BytevectorLength(obj2))
             return(0);
 
-        for (int idx = 0; idx < AsBytevector(obj1)->Length; idx++)
+        for (unsigned int idx = 0; idx < BytevectorLength(obj1); idx++)
             if (AsBytevector(obj1)->Vector[idx] != AsBytevector(obj2)->Vector[idx])
                 return(0);
         return(1);
@@ -953,19 +955,20 @@ void SetupFoment(int argc, char * argv[])
     FAssert(R.HashtableRecordType == NoValueObject);
     R.SymbolHashtable = MakeObject(RecordTag, sizeof(FHashtable));
 
+    AsHashtable(R.SymbolHashtable)->Record.NumFields = RecordTag;
     AsHashtable(R.SymbolHashtable)->Record.RecordType = R.HashtableRecordType;
     AsHashtable(R.SymbolHashtable)->Buckets = MakeVector(941, 0, EmptyListObject);
     AsHashtable(R.SymbolHashtable)->Size = MakeFixnum(0);
+
+    FAssert(HashtableP(R.SymbolHashtable));
 
     R.HashtableRecordType = MakeRecordTypeC("hashtable",
             sizeof(HashtableFieldsC) / sizeof(char *), HashtableFieldsC);
     AsHashtable(R.SymbolHashtable)->Record.RecordType = R.HashtableRecordType;
     AsHashtable(R.SymbolHashtable)->Record.NumFields =
-            AsRecordType(R.HashtableRecordType)->NumFields;
+            (RecordTypeNumFields(R.HashtableRecordType) << RESERVED_BITS) | RecordTag;
 
-#ifdef FOMENT_GCCHK
-    CheckSumObject(R.SymbolHashtable);
-#endif // FOMENT_GCCHK
+    FAssert(HashtableP(R.SymbolHashtable));
     FAssert(ObjectLength(R.SymbolHashtable) == sizeof(FHashtable));
 
     SetupLibrary();
