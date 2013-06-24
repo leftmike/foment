@@ -31,7 +31,7 @@ static FObject MakeSyntaxRules(FObject lits, FObject rules, FObject se)
     sr->Rules = rules;
     sr->SyntacticEnv = se;
 
-    return(AsObject(sr));
+    return(sr);
 }
 
 // ---- Pattern Variable ----
@@ -59,7 +59,7 @@ static FObject MakePatternVariable(int rd, FObject var)
     pv->Index = MakeFixnum(-1);
     pv->Variable = var;
 
-    return(AsObject(pv));
+    return(pv);
 }
 
 // ---- Pattern Repeat ----
@@ -91,7 +91,7 @@ static FObject MakePatternRepeat(int lc, FObject ellip, FObject vars, FObject pa
     pr->Pattern = pat;
     pr->Rest = rest;
 
-    return(AsObject(pr));
+    return(pr);
 }
 
 // ---- Template Repeat ----
@@ -123,7 +123,7 @@ static FObject MakeTemplateRepeat(FObject ellip, int rc)
     tr->Template = NoValueObject;
     tr->Rest = NoValueObject;
 
-    return(AsObject(tr));
+    return(tr);
 }
 
 // ---- Syntax Rule ----
@@ -152,7 +152,7 @@ static FObject MakeSyntaxRule(int nv, FObject vars, FObject pat, FObject tpl)
     sr->Pattern = pat;
     sr->Template = tpl;
 
-    return(AsObject(sr));
+    return(sr);
 }
 
 static FObject PatternToList(FObject cpat)

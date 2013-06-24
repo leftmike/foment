@@ -18,28 +18,624 @@ Garbage Collection:
     generation
 -- GC does not occur during an allocation, only at AllowGC points for all threads
 
--- pointer tag for pairs
--- pointer tag for doubles
-
-PairTag       01
-DoubleTag     10
-
--- young objects start with an FObject containing the TypeTag or a forwarding pointer
-
--- remove explicit unsigned int from Pairs
+-- partial collections
+-- remove Reserved field from FPair
 -- merge some of the fields in FProcedure into Reserved
 -- merge Hash into Reserved in FSymbol
 
+-- fix EqHash to work with objects being moved by gc
 -- mark collector: don't use malloc/free for memory allocator
 -- mark collector: mark-compact always full collection
 */
 
+#include <windows.h>
 #include <stdio.h>
 #include <malloc.h>
 #include <string.h>
 #include "foment.hpp"
 #include "execute.hpp"
 #include "io.hpp"
+
+typedef enum
+{
+    HoleTag,
+    FreeTag,
+    TableTag,
+    GenerationZeroTag
+} FSectionTag;
+
+static unsigned char * SectionTable;
+
+#define SECTION_SIZE 1024 * 16
+#define SectionIndex(ptr) (((unsigned int) (ptr)) >> 14)
+static unsigned int MinimumSectionIndex;
+static unsigned int MaximumSectionIndex;
+
+typedef struct _FYoungSection
+{
+    struct _FYoungSection * Next;
+    unsigned int Used;
+    unsigned int Scan;
+} FYoungSection;
+
+static FYoungSection * ActiveSection;
+static FYoungSection * GenerationZero;
+static FYoungSection * GenerationOne;
+
+unsigned int BytesAllocated;
+unsigned int CollectionCount;
+
+static int UsedRoots = 0;
+static FObject * Roots[128];
+
+static FExecuteState * ExecuteState = 0;
+int GCRequired = 1;
+
+#define GCZeroP(obj) ImmediateP(obj, GCZeroTag)
+#define GCOneP(obj) ImmediateP(obj, GCOneTag)
+
+#define Forward(obj) (*(((FObject *) (obj)) - 1))
+
+typedef void * FRaw;
+#define ObjectP(obj) ((((FImmediate) (obj)) & 0x3) != 0x3)
+#define AsRaw(obj) ((FRaw) (((unsigned int) (obj)) & ~0x3))
+
+static FObject ScanStack[1024];
+static int ScanIndex;
+
+typedef struct _FMature
+{
+    struct _FMature * Next;
+    unsigned int Mark;
+    FObject Forward;
+} FMature;
+
+static FMature * Mature;
+
+#define MarkP(obj) (((FMature *) (obj)) - 1)->Mark
+#define SetMark(obj)(((FMature *) (obj)) - 1)->Mark = 1
+
+static void * AllocateSection(FSectionTag tag)
+{
+    unsigned int sdx;
+
+    for (sdx = MinimumSectionIndex; sdx <= MaximumSectionIndex; sdx++)
+        if (SectionTable[sdx] == FreeTag)
+        {
+            SectionTable[sdx] = tag;
+            return((void *) (sdx << 14));
+        }
+
+    void * sec = VirtualAlloc(0, SECTION_SIZE, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    sdx = SectionIndex(sec);
+
+    FAssert(sdx < SECTION_SIZE);
+
+    SectionTable[sdx] = tag;
+
+    if (sdx < MinimumSectionIndex)
+        MinimumSectionIndex = sdx;
+    else if (sdx > MaximumSectionIndex)
+        MaximumSectionIndex = sdx;
+
+    FAssert(sec != 0);
+    FAssert(sdx < SECTION_SIZE);
+
+    return(sec);
+}
+
+static void FreeSection(void * sec)
+{
+    unsigned int sdx = SectionIndex(sec);
+
+    FAssert(sdx >= MinimumSectionIndex);
+    FAssert(sdx <= MaximumSectionIndex);
+
+    SectionTable[sdx] = FreeTag;
+}
+
+static FYoungSection * AllocateYoung(FYoungSection * nxt)
+{
+    FYoungSection * ns = (FYoungSection *) AllocateSection(GenerationZeroTag);
+    ns->Next = nxt;
+    ns->Used = sizeof(FYoungSection);
+    ns->Scan = sizeof(FYoungSection);
+    return(ns);
+}
+
+const static unsigned int Align4[4] = {0, 3, 2, 1};
+
+static unsigned int ObjectSize(FObject obj, unsigned int tag)
+{
+    switch (tag)
+    {
+    case PairTag:
+        return(sizeof(FPair));
+
+    case FlonumTag:
+        return(sizeof(FFlonum));
+
+    case BoxTag:
+        FAssert(BoxP(obj));
+
+        return(sizeof(FBox));
+
+    case StringTag:
+    {
+        FAssert(StringP(obj));
+
+        int len = sizeof(FString) + sizeof(FCh) * StringLength(obj);
+        len += Align4[len % 4];
+        return(len);
+    }
+
+    case VectorTag:
+        FAssert(VectorP(obj));
+        FAssert(VectorLength(obj) >= 0);
+
+        return(sizeof(FVector) + sizeof(FObject) * (VectorLength(obj) - 1));
+
+    case BytevectorTag:
+    {
+        FAssert(BytevectorP(obj));
+
+        int len = sizeof(FBytevector) + sizeof(FByte) * (BytevectorLength(obj) - 1);
+        len += Align4[len % 4];
+        return(len);
+    }
+
+    case PortTag:
+        FAssert(PortP(obj));
+
+        return(sizeof(FPort));
+
+    case ProcedureTag:
+        FAssert(ProcedureP(obj));
+
+        return(sizeof(FProcedure));
+
+    case SymbolTag:
+        FAssert(SymbolP(obj));
+
+        return(sizeof(FSymbol));
+
+    case RecordTypeTag:
+        FAssert(RecordTypeP(obj));
+
+        return(sizeof(FRecordType) + sizeof(FObject) * (RecordTypeNumFields(obj) - 1));
+
+    case RecordTag:
+        FAssert(GenericRecordP(obj));
+
+        return(sizeof(FGenericRecord) + sizeof(FObject) * (RecordNumFields(obj) - 1));
+
+    case PrimitiveTag:
+        FAssert(PrimitiveP(obj));
+
+        return(sizeof(FPrimitive));
+
+    default:
+        FAssert(0);
+    }
+
+    return(0);
+}
+
+// Allocate a new object in GenerationZero.
+FObject MakeObject(unsigned int sz, unsigned int tag)
+{
+    unsigned int len = sz;
+    len += Align4[len % 4];
+
+    FAssert(len >= sz);
+    FAssert(len % 4 == 0);
+    FAssert(len >= sizeof(FObject));
+
+    BytesAllocated += len;
+
+    if (ActiveSection->Used + len + sizeof(FObject) > SECTION_SIZE)
+    {
+        FAssert(ActiveSection->Next == 0);
+
+        ActiveSection->Next = GenerationZero;
+        GenerationZero = ActiveSection;
+
+        ActiveSection = AllocateYoung(0);
+    }
+
+    FObject * pobj = (FObject *) (((char *) ActiveSection) + ActiveSection->Used);
+    ActiveSection->Used += len + sizeof(FObject);
+    FObject obj = (FObject) (pobj + 1);
+
+    Forward(obj) = MakeImmediate(tag, GCZeroTag);
+
+    FAssert(AsValue(*pobj) == tag);
+    FAssert(GCZeroP(*pobj));
+
+    return(obj);
+}
+
+// Copy an object from GenerationZero to GenerationOne.
+FObject CopyObject(unsigned int len, unsigned int tag)
+{
+    FAssert(len % 4 == 0);
+    FAssert(len >= sizeof(FObject));
+
+    if (GenerationOne->Used + len + sizeof(FObject) > SECTION_SIZE)
+        GenerationOne = AllocateYoung(GenerationOne);
+
+    FObject * pobj = (FObject *) (((char *) GenerationOne) + GenerationOne->Used);
+    GenerationOne->Used += len + sizeof(FObject);
+    FObject obj = (FObject) (pobj + 1);
+
+    Forward(obj) = MakeImmediate(tag, GCOneTag);
+
+    FAssert(AsValue(*pobj) == tag);
+    FAssert(GCOneP(*pobj));
+
+    return(obj);
+}
+
+FObject AllocateMature(unsigned int len, unsigned int tag)
+{
+    FMature * m = (FMature *) malloc(len + sizeof(FMature));
+
+    FAssert(m != 0);
+    m->Next = Mature;
+    Mature = m;
+    m->Forward = NoValueObject;
+
+    return(m + 1);
+}
+
+void PushRoot(FObject * rt)
+{
+    UsedRoots += 1;
+
+    FAssert(UsedRoots < sizeof(Roots) / sizeof(FObject *));
+
+    Roots[UsedRoots - 1] = rt;
+}
+
+void PopRoot()
+{
+    FAssert(UsedRoots > 0);
+
+    UsedRoots -= 1;
+}
+
+void ClearRoots()
+{
+    UsedRoots = 0;
+}
+
+void EnterExecute(FExecuteState * es)
+{
+    FAssert(ExecuteState == 0);
+
+    ExecuteState = es;
+}
+
+void LeaveExecute(FExecuteState * es)
+{
+    FAssert(ExecuteState == es);
+
+    ExecuteState = 0;
+}
+
+void ModifyVector(FObject obj, unsigned int idx, FObject val)
+{
+    FAssert(VectorP(obj));
+    FAssert(idx < VectorLength(obj));
+
+    AsVector(obj)->Vector[idx] = val;
+    
+    
+    
+}
+
+void ModifyObject(FObject obj, int off, FObject val)
+{
+    FAssert(IndirectP(obj));
+    FAssert(off % sizeof(FObject) == 0);
+
+    ((FObject *) obj)[off / sizeof(FObject)] = val;
+    
+    
+    
+}
+
+void SetFirst(FObject obj, FObject val)
+{
+    FAssert(PairP(obj));
+
+    AsPair(obj)->First = val;
+    
+    
+    
+}
+
+void SetRest(FObject obj, FObject val)
+{
+    FAssert(PairP(obj));
+
+    AsPair(obj)->Rest = val;
+    
+    
+    
+}
+
+static void ScanObject(FObject * pobj)
+{
+    FObject raw = AsRaw(*pobj);
+
+    if (Forward(raw) == NoValueObject)
+    {
+        if (MarkP(raw) == 0)
+        {
+            SetMark(raw);
+
+            FAssert(ScanIndex < sizeof(ScanStack) / sizeof(FObject));
+
+            ScanStack[ScanIndex] = *pobj;
+            ScanIndex += 1;
+        }
+    }
+    else if (GCZeroP(Forward(raw)))
+    {
+        unsigned int tag = AsValue(Forward(raw));
+        unsigned int len = ObjectSize(raw, tag);
+        FObject nobj = CopyObject(len, tag);
+        memcpy(nobj, raw, len);
+
+        if (tag == PairTag)
+            nobj = PairObject(nobj);
+        else if (tag == FlonumTag)
+            nobj = FlonumObject(nobj);
+
+        Forward(raw) = nobj;
+        *pobj = nobj;
+    }
+    else if (GCOneP(Forward(raw)))
+    {
+        unsigned int tag = AsValue(Forward(raw));
+        unsigned int len = ObjectSize(raw, tag);
+        FObject  nobj = AllocateMature(len, tag);
+        memcpy(nobj, raw, len);
+
+        if (tag == PairTag)
+            nobj = PairObject(nobj);
+        else if (tag == FlonumTag)
+            nobj = FlonumObject(nobj);
+
+        Forward(raw) = nobj;
+        *pobj = nobj;
+
+        FAssert(ScanIndex < sizeof(ScanStack) / sizeof(FObject));
+
+        ScanStack[ScanIndex] = nobj;
+        ScanIndex += 1;
+    }
+    else
+        *pobj = Forward(raw);
+}
+
+static void ScanChildren(FRaw raw, unsigned int tag)
+{
+    switch (tag)
+    {
+    case PairTag:
+    {
+        FPair * pr = (FPair *) raw;
+
+        if (ObjectP(pr->First))
+            ScanObject(&pr->First);
+        if (ObjectP(pr->Rest))
+            ScanObject(&pr->Rest);
+        break;
+    }
+
+    case BoxTag:
+        if (ObjectP(AsBox(raw)->Value))
+            ScanObject(&(AsBox(raw)->Value));
+        break;
+
+    case StringTag:
+        break;
+
+    case VectorTag:
+        for (unsigned int vdx = 0; vdx < VectorLength(raw); vdx++)
+            if (ObjectP(AsVector(raw)->Vector[vdx]))
+                ScanObject(AsVector(raw)->Vector + vdx);
+        break;
+
+    case BytevectorTag:
+        break;
+
+    case PortTag:
+        if (ObjectP(AsPort(raw)->Name))
+            ScanObject(&(AsPort(raw)->Name));
+        if (ObjectP(AsPort(raw)->Object))
+            ScanObject(&(AsPort(raw)->Object));
+        break;
+
+    case ProcedureTag:
+        if (ObjectP(AsProcedure(raw)->Name))
+            ScanObject(&(AsProcedure(raw)->Name));
+        if (ObjectP(AsProcedure(raw)->Code))
+            ScanObject(&(AsProcedure(raw)->Code));
+        if (ObjectP(AsProcedure(raw)->RestArg))
+            ScanObject(&(AsProcedure(raw)->RestArg));
+        break;
+
+    case SymbolTag:
+        if (ObjectP(AsSymbol(raw)->String))
+            ScanObject(&(AsSymbol(raw)->String));
+        if (ObjectP(AsSymbol(raw)->Hash))
+            ScanObject(&(AsSymbol(raw)->Hash));
+        break;
+
+    case RecordTypeTag:
+        for (unsigned int fdx = 0; fdx < RecordTypeNumFields(raw); fdx++)
+            if (ObjectP(AsRecordType(raw)->Fields[fdx]))
+                ScanObject(AsRecordType(raw)->Fields + fdx);
+        break;
+
+    case RecordTag:
+        for (unsigned int fdx = 0; fdx < RecordNumFields(raw); fdx++)
+            if (ObjectP(AsGenericRecord(raw)->Fields[fdx]))
+                ScanObject(AsGenericRecord(raw)->Fields + fdx);
+        break;
+
+    case PrimitiveTag:
+        break;
+
+    default:
+        FAssert(0);
+    }
+}
+
+void Collect()
+{
+//printf("Collecting...");
+    CollectionCount += 1;
+
+    ScanIndex = 0;
+
+    ActiveSection->Next = GenerationZero;
+    GenerationZero = ActiveSection;
+    ActiveSection = 0;
+
+    FYoungSection * go = GenerationOne;
+    GenerationOne = AllocateYoung(0);
+
+    for (FMature * m = Mature; m != 0; m = m->Next)
+        m->Mark = 0;
+
+    FObject * rv = (FObject *) &R;
+    for (int rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
+        if (ObjectP(rv[rdx]))
+            ScanObject(rv + rdx);
+
+    for (int rdx = 0; rdx < UsedRoots; rdx++)
+        if (ObjectP(*Roots[rdx]))
+            ScanObject(Roots[rdx]);
+
+    if (ExecuteState != 0)
+    {
+        for (int adx = 0; adx < ExecuteState->AStackPtr; adx++)
+            if (ObjectP(ExecuteState->AStack[adx]))
+                ScanObject(ExecuteState->AStack + adx);
+
+        for (int cdx = 0; cdx < ExecuteState->CStackPtr; cdx++)
+            if (ObjectP(ExecuteState->CStack[cdx]))
+                ScanObject(ExecuteState->CStack + cdx);
+
+        if (ObjectP(ExecuteState->Proc))
+            ScanObject(&ExecuteState->Proc);
+        if (ObjectP(ExecuteState->Frame))
+            ScanObject(&ExecuteState->Frame);
+    }
+
+    for (;;)
+    {
+        while (ScanIndex > 0)
+        {
+            ScanIndex -= 1;
+            FObject obj = ScanStack[ScanIndex];
+
+            FAssert(ObjectP(obj));
+
+            if (PairP(obj))
+                ScanChildren(AsRaw(obj), PairTag);
+            else if (FlonumP(obj))
+                ScanChildren(AsRaw(obj), FlonumTag);
+            else
+            {
+                FAssert(IndirectP(obj));
+
+                ScanChildren(obj, IndirectTag(obj));
+            }
+        }
+
+        FYoungSection * ys = GenerationOne;
+        while (ys != 0 && ys->Scan < ys->Used)
+        {
+            while (ys->Scan < ys->Used)
+            {
+                FObject *pobj = (FObject *) (((char *) ys) + ys->Scan);
+
+                FAssert(GCOneP(*pobj));
+
+                unsigned int tag = AsValue(*pobj);
+                FObject obj = (FObject) (pobj + 1);
+
+                ScanChildren(obj, tag);
+                ys->Scan += ObjectSize(obj, tag) + sizeof(FObject);
+            }
+
+            ys = ys->Next;
+        }
+
+        if (GenerationOne->Scan == GenerationOne->Used && ScanIndex == 0)
+            break;
+    }
+
+    ActiveSection = AllocateYoung(0);
+
+    while (GenerationZero != 0)
+    {
+        FYoungSection * ys = GenerationZero;
+        GenerationZero = GenerationZero->Next;
+        FreeSection(ys);
+    }
+
+    while (go != 0)
+    {
+        FYoungSection * ys = go;
+        go = go->Next;
+        FreeSection(ys);
+    }
+
+//printf("Done.\n");
+}
+
+void SetupGC()
+{
+    FAssert(sizeof(FObject) == sizeof(FImmediate));
+    FAssert(sizeof(FObject) == sizeof(char *));
+    FAssert(sizeof(FFixnum) <= sizeof(FImmediate));
+    FAssert(sizeof(FCh) <= sizeof(FImmediate));
+
+    BytesAllocated = 0;
+    CollectionCount = 0;
+
+    SectionTable = (unsigned char *) VirtualAlloc(0, SECTION_SIZE, MEM_COMMIT | MEM_RESERVE,
+            PAGE_READWRITE);
+    FAssert(SectionTable != 0);
+
+    MinimumSectionIndex = SectionIndex(SectionTable);
+    MaximumSectionIndex = MinimumSectionIndex;
+
+    for (int idx = 0; idx < SECTION_SIZE; idx++)
+        SectionTable[idx] = HoleTag;
+
+    SectionTable[SectionIndex(SectionTable)] = TableTag;
+
+    ActiveSection = AllocateYoung(0);
+
+    Mature = 0;
+}
+
+#if 0
+typedef struct
+{
+    unsigned short Hash;
+    unsigned char Tag;
+    unsigned char GCFlags;
+} FObjectHeader;
+
+#define AsObjectHeader(obj) (((FObjectHeader *) (((FImmediate) (obj)) & ~0x3)) - 1)
 
 // GCFlags in FObjectHeader
 
@@ -67,30 +663,6 @@ DoubleTag     10
 #define SetForward(obj) AsObjectHeader(obj)->GCFlags |= GCFORWARD
 #define ForwardedP(obj) (AsObjectHeader(obj)->GCFlags & GCFORWARD)
 
-unsigned int BytesAllocated;
-unsigned int CollectionCount;
-
-typedef struct _FSection
-{
-    struct _FSection * Next;
-    unsigned int Used;
-    unsigned int Size;
-    char Space[1];
-} FSection;
-
-static FSection * ActiveSection;
-static FSection * CurrentSections;
-static FSection * ReserveSections;
-
-static int UsedRoots = 0;
-static FObject * Roots[128];
-static unsigned short Hash = 0;
-
-static FExecuteState * ExecuteState = 0;
-int GCRequired = 0;
-
-#define GCSECTION_SIZE (64 * 1024 - 256)
-#define GCSECTION_COUNT 4
 #define GCMATURE_AGE 2
 #define GCMAXIMUM_YOUNG_SIZE 1024
 #define GCFULL_PARTIAL 3
@@ -217,6 +789,7 @@ FObject MakeObject(FObjectTag tag, unsigned int sz)
 
     FAssert(len >= sz);
 
+    BytesAllocated += len;
 /*    FObjectHeader * oh = AllocateNursery(len);
 
     FAssert(oh != 0);
@@ -244,8 +817,6 @@ FObject MakeObject(FObjectTag tag, unsigned int sz)
     Hash += 1;
     oh->Tag = tag;
 
-    BytesAllocated += len + sizeof(FObjectHeader);
-
     FObject obj = (FObject) (oh + 1);
 
     FAssert(oh == AsObjectHeader(obj));
@@ -253,41 +824,6 @@ FObject MakeObject(FObjectTag tag, unsigned int sz)
 //    FAssert(ObjectTag(obj) == tag);
 
     return(obj);
-}
-
-void PushRoot(FObject * rt)
-{
-    UsedRoots += 1;
-
-    FAssert(UsedRoots < sizeof(Roots) / sizeof(FObject *));
-
-    Roots[UsedRoots - 1] = rt;
-}
-
-void PopRoot()
-{
-    FAssert(UsedRoots > 0);
-
-    UsedRoots -= 1;
-}
-
-void ClearRoots()
-{
-    UsedRoots = 0;
-}
-
-void EnterExecute(FExecuteState * es)
-{
-    FAssert(ExecuteState == 0);
-
-    ExecuteState = es;
-}
-
-void LeaveExecute(FExecuteState * es)
-{
-    FAssert(ExecuteState == es);
-
-    ExecuteState = 0;
 }
 
 static void RecordModify(FObject obj)
@@ -318,6 +854,7 @@ void ModifyVector(FObject obj, unsigned int idx, FObject val)
 
 void ModifyObject(FObject obj, int off, FObject val)
 {
+    FAssert(PairP(obj) == 0);
     FAssert(ObjectP(obj));
     FAssert(off % sizeof(FObject) == 0);
 
@@ -325,6 +862,26 @@ void ModifyObject(FObject obj, int off, FObject val)
 
     if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0)
         RecordModify(obj);
+}
+
+void SetFirst(FObject obj, FObject val)
+{
+    FAssert(PairP(obj));
+
+    AsPair(obj)->First = val;
+    
+    
+    
+}
+
+void SetRest(FObject obj, FObject val)
+{
+    FAssert(PairP(obj));
+
+    AsPair(obj)->Rest = val;
+    
+    
+    
 }
 
 static void ScanObject(FObject * pobj, int fcf)
@@ -698,6 +1255,7 @@ printf("Partial Collection...");
 
 void Collect()
 {
+#if 0
     CollectionCount += 1;
 
     FAssert(GCRequired != 0);
@@ -713,6 +1271,7 @@ void Collect()
         sec = sec->Next;
     }
 #endif // FOMENT_GCCHK
+#endif // 0
 }
 
 void SetupGC()
@@ -755,3 +1314,4 @@ void SetupGC()
 
     ModifiedCount = 0;
 }
+#endif // 0

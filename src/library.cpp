@@ -21,7 +21,7 @@ FObject MakeEnvironment(FObject nam, FObject ctv)
     env->Name = nam;
     env->Interactive = ctv;
 
-    return(AsObject(env));
+    return(env);
 }
 
 static FObject MakeGlobal(FObject nam, FObject mod, FObject ctv);
@@ -197,7 +197,7 @@ static FObject MakeGlobal(FObject nam, FObject mod, FObject ctv)
     gl->State = GlobalUndefined;
     gl->Interactive = ctv;
 
-    return(AsObject(gl));
+    return(gl);
 }
 
 static FObject ImportGlobal(FObject env, FObject nam, FObject gl)
@@ -221,7 +221,7 @@ static FObject ImportGlobal(FObject env, FObject nam, FObject gl)
         ngl->State = GlobalImportedModified;
     }
 
-    return(AsObject(ngl));
+    return(ngl);
 }
 
 // ---- Libraries ----
@@ -237,9 +237,8 @@ static FObject MakeLibrary(FObject nam, FObject exports, FObject proc)
     lib->Exports = exports;
     lib->OnStartup = proc;
 
-    FObject obj = AsObject(lib);
-    R.LoadedLibraries = MakePair(obj, R.LoadedLibraries);
-    return(obj);
+    R.LoadedLibraries = MakePair(lib, R.LoadedLibraries);
+    return(lib);
 }
 
 FObject MakeLibrary(FObject nam)
@@ -973,7 +972,7 @@ static FObject CompileLibraryCode(FObject env, FObject lst, FObject ill)
         }
 
 //        AsPair(slst)->Rest = blst;
-        Modify(FPair, slst, Rest, blst);
+        SetRest(slst, blst);
     }
 
     body = AddOnStartupToBody(ill, body);

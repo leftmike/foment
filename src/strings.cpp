@@ -11,7 +11,7 @@ Foment
 
 FObject MakeString(FCh * s, unsigned int sl)
 {
-    FString * ns = (FString *) MakeObject(StringTag, sizeof(FString) + sl * sizeof(FCh));
+    FString * ns = (FString *) MakeObject(sizeof(FString) + sl * sizeof(FCh), StringTag);
     ns->Length = ((sl * sizeof(FCh)) << RESERVED_BITS) | StringTag;
     ns->String[sl] = 0;
 
@@ -19,10 +19,8 @@ FObject MakeString(FCh * s, unsigned int sl)
         for (unsigned int idx = 0; idx < sl; idx++)
             ns->String[idx] = s[idx];
 
-    FObject obj = AsObject(ns);
-    FAssert(ObjectLength(obj) == AlignLength(sizeof(FString) + sl * sizeof(FCh)));
+    FObject obj = ns;
     FAssert(StringLength(obj) == sl);
-
     return(obj);
 }
 
@@ -33,7 +31,7 @@ FObject MakeStringCh(unsigned int sl, FCh ch)
     for (unsigned int idx = 0; idx < sl; idx++)
         s->String[idx] = ch;
 
-    return(AsObject(s));
+    return(s);
 }
 
 FObject MakeStringF(FString * s)
@@ -43,7 +41,7 @@ FObject MakeStringF(FString * s)
     for (unsigned int idx = 0; idx < StringLength(s); idx++)
         ns->String[idx] = s->String[idx];
 
-    return(AsObject(ns));
+    return(ns);
 }
 
 FObject MakeStringC(char * s)
@@ -55,7 +53,7 @@ FObject MakeStringC(char * s)
     for (idx = 0; idx < sl; idx++)
         ns->String[idx] = s[idx];
 
-    return(AsObject(ns));
+    return(ns);
 }
 
 void StringToC(FObject s, char * b, int bl)

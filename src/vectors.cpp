@@ -10,8 +10,7 @@ Foment
 
 FObject MakeVector(unsigned int vl, FObject * v, FObject obj)
 {
-    FVector * nv = (FVector *) MakeObject(VectorTag, sizeof(FVector) + (vl - 1)
-            * sizeof(FObject));
+    FVector * nv = (FVector *) MakeObject(sizeof(FVector) + (vl - 1) * sizeof(FObject), VectorTag);
     nv->Length = (vl << RESERVED_BITS) | VectorTag;
 
     unsigned int idx;
@@ -22,19 +21,14 @@ FObject MakeVector(unsigned int vl, FObject * v, FObject obj)
         for (idx = 0; idx < vl; idx++)
             nv->Vector[idx] = v[idx];
 
-    obj = AsObject(nv);
-
-    FAssert(ObjectLength(obj) == sizeof(FVector) + (vl - 1) * sizeof(FObject));
-    FAssert(VectorLength(obj) == vl);
-
-    return(obj);
+    FAssert(VectorLength(nv) == vl);
+    return(nv);
 }
 
 FObject ListToVector(FObject obj)
 {
     unsigned int vl = ListLength(obj);
-    FVector * nv = (FVector *) MakeObject(VectorTag, sizeof(FVector) + (vl - 1)
-            * sizeof(FObject));
+    FVector * nv = (FVector *) MakeObject(sizeof(FVector) + (vl - 1) * sizeof(FObject), VectorTag);
     nv->Length = (vl << RESERVED_BITS) | VectorTag;
 
     for (unsigned int idx = 0; idx < vl; idx++)
@@ -43,11 +37,8 @@ FObject ListToVector(FObject obj)
         obj = Rest(obj);
     }
 
-    obj = AsObject(nv);
-    FAssert(ObjectLength(obj) == sizeof(FVector) + (vl - 1) * sizeof(FObject));
-    FAssert(VectorLength(obj) == vl);
-
-    return(obj);
+    FAssert(VectorLength(nv) == vl);
+    return(nv);
 }
 
 FObject VectorToList(FObject vec)
@@ -135,26 +126,23 @@ Define("list->vector", ListToVectorPrimitive)(int argc, FObject argv[])
 
 FObject MakeBytevector(unsigned int vl, FByte * v)
 {
-    FBytevector * nv = (FBytevector *) MakeObject(BytevectorTag, sizeof(FBytevector)
-            + (vl - 1) * sizeof(FByte));
+    FBytevector * nv = (FBytevector *) MakeObject(sizeof(FBytevector) + (vl - 1) * sizeof(FByte),
+            BytevectorTag);
     nv->Length = (vl << RESERVED_BITS) | BytevectorTag;
 
     if (v != 0)
         for (unsigned int idx = 0; idx < vl; idx++)
             nv->Vector[idx] = v[idx];
 
-    FObject obj = AsObject(nv);
-    FAssert(ObjectLength(obj) == AlignLength(sizeof(FBytevector) + (vl - 1) * sizeof(FByte)));
-    FAssert(BytevectorLength(obj) == vl);
-
-    return(obj);
+    FAssert(BytevectorLength(nv) == vl);
+    return(nv);
 }
 
 FObject U8ListToBytevector(FObject obj)
 {
     unsigned int vl = ListLength(obj);
-    FBytevector * nv = (FBytevector *) MakeObject(BytevectorTag, sizeof(FBytevector)
-            + (vl - 1) * sizeof(FByte));
+    FBytevector * nv = (FBytevector *) MakeObject(sizeof(FBytevector) + (vl - 1) * sizeof(FByte),
+            BytevectorTag);
     nv->Length = (vl << RESERVED_BITS) | BytevectorTag;
 
     for (unsigned int idx = 0; idx < vl; idx++)
@@ -167,18 +155,17 @@ FObject U8ListToBytevector(FObject obj)
         obj = Rest(obj);
     }
 
-    obj = AsObject(nv);
-    FAssert(ObjectLength(obj) == AlignLength(sizeof(FBytevector) + (vl - 1) * sizeof(FByte)));
-    FAssert(BytevectorLength(obj) == vl);
-
-    return(obj);
+    FAssert(BytevectorLength(nv) == vl);
+    return(nv);
 }
 
 static int BytevectorEqualP(FObject obj1, FObject obj2)
 {
     FAssert(BytevectorP(obj1));
     FAssert(BytevectorP(obj2));
-
+    
+    
+    
 }
 
 unsigned int BytevectorHash(FObject obj)

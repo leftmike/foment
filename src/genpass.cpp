@@ -131,7 +131,7 @@ static void SetJump(FObject tgt, FObject src, FOpcode op)
 
     FAssert(PairP(src));
 //    AsPair(src)->First = MakeInstruction(op, cnt);
-    Modify(FPair, src, First, MakeInstruction(op, cnt));
+    SetFirst(src, MakeInstruction(op, cnt));
 }
 
 static FObject GPassOr(FLambda * lam, FObject cdl, FObject expr, FContFlag cf)

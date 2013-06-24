@@ -10,17 +10,14 @@ Foment
 
 FObject MakePair(FObject first, FObject rest)
 {
-    FPair * pair = (FPair *) MakeObject(PairTag, sizeof(FPair));
-    
-    
-    pair->Reserved = PairTag; // To be removed.
-    
-    
+    FPair * pair = (FPair *) MakeObject(sizeof(FPair), PairTag);
+    pair->Reserved = 0;
     pair->First = first;
     pair->Rest = rest;
 
-    FObject obj = AsObject(pair);
-    FAssert(ObjectLength(obj) == sizeof(FPair));
+    FObject obj = PairObject(pair);
+    FAssert(PairP(obj));
+    FAssert(AsPair(obj) == pair);
     return(obj);
 }
 
@@ -55,7 +52,7 @@ FObject ReverseListModify(FObject list)
         FObject obj = list;
         list = Rest(list);
 //        AsPair(obj)->Rest = rlist;
-        Modify(FPair, obj, Rest, rlist);
+        SetRest(obj, rlist);
         rlist = obj;
     }
 
@@ -130,7 +127,7 @@ Define("set-car!", SetCarPrimitive)(int argc, FObject argv[])
         RaiseExceptionC(R.Assertion, "set-car!", "set-car!: expected a pair", List(argv[0]));
 
 //    AsPair(argv[0])->First = argv[1];
-    Modify(FPair, argv[0], First, argv[1]);
+    SetFirst(argv[0], argv[1]);
 
     return(NoValueObject);
 }
@@ -145,7 +142,7 @@ Define("set-cdr!", SetCdrPrimitive)(int argc, FObject argv[])
         RaiseExceptionC(R.Assertion, "set-cdr!", "set-cdr!: expected a pair", List(argv[0]));
 
 //    AsPair(argv[0])->Rest = argv[1];
-    Modify(FPair, argv[0], Rest, argv[1]);
+    SetRest(argv[0], argv[1]);
 
     return(NoValueObject);
 }
@@ -210,7 +207,7 @@ Define("append", AppendPrimitive)(int argc, FObject argv[])
             FObject obj = lst;
             lst = Rest(lst);
 //            AsPair(obj)->Rest = ret;
-            Modify(FPair, obj, Rest, ret);
+            SetRest(obj, ret);
             ret = obj;
         }
   }

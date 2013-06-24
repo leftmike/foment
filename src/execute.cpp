@@ -15,7 +15,7 @@ static FObject DynamicEnvironment;
 
 static FObject MakeProcedure(FObject nam, FObject cv, int ac, FObject ra, unsigned int fl)
 {
-    FProcedure * p = (FProcedure *) MakeObject(ProcedureTag, sizeof(FProcedure));
+    FProcedure * p = (FProcedure *) MakeObject(sizeof(FProcedure), ProcedureTag);
     p->Reserved = ProcedureTag;
     p->Name = SyntaxToDatum(nam);
     p->Code = cv;
@@ -23,9 +23,7 @@ static FObject MakeProcedure(FObject nam, FObject cv, int ac, FObject ra, unsign
     p->ArgCount = ac;
     p->Flags = fl;
 
-    FObject obj = AsObject(p);
-    FAssert(ObjectLength(obj) == sizeof(FProcedure));
-    return(obj);
+    return(p);
 }
 
 FObject MakeProcedure(FObject nam, FObject cv, int ac, FObject ra)
@@ -840,7 +838,7 @@ Define("set-parameter!", SetParameterPrimitive)(int argc, FObject argv[])
         if (First(First(lst)) == argv[0])
         {
 //            AsPair(First(lst))->Rest = argv[2];
-            Modify(FPair, First(lst), Rest, argv[2]);
+            SetRest(First(lst), argv[2]);
             return(NoValueObject);
         }
 
@@ -850,7 +848,7 @@ Define("set-parameter!", SetParameterPrimitive)(int argc, FObject argv[])
     FAssert(lst == EmptyListObject);
 
 //    AsPair(argv[1])->Rest = argv[2];
-    Modify(FPair, argv[1], Rest, argv[2]);
+    SetRest(argv[1], argv[2]);
     return(NoValueObject);
 }
 

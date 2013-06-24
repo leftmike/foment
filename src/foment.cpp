@@ -136,13 +136,11 @@ Define("not", NotPrimitive)(int argc, FObject argv[])
 
 FObject MakeBox(FObject val)
 {
-    FBox * bx = (FBox *) MakeObject(BoxTag, sizeof(FBox));
+    FBox * bx = (FBox *) MakeObject(sizeof(FBox), BoxTag);
     bx->Reserved = BoxTag;
     bx->Value = val;
 
-    FObject obj = AsObject(bx);
-    FAssert(ObjectLength(obj) == sizeof(FBox));
-    return(obj);
+    return(bx);
 }
 
 // ---- Hashtables ----
@@ -151,8 +149,6 @@ unsigned int EqHash(FObject obj)
 {
     if (SymbolP(obj))
         return(AsFixnum(AsSymbol(obj)->Hash));
-    else if (ObjectP(obj))
-        return(AsObjectHeader(obj)->Hash);
     return((unsigned int) obj);
 }
 
@@ -277,7 +273,7 @@ FObject MakeHashtable(int nb)
     ht->Buckets = MakeVector(nb, 0, EmptyListObject);
     ht->Size = MakeFixnum(0);
 
-    return(AsObject(ht));
+    return(ht);
 }
 
 static FObject DoHashtableRef(FObject ht, FObject key, FEquivFn efn, FHashFn hfn)
@@ -342,7 +338,7 @@ void HashtableSet(FObject ht, FObject key, FObject val, FEquivFn efn, FHashFn hf
     if (PairP(node))
     {
 //        AsPair(First(node))->Rest = val;
-        Modify(FPair, First(node), Rest, val);
+        SetRest(First(node), val);
     }
     else
     {
@@ -378,7 +374,7 @@ void HashtableDelete(FObject ht, FObject key, FEquivFn efn, FHashFn hfn)
             if (PairP(prev))
             {
 //                AsPair(prev)->Rest = Rest(node);
-                Modify(FPair, prev, Rest, Rest(node));
+                SetRest(prev, Rest(node));
             }
             else
             {
@@ -435,7 +431,7 @@ void HashtableWalkUpdate(FObject ht, FWalkUpdateFn wfn, FObject ctx)
             if (val != Rest(First(lst)))
             {
 //                AsPair(First(lst))->Rest = val;
-                Modify(FPair, First(lst), Rest, val);
+                SetRest(First(lst), val);
             }
 
             lst = Rest(lst);
@@ -464,7 +460,7 @@ void HashtableWalkDelete(FObject ht, FWalkDeleteFn wfn, FObject ctx)
                 if (PairP(prev))
                 {
 //                    AsPair(prev)->Rest = Rest(lst);
-                    Modify(FPair, prev, Rest, Rest(lst));
+                    SetRest(prev, Rest(lst));
                 }
                 else
                 {
@@ -511,16 +507,13 @@ FObject StringToSymbol(FObject str)
     FObject obj = HashtableRef(R.SymbolHashtable, str, FalseObject, StringEqualP, StringHash);
     if (obj == FalseObject)
     {
-        FSymbol * sym = (FSymbol *) MakeObject(SymbolTag, sizeof(FSymbol));
+        FSymbol * sym = (FSymbol *) MakeObject(sizeof(FSymbol), SymbolTag);
         sym->Reserved = SymbolTag;
         sym->String = str;
         sym->Hash = MakeFixnum(NextSymbolHash);
         NextSymbolHash += 1;
 
-        obj = AsObject(sym);
-
-        FAssert(ObjectLength(obj) == sizeof(FSymbol));
-
+        obj = sym;
         HashtableSet(R.SymbolHashtable, str, obj, StringEqualP, StringHash);
     }
 
@@ -538,16 +531,13 @@ FObject StringLengthToSymbol(FCh * s, int sl)
     FObject obj = HashtableStringRef(R.SymbolHashtable, s, sl, FalseObject);
     if (obj == FalseObject)
     {
-        FSymbol * sym = (FSymbol *) MakeObject(SymbolTag, sizeof(FSymbol));
+        FSymbol * sym = (FSymbol *) MakeObject(sizeof(FSymbol), SymbolTag);
         sym->Reserved = SymbolTag;
         sym->String = MakeString(s, sl);
         sym->Hash = MakeFixnum(NextSymbolHash);
         NextSymbolHash += 1;
 
-        obj = AsObject(sym);
-
-        FAssert(ObjectLength(obj) == sizeof(FSymbol));
-
+        obj = sym;
         HashtableSet(R.SymbolHashtable, sym->String, obj, StringEqualP, StringHash);
     }
 
@@ -577,8 +567,8 @@ FObject MakeRecordType(FObject nam, unsigned int nf, FObject flds[])
 {
     FAssert(SymbolP(nam));
 
-    FRecordType * rt = (FRecordType *) MakeObject(RecordTypeTag,
-            sizeof(FRecordType) + sizeof(FObject) * nf);
+    FRecordType * rt = (FRecordType *) MakeObject(sizeof(FRecordType) + sizeof(FObject) * nf,
+            RecordTypeTag);
     rt->NumFields = ((nf + 1) << RESERVED_BITS) | RecordTypeTag;
     rt->Fields[0] = nam;
 
@@ -589,7 +579,7 @@ FObject MakeRecordType(FObject nam, unsigned int nf, FObject flds[])
         rt->Fields[fdx] = flds[fdx - 1];
     }
 
-    return(AsObject(rt));
+    return(rt);
 }
 
 FObject MakeRecordTypeC(char * nam, unsigned int nf, char * flds[])
@@ -611,27 +601,25 @@ FObject MakeRecord(FObject rt)
     FAssert(RecordTypeP(rt));
 
     unsigned int nf = RecordTypeNumFields(rt);
-    FGenericRecord * r = (FGenericRecord *) MakeObject(RecordTag,
-            sizeof(FGenericRecord) + sizeof(FObject) * nf);
+    FGenericRecord * r = (FGenericRecord *) MakeObject(
+            sizeof(FGenericRecord) + sizeof(FObject) * nf, RecordTag);
     r->NumFields = ((nf + 1) << RESERVED_BITS) | RecordTag;
     r->Fields[0] = rt;
 
     for (unsigned int fdx = 1; fdx <= nf; fdx++)
         r->Fields[fdx] = NoValueObject;
 
-    return(AsObject(r));
+    return(r);
 }
 
 // ---- Primitives ----
 
 FObject MakePrimitive(FPrimitive * prim)
 {
-    FPrimitive * p = (FPrimitive *) MakeObject(PrimitiveTag, sizeof(FPrimitive));
+    FPrimitive * p = (FPrimitive *) MakeObject(sizeof(FPrimitive), PrimitiveTag);
     memcpy(p, prim, sizeof(FPrimitive));
 
-    FObject obj = AsObject(p);
-    FAssert(ObjectLength(obj) == sizeof(FPrimitive));
-    return(obj);
+    return(p);
 }
 
 void DefinePrimitive(FObject env, FObject lib, FPrimitive * prim)
@@ -653,7 +641,7 @@ FObject MakeException(FObject typ, FObject who, FObject msg, FObject lst)
     exc->Message = msg;
     exc->Irritants = lst;
 
-    return(AsObject(exc));
+    return(exc);
 }
 
 void RaiseException(FObject typ, FObject who, FObject msg, FObject lst)
@@ -953,7 +941,7 @@ void SetupFoment(int argc, char * argv[])
         rv[rdx] = NoValueObject;
 
     FAssert(R.HashtableRecordType == NoValueObject);
-    R.SymbolHashtable = MakeObject(RecordTag, sizeof(FHashtable));
+    R.SymbolHashtable = MakeObject(sizeof(FHashtable), RecordTag);
 
     AsHashtable(R.SymbolHashtable)->Record.NumFields = RecordTag;
     AsHashtable(R.SymbolHashtable)->Record.RecordType = R.HashtableRecordType;
@@ -969,7 +957,6 @@ void SetupFoment(int argc, char * argv[])
             (RecordTypeNumFields(R.HashtableRecordType) << RESERVED_BITS) | RecordTag;
 
     FAssert(HashtableP(R.SymbolHashtable));
-    FAssert(ObjectLength(R.SymbolHashtable) == sizeof(FHashtable));
 
     SetupLibrary();
     R.ExceptionRecordType = MakeRecordTypeC("exception",

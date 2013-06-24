@@ -28,7 +28,7 @@ FObject MakeSyntacticEnv(FObject obj)
         se->LocalBindings = AsSyntacticEnv(obj)->LocalBindings;
     }
 
-    return(AsObject(se));
+    return(se);
 }
 
 // ---- Binding ----
@@ -56,7 +56,7 @@ FObject MakeBinding(FObject se, FObject id, FObject ra)
     b->Slot = MakeFixnum(-1);
     b->Constant = NoValueObject;
 
-    return(AsObject(b));
+    return(b);
 }
 
 // ---- Identifier ----
@@ -79,7 +79,7 @@ FObject MakeIdentifier(FObject sym, int ln)
 
     i->SyntacticEnv = NoValueObject;
 
-    return(AsObject(i));
+    return(i);
 }
 
 FObject WrapIdentifier(FObject id, FObject se)
@@ -98,7 +98,7 @@ FObject WrapIdentifier(FObject id, FObject se)
     i->Magic = AsIdentifier(id)->Magic;
     i->SyntacticEnv = se;
 
-    return(AsObject(i));
+    return(i);
 }
 
 // ---- Lambda ----
@@ -129,7 +129,7 @@ FObject MakeLambda(FObject nam, FObject bs, FObject body)
     l->Procedure = NoValueObject;
     l->BodyIndex = NoValueObject;
 
-    return(AsObject(l));
+    return(l);
 }
 
 // ---- CaseLambda ----
@@ -145,7 +145,7 @@ FObject MakeCaseLambda(FObject cases)
     cl->Name = NoValueObject;
     cl->Escapes = FalseObject;
 
-    return(AsObject(cl));
+    return(cl);
 }
 
 // ---- InlineVariable ----
@@ -161,7 +161,7 @@ FObject MakeInlineVariable(int idx)
     FInlineVariable * iv = (FInlineVariable *) MakeRecord(R.InlineVariableRecordType);
     iv->Index = MakeFixnum(idx);
 
-    return(AsObject(iv));
+    return(iv);
 }
 
 // ---- Reference ----
@@ -178,7 +178,7 @@ FObject MakeReference(FObject be, FObject id)
     r->Binding = be;
     r->Identifier = id;
 
-    return(AsObject(r));
+    return(r);
 }
 
 // ----------------

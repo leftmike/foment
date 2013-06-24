@@ -213,7 +213,7 @@ int main(int argc, char * argv[])
                     }
 
 //                    AsPair(lp)->Rest = MakePair(MakeStringC(argv[adx]), EmptyListObject);
-                    Modify(FPair, lp, Rest, MakePair(MakeStringC(argv[adx]), EmptyListObject));
+                    SetRest(lp, MakePair(MakeStringC(argv[adx]), EmptyListObject));
                     break;
                 }
 

@@ -193,7 +193,7 @@ static FObject AddFormal(FObject se, FObject ss, FObject bs, FObject id, FObject
 
     FAssert(PairP(lst));
 //    AsPair(lst)->Rest = MakePair(MakeBinding(se, id, ra), EmptyListObject);
-    Modify(FPair, lst, Rest, MakePair(MakeBinding(se, id, ra), EmptyListObject));
+    SetRest(lst, MakePair(MakeBinding(se, id, ra), EmptyListObject));
 
     return(bs);
 }
@@ -272,7 +272,7 @@ static FObject AddBinding(FObject se, FObject ss, FObject bs, FObject id, FObjec
 
     FAssert(PairP(lst));
 //    AsPair(lst)->Rest = MakePair(MakeBinding(se, id, FalseObject), EmptyListObject);
-    Modify(FPair, lst, Rest, MakePair(MakeBinding(se, id, FalseObject), EmptyListObject));
+    SetRest(lst, MakePair(MakeBinding(se, id, FalseObject), EmptyListObject));
 
     return(bs);
 }
@@ -612,7 +612,7 @@ static FObject AddCaseDatum(FObject dtm, FObject dtms, FObject cse)
 
     FAssert(PairP(lst));
 //    AsPair(lst)->Rest = MakePair(dtm, EmptyListObject);
-    Modify(FPair, lst, Rest, MakePair(dtm, EmptyListObject));
+    SetRest(lst, MakePair(dtm, EmptyListObject));
 
     return(dtms);
 }

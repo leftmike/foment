@@ -46,7 +46,7 @@ FObject MakePort(FObject nam, FInputPort * inp, FOutputPort * outp, FPortLocatio
     FAssert(inp != 0 || outp != 0);
     FAssert(ctx != 0);
 
-    FPort * port = (FPort *) MakeObject(PortTag, sizeof(FPort));
+    FPort * port = (FPort *) MakeObject(sizeof(FPort), PortTag);
     port->Reserved = PortTag;
     port->Name = nam;
     port->Input = inp;
@@ -56,9 +56,7 @@ FObject MakePort(FObject nam, FInputPort * inp, FOutputPort * outp, FPortLocatio
     port->Context = ctx;
     port->Object = obj;
 
-    obj = AsObject(port);
-    FAssert(ObjectLength(obj) == sizeof(FPort));
-    return(obj);
+    return(port);
 }
 
 // ---- FILE Input and Output Ports ----
@@ -939,35 +937,38 @@ void WriteShared(FObject port, FObject obj, int df)
         WriteGeneric(port, obj, df, (FWriteFn) WriteGeneric, 0);
 }
 
-static void WriteGenericObject(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx)
+static void WritePair(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx)
 {
-    switch (ObjectTag(obj))
-    {
-    case PairTag:
-        PutCh(port, '(');
-        for (;;)
-        {
-            wfn(port, First(obj), df, wfn, ctx);
-            if (PairP(Rest(obj)))
-            {
-                PutCh(port, ' ');
-                obj = Rest(obj);
-            }
-            else if (Rest(obj) == EmptyListObject)
-            {
-                PutCh(port, ')');
-                break;
-            }
-            else
-            {
-                PutStringC(port, " . ");
-                wfn(port, Rest(obj), df, wfn, ctx);
-                PutCh(port, ')');
-                break;
-            }
-        }
-        break;
+    FAssert(PairP(obj));
 
+    PutCh(port, '(');
+    for (;;)
+    {
+        wfn(port, First(obj), df, wfn, ctx);
+        if (PairP(Rest(obj)))
+        {
+            PutCh(port, ' ');
+            obj = Rest(obj);
+        }
+        else if (Rest(obj) == EmptyListObject)
+        {
+            PutCh(port, ')');
+            break;
+        }
+        else
+        {
+            PutStringC(port, " . ");
+            wfn(port, Rest(obj), df, wfn, ctx);
+            PutCh(port, ')');
+            break;
+        }
+    }
+}
+
+static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx)
+{
+    switch (IndirectTag(obj))
+    {
     case BoxTag:
     {
         FCh s[16];
@@ -1189,8 +1190,10 @@ void WriteGeneric(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx)
 
         PutCh(port, '>');
     }
-    else if (ObjectP(obj))
-        WriteGenericObject(port, obj, df, wfn, ctx);
+    else if (PairP(obj))
+        WritePair(port, obj, df, wfn, ctx);
+    else if (IndirectP(obj))
+        WriteIndirectObject(port, obj, df, wfn, ctx);
     else if (obj == EmptyListObject)
         PutStringC(port, "()");
     else if (obj == FalseObject)

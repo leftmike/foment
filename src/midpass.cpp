@@ -157,7 +157,7 @@ static FObject MPassLetFormalsInits(FMiddlePass * mp, FLambda * lam, FObject lb)
             if (PairP(plb))
             {
 //                AsPair(plb)->Rest = Rest(lb);
-                Modify(FPair, plb, Rest, Rest(lb));
+                SetRest(plb, Rest(lb));
             }
             else
                 ret = Rest(lb);
@@ -275,7 +275,7 @@ static void MPassSpecialSyntax(FMiddlePass * mp, FLambda * lam, FObject expr, in
                 if (ret != First(Rest(expr)))
                 {
 //                    AsPair(Rest(expr))->First = ret;
-                    Modify(FPair, Rest(expr), First, ret);
+                    SetFirst(Rest(expr), ret);
                 }
             }
 
@@ -590,7 +590,7 @@ static void MTwoReference(FLambda * lam, FObject pair, FReference * ref, int cf)
             FAssert(PairP(pair));
 
 //            AsPair(pair)->First = AsBinding(bd)->Constant;
-            Modify(FPair, pair, First, AsBinding(bd)->Constant);
+            SetFirst(pair, AsBinding(bd)->Constant);
         }
     }
     else
@@ -606,7 +606,7 @@ static void MTwoReference(FLambda * lam, FObject pair, FReference * ref, int cf)
                 && AsGlobal(gl)->State == GlobalImported)
         {
 //            AsPair(pair)->First = Unbox(AsGlobal(gl)->Box);
-            Modify(FPair, pair, First, Unbox(AsGlobal(gl)->Box));
+            SetFirst(pair, Unbox(AsGlobal(gl)->Box));
         }
     }
 }
@@ -767,9 +767,9 @@ static void MThreeProcedureCall(FLambda * lam, FObject expr)
 
         FObject exp = ExpandInlineTemplate(Rest(expr), AsLambda(First(expr))->MayInline);
 //        AsPair(expr)->First = BeginSyntax;
-        Modify(FPair, expr, First, BeginSyntax);
+        SetFirst(expr, BeginSyntax);
 //        AsPair(expr)->Rest = exp;
-        Modify(FPair, expr, Rest, exp);
+        SetRest(expr, exp);
     }
 }
 
