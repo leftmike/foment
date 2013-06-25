@@ -11,7 +11,6 @@ Foment
 FObject MakePair(FObject first, FObject rest)
 {
     FPair * pair = (FPair *) MakeObject(sizeof(FPair), PairTag);
-    pair->Reserved = 0;
     pair->First = first;
     pair->Rest = rest;
 

@@ -241,7 +241,6 @@ FObject SpecialSyntaxMsgC(FObject obj, char * msg);
 
 typedef struct
 {
-    unsigned int Reserved;
     FObject First;
     FObject Rest;
 } FPair;
