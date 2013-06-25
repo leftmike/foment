@@ -108,6 +108,7 @@ FObject MakeObject(unsigned int sz, unsigned int tag);
 
 #define RESERVED_BITS 6
 #define RESERVED_TAGMASK 0x1F
+#define RESERVED_MARK_BIT 0x20
 
 inline FIndirectTag IndirectTag(FObject obj)
 {

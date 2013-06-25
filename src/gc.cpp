@@ -38,10 +38,11 @@ Garbage Collection:
 
 typedef enum
 {
-    HoleTag,
-    FreeTag,
-    TableTag,
-    GenerationZeroTag
+    HoleSectionTag,
+    FreeSectionTag,
+    TableSectionTag,
+    ZeroSectionTag, // Generation Zero
+    OneSectionTag // Generation One
 } FSectionTag;
 
 static unsigned char * SectionTable;
@@ -73,6 +74,7 @@ int GCRequired = 1;
 
 #define GCZeroP(obj) ImmediateP(obj, GCZeroTag)
 #define GCOneP(obj) ImmediateP(obj, GCOneTag)
+#define GCZeroOneP(obj) ((((FImmediate) (obj)) & 0xF) == 0xB)
 
 #define Forward(obj) (*(((FObject *) (obj)) - 1))
 
@@ -86,21 +88,21 @@ static int ScanIndex;
 typedef struct _FMature
 {
     struct _FMature * Next;
-    unsigned int Mark;
     FObject Forward;
 } FMature;
 
 static FMature * Mature;
 
-#define MarkP(obj) (((FMature *) (obj)) - 1)->Mark
-#define SetMark(obj)(((FMature *) (obj)) - 1)->Mark = 1
+#define MarkP(obj) (*((unsigned int *) (obj)) & RESERVED_MARK_BIT)
+#define SetMark(obj) *((unsigned int *) (obj)) |= RESERVED_MARK_BIT
+#define ClearMark(obj) *((unsigned int *) (obj)) &= ~RESERVED_MARK_BIT
 
 static void * AllocateSection(FSectionTag tag)
 {
     unsigned int sdx;
 
     for (sdx = MinimumSectionIndex; sdx <= MaximumSectionIndex; sdx++)
-        if (SectionTable[sdx] == FreeTag)
+        if (SectionTable[sdx] == FreeSectionTag)
         {
             SectionTable[sdx] = tag;
             return((void *) (sdx << 14));
@@ -131,12 +133,12 @@ static void FreeSection(void * sec)
     FAssert(sdx >= MinimumSectionIndex);
     FAssert(sdx <= MaximumSectionIndex);
 
-    SectionTable[sdx] = FreeTag;
+    SectionTable[sdx] = FreeSectionTag;
 }
 
-static FYoungSection * AllocateYoung(FYoungSection * nxt)
+static FYoungSection * AllocateYoung(FYoungSection * nxt, FSectionTag tag)
 {
-    FYoungSection * ns = (FYoungSection *) AllocateSection(GenerationZeroTag);
+    FYoungSection * ns = (FYoungSection *) AllocateSection(tag);
     ns->Next = nxt;
     ns->Used = sizeof(FYoungSection);
     ns->Scan = sizeof(FYoungSection);
@@ -240,7 +242,7 @@ FObject MakeObject(unsigned int sz, unsigned int tag)
         ActiveSection->Next = GenerationZero;
         GenerationZero = ActiveSection;
 
-        ActiveSection = AllocateYoung(0);
+        ActiveSection = AllocateYoung(0, ZeroSectionTag);
     }
 
     FObject * pobj = (FObject *) (((char *) ActiveSection) + ActiveSection->Used);
@@ -262,7 +264,7 @@ FObject CopyObject(unsigned int len, unsigned int tag)
     FAssert(len >= sizeof(FObject));
 
     if (GenerationOne->Used + len + sizeof(FObject) > SECTION_SIZE)
-        GenerationOne = AllocateYoung(GenerationOne);
+        GenerationOne = AllocateYoung(GenerationOne, OneSectionTag);
 
     FObject * pobj = (FObject *) (((char *) GenerationOne) + GenerationOne->Used);
     GenerationOne->Used += len + sizeof(FObject);
@@ -369,7 +371,8 @@ static void ScanObject(FObject * pobj)
 {
     FObject raw = AsRaw(*pobj);
 
-    if (Forward(raw) == NoValueObject)
+    if (SectionTable[SectionIndex(raw)] == HoleSectionTag)
+//    if (Forward(raw) == NoValueObject)
     {
         if (MarkP(raw) == 0)
         {
@@ -381,7 +384,30 @@ static void ScanObject(FObject * pobj)
             ScanIndex += 1;
         }
     }
-    else if (GCZeroP(Forward(raw)))
+    else if (GCZeroOneP(Forward(raw)))
+    {
+        unsigned int tag = AsValue(Forward(raw));
+        unsigned int len = ObjectSize(raw, tag);
+        FObject nobj = GCZeroP(Forward(raw)) ? CopyObject(len, tag) : AllocateMature(len, tag);
+        memcpy(nobj, raw, len);
+
+        if (tag == PairTag)
+            nobj = PairObject(nobj);
+        else if (tag == FlonumTag)
+            nobj = FlonumObject(nobj);
+
+        if (GCOneP(Forward(raw)))
+        {
+            FAssert(ScanIndex < sizeof(ScanStack) / sizeof(FObject));
+
+            ScanStack[ScanIndex] = nobj;
+            ScanIndex += 1;
+        }
+
+        Forward(raw) = nobj;
+        *pobj = nobj;
+    }
+/*    else if (GCZeroP(Forward(raw)))
     {
         unsigned int tag = AsValue(Forward(raw));
         unsigned int len = ObjectSize(raw, tag);
@@ -415,7 +441,7 @@ static void ScanObject(FObject * pobj)
 
         ScanStack[ScanIndex] = nobj;
         ScanIndex += 1;
-    }
+    }*/
     else
         *pobj = Forward(raw);
 }
@@ -507,10 +533,13 @@ void Collect()
     ActiveSection = 0;
 
     FYoungSection * go = GenerationOne;
-    GenerationOne = AllocateYoung(0);
+    GenerationOne = AllocateYoung(0, OneSectionTag);
 
     for (FMature * m = Mature; m != 0; m = m->Next)
-        m->Mark = 0;
+    {
+        FObject obj = (FObject) (m + 1);
+        ClearMark(obj);
+    }
 
     FObject * rv = (FObject *) &R;
     for (int rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
@@ -581,7 +610,7 @@ void Collect()
             break;
     }
 
-    ActiveSection = AllocateYoung(0);
+    ActiveSection = AllocateYoung(0, ZeroSectionTag);
 
     while (GenerationZero != 0)
     {
@@ -618,11 +647,11 @@ void SetupGC()
     MaximumSectionIndex = MinimumSectionIndex;
 
     for (int idx = 0; idx < SECTION_SIZE; idx++)
-        SectionTable[idx] = HoleTag;
+        SectionTable[idx] = HoleSectionTag;
 
-    SectionTable[SectionIndex(SectionTable)] = TableTag;
+    SectionTable[SectionIndex(SectionTable)] = TableSectionTag;
 
-    ActiveSection = AllocateYoung(0);
+    ActiveSection = AllocateYoung(0, ZeroSectionTag);
 
     Mature = 0;
 }
