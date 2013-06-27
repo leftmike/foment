@@ -91,7 +91,11 @@ typedef enum
 
     // Invalid Tag
 
-    BadDogTag
+    BadDogTag,
+
+    // Used by garbage collector.
+
+    GCFreeTag = 0x1F
 } FIndirectTag;
 
 #define IndirectP(obj) ((((FImmediate) (obj)) & 0x3) == 0x0)
@@ -109,6 +113,10 @@ FObject MakeObject(unsigned int sz, unsigned int tag);
 #define RESERVED_BITS 6
 #define RESERVED_TAGMASK 0x1F
 #define RESERVED_MARK_BIT 0x20
+
+#define ByteLength(obj) ((*((unsigned int *) (obj))) >> RESERVED_BITS)
+#define ObjectLength(obj) ((*((unsigned int *) (obj))) >> RESERVED_BITS)
+#define MakeLength(len, tag) (((len) << RESERVED_BITS) | (tag))
 
 inline FIndirectTag IndirectTag(FObject obj)
 {
@@ -318,10 +326,10 @@ FObject MakeStringC(char * s);
 
 inline unsigned int StringLength(FObject obj)
 {
-    unsigned int sl = AsString(obj)->Length >> RESERVED_BITS;
-    FAssert(sl % sizeof(FCh) == 0);
+    unsigned int bl = ByteLength(obj);
+    FAssert(bl % sizeof(FCh) == 0);
 
-    return(sl / sizeof(FCh));
+    return(bl / sizeof(FCh));
 }
 
 void StringToC(FObject s, char * b, int bl);
@@ -356,7 +364,7 @@ FObject MakeVector(unsigned int vl, FObject * v, FObject obj);
 FObject ListToVector(FObject obj);
 FObject VectorToList(FObject vec);
 
-#define VectorLength(obj) ((AsVector(obj)->Length) >> RESERVED_BITS)
+#define VectorLength(obj) ObjectLength(obj)
 
 // ---- Bytevectors ----
 
@@ -373,7 +381,7 @@ typedef struct
 FObject MakeBytevector(unsigned int vl, FByte * v);
 FObject U8ListToBytevector(FObject obj);
 
-#define BytevectorLength(obj) ((AsBytevector(obj)->Length) >> RESERVED_BITS)
+#define BytevectorLength(obj) ByteLength(obj)
 
 // ---- Ports ----
 
@@ -420,7 +428,7 @@ FObject MakeRecordType(FObject nam, unsigned int nf, FObject flds[]);
 FObject MakeRecordTypeC(char * nam, unsigned int nf, char * flds[]);
 
 #define RecordTypeName(obj) AsRecordType(obj)->Fields[0]
-#define RecordTypeNumFields(obj) (AsRecordType(obj)->NumFields >> RESERVED_BITS)
+#define RecordTypeNumFields(obj) ObjectLength(obj)
 
 // ---- Records ----
 
@@ -446,7 +454,7 @@ inline int RecordP(FObject obj, FObject rt)
     return(GenericRecordP(obj) && AsGenericRecord(obj)->Fields[0] == rt);
 }
 
-#define RecordNumFields(obj) (AsGenericRecord(obj)->NumFields >> RESERVED_BITS)
+#define RecordNumFields(obj) ObjectLength(obj)
 
 // ---- Hashtables ----
 

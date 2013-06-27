@@ -149,6 +149,7 @@ static int TestFile(char * fn, FObject env)
     return(0);
 }
 
+void DumpSizes();
 int RunTest(FObject env, int argc, char * argv[])
 {
     int ret;
@@ -190,7 +191,7 @@ int RunTest(FObject env, int argc, char * argv[])
     PutString(R.StandardOutput, s, sl);
     PutCh(R.StandardOutput, '\n');
 
-Collect();
+DumpSizes();
 
     return(0);
 }

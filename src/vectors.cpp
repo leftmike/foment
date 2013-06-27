@@ -11,7 +11,7 @@ Foment
 FObject MakeVector(unsigned int vl, FObject * v, FObject obj)
 {
     FVector * nv = (FVector *) MakeObject(sizeof(FVector) + (vl - 1) * sizeof(FObject), VectorTag);
-    nv->Length = (vl << RESERVED_BITS) | VectorTag;
+    nv->Length = MakeLength(vl, VectorTag);
 
     unsigned int idx;
     if (v == 0)
@@ -29,7 +29,7 @@ FObject ListToVector(FObject obj)
 {
     unsigned int vl = ListLength(obj);
     FVector * nv = (FVector *) MakeObject(sizeof(FVector) + (vl - 1) * sizeof(FObject), VectorTag);
-    nv->Length = (vl << RESERVED_BITS) | VectorTag;
+    nv->Length = MakeLength(vl, VectorTag);
 
     for (unsigned int idx = 0; idx < vl; idx++)
     {
@@ -128,7 +128,7 @@ FObject MakeBytevector(unsigned int vl, FByte * v)
 {
     FBytevector * nv = (FBytevector *) MakeObject(sizeof(FBytevector) + (vl - 1) * sizeof(FByte),
             BytevectorTag);
-    nv->Length = (vl << RESERVED_BITS) | BytevectorTag;
+    nv->Length = MakeLength(vl, BytevectorTag);
 
     if (v != 0)
         for (unsigned int idx = 0; idx < vl; idx++)
@@ -143,7 +143,7 @@ FObject U8ListToBytevector(FObject obj)
     unsigned int vl = ListLength(obj);
     FBytevector * nv = (FBytevector *) MakeObject(sizeof(FBytevector) + (vl - 1) * sizeof(FByte),
             BytevectorTag);
-    nv->Length = (vl << RESERVED_BITS) | BytevectorTag;
+    nv->Length = MakeLength(vl, BytevectorTag);
 
     for (unsigned int idx = 0; idx < vl; idx++)
     {

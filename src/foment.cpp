@@ -569,7 +569,7 @@ FObject MakeRecordType(FObject nam, unsigned int nf, FObject flds[])
 
     FRecordType * rt = (FRecordType *) MakeObject(sizeof(FRecordType) + sizeof(FObject) * nf,
             RecordTypeTag);
-    rt->NumFields = ((nf + 1) << RESERVED_BITS) | RecordTypeTag;
+    rt->NumFields = MakeLength(nf + 1, RecordTypeTag);
     rt->Fields[0] = nam;
 
     for (unsigned int fdx = 1; fdx < nf + 1; fdx++)
@@ -603,7 +603,7 @@ FObject MakeRecord(FObject rt)
     unsigned int nf = RecordTypeNumFields(rt);
     FGenericRecord * r = (FGenericRecord *) MakeObject(
             sizeof(FGenericRecord) + sizeof(FObject) * nf, RecordTag);
-    r->NumFields = ((nf + 1) << RESERVED_BITS) | RecordTag;
+    r->NumFields = MakeLength(nf + 1, RecordTag);
     r->Fields[0] = rt;
 
     for (unsigned int fdx = 1; fdx <= nf; fdx++)
@@ -954,7 +954,7 @@ void SetupFoment(int argc, char * argv[])
             sizeof(HashtableFieldsC) / sizeof(char *), HashtableFieldsC);
     AsHashtable(R.SymbolHashtable)->Record.RecordType = R.HashtableRecordType;
     AsHashtable(R.SymbolHashtable)->Record.NumFields =
-            (RecordTypeNumFields(R.HashtableRecordType) << RESERVED_BITS) | RecordTag;
+            MakeLength(RecordTypeNumFields(R.HashtableRecordType), RecordTag);
 
     FAssert(HashtableP(R.SymbolHashtable));
 

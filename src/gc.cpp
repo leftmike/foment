@@ -18,11 +18,15 @@ Garbage Collection:
     generation
 -- GC does not occur during an allocation, only at AllowGC points for all threads
 
--- calculate MARK_BITS_SIZE more precisely
+-- after full gc, mature sections and pair sections are scanned for free objects
+-- sizes of objects
+-- large objects
 -- scan mature and free unmarked objects
 -- merge some of the fields in FProcedure into Reserved
 -- merge Hash into Reserved in FSymbol
+-- make room in NumFields for a Hash in Record and RecordType
 -- partial collections
+-- gc primitives
 
 -- fix EqHash to work with objects being moved by gc
 -- mark collector: mark-compact always full collection
@@ -30,7 +34,6 @@ Garbage Collection:
 
 #include <windows.h>
 #include <stdio.h>
-#include <malloc.h>
 #include <string.h>
 #include "foment.hpp"
 #include "execute.hpp"
@@ -48,14 +51,12 @@ typedef enum
 } FSectionTag;
 
 static unsigned char * SectionTable;
+static unsigned int UsedSections;
 
 #define SECTION_SIZE 1024 * 16
-#define SectionIndex(ptr) (((unsigned int) (ptr)) >> 14)
-#define SectionPointer(sdx) ((void *) ((sdx) << 14))
+#define SectionIndex(ptr) ((((unsigned int) (ptr)) - ((unsigned int) SectionTable)) >> 14)
+#define SectionPointer(sdx) ((void *) (((sdx) << 14) + ((unsigned int ) SectionTable)))
 #define SectionOffset(ptr) (((unsigned int) (ptr)) & 0x3FFF)
-
-static unsigned int MinimumSectionIndex;
-static unsigned int MaximumSectionIndex;
 
 typedef struct _FYoungSection
 {
@@ -68,29 +69,23 @@ static FYoungSection * ActiveZero;
 static FYoungSection * GenerationZero;
 static FYoungSection * GenerationOne;
 
-typedef struct _FMatureSection
+typedef struct _FFreeObject
 {
-    unsigned int Used;
-} FMatureSection;
+    unsigned int Length;
+    struct _FFreeObject * Next;
+} FFreeObject;
 
-static FMatureSection * ActiveMature;
+static FFreeObject * FreeMature = 0;
+static FPair * FreePairs = 0;
 
-typedef struct _FPairSection
-{
-    unsigned int Used;
-    unsigned int Extra;
-} FPairSection;
-
-static FPairSection * ActivePairSection;
-
-#define MARK_BITS_SIZE (SECTION_SIZE / (sizeof(FPair) * 8))
-#define MARK_BITS_OFFSET (SECTION_SIZE - MARK_BITS_SIZE)
+#define PAIR_MB_SIZE 256
+#define PAIR_MB_OFFSET (SECTION_SIZE - PAIR_MB_SIZE)
 
 #define PairMarkP(ps, so)\
-    (((((char *) (ps)) + MARK_BITS_OFFSET)[so / (sizeof(FPair) * 8)])\
+    (((((char *) (ps)) + PAIR_MB_OFFSET)[so / (sizeof(FPair) * 8)])\
     & (1 << ((so / sizeof(FPair)) % 8)))
 #define SetPairMark(ps, so)\
-    (((char *) (ps)) + MARK_BITS_OFFSET)[so / (sizeof(FPair) * 8)]\
+    (((char *) (ps)) + PAIR_MB_OFFSET)[so / (sizeof(FPair) * 8)]\
     |= (1 << ((so / sizeof(FPair)) % 8))
 
 unsigned int BytesAllocated;
@@ -119,31 +114,37 @@ static int ScanIndex;
 #define SetMark(obj) *((unsigned int *) (obj)) |= RESERVED_MARK_BIT
 #define ClearMark(obj) *((unsigned int *) (obj)) &= ~RESERVED_MARK_BIT
 
-static void * AllocateSection(FSectionTag tag)
+static unsigned int Sizes[1024 * 8];
+
+static void * AllocateSection(unsigned int cnt, FSectionTag tag)
 {
     unsigned int sdx;
 
-    for (sdx = MinimumSectionIndex; sdx <= MaximumSectionIndex; sdx++)
-        if (SectionTable[sdx] == FreeSectionTag)
-        {
-            SectionTable[sdx] = tag;
-            return((void *) (sdx << 14));
-        }
+    if (cnt == 1)
+    {
+        for (sdx = 0; sdx < UsedSections; sdx++)
+            if (SectionTable[sdx] == FreeSectionTag)
+            {
+                SectionTable[sdx] = tag;
+                return(SectionPointer(sdx));
+            }
+    }
 
-    void * sec = VirtualAlloc(0, SECTION_SIZE, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    sdx = SectionIndex(sec);
+    FAssert(cnt > 0);
 
-    FAssert(sdx < SECTION_SIZE);
+    sdx = UsedSections;
+    UsedSections += cnt;
 
-    SectionTable[sdx] = tag;
+    FAssert(UsedSections <= SECTION_SIZE);
 
-    if (sdx < MinimumSectionIndex)
-        MinimumSectionIndex = sdx;
-    else if (sdx > MaximumSectionIndex)
-        MaximumSectionIndex = sdx;
+    void * sec = SectionPointer(sdx);
+    VirtualAlloc(sec, SECTION_SIZE * cnt, MEM_COMMIT, PAGE_READWRITE);
 
-    FAssert(sec != 0);
-    FAssert(sdx < SECTION_SIZE);
+    while (cnt > 0)
+    {
+        cnt -= 1;
+        SectionTable[sdx + cnt] = tag;
+    }
 
     return(sec);
 }
@@ -152,33 +153,18 @@ static void FreeSection(void * sec)
 {
     unsigned int sdx = SectionIndex(sec);
 
-    FAssert(sdx >= MinimumSectionIndex);
-    FAssert(sdx <= MaximumSectionIndex);
+    FAssert(sdx < UsedSections);
 
     SectionTable[sdx] = FreeSectionTag;
 }
 
 static FYoungSection * AllocateYoung(FYoungSection * nxt, FSectionTag tag)
 {
-    FYoungSection * ns = (FYoungSection *) AllocateSection(tag);
+    FYoungSection * ns = (FYoungSection *) AllocateSection(1, tag);
     ns->Next = nxt;
     ns->Used = sizeof(FYoungSection);
     ns->Scan = sizeof(FYoungSection);
     return(ns);
-}
-
-static FMatureSection * AllocateMature()
-{
-    FMatureSection * ms = (FMatureSection *) AllocateSection(MatureSectionTag);
-    ms->Used = sizeof(FMatureSection);
-    return(ms);
-}
-
-static FPairSection * AllocatePairSection()
-{
-    FPairSection * ps = (FPairSection *) AllocateSection(PairSectionTag);
-    ps->Used = sizeof(FPairSection);
-    return(ps);
 }
 
 const static unsigned int Align4[4] = {0, 3, 2, 1};
@@ -252,6 +238,9 @@ static unsigned int ObjectSize(FObject obj, unsigned int tag)
 
         return(sizeof(FPrimitive));
 
+    case GCFreeTag:
+        return(ByteLength(obj));
+
     default:
         FAssert(0);
     }
@@ -268,6 +257,9 @@ FObject MakeObject(unsigned int sz, unsigned int tag)
     FAssert(len >= sz);
     FAssert(len % 4 == 0);
     FAssert(len >= sizeof(FObject));
+
+    FAssert(len < sizeof(Sizes) / sizeof(unsigned int));
+    Sizes[len] += 1;
 
     BytesAllocated += len;
 
@@ -316,22 +308,51 @@ FObject CopyObject(unsigned int len, unsigned int tag)
 
 FObject MakeMature(unsigned int len, unsigned int tag)
 {
-    if (ActiveMature->Used + len > SECTION_SIZE)
-        ActiveMature = AllocateMature();
+    FAssert(len % 4 == 0);
 
-    FObject obj = (FObject) (((char *) ActiveMature) + ActiveMature->Used);
-    ActiveMature->Used += len;
+    FFreeObject ** pfo = &FreeMature;
+    FFreeObject * fo = FreeMature;
 
-    return(obj);
+    while (fo != 0)
+    {
+        FAssert(IndirectTag(fo) == GCFreeTag);
+
+        if (ByteLength(fo) == len)
+        {
+            *pfo = fo->Next;
+            return(fo);
+        }
+        else if (ByteLength(fo) >= len + sizeof(FFreeObject))
+        {
+            fo->Length = MakeLength(ByteLength(fo) - len, GCFreeTag);
+            return(((char *) fo) + ByteLength(fo));
+        }
+
+        fo = fo->Next;
+    }
+
+    fo = (FFreeObject *) AllocateSection(4, MatureSectionTag);
+    fo->Next = 0;
+    fo->Length = MakeLength(SECTION_SIZE * 4 - len, GCFreeTag);
+    FreeMature = fo;
+    return(((char *) FreeMature) + ByteLength(fo));
 }
 
 FObject MakeMaturePair()
 {
-    if (ActivePairSection->Used + sizeof(FPair) > MARK_BITS_OFFSET)
-        ActivePairSection = AllocatePairSection();
+    if (FreePairs == 0)
+    {
+        FPair * pr = (FPair *) AllocateSection(1, PairSectionTag);
+        for (unsigned int idx = 0; idx < PAIR_MB_OFFSET / sizeof(FPair); idx++)
+        {
+            pr->First = FreePairs;
+            FreePairs = pr;
+            pr += 1;
+        }
+    }
 
-    FObject obj = (FObject) (((char *) ActivePairSection) + ActivePairSection->Used);
-    ActivePairSection->Used += sizeof(FPair);
+    FObject obj = (FObject) FreePairs;
+    FreePairs = (FPair *) FreePairs->First;
 
     return(obj);
 }
@@ -467,41 +488,6 @@ static void ScanObject(FObject * pobj)
         Forward(raw) = nobj;
         *pobj = nobj;
     }
-/*    else if (GCZeroP(Forward(raw)))
-    {
-        unsigned int tag = AsValue(Forward(raw));
-        unsigned int len = ObjectSize(raw, tag);
-        FObject nobj = CopyObject(len, tag);
-        memcpy(nobj, raw, len);
-
-        if (tag == PairTag)
-            nobj = PairObject(nobj);
-        else if (tag == FlonumTag)
-            nobj = FlonumObject(nobj);
-
-        Forward(raw) = nobj;
-        *pobj = nobj;
-    }
-    else if (GCOneP(Forward(raw)))
-    {
-        unsigned int tag = AsValue(Forward(raw));
-        unsigned int len = ObjectSize(raw, tag);
-        FObject  nobj = MakeMature(len, tag);
-        memcpy(nobj, raw, len);
-
-        if (tag == PairTag)
-            nobj = PairObject(nobj);
-        else if (tag == FlonumTag)
-            nobj = FlonumObject(nobj);
-
-        Forward(raw) = nobj;
-        *pobj = nobj;
-
-        FAssert(ScanIndex < sizeof(ScanStack) / sizeof(FObject));
-
-        ScanStack[ScanIndex] = nobj;
-        ScanIndex += 1;
-    }*/
     else
         *pobj = Forward(raw);
 }
@@ -595,26 +581,37 @@ void Collect()
     FYoungSection * go = GenerationOne;
     GenerationOne = AllocateYoung(0, OneSectionTag);
 
-    for (unsigned int sdx = MinimumSectionIndex; sdx <= MaximumSectionIndex; sdx++)
+    unsigned int sdx = 0;
+    while (sdx <= UsedSections)
     {
         if (SectionTable[sdx] == MatureSectionTag)
         {
-            FMatureSection * ms = (FMatureSection *) SectionPointer(sdx);
-            FObject obj = (FObject) (((char *) ms) + sizeof(FMatureSection));
+            unsigned int cnt = 1;
+            while (SectionTable[sdx + cnt] == MatureSectionTag && sdx + cnt <= UsedSections)
+                cnt += 1;
 
-            while (obj < ((char *) ms) + ms->Used)
+            unsigned char * ms = (unsigned char *) SectionPointer(sdx);
+            FObject obj = (FObject) ms;
+
+            while (obj < ((char *) ms) + SECTION_SIZE * cnt)
             {
                 ClearMark(obj);
                 obj = ((char *) obj) + ObjectSize(obj, IndirectTag(obj));
             }
+
+            sdx += cnt;
         }
         else if (SectionTable[sdx] == PairSectionTag)
         {
-            FPairSection * ps = (FPairSection *) SectionPointer(sdx);
+            unsigned char * ps = (unsigned char *) SectionPointer(sdx);
 
-            for (unsigned int idx = 0; idx < MARK_BITS_SIZE; idx++)
-                (((char *) ps) + MARK_BITS_OFFSET)[idx] = 0;
+            for (unsigned int idx = 0; idx < PAIR_MB_SIZE; idx++)
+                (ps + PAIR_MB_OFFSET)[idx] = 0;
+
+            sdx += 1;
         }
+        else
+            sdx += 1;
     }
 
     FObject * rv = (FObject *) &R;
@@ -712,24 +709,54 @@ void SetupGC()
     FAssert(sizeof(FFixnum) <= sizeof(FImmediate));
     FAssert(sizeof(FCh) <= sizeof(FImmediate));
 
+    FAssert(SECTION_SIZE == 1024 * 16);
+    FAssert(PAIR_MB_OFFSET / (sizeof(FPair) * 8) <= PAIR_MB_SIZE);
+
     BytesAllocated = 0;
     CollectionCount = 0;
 
-    SectionTable = (unsigned char *) VirtualAlloc(0, SECTION_SIZE, MEM_COMMIT | MEM_RESERVE,
+    SectionTable = (unsigned char *) VirtualAlloc(0, SECTION_SIZE * SECTION_SIZE, MEM_RESERVE,
             PAGE_READWRITE);
     FAssert(SectionTable != 0);
 
-    MinimumSectionIndex = SectionIndex(SectionTable);
-    MaximumSectionIndex = MinimumSectionIndex;
+    VirtualAlloc(SectionTable, SECTION_SIZE, MEM_COMMIT, PAGE_READWRITE);
 
-    for (int idx = 0; idx < SECTION_SIZE; idx++)
-        SectionTable[idx] = HoleSectionTag;
+    unsigned int sdx;
+    for (sdx = 0; sdx < SECTION_SIZE; sdx++)
+        SectionTable[sdx] = HoleSectionTag;
 
-    SectionTable[SectionIndex(SectionTable)] = TableSectionTag;
+    FAssert(SectionIndex(SectionTable) == 0);
+
+    UsedSections = 1;
+
+    SectionTable[0] = TableSectionTag;
 
     ActiveZero = AllocateYoung(0, ZeroSectionTag);
-    ActiveMature = AllocateMature();
-    ActivePairSection = AllocatePairSection();
+
+    for (unsigned int idx = 0; idx < sizeof(Sizes) / sizeof(unsigned int); idx++)
+        Sizes[idx] = 0;
+}
+
+void DumpSizes()
+{
+    for (unsigned int idx = 0; idx < sizeof(Sizes) / sizeof(unsigned int); idx++)
+        if (Sizes[idx] > 0)
+            printf("%d: %d (%d)\n", idx, Sizes[idx], idx * Sizes[idx]);
+
+    for (unsigned int sdx = 0; sdx < UsedSections; sdx++)
+    {
+        switch (SectionTable[sdx])
+        {
+        case HoleSectionTag: printf("Hole\n"); break;
+        case FreeSectionTag: printf("Free\n"); break;
+        case TableSectionTag: printf("Table\n"); break;
+        case ZeroSectionTag: printf("Zero\n"); break;
+        case OneSectionTag: printf("One\n"); break;
+        case MatureSectionTag: printf("Mature\n"); break;
+        case PairSectionTag: printf("Pair\n"); break;
+        default: printf("Unknown\n"); break;
+        }
+    }
 }
 
 #if 0
