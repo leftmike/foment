@@ -18,10 +18,7 @@ Garbage Collection:
     generation
 -- GC does not occur during an allocation, only at AllowGC points for all threads
 
--- after full gc, mature sections and pair sections are scanned for free objects
--- sizes of objects
 -- large objects
--- scan mature and free unmarked objects
 -- merge some of the fields in FProcedure into Reserved
 -- merge Hash into Reserved in FSymbol
 -- make room in NumFields for a Hash in Record and RecordType
@@ -39,6 +36,10 @@ Garbage Collection:
 #include "execute.hpp"
 #include "io.hpp"
 
+typedef void * FRaw;
+#define ObjectP(obj) ((((FImmediate) (obj)) & 0x3) != 0x3)
+#define AsRaw(obj) ((FRaw) (((unsigned int) (obj)) & ~0x3))
+
 typedef enum
 {
     HoleSectionTag,
@@ -55,8 +56,9 @@ static unsigned int UsedSections;
 
 #define SECTION_SIZE 1024 * 16
 #define SectionIndex(ptr) ((((unsigned int) (ptr)) - ((unsigned int) SectionTable)) >> 14)
-#define SectionPointer(sdx) ((void *) (((sdx) << 14) + ((unsigned int ) SectionTable)))
+#define SectionPointer(sdx) ((unsigned char *) (((sdx) << 14) + ((unsigned int) SectionTable)))
 #define SectionOffset(ptr) (((unsigned int) (ptr)) & 0x3FFF)
+#define SectionBase(ptr) ((unsigned char *) (((unsigned int) (ptr)) & ~0x3FFF))
 
 typedef struct _FYoungSection
 {
@@ -81,12 +83,19 @@ static FPair * FreePairs = 0;
 #define PAIR_MB_SIZE 256
 #define PAIR_MB_OFFSET (SECTION_SIZE - PAIR_MB_SIZE)
 
-#define PairMarkP(ps, so)\
-    (((((char *) (ps)) + PAIR_MB_OFFSET)[so / (sizeof(FPair) * 8)])\
-    & (1 << ((so / sizeof(FPair)) % 8)))
-#define SetPairMark(ps, so)\
-    (((char *) (ps)) + PAIR_MB_OFFSET)[so / (sizeof(FPair) * 8)]\
-    |= (1 << ((so / sizeof(FPair)) % 8))
+static inline unsigned int PairMarkP(FRaw raw)
+{
+    unsigned int idx = SectionOffset(raw) / sizeof(FPair);
+
+    return((SectionBase(raw) + PAIR_MB_OFFSET)[idx / 8] & (1 << (idx % 8)));
+}
+
+static inline void SetPairMark(FRaw raw)
+{
+    unsigned int idx = SectionOffset(raw) / sizeof(FPair);
+
+    (SectionBase(raw) + PAIR_MB_OFFSET)[idx / 8] |= (1 << (idx % 8));
+}
 
 unsigned int BytesAllocated;
 unsigned int CollectionCount;
@@ -99,13 +108,8 @@ int GCRequired = 1;
 
 #define GCZeroP(obj) ImmediateP(obj, GCZeroTag)
 #define GCOneP(obj) ImmediateP(obj, GCOneTag)
-#define GCZeroOneP(obj) ((((FImmediate) (obj)) & 0xF) == 0xB)
 
 #define Forward(obj) (*(((FObject *) (obj)) - 1))
-
-typedef void * FRaw;
-#define ObjectP(obj) ((((FImmediate) (obj)) & 0x3) != 0x3)
-#define AsRaw(obj) ((FRaw) (((unsigned int) (obj)) & ~0x3))
 
 static FObject ScanStack[1024];
 static int ScanIndex;
@@ -453,9 +457,9 @@ static void ScanObject(FObject * pobj)
     }
     else if (SectionTable[sdx] == PairSectionTag)
     {
-        if (PairMarkP(SectionPointer(sdx), SectionOffset(raw)) == 0)
+        if (PairMarkP(raw) == 0)
         {
-            SetPairMark(SectionPointer(sdx), SectionOffset(raw));
+            SetPairMark(raw);
 
             FAssert(ScanIndex < sizeof(ScanStack) / sizeof(FObject));
 
@@ -463,7 +467,53 @@ static void ScanObject(FObject * pobj)
             ScanIndex += 1;
         }
     }
-    else if (GCZeroOneP(Forward(raw)))
+    else if (GCZeroP(Forward(raw)))
+    {
+        unsigned int tag = AsValue(Forward(raw));
+        unsigned int len = ObjectSize(raw, tag);
+        FObject nobj = CopyObject(len, tag);
+        memcpy(nobj, raw, len);
+
+        if (tag == PairTag)
+            nobj = PairObject(nobj);
+        else if (tag == FlonumTag)
+            nobj = FlonumObject(nobj);
+
+        Forward(raw) = nobj;
+        *pobj = nobj;
+    }
+    else if (GCOneP(Forward(raw)))
+    {
+        unsigned int tag = AsValue(Forward(raw));
+        unsigned int len = ObjectSize(raw, tag);
+
+        FObject nobj;
+        if (tag == PairTag)
+        {
+            nobj = MakeMaturePair();
+            SetPairMark(nobj);
+        }
+        else
+            nobj = MakeMature(len, tag);
+
+        memcpy(nobj, raw, len);
+
+        if (tag == PairTag)
+            nobj = PairObject(nobj);
+//        else if (tag == FlonumTag)
+//            nobj = FlonumObject(nobj);
+        else
+            SetMark(nobj);
+
+        FAssert(ScanIndex < sizeof(ScanStack) / sizeof(FObject));
+
+        ScanStack[ScanIndex] = nobj;
+        ScanIndex += 1;
+
+        Forward(raw) = nobj;
+        *pobj = nobj;
+    }
+/*    else if (GCZeroOneP(Forward(raw)))
     {
         unsigned int tag = AsValue(Forward(raw));
         unsigned int len = ObjectSize(raw, tag);
@@ -487,7 +537,7 @@ static void ScanObject(FObject * pobj)
 
         Forward(raw) = nobj;
         *pobj = nobj;
-    }
+    }*/
     else
         *pobj = Forward(raw);
 }
@@ -697,6 +747,62 @@ void Collect()
         FYoungSection * ys = go;
         go = go->Next;
         FreeSection(ys);
+    }
+
+    FreePairs = 0;
+    FreeMature = 0;
+
+    sdx = 0;
+    while (sdx <= UsedSections)
+    {
+        if (SectionTable[sdx] == MatureSectionTag)
+        {
+            unsigned int cnt = 1;
+            while (SectionTable[sdx + cnt] == MatureSectionTag && sdx + cnt <= UsedSections)
+                cnt += 1;
+
+            unsigned char * ms = (unsigned char *) SectionPointer(sdx);
+            FObject obj = (FObject) ms;
+
+            while (obj < ((char *) ms) + SECTION_SIZE * cnt)
+            {
+                if (MarkP(obj) == 0)
+                {
+                    FFreeObject * fo = (FFreeObject *) obj;
+                    fo->Length = MakeLength(ObjectSize(obj, IndirectTag(obj)), GCFreeTag);
+                    fo->Next = FreeMature;
+                    FreeMature = fo;
+                }
+
+                obj = ((char *) obj) + ObjectSize(obj, IndirectTag(obj));
+            }
+
+            sdx += cnt;
+        }
+        else if (SectionTable[sdx] == PairSectionTag)
+        {
+            unsigned char * ps = (unsigned char *) SectionPointer(sdx);
+
+            for (unsigned int idx = 0; idx < PAIR_MB_OFFSET / (sizeof(FPair) * 8); idx++)
+                if ((ps + PAIR_MB_OFFSET)[idx] != 0xFF)
+                {
+                    FPair * pr = (FPair *) (ps + sizeof(FPair) * idx * 8);
+                    for (unsigned int bdx = 0; bdx < 8; bdx++)
+                    {
+                        if (PairMarkP(pr) == 0)
+                        {
+                            pr->First = FreePairs;
+                            FreePairs = pr;
+                        }
+
+                        pr += 1;
+                    }
+                }
+
+            sdx += 1;
+        }
+        else
+            sdx += 1;
     }
 
 //printf("Done.\n");
