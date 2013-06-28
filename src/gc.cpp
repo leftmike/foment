@@ -18,7 +18,6 @@ Garbage Collection:
     generation
 -- GC does not occur during an allocation, only at AllowGC points for all threads
 
--- large objects
 -- merge some of the fields in FProcedure into Reserved
 -- merge Hash into Reserved in FSymbol
 -- make room in NumFields for a Hash in Record and RecordType
@@ -59,6 +58,8 @@ static unsigned int UsedSections;
 #define SectionPointer(sdx) ((unsigned char *) (((sdx) << 14) + ((unsigned int) SectionTable)))
 #define SectionOffset(ptr) (((unsigned int) (ptr)) & 0x3FFF)
 #define SectionBase(ptr) ((unsigned char *) (((unsigned int) (ptr)) & ~0x3FFF))
+
+#define MAXIMUM_YOUNG_LENGTH 1024 * 2
 
 typedef struct _FYoungSection
 {
@@ -123,23 +124,34 @@ static unsigned int Sizes[1024 * 8];
 static void * AllocateSection(unsigned int cnt, FSectionTag tag)
 {
     unsigned int sdx;
-
-    if (cnt == 1)
-    {
-        for (sdx = 0; sdx < UsedSections; sdx++)
-            if (SectionTable[sdx] == FreeSectionTag)
-            {
-                SectionTable[sdx] = tag;
-                return(SectionPointer(sdx));
-            }
-    }
+    unsigned int fcnt = 0;
 
     FAssert(cnt > 0);
 
+    for (sdx = 0; sdx < UsedSections; sdx++)
+    {
+        if (SectionTable[sdx] == FreeSectionTag)
+            fcnt += 1;
+        else
+            fcnt = 0;
+
+        if (fcnt == cnt)
+        {
+            while (fcnt > 0)
+            {
+                fcnt -= 1;
+                SectionTable[sdx - fcnt] = tag;
+            }
+
+            return(SectionPointer(sdx - cnt + 1));
+        }
+    }
+
+    if (UsedSections + cnt > SECTION_SIZE)
+        return(0);
+
     sdx = UsedSections;
     UsedSections += cnt;
-
-    FAssert(UsedSections <= SECTION_SIZE);
 
     void * sec = SectionPointer(sdx);
     VirtualAlloc(sec, SECTION_SIZE * cnt, MEM_COMMIT, PAGE_READWRITE);
@@ -262,8 +274,11 @@ FObject MakeObject(unsigned int sz, unsigned int tag)
     FAssert(len % 4 == 0);
     FAssert(len >= sizeof(FObject));
 
-    FAssert(len < sizeof(Sizes) / sizeof(unsigned int));
-    Sizes[len] += 1;
+    if (len < sizeof(Sizes) / sizeof(unsigned int))
+        Sizes[len] += 1;
+
+    if (len > MAXIMUM_YOUNG_LENGTH)
+        return(0);
 
     BytesAllocated += len;
 
@@ -290,10 +305,11 @@ FObject MakeObject(unsigned int sz, unsigned int tag)
 }
 
 // Copy an object from GenerationZero to GenerationOne.
-FObject CopyObject(unsigned int len, unsigned int tag)
+static FObject CopyObject(unsigned int len, unsigned int tag)
 {
     FAssert(len % 4 == 0);
     FAssert(len >= sizeof(FObject));
+    FAssert(len <= MAXIMUM_OBJECT_LENGTH);
 
     if (GenerationOne->Used + len + sizeof(FObject) > SECTION_SIZE)
         GenerationOne = AllocateYoung(GenerationOne, OneSectionTag);
@@ -310,9 +326,10 @@ FObject CopyObject(unsigned int len, unsigned int tag)
     return(obj);
 }
 
-FObject MakeMature(unsigned int len, unsigned int tag)
+static FObject MakeMature(unsigned int len)
 {
     FAssert(len % 4 == 0);
+    FAssert(len <= MAXIMUM_OBJECT_LENGTH);
 
     FFreeObject ** pfo = &FreeMature;
     FFreeObject * fo = FreeMature;
@@ -335,14 +352,41 @@ FObject MakeMature(unsigned int len, unsigned int tag)
         fo = fo->Next;
     }
 
-    fo = (FFreeObject *) AllocateSection(4, MatureSectionTag);
+    unsigned int cnt = 4;
+    if (len > SECTION_SIZE * cnt / 2)
+    {
+        cnt = len / SECTION_SIZE;
+        if (len % SECTION_SIZE != 0)
+            cnt += 1;
+        cnt += 1;
+
+        FAssert(cnt >= 4);
+    }
+
+    fo = (FFreeObject *) AllocateSection(cnt, MatureSectionTag);
+    if (fo == 0)
+        return(0);
+
     fo->Next = 0;
-    fo->Length = MakeLength(SECTION_SIZE * 4 - len, GCFreeTag);
+    fo->Length = MakeLength(SECTION_SIZE * cnt - len, GCFreeTag);
     FreeMature = fo;
     return(((char *) FreeMature) + ByteLength(fo));
 }
 
-FObject MakeMaturePair()
+FObject MakeMatureObject(unsigned int len, char * who)
+{
+    if (len > MAXIMUM_OBJECT_LENGTH)
+        RaiseExceptionC(R.Restriction, who, "length greater than maximum object length",
+                EmptyListObject);
+
+    FObject obj = MakeMature(len);
+    if (obj == 0)
+        RaiseExceptionC(R.Assertion, who, "out of memory", EmptyListObject);
+
+    return(obj);
+}
+
+static FObject MakeMaturePair()
 {
     if (FreePairs == 0)
     {
@@ -443,6 +487,8 @@ static void ScanObject(FObject * pobj)
     FObject raw = AsRaw(*pobj);
     unsigned int sdx = SectionIndex(raw);
 
+    FAssert(sdx < UsedSections);
+
     if (SectionTable[sdx] == MatureSectionTag)
     {
         if (MarkP(raw) == 0)
@@ -494,7 +540,7 @@ static void ScanObject(FObject * pobj)
             SetPairMark(nobj);
         }
         else
-            nobj = MakeMature(len, tag);
+            nobj = MakeMature(len);
 
         memcpy(nobj, raw, len);
 
@@ -518,8 +564,8 @@ static void ScanObject(FObject * pobj)
         unsigned int tag = AsValue(Forward(raw));
         unsigned int len = ObjectSize(raw, tag);
         FObject nobj = GCZeroP(Forward(raw)) ? CopyObject(len, tag) :
-            (tag == PairTag ? MakeMaturePair() : MakeMature(len, tag));
-//            MakeMature(len, tag);
+            (tag == PairTag ? MakeMaturePair() : MakeMature(len));
+//            MakeMature(len);
         memcpy(nobj, raw, len);
 
         if (tag == PairTag)
@@ -763,16 +809,26 @@ void Collect()
 
             unsigned char * ms = (unsigned char *) SectionPointer(sdx);
             FObject obj = (FObject) ms;
+            FFreeObject * pfo = 0;
 
             while (obj < ((char *) ms) + SECTION_SIZE * cnt)
             {
                 if (MarkP(obj) == 0)
                 {
-                    FFreeObject * fo = (FFreeObject *) obj;
-                    fo->Length = MakeLength(ObjectSize(obj, IndirectTag(obj)), GCFreeTag);
-                    fo->Next = FreeMature;
-                    FreeMature = fo;
+                    if (pfo == 0)
+                    {
+                        FFreeObject * fo = (FFreeObject *) obj;
+                        fo->Length = MakeLength(ObjectSize(obj, IndirectTag(obj)), GCFreeTag);
+                        fo->Next = FreeMature;
+                        FreeMature = fo;
+                        pfo = fo;
+                    }
+                    else
+                        pfo->Length = MakeLength(ByteLength(pfo)
+                                + ObjectSize(obj, IndirectTag(obj)), GCFreeTag);
                 }
+                else
+                    pfo = 0;
 
                 obj = ((char *) obj) + ObjectSize(obj, IndirectTag(obj));
             }
@@ -815,8 +871,14 @@ void SetupGC()
     FAssert(sizeof(FFixnum) <= sizeof(FImmediate));
     FAssert(sizeof(FCh) <= sizeof(FImmediate));
 
+#ifdef FOMENT_DEBUG
+    unsigned int len = MakeLength(MAXIMUM_OBJECT_LENGTH, GCFreeTag);
+    FAssert(ByteLength(&len) == MAXIMUM_OBJECT_LENGTH);
+#endif // FOMENT_DEBUG
+
     FAssert(SECTION_SIZE == 1024 * 16);
     FAssert(PAIR_MB_OFFSET / (sizeof(FPair) * 8) <= PAIR_MB_SIZE);
+    FAssert(MAXIMUM_YOUNG_LENGTH <= SECTION_SIZE / 2);
 
     BytesAllocated = 0;
     CollectionCount = 0;
@@ -863,6 +925,15 @@ void DumpSizes()
         default: printf("Unknown\n"); break;
         }
     }
+
+    FFreeObject * fo = (FFreeObject *) FreeMature;
+    while (fo != 0)
+    {
+        printf("%d ", fo->Length);
+        fo = fo->Next;
+    }
+
+    printf("\n");
 }
 
 #if 0

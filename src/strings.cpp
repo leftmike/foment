@@ -12,7 +12,13 @@ Foment
 FObject MakeString(FCh * s, unsigned int sl)
 {
     FString * ns = (FString *) MakeObject(sizeof(FString) + sl * sizeof(FCh), StringTag);
-    ns->Length = MakeLength(sl * sizeof(FCh), StringTag);
+    if (ns == 0)
+    {
+        ns = (FString *) MakeMatureObject(sizeof(FString) + sl * sizeof(FCh), "make-string");
+        ns->Length = MakeMatureLength(sl * sizeof(FCh), StringTag);
+    }
+    else
+        ns->Length = MakeLength(sl * sizeof(FCh), StringTag);
     ns->String[sl] = 0;
 
     if (s != 0)

@@ -109,14 +109,17 @@ typedef enum
 // ---- Memory Management ----
 
 FObject MakeObject(unsigned int sz, unsigned int tag);
+FObject MakeMatureObject(unsigned int len, char * who);
 
 #define RESERVED_BITS 6
 #define RESERVED_TAGMASK 0x1F
 #define RESERVED_MARK_BIT 0x20
+#define MAXIMUM_OBJECT_LENGTH 0x3FFFFFF
 
 #define ByteLength(obj) ((*((unsigned int *) (obj))) >> RESERVED_BITS)
 #define ObjectLength(obj) ((*((unsigned int *) (obj))) >> RESERVED_BITS)
 #define MakeLength(len, tag) (((len) << RESERVED_BITS) | (tag))
+#define MakeMatureLength(len, tag) (((len) << RESERVED_BITS) | (tag) | RESERVED_MARK_BIT)
 
 inline FIndirectTag IndirectTag(FObject obj)
 {

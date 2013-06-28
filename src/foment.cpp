@@ -569,7 +569,15 @@ FObject MakeRecordType(FObject nam, unsigned int nf, FObject flds[])
 
     FRecordType * rt = (FRecordType *) MakeObject(sizeof(FRecordType) + sizeof(FObject) * nf,
             RecordTypeTag);
-    rt->NumFields = MakeLength(nf + 1, RecordTypeTag);
+    if (rt == 0)
+    {
+        rt = (FRecordType *) MakeMatureObject(sizeof(FRecordType) + sizeof(FObject) * nf,
+                "make-record-type");
+        rt->NumFields = MakeMatureLength(nf + 1, RecordTypeTag);
+    }
+    else
+        rt->NumFields = MakeLength(nf + 1, RecordTypeTag);
+
     rt->Fields[0] = nam;
 
     for (unsigned int fdx = 1; fdx < nf + 1; fdx++)
@@ -603,7 +611,15 @@ FObject MakeRecord(FObject rt)
     unsigned int nf = RecordTypeNumFields(rt);
     FGenericRecord * r = (FGenericRecord *) MakeObject(
             sizeof(FGenericRecord) + sizeof(FObject) * nf, RecordTag);
-    r->NumFields = MakeLength(nf + 1, RecordTag);
+    if (r == 0)
+    {
+        r = (FGenericRecord *) MakeMatureObject(sizeof(FGenericRecord) + sizeof(FObject) * nf,
+                "make-record");
+        r->NumFields = MakeMatureLength(nf + 1, RecordTag);
+    }
+    else
+        r->NumFields = MakeLength(nf + 1, RecordTag);
+
     r->Fields[0] = rt;
 
     for (unsigned int fdx = 1; fdx <= nf; fdx++)
