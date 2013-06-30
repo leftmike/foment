@@ -132,6 +132,7 @@ void ClearRoots();
 
 extern int GCRequired;
 void Collect();
+void DumpSizes();
 #define AllowGC() if (GCRequired) Collect()
 
 void ModifyVector(FObject obj, unsigned int idx, FObject val);
@@ -282,6 +283,11 @@ FObject List(FObject obj1, FObject obj2, FObject obj3, FObject obj4);
 
 FObject Assq(FObject obj, FObject alst);
 
+FObject MakeTConc();
+int TConcEmptyP(FObject tconc);
+void TConcAdd(FObject tconc, FObject obj);
+FObject TConcTake(FObject tconc);
+
 // ---- Flonums ----
 
 #define FlonumP(obj) ((((FImmediate) (obj)) & 0x3) == FlonumTag)
@@ -430,8 +436,13 @@ typedef struct
 FObject MakeRecordType(FObject nam, unsigned int nf, FObject flds[]);
 FObject MakeRecordTypeC(char * nam, unsigned int nf, char * flds[]);
 
+#define MAXIMUM_RECORD_FIELDS 0x3FF
+#define RECORD_HASH_SHIFT 12
+#define MAXIMUM_RECORD_HASH 0x3FFF
+
 #define RecordTypeName(obj) AsRecordType(obj)->Fields[0]
-#define RecordTypeNumFields(obj) ObjectLength(obj)
+#define RecordTypeNumFields(obj) (ObjectLength(obj) & MAXIMUM_RECORD_FIELDS)
+#define RecordTypeHash(obj) (ObjectLength(obj) >> RECORD_HASH_SHIFT)
 
 // ---- Records ----
 
@@ -457,7 +468,8 @@ inline int RecordP(FObject obj, FObject rt)
     return(GenericRecordP(obj) && AsGenericRecord(obj)->Fields[0] == rt);
 }
 
-#define RecordNumFields(obj) ObjectLength(obj)
+#define RecordNumFields(obj) (ObjectLength(obj) & MAXIMUM_RECORD_FIELDS)
+#define RecordHash(obj) (ObjectLength(obj) >> RECORD_HASH_SHIFT)
 
 // ---- Hashtables ----
 
@@ -497,13 +509,14 @@ typedef struct
 {
     unsigned int Reserved;
     FObject String;
-    FObject Hash;
 } FSymbol;
 
 FObject StringToSymbol(FObject str);
 FObject StringCToSymbol(char * s);
 FObject StringLengthToSymbol(FCh * s, int sl);
 FObject PrefixSymbol(FObject str, FObject sym);
+
+#define SymbolHash(obj) ByteLength(obj)
 
 // ---- Primitives ----
 
@@ -772,6 +785,7 @@ void SetupIO();
 void SetupCompile();
 void SetupExecute();
 void SetupNumbers();
+void SetupMM();
 
 void WriteSpecialSyntax(FObject port, FObject obj, int df);
 void WriteInstruction(FObject port, FObject obj, int df);

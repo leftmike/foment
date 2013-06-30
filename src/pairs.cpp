@@ -306,6 +306,44 @@ FObject Assq(FObject obj, FObject alst)
     return(FalseObject);
 }
 
+FObject MakeTConc()
+{
+    FObject lp = MakePair(FalseObject, EmptyListObject);
+
+    return(MakePair(lp, lp));
+}
+
+int TConcEmptyP(FObject tconc)
+{
+    FAssert(PairP(tconc));
+    FAssert(PairP(First(tconc)));
+    FAssert(PairP(Rest(tconc)));
+
+    return(First(tconc) == Rest(tconc));
+}
+
+void TConcAdd(FObject tconc, FObject obj)
+{
+    FAssert(PairP(tconc));
+    FAssert(PairP(Rest(tconc)));
+
+    SetFirst(Rest(tconc), obj);
+    SetRest(Rest(tconc), MakePair(FalseObject, EmptyListObject));
+    SetRest(tconc, Rest(Rest(tconc)));
+}
+
+FObject TConcTake(FObject tconc)
+{
+    FAssert(TConcEmptyP(tconc) == 0);
+    FAssert(PairP(tconc));
+    FAssert(PairP(First(tconc)));
+
+    FObject obj = First(First(tconc));
+    SetFirst(tconc, Rest(First(tconc)));
+
+    return(obj);
+}
+
 static FPrimitive * Primitives[] =
 {
     &PairPPrimitive,

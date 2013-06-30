@@ -148,7 +148,11 @@ FObject MakeBox(FObject val)
 unsigned int EqHash(FObject obj)
 {
     if (SymbolP(obj))
-        return(AsFixnum(AsSymbol(obj)->Hash));
+        return(SymbolHash(obj));
+    else if (GenericRecordP(obj))
+        return(RecordHash(obj));
+    else if (RecordTypeP(obj))
+        return(RecordTypeHash(obj));
     return((unsigned int) obj);
 }
 
@@ -498,7 +502,7 @@ void HashtableWalkVisit(FObject ht, FWalkVisitFn wfn, FObject ctx)
 
 // ---- Symbols ----
 
-static unsigned int NextSymbolHash = 1;
+static unsigned int NextSymbolHash = 0;
 
 FObject StringToSymbol(FObject str)
 {
@@ -508,10 +512,11 @@ FObject StringToSymbol(FObject str)
     if (obj == FalseObject)
     {
         FSymbol * sym = (FSymbol *) MakeObject(sizeof(FSymbol), SymbolTag);
-        sym->Reserved = SymbolTag;
+        sym->Reserved = MakeLength(NextSymbolHash, SymbolTag);
         sym->String = str;
-        sym->Hash = MakeFixnum(NextSymbolHash);
         NextSymbolHash += 1;
+        if (NextSymbolHash > MAXIMUM_OBJECT_LENGTH)
+            NextSymbolHash = 0;
 
         obj = sym;
         HashtableSet(R.SymbolHashtable, str, obj, StringEqualP, StringHash);
@@ -532,10 +537,11 @@ FObject StringLengthToSymbol(FCh * s, int sl)
     if (obj == FalseObject)
     {
         FSymbol * sym = (FSymbol *) MakeObject(sizeof(FSymbol), SymbolTag);
-        sym->Reserved = SymbolTag;
+        sym->Reserved = MakeLength(NextSymbolHash, SymbolTag);
         sym->String = MakeString(s, sl);
-        sym->Hash = MakeFixnum(NextSymbolHash);
         NextSymbolHash += 1;
+        if (NextSymbolHash > MAXIMUM_OBJECT_LENGTH)
+            NextSymbolHash = 0;
 
         obj = sym;
         HashtableSet(R.SymbolHashtable, sym->String, obj, StringEqualP, StringHash);
@@ -563,20 +569,24 @@ FObject PrefixSymbol(FObject str, FObject sym)
 
 // ---- Record Types ----
 
+static unsigned int NextRecordTypeHash = 0;
+
 FObject MakeRecordType(FObject nam, unsigned int nf, FObject flds[])
 {
     FAssert(SymbolP(nam));
 
+    if (nf >= MAXIMUM_RECORD_FIELDS)
+        RaiseExceptionC(R.Restriction, "make-record-type",
+                "make-record-type: number of fields greater than maximum", EmptyListObject);
+
     FRecordType * rt = (FRecordType *) MakeObject(sizeof(FRecordType) + sizeof(FObject) * nf,
             RecordTypeTag);
-    if (rt == 0)
-    {
-        rt = (FRecordType *) MakeMatureObject(sizeof(FRecordType) + sizeof(FObject) * nf,
-                "make-record-type");
-        rt->NumFields = MakeMatureLength(nf + 1, RecordTypeTag);
-    }
-    else
-        rt->NumFields = MakeLength(nf + 1, RecordTypeTag);
+    rt->NumFields = MakeLength((nf + 1) | (NextRecordTypeHash << RECORD_HASH_SHIFT),
+            RecordTypeTag);
+
+    NextRecordTypeHash += 1;
+    if (NextRecordTypeHash > MAXIMUM_RECORD_HASH)
+        NextRecordTypeHash = 0;
 
     rt->Fields[0] = nam;
 
@@ -604,21 +614,23 @@ FObject MakeRecordTypeC(char * nam, unsigned int nf, char * flds[])
 
 // ---- Records ----
 
+static unsigned int NextRecordHash = 0;
+
 FObject MakeRecord(FObject rt)
 {
     FAssert(RecordTypeP(rt));
 
     unsigned int nf = RecordTypeNumFields(rt);
+
+    FAssert(nf <= MAXIMUM_RECORD_FIELDS);
+
     FGenericRecord * r = (FGenericRecord *) MakeObject(
             sizeof(FGenericRecord) + sizeof(FObject) * nf, RecordTag);
-    if (r == 0)
-    {
-        r = (FGenericRecord *) MakeMatureObject(sizeof(FGenericRecord) + sizeof(FObject) * nf,
-                "make-record");
-        r->NumFields = MakeMatureLength(nf + 1, RecordTag);
-    }
-    else
-        r->NumFields = MakeLength(nf + 1, RecordTag);
+    r->NumFields = MakeLength((nf + 1) | (NextRecordHash << RECORD_HASH_SHIFT), RecordTag);
+
+    NextRecordHash += 1;
+    if (NextRecordHash > MAXIMUM_RECORD_HASH)
+        NextRecordHash = 0;
 
     r->Fields[0] = rt;
 
@@ -1023,6 +1035,7 @@ void SetupFoment(int argc, char * argv[])
     SetupCompile();
     SetupExecute();
     SetupNumbers();
+    SetupMM();
     SetupScheme();
 
     LibraryExport(R.BedrockLibrary,
