@@ -12,12 +12,13 @@ Garbage Collection:
     allocate an object
 -- GC does not occur during an allocation, only at AllowGC points for all threads
 
+-- trackers: as long as the obj and tconc are alive, then the ret will be kept alive
+
 6 reserve bits
 1024 = 10 bits
 2048
 4096 = 12 bits
 
--- trackers: make-tracker, install-tracker
 -- merge some of the fields in FProcedure into Reserved
 -- fail gracefully if run out of BackRef space: just force a full collection next time
 -- growing Scan stack, maybe should be a segment
@@ -757,109 +758,8 @@ static void CleanScan(int fcf)
     }
 }
 
-static void Collect(int fcf)
+static void CollectGuardians(int fcf)
 {
-    if (fcf)
-printf("Full Collection...");
-    else
-printf("Partial Collection...");
-
-    CollectionCount += 1;
-    GCRequired = 0;
-    BytesSinceLast = 0;
-
-    ScanIndex = 0;
-
-    ActiveZero->Next = GenerationZero;
-    FYoungSection * gz  = ActiveZero;
-    GenerationZero = 0;
-    ActiveZero = AllocateYoung(0, ZeroSectionTag);
-
-    FYoungSection * go = GenerationOne;
-    GenerationOne = AllocateYoung(0, OneSectionTag);
-
-    if (fcf)
-    {
-        BackRefCount = 0;
-
-        unsigned int sdx = 0;
-        while (sdx <= UsedSections)
-        {
-            if (SectionTable[sdx] == MatureSectionTag)
-            {
-                unsigned int cnt = 1;
-                while (SectionTable[sdx + cnt] == MatureSectionTag && sdx + cnt <= UsedSections)
-                    cnt += 1;
-
-                unsigned char * ms = (unsigned char *) SectionPointer(sdx);
-                FObject obj = (FObject) ms;
-
-                while (obj < ((char *) ms) + SECTION_SIZE * cnt)
-                {
-                    ClearMark(obj);
-                    obj = ((char *) obj) + ObjectSize(obj, IndirectTag(obj));
-                }
-
-                sdx += cnt;
-            }
-            else if (SectionTable[sdx] == PairSectionTag)
-            {
-                unsigned char * ps = (unsigned char *) SectionPointer(sdx);
-
-                for (unsigned int idx = 0; idx < PAIR_MB_SIZE; idx++)
-                    (ps + PAIR_MB_OFFSET)[idx] = 0;
-
-                sdx += 1;
-            }
-            else
-                sdx += 1;
-        }
-    }
-
-    FObject * rv = (FObject *) &R;
-    for (int rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
-        if (ObjectP(rv[rdx]))
-            ScanObject(rv + rdx, fcf, 0);
-
-    for (int rdx = 0; rdx < UsedRoots; rdx++)
-        if (ObjectP(*Roots[rdx]))
-            ScanObject(Roots[rdx], fcf, 0);
-
-    if (ExecuteState != 0)
-    {
-        for (int adx = 0; adx < ExecuteState->AStackPtr; adx++)
-            if (ObjectP(ExecuteState->AStack[adx]))
-                ScanObject(ExecuteState->AStack + adx, fcf, 0);
-
-        for (int cdx = 0; cdx < ExecuteState->CStackPtr; cdx++)
-            if (ObjectP(ExecuteState->CStack[cdx]))
-                ScanObject(ExecuteState->CStack + cdx, fcf, 0);
-
-        if (ObjectP(ExecuteState->Proc))
-            ScanObject(&ExecuteState->Proc, fcf, 0);
-        if (ObjectP(ExecuteState->Frame))
-            ScanObject(&ExecuteState->Frame, fcf, 0);
-    }
-
-    if (fcf == 0)
-    {
-        for (int idx = 0; idx < BackRefCount; idx++)
-        {
-            FAssert(ObjectP(*BackRef[idx].Ref));
-
-            if (*BackRef[idx].Ref == BackRef[idx].Value)
-            {
-                ScanObject(BackRef[idx].Ref, fcf, 0);
-                BackRef[idx].Value = *BackRef[idx].Ref;
-            }
-        }
-
-        if (ObjectP(MatureGuardians))
-            ScanObject(&MatureGuardians, fcf, 0);
-    }
-
-    CleanScan(fcf);
-
     FObject mbhold = EmptyListObject;
     FObject mbfinal = EmptyListObject;
 
@@ -958,6 +858,166 @@ printf("Partial Collection...");
 
         mbhold = Rest(mbhold);
     }
+}
+
+static void CollectTrackers(FObject trkrs, int fcf)
+{
+    while (trkrs != EmptyListObject)
+    {
+        FAssert(PairP(trkrs));
+        FAssert(PairP(First(trkrs)));
+        FAssert(PairP(Rest(First(trkrs))));
+
+        FObject obj = First(First(trkrs));
+        FObject ret = First(Rest(First(trkrs)));
+        FObject tconc = Rest(Rest(First(trkrs)));
+
+        FAssert(ObjectP(obj));
+        FAssert(ObjectP(tconc));
+
+        if (AliveP(obj) && AliveP(tconc))
+        {
+            FObject oo = obj;
+
+            ScanObject(&obj, fcf, 0);
+            if (ObjectP(ret))
+                ScanObject(&ret, fcf, 0);
+            ScanObject(&tconc, fcf, 0);
+
+            InstallTracker(obj, ret, tconc);
+
+            if (oo != obj)
+                TConcAdd(tconc, ret);
+        }
+
+        trkrs = Rest(trkrs);
+    }
+}
+
+static void Collect(int fcf)
+{
+/*    if (fcf)
+printf("Full Collection...");
+    else
+printf("Partial Collection...");
+*/
+    CollectionCount += 1;
+    GCRequired = 0;
+    BytesSinceLast = 0;
+
+    ScanIndex = 0;
+
+    ActiveZero->Next = GenerationZero;
+    FYoungSection * gz  = ActiveZero;
+    GenerationZero = 0;
+    ActiveZero = AllocateYoung(0, ZeroSectionTag);
+
+    FYoungSection * go = GenerationOne;
+    GenerationOne = AllocateYoung(0, OneSectionTag);
+
+    if (fcf)
+    {
+        BackRefCount = 0;
+
+        unsigned int sdx = 0;
+        while (sdx <= UsedSections)
+        {
+            if (SectionTable[sdx] == MatureSectionTag)
+            {
+                unsigned int cnt = 1;
+                while (SectionTable[sdx + cnt] == MatureSectionTag && sdx + cnt <= UsedSections)
+                    cnt += 1;
+
+                unsigned char * ms = (unsigned char *) SectionPointer(sdx);
+                FObject obj = (FObject) ms;
+
+                while (obj < ((char *) ms) + SECTION_SIZE * cnt)
+                {
+                    ClearMark(obj);
+                    obj = ((char *) obj) + ObjectSize(obj, IndirectTag(obj));
+                }
+
+                sdx += cnt;
+            }
+            else if (SectionTable[sdx] == PairSectionTag)
+            {
+                unsigned char * ps = (unsigned char *) SectionPointer(sdx);
+
+                for (unsigned int idx = 0; idx < PAIR_MB_SIZE; idx++)
+                    (ps + PAIR_MB_OFFSET)[idx] = 0;
+
+                sdx += 1;
+            }
+            else
+                sdx += 1;
+        }
+    }
+
+    FObject * rv = (FObject *) &R;
+    for (int rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
+        if (ObjectP(rv[rdx]))
+            ScanObject(rv + rdx, fcf, 0);
+
+    for (int rdx = 0; rdx < UsedRoots; rdx++)
+        if (ObjectP(*Roots[rdx]))
+            ScanObject(Roots[rdx], fcf, 0);
+
+    if (ExecuteState != 0)
+    {
+        for (int adx = 0; adx < ExecuteState->AStackPtr; adx++)
+            if (ObjectP(ExecuteState->AStack[adx]))
+                ScanObject(ExecuteState->AStack + adx, fcf, 0);
+
+        for (int cdx = 0; cdx < ExecuteState->CStackPtr; cdx++)
+            if (ObjectP(ExecuteState->CStack[cdx]))
+                ScanObject(ExecuteState->CStack + cdx, fcf, 0);
+
+        if (ObjectP(ExecuteState->Proc))
+            ScanObject(&ExecuteState->Proc, fcf, 0);
+        if (ObjectP(ExecuteState->Frame))
+            ScanObject(&ExecuteState->Frame, fcf, 0);
+    }
+
+    if (fcf == 0)
+    {
+        for (int idx = 0; idx < BackRefCount; idx++)
+        {
+            FAssert(ObjectP(*BackRef[idx].Ref));
+
+            if (*BackRef[idx].Ref == BackRef[idx].Value)
+            {
+                ScanObject(BackRef[idx].Ref, fcf, 0);
+                BackRef[idx].Value = *BackRef[idx].Ref;
+            }
+        }
+
+        if (ObjectP(MatureGuardians))
+            ScanObject(&MatureGuardians, fcf, 0);
+
+        if (ObjectP(MatureTrackers))
+            ScanObject(&MatureTrackers, fcf, 0);
+    }
+
+    CleanScan(fcf);
+    CollectGuardians(fcf);
+
+    if (fcf)
+    {
+        FObject yt = YoungTrackers;
+        YoungTrackers = EmptyListObject;
+        FObject mt = MatureTrackers;
+        MatureTrackers = EmptyListObject;
+
+        CollectTrackers(yt, fcf);
+        CollectTrackers(mt, fcf);
+    }
+    else
+    {
+        FObject yt = YoungTrackers;
+        YoungTrackers = EmptyListObject;
+
+        CollectTrackers(yt, fcf);
+    }
 
     while (gz != 0)
     {
@@ -1042,7 +1102,7 @@ printf("Partial Collection...");
         }
     }
 
-printf("Done.\n");
+//printf("Done.\n");
 }
 
 void Collect()
@@ -1280,9 +1340,24 @@ void SetupMM()
                             "(let ((first (car tconc)))"
                                 "(set-car! tconc (cdr first))"
                                 "(car first))))"
-"((a b) tconc)"
                     "((obj) (install-guardian obj tconc)))))", 1), R.Bedrock);
 
     LibraryExport(R.BedrockLibrary, EnvironmentLookup(R.Bedrock,
             StringCToSymbol("make-guardian")));
+
+    Eval(ReadStringC(
+        "(define (make-tracker)"
+            "(let ((tconc (let ((last (cons #f '()))) (cons last last))))"
+                "(case-lambda"
+                    "(()"
+                        "(if (eq? (car tconc) (cdr tconc))"
+                            "#f"
+                            "(let ((first (car tconc)))"
+                                "(set-car! tconc (cdr first))"
+                                "(car first))))"
+                    "((obj) (install-tracker obj obj tconc))"
+                    "((obj ret) (install-tracker obj ret tconc)))))", 1), R.Bedrock);
+
+    LibraryExport(R.BedrockLibrary, EnvironmentLookup(R.Bedrock,
+            StringCToSymbol("make-tracker")));
 }

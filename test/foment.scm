@@ -117,3 +117,29 @@
 (must-equal #(4 5 6) (h))
 (must-equal #(1 2 3) (h))
 (must-equal #f (h))
+
+;;
+;; trackers
+;;
+
+(define t (make-tracker))
+(must-equal #f (t))
+(define v1 #(1 2 3))
+(define v2 (cons 'a 'b))
+(define v3 "123")
+(t v1)
+(t v2 "(cons 'a 'b)")
+(t v3 123)
+(must-equal #f (t))
+(collect)
+(must-equal 123 (t))
+(must-equal "(cons 'a 'b)" (t))
+(must-equal #(1 2 3) (t))
+(must-equal #f (t))
+(collect)
+(must-equal #(1 2 3) (t))
+(must-equal "(cons 'a 'b)" (t))
+(must-equal 123 (t))
+(must-equal #f (t))
+(collect #t)
+(must-equal #f (t))
