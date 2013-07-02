@@ -332,7 +332,7 @@ void TConcAdd(FObject tconc, FObject obj)
     SetRest(tconc, Rest(Rest(tconc)));
 }
 
-FObject TConcTake(FObject tconc)
+FObject TConcRemove(FObject tconc)
 {
     FAssert(TConcEmptyP(tconc) == 0);
     FAssert(PairP(tconc));

@@ -17,11 +17,8 @@ Garbage Collection:
 2048
 4096 = 12 bits
 
--- guardians: make-guardian, install-guardian
 -- trackers: make-tracker, install-tracker
--- get rid of Hash in Symbols, Records, and RecordTypes
 -- merge some of the fields in FProcedure into Reserved
--- gc primitives: collect, <when to collect partial and full>, dump heap
 -- fail gracefully if run out of BackRef space: just force a full collection next time
 -- growing Scan stack, maybe should be a segment
 -- ExecuteState and stacks should be segments
@@ -37,7 +34,6 @@ Garbage Collection:
 #include "io.hpp"
 
 typedef void * FRaw;
-#define ObjectP(obj) ((((FImmediate) (obj)) & 0x3) != 0x3)
 #define AsRaw(obj) ((FRaw) (((unsigned int) (obj)) & ~0x3))
 
 typedef enum
@@ -126,6 +122,17 @@ static int ScanIndex;
 #define SetMark(obj) *((unsigned int *) (obj)) |= RESERVED_MARK_BIT
 #define ClearMark(obj) *((unsigned int *) (obj)) &= ~RESERVED_MARK_BIT
 
+static inline int AliveP(FObject obj)
+{
+    obj = AsRaw(obj);
+
+    if (MatureP(obj))
+        return(MarkP(obj));
+    else if (MaturePairP(obj))
+        return(PairMarkP(obj));
+    return(GCZeroP(Forward(obj)) == 0 && GCOneP(Forward(obj)) == 0);
+}
+
 typedef struct
 {
     FObject * Ref;
@@ -134,6 +141,11 @@ typedef struct
 
 static FBackRef BackRef[1024 * 4];
 static int BackRefCount;
+
+static FObject YoungGuardians;
+static FObject MatureGuardians;
+static FObject YoungTrackers;
+static FObject MatureTrackers;
 
 static unsigned int Sizes[1024 * 8];
 
@@ -698,6 +710,53 @@ static void ScanChildren(FRaw raw, unsigned int tag, int fcf)
     }
 }
 
+static void CleanScan(int fcf)
+{
+    for (;;)
+    {
+        while (ScanIndex > 0)
+        {
+            ScanIndex -= 1;
+            FObject obj = ScanStack[ScanIndex];
+
+            FAssert(ObjectP(obj));
+
+            if (PairP(obj))
+                ScanChildren(AsRaw(obj), PairTag, fcf);
+            else if (FlonumP(obj))
+                ScanChildren(AsRaw(obj), FlonumTag, fcf);
+            else
+            {
+                FAssert(IndirectP(obj));
+
+                ScanChildren(obj, IndirectTag(obj), fcf);
+            }
+        }
+
+        FYoungSection * ys = GenerationOne;
+        while (ys != 0 && ys->Scan < ys->Used)
+        {
+            while (ys->Scan < ys->Used)
+            {
+                FObject *pobj = (FObject *) (((char *) ys) + ys->Scan);
+
+                FAssert(GCOneP(*pobj));
+
+                unsigned int tag = AsValue(*pobj);
+                FObject obj = (FObject) (pobj + 1);
+
+                ScanChildren(obj, tag, fcf);
+                ys->Scan += ObjectSize(obj, tag) + sizeof(FObject);
+            }
+
+            ys = ys->Next;
+        }
+
+        if (GenerationOne->Scan == GenerationOne->Used && ScanIndex == 0)
+            break;
+    }
+}
+
 static void Collect(int fcf)
 {
     if (fcf)
@@ -705,11 +764,16 @@ printf("Full Collection...");
     else
 printf("Partial Collection...");
 
+    CollectionCount += 1;
+    GCRequired = 0;
+    BytesSinceLast = 0;
+
     ScanIndex = 0;
 
     ActiveZero->Next = GenerationZero;
-    GenerationZero = ActiveZero;
-    ActiveZero = 0;
+    FYoungSection * gz  = ActiveZero;
+    GenerationZero = 0;
+    ActiveZero = AllocateYoung(0, ZeroSectionTag);
 
     FYoungSection * go = GenerationOne;
     GenerationOne = AllocateYoung(0, OneSectionTag);
@@ -789,58 +853,116 @@ printf("Partial Collection...");
                 BackRef[idx].Value = *BackRef[idx].Ref;
             }
         }
+
+        if (ObjectP(MatureGuardians))
+            ScanObject(&MatureGuardians, fcf, 0);
+    }
+
+    CleanScan(fcf);
+
+    FObject mbhold = EmptyListObject;
+    FObject mbfinal = EmptyListObject;
+
+    while (YoungGuardians != EmptyListObject)
+    {
+        FAssert(PairP(YoungGuardians));
+        FAssert(PairP(First(YoungGuardians)));
+
+        FObject ot = First(YoungGuardians);
+        if (AliveP(First(ot)))
+            mbhold = MakePair(ot, mbhold);
+        else
+            mbfinal = MakePair(ot, mbfinal);
+
+        YoungGuardians = Rest(YoungGuardians);
+    }
+
+    if (fcf)
+    {
+        while (MatureGuardians != EmptyListObject)
+        {
+            FAssert(PairP(MatureGuardians));
+            FAssert(PairP(First(MatureGuardians)));
+
+            FObject ot = First(MatureGuardians);
+            if (AliveP(First(ot)))
+                mbhold = MakePair(ot, mbhold);
+            else
+                mbfinal = MakePair(ot, mbfinal);
+
+            MatureGuardians = Rest(MatureGuardians);
+        }
     }
 
     for (;;)
     {
-        while (ScanIndex > 0)
+        FObject flst = EmptyListObject;
+
+        FObject lst = mbfinal;
+        while (lst != EmptyListObject)
         {
-            ScanIndex -= 1;
-            FObject obj = ScanStack[ScanIndex];
+            FAssert(PairP(lst));
 
-            FAssert(ObjectP(obj));
-
-            if (PairP(obj))
-                ScanChildren(AsRaw(obj), PairTag, fcf);
-            else if (FlonumP(obj))
-                ScanChildren(AsRaw(obj), FlonumTag, fcf);
-            else
+            if (PairP(First(lst)))
             {
-                FAssert(IndirectP(obj));
-
-                ScanChildren(obj, IndirectTag(obj), fcf);
-            }
-        }
-
-        FYoungSection * ys = GenerationOne;
-        while (ys != 0 && ys->Scan < ys->Used)
-        {
-            while (ys->Scan < ys->Used)
-            {
-                FObject *pobj = (FObject *) (((char *) ys) + ys->Scan);
-
-                FAssert(GCOneP(*pobj));
-
-                unsigned int tag = AsValue(*pobj);
-                FObject obj = (FObject) (pobj + 1);
-
-                ScanChildren(obj, tag, fcf);
-                ys->Scan += ObjectSize(obj, tag) + sizeof(FObject);
+                FObject ot = First(lst);
+                if (AliveP(Rest(ot)))
+                {
+                    flst = MakePair(ot, flst);
+                    AsPair(lst)->First = NoValueObject;
+                }
             }
 
-            ys = ys->Next;
+            lst = Rest(lst);
         }
 
-        if (GenerationOne->Scan == GenerationOne->Used && ScanIndex == 0)
+        if (flst == EmptyListObject)
             break;
+
+        while (flst != EmptyListObject)
+        {
+            FAssert(PairP(flst));
+            FAssert(PairP(First(flst)));
+
+            FObject obj = First(First(flst));
+            FObject tconc = Rest(First(flst));
+
+            ScanObject(&obj, fcf, 0);
+            ScanObject(&tconc, fcf, 0);
+            TConcAdd(tconc, obj);
+
+            flst = Rest(flst);
+        }
+
+        CleanScan(fcf);
     }
 
-    ActiveZero = AllocateYoung(0, ZeroSectionTag);
-
-    while (GenerationZero != 0)
+    while (mbhold != EmptyListObject)
     {
-        FYoungSection * ys = GenerationZero;
-        GenerationZero = GenerationZero->Next;
+        FAssert(PairP(mbhold));
+        FAssert(PairP(First(mbhold)));
+
+        FObject obj = First(First(mbhold));
+        FObject tconc = Rest(First(mbhold));
+
+        if (AliveP(tconc))
+        {
+            ScanObject(&obj, fcf, 0);
+            ScanObject(&tconc, fcf, 0);
+
+            if (MatureP(obj) || MaturePairP(obj))
+                MatureGuardians = MakePair(MakePair(obj, tconc), MatureGuardians);
+            else
+                YoungGuardians = MakePair(MakePair(obj, tconc), YoungGuardians);
+        }
+
+        mbhold = Rest(mbhold);
+    }
+
+    while (gz != 0)
+    {
+        FYoungSection * ys = gz;
+        gz = gz->Next;
         FreeSection(ys);
     }
 
@@ -925,13 +1047,35 @@ printf("Done.\n");
 
 void Collect()
 {
-    CollectionCount += 1;
-
     FAssert(GCRequired != 0);
-    GCRequired = 0;
-    BytesSinceLast = 0;
 
-    Collect(CollectionCount % PartialPerFull == 0);
+    Collect((CollectionCount + 1) % PartialPerFull == 0);
+}
+
+void InstallGuardian(FObject obj, FObject tconc)
+{
+    FAssert(ObjectP(obj));
+    FAssert(PairP(tconc));
+    FAssert(PairP(First(tconc)));
+    FAssert(PairP(Rest(tconc)));
+
+    if (MatureP(obj) || MaturePairP(obj))
+        MatureGuardians = MakePair(MakePair(obj, tconc), MatureGuardians);
+    else
+        YoungGuardians = MakePair(MakePair(obj, tconc), YoungGuardians);
+}
+
+void InstallTracker(FObject obj, FObject ret, FObject tconc)
+{
+    FAssert(ObjectP(obj));
+    FAssert(PairP(tconc));
+    FAssert(PairP(First(tconc)));
+    FAssert(PairP(Rest(tconc)));
+
+    if (MatureP(obj) || MaturePairP(obj))
+        MatureTrackers = MakePair(MakePair(obj, MakePair(ret, tconc)), MatureTrackers);
+    else
+        YoungTrackers = MakePair(MakePair(obj, MakePair(ret, tconc)), YoungTrackers);
 }
 
 void SetupGC()
@@ -949,8 +1093,6 @@ void SetupGC()
     FAssert(SECTION_SIZE == 1024 * 16);
     FAssert(PAIR_MB_OFFSET / (sizeof(FPair) * 8) <= PAIR_MB_SIZE);
     FAssert(MAXIMUM_YOUNG_LENGTH <= SECTION_SIZE / 2);
-    FAssert(sizeof(FRecordType) + sizeof(FObject) * (MAXIMUM_RECORD_FIELDS - 1)
-            <= MAXIMUM_YOUNG_LENGTH);
 
     SectionTable = (unsigned char *) VirtualAlloc(0, SECTION_SIZE * SECTION_SIZE, MEM_RESERVE,
             PAGE_READWRITE);
@@ -971,42 +1113,117 @@ void SetupGC()
 
     BackRefCount = 0;
 
+    YoungGuardians = EmptyListObject;
+    MatureGuardians = EmptyListObject;
+    YoungTrackers = EmptyListObject;
+    MatureTrackers = EmptyListObject;
+
     for (unsigned int idx = 0; idx < sizeof(Sizes) / sizeof(unsigned int); idx++)
         Sizes[idx] = 0;
 }
 
-
 Define("install-guardian", InstallGuardianPrimitive)(int argc, FObject argv[])
 {
+    // (install-guardian <obj> <tconc>)
+
     if (argc != 2)
         RaiseExceptionC(R.Assertion, "install-guardian",
                 "install-guardian: expected two arguments", EmptyListObject);
+
+    if (ObjectP(argv[0]) == 0)
+        RaiseExceptionC(R.Assertion, "install-guardian",
+                "install-guardian: immediate object unexpected", List(argv[0]));
 
     if (PairP(argv[1]) == 0 || PairP(First(argv[1])) == 0 || PairP(Rest(argv[1])) == 0)
         RaiseExceptionC(R.Assertion, "install-guardian",
                 "install-guardian: expected a tconc", List(argv[1]));
 
-    
-    
-    MakePair(argv[0], argv[1]);
-    
-    
+    InstallGuardian(argv[0], argv[1]);
     return(NoValueObject);
 }
 
-static FPrimitive * Primitives[] =
+Define("install-tracker", InstallTrackerPrimitive)(int argc, FObject argv[])
 {
-    &InstallGuardianPrimitive
-};
+    // (install-tracker <obj> <ret> <tconc>)
 
-void SetupMM()
-{
-    for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
-        DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
+    if (argc != 3)
+        RaiseExceptionC(R.Assertion, "install-tracker",
+                "install-tracker: expected three arguments", EmptyListObject);
+
+    if (ObjectP(argv[0]) == 0)
+        RaiseExceptionC(R.Assertion, "install-tracker",
+                "install-tracker: immediate object unexpected", List(argv[0]));
+
+    if (PairP(argv[2]) == 0 || PairP(First(argv[2])) == 0 || PairP(Rest(argv[2])) == 0)
+        RaiseExceptionC(R.Assertion, "install-tracker",
+                "install-tracker: expected a tconc", List(argv[2]));
+
+    InstallTracker(argv[0], argv[1], argv[2]);
+    return(NoValueObject);
 }
 
-void DumpSizes()
+Define("collect", CollectPrimitive)(int argc, FObject argv[])
 {
+    // (collect [<full>])
+
+    if (argc > 1)
+        RaiseExceptionC(R.Assertion, "collect", "collect: expected zero or one arguments",
+                EmptyListObject);
+
+    if (argc > 0 && argv[0] != FalseObject)
+        Collect(1);
+    else
+        Collect(0);
+
+    return(NoValueObject);
+}
+
+Define("partial-per-full", PartialPerFullPrimitive)(int argc, FObject argv[])
+{
+    // (partial-per-full [<val>])
+
+    if (argc > 1)
+        RaiseExceptionC(R.Assertion, "partial-per-full",
+                "partial-per-full: expected zero or one arguments", EmptyListObject);
+
+    if (argc > 0)
+    {
+        if (FixnumP(argv[0]) == 0 || AsFixnum(argv[0]) < 1)
+            RaiseExceptionC(R.Assertion, "partial-per-full",
+                "partial-per-full: expected a fixnum greater than zero", List(argv[0]));
+
+        PartialPerFull = AsFixnum(argv[0]);
+    }
+
+    return(MakeFixnum(PartialPerFull));
+}
+
+Define("trigger-bytes", TriggerBytesPrimitive)(int argc, FObject argv[])
+{
+    // (trigger-bytes [<val>])
+
+    if (argc > 1)
+        RaiseExceptionC(R.Assertion, "trigger-bytes",
+                "trigger-bytes: expected zero or one arguments", EmptyListObject);
+
+    if (argc > 0)
+    {
+        if (FixnumP(argv[0]) == 0 || AsFixnum(argv[0]) < 0)
+            RaiseExceptionC(R.Assertion, "trigger-bytes",
+                "trigger-bytes: expected a non-negative fixnum", List(argv[0]));
+
+        TriggerBytes = AsFixnum(argv[0]);
+    }
+
+    return(MakeFixnum(TriggerBytes));
+}
+
+Define("dump-gc", DumpGCPrimitive)(int argc, FObject argv[])
+{
+    if (argc != 0)
+        RaiseExceptionC(R.Assertion, "dump-gc", "dump-gc: expected zero arguments",
+                EmptyListObject);
+
     for (unsigned int idx = 0; idx < sizeof(Sizes) / sizeof(unsigned int); idx++)
         if (Sizes[idx] > 0)
             printf("%d: %d (%d)\n", idx, Sizes[idx], idx * Sizes[idx]);
@@ -1034,4 +1251,38 @@ void DumpSizes()
     }
 
     printf("\n");
+
+    return(NoValueObject);
+}
+
+static FPrimitive * Primitives[] =
+{
+    &InstallGuardianPrimitive,
+    &InstallTrackerPrimitive,
+    &CollectPrimitive,
+    &PartialPerFullPrimitive,
+    &TriggerBytesPrimitive,
+    &DumpGCPrimitive
+};
+
+void SetupMM()
+{
+    for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+        DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
+
+    Eval(ReadStringC(
+        "(define (make-guardian)"
+            "(let ((tconc (let ((last (cons #f '()))) (cons last last))))"
+                "(case-lambda"
+                    "(()"
+                        "(if (eq? (car tconc) (cdr tconc))"
+                            "#f"
+                            "(let ((first (car tconc)))"
+                                "(set-car! tconc (cdr first))"
+                                "(car first))))"
+"((a b) tconc)"
+                    "((obj) (install-guardian obj tconc)))))", 1), R.Bedrock);
+
+    LibraryExport(R.BedrockLibrary, EnvironmentLookup(R.Bedrock,
+            StringCToSymbol("make-guardian")));
 }

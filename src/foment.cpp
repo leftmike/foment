@@ -149,10 +149,6 @@ unsigned int EqHash(FObject obj)
 {
     if (SymbolP(obj))
         return(SymbolHash(obj));
-    else if (GenericRecordP(obj))
-        return(RecordHash(obj));
-    else if (RecordTypeP(obj))
-        return(RecordTypeHash(obj));
     return((unsigned int) obj);
 }
 
@@ -569,25 +565,13 @@ FObject PrefixSymbol(FObject str, FObject sym)
 
 // ---- Record Types ----
 
-static unsigned int NextRecordTypeHash = 0;
-
 FObject MakeRecordType(FObject nam, unsigned int nf, FObject flds[])
 {
     FAssert(SymbolP(nam));
 
-    if (nf >= MAXIMUM_RECORD_FIELDS)
-        RaiseExceptionC(R.Restriction, "make-record-type",
-                "make-record-type: number of fields greater than maximum", EmptyListObject);
-
     FRecordType * rt = (FRecordType *) MakeObject(sizeof(FRecordType) + sizeof(FObject) * nf,
             RecordTypeTag);
-    rt->NumFields = MakeLength((nf + 1) | (NextRecordTypeHash << RECORD_HASH_SHIFT),
-            RecordTypeTag);
-
-    NextRecordTypeHash += 1;
-    if (NextRecordTypeHash > MAXIMUM_RECORD_HASH)
-        NextRecordTypeHash = 0;
-
+    rt->NumFields = MakeLength(nf + 1, RecordTypeTag);
     rt->Fields[0] = nam;
 
     for (unsigned int fdx = 1; fdx < nf + 1; fdx++)
@@ -614,24 +598,15 @@ FObject MakeRecordTypeC(char * nam, unsigned int nf, char * flds[])
 
 // ---- Records ----
 
-static unsigned int NextRecordHash = 0;
-
 FObject MakeRecord(FObject rt)
 {
     FAssert(RecordTypeP(rt));
 
     unsigned int nf = RecordTypeNumFields(rt);
 
-    FAssert(nf <= MAXIMUM_RECORD_FIELDS);
-
     FGenericRecord * r = (FGenericRecord *) MakeObject(
             sizeof(FGenericRecord) + sizeof(FObject) * nf, RecordTag);
-    r->NumFields = MakeLength((nf + 1) | (NextRecordHash << RECORD_HASH_SHIFT), RecordTag);
-
-    NextRecordHash += 1;
-    if (NextRecordHash > MAXIMUM_RECORD_HASH)
-        NextRecordHash = 0;
-
+    r->NumFields = MakeLength(nf + 1, RecordTag);
     r->Fields[0] = rt;
 
     for (unsigned int fdx = 1; fdx <= nf; fdx++)

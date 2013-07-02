@@ -190,7 +190,5 @@ int RunTest(FObject env, int argc, char * argv[])
     PutString(R.StandardOutput, s, sl);
     PutCh(R.StandardOutput, '\n');
 
-//DumpSizes();
-
     return(0);
 }

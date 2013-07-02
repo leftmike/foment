@@ -2,6 +2,8 @@
 ;;; Foment
 ;;;
 
+(import (foment bedrock))
+
 ;;
 ;; ---- syntax ----
 ;;
@@ -48,3 +50,70 @@
 ;(parameterize ((radix 8)) (f 10))                    ==>  "12"
 ;(parameterize ((radix 8) (prompt (f 10))) (prompt))  ==>  "1010"
 
+;;
+;; guardians
+;;
+
+(define g (make-guardian))
+(must-equal #f (g))
+(collect)
+(must-equal #f (g))
+(collect #t)
+(must-equal #f (g))
+
+(g (cons 'a 'b))
+(must-equal #f (g))
+(collect)
+(must-equal (a . b) (g))
+
+(g '#(d e f))
+(must-equal #f (g))
+(collect)
+(must-equal #(d e f) (g))
+
+(must-equal #f (g))
+(define x '#(a b c))
+(define y '#(g h i))
+(collect)
+(collect)
+(collect #t)
+(must-equal #f (g))
+
+(define h (make-guardian))
+(must-equal #f (h))
+(g x)
+(define x #f)
+(h y)
+(define y #f)
+(must-equal #f (g))
+(must-equal #f (h))
+(collect)
+(must-equal #f (g))
+(must-equal #f (h))
+(collect)
+(must-equal #f (g))
+(must-equal #f (h))
+(collect #t)
+(must-equal #(a b c) (g))
+(must-equal #(g h i) (h))
+(must-equal #f (g))
+(must-equal #f (h))
+
+(g "123")
+(g "456")
+(g "789")
+(h #(1 2 3))
+(h #(4 5 6))
+(h #(7 8 9))
+(collect)
+(must-equal "789" (g))
+(must-equal "456" (g))
+(must-equal "123" (g))
+(must-equal #f (g))
+(collect)
+(collect #t)
+(must-equal #f (g))
+(must-equal #(7 8 9) (h))
+(must-equal #(4 5 6) (h))
+(must-equal #(1 2 3) (h))
+(must-equal #f (h))

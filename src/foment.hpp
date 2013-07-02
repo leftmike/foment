@@ -99,6 +99,7 @@ typedef enum
 } FIndirectTag;
 
 #define IndirectP(obj) ((((FImmediate) (obj)) & 0x3) == 0x0)
+#define ObjectP(obj) ((((FImmediate) (obj)) & 0x3) != 0x3)
 
 #define ImmediateTag(obj) (((FImmediate) (obj)) & 0x1F)
 #define ImmediateP(obj, it) (ImmediateTag((obj)) == it)
@@ -132,7 +133,6 @@ void ClearRoots();
 
 extern int GCRequired;
 void Collect();
-void DumpSizes();
 #define AllowGC() if (GCRequired) Collect()
 
 void ModifyVector(FObject obj, unsigned int idx, FObject val);
@@ -146,6 +146,9 @@ void ModifyVector(FObject obj, unsigned int idx, FObject val);
 
 // Do not directly call ModifyObject; use Modify instead.
 void ModifyObject(FObject obj, int off, FObject val);
+
+void InstallGuardian(FObject obj, FObject tconc);
+void InstallTracker(FObject obj, FObject ret, FObject tconc);
 
 //
 // ---- Immediate Types ----
@@ -286,7 +289,7 @@ FObject Assq(FObject obj, FObject alst);
 FObject MakeTConc();
 int TConcEmptyP(FObject tconc);
 void TConcAdd(FObject tconc, FObject obj);
-FObject TConcTake(FObject tconc);
+FObject TConcRemove(FObject tconc);
 
 // ---- Flonums ----
 
@@ -436,13 +439,8 @@ typedef struct
 FObject MakeRecordType(FObject nam, unsigned int nf, FObject flds[]);
 FObject MakeRecordTypeC(char * nam, unsigned int nf, char * flds[]);
 
-#define MAXIMUM_RECORD_FIELDS 0x3FF
-#define RECORD_HASH_SHIFT 12
-#define MAXIMUM_RECORD_HASH 0x3FFF
-
 #define RecordTypeName(obj) AsRecordType(obj)->Fields[0]
-#define RecordTypeNumFields(obj) (ObjectLength(obj) & MAXIMUM_RECORD_FIELDS)
-#define RecordTypeHash(obj) (ObjectLength(obj) >> RECORD_HASH_SHIFT)
+#define RecordTypeNumFields(obj) ObjectLength(obj)
 
 // ---- Records ----
 
@@ -468,8 +466,7 @@ inline int RecordP(FObject obj, FObject rt)
     return(GenericRecordP(obj) && AsGenericRecord(obj)->Fields[0] == rt);
 }
 
-#define RecordNumFields(obj) (ObjectLength(obj) & MAXIMUM_RECORD_FIELDS)
-#define RecordHash(obj) (ObjectLength(obj) >> RECORD_HASH_SHIFT)
+#define RecordNumFields(obj) ObjectLength(obj)
 
 // ---- Hashtables ----
 

@@ -8,13 +8,14 @@ Foment
 
 // ---- Vectors ----
 
-static FVector * MakeVector(unsigned int vl, char * who)
+static FVector * MakeVector(unsigned int vl, char * who, int * mf)
 {
     FVector * nv = (FVector *) MakeObject(sizeof(FVector) + (vl - 1) * sizeof(FObject), VectorTag);
     if (nv == 0)
     {
         nv = (FVector *) MakeMatureObject(sizeof(FVector) + (vl - 1) * sizeof(FObject), who);
         nv->Length = MakeMatureLength(vl, VectorTag);
+        *mf = 1;
     }
     else
         nv->Length = MakeLength(vl, VectorTag);
@@ -24,15 +25,28 @@ static FVector * MakeVector(unsigned int vl, char * who)
 
 FObject MakeVector(unsigned int vl, FObject * v, FObject obj)
 {
-    FVector * nv = MakeVector(vl, "make-vector");
+    int mf = 0;
+    FVector * nv = MakeVector(vl, "make-vector", &mf);
 
     unsigned int idx;
     if (v == 0)
-        for (idx = 0; idx < vl; idx++)
-            nv->Vector[idx] = obj;
+    {
+        if (mf && ObjectP(obj))
+            for (idx = 0; idx < vl; idx++)
+                ModifyVector(nv, idx, obj);
+        else
+            for (idx = 0; idx < vl; idx++)
+                nv->Vector[idx] = obj;
+    }
     else
-        for (idx = 0; idx < vl; idx++)
-            nv->Vector[idx] = v[idx];
+    {
+        if (mf)
+            for (idx = 0; idx < vl; idx++)
+                ModifyVector(nv, idx, v[idx]);
+        else
+            for (idx = 0; idx < vl; idx++)
+                nv->Vector[idx] = v[idx];
+    }
 
     FAssert(VectorLength(nv) == vl);
     return(nv);
@@ -40,14 +54,22 @@ FObject MakeVector(unsigned int vl, FObject * v, FObject obj)
 
 FObject ListToVector(FObject obj)
 {
+    int mf = 0;
     unsigned int vl = ListLength(obj);
-    FVector * nv = MakeVector(vl, "list->vector");
+    FVector * nv = MakeVector(vl, "list->vector", &mf);
 
-    for (unsigned int idx = 0; idx < vl; idx++)
-    {
-        nv->Vector[idx] = First(obj);
-        obj = Rest(obj);
-    }
+    if (mf)
+        for (unsigned int idx = 0; idx < vl; idx++)
+        {
+            ModifyVector(nv, idx, First(obj));
+            obj = Rest(obj);
+        }
+    else
+        for (unsigned int idx = 0; idx < vl; idx++)
+        {
+            nv->Vector[idx] = First(obj);
+            obj = Rest(obj);
+        }
 
     FAssert(VectorLength(nv) == vl);
     return(nv);
