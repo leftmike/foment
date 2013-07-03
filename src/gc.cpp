@@ -19,6 +19,7 @@ Garbage Collection:
 2048
 4096 = 12 bits
 
+-- get rid of GCZeroTag and GCOneTag; use section tags instead
 -- merge some of the fields in FProcedure into Reserved
 -- fail gracefully if run out of BackRef space: just force a full collection next time
 -- growing Scan stack, maybe should be a segment
@@ -476,6 +477,7 @@ void LeaveExecute(FExecuteState * es)
 static void RecordBackRef(FObject * ref, FObject val)
 {
     FAssert(*ref == val);
+    FAssert(ObjectP(val));
 
     BackRef[BackRefCount].Ref = ref;
     BackRef[BackRefCount].Value = val;
@@ -529,6 +531,8 @@ void SetRest(FObject obj, FObject val)
 
 static void ScanObject(FObject * pobj, int fcf, int mf)
 {
+    FAssert(ObjectP(*pobj));
+
     FObject raw = AsRaw(*pobj);
     unsigned int sdx = SectionIndex(raw);
 
@@ -560,6 +564,8 @@ static void ScanObject(FObject * pobj, int fcf, int mf)
     }
     else if (GCZeroP(Forward(raw)))
     {
+        FAssert(SectionTable[sdx] == ZeroSectionTag);
+
         unsigned int tag = AsValue(Forward(raw));
         unsigned int len = ObjectSize(raw, tag);
         FObject nobj = CopyObject(len, tag);
@@ -578,6 +584,8 @@ static void ScanObject(FObject * pobj, int fcf, int mf)
     }
     else if (GCOneP(Forward(raw)))
     {
+        FAssert(SectionTable[sdx] == OneSectionTag);
+
         unsigned int tag = AsValue(Forward(raw));
         unsigned int len = ObjectSize(raw, tag);
 
@@ -633,7 +641,11 @@ static void ScanObject(FObject * pobj, int fcf, int mf)
         *pobj = nobj;
     }*/
     else
+    {
         *pobj = Forward(raw);
+        if (mf && SectionTable[sdx] == ZeroSectionTag)
+            RecordBackRef(pobj, Forward(raw));
+    }
 }
 
 static void ScanChildren(FRaw raw, unsigned int tag, int fcf)
@@ -884,9 +896,9 @@ static void CollectTrackers(FObject trkrs, int fcf)
                 ScanObject(&ret, fcf, 0);
             ScanObject(&tconc, fcf, 0);
 
-            InstallTracker(obj, ret, tconc);
-
-            if (oo != obj)
+            if (oo == obj)
+                InstallTracker(obj, ret, tconc);
+            else
                 TConcAdd(tconc, ret);
         }
 
@@ -896,11 +908,13 @@ static void CollectTrackers(FObject trkrs, int fcf)
 
 static void Collect(int fcf)
 {
-/*    if (fcf)
+/*
+    if (fcf)
 printf("Full Collection...");
     else
 printf("Partial Collection...");
 */
+
     CollectionCount += 1;
     GCRequired = 0;
     BytesSinceLast = 0;
@@ -982,10 +996,10 @@ printf("Partial Collection...");
     {
         for (int idx = 0; idx < BackRefCount; idx++)
         {
-            FAssert(ObjectP(*BackRef[idx].Ref));
-
             if (*BackRef[idx].Ref == BackRef[idx].Value)
             {
+                FAssert(ObjectP(*BackRef[idx].Ref));
+
                 ScanObject(BackRef[idx].Ref, fcf, 0);
                 BackRef[idx].Value = *BackRef[idx].Ref;
             }
@@ -1019,10 +1033,15 @@ printf("Partial Collection...");
         CollectTrackers(yt, fcf);
     }
 
+    CleanScan(fcf);
+
     while (gz != 0)
     {
         FYoungSection * ys = gz;
         gz = gz->Next;
+#ifdef FOMENT_DEBUG
+        memset(ys, 0, SECTION_SIZE);
+#endif // FOMENT_DEBUG
         FreeSection(ys);
     }
 
@@ -1030,6 +1049,9 @@ printf("Partial Collection...");
     {
         FYoungSection * ys = go;
         go = go->Next;
+#ifdef FOMENT_DEBUG
+        memset(ys, 0, SECTION_SIZE);
+#endif // FOMENT_DEBUG
         FreeSection(ys);
     }
 
@@ -1356,6 +1378,7 @@ void SetupMM()
                                 "(set-car! tconc (cdr first))"
                                 "(car first))))"
                     "((obj) (install-tracker obj obj tconc))"
+"((a b c) tconc)"
                     "((obj ret) (install-tracker obj ret tconc)))))", 1), R.Bedrock);
 
     LibraryExport(R.BedrockLibrary, EnvironmentLookup(R.Bedrock,

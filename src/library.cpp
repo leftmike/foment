@@ -17,7 +17,7 @@ FObject MakeEnvironment(FObject nam, FObject ctv)
     FAssert(BooleanP(ctv));
 
     FEnvironment * env = (FEnvironment *) MakeRecord(R.EnvironmentRecordType);
-    env->Hashtable = MakeHashtable(67);
+    env->Hashtable = MakeEqHashtable(67);
     env->Name = nam;
     env->Interactive = ctv;
 
@@ -32,11 +32,11 @@ FObject EnvironmentBind(FObject env, FObject sym)
     FAssert(EnvironmentP(env));
     FAssert(SymbolP(sym));
 
-    FObject gl = HashtableRef(AsEnvironment(env)->Hashtable, sym, FalseObject, EqP, EqHash);
+    FObject gl = EqHashtableRef(AsEnvironment(env)->Hashtable, sym, FalseObject);
     if (gl == FalseObject)
     {
         gl = MakeGlobal(sym, AsEnvironment(env)->Name, AsEnvironment(env)->Interactive);
-        HashtableSet(AsEnvironment(env)->Hashtable, sym, gl, EqP, EqHash);
+        EqHashtableSet(AsEnvironment(env)->Hashtable, sym, gl);
     }
 
     FAssert(GlobalP(gl));
@@ -49,7 +49,7 @@ FObject EnvironmentLookup(FObject env, FObject sym)
     FAssert(EnvironmentP(env));
     FAssert(SymbolP(sym));
 
-    return(HashtableRef(AsEnvironment(env)->Hashtable, sym, FalseObject, EqP, EqHash));
+    return(EqHashtableRef(AsEnvironment(env)->Hashtable, sym, FalseObject));
 }
 
 // If the environment is interactive, a global will be defined. Otherwise, a global will be
@@ -120,7 +120,7 @@ FObject EnvironmentSetC(FObject env, char * sym, FObject val)
 
 FObject EnvironmentGet(FObject env, FObject sym)
 {
-    FObject gl = HashtableRef(AsEnvironment(env)->Hashtable, sym, FalseObject, EqP, EqHash);
+    FObject gl = EqHashtableRef(AsEnvironment(env)->Hashtable, sym, FalseObject);
     if (GlobalP(gl))
     {
         FAssert(BoxP(AsGlobal(gl)->Box));
@@ -148,7 +148,7 @@ static int EnvironmentImportGlobal(FObject env, FObject gl)
         Modify(FGlobal, ogl, State, AsGlobal(gl)->State);
     }
     else
-       HashtableSet(AsEnvironment(env)->Hashtable, AsGlobal(gl)->Name, gl, EqP, EqHash);
+       EqHashtableSet(AsEnvironment(env)->Hashtable, AsGlobal(gl)->Name, gl);
 
    return(0);
 }

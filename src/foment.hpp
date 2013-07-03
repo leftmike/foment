@@ -484,14 +484,21 @@ typedef struct
     FRecord Record;
     FObject Buckets; // Must be a vector.
     FObject Size; // Number of keys.
+    FObject Tracker; // TConc used by EqHashtables to track movement of keys.
 } FHashtable;
 
 FObject MakeHashtable(int nb);
 FObject HashtableRef(FObject ht, FObject key, FObject def, FEquivFn efn, FHashFn hfn);
-FObject HashtableStringRef(FObject ht, FCh * s, int sl, FObject def);
 void HashtableSet(FObject ht, FObject key, FObject val, FEquivFn efn, FHashFn hfn);
 void HashtableDelete(FObject ht, FObject key, FEquivFn efn, FHashFn hfn);
 int HashtableContainsP(FObject ht, FObject key, FEquivFn efn, FHashFn hfn);
+
+FObject MakeEqHashtable(int nb);
+FObject EqHashtableRef(FObject ht, FObject key, FObject def);
+void EqHashtableSet(FObject ht, FObject key, FObject val);
+void EqHashtableDelete(FObject ht, FObject key);
+int EqHashtableContainsP(FObject ht, FObject key);
+
 unsigned int HashtableSize(FObject ht);
 void HashtableWalkUpdate(FObject ht, FWalkUpdateFn wfn, FObject ctx);
 void HashtableWalkDelete(FObject ht, FWalkDeleteFn wfn, FObject ctx);

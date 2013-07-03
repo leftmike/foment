@@ -249,9 +249,9 @@ static int Primes[] =
     977, 983, 991, 997
 };
 
-static char * HashtableFieldsC[] = {"buckets", "size"};
+static char * HashtableFieldsC[] = {"buckets", "size", "tracker"};
 
-FObject MakeHashtable(int nb)
+static FObject MakeHashtable(int nb, FObject trkr)
 {
     FAssert(sizeof(FHashtable) == sizeof(HashtableFieldsC) + sizeof(FRecord));
 
@@ -272,8 +272,14 @@ FObject MakeHashtable(int nb)
     FHashtable * ht = (FHashtable *) MakeRecord(R.HashtableRecordType);
     ht->Buckets = MakeVector(nb, 0, EmptyListObject);
     ht->Size = MakeFixnum(0);
+    ht->Tracker = trkr;
 
     return(ht);
+}
+
+FObject MakeHashtable(int nb)
+{
+    return(MakeHashtable(nb, NoValueObject));
 }
 
 static FObject DoHashtableRef(FObject ht, FObject key, FEquivFn efn, FHashFn hfn)
@@ -308,7 +314,7 @@ FObject HashtableRef(FObject ht, FObject key, FObject def, FEquivFn efn, FHashFn
     return(def);
 }
 
-FObject HashtableStringRef(FObject ht, FCh * s, int sl, FObject def)
+static FObject HashtableStringRef(FObject ht, FCh * s, int sl, FObject def)
 {
     FAssert(HashtableP(ht));
 
@@ -402,6 +408,43 @@ int HashtableContainsP(FObject ht, FObject key, FEquivFn efn, FHashFn hfn)
     if (PairP(node))
         return(1);
     return(0);
+}
+
+FObject MakeEqHashtable(int nb)
+{
+    return(MakeHashtable(nb, MakeTConc()));
+}
+
+FObject EqHashtableRef(FObject ht, FObject key, FObject def)
+{
+    FAssert(HashtableP(ht));
+    FAssert(PairP(AsHashtable(ht)->Tracker));
+
+    return(HashtableRef(ht, key, def, EqP, EqHash));
+}
+
+void EqHashtableSet(FObject ht, FObject key, FObject val)
+{
+    FAssert(HashtableP(ht));
+    FAssert(PairP(AsHashtable(ht)->Tracker));
+
+    HashtableSet(ht, key, val, EqP, EqHash);
+}
+
+void EqHashtableDelete(FObject ht, FObject key)
+{
+    FAssert(HashtableP(ht));
+    FAssert(PairP(AsHashtable(ht)->Tracker));
+
+    HashtableDelete(ht, key, EqP, EqHash);
+}
+
+int EqHashtableContainsP(FObject ht, FObject key)
+{
+    FAssert(HashtableP(ht));
+    FAssert(PairP(AsHashtable(ht)->Tracker));
+
+    return(HashtableContainsP(ht, key, EqP, EqHash));
 }
 
 unsigned int HashtableSize(FObject ht)
@@ -950,6 +993,7 @@ void SetupFoment(int argc, char * argv[])
     AsHashtable(R.SymbolHashtable)->Record.RecordType = R.HashtableRecordType;
     AsHashtable(R.SymbolHashtable)->Buckets = MakeVector(941, 0, EmptyListObject);
     AsHashtable(R.SymbolHashtable)->Size = MakeFixnum(0);
+    AsHashtable(R.SymbolHashtable)->Tracker = NoValueObject;
 
     FAssert(HashtableP(R.SymbolHashtable));
 

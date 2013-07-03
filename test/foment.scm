@@ -118,6 +118,48 @@
 (must-equal #(1 2 3) (h))
 (must-equal #f (h))
 
+; From: Guardians in a generation-based garbage collector.
+; by R. Kent Dybvig, Carl Bruggeman, and David Eby.
+
+(define G (make-guardian))
+(define x (cons 'a 'b))
+(G x)
+(must-equal #f (G))
+(set! x #f)
+(collect)
+(must-equal (a . b) (G))
+(must-equal #f (G))
+
+(define G (make-guardian))
+(define x (cons 'a 'b))
+(G x)
+(G x)
+(set! x #f)
+(collect)
+(must-equal (a . b) (G))
+(must-equal (a . b) (G))
+(must-equal #f (G))
+
+(define G (make-guardian))
+(define H (make-guardian))
+(define x (cons 'a 'b))
+(G x)
+(H x)
+(set! x #f)
+(collect)
+(must-equal (a . b) (G))
+(must-equal (a . b) (H))
+
+(define G (make-guardian))
+(define H (make-guardian))
+(define x (cons 'a 'b))
+(G H)
+(H x)
+(set! x #f)
+(set! H #f)
+(collect)
+(must-equal (a . b) ((G)))
+
 ;;
 ;; trackers
 ;;
@@ -129,17 +171,12 @@
 (define v3 "123")
 (t v1)
 (t v2 "(cons 'a 'b)")
-(t v3 123)
+(t v3 '((a b) (c d)))
 (must-equal #f (t))
 (collect)
-(must-equal 123 (t))
+(must-equal ((a b) (c d)) (t))
 (must-equal "(cons 'a 'b)" (t))
 (must-equal #(1 2 3) (t))
 (must-equal #f (t))
 (collect)
-(must-equal #(1 2 3) (t))
-(must-equal "(cons 'a 'b)" (t))
-(must-equal 123 (t))
-(must-equal #f (t))
-(collect #t)
 (must-equal #f (t))

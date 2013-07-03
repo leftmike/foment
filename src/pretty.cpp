@@ -83,7 +83,7 @@ static void WritePrettyObject(FObject port, FObject obj, int df, FWriteFn wfn, v
 
 void WritePretty(FObject port, FObject obj, int df)
 {
-    FObject ht = MakeHashtable(23);
+    FObject ht = MakeEqHashtable(23);
 
     if (SharedObjectP(obj))
     {

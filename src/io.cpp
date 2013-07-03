@@ -756,11 +756,11 @@ Again:
 
     if (SharedObjectP(obj))
     {
-        FObject val = HashtableRef(ht, obj, MakeFixnum(0), EqP, EqHash);
+        FObject val = EqHashtableRef(ht, obj, MakeFixnum(0));
 
         FAssert(FixnumP(val));
 
-        HashtableSet(ht, obj, MakeFixnum(AsFixnum(val) + 1), EqP, EqHash);
+        EqHashtableSet(ht, obj, MakeFixnum(AsFixnum(val) + 1));
 
         if (AsFixnum(val) == 0)
         {
@@ -794,12 +794,12 @@ Again:
 
             if (cof)
             {
-                val = HashtableRef(ht, obj, MakeFixnum(0), EqP, EqHash);
+                val = EqHashtableRef(ht, obj, MakeFixnum(0));
                 FAssert(FixnumP(val));
                 FAssert(AsFixnum(val) > 0);
 
                 if (AsFixnum(val) == 1)
-                    HashtableDelete(ht, obj, EqP, EqHash);
+                    EqHashtableDelete(ht, obj);
             }
         }
         else
@@ -813,16 +813,15 @@ void WriteSharedObject(FObject port, FObject obj, int df, FWriteFn wfn, void * c
 {
     if (SharedObjectP(obj))
     {
-        FObject val = HashtableRef(ToWriteSharedCtx(ctx)->Hashtable, obj, FalseObject, EqP,
-                EqHash);
+        FObject val = EqHashtableRef(ToWriteSharedCtx(ctx)->Hashtable, obj, FalseObject);
 
         if (BooleanP(val))
         {
             if (val == TrueObject)
             {
                 ToWriteSharedCtx(ctx)->Label += 1;
-                HashtableSet(ToWriteSharedCtx(ctx)->Hashtable, obj,
-                        MakeFixnum(ToWriteSharedCtx(ctx)->Label), EqP, EqHash);
+                EqHashtableSet(ToWriteSharedCtx(ctx)->Hashtable, obj,
+                        MakeFixnum(ToWriteSharedCtx(ctx)->Label));
 
                 PutCh(port, '#');
                 FCh s[8];
@@ -837,8 +836,8 @@ void WriteSharedObject(FObject port, FObject obj, int df, FWriteFn wfn, void * c
                 for (;;)
                 {
                     wfn(port, First(obj), df, wfn, ctx);
-                    if (PairP(Rest(obj)) && HashtableRef(ToWriteSharedCtx(ctx)->Hashtable,
-                            Rest(obj), FalseObject, EqP, EqHash) == FalseObject)
+                    if (PairP(Rest(obj)) && EqHashtableRef(ToWriteSharedCtx(ctx)->Hashtable,
+                            Rest(obj), FalseObject) == FalseObject)
                     {
                         PutCh(port, ' ');
                         obj = Rest(obj);
@@ -882,7 +881,7 @@ FObject WalkUpdate(FObject key, FObject val, FObject ctx)
 
 void Write(FObject port, FObject obj, int df)
 {
-    FObject ht = MakeHashtable(23);
+    FObject ht = MakeEqHashtable(23);
 
     if (SharedObjectP(obj))
     {
@@ -916,7 +915,7 @@ int WalkDelete(FObject key, FObject val, FObject ctx)
 
 void WriteShared(FObject port, FObject obj, int df)
 {
-    FObject ht = MakeHashtable(23);
+    FObject ht = MakeEqHashtable(23);
 
     if (SharedObjectP(obj))
     {
