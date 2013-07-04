@@ -35,6 +35,7 @@ Bugs:
 -- string input ports have not been tested at all
 -- OpenInputFile and OpenOutFile don't convert the filename to C very carefully
 -- update FeaturesC as more code gets written
+-- remove Hash from FSymbol (part of Reserved)
 
 */
 
@@ -70,8 +71,7 @@ typedef enum
 
     // Used by garbage collector.
 
-    GCZeroTag = 0x0B,
-    GCOneTag = 0x1B
+    GCTagTag = 0x0B
 } FDirectTag;
 
 typedef enum

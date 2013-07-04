@@ -147,8 +147,6 @@ FObject MakeBox(FObject val)
 
 unsigned int EqHash(FObject obj)
 {
-    if (SymbolP(obj))
-        return(SymbolHash(obj));
     return((unsigned int) obj);
 }
 
@@ -270,7 +268,9 @@ static FObject MakeHashtable(int nb, FObject trkr)
     }
 
     FHashtable * ht = (FHashtable *) MakeRecord(R.HashtableRecordType);
-    ht->Buckets = MakeVector(nb, 0, EmptyListObject);
+    ht->Buckets = MakeVector(nb, 0, NoValueObject);
+    for (int idx = 0; idx < nb; idx++)
+        ModifyVector(ht->Buckets, idx, MakeFixnum(idx));
     ht->Size = MakeFixnum(0);
     ht->Tracker = trkr;
 
@@ -290,9 +290,8 @@ static FObject DoHashtableRef(FObject ht, FObject key, FEquivFn efn, FHashFn hfn
 
     FObject node = AsVector(AsHashtable(ht)->Buckets)->Vector[idx];
 
-    while (node != EmptyListObject)
+    while (PairP(node))
     {
-        FAssert(PairP(node));
         FAssert(PairP(First(node)));
 
         if (efn(First(First(node)), key))
@@ -322,9 +321,8 @@ static FObject HashtableStringRef(FObject ht, FCh * s, int sl, FObject def)
             % (unsigned int) VectorLength(AsHashtable(ht)->Buckets);
     FObject node = AsVector(AsHashtable(ht)->Buckets)->Vector[idx];
 
-    while (node != EmptyListObject)
+    while (PairP(node))
     {
-        FAssert(PairP(node));
         FAssert(PairP(First(node)));
 
         if (StringLengthEqualP(s, sl, First(First(node))))
@@ -353,8 +351,13 @@ void HashtableSet(FObject ht, FObject key, FObject val, FEquivFn efn, FHashFn hf
 //        AsVector(AsHashtable(ht)->Buckets)->Vector[idx] =
 //                MakePair(MakePair(key, val),
 //                AsVector(AsHashtable(ht)->Buckets)->Vector[idx]);
-        ModifyVector(AsHashtable(ht)->Buckets, idx,
-                MakePair(MakePair(key, val), AsVector(AsHashtable(ht)->Buckets)->Vector[idx]));
+
+        FObject kvn = MakePair(MakePair(key, val),
+                AsVector(AsHashtable(ht)->Buckets)->Vector[idx]);
+        if (PairP(AsHashtable(ht)->Tracker))
+            InstallTracker(key, kvn, AsHashtable(ht)->Tracker);
+
+        ModifyVector(AsHashtable(ht)->Buckets, idx, kvn);
 
 //        AsHashtable(ht)->Size = MakeFixnum(AsFixnum(AsHashtable(ht)->Size) + 1);
         Modify(FHashtable, ht, Size, MakeFixnum(AsFixnum(AsHashtable(ht)->Size) + 1));
@@ -370,9 +373,8 @@ void HashtableDelete(FObject ht, FObject key, FEquivFn efn, FHashFn hfn)
     FObject node = AsVector(AsHashtable(ht)->Buckets)->Vector[idx];
     FObject prev = NoValueObject;
 
-    while (node != EmptyListObject)
+    while (PairP(node))
     {
-        FAssert(PairP(node));
         FAssert(PairP(First(node)));
 
         if (efn(First(First(node)), key))
@@ -415,10 +417,102 @@ FObject MakeEqHashtable(int nb)
     return(MakeHashtable(nb, MakeTConc()));
 }
 
+static unsigned int RehashFindBucket(FObject kvn)
+{
+    while (PairP(kvn))
+        kvn = Rest(kvn);
+
+    FAssert(FixnumP(kvn));
+
+    return(AsFixnum(kvn));
+}
+
+static void RehashRemoveBucket(FObject ht, FObject kvn, unsigned int idx)
+{
+    FObject node = AsVector(AsHashtable(ht)->Buckets)->Vector[idx];
+    FObject prev = NoValueObject;
+
+    while (PairP(node))
+    {
+        if (node == kvn)
+        {
+            if (PairP(prev))
+                SetRest(prev, Rest(node));
+            else
+                ModifyVector(AsHashtable(ht)->Buckets, idx, Rest(node));
+
+            return;
+        }
+
+        prev = node;
+        node = Rest(node);
+    }
+
+    FAssert(0);
+}
+
+#ifdef FOMENT_DEBUG
+static void CheckEqHashtable(FObject ht)
+{
+    FAssert(HashtableP(ht));
+    FAssert(VectorP(AsHashtable(ht)->Buckets));
+    unsigned int len = VectorLength(AsHashtable(ht)->Buckets);
+
+    for (unsigned int idx = 0; idx < len; idx++)
+    {
+        FObject node = AsVector(AsHashtable(ht)->Buckets)->Vector[idx];
+
+        while (PairP(node))
+        {
+            FAssert(PairP(First(node)));
+            FAssert(EqHash(First(First(node))) % len == idx);
+
+            node = Rest(node);
+        }
+
+        FAssert(FixnumP(node));
+        FAssert(AsFixnum(node) == idx);
+    }
+}
+#endif // FOMENT_DEBUG
+
+static void EqHashtableRehash(FObject ht, FObject tconc)
+{
+    FObject kvn;
+
+    while (TConcEmptyP(tconc) == 0)
+    {
+        kvn = TConcRemove(tconc);
+
+        FAssert(PairP(kvn));
+        FAssert(PairP(First(kvn)));
+
+        FObject key = First(First(kvn));
+        unsigned int odx = RehashFindBucket(kvn);
+        unsigned int idx = EqHash(key) % (unsigned int) VectorLength(AsHashtable(ht)->Buckets);
+
+        if (idx != odx)
+        {
+            RehashRemoveBucket(ht, kvn, odx);
+            SetRest(kvn, AsVector(AsHashtable(ht)->Buckets)->Vector[idx]);
+            ModifyVector(AsHashtable(ht)->Buckets, idx, kvn);
+        }
+
+        InstallTracker(key, kvn, AsHashtable(ht)->Tracker);
+    }
+
+#ifdef FOMENT_DEBUG
+    CheckEqHashtable(ht);
+#endif // FOMENT_DEBUG
+}
+
 FObject EqHashtableRef(FObject ht, FObject key, FObject def)
 {
     FAssert(HashtableP(ht));
     FAssert(PairP(AsHashtable(ht)->Tracker));
+
+    if (TConcEmptyP(AsHashtable(ht)->Tracker) == 0)
+        EqHashtableRehash(ht, AsHashtable(ht)->Tracker);
 
     return(HashtableRef(ht, key, def, EqP, EqHash));
 }
@@ -428,6 +522,9 @@ void EqHashtableSet(FObject ht, FObject key, FObject val)
     FAssert(HashtableP(ht));
     FAssert(PairP(AsHashtable(ht)->Tracker));
 
+    if (TConcEmptyP(AsHashtable(ht)->Tracker) == 0)
+        EqHashtableRehash(ht, AsHashtable(ht)->Tracker);
+
     HashtableSet(ht, key, val, EqP, EqHash);
 }
 
@@ -435,6 +532,9 @@ void EqHashtableDelete(FObject ht, FObject key)
 {
     FAssert(HashtableP(ht));
     FAssert(PairP(AsHashtable(ht)->Tracker));
+
+    if (TConcEmptyP(AsHashtable(ht)->Tracker) == 0)
+        EqHashtableRehash(ht, AsHashtable(ht)->Tracker);
 
     HashtableDelete(ht, key, EqP, EqHash);
 }
@@ -444,6 +544,9 @@ int EqHashtableContainsP(FObject ht, FObject key)
     FAssert(HashtableP(ht));
     FAssert(PairP(AsHashtable(ht)->Tracker));
 
+    if (TConcEmptyP(AsHashtable(ht)->Tracker) == 0)
+        EqHashtableRehash(ht, AsHashtable(ht)->Tracker);
+
     return(HashtableContainsP(ht, key, EqP, EqHash));
 }
 
@@ -451,6 +554,9 @@ unsigned int HashtableSize(FObject ht)
 {
     FAssert(HashtableP(ht));
     FAssert(FixnumP(AsHashtable(ht)->Size));
+
+    if (TConcEmptyP(AsHashtable(ht)->Tracker) == 0)
+        EqHashtableRehash(ht, AsHashtable(ht)->Tracker);
 
     return(AsFixnum(AsHashtable(ht)->Size));
 }

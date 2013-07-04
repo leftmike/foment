@@ -19,12 +19,11 @@ Garbage Collection:
 2048
 4096 = 12 bits
 
--- get rid of GCZeroTag and GCOneTag; use section tags instead
+-- trigger GC based on bytes allocated or number of objects allocated
 -- merge some of the fields in FProcedure into Reserved
 -- fail gracefully if run out of BackRef space: just force a full collection next time
 -- growing Scan stack, maybe should be a segment
 -- ExecuteState and stacks should be segments
--- fix EqHash to work with objects being moved by gc: use trackers
 -- mark collector: mark-compact always full collection
 */
 
@@ -112,8 +111,7 @@ static FObject * Roots[128];
 static FExecuteState * ExecuteState = 0;
 int GCRequired = 1;
 
-#define GCZeroP(obj) ImmediateP(obj, GCZeroTag)
-#define GCOneP(obj) ImmediateP(obj, GCOneTag)
+#define GCTagP(obj) ImmediateP(obj, GCTagTag)
 
 #define Forward(obj) (*(((FObject *) (obj)) - 1))
 
@@ -132,7 +130,7 @@ static inline int AliveP(FObject obj)
         return(MarkP(obj));
     else if (MaturePairP(obj))
         return(PairMarkP(obj));
-    return(GCZeroP(Forward(obj)) == 0 && GCOneP(Forward(obj)) == 0);
+    return(GCTagP(Forward(obj)) == 0);
 }
 
 typedef struct
@@ -329,10 +327,11 @@ FObject MakeObject(unsigned int sz, unsigned int tag)
     ActiveZero->Used += len + sizeof(FObject);
     FObject obj = (FObject) (pobj + 1);
 
-    Forward(obj) = MakeImmediate(tag, GCZeroTag);
+    Forward(obj) = MakeImmediate(tag, GCTagTag);
 
     FAssert(AsValue(*pobj) == tag);
-    FAssert(GCZeroP(*pobj));
+    FAssert(GCTagP(*pobj));
+    FAssert(SectionTable[SectionIndex(obj)] == ZeroSectionTag);
 
     return(obj);
 }
@@ -351,10 +350,11 @@ static FObject CopyObject(unsigned int len, unsigned int tag)
     GenerationOne->Used += len + sizeof(FObject);
     FObject obj = (FObject) (pobj + 1);
 
-    Forward(obj) = MakeImmediate(tag, GCOneTag);
+    Forward(obj) = MakeImmediate(tag, GCTagTag);
 
     FAssert(AsValue(*pobj) == tag);
-    FAssert(GCOneP(*pobj));
+    FAssert(GCTagP(*pobj));
+    FAssert(SectionTable[SectionIndex(obj)] == OneSectionTag);
 
     return(obj);
 }
@@ -562,58 +562,71 @@ static void ScanObject(FObject * pobj, int fcf, int mf)
             ScanIndex += 1;
         }
     }
-    else if (GCZeroP(Forward(raw)))
+    else if (SectionTable[sdx] == ZeroSectionTag)
     {
-        FAssert(SectionTable[sdx] == ZeroSectionTag);
+        if (GCTagP(Forward(raw)))
+        {
+            unsigned int tag = AsValue(Forward(raw));
+            unsigned int len = ObjectSize(raw, tag);
+            FObject nobj = CopyObject(len, tag);
+            memcpy(nobj, raw, len);
 
-        unsigned int tag = AsValue(Forward(raw));
-        unsigned int len = ObjectSize(raw, tag);
-        FObject nobj = CopyObject(len, tag);
-        memcpy(nobj, raw, len);
+            if (tag == PairTag)
+                nobj = PairObject(nobj);
+            else if (tag == FlonumTag)
+                nobj = FlonumObject(nobj);
 
-        if (tag == PairTag)
-            nobj = PairObject(nobj);
-        else if (tag == FlonumTag)
-            nobj = FlonumObject(nobj);
+            Forward(raw) = nobj;
+            *pobj = nobj;
 
-        Forward(raw) = nobj;
-        *pobj = nobj;
+            if (mf)
+                RecordBackRef(pobj, nobj);
+        }
+        else
+        {
+            *pobj = Forward(raw);
 
-        if (mf)
-            RecordBackRef(pobj, nobj);
+            if (mf)
+                RecordBackRef(pobj, Forward(raw));
+        }
     }
-    else if (GCOneP(Forward(raw)))
+    else // if (SectionTable[sdx] == OneSectionTag)
     {
         FAssert(SectionTable[sdx] == OneSectionTag);
 
-        unsigned int tag = AsValue(Forward(raw));
-        unsigned int len = ObjectSize(raw, tag);
-
-        FObject nobj;
-        if (tag == PairTag)
+        if (GCTagP(Forward(raw)))
         {
-            nobj = MakeMaturePair();
-            SetPairMark(nobj);
+            unsigned int tag = AsValue(Forward(raw));
+            unsigned int len = ObjectSize(raw, tag);
+
+            FObject nobj;
+            if (tag == PairTag)
+            {
+                nobj = MakeMaturePair();
+                SetPairMark(nobj);
+            }
+            else
+                nobj = MakeMature(len);
+
+            memcpy(nobj, raw, len);
+
+            if (tag == PairTag)
+                nobj = PairObject(nobj);
+//            else if (tag == FlonumTag)
+//                nobj = FlonumObject(nobj);
+            else
+                SetMark(nobj);
+
+            FAssert(ScanIndex < sizeof(ScanStack) / sizeof(FObject));
+
+            ScanStack[ScanIndex] = nobj;
+            ScanIndex += 1;
+
+            Forward(raw) = nobj;
+            *pobj = nobj;
         }
         else
-            nobj = MakeMature(len);
-
-        memcpy(nobj, raw, len);
-
-        if (tag == PairTag)
-            nobj = PairObject(nobj);
-//        else if (tag == FlonumTag)
-//            nobj = FlonumObject(nobj);
-        else
-            SetMark(nobj);
-
-        FAssert(ScanIndex < sizeof(ScanStack) / sizeof(FObject));
-
-        ScanStack[ScanIndex] = nobj;
-        ScanIndex += 1;
-
-        Forward(raw) = nobj;
-        *pobj = nobj;
+            *pobj = Forward(raw);
     }
 /*    else if (GCZeroOneP(Forward(raw)))
     {
@@ -639,13 +652,13 @@ static void ScanObject(FObject * pobj, int fcf, int mf)
 
         Forward(raw) = nobj;
         *pobj = nobj;
-    }*/
+    }
     else
     {
         *pobj = Forward(raw);
         if (mf && SectionTable[sdx] == ZeroSectionTag)
             RecordBackRef(pobj, Forward(raw));
-    }
+    }*/
 }
 
 static void ScanChildren(FRaw raw, unsigned int tag, int fcf)
@@ -753,7 +766,7 @@ static void CleanScan(int fcf)
             {
                 FObject *pobj = (FObject *) (((char *) ys) + ys->Scan);
 
-                FAssert(GCOneP(*pobj));
+                FAssert(SectionTable[SectionIndex(pobj)] == OneSectionTag);
 
                 unsigned int tag = AsValue(*pobj);
                 FObject obj = (FObject) (pobj + 1);
@@ -1378,7 +1391,6 @@ void SetupMM()
                                 "(set-car! tconc (cdr first))"
                                 "(car first))))"
                     "((obj) (install-tracker obj obj tconc))"
-"((a b c) tconc)"
                     "((obj ret) (install-tracker obj ret tconc)))))", 1), R.Bedrock);
 
     LibraryExport(R.BedrockLibrary, EnvironmentLookup(R.Bedrock,
