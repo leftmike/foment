@@ -29,6 +29,7 @@ To Do:
 
 Bugs:
 
+-- gc.cpp: AllocateSection failing is not handled by all callers
 -- execute.cpp: DynamicEnvironment needs to be put someplace
 -- Execute does not check for CStack or AStack overflow
 -- parameters are broken for threads

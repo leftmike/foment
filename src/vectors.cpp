@@ -107,6 +107,19 @@ Define("make-vector", MakeVectorPrimitive)(int argc, FObject argv[])
     return(MakeVector(AsFixnum(argv[0]), 0, argc == 2 ? argv[1] : NoValueObject));
 }
 
+Define("vector-length", VectorLengthPrimitive)(int argc, FObject argv[])
+{
+    if (argc != 1)
+        RaiseExceptionC(R.Assertion, "vector-length", "vector-length: expected one argument",
+                EmptyListObject);
+
+    if (VectorP(argv[0]) == 0)
+        RaiseExceptionC(R.Assertion, "vector-length",
+                "vector-length: expected a vector", List(argv[0]));
+
+    return(MakeFixnum(VectorLength(argv[0])));
+}
+
 Define("vector-ref", VectorRefPrimitive)(int argc, FObject argv[])
 {
     if (argc != 2)
@@ -233,6 +246,7 @@ static FPrimitive * Primitives[] =
 {
     &VectorPPrimitive,
     &MakeVectorPrimitive,
+    &VectorLengthPrimitive,
     &VectorRefPrimitive,
     &VectorSetPrimitive,
     &ListToVectorPrimitive

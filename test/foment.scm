@@ -180,3 +180,18 @@
 (must-equal #f (t))
 (collect)
 (must-equal #f (t))
+
+;;
+;; Collector and Back References
+;;
+
+(define v (make-vector (* 1024 128)))
+(collect)
+(collect)
+(define (fill-vector! vector idx)
+    (if (< idx (vector-length vector))
+        (begin
+            (vector-set! vector idx (cons idx idx))
+            (fill-vector! vector (+ idx 1)))))
+(fill-vector! v 0)
+

@@ -12,16 +12,12 @@ Garbage Collection:
     allocate an object
 -- GC does not occur during an allocation, only at AllowGC points for all threads
 
--- trackers: as long as the obj and tconc are alive, then the ret will be kept alive
-
 6 reserve bits
 1024 = 10 bits
 2048
 4096 = 12 bits
 
--- trigger GC based on bytes allocated or number of objects allocated
 -- merge some of the fields in FProcedure into Reserved
--- fail gracefully if run out of BackRef space: just force a full collection next time
 -- growing Scan stack, maybe should be a segment
 -- ExecuteState and stacks should be segments
 -- mark collector: mark-compact always full collection
@@ -45,13 +41,14 @@ typedef enum
     ZeroSectionTag, // Generation Zero
     OneSectionTag, // Generation One
     MatureSectionTag,
-    PairSectionTag
+    PairSectionTag,
+    BackRefSectionTag
 } FSectionTag;
 
 static unsigned char * SectionTable;
 static unsigned int UsedSections;
 
-#define SECTION_SIZE 1024 * 16
+#define SECTION_SIZE (1024 * 16)
 #define SectionIndex(ptr) ((((unsigned int) (ptr)) - ((unsigned int) SectionTable)) >> 14)
 #define SectionPointer(sdx) ((unsigned char *) (((sdx) << 14) + ((unsigned int) SectionTable)))
 #define SectionOffset(ptr) (((unsigned int) (ptr)) & 0x3FFF)
@@ -60,7 +57,7 @@ static unsigned int UsedSections;
 #define MatureP(obj) (SectionTable[SectionIndex(obj)] == MatureSectionTag)
 #define MaturePairP(obj) (SectionTable[SectionIndex(obj)] == PairSectionTag)
 
-#define MAXIMUM_YOUNG_LENGTH 1024 * 4
+#define MAXIMUM_YOUNG_LENGTH (1024 * 4)
 
 typedef struct _FYoungSection
 {
@@ -101,21 +98,25 @@ static inline void SetPairMark(FRaw raw)
 
 unsigned int BytesAllocated = 0;
 unsigned int BytesSinceLast = 0;
+unsigned int ObjectsSinceLast = 0;
 unsigned int CollectionCount = 0;
 unsigned int PartialPerFull = 4;
 unsigned int TriggerBytes = SECTION_SIZE * 4;
+unsigned int TriggerObjects = TriggerBytes / (sizeof(FPair) * 2);
+unsigned int MaximumBackRefFraction = 128;
 
 static int UsedRoots = 0;
 static FObject * Roots[128];
 
 static FExecuteState * ExecuteState = 0;
 int GCRequired = 1;
+int FullGCRequired = 0;
 
 #define GCTagP(obj) ImmediateP(obj, GCTagTag)
 
 #define Forward(obj) (*(((FObject *) (obj)) - 1))
 
-static FObject ScanStack[1024];
+static FObject ScanStack[1024 * 128];
 static int ScanIndex;
 
 #define MarkP(obj) (*((unsigned int *) (obj)) & RESERVED_MARK_BIT)
@@ -139,8 +140,15 @@ typedef struct
     FObject Value;
 } FBackRef;
 
-static FBackRef BackRef[1024 * 4];
-static int BackRefCount;
+typedef struct _BackRefSection
+{
+    struct _BackRefSection * Next;
+    int Used;
+    FBackRef BackRef[1];
+} FBackRefSection;
+
+static FBackRefSection * BackRefSections;
+static int BackRefSectionCount;
 
 static FObject YoungGuardians;
 static FObject MatureGuardians;
@@ -310,7 +318,11 @@ FObject MakeObject(unsigned int sz, unsigned int tag)
 
     BytesAllocated += len;
     BytesSinceLast += len;
+    ObjectsSinceLast += 1;
     if (BytesSinceLast > TriggerBytes)
+        GCRequired = 1;
+
+    if (ObjectsSinceLast > TriggerObjects)
         GCRequired = 1;
 
     if (ActiveZero->Used + len + sizeof(FObject) > SECTION_SIZE)
@@ -474,16 +486,54 @@ void LeaveExecute(FExecuteState * es)
     ExecuteState = 0;
 }
 
+static FBackRefSection * AllocateBackRefSection(FBackRefSection * nxt)
+{
+    FBackRefSection * brs = (FBackRefSection *) AllocateSection(1, BackRefSectionTag);
+    brs->Next = nxt;
+    brs->Used = 0;
+
+    BackRefSectionCount += 1;
+
+    return(brs);
+}
+
+static void FreeBackRefSections()
+{
+    FBackRefSection * brs = BackRefSections->Next;
+    BackRefSections->Next = 0;
+    BackRefSections->Used = 0;
+    BackRefSectionCount = 1;
+
+    while (brs != 0)
+    {
+        FBackRefSection * tbrs = brs;
+        brs = brs->Next;
+        FreeSection(tbrs);
+    }
+}
+
 static void RecordBackRef(FObject * ref, FObject val)
 {
     FAssert(*ref == val);
     FAssert(ObjectP(val));
 
-    BackRef[BackRefCount].Ref = ref;
-    BackRef[BackRefCount].Value = val;
-    BackRefCount += 1;
+    if (BackRefSections->Used == ((SECTION_SIZE - sizeof(FBackRefSection)) / sizeof(FBackRef)) + 1)
+    {
+        if (BackRefSectionCount * MaximumBackRefFraction > UsedSections)
+        {
+            FullGCRequired = 1;
+            FreeBackRefSections();
+        }
+        else
+            BackRefSections = AllocateBackRefSection(BackRefSections);
+    }
 
-    FAssert(BackRefCount < sizeof(BackRef) / sizeof(FBackRef));
+    if (FullGCRequired == 0)
+    {
+        BackRefSections->BackRef[BackRefSections->Used].Ref = ref;
+        BackRefSections->BackRef[BackRefSections->Used].Value = val;
+        BackRefSections->Used += 1;
+    }
 }
 
 void ModifyVector(FObject obj, unsigned int idx, FObject val)
@@ -628,37 +678,6 @@ static void ScanObject(FObject * pobj, int fcf, int mf)
         else
             *pobj = Forward(raw);
     }
-/*    else if (GCZeroOneP(Forward(raw)))
-    {
-        unsigned int tag = AsValue(Forward(raw));
-        unsigned int len = ObjectSize(raw, tag);
-        FObject nobj = GCZeroP(Forward(raw)) ? CopyObject(len, tag) :
-            (tag == PairTag ? MakeMaturePair() : MakeMature(len));
-//            MakeMature(len);
-        memcpy(nobj, raw, len);
-
-        if (tag == PairTag)
-            nobj = PairObject(nobj);
-        else if (tag == FlonumTag)
-            nobj = FlonumObject(nobj);
-
-        if (GCOneP(Forward(raw)))
-        {
-            FAssert(ScanIndex < sizeof(ScanStack) / sizeof(FObject));
-
-            ScanStack[ScanIndex] = nobj;
-            ScanIndex += 1;
-        }
-
-        Forward(raw) = nobj;
-        *pobj = nobj;
-    }
-    else
-    {
-        *pobj = Forward(raw);
-        if (mf && SectionTable[sdx] == ZeroSectionTag)
-            RecordBackRef(pobj, Forward(raw));
-    }*/
 }
 
 static void ScanChildren(FRaw raw, unsigned int tag, int fcf)
@@ -931,6 +950,7 @@ printf("Partial Collection...");
     CollectionCount += 1;
     GCRequired = 0;
     BytesSinceLast = 0;
+    ObjectsSinceLast = 0;
 
     ScanIndex = 0;
 
@@ -944,7 +964,9 @@ printf("Partial Collection...");
 
     if (fcf)
     {
-        BackRefCount = 0;
+        FullGCRequired = 0;
+
+        FreeBackRefSections();
 
         unsigned int sdx = 0;
         while (sdx <= UsedSections)
@@ -1007,15 +1029,21 @@ printf("Partial Collection...");
 
     if (fcf == 0)
     {
-        for (int idx = 0; idx < BackRefCount; idx++)
+        FBackRefSection * brs = BackRefSections;
+        while (brs != 0)
         {
-            if (*BackRef[idx].Ref == BackRef[idx].Value)
+            for (int idx = 0; idx < brs->Used; idx++)
             {
-                FAssert(ObjectP(*BackRef[idx].Ref));
+                if (*brs->BackRef[idx].Ref == brs->BackRef[idx].Value)
+                {
+                    FAssert(ObjectP(*brs->BackRef[idx].Ref));
 
-                ScanObject(BackRef[idx].Ref, fcf, 0);
-                BackRef[idx].Value = *BackRef[idx].Ref;
+                    ScanObject(brs->BackRef[idx].Ref, fcf, 0);
+                    brs->BackRef[idx].Value = *brs->BackRef[idx].Ref;
+                }
             }
+
+            brs = brs->Next;
         }
 
         if (ObjectP(MatureGuardians))
@@ -1143,8 +1171,12 @@ printf("Partial Collection...");
 void Collect()
 {
     FAssert(GCRequired != 0);
+    FAssert(PartialPerFull >= 0);
 
-    Collect((CollectionCount + 1) % PartialPerFull == 0);
+    if (FullGCRequired)
+        Collect(1);
+    else
+        Collect((CollectionCount + 1) % (PartialPerFull + 1) == 0);
 }
 
 void InstallGuardian(FObject obj, FObject tconc)
@@ -1206,12 +1238,13 @@ void SetupGC()
 
     ActiveZero = AllocateYoung(0, ZeroSectionTag);
 
-    BackRefCount = 0;
-
     YoungGuardians = EmptyListObject;
     MatureGuardians = EmptyListObject;
     YoungTrackers = EmptyListObject;
     MatureTrackers = EmptyListObject;
+
+    BackRefSections = AllocateBackRefSection(0);
+    BackRefSectionCount = 1;
 
     for (unsigned int idx = 0; idx < sizeof(Sizes) / sizeof(unsigned int); idx++)
         Sizes[idx] = 0;
@@ -1283,9 +1316,9 @@ Define("partial-per-full", PartialPerFullPrimitive)(int argc, FObject argv[])
 
     if (argc > 0)
     {
-        if (FixnumP(argv[0]) == 0 || AsFixnum(argv[0]) < 1)
+        if (FixnumP(argv[0]) == 0 || AsFixnum(argv[0]) < 0)
             RaiseExceptionC(R.Assertion, "partial-per-full",
-                "partial-per-full: expected a fixnum greater than zero", List(argv[0]));
+                "partial-per-full: expected a non-negative fixnum", List(argv[0]));
 
         PartialPerFull = AsFixnum(argv[0]);
     }
@@ -1313,6 +1346,26 @@ Define("trigger-bytes", TriggerBytesPrimitive)(int argc, FObject argv[])
     return(MakeFixnum(TriggerBytes));
 }
 
+Define("trigger-objects", TriggerObjectsPrimitive)(int argc, FObject argv[])
+{
+    // (trigger-objects [<val>])
+
+    if (argc > 1)
+        RaiseExceptionC(R.Assertion, "trigger-objects",
+                "trigger-objects: expected zero or one arguments", EmptyListObject);
+
+    if (argc > 0)
+    {
+        if (FixnumP(argv[0]) == 0 || AsFixnum(argv[0]) < 0)
+            RaiseExceptionC(R.Assertion, "trigger-objects",
+                "trigger-objects: expected a non-negative fixnum", List(argv[0]));
+
+        TriggerObjects = AsFixnum(argv[0]);
+    }
+
+    return(MakeFixnum(TriggerObjects));
+}
+
 Define("dump-gc", DumpGCPrimitive)(int argc, FObject argv[])
 {
     if (argc != 0)
@@ -1334,6 +1387,7 @@ Define("dump-gc", DumpGCPrimitive)(int argc, FObject argv[])
         case OneSectionTag: printf("One\n"); break;
         case MatureSectionTag: printf("Mature\n"); break;
         case PairSectionTag: printf("Pair\n"); break;
+        case BackRefSectionTag: printf("BackRef\n"); break;
         default: printf("Unknown\n"); break;
         }
     }
@@ -1357,6 +1411,7 @@ static FPrimitive * Primitives[] =
     &CollectPrimitive,
     &PartialPerFullPrimitive,
     &TriggerBytesPrimitive,
+    &TriggerObjectsPrimitive,
     &DumpGCPrimitive
 };
 
