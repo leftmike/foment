@@ -18,7 +18,6 @@ Garbage Collection:
 4096 = 12 bits
 
 -- merge some of the fields in FProcedure into Reserved
--- growing Scan stack, maybe should be a segment
 -- ExecuteState and stacks should be segments
 -- mark collector: mark-compact always full collection
 */
@@ -42,7 +41,8 @@ typedef enum
     OneSectionTag, // Generation One
     MatureSectionTag,
     PairSectionTag,
-    BackRefSectionTag
+    BackRefSectionTag,
+    ScanSectionTag
 } FSectionTag;
 
 static unsigned char * SectionTable;
@@ -116,9 +116,6 @@ int FullGCRequired = 0;
 
 #define Forward(obj) (*(((FObject *) (obj)) - 1))
 
-static FObject ScanStack[1024 * 128];
-static int ScanIndex;
-
 #define MarkP(obj) (*((unsigned int *) (obj)) & RESERVED_MARK_BIT)
 #define SetMark(obj) *((unsigned int *) (obj)) |= RESERVED_MARK_BIT
 #define ClearMark(obj) *((unsigned int *) (obj)) &= ~RESERVED_MARK_BIT
@@ -149,6 +146,15 @@ typedef struct _BackRefSection
 
 static FBackRefSection * BackRefSections;
 static int BackRefSectionCount;
+
+typedef struct _ScanSection
+{
+    struct _ScanSection * Next;
+    int Used;
+    FObject Scan[1];
+} FScanSection;
+
+static FScanSection * ScanSections;
 
 static FObject YoungGuardians;
 static FObject MatureGuardians;
@@ -512,6 +518,15 @@ static void FreeBackRefSections()
     }
 }
 
+static FScanSection * AllocateScanSection(FScanSection * nxt)
+{
+    FScanSection * ss = (FScanSection *) AllocateSection(1, ScanSectionTag);
+    ss->Next = nxt;
+    ss->Used = 0;
+
+    return(ss);
+}
+
 static void RecordBackRef(FObject * ref, FObject val)
 {
     FAssert(*ref == val);
@@ -579,6 +594,15 @@ void SetRest(FObject obj, FObject val)
         RecordBackRef(&(AsPair(obj)->Rest), val);
 }
 
+static void AddToScan(FObject obj)
+{
+    if (ScanSections->Used == ((SECTION_SIZE - sizeof(FScanSection)) / sizeof(FObject)) + 1)
+        ScanSections = AllocateScanSection(ScanSections);
+
+    ScanSections->Scan[ScanSections->Used] = obj;
+    ScanSections->Used += 1;
+}
+
 static void ScanObject(FObject * pobj, int fcf, int mf)
 {
     FAssert(ObjectP(*pobj));
@@ -593,11 +617,7 @@ static void ScanObject(FObject * pobj, int fcf, int mf)
         if (fcf && MarkP(raw) == 0)
         {
             SetMark(raw);
-
-            FAssert(ScanIndex < sizeof(ScanStack) / sizeof(FObject));
-
-            ScanStack[ScanIndex] = *pobj;
-            ScanIndex += 1;
+            AddToScan(*pobj);
         }
     }
     else if (SectionTable[sdx] == PairSectionTag)
@@ -605,11 +625,7 @@ static void ScanObject(FObject * pobj, int fcf, int mf)
         if (fcf && PairMarkP(raw) == 0)
         {
             SetPairMark(raw);
-
-            FAssert(ScanIndex < sizeof(ScanStack) / sizeof(FObject));
-
-            ScanStack[ScanIndex] = *pobj;
-            ScanIndex += 1;
+            AddToScan(*pobj);
         }
     }
     else if (SectionTable[sdx] == ZeroSectionTag)
@@ -667,10 +683,7 @@ static void ScanObject(FObject * pobj, int fcf, int mf)
             else
                 SetMark(nobj);
 
-            FAssert(ScanIndex < sizeof(ScanStack) / sizeof(FObject));
-
-            ScanStack[ScanIndex] = nobj;
-            ScanIndex += 1;
+            AddToScan(nobj);
 
             Forward(raw) = nobj;
             *pobj = nobj;
@@ -680,6 +693,7 @@ static void ScanObject(FObject * pobj, int fcf, int mf)
     }
 }
 
+static void CleanScan(int fcf);
 static void ScanChildren(FRaw raw, unsigned int tag, int fcf)
 {
     int mf = MatureP(raw) || MaturePairP(raw);
@@ -707,8 +721,13 @@ static void ScanChildren(FRaw raw, unsigned int tag, int fcf)
 
     case VectorTag:
         for (unsigned int vdx = 0; vdx < VectorLength(raw); vdx++)
+        {
             if (ObjectP(AsVector(raw)->Vector[vdx]))
                 ScanObject(AsVector(raw)->Vector + vdx, fcf, mf);
+            if (ScanSections->Next != 0 && ScanSections->Used
+                    > ((SECTION_SIZE - sizeof(FScanSection)) / sizeof(FObject)) / 2)
+                CleanScan(fcf);
+        }
         break;
 
     case BytevectorTag:
@@ -759,10 +778,22 @@ static void CleanScan(int fcf)
 {
     for (;;)
     {
-        while (ScanIndex > 0)
+
+        for (;;)
         {
-            ScanIndex -= 1;
-            FObject obj = ScanStack[ScanIndex];
+            if (ScanSections->Used == 0)
+            {
+                if (ScanSections->Next == 0)
+                    break;
+
+                FScanSection * ss = ScanSections;
+                ScanSections = ScanSections->Next;
+                FreeSection(ss);
+                FAssert(ScanSections->Used > 0);
+            }
+
+            ScanSections->Used -= 1;
+            FObject obj = ScanSections->Scan[ScanSections->Used];
 
             FAssert(ObjectP(obj));
 
@@ -796,8 +827,7 @@ static void CleanScan(int fcf)
 
             ys = ys->Next;
         }
-
-        if (GenerationOne->Scan == GenerationOne->Used && ScanIndex == 0)
+        if (GenerationOne->Scan == GenerationOne->Used && ScanSections->Used == 0)
             break;
     }
 }
@@ -952,7 +982,9 @@ printf("Partial Collection...");
     BytesSinceLast = 0;
     ObjectsSinceLast = 0;
 
-    ScanIndex = 0;
+    ScanSections->Used = 0;
+
+    FAssert(ScanSections->Next == 0);
 
     ActiveZero->Next = GenerationZero;
     FYoungSection * gz  = ActiveZero;
@@ -1246,6 +1278,8 @@ void SetupGC()
     BackRefSections = AllocateBackRefSection(0);
     BackRefSectionCount = 1;
 
+    ScanSections = AllocateScanSection(0);
+
     for (unsigned int idx = 0; idx < sizeof(Sizes) / sizeof(unsigned int); idx++)
         Sizes[idx] = 0;
 }
@@ -1388,6 +1422,7 @@ Define("dump-gc", DumpGCPrimitive)(int argc, FObject argv[])
         case MatureSectionTag: printf("Mature\n"); break;
         case PairSectionTag: printf("Pair\n"); break;
         case BackRefSectionTag: printf("BackRef\n"); break;
+        case ScanSectionTag: printf("Scan\n"); break;
         default: printf("Unknown\n"); break;
         }
     }

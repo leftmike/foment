@@ -195,3 +195,8 @@
             (fill-vector! vector (+ idx 1)))))
 (fill-vector! v 0)
 
+(define (make-list idx max lst)
+    (if (< idx max)
+        (make-list (+ idx 1) max (cons idx lst))))
+(make-list 0 (* 1024 128) '())
+
