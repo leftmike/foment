@@ -12,14 +12,8 @@ Garbage Collection:
     allocate an object
 -- GC does not occur during an allocation, only at AllowGC points for all threads
 
-6 reserve bits
-1024 = 10 bits
-2048
-4096 = 12 bits
-
--- merge some of the fields in FProcedure into Reserved
--- ExecuteState and stacks should be segments
--- mark collector: mark-compact always full collection
+-- IO and GC
+-- ExecuteState and stacks should be segments: the two stacks should grow towards each other
 */
 
 #include <windows.h>

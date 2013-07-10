@@ -13,19 +13,26 @@ To Do:
 -- CompileProgram
 -- RunProgram
 
--- inline primitives in GPassExpression
-
 -- define-record-type
+
 -- guard
 -- parameterize
-
--- debugging information
+-- call-with-current-continuation
+-- dynamic-wind
+-- with-exception-handler
+-- raise
+-- raise-continuable
+-- threads
 
 -- strings and srfi-13
 
--- number tags should require only a single test by sharing part of a tag
-
 -- garbage collection
+
+Future:
+-- some mature segments are compacted during a full collection; ie. mark-compact
+-- inline primitives in GPassExpression
+-- debugging information
+-- number tags should require only a single test by sharing part of a tag
 
 Bugs:
 
@@ -637,8 +644,6 @@ typedef struct
     FObject Name;
     FObject Code;
     FObject RestArg;
-    int ArgCount;
-    unsigned int Flags;
 } FProcedure;
 
 #define AsProcedure(obj) ((FProcedure *) (obj))
@@ -646,8 +651,12 @@ typedef struct
 
 FObject MakeProcedure(FObject nam, FObject cv, int ac, FObject ra);
 
-#define PROCEDURE_FLAG_CLOSURE   0x0001
-#define PROCEDURE_FLAG_PARAMETER 0x0002
+#define MAXIMUM_ARG_COUNT 0xFFFF
+#define ProcedureArgCount(obj)\
+    ((int) ((AsProcedure(obj)->Reserved >> RESERVED_BITS) & MAXIMUM_ARG_COUNT))
+
+#define PROCEDURE_FLAG_CLOSURE   0x80000000
+#define PROCEDURE_FLAG_PARAMETER 0x40000000
 
 // ---- Exception ----
 

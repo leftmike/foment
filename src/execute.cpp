@@ -16,12 +16,10 @@ static FObject DynamicEnvironment;
 static FObject MakeProcedure(FObject nam, FObject cv, int ac, FObject ra, unsigned int fl)
 {
     FProcedure * p = (FProcedure *) MakeObject(sizeof(FProcedure), ProcedureTag);
-    p->Reserved = ProcedureTag;
+    p->Reserved = MakeLength(ac, ProcedureTag) | fl;
     p->Name = SyntaxToDatum(nam);
     p->Code = cv;
     p->RestArg = ra;
-    p->ArgCount = ac;
-    p->Flags = fl;
 
     return(p);
 }
@@ -752,8 +750,8 @@ TailCallPrimitive:
                         FAssert(ProcedureP(prc));
 
                         if ((AsProcedure(prc)->RestArg == TrueObject
-                                && es.ArgCount + 1 >= AsProcedure(prc)->ArgCount)
-                                || AsProcedure(prc)->ArgCount == es.ArgCount)
+                                && es.ArgCount + 1 >= ProcedureArgCount(prc))
+                                || ProcedureArgCount(prc) == es.ArgCount)
                         {
                             es.Proc = prc;
                             FAssert(VectorP(AsProcedure(es.Proc)->Code));
@@ -784,7 +782,7 @@ TailCallPrimitive:
     }
 }
 
-#define ParameterP(obj) (ProcedureP(obj) && AsProcedure(obj)->Flags & PROCEDURE_FLAG_PARAMETER)
+#define ParameterP(obj) (ProcedureP(obj) && AsProcedure(obj)->Reserved & PROCEDURE_FLAG_PARAMETER)
 
 Define("get-parameter", GetParameterPrimitive)(int argc, FObject argv[])
 {
@@ -862,7 +860,7 @@ Define("procedure->parameter", ProcedureToParameterPrimitive)(int argc, FObject 
          RaiseExceptionC(R.Assertion, "procedure->parameter",
                  "procedure->parameter: expected a procedure", List(argv[0]));
 
-    AsProcedure(argv[0])->Flags |= PROCEDURE_FLAG_PARAMETER;
+    AsProcedure(argv[0])->Reserved |= PROCEDURE_FLAG_PARAMETER;
 
     return(NoValueObject);
 }

@@ -1062,10 +1062,10 @@ static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn,
             wfn(port, AsProcedure(obj)->Name, df, wfn, ctx);
         }
 
-        if (AsProcedure(obj)->Flags & PROCEDURE_FLAG_CLOSURE)
+        if (AsProcedure(obj)->Reserved & PROCEDURE_FLAG_CLOSURE)
             PutStringC(port, " closure");
 
-        if (AsProcedure(obj)->Flags & PROCEDURE_FLAG_PARAMETER)
+        if (AsProcedure(obj)->Reserved & PROCEDURE_FLAG_PARAMETER)
             PutStringC(port, " parameter");
 
         PutCh(port, ' ');
