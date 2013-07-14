@@ -153,7 +153,9 @@ static FScanSection * ScanSections;
 static FObject YoungGuardians;
 static FObject MatureGuardians;
 static FObject YoungTrackers;
+#ifdef FOMENT_DEBUG
 static FObject MatureTrackers;
+#endif // FOMENT_DEBUG
 
 static unsigned int Sizes[1024 * 8];
 
@@ -928,7 +930,7 @@ static void CollectGuardians(int fcf)
     }
 }
 
-static void CollectTrackers(FObject trkrs, int fcf)
+static void CollectTrackers(FObject trkrs, int fcf, int mtf)
 {
     while (trkrs != EmptyListObject)
     {
@@ -943,7 +945,7 @@ static void CollectTrackers(FObject trkrs, int fcf)
         FAssert(ObjectP(obj));
         FAssert(ObjectP(tconc));
 
-        if (AliveP(obj) && AliveP(tconc))
+        if (AliveP(obj) && AliveP(ret) && AliveP(tconc))
         {
             FObject oo = obj;
 
@@ -951,6 +953,8 @@ static void CollectTrackers(FObject trkrs, int fcf)
             if (ObjectP(ret))
                 ScanObject(&ret, fcf, 0);
             ScanObject(&tconc, fcf, 0);
+
+            FAssert(mtf == 0 || oo == obj);
 
             if (oo == obj)
                 InstallTracker(obj, ret, tconc);
@@ -1075,13 +1079,16 @@ printf("Partial Collection...");
         if (ObjectP(MatureGuardians))
             ScanObject(&MatureGuardians, fcf, 0);
 
+#ifdef FOMENT_DEBUG
         if (ObjectP(MatureTrackers))
             ScanObject(&MatureTrackers, fcf, 0);
+#endif // FOMENT_DEBUG
     }
 
     CleanScan(fcf);
     CollectGuardians(fcf);
 
+#ifdef FOMENT_DEBUG
     if (fcf)
     {
         FObject yt = YoungTrackers;
@@ -1089,15 +1096,16 @@ printf("Partial Collection...");
         FObject mt = MatureTrackers;
         MatureTrackers = EmptyListObject;
 
-        CollectTrackers(yt, fcf);
-        CollectTrackers(mt, fcf);
+        CollectTrackers(yt, fcf, 0);
+        CollectTrackers(mt, fcf, 1);
     }
     else
+#endif // FOMENT_DEBUG
     {
         FObject yt = YoungTrackers;
         YoungTrackers = EmptyListObject;
 
-        CollectTrackers(yt, fcf);
+        CollectTrackers(yt, fcf, 0);
     }
 
     CleanScan(fcf);
@@ -1225,10 +1233,12 @@ void InstallTracker(FObject obj, FObject ret, FObject tconc)
     FAssert(PairP(First(tconc)));
     FAssert(PairP(Rest(tconc)));
 
-    if (MatureP(obj) || MaturePairP(obj))
-        MatureTrackers = MakePair(MakePair(obj, MakePair(ret, tconc)), MatureTrackers);
-    else
+    if (MatureP(obj) == 0 && MaturePairP(obj) == 0)
         YoungTrackers = MakePair(MakePair(obj, MakePair(ret, tconc)), YoungTrackers);
+#ifdef FOMENT_DEBUG
+    else
+        MatureTrackers = MakePair(MakePair(obj, MakePair(ret, tconc)), MatureTrackers);
+#endif // FOMENT_DEBUG
 }
 
 void SetupGC()
@@ -1267,7 +1277,9 @@ void SetupGC()
     YoungGuardians = EmptyListObject;
     MatureGuardians = EmptyListObject;
     YoungTrackers = EmptyListObject;
+#ifdef FOMENT_DEBUG
     MatureTrackers = EmptyListObject;
+#endif // FOMENT_DEBUG
 
     BackRefSections = AllocateBackRefSection(0);
     BackRefSectionCount = 1;
