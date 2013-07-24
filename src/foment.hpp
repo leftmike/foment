@@ -96,6 +96,9 @@ typedef enum
     RecordTypeTag,
     RecordTag,
     PrimitiveTag,
+    ThreadTag,
+    ExclusiveTag,
+    ConditionTag,
 
     // Invalid Tag
 
@@ -119,6 +122,7 @@ typedef enum
 
 FObject MakeObject(unsigned int sz, unsigned int tag);
 FObject MakeMatureObject(unsigned int len, char * who);
+FObject MakePinnedObject(unsigned int len, char * who);
 
 #define RESERVED_BITS 6
 #define RESERVED_TAGMASK 0x1F
@@ -129,6 +133,7 @@ FObject MakeMatureObject(unsigned int len, char * who);
 #define ObjectLength(obj) ((*((unsigned int *) (obj))) >> RESERVED_BITS)
 #define MakeLength(len, tag) (((len) << RESERVED_BITS) | (tag))
 #define MakeMatureLength(len, tag) (((len) << RESERVED_BITS) | (tag) | RESERVED_MARK_BIT)
+#define MakePinnedLength(len, tag) MakeMatureLength((len), (tag))
 
 inline FIndirectTag IndirectTag(FObject obj)
 {
@@ -139,9 +144,18 @@ void PushRoot(FObject * rt);
 void PopRoot();
 void ClearRoots();
 
-extern int GCRequired;
+typedef enum
+{
+    GCIdle = 0,
+    GCRequired,
+    GCPending,
+    GCRunning
+} FGCState;
+
+extern FGCState GCState;
+
 void Collect();
-#define AllowGC() if (GCRequired) Collect()
+#define CheckForGC() if (GCState == GCRequired) Collect()
 
 void ModifyVector(FObject obj, unsigned int idx, FObject val);
 
@@ -762,6 +776,8 @@ typedef struct
     FObject NotCallable;
     FObject UnexpectedNumberOfValues;
     FObject UndefinedMessage;
+
+    FObject Threads;
 } FRoots;
 
 extern FRoots R;
@@ -790,7 +806,7 @@ void SetupFoment(int argc, char * argv[]);
 
 // ---- Do Not Call Directly ----
 
-void SetupGC();
+void SetupCore();
 void SetupLibrary();
 void SetupPairs();
 void SetupStrings();
@@ -799,10 +815,14 @@ void SetupIO();
 void SetupCompile();
 void SetupExecute();
 void SetupNumbers();
-void SetupMM();
+void SetupGC();
+void SetupThreads();
 
 void WriteSpecialSyntax(FObject port, FObject obj, int df);
 void WriteInstruction(FObject port, FObject obj, int df);
+void WriteThread(FObject port, FObject obj, int df);
+void WriteExclusive(FObject port, FObject obj, int df);
+void WriteCondition(FObject port, FObject obj, int df);
 
 #ifdef FOMENT_WIN32
 #define PathCh '\\'

@@ -4,16 +4,31 @@ Foment
 
 Garbage Collection:
 -- C code does not have to worry about it if it doesn't want to, other than Modify
--- StartAllowGC() and StopAllowGC() to denote a block of code where GC can occur; typically
-    around a potentially lengthy IO operation
 -- Root(obj) used to tell GC about a temporary root object; exceptions and return need to
     stop rooting objects; rooting extra objects is ok, if it simplifies the C code
 -- each thread has an allocation block for the 1st generation: no syncronization necessary to
     allocate an object
--- GC does not occur during an allocation, only at AllowGC points for all threads
+
+-- EnterWait and LeaveWait to notify safe to gc during a wait; do it for
+   EnterExclusivePrimitive and ConditionWaitPrimitive
+
+-- need to keep track of FExclusive and/or FCondition that a thread is waiting on to keep
+   them from getting collected.
+
+-- eventually can get rid of EnterExecute and LeaveExecute: can just be part of FThread
+
+-- close Handle when FThread gets collected
+-- DeleteExclusve when FExclusive gets collected
+
+-- LeaveThread and a gc is pending
+
+-- FThread is a pinned object, so Thunk may be a backward pointer
+
+-- ActiveZero needs to be per thread
 
 -- IO and GC
--- ExecuteState and stacks should be segments: the two stacks should grow towards each other
+-- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
+-- AStack and VStack should be segments: the two stacks should grow towards each other
 */
 
 #include <windows.h>
@@ -22,6 +37,7 @@ Garbage Collection:
 #include "foment.hpp"
 #include "execute.hpp"
 #include "io.hpp"
+#include "syncthrd.hpp"
 
 typedef void * FRaw;
 #define AsRaw(obj) ((FRaw) (((unsigned int) (obj)) & ~0x3))
@@ -103,8 +119,9 @@ static int UsedRoots = 0;
 static FObject * Roots[128];
 
 static FExecuteState * ExecuteState = 0;
-int GCRequired = 1;
-int FullGCRequired = 0;
+
+FGCState GCState = GCRequired;
+static int FullGCRequired = 0;
 
 #define GCTagP(obj) ImmediateP(obj, GCTagTag)
 
@@ -157,6 +174,14 @@ static FObject YoungTrackers;
 static FObject MatureTrackers;
 #endif // FOMENT_DEBUG
 
+#ifdef FOMENT_WIN32
+unsigned int TlsIndex;
+#endif // FOMENT_WIN32
+
+unsigned int TotalThreads;
+unsigned int WaitThreads;
+OSExclusive ThreadsExclusive;
+
 static unsigned int Sizes[1024 * 8];
 
 static void * AllocateSection(unsigned int cnt, FSectionTag tag)
@@ -192,7 +217,9 @@ static void * AllocateSection(unsigned int cnt, FSectionTag tag)
     UsedSections += cnt;
 
     void * sec = SectionPointer(sdx);
+#ifdef FOMENT_WIN32
     VirtualAlloc(sec, SECTION_SIZE * cnt, MEM_COMMIT, PAGE_READWRITE);
+#endif // FOMENT_WIN32
 
     while (cnt > 0)
     {
@@ -292,6 +319,21 @@ static unsigned int ObjectSize(FObject obj, unsigned int tag)
 
         return(sizeof(FPrimitive));
 
+    case ThreadTag:
+        FAssert(ThreadP(obj));
+
+        return(sizeof(FThread));
+
+    case ExclusiveTag:
+        FAssert(ExclusiveP(obj));
+
+        return(sizeof(FExclusive));
+
+    case ConditionTag:
+        FAssert(ConditionP(obj));
+
+        return(sizeof(FCondition));
+
     case GCFreeTag:
         return(ByteLength(obj));
 
@@ -321,11 +363,11 @@ FObject MakeObject(unsigned int sz, unsigned int tag)
     BytesAllocated += len;
     BytesSinceLast += len;
     ObjectsSinceLast += 1;
-    if (BytesSinceLast > TriggerBytes)
-        GCRequired = 1;
+    if (BytesSinceLast > TriggerBytes && GCState == GCIdle)
+        GCState = GCRequired;
 
-    if (ObjectsSinceLast > TriggerObjects)
-        GCRequired = 1;
+    if (ObjectsSinceLast > TriggerObjects && GCState == GCIdle)
+        GCState = GCRequired;
 
     if (ActiveZero->Used + len + sizeof(FObject) > SECTION_SIZE)
     {
@@ -432,6 +474,11 @@ FObject MakeMatureObject(unsigned int len, char * who)
 
     BytesAllocated += len;
     return(obj);
+}
+
+FObject MakePinnedObject(unsigned int len, char * who)
+{
+    return(MakeMatureObject(len, who));
 }
 
 static FObject MakeMaturePair()
@@ -765,6 +812,15 @@ static void ScanChildren(FRaw raw, unsigned int tag, int fcf)
     case PrimitiveTag:
         break;
 
+    case ThreadTag:
+        break;
+
+    case ExclusiveTag:
+        break;
+
+    case ConditionTag:
+        break;
+
     default:
         FAssert(0);
     }
@@ -976,7 +1032,7 @@ printf("Partial Collection...");
 */
 
     CollectionCount += 1;
-    GCRequired = 0;
+    GCState = GCIdle;
     BytesSinceLast = 0;
     ObjectsSinceLast = 0;
 
@@ -1204,7 +1260,7 @@ printf("Partial Collection...");
 
 void Collect()
 {
-    FAssert(GCRequired != 0);
+    FAssert(GCState == GCRequired);
     FAssert(PartialPerFull >= 0);
 
     if (FullGCRequired)
@@ -1241,7 +1297,67 @@ void InstallTracker(FObject obj, FObject ret, FObject tconc)
 #endif // FOMENT_DEBUG
 }
 
-void SetupGC()
+void EnterThread(FObject thrd)
+{
+    FAssert(ThreadP(thrd));
+#ifdef FOMENT_WIN32
+    FAssert(TlsGetValue(TlsIndex) == 0);
+#endif // FOMENT_WIN32
+
+    SetThreadObject(thrd);
+
+    EnterExclusive(&ThreadsExclusive);
+    FAssert(TotalThreads > 0);
+
+    if (ThreadP(R.Threads))
+    {
+        AsThread(thrd)->Next = R.Threads;
+        AsThread(R.Threads)->Previous = thrd;
+    }
+    else
+        AsThread(thrd)->Next = NoValueObject;
+
+    AsThread(thrd)->Previous = NoValueObject;
+    R.Threads = thrd;
+    LeaveExclusive(&ThreadsExclusive);
+}
+
+void LeaveThread()
+{
+    FObject thrd = GetThreadObject();
+    FAssert(ThreadP(thrd));
+
+    SetThreadObject(0);
+
+    EnterExclusive(&ThreadsExclusive);
+    FAssert(TotalThreads > 0);
+    TotalThreads -= 1;
+
+    FAssert(ThreadP(R.Threads));
+
+    if (R.Threads == thrd)
+    {
+        R.Threads = AsThread(thrd)->Next;
+        if (ThreadP(R.Threads))
+        {
+            FAssert(TotalThreads > 0);
+
+            AsThread(R.Threads)->Previous = NoValueObject;
+        }
+    }
+    else
+    {
+        if (ThreadP(AsThread(thrd)->Next))
+            AsThread(AsThread(thrd)->Next)->Previous = AsThread(thrd)->Previous;
+
+        FAssert(ThreadP(AsThread(thrd)->Previous));
+        AsThread(AsThread(thrd)->Previous)->Next = AsThread(thrd)->Next;
+    }
+
+    LeaveExclusive(&ThreadsExclusive);
+}
+
+void SetupCore()
 {
     FAssert(sizeof(FObject) == sizeof(FImmediate));
     FAssert(sizeof(FObject) == sizeof(char *));
@@ -1257,11 +1373,16 @@ void SetupGC()
     FAssert(PAIR_MB_OFFSET / (sizeof(FPair) * 8) <= PAIR_MB_SIZE);
     FAssert(MAXIMUM_YOUNG_LENGTH <= SECTION_SIZE / 2);
 
+#ifdef FOMENT_WIN32
     SectionTable = (unsigned char *) VirtualAlloc(0, SECTION_SIZE * SECTION_SIZE, MEM_RESERVE,
             PAGE_READWRITE);
     FAssert(SectionTable != 0);
 
     VirtualAlloc(SectionTable, SECTION_SIZE, MEM_COMMIT, PAGE_READWRITE);
+
+    TlsIndex = TlsAlloc();
+    FAssert(TlsIndex != TLS_OUT_OF_INDEXES);
+#endif // FOMENT_WIN32
 
     for (unsigned int sdx = 0; sdx < SECTION_SIZE; sdx++)
         SectionTable[sdx] = HoleSectionTag;
@@ -1285,6 +1406,16 @@ void SetupGC()
     BackRefSectionCount = 1;
 
     ScanSections = AllocateScanSection(0);
+
+    InitializeExclusive(&ThreadsExclusive);
+    TotalThreads = 1;
+    WaitThreads = 0;
+
+#ifdef FOMENT_WIN32
+    HANDLE h = OpenThread(STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x3FF, 0,
+            GetCurrentThreadId());
+#endif // FOMENT_WIN32
+    EnterThread(MakeThread(h, NoValueObject));
 
     for (unsigned int idx = 0; idx < sizeof(Sizes) / sizeof(unsigned int); idx++)
         Sizes[idx] = 0;
@@ -1456,7 +1587,7 @@ static FPrimitive * Primitives[] =
     &DumpGCPrimitive
 };
 
-void SetupMM()
+void SetupGC()
 {
     for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);

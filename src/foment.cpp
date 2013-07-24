@@ -1086,11 +1086,11 @@ FObject MakeCommandLine(int argc, char * argv[])
 
 void SetupFoment(int argc, char * argv[])
 {
-    SetupGC();
-
     FObject * rv = (FObject *) &R;
     for (int rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
         rv[rdx] = NoValueObject;
+
+    SetupCore();
 
     FAssert(R.HashtableRecordType == NoValueObject);
     R.SymbolHashtable = MakeObject(sizeof(FHashtable), RecordTag);
@@ -1160,7 +1160,8 @@ void SetupFoment(int argc, char * argv[])
     SetupCompile();
     SetupExecute();
     SetupNumbers();
-    SetupMM();
+    SetupThreads();
+    SetupGC();
     SetupScheme();
 
     LibraryExport(R.BedrockLibrary,

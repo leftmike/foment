@@ -130,7 +130,7 @@ FObject Execute(FObject op, int argc, FObject argv[])
     {
         for (;;)
         {
-            AllowGC();
+            CheckForGC();
 
             FAssert(VectorP(AsProcedure(es.Proc)->Code));
             FAssert(es.IP >= 0);

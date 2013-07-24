@@ -1147,6 +1147,18 @@ static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn,
         break;
     }
 
+    case ThreadTag:
+        WriteThread(port, obj, df);
+        break;
+
+    case ExclusiveTag:
+        WriteExclusive(port, obj, df);
+        break;
+
+    case ConditionTag:
+        WriteCondition(port, obj, df);
+        break;
+
     default:
     {
         FCh s[16];
