@@ -126,7 +126,7 @@ inline void SetThreadState(FThreadState * ts)
 
 extern unsigned int TotalThreads;
 extern unsigned int WaitThreads;
-extern OSExclusive ThreadsExclusive;
+extern OSExclusive GCExclusive;
 
 void EnterThread(FThreadState * ts, FObject obj);
 void LeaveThread(FThreadState * ts);

@@ -18,11 +18,7 @@ Garbage Collection:
 -- DeleteExclusive when FExclusive gets collected
 
 -- LeaveThread and a gc is pending
-
--- synchronize access to sections etc in memory management
-
--- FomentThread needs to handle Primitives as well as Procedures as the thunk
--- RunThreadPrimitive needs to type check the thunk
+-- gc with multiple threads
 
 -- IO and GC
 -- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
@@ -101,13 +97,10 @@ unsigned int ObjectsSinceLast = 0;
 unsigned int CollectionCount = 0;
 unsigned int PartialPerFull = 4;
 unsigned int TriggerBytes = SECTION_SIZE * 4;
-unsigned int TriggerObjects = TriggerBytes / (sizeof(FPair) * 2);
+unsigned int TriggerObjects = TriggerBytes / (sizeof(FPair) * 4);
 unsigned int MaximumBackRefFraction = 128;
 
-static int UsedRoots = 0;
-static FObject * Roots[128];
-
-FGCState GCState = GCRequired;
+FGCState GCState;
 static int FullGCRequired = 0;
 
 #define GCTagP(obj) ImmediateP(obj, GCTagTag)
@@ -168,7 +161,7 @@ unsigned int TlsIndex;
 unsigned int TotalThreads;
 unsigned int WaitThreads;
 static FThreadState * Threads;
-OSExclusive ThreadsExclusive;
+OSExclusive GCExclusive;
 
 static unsigned int Sizes[1024 * 8];
 
@@ -348,21 +341,28 @@ FObject MakeObject(unsigned int sz, unsigned int tag)
     if (len > MAXIMUM_YOUNG_LENGTH)
         return(0);
 
-    BytesAllocated += len;
-    BytesSinceLast += len;
-    ObjectsSinceLast += 1;
-    if (BytesSinceLast > TriggerBytes && GCState == GCIdle)
-        GCState = GCRequired;
-
-    if (ObjectsSinceLast > TriggerObjects && GCState == GCIdle)
-        GCState = GCRequired;
-
     FThreadState * ts = GetThreadState();
+    BytesAllocated += len;
+    ts->ObjectsSinceLast += 1;
 
     if (ts->ActiveZero == 0 || ts->ActiveZero->Used + len + sizeof(FObject) > SECTION_SIZE)
     {
+        EnterExclusive(&GCExclusive);
+
         if (ts->ActiveZero != 0)
         {
+            ObjectsSinceLast += ts->ObjectsSinceLast;
+            ts->ObjectsSinceLast = 0;
+
+            FAssert(GCState == GCIdle || GCState == GCRequired);
+
+            if (ObjectsSinceLast > TriggerObjects)
+                GCState = GCRequired;
+
+            BytesSinceLast += ts->ActiveZero->Used;
+            if (BytesSinceLast > TriggerBytes)
+                GCState = GCRequired;
+
             FAssert(ts->ActiveZero->Next == 0);
 
             ts->ActiveZero->Next = GenerationZero;
@@ -370,6 +370,8 @@ FObject MakeObject(unsigned int sz, unsigned int tag)
         }
 
         ts->ActiveZero = AllocateYoung(0, ZeroSectionTag);
+
+        LeaveExclusive(&GCExclusive);
     }
 
     FObject * pobj = (FObject *) (((char *) ts->ActiveZero) + ts->ActiveZero->Used);
@@ -461,7 +463,9 @@ FObject MakeMatureObject(unsigned int len, char * who)
         RaiseExceptionC(R.Restriction, who, "length greater than maximum object length",
                 EmptyListObject);
 
+    EnterExclusive(&GCExclusive);
     FObject obj = MakeMature(len);
+    LeaveExclusive(&GCExclusive);
     if (obj == 0)
         RaiseExceptionC(R.Assertion, who, "out of memory", EmptyListObject);
 
@@ -495,23 +499,29 @@ static FObject MakeMaturePair()
 
 void PushRoot(FObject * rt)
 {
-    UsedRoots += 1;
+    FThreadState * ts = GetThreadState();
 
-    FAssert(UsedRoots < sizeof(Roots) / sizeof(FObject *));
+    ts->UsedRoots += 1;
 
-    Roots[UsedRoots - 1] = rt;
+    FAssert(ts->UsedRoots < sizeof(ts->Roots) / sizeof(FObject *));
+
+    ts->Roots[ts->UsedRoots - 1] = rt;
 }
 
 void PopRoot()
 {
-    FAssert(UsedRoots > 0);
+    FThreadState * ts = GetThreadState();
 
-    UsedRoots -= 1;
+    FAssert(ts->UsedRoots > 0);
+
+    ts->UsedRoots -= 1;
 }
 
 void ClearRoots()
 {
-    UsedRoots = 0;
+    FThreadState * ts = GetThreadState();
+
+    ts->UsedRoots = 0;
 }
 
 static FBackRefSection * AllocateBackRefSection(FBackRefSection * nxt)
@@ -581,7 +591,11 @@ void ModifyVector(FObject obj, unsigned int idx, FObject val)
     AsVector(obj)->Vector[idx] = val;
 
     if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0 && MaturePairP(val) == 0)
+    {
+        EnterExclusive(&GCExclusive);
         RecordBackRef(AsVector(obj)->Vector + idx, val);
+        LeaveExclusive(&GCExclusive);
+    }
 }
 
 void ModifyObject(FObject obj, int off, FObject val)
@@ -592,7 +606,11 @@ void ModifyObject(FObject obj, int off, FObject val)
     ((FObject *) obj)[off / sizeof(FObject)] = val;
 
     if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0 && MaturePairP(val) == 0)
+    {
+        EnterExclusive(&GCExclusive);
         RecordBackRef(((FObject *) obj) + (off / sizeof(FObject)), val);
+        LeaveExclusive(&GCExclusive);
+    }
 
 }
 
@@ -603,7 +621,11 @@ void SetFirst(FObject obj, FObject val)
     AsPair(obj)->First = val;
 
     if (MaturePairP(obj) && ObjectP(val) && MatureP(val) == 0 && MaturePairP(val) == 0)
+    {
+        EnterExclusive(&GCExclusive);
         RecordBackRef(&(AsPair(obj)->First), val);
+        LeaveExclusive(&GCExclusive);
+    }
 }
 
 void SetRest(FObject obj, FObject val)
@@ -613,7 +635,11 @@ void SetRest(FObject obj, FObject val)
     AsPair(obj)->Rest = val;
 
     if (MaturePairP(obj) && ObjectP(val) && MatureP(val) == 0 && MaturePairP(val) == 0)
+    {
+        EnterExclusive(&GCExclusive);
         RecordBackRef(&(AsPair(obj)->Rest), val);
+        LeaveExclusive(&GCExclusive);
+    }
 }
 
 static void AddToScan(FObject obj)
@@ -1033,6 +1059,7 @@ printf("Partial Collection...");
             ts->ActiveZero = 0;
         }
 
+        ts->ObjectsSinceLast = 0;
         ts = ts->Next;
     }
 
@@ -1087,15 +1114,15 @@ printf("Partial Collection...");
         if (ObjectP(rv[rdx]))
             ScanObject(rv + rdx, fcf, 0);
 
-    for (int rdx = 0; rdx < UsedRoots; rdx++)
-        if (ObjectP(*Roots[rdx]))
-            ScanObject(Roots[rdx], fcf, 0);
-
     ts = Threads;
     while (ts != 0)
     {
         FAssert(ObjectP(ts->Thread));
         ScanObject(&(ts->Thread), fcf, 0);
+
+        for (int rdx = 0; rdx < ts->UsedRoots; rdx++)
+            if (ObjectP(*ts->Roots[rdx]))
+                ScanObject(ts->Roots[rdx], fcf, 0);
 
         for (int adx = 0; adx < ts->AStackPtr; adx++)
             if (ObjectP(ts->AStack[adx]))
@@ -1305,7 +1332,7 @@ void EnterThread(FThreadState * ts, FObject obj)
 
     SetThreadState(ts);
 
-    EnterExclusive(&ThreadsExclusive);
+    EnterExclusive(&GCExclusive);
     FAssert(TotalThreads > 0);
 
     if (Threads == 0)
@@ -1318,10 +1345,12 @@ void EnterThread(FThreadState * ts, FObject obj)
 
     ts->Previous = 0;
     Threads = ts;
-    LeaveExclusive(&ThreadsExclusive);
+    LeaveExclusive(&GCExclusive);
 
     ts->Thread = obj;
     ts->ActiveZero = 0;
+    ts->ObjectsSinceLast = 0;
+    ts->UsedRoots = 0;
     ts->StackSize = SECTION_SIZE / sizeof(FObject);
     ts->AStackPtr = 0;
     ts->AStack = (FObject *) AllocateSection(1, StackSectionTag);
@@ -1348,7 +1377,7 @@ void LeaveThread(FThreadState * ts)
     }
 #endif // FOMENT_WIN32
 
-    EnterExclusive(&ThreadsExclusive);
+    EnterExclusive(&GCExclusive);
     FAssert(TotalThreads > 0);
     TotalThreads -= 1;
 
@@ -1373,7 +1402,7 @@ void LeaveThread(FThreadState * ts)
         ts->Previous->Next = ts->Next;
     }
 
-    LeaveExclusive(&ThreadsExclusive);
+    LeaveExclusive(&GCExclusive);
 
     FAssert(ts->AStack != 0);
     FAssert(ts->StackSize % SECTION_SIZE == 0);
@@ -1434,10 +1463,11 @@ void SetupCore(FThreadState * ts)
 
     ScanSections = AllocateScanSection(0);
 
-    InitializeExclusive(&ThreadsExclusive);
+    InitializeExclusive(&GCExclusive);
     TotalThreads = 1;
     WaitThreads = 0;
     Threads = 0;
+    GCState = GCRequired;
 
 #ifdef FOMENT_WIN32
     HANDLE h = OpenThread(STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x3FF, 0,
@@ -1498,10 +1528,15 @@ Define("collect", CollectPrimitive)(int argc, FObject argv[])
         RaiseExceptionC(R.Assertion, "collect", "collect: expected zero or one arguments",
                 EmptyListObject);
 
+    EnterExclusive(&GCExclusive);
+    FAssert(GCState == GCIdle || GCState == GCRequired);
+
+    GCState = GCRequired;
+    LeaveExclusive(&GCExclusive);
+
     if (argc > 0 && argv[0] != FalseObject)
-        Collect(1);
-    else
-        Collect(0);
+        FullGCRequired = 1;
+    CheckForGC();
 
     return(NoValueObject);
 }

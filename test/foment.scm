@@ -79,6 +79,7 @@
 (collect #t)
 (must-equal #f (g))
 
+(collect #t)
 (define h (make-guardian))
 (must-equal #f (h))
 (g x)

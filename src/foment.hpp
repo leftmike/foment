@@ -720,6 +720,10 @@ typedef struct _FThreadState
     FObject Thread;
 
     FYoungSection * ActiveZero;
+    unsigned int ObjectsSinceLast;
+
+    int UsedRoots;
+    FObject * Roots[8];
 
     int StackSize;
     int AStackPtr;

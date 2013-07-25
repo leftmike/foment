@@ -109,9 +109,15 @@ DWORD WINAPI FomentThread(FObject obj)
 
     EnterThread(&ts, obj);
 
-    FAssert(ProcedureP(AsThread(obj)->Thunk));
+    if (ProcedureP(AsThread(obj)->Thunk))
+        AsThread(obj)->Result = Execute(AsThread(obj)->Thunk, 0, 0);
+    else
+    {
+        FAssert(PrimitiveP(AsThread(obj)->Thunk));
 
-    AsThread(obj)->Result = Execute(AsThread(obj)->Thunk, 0, 0);
+        AsThread(obj)->Result = AsPrimitive(AsThread(obj)->Thunk)->PrimitiveFn(0, 0);
+    }
+
     LeaveThread(&ts);
     return(0);
 }
@@ -123,23 +129,24 @@ Define("run-thread", RunThreadPrimitive)(int argc, FObject argv[])
         RaiseExceptionC(R.Assertion, "run-thread", "run-thread: expected one argument",
                 EmptyListObject);
 
+    if (ProcedureP(argv[0]) == 0 && PrimitiveP(argv[0]) == 0)
+        RaiseExceptionC(R.Assertion, "run-thread",
+                "run-thread: expected a procedure or a primitive", List(argv[0]));
+
     FObject thrd = MakeThread(0, argv[0]);
-    EnterExclusive(&ThreadsExclusive);
-    TotalThreads += 1;
-    LeaveExclusive(&ThreadsExclusive);
 
 #ifdef FOMENT_WIN32
     HANDLE h = CreateThread(0, 0, FomentThread, thrd, CREATE_SUSPENDED, 0);
     if (h == 0)
     {
-        EnterExclusive(&ThreadsExclusive);
-        TotalThreads -= 1;
-        LeaveExclusive(&ThreadsExclusive);
-
         unsigned int ec = GetLastError();
         RaiseExceptionC(R.Assertion, "run-thread", "run-thread: CreateThread failed",
                 List(MakeFixnum(ec)));
     }
+
+    EnterExclusive(&GCExclusive);
+    TotalThreads += 1;
+    LeaveExclusive(&GCExclusive);
 
     AsThread(thrd)->Handle = h;
     ResumeThread(h);
