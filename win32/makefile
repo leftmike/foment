@@ -65,7 +65,7 @@ debug\txt2cpp.exe: debug\txt2cpp.obj
     debug\txt2cpp.obj
 
 debug\foment.obj: ..\src\foment.cpp ..\src\foment.hpp
-debug\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\io.hpp ..\src\syncthrd.hpp
+debug\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\io.hpp ..\src\syncthrd.hpp
 debug\syncthrd.obj: ..\src\syncthrd.cpp ..\src\foment.hpp ..\src\syncthrd.hpp
 debug\compile.obj: ..\src\compile.cpp ..\src\foment.hpp ..\src\compile.hpp
 debug\synrules.obj: ..\src\synrules.cpp ..\src\foment.hpp ..\src\compile.hpp
@@ -76,7 +76,7 @@ debug\pairs.obj: ..\src\pairs.cpp ..\src\foment.hpp
 debug\strings.obj: ..\src\strings.cpp ..\src\foment.hpp
 debug\vectors.obj: ..\src\vectors.cpp ..\src\foment.hpp
 debug\library.obj: ..\src\library.cpp ..\src\foment.hpp ..\src\compile.hpp
-debug\execute.obj: ..\src\execute.cpp ..\src\foment.hpp ..\src\execute.hpp
+debug\execute.obj: ..\src\execute.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\syncthrd.hpp
 debug\numbers.obj: ..\src\numbers.cpp ..\src\foment.hpp
 debug\io.obj: ..\src\io.cpp ..\src\foment.hpp ..\src\io.hpp
 debug\pretty.obj: ..\src\pretty.cpp ..\src\foment.hpp ..\src\io.hpp ..\src\compile.hpp
@@ -85,8 +85,7 @@ debug\startup.obj: debug\startup.cpp
 debug\test.obj: ..\src\test.cpp ..\src\foment.hpp
 
 release\foment.obj: ..\src\foment.cpp ..\src\foment.hpp
-release\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\io.hpp\
-        ..\src\syncthrd.hpp
+release\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\io.hpp ..\src\syncthrd.hpp
 release\syncthrd.obj: ..\src\syncthrd.cpp ..\src\foment.hpp ..\src\syncthrd.hpp
 release\compile.obj: ..\src\compile.cpp ..\src\foment.hpp ..\src\compile.hpp
 release\synrules.obj: ..\src\synrules.cpp ..\src\foment.hpp ..\src\compile.hpp
@@ -97,7 +96,7 @@ release\pairs.obj: ..\src\pairs.cpp ..\src\foment.hpp
 release\strings.obj: ..\src\strings.cpp ..\src\foment.hpp
 release\vectors.obj: ..\src\vectors.cpp ..\src\foment.hpp
 release\library.obj: ..\src\library.cpp ..\src\foment.hpp ..\src\compile.hpp
-release\execute.obj: ..\src\execute.cpp ..\src\foment.hpp ..\src\execute.hpp
+release\execute.obj: ..\src\execute.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\syncthrd.hpp
 release\numbers.obj: ..\src\numbers.cpp ..\src\foment.hpp
 release\io.obj: ..\src\io.cpp ..\src\foment.hpp ..\src\io.hpp
 release\pretty.obj: ..\src\pretty.cpp ..\src\foment.hpp ..\src\io.hpp ..\src\compile.hpp

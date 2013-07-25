@@ -15,27 +15,25 @@ Garbage Collection:
 -- need to keep track of FExclusive and/or FCondition that a thread is waiting on to keep
    them from getting collected.
 
--- eventually can get rid of EnterExecute and LeaveExecute: can just be part of FThread
-
--- close Handle when FThread gets collected
--- DeleteExclusve when FExclusive gets collected
+-- DeleteExclusive when FExclusive gets collected
 
 -- LeaveThread and a gc is pending
 
--- FThread is a pinned object, so Thunk may be a backward pointer
+-- synchronize access to sections etc in memory management
 
 -- ActiveZero needs to be per thread
 
+-- FomentThread needs to handle Primitives as well as Procedures as the thunk
+-- RunThreadPrimitive needs to type check the thunk
+
 -- IO and GC
 -- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
--- AStack and VStack should be segments: the two stacks should grow towards each other
 */
 
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
 #include "foment.hpp"
-#include "execute.hpp"
 #include "io.hpp"
 #include "syncthrd.hpp"
 
@@ -52,7 +50,8 @@ typedef enum
     MatureSectionTag,
     PairSectionTag,
     BackRefSectionTag,
-    ScanSectionTag
+    ScanSectionTag,
+    StackSectionTag
 } FSectionTag;
 
 static unsigned char * SectionTable;
@@ -68,13 +67,6 @@ static unsigned int UsedSections;
 #define MaturePairP(obj) (SectionTable[SectionIndex(obj)] == PairSectionTag)
 
 #define MAXIMUM_YOUNG_LENGTH (1024 * 4)
-
-typedef struct _FYoungSection
-{
-    struct _FYoungSection * Next;
-    unsigned int Used;
-    unsigned int Scan;
-} FYoungSection;
 
 static FYoungSection * ActiveZero;
 static FYoungSection * GenerationZero;
@@ -117,8 +109,6 @@ unsigned int MaximumBackRefFraction = 128;
 
 static int UsedRoots = 0;
 static FObject * Roots[128];
-
-static FExecuteState * ExecuteState = 0;
 
 FGCState GCState = GCRequired;
 static int FullGCRequired = 0;
@@ -180,6 +170,7 @@ unsigned int TlsIndex;
 
 unsigned int TotalThreads;
 unsigned int WaitThreads;
+static FThreadState * Threads;
 OSExclusive ThreadsExclusive;
 
 static unsigned int Sizes[1024 * 8];
@@ -521,20 +512,6 @@ void ClearRoots()
     UsedRoots = 0;
 }
 
-void EnterExecute(FExecuteState * es)
-{
-    FAssert(ExecuteState == 0);
-
-    ExecuteState = es;
-}
-
-void LeaveExecute(FExecuteState * es)
-{
-    FAssert(ExecuteState == es);
-
-    ExecuteState = 0;
-}
-
 static FBackRefSection * AllocateBackRefSection(FBackRefSection * nxt)
 {
     FBackRefSection * brs = (FBackRefSection *) AllocateSection(1, BackRefSectionTag);
@@ -813,6 +790,10 @@ static void ScanChildren(FRaw raw, unsigned int tag, int fcf)
         break;
 
     case ThreadTag:
+        if (ObjectP(AsThread(raw)->Result))
+            ScanObject(&(AsThread(raw)->Result), fcf, mf);
+        if (ObjectP(AsThread(raw)->Thunk))
+            ScanObject(&(AsThread(raw)->Thunk), fcf, mf);
         break;
 
     case ExclusiveTag:
@@ -1097,20 +1078,26 @@ printf("Partial Collection...");
         if (ObjectP(*Roots[rdx]))
             ScanObject(Roots[rdx], fcf, 0);
 
-    if (ExecuteState != 0)
+    FThreadState * ts = Threads;
+    while (ts != 0)
     {
-        for (int adx = 0; adx < ExecuteState->AStackPtr; adx++)
-            if (ObjectP(ExecuteState->AStack[adx]))
-                ScanObject(ExecuteState->AStack + adx, fcf, 0);
+        FAssert(ObjectP(ts->Thread));
+        ScanObject(&(ts->Thread), fcf, 0);
 
-        for (int cdx = 0; cdx < ExecuteState->CStackPtr; cdx++)
-            if (ObjectP(ExecuteState->CStack[cdx]))
-                ScanObject(ExecuteState->CStack + cdx, fcf, 0);
+        for (int adx = 0; adx < ts->AStackPtr; adx++)
+            if (ObjectP(ts->AStack[adx]))
+                ScanObject(ts->AStack + adx, fcf, 0);
 
-        if (ObjectP(ExecuteState->Proc))
-            ScanObject(&ExecuteState->Proc, fcf, 0);
-        if (ObjectP(ExecuteState->Frame))
-            ScanObject(&ExecuteState->Frame, fcf, 0);
+        for (int cdx = 0; cdx < ts->CStackPtr; cdx++)
+            if (ObjectP(ts->CStack[- cdx]))
+                ScanObject(ts->CStack - cdx, fcf, 0);
+
+        if (ObjectP(ts->Proc))
+            ScanObject(&ts->Proc, fcf, 0);
+        if (ObjectP(ts->Frame))
+            ScanObject(&ts->Frame, fcf, 0);
+
+        ts = ts->Next;
     }
 
     if (fcf == 0)
@@ -1297,67 +1284,97 @@ void InstallTracker(FObject obj, FObject ret, FObject tconc)
 #endif // FOMENT_DEBUG
 }
 
-void EnterThread(FObject thrd)
+void EnterThread(FThreadState * ts, FObject obj)
 {
-    FAssert(ThreadP(thrd));
+    FAssert(ThreadP(obj));
 #ifdef FOMENT_WIN32
     FAssert(TlsGetValue(TlsIndex) == 0);
 #endif // FOMENT_WIN32
 
-    SetThreadObject(thrd);
+    SetThreadState(ts);
 
     EnterExclusive(&ThreadsExclusive);
     FAssert(TotalThreads > 0);
 
-    if (ThreadP(R.Threads))
-    {
-        AsThread(thrd)->Next = R.Threads;
-        AsThread(R.Threads)->Previous = thrd;
-    }
+    if (Threads == 0)
+        ts->Next = 0;
     else
-        AsThread(thrd)->Next = NoValueObject;
+    {
+        ts->Next = Threads;
+        Threads->Previous = ts;
+    }
 
-    AsThread(thrd)->Previous = NoValueObject;
-    R.Threads = thrd;
+    ts->Previous = 0;
+    Threads = ts;
     LeaveExclusive(&ThreadsExclusive);
+
+    ts->Thread = obj;
+    ts->ActiveZero = 0;
+    ts->StackSize = SECTION_SIZE / sizeof(FObject);
+    ts->AStackPtr = 0;
+    ts->AStack = (FObject *) AllocateSection(1, StackSectionTag);
+    ts->CStackPtr = 0;
+    ts->CStack = ts->AStack + ts->StackSize - 1;
+    ts->Proc = NoValueObject;
+    ts->Frame = NoValueObject;
+    ts->IP = -1;
+    ts->ArgCount = -1;
 }
 
-void LeaveThread()
+void LeaveThread(FThreadState * ts)
 {
-    FObject thrd = GetThreadObject();
-    FAssert(ThreadP(thrd));
+    FAssert(ts == GetThreadState());
+    SetThreadState(0);
 
-    SetThreadObject(0);
+    FAssert(ThreadP(ts->Thread));
+
+#ifdef FOMENT_WIN32
+    if (AsThread(ts->Thread)->Handle != 0)
+    {
+        CloseHandle(AsThread(ts->Thread)->Handle);
+        AsThread(ts->Thread)->Handle = 0;
+    }
+#endif // FOMENT_WIN32
 
     EnterExclusive(&ThreadsExclusive);
     FAssert(TotalThreads > 0);
     TotalThreads -= 1;
 
-    FAssert(ThreadP(R.Threads));
+    FAssert(Threads != 0);
 
-    if (R.Threads == thrd)
+    if (Threads == ts)
     {
-        R.Threads = AsThread(thrd)->Next;
-        if (ThreadP(R.Threads))
+        Threads = ts->Next;
+        if (Threads != 0)
         {
             FAssert(TotalThreads > 0);
 
-            AsThread(R.Threads)->Previous = NoValueObject;
+            Threads->Previous = 0;
         }
     }
     else
     {
-        if (ThreadP(AsThread(thrd)->Next))
-            AsThread(AsThread(thrd)->Next)->Previous = AsThread(thrd)->Previous;
+        if (ts->Next != 0)
+            ts->Next->Previous = ts->Previous;
 
-        FAssert(ThreadP(AsThread(thrd)->Previous));
-        AsThread(AsThread(thrd)->Previous)->Next = AsThread(thrd)->Next;
+        FAssert(ts->Previous != 0);
+        ts->Previous->Next = ts->Next;
     }
 
     LeaveExclusive(&ThreadsExclusive);
+
+    FAssert(ts->AStack != 0);
+    FAssert(ts->StackSize % SECTION_SIZE == 0);
+
+    for (int sdx = 0; sdx < ts->StackSize / SECTION_SIZE; sdx++)
+        FreeSection(ts->AStack + sdx * (SECTION_SIZE / sizeof(FObject)));
+
+    ts->AStack = 0;
+    ts->CStack = 0;
+    ts->Thread = NoValueObject;
 }
 
-void SetupCore()
+void SetupCore(FThreadState * ts)
 {
     FAssert(sizeof(FObject) == sizeof(FImmediate));
     FAssert(sizeof(FObject) == sizeof(char *));
@@ -1410,12 +1427,13 @@ void SetupCore()
     InitializeExclusive(&ThreadsExclusive);
     TotalThreads = 1;
     WaitThreads = 0;
+    Threads = 0;
 
 #ifdef FOMENT_WIN32
     HANDLE h = OpenThread(STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x3FF, 0,
             GetCurrentThreadId());
 #endif // FOMENT_WIN32
-    EnterThread(MakeThread(h, NoValueObject));
+    EnterThread(ts, MakeThread(h, NoValueObject));
 
     for (unsigned int idx = 0; idx < sizeof(Sizes) / sizeof(unsigned int); idx++)
         Sizes[idx] = 0;
@@ -1560,6 +1578,7 @@ Define("dump-gc", DumpGCPrimitive)(int argc, FObject argv[])
         case PairSectionTag: printf("Pair\n"); break;
         case BackRefSectionTag: printf("BackRef\n"); break;
         case ScanSectionTag: printf("Scan\n"); break;
+        case StackSectionTag: printf("Stack\n"); break;
         default: printf("Unknown\n"); break;
         }
     }

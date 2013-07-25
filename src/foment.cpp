@@ -1084,13 +1084,13 @@ FObject MakeCommandLine(int argc, char * argv[])
     return(cl);
 }
 
-void SetupFoment(int argc, char * argv[])
+void SetupFoment(FThreadState * ts, int argc, char * argv[])
 {
     FObject * rv = (FObject *) &R;
     for (int rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
         rv[rdx] = NoValueObject;
 
-    SetupCore();
+    SetupCore(ts);
 
     FAssert(R.HashtableRecordType == NoValueObject);
     R.SymbolHashtable = MakeObject(sizeof(FHashtable), RecordTag);

@@ -12,14 +12,13 @@ Foment
 
 FObject MakeThread(OSThreadHandle h, FObject thnk)
 {
-    FThread * th = (FThread *) MakePinnedObject(sizeof(FThread), "run-thread");
-    th->Reserved = MakePinnedLength(0, ThreadTag);
-    th->Handle = h;
-    th->Thunk = thnk;
-    th->Next = NoValueObject;
-    th->Previous = NoValueObject;
+    FThread * thrd = (FThread *) MakeObject(sizeof(FThread), ThreadTag);
+    thrd->Reserved = MakeLength(0, ThreadTag);
+    thrd->Result = NoValueObject;
+    thrd->Handle = h;
+    thrd->Thunk = thnk;
 
-    return(th);
+    return(thrd);
 }
 
 void WriteThread(FObject port, FObject obj, int df)
@@ -102,15 +101,18 @@ Define("thread?", ThreadPPrimitive)(int argc, FObject argv[])
 }
 
 #ifdef FOMENT_WIN32
-DWORD WINAPI FomentThread(FObject thrd)
+DWORD WINAPI FomentThread(FObject obj)
 {
-    FAssert(ThreadP(thrd));
+    FThreadState ts;
 
-    EnterThread(thrd);
-    
-    
-    
-    LeaveThread();
+    FAssert(ThreadP(obj));
+
+    EnterThread(&ts, obj);
+
+    FAssert(ProcedureP(AsThread(obj)->Thunk));
+
+    AsThread(obj)->Result = Execute(AsThread(obj)->Thunk, 0, 0);
+    LeaveThread(&ts);
     return(0);
 }
 #endif // FOMENT_WIN32
@@ -128,7 +130,7 @@ Define("run-thread", RunThreadPrimitive)(int argc, FObject argv[])
 
 #ifdef FOMENT_WIN32
     HANDLE h = CreateThread(0, 0, FomentThread, thrd, CREATE_SUSPENDED, 0);
-    if (h == NULL)
+    if (h == 0)
     {
         EnterExclusive(&ThreadsExclusive);
         TotalThreads -= 1;

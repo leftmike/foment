@@ -135,9 +135,11 @@ int main(int argc, char * argv[])
     printf("Foment Scheme 0.1\n");
 #endif // FOMENT_DEBUG
 
+    FThreadState ts;
+
     try
     {
-        SetupFoment(argc, argv);
+        SetupFoment(&ts, argc, argv);
     }
     catch (FObject obj)
     {

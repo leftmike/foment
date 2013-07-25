@@ -72,13 +72,12 @@ inline void WakeAllCondition(OSCondition * osc)
 #define ThreadP(obj) (IndirectTag(obj) == ThreadTag)
 #define AsThread(obj) ((FThread *) (obj))
 
-typedef struct
+typedef struct _FThread
 {
     unsigned int Reserved;
     OSThreadHandle Handle;
+    FObject Result;
     FObject Thunk;
-    FObject Next;
-    FObject Previous;
 } FThread;
 
 FObject MakeThread(OSThreadHandle h, FObject thnk);
@@ -110,18 +109,18 @@ typedef struct
 #ifdef FOMENT_WIN32
 extern unsigned int TlsIndex;
 
-inline FThread * GetThreadObject()
+inline FThreadState * GetThreadState()
 {
     FAssert(TlsGetValue(TlsIndex) != 0);
 
-    return((FThread *) TlsGetValue(TlsIndex));
+    return((FThreadState *) TlsGetValue(TlsIndex));
 }
 
-inline void SetThreadObject(FObject obj)
+inline void SetThreadState(FThreadState * ts)
 {
     FAssert(TlsGetValue(TlsIndex) == 0);
 
-    TlsSetValue(TlsIndex, obj);
+    TlsSetValue(TlsIndex, ts);
 }
 #endif // FOMENT_WIN32
 
@@ -129,7 +128,7 @@ extern unsigned int TotalThreads;
 extern unsigned int WaitThreads;
 extern OSExclusive ThreadsExclusive;
 
-void EnterThread(FObject thrd);
-void LeaveThread();
+void EnterThread(FThreadState * ts, FObject obj);
+void LeaveThread(FThreadState * ts);
 
 #endif // __SYNCTHRD_HPP__

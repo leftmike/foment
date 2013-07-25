@@ -35,7 +35,6 @@ Future:
 -- number tags should require only a single test by sharing part of a tag
 
 Bugs:
-
 -- gc.cpp: AllocateSection failing is not handled by all callers
 -- execute.cpp: DynamicEnvironment needs to be put someplace
 -- Execute does not check for CStack or AStack overflow
@@ -704,6 +703,36 @@ typedef struct
 
 extern FConfig Config;
 
+// ---- Thread State ----
+
+typedef struct _FYoungSection
+{
+    struct _FYoungSection * Next;
+    unsigned int Used;
+    unsigned int Scan;
+} FYoungSection;
+
+typedef struct _FThreadState
+{
+    struct _FThreadState * Next;
+    struct _FThreadState * Previous;
+
+    FObject Thread;
+
+    FYoungSection * ActiveZero;
+
+    int StackSize;
+    int AStackPtr;
+    FObject * AStack;
+    int CStackPtr;
+    FObject * CStack;
+
+    FObject Proc;
+    FObject Frame;
+    int IP;
+    int ArgCount;
+} FThreadState;
+
 // ----------------
 
 typedef struct
@@ -776,8 +805,6 @@ typedef struct
     FObject NotCallable;
     FObject UnexpectedNumberOfValues;
     FObject UndefinedMessage;
-
-    FObject Threads;
 } FRoots;
 
 extern FRoots R;
@@ -802,11 +829,11 @@ FObject DatumToSyntax(FObject obj);
 FObject Execute(FObject op, int argc, FObject argv[]);
 
 FObject MakeCommandLine(int argc, char * argv[]);
-void SetupFoment(int argc, char * argv[]);
+void SetupFoment(FThreadState * ts, int argc, char * argv[]);
 
 // ---- Do Not Call Directly ----
 
-void SetupCore();
+void SetupCore(FThreadState * ts);
 void SetupLibrary();
 void SetupPairs();
 void SetupStrings();
