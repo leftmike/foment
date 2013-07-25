@@ -21,8 +21,6 @@ Garbage Collection:
 
 -- synchronize access to sections etc in memory management
 
--- ActiveZero needs to be per thread
-
 -- FomentThread needs to handle Primitives as well as Procedures as the thunk
 -- RunThreadPrimitive needs to type check the thunk
 
@@ -68,7 +66,6 @@ static unsigned int UsedSections;
 
 #define MAXIMUM_YOUNG_LENGTH (1024 * 4)
 
-static FYoungSection * ActiveZero;
 static FYoungSection * GenerationZero;
 static FYoungSection * GenerationOne;
 
@@ -360,18 +357,23 @@ FObject MakeObject(unsigned int sz, unsigned int tag)
     if (ObjectsSinceLast > TriggerObjects && GCState == GCIdle)
         GCState = GCRequired;
 
-    if (ActiveZero->Used + len + sizeof(FObject) > SECTION_SIZE)
+    FThreadState * ts = GetThreadState();
+
+    if (ts->ActiveZero == 0 || ts->ActiveZero->Used + len + sizeof(FObject) > SECTION_SIZE)
     {
-        FAssert(ActiveZero->Next == 0);
+        if (ts->ActiveZero != 0)
+        {
+            FAssert(ts->ActiveZero->Next == 0);
 
-        ActiveZero->Next = GenerationZero;
-        GenerationZero = ActiveZero;
+            ts->ActiveZero->Next = GenerationZero;
+            GenerationZero = ts->ActiveZero;
+        }
 
-        ActiveZero = AllocateYoung(0, ZeroSectionTag);
+        ts->ActiveZero = AllocateYoung(0, ZeroSectionTag);
     }
 
-    FObject * pobj = (FObject *) (((char *) ActiveZero) + ActiveZero->Used);
-    ActiveZero->Used += len + sizeof(FObject);
+    FObject * pobj = (FObject *) (((char *) ts->ActiveZero) + ts->ActiveZero->Used);
+    ts->ActiveZero->Used += len + sizeof(FObject);
     FObject obj = (FObject) (pobj + 1);
 
     Forward(obj) = MakeImmediate(tag, GCTagTag);
@@ -1021,10 +1023,21 @@ printf("Partial Collection...");
 
     FAssert(ScanSections->Next == 0);
 
-    ActiveZero->Next = GenerationZero;
-    FYoungSection * gz  = ActiveZero;
+    FThreadState * ts = Threads;
+    while (ts != 0)
+    {
+        if (ts->ActiveZero != 0)
+        {
+            ts->ActiveZero->Next = GenerationZero;
+            GenerationZero = ts->ActiveZero;
+            ts->ActiveZero = 0;
+        }
+
+        ts = ts->Next;
+    }
+
+    FYoungSection * gz  = GenerationZero;
     GenerationZero = 0;
-    ActiveZero = AllocateYoung(0, ZeroSectionTag);
 
     FYoungSection * go = GenerationOne;
     GenerationOne = AllocateYoung(0, OneSectionTag);
@@ -1078,7 +1091,7 @@ printf("Partial Collection...");
         if (ObjectP(*Roots[rdx]))
             ScanObject(Roots[rdx], fcf, 0);
 
-    FThreadState * ts = Threads;
+    ts = Threads;
     while (ts != 0)
     {
         FAssert(ObjectP(ts->Thread));
@@ -1286,7 +1299,6 @@ void InstallTracker(FObject obj, FObject ret, FObject tconc)
 
 void EnterThread(FThreadState * ts, FObject obj)
 {
-    FAssert(ThreadP(obj));
 #ifdef FOMENT_WIN32
     FAssert(TlsGetValue(TlsIndex) == 0);
 #endif // FOMENT_WIN32
@@ -1410,8 +1422,6 @@ void SetupCore(FThreadState * ts)
 
     SectionTable[0] = TableSectionTag;
 
-    ActiveZero = AllocateYoung(0, ZeroSectionTag);
-
     YoungGuardians = EmptyListObject;
     MatureGuardians = EmptyListObject;
     YoungTrackers = EmptyListObject;
@@ -1433,7 +1443,8 @@ void SetupCore(FThreadState * ts)
     HANDLE h = OpenThread(STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x3FF, 0,
             GetCurrentThreadId());
 #endif // FOMENT_WIN32
-    EnterThread(ts, MakeThread(h, NoValueObject));
+    EnterThread(ts, NoValueObject);
+    ts->Thread = MakeThread(h, NoValueObject);
 
     for (unsigned int idx = 0; idx < sizeof(Sizes) / sizeof(unsigned int); idx++)
         Sizes[idx] = 0;
