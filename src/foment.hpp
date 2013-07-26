@@ -143,18 +143,10 @@ void PushRoot(FObject * rt);
 void PopRoot();
 void ClearRoots();
 
-typedef enum
-{
-    GCIdle = 0,
-    GCRequired,
-    GCPending,
-    GCRunning
-} FGCState;
-
-extern FGCState GCState;
+extern int GCRequired;
 
 void Collect();
-#define CheckForGC() if (GCState == GCRequired) Collect()
+#define CheckForGC() if (GCRequired) Collect()
 
 void ModifyVector(FObject obj, unsigned int idx, FObject val);
 

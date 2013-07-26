@@ -6,8 +6,6 @@ Garbage Collection:
 -- C code does not have to worry about it if it doesn't want to, other than Modify
 -- Root(obj) used to tell GC about a temporary root object; exceptions and return need to
     stop rooting objects; rooting extra objects is ok, if it simplifies the C code
--- each thread has an allocation block for the 1st generation: no syncronization necessary to
-    allocate an object
 
 -- EnterWait and LeaveWait to notify safe to gc during a wait; do it for
    EnterExclusivePrimitive and ConditionWaitPrimitive
@@ -100,8 +98,9 @@ unsigned int TriggerBytes = SECTION_SIZE * 4;
 unsigned int TriggerObjects = TriggerBytes / (sizeof(FPair) * 4);
 unsigned int MaximumBackRefFraction = 128;
 
-FGCState GCState;
-static int FullGCRequired = 0;
+int GCRequired;
+static int GCPending;
+static int FullGCRequired;
 
 #define GCTagP(obj) ImmediateP(obj, GCTagTag)
 
@@ -158,10 +157,12 @@ static FObject MatureTrackers;
 unsigned int TlsIndex;
 #endif // FOMENT_WIN32
 
+OSExclusive GCExclusive;
+static OSEvent GCEvent;
+
 unsigned int TotalThreads;
 unsigned int WaitThreads;
 static FThreadState * Threads;
-OSExclusive GCExclusive;
 
 static unsigned int Sizes[1024 * 8];
 
@@ -354,14 +355,12 @@ FObject MakeObject(unsigned int sz, unsigned int tag)
             ObjectsSinceLast += ts->ObjectsSinceLast;
             ts->ObjectsSinceLast = 0;
 
-            FAssert(GCState == GCIdle || GCState == GCRequired);
-
             if (ObjectsSinceLast > TriggerObjects)
-                GCState = GCRequired;
+                GCRequired = 1;
 
             BytesSinceLast += ts->ActiveZero->Used;
             if (BytesSinceLast > TriggerBytes)
-                GCState = GCRequired;
+                GCRequired = 1;
 
             FAssert(ts->ActiveZero->Next == 0);
 
@@ -1041,7 +1040,7 @@ printf("Partial Collection...");
 */
 
     CollectionCount += 1;
-    GCState = GCIdle;
+    GCRequired = 0;
     BytesSinceLast = 0;
     ObjectsSinceLast = 0;
 
@@ -1287,13 +1286,53 @@ printf("Partial Collection...");
 
 void Collect()
 {
-    FAssert(GCState == GCRequired);
-    FAssert(PartialPerFull >= 0);
+    EnterExclusive(&GCExclusive);
+    FAssert(GCRequired);
 
-    if (FullGCRequired)
-        Collect(1);
+    if (GCPending == 0)
+    {
+        FAssert(PartialPerFull >= 0);
+
+        WaitThreads += 1;
+        GCPending = 1;
+        ClearEvent(GCEvent);
+
+        while (WaitThreads < TotalThreads)
+        {
+            LeaveExclusive(&GCExclusive);
+            
+Sleep(0);
+            
+            EnterExclusive(&GCExclusive);
+
+        }
+
+        if (FullGCRequired)
+            Collect(1);
+        else
+            Collect((CollectionCount + 1) % (PartialPerFull + 1) == 0);
+
+        WaitThreads -= 1;
+        GCPending = 0;
+        LeaveExclusive(&GCExclusive);
+
+        SignalEvent(GCEvent);
+    }
     else
-        Collect((CollectionCount + 1) % (PartialPerFull + 1) == 0);
+    {
+        WaitThreads += 1;
+        LeaveExclusive(&GCExclusive);
+
+        WaitEvent(GCEvent);
+        
+        
+// race condition here between another collection happening and WaitThreads getting decremented
+        
+        
+        EnterExclusive(&GCExclusive);
+        WaitThreads -= 1;
+        LeaveExclusive(&GCExclusive);
+    }
 }
 
 void InstallGuardian(FObject obj, FObject tconc)
@@ -1405,9 +1444,10 @@ void LeaveThread(FThreadState * ts)
     LeaveExclusive(&GCExclusive);
 
     FAssert(ts->AStack != 0);
-    FAssert(ts->StackSize % SECTION_SIZE == 0);
+    FAssert((ts->StackSize * sizeof(FObject)) % SECTION_SIZE == 0);
 
-    for (int sdx = 0; sdx < ts->StackSize / SECTION_SIZE; sdx++)
+    int cnt = (ts->StackSize * sizeof(FObject)) / SECTION_SIZE;
+    for (int sdx = 0; sdx < cnt; sdx++)
         FreeSection(ts->AStack + sdx * (SECTION_SIZE / sizeof(FObject)));
 
     ts->AStack = 0;
@@ -1464,10 +1504,14 @@ void SetupCore(FThreadState * ts)
     ScanSections = AllocateScanSection(0);
 
     InitializeExclusive(&GCExclusive);
+    GCEvent = CreateEvent();
+
     TotalThreads = 1;
     WaitThreads = 0;
     Threads = 0;
-    GCState = GCRequired;
+    GCRequired = 1;
+    GCPending = 0;
+    FullGCRequired = 0;
 
 #ifdef FOMENT_WIN32
     HANDLE h = OpenThread(STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x3FF, 0,
@@ -1529,15 +1573,12 @@ Define("collect", CollectPrimitive)(int argc, FObject argv[])
                 EmptyListObject);
 
     EnterExclusive(&GCExclusive);
-    FAssert(GCState == GCIdle || GCState == GCRequired);
-
-    GCState = GCRequired;
-    LeaveExclusive(&GCExclusive);
-
+    GCRequired = 1;
     if (argc > 0 && argv[0] != FalseObject)
         FullGCRequired = 1;
-    CheckForGC();
+    LeaveExclusive(&GCExclusive);
 
+    CheckForGC();
     return(NoValueObject);
 }
 

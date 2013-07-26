@@ -85,10 +85,7 @@ Define("current-thread", CurrentThreadPrimitive)(int argc, FObject argv[])
         RaiseExceptionC(R.Assertion, "current-thread", "current-thread: expected zero arguments",
                 EmptyListObject);
 
-    
-    
-    
-    return(NoValueObject);
+    return(GetThreadState()->Thread);
 }
 
 Define("thread?", ThreadPPrimitive)(int argc, FObject argv[])
@@ -109,13 +106,20 @@ DWORD WINAPI FomentThread(FObject obj)
 
     EnterThread(&ts, obj);
 
-    if (ProcedureP(AsThread(obj)->Thunk))
-        AsThread(obj)->Result = Execute(AsThread(obj)->Thunk, 0, 0);
-    else
+    try
     {
-        FAssert(PrimitiveP(AsThread(obj)->Thunk));
+        if (ProcedureP(AsThread(obj)->Thunk))
+            AsThread(obj)->Result = Execute(AsThread(obj)->Thunk, 0, 0);
+        else
+        {
+            FAssert(PrimitiveP(AsThread(obj)->Thunk));
 
-        AsThread(obj)->Result = AsPrimitive(AsThread(obj)->Thunk)->PrimitiveFn(0, 0);
+            AsThread(obj)->Result = AsPrimitive(AsThread(obj)->Thunk)->PrimitiveFn(0, 0);
+        }
+    }
+    catch (FObject exc)
+    {
+        AsThread(obj)->Result = exc;
     }
 
     LeaveThread(&ts);

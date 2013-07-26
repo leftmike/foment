@@ -65,6 +65,36 @@ inline void WakeAllCondition(OSCondition * osc)
 {
     WakeAllConditionVariable(osc);
 }
+
+// ---- Operating System Event ----
+
+typedef HANDLE OSEvent;
+
+inline OSEvent CreateEvent()
+{
+    return(CreateEvent(0, TRUE, 0, 0));
+}
+
+inline void SignalEvent(OSEvent ose)
+{
+    SetEvent(ose);
+}
+
+inline void ClearEvent(OSEvent ose)
+{
+    ResetEvent(ose);
+}
+
+inline void WaitEvent(OSEvent ose)
+{
+    WaitForSingleObject(ose, INFINITE);
+}
+
+inline void DeleteEvent(OSEvent ose)
+{
+    CloseHandle(ose);
+}
+
 #endif // FOMENT_WIN32
 
 // ---- Threads ----
@@ -118,8 +148,6 @@ inline FThreadState * GetThreadState()
 
 inline void SetThreadState(FThreadState * ts)
 {
-    FAssert(TlsGetValue(TlsIndex) == 0);
-
     TlsSetValue(TlsIndex, ts);
 }
 #endif // FOMENT_WIN32

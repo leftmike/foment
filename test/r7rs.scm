@@ -2,7 +2,13 @@
 ;;; R7RS
 ;;;
 
-(import (foment base))
+;(import (foment base))
+(import (foment bedrock))
+
+(run-thread (lambda () (define (recur n) (recur (+ n 1))) (recur 0)))
+(run-thread (lambda () (define (recur n) (recur (+ n 1))) (recur 0)))
+(run-thread (lambda () (define (recur n) (recur (+ n 1))) (recur 0)))
+(run-thread (lambda () (define (recur n) (recur (+ n 1))) (recur 0)))
 
 ;;
 ;; ---- expressions ----

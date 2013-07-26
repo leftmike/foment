@@ -16,7 +16,7 @@ void FAssertFailed(char * fn, int ln, char * expr)
 {
     printf("FAssert: %s (%d)%s\n", expr, ln, fn);
 
-    *((char *) 0) = 0;
+//    *((char *) 0) = 0;
     exit(1);
 }
 
