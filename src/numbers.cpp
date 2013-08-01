@@ -200,6 +200,30 @@ Define("zero?", ZeroPPrimitive)(int argc, FObject argv[])
     return(AsFixnum(argv[0]) == 0 ? TrueObject : FalseObject);
 }
 
+Define("positive?", PositivePPrimitive)(int argc, FObject argv[])
+{
+    if (argc != 1)
+        RaiseExceptionC(R.Assertion, "positive?", "positive?: expected one argument",
+                EmptyListObject);
+
+    if (FixnumP(argv[0]) == 0)
+        RaiseExceptionC(R.Assertion, "positive?", "positive?: expected a fixnum", List(argv[0]));
+
+    return(AsFixnum(argv[0]) > 0 ? TrueObject : FalseObject);
+}
+
+Define("negative?", NegativePPrimitive)(int argc, FObject argv[])
+{
+    if (argc != 1)
+        RaiseExceptionC(R.Assertion, "negative?", "negative?: expected one argument",
+                EmptyListObject);
+
+    if (FixnumP(argv[0]) == 0)
+        RaiseExceptionC(R.Assertion, "negative?", "negative?: expected a fixnum", List(argv[0]));
+
+    return(AsFixnum(argv[0]) < 0 ? TrueObject : FalseObject);
+}
+
 Define("odd?", OddPPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
@@ -285,6 +309,8 @@ static FPrimitive * Primitives[] =
     &LessThanEqualPrimitive,
     &GreaterThanEqualPrimitive,
     &ZeroPPrimitive,
+    &PositivePPrimitive,
+    &NegativePPrimitive,
     &OddPPrimitive,
     &EvenPPrimitive,
     &ExptPrimitive,

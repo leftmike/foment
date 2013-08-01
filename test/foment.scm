@@ -54,6 +54,11 @@
 ;; guardians
 ;;
 
+(collect #t)
+(collect #t)
+(collect #t)
+(collect #t)
+
 (define g (make-guardian))
 (must-equal #f (g))
 (collect)

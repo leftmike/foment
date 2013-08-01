@@ -7,9 +7,10 @@
         when unless and cond call-with-values make-parameter map for-each eval
         interaction-environment boolean? not error eq? eqv? equal? command-line
         write display write-shared display-shared write-simple display-simple
-        + * - / = < > <= >= zero? odd? even? expt abs sqrt pair? cons car cdr
+        + * - / = < > <= >= zero? positive? negative? odd? even? expt abs sqrt pair? cons car cdr
         set-car! set-cdr! list null? append reverse list-ref map-car map-cdr string=?
-        vector? make-vector vector-ref vector-set! list->vector values apply)
+        vector? make-vector vector-ref vector-set! list->vector values apply
+        call/cc (rename call/cc call-with-current-continuation))
     (begin
         (define-syntax when
             (syntax-rules ()

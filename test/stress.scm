@@ -15,7 +15,7 @@
 (define last-item 100)
 
 (define (producer)
-;    (sleep (random 100))
+    (sleep (random 100))
     (enter-exclusive lock)
     (let ((item next-item))
         (define (put item)
@@ -60,7 +60,7 @@
 (run-thread consumer)
 (run-thread consumer)
 
-(sleep 1000)
+(sleep 3000)
 (display "
 ")
 

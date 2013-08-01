@@ -11,6 +11,8 @@ Foment
 #include "execute.hpp"
 #include "syncthrd.hpp"
 
+#define MAXIMUM_CONTINUATION_ARGS 16
+
 static FObject DynamicEnvironment;
 
 // ---- Procedure ----
@@ -76,7 +78,9 @@ static char * Opcodes[] =
     "rest-values",
     "values",
     "apply",
-    "case-lambda"
+    "case-lambda",
+    "call-with-cc",
+    "call-continuation"
 };
 
 void WriteInstruction(FObject port, FObject obj, int df)
@@ -735,6 +739,7 @@ TailCallPrimitive:
                 }
 
                 case CaseLambdaOpcode:
+                {
                     int cc = InstructionArg(obj);
                     int idx = 0;
 
@@ -769,6 +774,75 @@ TailCallPrimitive:
                         RaiseExceptionC(R.Assertion, "case-lambda",
                                 "case-lambda: no matching case", List(MakeFixnum(ts->ArgCount)));
                     break;
+                }
+
+                case CallWithCCOpcode:
+                {
+                    if (ts->ArgCount != 1)
+                        RaiseExceptionC(R.Assertion, "call/cc", "call/cc: expected one argument",
+                                EmptyListObject);
+
+                    if (ProcedureP(ts->AStack[ts->AStackPtr - 1]) == 0)
+                        RaiseExceptionC(R.Assertion, "call/cc", "call/cc: expected a procedure",
+                                List(ts->AStack[ts->AStackPtr - 1]));
+
+                    FObject v[7];
+                    v[0] = MakeInstruction(CallContinuationOpcode, 0);
+                    v[1] = MakeFixnum(ts->AStackPtr - 1);
+                    v[2] = MakeVector(ts->AStackPtr - 1, ts->AStack, NoValueObject);
+                    v[3] = MakeFixnum(ts->CStackPtr);
+                    v[4] = MakeVector(ts->CStackPtr, ts->CStack - ts->CStackPtr + 1,
+                            NoValueObject);
+                    v[5] = MakeInstruction(ValuesOpcode, 0);
+                    v[6] = MakeInstruction(ReturnOpcode, 0);
+
+                    op = ts->AStack[ts->AStackPtr - 1];
+                    ts->AStack[ts->AStackPtr - 1] = MakeProcedure(NoValueObject,
+                            MakeVector(7, v, NoValueObject), 1, TrueObject,
+                            PROCEDURE_FLAG_CONTINUATION);
+
+                    goto TailCallProcedure;
+                }
+
+                case CallContinuationOpcode:
+                {
+                    FObject args[MAXIMUM_CONTINUATION_ARGS];
+
+                    if (ts->ArgCount > MAXIMUM_CONTINUATION_ARGS)
+                        RaiseExceptionC(R.Restriction, "call/cc",
+                                "call/cc: too many arguments to capture continuation",
+                                List(MakeFixnum(ts->ArgCount)));
+
+                    for (int adx = 0; adx < ts->ArgCount; adx++)
+                        args[adx] = ts->AStack[ts->AStackPtr - adx - 1];
+
+                    FAssert(ts->IP == 1);
+                    FAssert(VectorLength(AsProcedure(ts->Proc)->Code) == 7);
+
+                    FObject * v = AsVector(AsProcedure(ts->Proc)->Code)->Vector;
+
+                    FAssert(FixnumP(v[1]));
+                    ts->AStackPtr = AsFixnum(v[1]);
+
+                    FAssert(VectorP(v[2]));
+                    for (int adx = 0; adx < ts->AStackPtr; adx++)
+                        ts->AStack[adx] = AsVector(v[2])->Vector[adx];
+
+                    FAssert(FixnumP(v[3]));
+                    ts->CStackPtr = AsFixnum(v[3]);
+
+                    FAssert(VectorP(v[4]));
+                    FObject * cs = ts->CStack - ts->CStackPtr + 1;
+                    for (int cdx = 0; cdx < ts->CStackPtr; cdx++)
+                        cs[cdx] = AsVector(v[4])->Vector[cdx];
+
+                    ts->AStackPtr += ts->ArgCount;
+                    for (int adx = 0; adx < ts->ArgCount; adx++)
+                        args[adx] = ts->AStack[ts->AStackPtr - adx - 1];
+
+                    ts->IP = 5;
+                    break;
+                }
 
                 }
             }
@@ -886,15 +960,18 @@ void SetupExecute()
 
     v[0] = MakeInstruction(ValuesOpcode, 0);
     v[1] = MakeInstruction(ReturnOpcode, 0);
-
     LibraryExport(R.BedrockLibrary,
             EnvironmentSetC(R.Bedrock, "values", MakeProcedure(StringCToSymbol("values"),
             MakeVector(2, v, NoValueObject), 1, TrueObject)));
 
     v[0] = MakeInstruction(ApplyOpcode, 0);
     v[1] = MakeInstruction(TailCallOpcode, 0);
-
     LibraryExport(R.BedrockLibrary,
             EnvironmentSetC(R.Bedrock, "apply", MakeProcedure(StringCToSymbol("apply"),
             MakeVector(2, v, NoValueObject), 2, TrueObject)));
+
+    v[0] = MakeInstruction(CallWithCCOpcode, 0);
+    LibraryExport(R.BedrockLibrary,
+            EnvironmentSetC(R.Bedrock, "call/cc", MakeProcedure(StringCToSymbol("call/cc"),
+            MakeVector(1, v, NoValueObject), 1, FalseObject)));
 }

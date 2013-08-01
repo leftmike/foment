@@ -17,13 +17,12 @@ To Do:
 
 -- guard
 -- parameterize
--- call-with-current-continuation
 -- dynamic-wind
 -- with-exception-handler
 -- raise
 -- raise-continuable
 
--- syntax: `(with-exclusive` _exclusive_ _expr1_ _expr2_ _..._`)`
+-- syntax: (with-exclusive _exclusive_ _expr1_ _expr2_ _..._)
 
 -- strings and srfi-13
 
@@ -666,8 +665,9 @@ FObject MakeProcedure(FObject nam, FObject cv, int ac, FObject ra);
 #define ProcedureArgCount(obj)\
     ((int) ((AsProcedure(obj)->Reserved >> RESERVED_BITS) & MAXIMUM_ARG_COUNT))
 
-#define PROCEDURE_FLAG_CLOSURE   0x80000000
-#define PROCEDURE_FLAG_PARAMETER 0x40000000
+#define PROCEDURE_FLAG_CLOSURE      0x80000000
+#define PROCEDURE_FLAG_PARAMETER    0x40000000
+#define PROCEDURE_FLAG_CONTINUATION 0x20000000
 
 // ---- Exception ----
 

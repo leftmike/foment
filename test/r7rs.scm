@@ -797,6 +797,48 @@
 ;; call-with-current-continuation
 ;; call/cc
 
+(must-equal -3 (call-with-current-continuation
+    (lambda (exit)
+        (for-each (lambda (x)
+            (if (negative? x)
+                (exit x)))
+            '(54 0 37 -3 245 19))
+        #t)))
+
+(define list-length
+    (lambda (obj)
+        (call-with-current-continuation
+            (lambda (return)
+                (letrec ((r
+                    (lambda (obj)
+                        (cond ((null? obj) 0)
+                            ((pair? obj) (+ (r (cdr obj)) 1))
+                            (else (return #f))))))
+                    (r obj))))))
+
+(must-raise (assertion-violation call/cc) (call/cc))
+(must-raise (assertion-violation call/cc) (call/cc #t))
+(must-raise (assertion-violation call/cc) (call/cc #t #t))
+(must-raise (assertion-violation call/cc) (call/cc (lambda (e) e) #t))
+
+(must-equal 4 (list-length '(1 2 3 4)))
+(must-equal #f (list-length '(a b . c)))
+
+(define (cc-values . things)
+    (call/cc (lambda (cont) (apply cont things))))
+
+(must-equal (1 2 3 4) (let-values (((a b) (cc-values 1 2))
+                                    ((c d) (cc-values 3 4)))
+                                (list a b c d)))
+(define (v)
+    (define (v1) (v3) (v2) (v2))
+    (define (v2) (v3) (v3))
+    (define (v3) (cc-values 1 2 3 4))
+    (v1))
+(must-equal (4 3 2 1) (let-values (((w x y z) (v))) (list z y x w)))
+
+(must-equal 5 (call-with-values (lambda () (cc-values 4 5)) (lambda (a b) b)))
+
 ;; values
 
 (define (v0) (values))

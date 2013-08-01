@@ -206,13 +206,13 @@ typedef enum
     // }
     ValuesOpcode,
 
-    //
-    
     ApplyOpcode,
 
-    //
-    
-    CaseLambdaOpcode
+    CaseLambdaOpcode,
+
+    CallWithCCOpcode,
+
+    CallContinuationOpcode
 } FOpcode;
 
 #endif // __EXECUTE_HPP__
