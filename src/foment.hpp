@@ -22,11 +22,14 @@ To Do:
 -- with-exception-handler
 -- raise
 -- raise-continuable
--- threads
+
+-- syntax: `(with-exclusive` _exclusive_ _expr1_ _expr2_ _..._`)`
 
 -- strings and srfi-13
 
--- garbage collection
+-- IO and GC
+-- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
+-- use EnterWait and LeaveWait
 
 Future:
 -- some mature segments are compacted during a full collection; ie. mark-compact
@@ -144,6 +147,9 @@ void PopRoot();
 void ClearRoots();
 
 extern int GCRequired;
+
+void EnterWait();
+void LeaveWait();
 
 void Collect();
 #define CheckForGC() if (GCRequired) Collect()
@@ -801,6 +807,8 @@ typedef struct
     FObject NotCallable;
     FObject UnexpectedNumberOfValues;
     FObject UndefinedMessage;
+
+    FObject ExclusivesTConc;
 } FRoots;
 
 extern FRoots R;

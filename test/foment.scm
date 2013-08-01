@@ -203,3 +203,98 @@
         (make-list (+ idx 1) max (cons idx lst))))
 (make-list 0 (* 1024 128) '())
 
+;;
+;; threads
+;;
+
+(define e (make-exclusive))
+(define c (make-condition))
+(define t (current-thread))
+(must-equal #t (eq? t (current-thread)))
+
+(run-thread
+    (lambda ()
+        (enter-exclusive e)
+        (set! t (current-thread))
+        (leave-exclusive e)
+        (condition-wake c)))
+
+(enter-exclusive e)
+(condition-wait c e)
+(leave-exclusive e)
+
+(must-equal #f (eq? t (current-thread)))
+(must-equal #t (thread? t))
+(must-equal #t (thread? (current-thread)))
+(must-equal #f (thread? e))
+(must-equal #f (thread? c))
+
+(must-raise (assertion-violation current-thread) (current-thread #t))
+
+(must-raise (assertion-violation thread?) (thread?))
+(must-raise (assertion-violation thread?) (thread? #t #t))
+
+(must-raise (assertion-violation run-thread) (run-thread))
+(must-raise (assertion-violation run-thread) (run-thread #t))
+(must-raise (assertion-violation run-thread) (run-thread + #t))
+(must-raise (assertion-violation run-thread) (run-thread (lambda () (+ 1 2 3)) #t))
+
+(must-raise (assertion-violation sleep) (sleep))
+(must-raise (assertion-violation sleep) (sleep #t))
+(must-raise (assertion-violation sleep) (sleep 1 #t))
+(must-raise (assertion-violation sleep) (sleep -1))
+
+(must-equal #t (exclusive? e))
+(must-equal #t (exclusive? (make-exclusive)))
+(must-equal #f (exclusive? #t))
+(must-raise (assertion-violation exclusive?) (exclusive?))
+(must-raise (assertion-violation exclusive?) (exclusive? #t #t))
+
+(must-raise (assertion-violation make-exclusive) (make-exclusive #t))
+
+(must-raise (assertion-violation enter-exclusive) (enter-exclusive #t))
+(must-raise (assertion-violation enter-exclusive) (enter-exclusive))
+(must-raise (assertion-violation enter-exclusive) (enter-exclusive c))
+(must-raise (assertion-violation enter-exclusive) (enter-exclusive e #t))
+
+(must-raise (assertion-violation leave-exclusive) (leave-exclusive #t))
+(must-raise (assertion-violation leave-exclusive) (leave-exclusive))
+(must-raise (assertion-violation leave-exclusive) (leave-exclusive c))
+(must-raise (assertion-violation leave-exclusive) (leave-exclusive e #t))
+
+(must-raise (assertion-violation try-exclusive) (try-exclusive #t))
+(must-raise (assertion-violation try-exclusive) (try-exclusive))
+(must-raise (assertion-violation try-exclusive) (try-exclusive c))
+(must-raise (assertion-violation try-exclusive) (try-exclusive e #t))
+
+(define te (make-exclusive))
+(must-equal #t (try-exclusive te))
+(leave-exclusive te)
+
+(run-thread (lambda () (enter-exclusive te) (sleep 1000) (leave-exclusive te)))
+(sleep 100)
+
+(must-equal #f (try-exclusive te))
+
+(must-equal #t (condition? c))
+(must-equal #t (condition? (make-condition)))
+(must-equal #f (condition? #t))
+(must-raise (assertion-violation condition?) (condition?))
+(must-raise (assertion-violation condition?) (condition? #t #t))
+
+(must-raise (assertion-violation make-condition) (make-condition #t))
+
+(must-raise (assertion-violation condition-wait) (condition-wait #t))
+(must-raise (assertion-violation condition-wait) (condition-wait c #t))
+(must-raise (assertion-violation condition-wait) (condition-wait #t e))
+(must-raise (assertion-violation condition-wait) (condition-wait c e #t))
+(must-raise (assertion-violation condition-wait) (condition-wait e c))
+
+(must-raise (assertion-violation condition-wake) (condition-wake #t))
+(must-raise (assertion-violation condition-wake) (condition-wake c #t))
+(must-raise (assertion-violation condition-wake) (condition-wake e))
+
+(must-raise (assertion-violation condition-wake-all) (condition-wake-all #t))
+(must-raise (assertion-violation condition-wake-all) (condition-wake-all c #t))
+(must-raise (assertion-violation condition-wake-all) (condition-wake-all e))
+

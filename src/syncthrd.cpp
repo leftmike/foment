@@ -41,6 +41,8 @@ static FObject MakeExclusive()
     e->Reserved = MakePinnedLength(0, ExclusiveTag);
 
     InitializeExclusive(&e->Exclusive);
+
+    InstallGuardian(e, R.ExclusivesTConc);
     return(e);
 }
 
@@ -98,7 +100,7 @@ Define("thread?", ThreadPPrimitive)(int argc, FObject argv[])
 }
 
 #ifdef FOMENT_WIN32
-DWORD WINAPI FomentThread(FObject obj)
+static DWORD WINAPI FomentThread(FObject obj)
 {
     FThreadState ts;
 
@@ -159,6 +161,21 @@ Define("run-thread", RunThreadPrimitive)(int argc, FObject argv[])
     return(thrd);
 }
 
+Define("sleep", SleepPrimitive)(int argc, FObject argv[])
+{
+    if (argc != 1)
+        RaiseExceptionC(R.Assertion, "sleep", "sleep: expected one argument", EmptyListObject);
+
+    if (FixnumP(argv[0]) == 0 || AsFixnum(argv[0]) < 0)
+        RaiseExceptionC(R.Assertion, "sleep", "sleep: expected a non-negative fixnum",
+                List(argv[0]));
+
+    EnterWait();
+    Sleep(AsFixnum(argv[0]));
+    LeaveWait();
+    return(NoValueObject);
+}
+
 Define("exclusive?", ExclusivePPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
@@ -187,7 +204,9 @@ Define("enter-exclusive", EnterExclusivePrimitive)(int argc, FObject argv[])
         RaiseExceptionC(R.Assertion, "enter-exclusive", "enter-exclusive: expected an exclusive",
                 List(argv[0]));
 
+    EnterWait();
     EnterExclusive(&AsExclusive(argv[0])->Exclusive);
+    LeaveWait();
     return(NoValueObject);
 }
 
@@ -250,7 +269,9 @@ Define("condition-wait", ConditionWaitPrimitive)(int argc, FObject argv[])
         RaiseExceptionC(R.Assertion, "condition-wait", "condition-wait: expected an exclusive",
                 List(argv[1]));
 
+    EnterWait();
     ConditionWait(&AsCondition(argv[0])->Condition, &AsExclusive(argv[1])->Exclusive);
+    LeaveWait();
     return(NoValueObject);
 }
 
@@ -287,6 +308,7 @@ static FPrimitive * Primitives[] =
     &CurrentThreadPrimitive,
     &ThreadPPrimitive,
     &RunThreadPrimitive,
+    &SleepPrimitive,
     &ExclusivePPrimitive,
     &MakeExclusivePrimitive,
     &EnterExclusivePrimitive,
@@ -301,13 +323,10 @@ static FPrimitive * Primitives[] =
 
 void SetupThreads()
 {
+    R.ExclusivesTConc = MakeTConc();
+
     for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
-    
-    
-    // syntax: `(with-exclusive` _exclusive_ _expr1_ _expr2_ _..._`)`
-    
-    
 }
 
 /*

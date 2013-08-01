@@ -7,6 +7,7 @@ Foment
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 #include "foment.hpp"
 
 FConfig Config = {1, 1, 1, 0};
@@ -1008,6 +1009,18 @@ Define("full-command-line", FullCommandLinePrimitive)(int argc, FObject argv[])
     return(R.FullCommandLine);
 }
 
+Define("random", RandomPrimitive)(int argc, FObject argv[])
+{
+    if (argc != 1)
+        RaiseExceptionC(R.Assertion, "random", "random: expected one argument", EmptyListObject);
+
+    if (FixnumP(argv[0]) == 0 || AsFixnum(argv[0]) < 0)
+        RaiseExceptionC(R.Assertion, "random", "random: expected a non-negative fixnum",
+                List(argv[0]));
+
+    return(MakeFixnum(rand() % AsFixnum(argv[0])));
+}
+
 // ---- Primitives ----
 
 static FPrimitive * Primitives[] =
@@ -1025,7 +1038,8 @@ static FPrimitive * Primitives[] =
     &CommandLinePrimitive,
     &LoadedLibrariesPrimitive,
     &LibraryPathPrimitive,
-    &FullCommandLinePrimitive
+    &FullCommandLinePrimitive,
+    &RandomPrimitive
 };
 
 // ----------------
@@ -1086,6 +1100,8 @@ FObject MakeCommandLine(int argc, char * argv[])
 
 void SetupFoment(FThreadState * ts, int argc, char * argv[])
 {
+    srand((unsigned int) time(0));
+
     FObject * rv = (FObject *) &R;
     for (int rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
         rv[rdx] = NoValueObject;

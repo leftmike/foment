@@ -2,24 +2,6 @@
 
 Foment
 
-Garbage Collection:
--- C code does not have to worry about it if it doesn't want to, other than Modify
--- Root(obj) used to tell GC about a temporary root object; exceptions and return need to
-    stop rooting objects; rooting extra objects is ok, if it simplifies the C code
-
--- EnterWait and LeaveWait to notify safe to gc during a wait; do it for
-   EnterExclusivePrimitive and ConditionWaitPrimitive
-
--- need to keep track of FExclusive and/or FCondition that a thread is waiting on to keep
-   them from getting collected.
-
--- DeleteExclusive when FExclusive gets collected
-
--- LeaveThread and a gc is pending
--- gc with multiple threads
-
--- IO and GC
--- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
 */
 
 #include <windows.h>
@@ -158,6 +140,7 @@ unsigned int TlsIndex;
 #endif // FOMENT_WIN32
 
 OSExclusive GCExclusive;
+OSCondition GCCondition;
 static OSEvent GCEvent;
 
 unsigned int TotalThreads;
@@ -1284,6 +1267,37 @@ printf("Partial Collection...");
 //printf("Done.\n");
 }
 
+void EnterWait()
+{
+    EnterExclusive(&GCExclusive);
+    WaitThreads += 1;
+    if (GCPending)
+        WakeCondition(&GCCondition);
+    LeaveExclusive(&GCExclusive);
+}
+
+static void LeaveCollect()
+{
+    while (GCPending)
+    {
+        LeaveExclusive(&GCExclusive);
+        WakeCondition(&GCCondition);
+
+        WaitEvent(GCEvent);
+
+        EnterExclusive(&GCExclusive);
+    }
+
+    WaitThreads -= 1;
+    LeaveExclusive(&GCExclusive);
+}
+
+void LeaveWait()
+{
+    EnterExclusive(&GCExclusive);
+    LeaveCollect();
+}
+
 void Collect()
 {
     EnterExclusive(&GCExclusive);
@@ -1298,14 +1312,7 @@ void Collect()
         ClearEvent(GCEvent);
 
         while (WaitThreads < TotalThreads)
-        {
-            LeaveExclusive(&GCExclusive);
-            
-Sleep(0);
-            
-            EnterExclusive(&GCExclusive);
-
-        }
+            ConditionWait(&GCCondition, &GCExclusive);
 
         if (FullGCRequired)
             Collect(1);
@@ -1314,6 +1321,16 @@ Sleep(0);
 
         WaitThreads -= 1;
         GCPending = 0;
+
+        while (TConcEmptyP(R.ExclusivesTConc) == 0)
+        {
+            FObject obj = TConcRemove(R.ExclusivesTConc);
+
+            FAssert(ExclusiveP(obj));
+
+            DeleteExclusive(&AsExclusive(obj)->Exclusive);
+        }
+
         LeaveExclusive(&GCExclusive);
 
         SignalEvent(GCEvent);
@@ -1321,17 +1338,7 @@ Sleep(0);
     else
     {
         WaitThreads += 1;
-        LeaveExclusive(&GCExclusive);
-
-        WaitEvent(GCEvent);
-        
-        
-// race condition here between another collection happening and WaitThreads getting decremented
-        
-        
-        EnterExclusive(&GCExclusive);
-        WaitThreads -= 1;
-        LeaveExclusive(&GCExclusive);
+        LeaveCollect();
     }
 }
 
@@ -1442,6 +1449,7 @@ void LeaveThread(FThreadState * ts)
     }
 
     LeaveExclusive(&GCExclusive);
+    WakeCondition(&GCCondition); // Just in case a collection is pending.
 
     FAssert(ts->AStack != 0);
     FAssert((ts->StackSize * sizeof(FObject)) % SECTION_SIZE == 0);
@@ -1504,6 +1512,7 @@ void SetupCore(FThreadState * ts)
     ScanSections = AllocateScanSection(0);
 
     InitializeExclusive(&GCExclusive);
+    InitializeCondition(&GCCondition);
     GCEvent = CreateEvent();
 
     TotalThreads = 1;

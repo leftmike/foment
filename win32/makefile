@@ -24,6 +24,10 @@ test: all
     debug\foment -I ..\test -t ..\test\r7rs.scm ..\test\foment.scm ..\test\eccentric.scm
     release\foment -I ..\test -t ..\test\r7rs.scm ..\test\foment.scm ..\test\eccentric.scm
 
+stress: all
+    debug\foment -I ..\test -t ..\test\stress.scm ..\test\r7rs.scm
+    release\foment -I ..\test -t ..\test\stress.scm ..\test\r7rs.scm
+
 debug:
     -mkdir debug
 
