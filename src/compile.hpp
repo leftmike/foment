@@ -118,6 +118,49 @@ typedef struct
 
 FObject MakeInlineVariable(int idx);
 
+// ---- Pattern Variable ----
+
+typedef struct
+{
+    FRecord Record;
+    FObject RepeatDepth;
+    FObject Index;
+    FObject Variable;
+} FPatternVariable;
+
+#define AsPatternVariable(obj) ((FPatternVariable *) (obj))
+#define PatternVariableP(obj) RecordP(obj, R.PatternVariableRecordType)
+
+// ---- Pattern Repeat ----
+
+typedef struct
+{
+    FRecord Record;
+    FObject LeaveCount;
+    FObject Ellipsis;
+    FObject Variables;
+    FObject Pattern;
+    FObject Rest;
+} FPatternRepeat;
+
+#define AsPatternRepeat(obj) ((FPatternRepeat *) (obj))
+#define PatternRepeatP(obj) RecordP(obj, R.PatternRepeatRecordType)
+
+// ---- Template Repeat ----
+
+typedef struct
+{
+    FRecord Record;
+    FObject Ellipsis;
+    FObject RepeatCount;
+    FObject Variables;
+    FObject Template;
+    FObject Rest;
+} FTemplateRepeat;
+
+#define AsTemplateRepeat(obj) ((FTemplateRepeat *) (obj))
+#define TemplateRepeatP(obj) RecordP(obj, R.TemplateRepeatRecordType)
+
 // ----------------
 
 FObject ResolveIdentifier(FObject se, FObject id);

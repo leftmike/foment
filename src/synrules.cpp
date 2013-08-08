@@ -36,17 +36,6 @@ static FObject MakeSyntaxRules(FObject lits, FObject rules, FObject se)
 
 // ---- Pattern Variable ----
 
-typedef struct
-{
-    FRecord Record;
-    FObject RepeatDepth;
-    FObject Index;
-    FObject Variable;
-} FPatternVariable;
-
-#define AsPatternVariable(obj) ((FPatternVariable *) (obj))
-#define PatternVariableP(obj) RecordP(obj, R.PatternVariableRecordType)
-
 static char * PatternVariableFieldsC[] = {"repeat-depth", "index", "variable"};
 
 static FObject MakePatternVariable(int rd, FObject var)
@@ -63,19 +52,6 @@ static FObject MakePatternVariable(int rd, FObject var)
 }
 
 // ---- Pattern Repeat ----
-
-typedef struct
-{
-    FRecord Record;
-    FObject LeaveCount;
-    FObject Ellipsis;
-    FObject Variables;
-    FObject Pattern;
-    FObject Rest;
-} FPatternRepeat;
-
-#define AsPatternRepeat(obj) ((FPatternRepeat *) (obj))
-#define PatternRepeatP(obj) RecordP(obj, R.PatternRepeatRecordType)
 
 static char * PatternRepeatFieldsC[] = {"leave-count", "ellipsis", "variables", "pattern", "rest"};
 
@@ -95,19 +71,6 @@ static FObject MakePatternRepeat(int lc, FObject ellip, FObject vars, FObject pa
 }
 
 // ---- Template Repeat ----
-
-typedef struct
-{
-    FRecord Record;
-    FObject Ellipsis;
-    FObject RepeatCount;
-    FObject Variables;
-    FObject Template;
-    FObject Rest;
-} FTemplateRepeat;
-
-#define AsTemplateRepeat(obj) ((FTemplateRepeat *) (obj))
-#define TemplateRepeatP(obj) RecordP(obj, R.TemplateRepeatRecordType)
 
 static char * TemplateRepeatFieldsC[] = {"ellipsis", "repeat-count", "variables", "template",
     "rest"};
@@ -586,8 +549,7 @@ FObject CompileSyntaxRules(FObject se, FObject obj)
         rules = Rest(rules);
     }
 
-    nr = ReverseListModify(nr);
-    return(MakeSyntaxRules(lits, nr, se));
+    return(MakeSyntaxRules(lits, ReverseListModify(nr), se));
 }
 
 // ----------------
@@ -809,7 +771,8 @@ static FObject ExpandTemplate(FObject tse, FObject use, FObject ctpl, int nv, FO
         return(ListToVector(ExpandTemplate(tse, use, AsVector(ctpl)->Vector[0], nv, vals, expr)));
 
     if (PatternVariableP(ctpl))
-        return(CopyWrapValue(use, vals[AsFixnum(AsPatternVariable(ctpl)->Index)]));
+        return(use, vals[AsFixnum(AsPatternVariable(ctpl)->Index)]);
+//        return(CopyWrapValue(use, vals[AsFixnum(AsPatternVariable(ctpl)->Index)]));
 
     if (TemplateRepeatP(ctpl))
     {
@@ -823,7 +786,10 @@ static FObject ExpandTemplate(FObject tse, FObject use, FObject ctpl, int nv, FO
     }
 
     if (IdentifierP(ctpl))
+    {
+        AsIdentifier(ctpl)->SyntacticEnv = NoValueObject;
         return(WrapIdentifier(ctpl, tse));
+    }
 
     return(ctpl);
 }

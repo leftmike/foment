@@ -1378,6 +1378,9 @@ static FObject SPassBodyExpression(FObject se, FObject expr)
     FObject op = SPassBodyExpression(se, First(expr));
     if (IdentifierP(op))
     {
+        if (SyntacticEnvP(AsIdentifier(op)->SyntacticEnv))
+            se = AsIdentifier(op)->SyntacticEnv;
+
         FObject be = ResolveIdentifier(se, op);
 
         FObject val;

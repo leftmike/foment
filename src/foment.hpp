@@ -30,6 +30,8 @@ To Do:
 -- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
 -- use EnterWait and LeaveWait
 
+-- add r5rs_pitfall.scm to tests
+
 Future:
 -- some mature segments are compacted during a full collection; ie. mark-compact
 -- inline primitives in GPassExpression
@@ -834,6 +836,7 @@ FObject Execute(FObject op, int argc, FObject argv[]);
 
 FObject MakeCommandLine(int argc, char * argv[]);
 void SetupFoment(FThreadState * ts, int argc, char * argv[]);
+extern unsigned int SetupComplete;
 
 // ---- Do Not Call Directly ----
 

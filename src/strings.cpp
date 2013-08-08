@@ -306,10 +306,23 @@ Define("string=?", StringEqualPPrimitive)(int argc, FObject argv[])
     return(StringEqualP(argv[0], argv[1]) ? TrueObject : FalseObject);
 }
 
+Define("string->symbol", StringToSymbolPrimitive)(int argc, FObject argv[])
+{
+    if (argc != 1)
+        RaiseExceptionC(R.Assertion, "string->symbol", "string->symbol: expected one argument",
+                EmptyListObject);
+    if (StringP(argv[0]) == 0)
+        RaiseExceptionC(R.Assertion, "string->symbol", "string->symbol: expected a string",
+                List(argv[0]));
+
+    return(StringToSymbol(argv[0]));
+}
+
 static FPrimitive * Primitives[] =
 {
+    &StringHashPrimitive,
     &StringEqualPPrimitive,
-    &StringHashPrimitive
+    &StringToSymbolPrimitive
 };
 
 void SetupStrings()

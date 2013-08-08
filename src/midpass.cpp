@@ -115,29 +115,7 @@ static void MPassLetFormals(FMiddlePass * mp, FLambda * lam, FObject lb)
 
     FAssert(lb == EmptyListObject);
 }
-/*
-static void MPassLetFormalsInits(FMiddlePass * mp, FLambda * lam, FObject lb, FObject * plb)
-{
-    while (PairP(lb))
-    {
-        FObject vi = First(lb);
 
-        FAssert(PairP(vi));
-        FAssert(PairP(First(vi)));
-        FAssert(PairP(Rest(vi)));
-        FAssert(Rest(Rest(vi)) == EmptyListObject);
-
-        if (mp->LetFormalsInitFn(lam, First(vi), First(Rest(vi))) == 0)
-            *plb = Rest(lb);
-        else
-            plb = &(AsPair(lb)->Rest);
-
-        lb = Rest(lb);
-    }
-
-    FAssert(lb == EmptyListObject);
-}
-*/
 static FObject MPassLetFormalsInits(FMiddlePass * mp, FLambda * lam, FObject lb)
 {
     FObject ret = lb;
@@ -492,13 +470,14 @@ static FMiddlePass MOne =
 // - a lambda may be inlined if:
 //    - it is a leaf
 //    - each formal is used exactly once and not modified
+//    - no formal is called
 //    - no special syntax is used except quote
 //    - small: makes less than three procedure calls
 
 static void MTwoLambdaFormal(FLambda * lam, FBinding * bd)
 {
     if (bd->RestArg == TrueObject || bd->UseCount != MakeFixnum(1)
-            && bd->SetCount != MakeFixnum(0))
+            || bd->SetCount != MakeFixnum(0) || bd->Escapes == FalseObject)
     {
 //        lam->MayInline = FalseObject;
         Modify(FLambda, lam, MayInline, FalseObject);

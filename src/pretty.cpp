@@ -20,7 +20,7 @@ static void WritePrettyObject(FObject port, FObject obj, int df, FWriteFn wfn, v
     {
         PutStringC(port, "#<library: ");
         WriteGeneric(port, AsLibrary(obj)->Name, 1, (FWriteFn) WriteGeneric, 0);
-        PutStringC(port, " (");
+/*        PutStringC(port, " (");
 
         FObject lst = AsLibrary(obj)->Exports;
         while (PairP(lst))
@@ -36,12 +36,16 @@ static void WritePrettyObject(FObject port, FObject obj, int df, FWriteFn wfn, v
         }
 
         PutStringC(port, ")>");
+*/
+        PutCh(port, '>');
     }
     else if (IdentifierP(obj))
     {
         WriteGeneric(port, AsIdentifier(obj)->Symbol, 1, (FWriteFn) WriteGeneric, 0);
         PutCh(port, '.');
         WriteGeneric(port, AsIdentifier(obj)->Magic, 1, (FWriteFn) WriteGeneric, 0);
+        PutCh(port, '.');
+        WriteGeneric(port, AsIdentifier(obj)->SyntacticEnv, 1, wfn, 0);
     }
     else if (ReferenceP(obj))
     {
@@ -57,7 +61,11 @@ static void WritePrettyObject(FObject port, FObject obj, int df, FWriteFn wfn, v
         PutStringC(port, "#<binding: #x");
         PutString(port, s, sl);
         PutCh(port, ' ');
-        wfn(port, AsBinding(obj)->Identifier, 1, wfn, ctx);
+
+        obj = AsBinding(obj)->Identifier;
+        WriteGeneric(port, AsIdentifier(obj)->Symbol, 1, (FWriteFn) WriteGeneric, 0);
+        PutCh(port, '.');
+        WriteGeneric(port, AsIdentifier(obj)->Magic, 1, (FWriteFn) WriteGeneric, 0);
         PutCh(port, '>');
     }
     else if (LambdaP(obj))
@@ -75,6 +83,12 @@ static void WritePrettyObject(FObject port, FObject obj, int df, FWriteFn wfn, v
         wfn(port, AsLambda(obj)->Body, 1, wfn, ctx);
         PutStringC(port, ")>");
     }
+    else if (PatternVariableP(obj))
+    {
+        PutCh(port, '{');
+        wfn(port, AsPatternVariable(obj)->Variable, 1, wfn, ctx);
+        PutCh(port, '}');
+    }
     else if (ctx == 0)
         WriteGeneric(port, obj, df, wfn, 0);
     else
@@ -91,7 +105,7 @@ void WritePretty(FObject port, FObject obj, int df)
         {
             FAssert(HashtableSize(ht) == 0);
 
-            WriteGeneric(port, obj, df, (FWriteFn) WritePrettyObject, 0);
+            WritePrettyObject(port, obj, df, (FWriteFn) WritePrettyObject, 0);
         }
         else
         {
@@ -104,7 +118,7 @@ void WritePretty(FObject port, FObject obj, int df)
         }
     }
     else
-        WriteGeneric(port, obj, df, (FWriteFn) WriteGeneric, 0);
+        WritePrettyObject(port, obj, df, (FWriteFn) WritePrettyObject, 0);
 }
 
 // ---- Primitives ----

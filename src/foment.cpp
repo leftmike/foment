@@ -10,6 +10,8 @@ Foment
 #include <time.h>
 #include "foment.hpp"
 
+unsigned int SetupComplete = 0;
+
 FConfig Config = {1, 1, 1, 0};
 FRoots R;
 
@@ -724,7 +726,7 @@ FObject MakeRecordType(FObject nam, unsigned int nf, FObject flds[])
     rt->NumFields = MakeLength(nf + 1, RecordTypeTag);
     rt->Fields[0] = nam;
 
-    for (unsigned int fdx = 1; fdx < nf + 1; fdx++)
+    for (unsigned int fdx = 1; fdx <= nf; fdx++)
     {
         FAssert(SymbolP(flds[fdx - 1]));
 
@@ -755,11 +757,11 @@ FObject MakeRecord(FObject rt)
     unsigned int nf = RecordTypeNumFields(rt);
 
     FGenericRecord * r = (FGenericRecord *) MakeObject(
-            sizeof(FGenericRecord) + sizeof(FObject) * nf, RecordTag);
-    r->NumFields = MakeLength(nf + 1, RecordTag);
+            sizeof(FGenericRecord) + sizeof(FObject) * (nf - 1), RecordTag);
+    r->NumFields = MakeLength(nf, RecordTag);
     r->Fields[0] = rt;
 
-    for (unsigned int fdx = 1; fdx <= nf; fdx++)
+    for (unsigned int fdx = 1; fdx < nf; fdx++)
         r->Fields[fdx] = NoValueObject;
 
     return(r);
@@ -969,6 +971,17 @@ Define("equal?", EqualPPrimitive)(int argc, FObject argv[])
     return(EqualP(argv[0], argv[1]) ? TrueObject : FalseObject);
 }
 
+// Procedures
+
+Define("procedure?", ProcedurePPrimitive)(int argc, FObject argv[])
+{
+    if (argc != 1)
+        RaiseExceptionC(R.Assertion, "procedure?", "procedure?: expected one argument",
+                EmptyListObject);
+
+    return(ProcedureP(argv[0]) ? TrueObject : FalseObject);
+}
+
 // System interface
 
 Define("command-line", CommandLinePrimitive)(int argc, FObject argv[])
@@ -1035,6 +1048,7 @@ static FPrimitive * Primitives[] =
     &EqPPrimitive,
     &EqvPPrimitive,
     &EqualPPrimitive,
+    &ProcedurePPrimitive,
     &CommandLinePrimitive,
     &LoadedLibrariesPrimitive,
     &LibraryPathPrimitive,
@@ -1186,4 +1200,6 @@ void SetupFoment(FThreadState * ts, int argc, char * argv[])
             EnvironmentSetC(R.Bedrock, "standard-output", R.StandardOutput));
     LibraryExport(R.BedrockLibrary,
             EnvironmentSetC(R.Bedrock, "symbol-hashtable", R.SymbolHashtable));
+
+    SetupComplete = 1;
 }

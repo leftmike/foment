@@ -10,7 +10,7 @@
         + * - / = < > <= >= zero? positive? negative? odd? even? expt abs sqrt pair? cons car cdr
         set-car! set-cdr! list null? append reverse list-ref map-car map-cdr string=?
         vector? make-vector vector-ref vector-set! list->vector values apply
-        call/cc (rename call/cc call-with-current-continuation))
+        call/cc (rename call/cc call-with-current-continuation) procedure? string->symbol)
     (begin
         (define-syntax when
             (syntax-rules ()
@@ -24,7 +24,7 @@
 
         (define-syntax cond
             (syntax-rules (else =>)
-                ((cond (else result1 result2 ...)) (begin result1 result2 ...))
+                ((cond (else result1 result2 ...)) (begin 'ignore result1 result2 ...))
                 ((cond (test => result))
                     (let ((temp test)) (if temp (result temp))))
                 ((cond (test => result) clause1 clause2 ...)

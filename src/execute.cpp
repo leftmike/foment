@@ -2,6 +2,52 @@
 
 Foment
 
+icfp07-fyff.pdf
+-- attach continuation marks to the stack frame of the parent, not than of the child
+-- use a special frame for dynamic information; combine dynamic frames at runtime so that
+in tail recursive case there is only a single dynamic frame
+-- three concepts: unwinding the current continuation to a marked location; capturing
+and composing part or all of a contination; dynamic information
+
+Set of all parameter bindings at a given time is called the dynamic environment.
+The system implicitly maintains a current exception handler in the dynamic enviroment.
+
+-- handle-unwind and unwind
+(handle-unwind <label> <handler> <thunk>)
+(unwind <label> <arg> ...)
+
+-- handle-exception
+(handle-exception <handler> <thunk>)
+
+-- guard
+(guard (<variable> <cond-clause> ...) <body>)
+<body> has (<variable> <cond-clause> ...) as exception handler
+(<variable> ...) has a continuation and dynamic environment of guard expression
+if no <cond-clause> matches then raise-continuable is invoked on object with
+current exception handler being that of guard and the dynamic environment of the original
+call to raise or raise-continuable
+
+-- parameterize
+
+-- dynamic-wind
+(dynamic-wind <before> <thunk> <after>)
+whenever control enters dynamic extent of <thunk> then <before> is called first
+whenever control leaves dynamic extent of <thunk> then <after> is called after
+<before> and <after> are called in the same dynamic environment as the call to dynamic-wind
+
+-- with-exception-handler
+(with-exception-handler <handler> <thunk>)
+<handler> is the current exception handler for the extent of <thunk>
+
+-- raise
+invoke current exception handler with same dynamic environment as raise, except use the
+previous current exception handler as the current exception handler; if the handler returns,
+a secondary exception is raised
+
+-- raise-continuable
+like raise, but if the exception handler returns, then it is reinstalled as the current
+exception handler and the values that it returns get returned by the call to raise-continuable
+
 */
 
 #include <windows.h>
@@ -143,7 +189,7 @@ FObject Execute(FObject op, int argc, FObject argv[])
             {
                 ts->AStack[ts->AStackPtr] = obj;
                 ts->AStackPtr += 1;
-//Write(StandardOutput, obj, 0);
+//WritePretty(R.StandardOutput, obj, 0);
 //printf("\n");
             }
             else
@@ -567,7 +613,7 @@ TailCallPrimitive:
                     ts->AStackPtr -= 1;
                     v[0] = ts->AStack[ts->AStackPtr - 1];
                     v[1] = ts->AStack[ts->AStackPtr];
-                    v[2] = MakeInstruction(TailCallOpcode, 0);
+                    v[2] = MakeInstruction(TailCallProcOpcode, 0);
                     FObject proc = MakeProcedure(NoValueObject, MakeVector(3, v, NoValueObject), 0,
                             FalseObject, PROCEDURE_FLAG_CLOSURE);
                     ts->AStack[ts->AStackPtr - 1] = proc;
