@@ -8,11 +8,6 @@
 ;; ---- syntax ----
 ;;
 
-;; letrec-values
-
-;; letrec*-values
-
-
 ;; srfi-39
 ;; parameterize
 
@@ -303,3 +298,60 @@
 (must-raise (assertion-violation condition-wake-all) (condition-wake-all c #t))
 (must-raise (assertion-violation condition-wake-all) (condition-wake-all e))
 
+;; r7rs-letrec
+
+(define-syntax r7rs-letrec
+    (syntax-rules ()
+        ((r7rs-letrec ((var1 init1) ...) body ...)
+            (r7rs-letrec "generate temp names" (var1 ...) () ((var1 init1) ...) body ...))
+        ((r7rs-letrec "generate temp names" () (temp1 ...) ((var1 init1) ...) body ...)
+            (let ((var1 (no-value)) ...)
+                (let ((temp1 init1) ...)
+                    (set! var1 temp1) ...
+                    body ...)))
+        ((r7rs-letrec "generate temp names" (x y ...) (temp ...) ((var1 init1) ...) body ...)
+            (r7rs-letrec "generate temp names" (y ...) (newtemp temp ...) ((var1 init1) ...)
+                    (let () body ...)))))
+
+(must-equal #t (r7rs-letrec ((even? (lambda (n) (if (zero? n) #t (odd? (- n 1)))))
+                        (odd? (lambda (n) (if (zero? n) #f (even? (- n 1))))))
+                    (even? 88)))
+
+(must-equal 0 (let ((cont #f))
+        (r7rs-letrec ((x (call-with-current-continuation (lambda (c) (set! cont c) 0)))
+                     (y (call-with-current-continuation (lambda (c) (set! cont c) 0))))
+              (if cont
+                  (let ((c cont))
+                      (set! cont #f)
+                      (set! x 1)
+                      (set! y 1)
+                      (c 0))
+                  (+ x y)))))
+
+(must-equal #t
+    (r7rs-letrec ((x (call/cc list)) (y (call/cc list)))
+        (cond ((procedure? x) (x (pair? y)))
+            ((procedure? y) (y (pair? x))))
+            (let ((x (car x)) (y (car y)))
+                (and (call/cc x) (call/cc y) (call/cc x)))))
+
+(must-equal #t
+    (r7rs-letrec ((x (call-with-current-continuation (lambda (c) (list #T c)))))
+        (if (car x)
+            ((cadr x) (list #F (lambda () x)))
+            (eq? x ((cadr x))))))
+
+(must-raise (syntax-violation syntax-rules) (r7rs-letrec))
+(must-raise (syntax-violation syntax-rules) (r7rs-letrec (x 2) x))
+(must-raise (syntax-violation syntax-rules) (r7rs-letrec x x))
+(must-raise (syntax-violation syntax-rules) (r7rs-letrec ((x)) x))
+(must-raise (syntax-violation syntax-rules) (r7rs-letrec ((x) 2) x))
+(must-raise (syntax-violation syntax-rules) (r7rs-letrec ((x 2) y) x))
+(must-raise (syntax-violation syntax-rules) (r7rs-letrec ((x 2) . y) x))
+(must-raise (syntax-violation let) (r7rs-letrec ((x 2) (x 3)) x))
+(must-raise (syntax-violation let) (r7rs-letrec ((x 2) (y 1) (x 3)) x))
+;(must-raise (syntax-violation syntax-rules) (r7rs-letrec ((x 2))))
+(must-raise (syntax-violation syntax-rules) (r7rs-letrec ((x 2)) . x))
+(must-raise (syntax-violation syntax-rules) (r7rs-letrec ((x 2)) y . x))
+(must-raise (syntax-violation let) (r7rs-letrec (((x y z) 2)) y x))
+(must-raise (syntax-violation let) (r7rs-letrec ((x 2) ("y" 3)) y))

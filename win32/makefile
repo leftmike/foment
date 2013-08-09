@@ -21,8 +21,10 @@ clean: debug release manual
     del /Q manual\*
 
 test: all
-    debug\foment -I ..\test -t ..\test\r7rs.scm ..\test\foment.scm ..\test\eccentric.scm
-    release\foment -I ..\test -t ..\test\r7rs.scm ..\test\foment.scm ..\test\eccentric.scm
+    debug\foment -I ..\test -t ..\test\r7rs.scm ..\test\foment.scm ..\test\eccentric.scm\
+        ..\test\r5rs_pitfall.scm
+    release\foment -I ..\test -t ..\test\r7rs.scm ..\test\foment.scm ..\test\eccentric.scm\
+        ..\test\r5rs_pitfall.scm
 
 stress: all
     debug\foment -I ..\test -t ..\test\stress.scm ..\test\r7rs.scm

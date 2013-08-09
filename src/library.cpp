@@ -704,15 +704,6 @@ static FObject ExpandLibraryDeclarations(FObject env, FObject lst, FObject body,
     return(body);
 }
 
-Define("no-value", NoValuePrimitive)(int argc, FObject argv[])
-{
-    if (argc != 0)
-        RaiseExceptionC(R.Assertion, "no-value", "no-value: expected zero arguments",
-                EmptyListObject);
-
-    return(NoValueObject);
-}
-
 static FObject CompileTransformer(FObject obj, FObject env)
 {
     if (PairP(obj) == 0 || IdentifierP(First(obj)) == 0)
@@ -1093,6 +1084,4 @@ void SetupLibrary()
             GlobalFieldsC);
     R.LibraryRecordType = MakeRecordTypeC("library", sizeof(LibraryFieldsC) / sizeof(char *),
             LibraryFieldsC);
-
-    R.NoValuePrimitiveObject = MakePrimitive(&NoValuePrimitive);
 }

@@ -1032,6 +1032,15 @@ Define("random", RandomPrimitive)(int argc, FObject argv[])
     return(MakeFixnum(rand() % AsFixnum(argv[0])));
 }
 
+Define("no-value", NoValuePrimitive)(int argc, FObject argv[])
+{
+    if (argc != 0)
+        RaiseExceptionC(R.Assertion, "no-value", "no-value: expected zero arguments",
+                EmptyListObject);
+
+    return(NoValueObject);
+}
+
 // ---- Primitives ----
 
 static FPrimitive * Primitives[] =
@@ -1051,7 +1060,8 @@ static FPrimitive * Primitives[] =
     &LoadedLibrariesPrimitive,
     &LibraryPathPrimitive,
     &FullCommandLinePrimitive,
-    &RandomPrimitive
+    &RandomPrimitive,
+    &NoValuePrimitive
 };
 
 // ----------------
@@ -1156,6 +1166,8 @@ void SetupFoment(FThreadState * ts, int argc, char * argv[])
 
     for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
+
+    R.NoValuePrimitiveObject = MakePrimitive(&NoValuePrimitive);
 
     for (int n = 0; n < sizeof(SpecialSyntaxes) / sizeof(char *); n++)
         LibraryExport(R.BedrockLibrary, EnvironmentSetC(R.Bedrock, SpecialSyntaxes[n],

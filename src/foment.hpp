@@ -30,10 +30,6 @@ To Do:
 -- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
 -- use EnterWait and LeaveWait
 
--- add r5rs_pitfall.scm to tests: 7.4 does not terminate
--- add r7rs-letrec macro to tests and check to make sure works
--- add petrofsky-letrec macro to tests and check to make sure works
-
 Future:
 -- some mature segments are compacted during a full collection; ie. mark-compact
 -- inline primitives in GPassExpression
@@ -49,6 +45,7 @@ Bugs:
 -- OpenInputFile and OpenOutFile don't convert the filename to C very carefully
 -- update FeaturesC as more code gets written
 -- remove Hash from FSymbol (part of Reserved)
+-- r5rs_pitfall.scm: yin-yang does not terminate
 
 */
 
