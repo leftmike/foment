@@ -118,6 +118,42 @@ static FObject GPassLetBindings(FLambda * lam, FObject cdl, FObject lb)
     return(cdl);
 }
 
+static FObject GPassLetrecBindings(FLambda * lam, FObject cdl, FObject lrb)
+{
+    // ((<formals> <init>) ...)
+
+    FObject lb = lrb;
+
+    while (PairP(lb))
+    {
+        FObject vi = First(lb);
+
+        FAssert(Rest(First(vi)) == EmptyListObject);
+        FAssert(AsBinding(First(First(vi)))->RestArg == FalseObject);
+
+        if (AsBinding(First(First(vi)))->Constant == NoValueObject)
+        {
+            cdl = GPassExpression(lam, cdl, First(Rest(vi)), SingleValueFlag);
+//            cdl = GPassLetFormal(lam, cdl, First(First(vi)));
+        }
+
+        lb = Rest(lb);
+    }
+
+    lb = lrb;
+    while (PairP(lb))
+    {
+        FObject vi = First(lb);
+
+        if (AsBinding(First(First(vi)))->Constant == NoValueObject)
+            cdl = GPassLetFormal(lam, cdl, First(First(vi)));
+
+        lb = Rest(lb);
+    }
+
+    return(cdl);
+}
+
 static void SetJump(FObject tgt, FObject src, FOpcode op)
 {
     int cnt = 0;
@@ -441,12 +477,18 @@ static FObject GPassSpecialSyntax(FLambda * lam, FObject cdl, FObject expr, FCon
         cdl = MakePair(NoValueObject, cdl);
         return(GPassReturnValue(lam, cdl, cf));
     }
-    else if (ss == LetStarValuesSyntax || ss == LetrecStarValuesSyntax)
+    else if (ss == LetStarValuesSyntax)
     {
         // (let*-values ((<formals> <init>) ...) <body>)
-        // (letrec*-values ((<formals> <init>) ...) <body>)
 
         cdl = GPassLetBindings(lam, cdl, First(Rest(expr)));
+        return(GPassSequence(lam, cdl, Rest(Rest(expr)), cf));
+    }
+    else if (ss == LetrecSyntax)
+    {
+        // (letrec ((<formals> <init>) ...) <body>)
+
+        cdl = GPassLetrecBindings(lam, cdl, First(Rest(expr)));
         return(GPassSequence(lam, cdl, Rest(Rest(expr)), cf));
     }
     else if (ss == CaseSyntax)

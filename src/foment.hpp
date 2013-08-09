@@ -30,7 +30,9 @@ To Do:
 -- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
 -- use EnterWait and LeaveWait
 
--- add r5rs_pitfall.scm to tests
+-- add r5rs_pitfall.scm to tests: 7.4 does not terminate
+-- add r7rs-letrec macro to tests and check to make sure works
+-- add petrofsky-letrec macro to tests and check to make sure works
 
 Future:
 -- some mature segments are compacted during a full collection; ie. mark-compact
@@ -214,45 +216,43 @@ FObject SpecialSyntaxMsgC(FObject obj, char * msg);
 #define IfSyntax MakeImmediate(2, SpecialSyntaxTag)
 #define SetBangSyntax MakeImmediate(3, SpecialSyntaxTag)
 #define LetSyntax MakeImmediate(4, SpecialSyntaxTag)
-#define LetrecSyntax MakeImmediate(5, SpecialSyntaxTag)
-#define LetrecStarSyntax MakeImmediate(6, SpecialSyntaxTag)
-#define LetStarSyntax MakeImmediate(7, SpecialSyntaxTag)
+#define LetStarSyntax MakeImmediate(5, SpecialSyntaxTag)
+#define LetrecSyntax MakeImmediate(6, SpecialSyntaxTag)
+#define LetrecStarSyntax MakeImmediate(7, SpecialSyntaxTag)
 #define LetValuesSyntax MakeImmediate(8, SpecialSyntaxTag)
 #define LetStarValuesSyntax MakeImmediate(9, SpecialSyntaxTag)
-#define LetrecValuesSyntax MakeImmediate(10, SpecialSyntaxTag)
-#define LetrecStarValuesSyntax MakeImmediate(11, SpecialSyntaxTag)
-#define LetSyntaxSyntax MakeImmediate(12, SpecialSyntaxTag)
-#define LetrecSyntaxSyntax MakeImmediate(13, SpecialSyntaxTag)
-#define CaseSyntax MakeImmediate(14, SpecialSyntaxTag)
-#define OrSyntax MakeImmediate(15, SpecialSyntaxTag)
-#define BeginSyntax MakeImmediate(16, SpecialSyntaxTag)
-#define DoSyntax MakeImmediate(17, SpecialSyntaxTag)
-#define SyntaxRulesSyntax MakeImmediate(18, SpecialSyntaxTag)
-#define SyntaxErrorSyntax MakeImmediate(19, SpecialSyntaxTag)
-#define IncludeSyntax MakeImmediate(20, SpecialSyntaxTag)
-#define IncludeCISyntax MakeImmediate(21, SpecialSyntaxTag)
-#define CondExpandSyntax MakeImmediate(22, SpecialSyntaxTag)
-#define CaseLambdaSyntax MakeImmediate(23, SpecialSyntaxTag)
-#define QuasiquoteSyntax MakeImmediate(24, SpecialSyntaxTag)
+#define LetSyntaxSyntax MakeImmediate(10, SpecialSyntaxTag)
+#define LetrecSyntaxSyntax MakeImmediate(11, SpecialSyntaxTag)
+#define CaseSyntax MakeImmediate(12, SpecialSyntaxTag)
+#define OrSyntax MakeImmediate(13, SpecialSyntaxTag)
+#define BeginSyntax MakeImmediate(14, SpecialSyntaxTag)
+#define DoSyntax MakeImmediate(15, SpecialSyntaxTag)
+#define SyntaxRulesSyntax MakeImmediate(16, SpecialSyntaxTag)
+#define SyntaxErrorSyntax MakeImmediate(17, SpecialSyntaxTag)
+#define IncludeSyntax MakeImmediate(18, SpecialSyntaxTag)
+#define IncludeCISyntax MakeImmediate(19, SpecialSyntaxTag)
+#define CondExpandSyntax MakeImmediate(20, SpecialSyntaxTag)
+#define CaseLambdaSyntax MakeImmediate(21, SpecialSyntaxTag)
+#define QuasiquoteSyntax MakeImmediate(22, SpecialSyntaxTag)
 
-#define DefineSyntax MakeImmediate(25, SpecialSyntaxTag)
-#define DefineValuesSyntax MakeImmediate(26, SpecialSyntaxTag)
-#define DefineSyntaxSyntax MakeImmediate(27, SpecialSyntaxTag)
+#define DefineSyntax MakeImmediate(23, SpecialSyntaxTag)
+#define DefineValuesSyntax MakeImmediate(24, SpecialSyntaxTag)
+#define DefineSyntaxSyntax MakeImmediate(25, SpecialSyntaxTag)
 
-#define ImportSyntax MakeImmediate(28, SpecialSyntaxTag)
-#define DefineLibrarySyntax MakeImmediate(29, SpecialSyntaxTag)
+#define ImportSyntax MakeImmediate(26, SpecialSyntaxTag)
+#define DefineLibrarySyntax MakeImmediate(27, SpecialSyntaxTag)
 
-#define ElseSyntax MakeImmediate(30, SpecialSyntaxTag)
-#define ArrowSyntax MakeImmediate(31, SpecialSyntaxTag)
-#define UnquoteSyntax MakeImmediate(32, SpecialSyntaxTag)
-#define UnquoteSplicingSyntax MakeImmediate(33, SpecialSyntaxTag)
+#define ElseSyntax MakeImmediate(28, SpecialSyntaxTag)
+#define ArrowSyntax MakeImmediate(29, SpecialSyntaxTag)
+#define UnquoteSyntax MakeImmediate(30, SpecialSyntaxTag)
+#define UnquoteSplicingSyntax MakeImmediate(31, SpecialSyntaxTag)
 
-#define OnlySyntax MakeImmediate(34, SpecialSyntaxTag)
-#define ExceptSyntax MakeImmediate(35, SpecialSyntaxTag)
-#define PrefixSyntax MakeImmediate(36, SpecialSyntaxTag)
-#define RenameSyntax MakeImmediate(37, SpecialSyntaxTag)
-#define ExportSyntax MakeImmediate(38, SpecialSyntaxTag)
-#define IncludeLibraryDeclarationsSyntax MakeImmediate(39, SpecialSyntaxTag)
+#define OnlySyntax MakeImmediate(32, SpecialSyntaxTag)
+#define ExceptSyntax MakeImmediate(33, SpecialSyntaxTag)
+#define PrefixSyntax MakeImmediate(34, SpecialSyntaxTag)
+#define RenameSyntax MakeImmediate(35, SpecialSyntaxTag)
+#define ExportSyntax MakeImmediate(36, SpecialSyntaxTag)
+#define IncludeLibraryDeclarationsSyntax MakeImmediate(37, SpecialSyntaxTag)
 
 /*
 #define ParameterizeSyntax MakeImmediate(, SpecialSyntaxTag)
@@ -640,6 +640,7 @@ typedef struct
     FObject LineNumber;
     FObject Magic;
     FObject SyntacticEnv;
+    FObject Wrapped;
 } FIdentifier;
 
 #define AsIdentifier(obj) ((FIdentifier *) (obj))

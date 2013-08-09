@@ -47,10 +47,71 @@ static void LeaveScope(FObject bd)
             Rest(AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings));
 }
 
+static int IdentifierEqualP(FObject id1, FObject id2)
+{
+    FAssert(IdentifierP(id1));
+    FAssert(IdentifierP(id2));
+
+    if (AsIdentifier(id1)->Symbol != AsIdentifier(id2)->Symbol)
+        return(0);
+
+    for (;;)
+    {
+        FAssert(AsIdentifier(id1)->Symbol == AsIdentifier(id2)->Symbol);
+
+        if (AsIdentifier(id1)->SyntacticEnv != AsIdentifier(id2)->SyntacticEnv)
+            return(0);
+
+        if (IdentifierP(AsIdentifier(id1)->Wrapped) == 0)
+            break;
+
+        FAssert(IdentifierP(AsIdentifier(id1)->Wrapped));
+        FAssert(IdentifierP(AsIdentifier(id2)->Wrapped));
+
+        id1 = AsIdentifier(id1)->Wrapped;
+        id2 = AsIdentifier(id2)->Wrapped;
+    }
+
+    return(IdentifierP(AsIdentifier(id2)->Wrapped) == 0);
+}
+
 FObject ResolveIdentifier(FObject se, FObject id)
 {
     FAssert(IdentifierP(id));
+
+    for (;;)
+    {
+        FAssert(SyntacticEnvP(se));
+
+        FObject lb = AsSyntacticEnv(se)->LocalBindings;
+
+        while (lb != EmptyListObject)
+        {
+            FAssert(PairP(lb));
+            FAssert(BindingP(First(lb)));
+
+            if (IdentifierEqualP(AsBinding(First(lb))->Identifier, id))
+                return(First(lb));
+
+            lb = Rest(lb);
+        }
+
+        if (IdentifierP(AsIdentifier(id)->Wrapped) == 0)
+            break;
+
+        se = AsIdentifier(id)->SyntacticEnv;
+        id = AsIdentifier(id)->Wrapped;
+    }
+
     FAssert(SyntacticEnvP(se));
+
+    return(AsSyntacticEnv(se)->GlobalBindings);
+/*
+    FAssert(IdentifierP(id));
+    FAssert(SyntacticEnvP(se));
+
+    if (SyntacticEnvP(AsIdentifier(id)->SyntacticEnv))
+        se = AsIdentifier(id)->SyntacticEnv;
 
     FObject lb = AsSyntacticEnv(se)->LocalBindings;
 
@@ -59,6 +120,7 @@ FObject ResolveIdentifier(FObject se, FObject id)
         FAssert(PairP(lb));
         FAssert(BindingP(First(lb)));
 
+//        if (IdentifierEqualP(AsBinding(First(lb))->Identifier, id))
         if (AsIdentifier(AsBinding(First(lb))->Identifier)->Symbol == AsIdentifier(id)->Symbol)
             return(First(lb));
 
@@ -66,6 +128,7 @@ FObject ResolveIdentifier(FObject se, FObject id)
     }
 
     return(AsSyntacticEnv(se)->GlobalBindings);
+*/
 }
 
 FObject SyntaxToDatum(FObject obj)
@@ -167,9 +230,6 @@ static FObject AddFormal(FObject se, FObject ss, FObject bs, FObject id, FObject
                 SpecialSyntaxMsgC(ss, "expected a symbol or a list of symbols for formals"),
                 List(form, id));
 
-    if (SyntacticEnvP(AsIdentifier(id)->SyntacticEnv))
-        se = AsIdentifier(id)->SyntacticEnv;
-
     if (bs == EmptyListObject)
         return(MakePair(MakeBinding(se, id, ra), EmptyListObject));
 
@@ -179,8 +239,9 @@ static FObject AddFormal(FObject se, FObject ss, FObject bs, FObject id, FObject
         FAssert(PairP(lst));
         FAssert(BindingP(First(lst)));
 
-        if (AsIdentifier(AsBinding(First(lst))->Identifier)->Symbol == AsIdentifier(id)->Symbol
-                && AsBinding(First(lst))->SyntacticEnv == se)
+//        if (AsIdentifier(AsBinding(First(lst))->Identifier)->Symbol == AsIdentifier(id)->Symbol
+//                && AsBinding(First(lst))->SyntacticEnv == se)
+        if (IdentifierEqualP(AsBinding(First(lst))->Identifier, id))
             RaiseException(R.Syntax, SpecialSyntaxToSymbol(ss),
                     SpecialSyntaxMsgC(ss, "duplicate identifier in formals"),
                     List(First(lst), form));
@@ -246,9 +307,6 @@ static FObject AddBinding(FObject se, FObject ss, FObject bs, FObject id, FObjec
         RaiseException(R.Syntax, SpecialSyntaxToSymbol(ss),
                 SpecialSyntaxMsgC(ss, "expected <variable> for each binding"), List(form, id));
 
-    if (SyntacticEnvP(AsIdentifier(id)->SyntacticEnv))
-        se = AsIdentifier(id)->SyntacticEnv;
-
     if (bs == EmptyListObject)
         return(MakePair(MakeBinding(se, id, FalseObject), EmptyListObject));
 
@@ -258,8 +316,9 @@ static FObject AddBinding(FObject se, FObject ss, FObject bs, FObject id, FObjec
         FAssert(PairP(lst));
         FAssert(BindingP(First(lst)));
 
-        if (AsIdentifier(AsBinding(First(lst))->Identifier)->Symbol == AsIdentifier(id)->Symbol
-                && AsBinding(First(lst))->SyntacticEnv == se)
+//        if (AsIdentifier(AsBinding(First(lst))->Identifier)->Symbol == AsIdentifier(id)->Symbol
+//                && AsBinding(First(lst))->SyntacticEnv == se)
+        if (IdentifierEqualP(AsBinding(First(lst))->Identifier, id))
             RaiseException(R.Syntax, SpecialSyntaxToSymbol(ss),
                     SpecialSyntaxMsgC(ss, "duplicate identifier in bindings"),
                     List(First(lst), form));
@@ -420,9 +479,6 @@ static FObject AddLetStarBinding(FObject se, FObject id, FObject form)
         RaiseExceptionC(R.Syntax, "let*", "let*: expected (<variable> <init>) for each binding",
                 List(form, id));
 
-    if (SyntacticEnvP(AsIdentifier(id)->SyntacticEnv))
-        se = AsIdentifier(id)->SyntacticEnv;
-
     return(MakeBinding(se, id, FalseObject));
 }
 
@@ -521,12 +577,12 @@ static FObject SPassNamedLet(FObject se, FObject tag, FObject expr)
     EnterScope(tb);
 
     // (let tag ((name val) ...) body1 body2 ...)
-    // --> ((letrec*-values (((tag) (lambda (name ...) body1 body2 ...)))
+    // --> ((letrec (((tag) (lambda (name ...) body1 body2 ...)))
     //         tag) val ...)
 
     FObject lam = MakeLambda(NoValueObject, GatherNamedLetFormals(lb),
             SPassBody(se, LetSyntax, Rest(Rest(Rest(expr)))));
-    FObject ret = MakePair(MakePair(LetrecStarValuesSyntax, MakePair(MakePair(
+    FObject ret = MakePair(MakePair(LetrecSyntax, MakePair(MakePair(
             MakePair(MakePair(tb, EmptyListObject),
                 MakePair(lam, EmptyListObject)), EmptyListObject),
                 MakePair(MakeReference(tb, tag), EmptyListObject))), GatherNamedLetInits(lb));
@@ -557,7 +613,7 @@ static FObject SPassLet(FObject se, FObject ss, FObject expr, int rf, int sf, in
     if (ss == LetSyntaxSyntax || ss == LetrecSyntaxSyntax)
         ret = MakePair(BeginSyntax, SPassBody(se, ss, Rest(Rest(expr))));
     else
-        ret = MakePair(rf == 0 ? LetStarValuesSyntax : LetrecStarValuesSyntax,
+        ret = MakePair(ss == LetrecSyntax ? LetrecSyntax : LetStarValuesSyntax,
                 MakePair(lb, SPassBody(se, ss, Rest(Rest(expr)))));
 
     LeaveLetScope(lb);
@@ -571,9 +627,6 @@ int MatchReference(FObject ref, FObject se, FObject expr)
 
     if (IdentifierP(expr) == 0)
         return(0);
-
-    if (SyntacticEnvP(AsIdentifier(expr)->SyntacticEnv))
-        se = AsIdentifier(expr)->SyntacticEnv;
 
     if (AsIdentifier(AsReference(ref)->Identifier)->Symbol != AsIdentifier(expr)->Symbol)
         return(0);
@@ -704,7 +757,7 @@ static FObject SPassCaseClauses(FObject se, FObject clst, FObject cse)
 FObject SPassDo(FObject se, FObject expr)
 {
     // (do ((var init [step]) ...) (test expr ...) cmd ...)
-    // --> ((letrec*-values (((tag) (lambda (var ...)
+    // --> ((letrec (((tag) (lambda (var ...)
     //         (if test (begin expr ...)
     //                (begin cmd ... (tag step ...)))))) tag) init ...)
 
@@ -784,7 +837,7 @@ FObject SPassDo(FObject se, FObject expr)
 
     LeaveScopeList(bs);
 
-    return(MakePair(MakePair(LetrecStarValuesSyntax, MakePair(
+    return(MakePair(MakePair(LetrecSyntax, MakePair(
             MakePair(MakePair(MakePair(tb, EmptyListObject), MakePair(lambda, EmptyListObject)),
             EmptyListObject), MakePair(MakeReference(tb, tag), EmptyListObject))), inits));
 }
@@ -943,9 +996,6 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
         if (IdentifierP(var) == 0)
             RaiseExceptionC(R.Syntax, "set!", "set!: variable expected", List(expr, var));
 
-        if (SyntacticEnvP(AsIdentifier(var)->SyntacticEnv))
-            se = AsIdentifier(var)->SyntacticEnv;
-
         FObject be = ResolveIdentifier(se, var);
         if (SyntaxBindingP(be, var))
             RaiseExceptionC(R.Syntax, "set!", "set!: variable already bound to syntax",
@@ -982,6 +1032,12 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
 
         return(SPassLet(se, ss, expr, 0, 0, 0));
     }
+    else if (ss == LetStarSyntax)
+    {
+        // (let* ((<variable> <init>) ...) <body>)
+
+        return(SPassLet(se, ss, expr, 0, 1, 0));
+    }
     else if (ss == LetrecSyntax)
     {
         // (letrec ((<variable> <init>) ...) <body>)
@@ -994,12 +1050,6 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
 
         return(SPassLet(se, ss, expr, 1, 1, 0));
     }
-    else if (ss == LetStarSyntax)
-    {
-        // (let* ((<variable> <init>) ...) <body>)
-
-        return(SPassLet(se, ss, expr, 0, 1, 0));
-    }
     else if (ss == LetValuesSyntax)
     {
         // (let-values ((<formals> <init>) ...) <body>)
@@ -1011,18 +1061,6 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
         // (let*-values ((<formals> <init>) ...) <body>)
 
         return(SPassLet(se, ss, expr, 0, 1, 1));
-    }
-    else if (ss == LetrecValuesSyntax)
-    {
-        // (letrec-values ((<formals> <init>) ...) <body>)
-
-        return(SPassLet(se, ss, expr, 1, 0, 1));
-    }
-    else if (ss == LetrecStarValuesSyntax)
-    {
-        // (letrec*-values ((<formals> <init>) ...) <body>)
-
-        return(SPassLet(se, ss, expr, 1, 1, 1));
     }
     else if (ss == LetSyntaxSyntax)
     {
@@ -1162,12 +1200,7 @@ static FObject SPassOperands(FObject se, FObject opds, FObject form)
 static FObject SPassKeyword(FObject se, FObject expr)
 {
     if (IdentifierP(expr))
-    {
-        if (SyntacticEnvP(AsIdentifier(expr)->SyntacticEnv))
-            se = AsIdentifier(expr)->SyntacticEnv;
-
         return(MakeReference(ResolveIdentifier(se, expr), expr));
-    }
 
     return(expr);
 }
@@ -1176,9 +1209,6 @@ static FObject SPassExpression(FObject se, FObject expr)
 {
     if (IdentifierP(expr))
     {
-        if (SyntacticEnvP(AsIdentifier(expr)->SyntacticEnv))
-            se = AsIdentifier(expr)->SyntacticEnv;
-
         FObject be = ResolveIdentifier(se, expr);
         if (SyntaxBindingP(be, expr))
             RaiseExceptionC(R.Syntax, "variable", "variable: bound to syntax", List(expr));
@@ -1209,7 +1239,8 @@ static FObject SPassExpression(FObject se, FObject expr)
             return(SPassSpecialSyntax(se, val, expr));
 
         if (SyntaxRulesP(val))
-            return(SPassExpression(se, ExpandSyntaxRules(MakeSyntacticEnv(se), val, Rest(expr))));
+            return(SPassExpression(se, ExpandSyntaxRules(se, val, Rest(expr))));
+//            return(SPassExpression(se, ExpandSyntaxRules(MakeSyntacticEnv(se), val, Rest(expr))));
 
         // Other macro transformers would go here.
     }
@@ -1378,9 +1409,6 @@ static FObject SPassBodyExpression(FObject se, FObject expr)
     FObject op = SPassBodyExpression(se, First(expr));
     if (IdentifierP(op))
     {
-        if (SyntacticEnvP(AsIdentifier(op)->SyntacticEnv))
-            se = AsIdentifier(op)->SyntacticEnv;
-
         FObject be = ResolveIdentifier(se, op);
 
         FObject val;
@@ -1397,8 +1425,9 @@ static FObject SPassBodyExpression(FObject se, FObject expr)
             return(MakePair(val, Rest(expr)));
 
         if (SyntaxRulesP(val))
-            return(SPassBodyExpression(se, ExpandSyntaxRules(MakeSyntacticEnv(se), val,
-                    Rest(expr))));
+            return(SPassBodyExpression(se, ExpandSyntaxRules(se, val, Rest(expr))));
+//            return(SPassBodyExpression(se, ExpandSyntaxRules(MakeSyntacticEnv(se), val,
+//                    Rest(expr))));
 
         // Other macro transformers would go here.
     }
@@ -1549,7 +1578,7 @@ static FObject SPassBody(FObject se, FObject ss, FObject body)
         // Pass 3: expand inits and pair with bindings
 
         FObject lb = VariablesAndExpandInits(se, dlst, bl);
-        ret = MakePair(MakePair(LetrecStarValuesSyntax,
+        ret = MakePair(MakePair(LetStarValuesSyntax,
                 MakePair(lb, SPassSequence(se, ss, body, body))), EmptyListObject);
     }
 

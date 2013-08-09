@@ -1393,6 +1393,30 @@ Define("display-simple", DisplaySimplePrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
+Define("newline", NewlinePrimitive)(int argc, FObject argv[])
+{
+    FObject port;
+
+    if (argc > 1)
+        RaiseExceptionC(R.Assertion, "newline", "newline: expected zero or one arguments",
+                EmptyListObject);
+
+    if (argc == 1)
+    {
+        if (OutputPortP(argv[0]) == 0)
+            RaiseExceptionC(R.Assertion, "newline", "newline: expected an output port",
+                    List(argv[0]));
+
+        port = argv[1];
+    }
+    else
+        port = R.StandardOutput;
+
+    PutCh(port, '\n');
+
+    return(NoValueObject);
+}
+
 static FPrimitive * Primitives[] =
 {
     &OpenOutputStringPrimitive,
@@ -1402,7 +1426,8 @@ static FPrimitive * Primitives[] =
     &WriteSharedPrimitive,
     &DisplaySharedPrimitive,
     &WriteSimplePrimitive,
-    &DisplaySimplePrimitive
+    &DisplaySimplePrimitive,
+    &NewlinePrimitive
 };
 
 void SetupIO()

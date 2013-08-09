@@ -51,7 +51,7 @@ exception handler and the values that it returns get returned by the call to rai
 */
 
 #include <windows.h>
-//#include <stdio.h>
+#include <stdio.h>
 #include <malloc.h>
 #include "foment.hpp"
 #include "execute.hpp"
@@ -884,7 +884,7 @@ TailCallPrimitive:
 
                     ts->AStackPtr += ts->ArgCount;
                     for (int adx = 0; adx < ts->ArgCount; adx++)
-                        args[adx] = ts->AStack[ts->AStackPtr - adx - 1];
+                        ts->AStack[ts->AStackPtr - adx - 1] = args[adx];
 
                     ts->IP = 5;
                     break;

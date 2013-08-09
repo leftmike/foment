@@ -146,20 +146,6 @@ Define("set-cdr!", SetCdrPrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("list", ListPrimitive)(int argc, FObject argv[])
-{
-    FObject lst = EmptyListObject;
-    int adx = argc;
-
-    while (adx > 0)
-    {
-        adx -= 1;
-        lst = MakePair(argv[adx], lst);
-    }
-
-    return(lst);
-}
-
 Define("null?", NullPPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
@@ -352,7 +338,6 @@ static FPrimitive * Primitives[] =
     &CdrPrimitive,
     &SetCarPrimitive,
     &SetCdrPrimitive,
-    &ListPrimitive,
     &NullPPrimitive,
     &AppendPrimitive,
     &ReversePrimitive,

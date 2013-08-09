@@ -1,7 +1,7 @@
 (define-library (scheme base)
     (import (foment bedrock))
-    (export quote lambda if set! let letrec letrec* let* let-values let*-values letrec-values
-        letrec*-values let-syntax letrec-syntax case or begin do syntax-rules syntax-error
+    (export quote lambda if set! let letrec letrec* let* let-values let*-values
+        let-syntax letrec-syntax case or begin do syntax-rules syntax-error
         include include-ci cond-expand case-lambda quasiquote define define-values define-syntax
         import define-library else => unquote unquote-splicing
         when unless and cond call-with-values make-parameter map for-each eval
@@ -10,8 +10,14 @@
         + * - / = < > <= >= zero? positive? negative? odd? even? expt abs sqrt pair? cons car cdr
         set-car! set-cdr! list null? append reverse list-ref map-car map-cdr string=?
         vector? make-vector vector-ref vector-set! list->vector values apply
-        call/cc (rename call/cc call-with-current-continuation) procedure? string->symbol)
+        call/cc (rename call/cc call-with-current-continuation) procedure? string->symbol
+        caar cadr cdar cddr newline)
     (begin
+        (define (list . objs) objs)
+        (define (caar pair) (car (car pair)))
+        (define (cadr pair) (car (cdr pair)))
+        (define (cdar pair) (cdr (car pair)))
+        (define (cddr pair) (cdr (cdr pair)))
         (define-syntax when
             (syntax-rules ()
                 ((when test result1 result2 ...)

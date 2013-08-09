@@ -1058,7 +1058,7 @@ static void WalkVisit(FObject key, FObject val, FObject ctx)
     if (AsGlobal(val)->State == GlobalUndefined)
         RaiseExceptionC(R.Syntax, "define-library",
                 "define-library: identifier used but never defined",
-                List(ctx, AsGlobal(val)->Name));
+                List(AsGlobal(val)->Name, ctx));
 }
 
 void CompileLibrary(FObject expr)

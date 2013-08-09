@@ -63,7 +63,7 @@ FObject MakeBinding(FObject se, FObject id, FObject ra)
 
 static int IdentifierMagic = 0;
 
-static char * IdentifierFieldsC[] = {"symbol", "line-number", "magic", "syntactic-env"};
+static char * IdentifierFieldsC[] = {"symbol", "line-number", "magic", "syntactic-env", "wrapped"};
 
 FObject MakeIdentifier(FObject sym, int ln)
 {
@@ -78,6 +78,7 @@ FObject MakeIdentifier(FObject sym, int ln)
     i->Magic = MakeFixnum(IdentifierMagic);
 
     i->SyntacticEnv = NoValueObject;
+    i->Wrapped = NoValueObject;
 
     return(i);
 }
@@ -85,9 +86,6 @@ FObject MakeIdentifier(FObject sym, int ln)
 FObject WrapIdentifier(FObject id, FObject se)
 {
     FAssert(IdentifierP(id));
-
-    if (SyntacticEnvP(AsIdentifier(id)->SyntacticEnv))
-        return(id);
 
     FAssert(sizeof(FIdentifier) == sizeof(IdentifierFieldsC) + sizeof(FRecord));
     FAssert(SyntacticEnvP(se));
@@ -97,6 +95,7 @@ FObject WrapIdentifier(FObject id, FObject se)
     i->LineNumber = AsIdentifier(id)->LineNumber;
     i->Magic = AsIdentifier(id)->Magic;
     i->SyntacticEnv = se;
+    i->Wrapped = id;
 
     return(i);
 }

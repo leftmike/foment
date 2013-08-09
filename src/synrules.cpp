@@ -771,7 +771,7 @@ static FObject ExpandTemplate(FObject tse, FObject use, FObject ctpl, int nv, FO
         return(ListToVector(ExpandTemplate(tse, use, AsVector(ctpl)->Vector[0], nv, vals, expr)));
 
     if (PatternVariableP(ctpl))
-        return(use, vals[AsFixnum(AsPatternVariable(ctpl)->Index)]);
+        return(vals[AsFixnum(AsPatternVariable(ctpl)->Index)]);
 //        return(CopyWrapValue(use, vals[AsFixnum(AsPatternVariable(ctpl)->Index)]));
 
     if (TemplateRepeatP(ctpl))
@@ -786,10 +786,7 @@ static FObject ExpandTemplate(FObject tse, FObject use, FObject ctpl, int nv, FO
     }
 
     if (IdentifierP(ctpl))
-    {
-        AsIdentifier(ctpl)->SyntacticEnv = NoValueObject;
         return(WrapIdentifier(ctpl, tse));
-    }
 
     return(ctpl);
 }
