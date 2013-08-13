@@ -111,7 +111,7 @@ static DWORD WINAPI FomentThread(FObject obj)
     try
     {
         if (ProcedureP(AsThread(obj)->Thunk))
-            AsThread(obj)->Result = Execute(AsThread(obj)->Thunk, 0, 0);
+            AsThread(obj)->Result = ExecuteThunk(AsThread(obj)->Thunk);
         else
         {
             FAssert(PrimitiveP(AsThread(obj)->Thunk));

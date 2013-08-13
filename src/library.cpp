@@ -898,7 +898,7 @@ FObject Eval(FObject obj, FObject env)
 
     FAssert(ProcedureP(proc));
 
-    return(Execute(proc, 0, 0));
+    return(ExecuteThunk(proc));
 }
 
 static FObject CompileLibraryCode(FObject env, FObject lst, FObject ill)

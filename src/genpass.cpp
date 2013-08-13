@@ -40,7 +40,7 @@ static FObject GPassReturnValue(FLambda * lam, FObject cdl, FContFlag cf)
         if (lam->UseStack == TrueObject)
             cdl = MakePair(MakeInstruction(PopCStackOpcode, AsFixnum(lam->SlotCount)), cdl);
 
-        cdl = MakePair(MakeInstruction(ReturnOpcode, 1), cdl);
+        cdl = MakePair(MakeInstruction(ReturnOpcode, 0), cdl);
     }
 
     return(cdl);

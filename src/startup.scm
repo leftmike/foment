@@ -13,7 +13,6 @@
         call/cc (rename call/cc call-with-current-continuation) procedure? string->symbol
         caar cadr cdar cddr newline)
     (begin
-        (define (list . objs) objs)
         (define (caar pair) (car (car pair)))
         (define (cadr pair) (car (cdr pair)))
         (define (cdar pair) (cdr (car pair)))
@@ -102,5 +101,10 @@
     (export compile-eval compile syntax-pass middle-pass generate-pass keyword syntax
             unsyntax get-parameter set-parameter! procedure->parameter eq-hash eqv-hash
             equal-hash full-error loaded-libraries library-path full-command-line
-            open-output-string get-output-string write-pretty display-pretty string-hash))
+            open-output-string get-output-string write-pretty display-pretty string-hash
+            current-continuation-marks with-continuation-mark)
+    (begin
+        (define-syntax with-continuation-mark
+            (syntax-rules ()
+                ((_ key val expr) (mark-continuation key val (lambda () expr)))))))
 

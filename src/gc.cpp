@@ -1118,6 +1118,10 @@ printf("Partial Collection...");
             ScanObject(&ts->Proc, fcf, 0);
         if (ObjectP(ts->Frame))
             ScanObject(&ts->Frame, fcf, 0);
+        if (ObjectP(ts->MarkStack))
+            ScanObject(&ts->MarkStack, fcf, 0);
+        if (ObjectP(ts->IndexStack))
+            ScanObject(&ts->IndexStack, fcf, 0);
 
         ts = ts->Next;
     }
@@ -1406,6 +1410,8 @@ void EnterThread(FThreadState * ts, FObject obj)
     ts->Frame = NoValueObject;
     ts->IP = -1;
     ts->ArgCount = -1;
+    ts->MarkStack = EmptyListObject;
+    ts->IndexStack = EmptyListObject;
 }
 
 void LeaveThread(FThreadState * ts)

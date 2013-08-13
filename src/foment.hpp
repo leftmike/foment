@@ -30,6 +30,18 @@ To Do:
 -- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
 -- use EnterWait and LeaveWait
 
+-- from Gambit:
+Serial Numbers
+Serial numbers are used by the printer to 
+identify objects which can’t be read
+Convenient for debugging
+> (let ((n 2)) (lambda (x) (* x n)))
+#<procedure #2>
+> (pp #2) 
+(lambda (x) (* x n))
+> (map #2 ’(1 2 3 4 5)) 
+(2 4 6 8 10)
+
 Future:
 -- some mature segments are compacted during a full collection; ie. mark-compact
 -- inline primitives in GPassExpression
@@ -39,7 +51,7 @@ Future:
 Bugs:
 -- gc.cpp: AllocateSection failing is not handled by all callers
 -- execute.cpp: DynamicEnvironment needs to be put someplace
--- Execute does not check for CStack or AStack overflow
+-- ExecuteThunk does not check for CStack or AStack overflow
 -- parameters are broken for threads
 -- string input ports have not been tested at all
 -- OpenInputFile and OpenOutFile don't convert the filename to C very carefully
@@ -733,6 +745,9 @@ typedef struct _FThreadState
     FObject Frame;
     int IP;
     int ArgCount;
+
+    FObject MarkStack;
+    FObject IndexStack;
 } FThreadState;
 
 // ----------------
@@ -807,6 +822,7 @@ typedef struct
     FObject NotCallable;
     FObject UnexpectedNumberOfValues;
     FObject UndefinedMessage;
+    FObject ExecuteThunk;
 
     FObject ExclusivesTConc;
 } FRoots;
@@ -830,7 +846,7 @@ unsigned int EqualHash(FObject obj);
 FObject SyntaxToDatum(FObject obj);
 FObject DatumToSyntax(FObject obj);
 
-FObject Execute(FObject op, int argc, FObject argv[]);
+FObject ExecuteThunk(FObject op);
 
 FObject MakeCommandLine(int argc, char * argv[]);
 void SetupFoment(FThreadState * ts, int argc, char * argv[]);

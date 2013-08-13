@@ -2,6 +2,20 @@
 
 Foment
 
+-- (mark-continuation <key> <val> <thunk>)
+-- (unwind-continuation <key>)
+-- (capture-continuation <key> <proc>)
+-- (current-continuation-marks)
+
+-- (unwind-index <index>)
+-- (capture-index <index>)
+
+scheme08-stack-marks.pdf
+decouple the lifetime of the mark from
+the lifetime of the stack frame by placing it, conceptually, at the
+boundary between two stack frames. Stack marks may be overwritten by marks placed by tail calls,
+but they are not discarded by a tail call that does not place marks
+
 icfp07-fyff.pdf
 -- attach continuation marks to the stack frame of the parent, not than of the child
 -- use a special frame for dynamic information; combine dynamic frames at runtime so that
@@ -11,13 +25,6 @@ and composing part or all of a contination; dynamic information
 
 Set of all parameter bindings at a given time is called the dynamic environment.
 The system implicitly maintains a current exception handler in the dynamic enviroment.
-
--- handle-unwind and unwind
-(handle-unwind <label> <handler> <thunk>)
-(unwind <label> <arg> ...)
-
--- handle-exception
-(handle-exception <handler> <thunk>)
 
 -- guard
 (guard (<variable> <cond-clause> ...) <body>)
@@ -126,7 +133,10 @@ static char * Opcodes[] =
     "apply",
     "case-lambda",
     "call-with-cc",
-    "call-continuation"
+    "call-continuation",
+    "return-from",
+    "mark-continuation",
+    "pop-mark-stack"
 };
 
 void WriteInstruction(FObject port, FObject obj, int df)
@@ -150,27 +160,20 @@ void WriteInstruction(FObject port, FObject obj, int df)
 
 // --------
 
-FObject Execute(FObject op, int argc, FObject argv[])
+FObject ExecuteThunk(FObject op)
 {
     FThreadState * ts = GetThreadState();
 
-    ts->AStackPtr = 0;
-
-    int adx;
-    for (adx = 0; adx < argc; adx++)
-    {
-        ts->AStack[ts->AStackPtr] = argv[adx];
-        ts->AStackPtr += 1;
-    }
-
+    ts->AStackPtr = 1;
+    ts->AStack[0] = op;
     ts->CStackPtr = 0;
-    ts->Proc = op;
+    ts->Proc = R.ExecuteThunk;
     FAssert(ProcedureP(ts->Proc));
     FAssert(VectorP(AsProcedure(ts->Proc)->Code));
 
     ts->IP = 0;
     ts->Frame = NoValueObject;
-    ts->ArgCount = argc;
+    ts->ArgCount = 0;
 
     try
     {
@@ -445,19 +448,6 @@ FObject Execute(FObject op, int argc, FObject argv[])
                     break;
 
                 case ReturnOpcode:
-                    if (ts->CStackPtr == 0)
-                    {
-                        FAssert(ts->AStackPtr == 1);
-
-                        ts->AStackPtr -= 1;
-                        FObject ret = ts->AStack[0];
-
-                        ts->Proc = NoValueObject;
-                        ts->Frame = NoValueObject;
-
-                        return(ret);
-                    }
-
                     FAssert(ts->CStackPtr >= 2);
                     FAssert(FixnumP(ts->CStack[- (ts->CStackPtr - 1)]));
                     FAssert(ProcedureP(ts->CStack[- (ts->CStackPtr - 2)]));
@@ -530,6 +520,7 @@ CallPrimitive:
 
                     ts->AStackPtr -= 1;
                     op = ts->AStack[ts->AStackPtr];
+TailCall:
                     if (ProcedureP(op))
                     {
 TailCallProcedure:
@@ -549,19 +540,6 @@ TailCallPrimitive:
                         ts->AStackPtr -= ts->ArgCount;
                         ts->AStack[ts->AStackPtr] = ret;
                         ts->AStackPtr += 1;
-
-                        if (ts->CStackPtr == 0)
-                        {
-                            FAssert(ts->AStackPtr == 1);
-
-                            ts->AStackPtr -= 1;
-                            FObject ret = ts->AStack[0];
-
-                            ts->Proc = NoValueObject;
-                            ts->Frame = NoValueObject;
-
-                            return(ret);
-                        }
 
                         FAssert(ts->CStackPtr >= 2);
 
@@ -828,7 +806,8 @@ TailCallPrimitive:
                         RaiseExceptionC(R.Assertion, "call/cc", "call/cc: expected one argument",
                                 EmptyListObject);
 
-                    if (ProcedureP(ts->AStack[ts->AStackPtr - 1]) == 0)
+                    if (ProcedureP(ts->AStack[ts->AStackPtr - 1]) == 0
+                            && PrimitiveP(ts->AStack[ts->AStackPtr - 1]) == 0)
                         RaiseExceptionC(R.Assertion, "call/cc", "call/cc: expected a procedure",
                                 List(ts->AStack[ts->AStackPtr - 1]));
 
@@ -847,7 +826,7 @@ TailCallPrimitive:
                             MakeVector(7, v, NoValueObject), 1, TrueObject,
                             PROCEDURE_FLAG_CONTINUATION);
 
-                    goto TailCallProcedure;
+                    goto TailCall;
                 }
 
                 case CallContinuationOpcode:
@@ -856,7 +835,7 @@ TailCallPrimitive:
 
                     if (ts->ArgCount > MAXIMUM_CONTINUATION_ARGS)
                         RaiseExceptionC(R.Restriction, "call/cc",
-                                "call/cc: too many arguments to capture continuation",
+                                "call/cc: too many arguments to captured continuation",
                                 List(MakeFixnum(ts->ArgCount)));
 
                     for (int adx = 0; adx < ts->ArgCount; adx++)
@@ -890,6 +869,73 @@ TailCallPrimitive:
                     break;
                 }
 
+                case ReturnFromOpcode:
+                    FAssert(ts->AStackPtr == 1);
+                    FAssert(ts->CStackPtr == 0);
+
+                    return(ts->AStack[0]);
+
+                case MarkContinuationOpcode:
+                {
+                    FAssert(ts->ArgCount == 3);
+                    FAssert(ts->AStackPtr >= 3);
+
+                    FObject thnk = ts->AStack[ts->AStackPtr - 1];
+                    FObject val = ts->AStack[ts->AStackPtr - 2];
+                    FObject key = ts->AStack[ts->AStackPtr - 3];
+                    ts->AStackPtr -= 3;
+
+                    int idx = ts->CStackPtr - 3; // WantValuesObject, Proc, IP
+
+                    if (PairP(ts->IndexStack))
+                    {
+                        FAssert(FixnumP(First(ts->IndexStack)));
+
+                        if (AsFixnum(First(ts->IndexStack)) == idx)
+                        {
+                            FAssert(PairP(ts->MarkStack));
+
+                            FObject ml = First(ts->MarkStack);
+
+                            while (PairP(ml))
+                            {
+                                FAssert(PairP(First(ml)));
+
+                                if (EqP(First(First(ml)), key))
+                                {
+                                    SetRest(First(ml), val);
+                                    break;
+                                }
+
+                                ml = Rest(ml);
+                            }
+
+                            if (ml == EmptyListObject)
+                                SetFirst(ts->MarkStack, MakePair(MakePair(key, val),
+                                        First(ts->MarkStack)));
+
+                            ts->ArgCount = 0;
+                            op = thnk;
+                            goto TailCall;
+                        }
+                    }
+
+                    ts->MarkStack = MakePair(List(MakePair(key, val)), ts->MarkStack);
+                    ts->IndexStack = MakePair(MakeFixnum(ts->CStackPtr), ts->IndexStack);
+
+                    ts->ArgCount = 0;
+                    ts->AStack[ts->AStackPtr] = thnk;
+                    ts->AStackPtr += 1;
+                    break;
+                }
+
+                case PopMarkStackOpcode:
+                    FAssert(PairP(ts->MarkStack));
+                    FAssert(PairP(ts->IndexStack));
+
+                    ts->MarkStack = Rest(ts->MarkStack);
+                    ts->IndexStack = Rest(ts->IndexStack);
+                    break;
                 }
             }
         }
@@ -901,6 +947,15 @@ TailCallPrimitive:
 }
 
 #define ParameterP(obj) (ProcedureP(obj) && AsProcedure(obj)->Reserved & PROCEDURE_FLAG_PARAMETER)
+
+Define("current-continuation-marks", CurrentContinuationMarksPrimitive)(int argc, FObject argv[])
+{
+    if (argc != 0)
+        RaiseExceptionC(R.Assertion, "current-continuation-marks",
+                "current-continuation-marks: expected zero arguments", EmptyListObject);
+
+    return(GetThreadState()->MarkStack);
+}
 
 Define("get-parameter", GetParameterPrimitive)(int argc, FObject argv[])
 {
@@ -985,6 +1040,8 @@ Define("procedure->parameter", ProcedureToParameterPrimitive)(int argc, FObject 
 
 static FPrimitive * Primitives[] =
 {
+    &CurrentContinuationMarksPrimitive,
+
     &GetParameterPrimitive,
     &SetParameterPrimitive,
     &ProcedureToParameterPrimitive
@@ -992,7 +1049,7 @@ static FPrimitive * Primitives[] =
 
 void SetupExecute()
 {
-    FObject v[2];
+    FObject v[7];
 
     R.WrongNumberOfArguments = MakeStringC("wrong number of arguments");
     R.NotCallable = MakeStringC("not callable");
@@ -1020,4 +1077,22 @@ void SetupExecute()
     LibraryExport(R.BedrockLibrary,
             EnvironmentSetC(R.Bedrock, "call/cc", MakeProcedure(StringCToSymbol("call/cc"),
             MakeVector(1, v, NoValueObject), 1, FalseObject)));
+
+    v[0] = MakeInstruction(SetArgCountOpcode, 0);
+    v[1] = MakeInstruction(CallOpcode, 0);
+    v[2] = MakeInstruction(ReturnFromOpcode, 0);
+    R.ExecuteThunk = MakeProcedure(StringCToSymbol("execute-thunk"),
+            MakeVector(3, v, NoValueObject), 1, FalseObject);
+
+    v[0] = MakeInstruction(CheckCountOpcode, 3);
+    v[1] = MakeInstruction(MarkContinuationOpcode, 0);
+    v[2] = MakeInstruction(PushWantValuesOpcode, 0);
+    v[3] = MakeInstruction(CallOpcode, 0);
+    v[4] = MakeInstruction(PopCStackOpcode, 1);
+    v[5] = MakeInstruction(PopMarkStackOpcode, 0);
+    v[6] = MakeInstruction(ReturnOpcode, 0);
+    LibraryExport(R.BedrockLibrary,
+            EnvironmentSetC(R.Bedrock, "mark-continuation",
+            MakeProcedure(StringCToSymbol("mark-continuation"), MakeVector(7, v, NoValueObject),
+            3, FalseObject)));
 }
