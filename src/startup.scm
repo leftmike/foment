@@ -1,13 +1,28 @@
+
+(define-library (foment base)
+    (import (foment bedrock))
+    (export compile-eval compile syntax-pass middle-pass generate-pass keyword syntax
+            unsyntax get-parameter set-parameter! procedure->parameter eq-hash eqv-hash
+            equal-hash full-error loaded-libraries library-path full-command-line
+            open-output-string get-output-string write-pretty display-pretty string-hash
+            current-continuation-marks with-continuation-mark)
+    (begin
+        (define-syntax with-continuation-mark
+            (syntax-rules ()
+                ((_ key val expr) (mark-continuation key val (lambda () expr)))))))
+
 (define-library (scheme base)
     (import (foment bedrock))
+    (import (only (foment base) with-continuation-mark))
     (export quote lambda if set! let letrec letrec* let* let-values let*-values
         let-syntax letrec-syntax case or begin do syntax-rules syntax-error
         include include-ci cond-expand case-lambda quasiquote define define-values define-syntax
         import define-library else => unquote unquote-splicing
-        when unless and cond call-with-values make-parameter map for-each eval
+        when unless and cond call-with-values make-parameter parameterize map for-each eval
         interaction-environment boolean? not error eq? eqv? equal? command-line
         write display write-shared display-shared write-simple display-simple
-        + * - / = < > <= >= zero? positive? negative? odd? even? expt abs sqrt pair? cons car cdr
+        + * - / = < > <= >= zero? positive? negative? odd? even? exact-integer? expt abs sqrt
+        number->string pair? cons car cdr
         set-car! set-cdr! list null? append reverse list-ref map-car map-cdr string=?
         vector? make-vector vector-ref vector-set! list->vector values apply
         call/cc (rename call/cc call-with-current-continuation) procedure? string->symbol
@@ -58,17 +73,28 @@
                             (car converter)
                             (full-error 'assertion-violation 'make-parameter
                                     "make-parameter: expected one or two arguments"))))
-                (cell (cons #f (converter init))))
+                (init (converter init)))
             (letrec ((parameter
-                        (lambda val
-                            (if (null? val)
-                                (get-parameter parameter cell)
-                                (if (null? (cdr val))
-                                    (set-parameter! parameter cell (converter (car val)))
-                                    (full-error 'assertion-violation '<parameter>
-                                            "<parameter>: expected zero or one arguments"))))))
+                        (case-lambda
+                            (() (get-parameter parameter init))
+                            ((val) (set-parameter! parameter (converter val)))
+                            ((val ignore) (converter val)) ;; used by parameterize
+                            (val (full-error 'assertion-violation '<parameter>
+                                    "<parameter>: expected zero or one arguments")))))
                 (procedure->parameter parameter)
                 parameter)))
+
+        (define-syntax parameterize
+            (syntax-rules ()
+                ((parameterize () body1 body2 ...)
+                        (begin body1 body2 ...))
+                ((parameterize ((param1 value1) (param2 value2) ...) body1 body2 ...)
+                        (let ((p param1))
+                            (if (not (parameter? p))
+                                (full-error 'assertion-violation 'parameterize
+                                        "parameterize: expected a parameter" p))
+                            (with-continuation-mark p (p value1 'convert)
+                                (parameterize ((param2 value2) ...) body1 body2 ...))))))
 
         (define (map proc . lists)
             (define (map proc lists)
@@ -95,16 +121,3 @@
 
         (define (eval expr env)
             ((compile-eval expr env)))))
-
-(define-library (foment base)
-    (import (foment bedrock))
-    (export compile-eval compile syntax-pass middle-pass generate-pass keyword syntax
-            unsyntax get-parameter set-parameter! procedure->parameter eq-hash eqv-hash
-            equal-hash full-error loaded-libraries library-path full-command-line
-            open-output-string get-output-string write-pretty display-pretty string-hash
-            current-continuation-marks with-continuation-mark)
-    (begin
-        (define-syntax with-continuation-mark
-            (syntax-rules ()
-                ((_ key val expr) (mark-continuation key val (lambda () expr)))))))
-

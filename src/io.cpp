@@ -1071,8 +1071,8 @@ static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn,
         if (AsProcedure(obj)->Reserved & PROCEDURE_FLAG_CONTINUATION)
             PutStringC(port, " continuation");
 
-        PutCh(port, ' ');
-        wfn(port, AsProcedure(obj)->Code, df, wfn, ctx);
+//        PutCh(port, ' ');
+//        wfn(port, AsProcedure(obj)->Code, df, wfn, ctx);
         PutCh(port, '>');
         break;
     }

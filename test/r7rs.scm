@@ -559,6 +559,22 @@
 
 (must-equal one (let ((cl (case-lambda ((a) 'one) ((a b) 'two)))) (eq? cl cl) (cl 1)))
 
+;; parameterize
+
+(define radix
+    (make-parameter 10
+        (lambda (x)
+            (if (and (exact-integer? x) (<= 2 x 16))
+                x
+                (error "invalid radix")))))
+
+(define (f n) (number->string n (radix)))
+(must-equal "12" (f 12))
+(must-equal "1100" (parameterize ((radix 2)) (f 12)))
+(must-equal "12" (f 12))
+(radix 16)
+(must-raise (assertion-violation error) (parameterize ((radix 0)) (f 12)))
+
 ;; quasiquote
 
 (must-equal (list 3 4) `(list ,(+ 1 2) 4))

@@ -2,6 +2,18 @@
 
 Foment
 
+parameters
+-- store current value of parameter (set via parameterize) on the stack
+-- get-parameter: search backward down stack for parameter, otherwise, check thread values,
+otherwise, use parameter initial value
+-- set-parameter: same as get-parameter, except if no thread value, then add one for this parameter
+-- call/cc: just need to save dynamic stack index
+-- run-thread: copy thread values and add/update any modified parameters on the dynamic stack
+
+-- parameters
+-- dynamic-wind
+-- exceptions
+
 -- (mark-continuation <key> <val> <thunk>)
 -- (unwind-continuation <key>)
 -- (capture-continuation <key> <proc>)
@@ -65,8 +77,6 @@ exception handler and the values that it returns get returned by the call to rai
 #include "syncthrd.hpp"
 
 #define MAXIMUM_CONTINUATION_ARGS 16
-
-static FObject DynamicEnvironment;
 
 // ---- Procedure ----
 
@@ -159,6 +169,41 @@ void WriteInstruction(FObject port, FObject obj, int df)
 }
 
 // --------
+
+static FObject UpdateContinuationMark(FObject ml, FObject kl, FObject key, FObject val)
+{
+    FAssert(PairP(ml));
+
+    if (ml == kl)
+        return(MakePair(MakePair(key, val), Rest(ml)));
+
+    return(MakePair(First(ml), UpdateContinuationMark(Rest(ml), kl, key, val)));
+}
+
+static void ExtendContinuationMarks(FThreadState * ts, FObject key, FObject val)
+{
+    FAssert(PairP(ts->MarkStack));
+
+    FObject ml = First(ts->MarkStack);
+
+    while (PairP(ml))
+    {
+        FAssert(PairP(First(ml)));
+
+        if (EqP(First(First(ml)), key))
+        {
+            ts->MarkStack = MakePair(UpdateContinuationMark(First(ts->MarkStack), ml, key, val),
+                    Rest(ts->MarkStack));
+            break;
+        }
+
+        ml = Rest(ml);
+    }
+
+    if (ml == EmptyListObject)
+        ts->MarkStack = MakePair(MakePair(MakePair(key, val),
+                First(ts->MarkStack)), Rest(ts->MarkStack));
+}
 
 FObject ExecuteThunk(FObject op)
 {
@@ -893,26 +938,7 @@ TailCallPrimitive:
 
                         if (AsFixnum(First(ts->IndexStack)) == idx)
                         {
-                            FAssert(PairP(ts->MarkStack));
-
-                            FObject ml = First(ts->MarkStack);
-
-                            while (PairP(ml))
-                            {
-                                FAssert(PairP(First(ml)));
-
-                                if (EqP(First(First(ml)), key))
-                                {
-                                    SetRest(First(ml), val);
-                                    break;
-                                }
-
-                                ml = Rest(ml);
-                            }
-
-                            if (ml == EmptyListObject)
-                                SetFirst(ts->MarkStack, MakePair(MakePair(key, val),
-                                        First(ts->MarkStack)));
+                            ExtendContinuationMarks(ts, key, val);
 
                             ts->ArgCount = 0;
                             op = thnk;
@@ -959,6 +985,8 @@ Define("current-continuation-marks", CurrentContinuationMarksPrimitive)(int argc
 
 Define("get-parameter", GetParameterPrimitive)(int argc, FObject argv[])
 {
+    // (get-parameter <parameter> <init>)
+
     if (argc != 2)
         RaiseExceptionC(R.Assertion, "get-parameter", "get-parameter: expected two arguments",
                 EmptyListObject);
@@ -967,59 +995,108 @@ Define("get-parameter", GetParameterPrimitive)(int argc, FObject argv[])
         RaiseExceptionC(R.Assertion, "get-parameter", "get-parameter: expected a parameter",
                 List(argv[0]));
 
-    if (PairP(argv[1]) == 0)
-        RaiseExceptionC(R.Assertion, "get-parameter", "get-parameter: expected a pair",
-                List(argv[1]));
+    FThreadState * ts = GetThreadState();
+    FObject ms = ts->MarkStack;
 
-    FObject lst = DynamicEnvironment;
-    while (PairP(lst))
+    while (PairP(ms))
     {
-        FAssert(PairP(First(lst)));
+        FObject ml = First(ms);
 
-        if (First(First(lst)) == argv[0])
-            return(Rest(First(lst)));
+        while (PairP(ml))
+        {
+            FAssert(PairP(First(ml)));
 
-        lst = Rest(lst);
+            if (First(First(ml)) == argv[0])
+                return(Rest(First(ml)));
+
+            ml = Rest(ml);
+        }
+
+        FAssert(ml == EmptyListObject);
+
+        ms = Rest(ms);
     }
 
-    FAssert(lst == EmptyListObject);
+    FAssert(ms == EmptyListObject);
 
-    return(Rest(argv[1]));
+    FObject pl = ts->Parameters;
+    while (PairP(pl))
+    {
+        FAssert(PairP(First(pl)));
+
+        if (First(First(pl)) == argv[0])
+            return(Rest(First(pl)));
+
+        pl = Rest(pl);
+    }
+
+    FAssert(pl == EmptyListObject);
+
+    return(argv[1]);
 }
 
 Define("set-parameter!", SetParameterPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 3)
-        RaiseExceptionC(R.Assertion, "set-parameter!", "set-parameter!: expected three arguments",
+    // (set-parameter! <parameter> <value>)
+
+    if (argc != 2)
+        RaiseExceptionC(R.Assertion, "set-parameter!", "set-parameter!: expected two arguments",
                 EmptyListObject);
 
     if (ParameterP(argv[0]) == 0)
         RaiseExceptionC(R.Assertion, "set-parameter!", "set-parameter!: expected a parameter",
                 List(argv[0]));
 
-    if (PairP(argv[1]) == 0)
-        RaiseExceptionC(R.Assertion, "set-parameter!", "set-parameter!: expected a pair",
-                List(argv[1]));
+    FThreadState * ts = GetThreadState();
+    FObject ms = ts->MarkStack;
 
-    FObject lst = DynamicEnvironment;
-    while (PairP(lst))
+    while (PairP(ms))
     {
-        FAssert(PairP(First(lst)));
+        FObject ml = First(ms);
 
-        if (First(First(lst)) == argv[0])
+        while (PairP(ml))
         {
-//            AsPair(First(lst))->Rest = argv[2];
-            SetRest(First(lst), argv[2]);
+            FAssert(PairP(First(ml)));
+
+            if (First(First(ml)) == argv[0])
+            {
+                
+                
+                // need to update the mark without modifying any pairs
+                FAssert(0);
+                
+                
+                return(NoValueObject);
+            }
+
+            ml = Rest(ml);
+        }
+
+        FAssert(ml == EmptyListObject);
+
+        ms = Rest(ms);
+    }
+
+    FAssert(ms == EmptyListObject);
+
+    FObject pl = ts->Parameters;
+    while (PairP(pl))
+    {
+        FAssert(PairP(First(pl)));
+
+        if (First(First(pl)) == argv[0])
+        {
+            SetRest(First(pl), argv[1]);
             return(NoValueObject);
         }
 
-        lst = Rest(lst);
+        pl = Rest(pl);
     }
 
-    FAssert(lst == EmptyListObject);
+    FAssert(pl == EmptyListObject);
 
-//    AsPair(argv[1])->Rest = argv[2];
-    SetRest(argv[1], argv[2]);
+    ts->Parameters = MakePair(MakePair(argv[0], argv[1]), ts->Parameters);
+
     return(NoValueObject);
 }
 
@@ -1038,13 +1115,22 @@ Define("procedure->parameter", ProcedureToParameterPrimitive)(int argc, FObject 
     return(NoValueObject);
 }
 
+Define("parameter?", ParameterPPrimitive)(int argc, FObject argv[])
+{
+    if (argc != 1)
+        RaiseExceptionC(R.Assertion, "parameter?", "parameter?: expected one argument",
+                EmptyListObject);
+
+    return(ParameterP(argv[0]) ? TrueObject : FalseObject);
+}
+
 static FPrimitive * Primitives[] =
 {
     &CurrentContinuationMarksPrimitive,
-
     &GetParameterPrimitive,
     &SetParameterPrimitive,
-    &ProcedureToParameterPrimitive
+    &ProcedureToParameterPrimitive,
+    &ParameterPPrimitive
 };
 
 void SetupExecute()
@@ -1058,8 +1144,6 @@ void SetupExecute()
 
     for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
-
-    DynamicEnvironment = EmptyListObject;
 
     v[0] = MakeInstruction(ValuesOpcode, 0);
     v[1] = MakeInstruction(ReturnOpcode, 0);

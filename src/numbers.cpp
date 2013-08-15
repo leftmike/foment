@@ -246,6 +246,15 @@ Define("even?", EvenPPrimitive)(int argc, FObject argv[])
     return(AsFixnum(argv[0]) % 2 == 0 ? TrueObject : FalseObject);
 }
 
+Define("exact-integer?", ExactIntegerPPrimitive)(int argc, FObject argv[])
+{
+    if (argc != 1)
+        RaiseExceptionC(R.Assertion, "exact-integer?", "exact-integer?: expected one argument",
+                EmptyListObject);
+
+        return(FixnumP(argv[0]) ? TrueObject : FalseObject);
+}
+
 Define("expt", ExptPrimitive)(int argc, FObject argv[])
 {
     if (argc != 2)
@@ -297,6 +306,25 @@ Define("sqrt", SqrtPrimitive)(int argc, FObject argv[])
     return(MakeFixnum(x));
 }
 
+Define("number->string", NumberToStringPrimitive)(int argc, FObject argv[])
+{
+    if (argc != 2)
+        RaiseExceptionC(R.Assertion, "number->string",
+                "number->string: expected two arguments", EmptyListObject);
+
+    if (FixnumP(argv[0]) == 0)
+        RaiseExceptionC(R.Assertion, "number->string",
+                "number->string: expected a fixnum", List(argv[0]));
+
+    if (FixnumP(argv[1]) == 0)
+        RaiseExceptionC(R.Assertion, "number->string",
+                "number->string: expected a fixnum", List(argv[1]));
+
+    FCh s[16];
+    int sl = NumberAsString(AsFixnum(argv[0]), s, AsFixnum(argv[1]));
+    return(MakeString(s, sl));
+}
+
 static FPrimitive * Primitives[] =
 {
     &SumPrimitive,
@@ -313,9 +341,11 @@ static FPrimitive * Primitives[] =
     &NegativePPrimitive,
     &OddPPrimitive,
     &EvenPPrimitive,
+    &ExactIntegerPPrimitive,
     &ExptPrimitive,
     &AbsPrimitive,
-    &SqrtPrimitive
+    &SqrtPrimitive,
+    &NumberToStringPrimitive
 };
 
 void SetupNumbers()

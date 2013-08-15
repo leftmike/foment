@@ -13,16 +13,19 @@
 
 (define radix (make-parameter 10))
 
-(define write-shared (make-parameter #f
+(define boolean-parameter (make-parameter #f
     (lambda (x)
         (if (boolean? x)
             x
-            (error "only booleans are accepted by write-shared")))))
+            (error "only booleans are accepted by boolean-parameter")))))
 
 (must-equal 10 (radix))
 (radix 2)
 (must-equal 2 (radix))
-(must-raise (assertion-violation error) (write-shared 0))
+(must-raise (assertion-violation error) (boolean-parameter 0))
+
+(must-equal 16 (parameterize ((radix 16)) (radix)))
+(must-equal 2 (radix))
 
 ;(define prompt
 ;    (make-parameter 123
@@ -34,10 +37,6 @@
 ;(prompt)       ==>  "123"
 ;(prompt ">")
 ;(prompt)       ==>  ">"
-
-;(radix)                                              ==>  2
-;(parameterize ((radix 16)) (radix))                  ==>  16
-;(radix)                                              ==>  2
 
 ;(define (f n) (number->string n (radix)))
 

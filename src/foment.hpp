@@ -15,8 +15,13 @@ To Do:
 
 -- define-record-type
 
--- guard
 -- parameterize
+-- srfi-39 tests
+-- set-parameter for parameterized value
+-- more tests
+-- run-thread must collect initial values of parameters for the new thread
+
+-- guard
 -- dynamic-wind
 -- with-exception-handler
 -- raise
@@ -50,7 +55,6 @@ Future:
 
 Bugs:
 -- gc.cpp: AllocateSection failing is not handled by all callers
--- execute.cpp: DynamicEnvironment needs to be put someplace
 -- ExecuteThunk does not check for CStack or AStack overflow
 -- parameters are broken for threads
 -- string input ports have not been tested at all
@@ -748,6 +752,7 @@ typedef struct _FThreadState
 
     FObject MarkStack;
     FObject IndexStack;
+    FObject Parameters;
 } FThreadState;
 
 // ----------------
