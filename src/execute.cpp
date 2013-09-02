@@ -2,6 +2,17 @@
 
 Foment
 
+-- Racket: prompts, aborting to a prompt, capturing a continuation up to a prompt, and
+composing the current continuation with a captured continuation.
+(call-with-continuation-prompt <proc> <prompt-tag> <handler> <arg> ...)
+(abort-current-continuation <prompt-tag> <val> ...)
+(call-with-current-continuation <proc> [<prompt-tag>])
+(call-with-composable-continuation <proc> [<prompt-tag>])
+
+-- continuation marks should be an AVLTree containing only marks at the current frame
+-- mark stack is a stack of AVLTrees
+-- cache stack is a stack of AVLTrees with each level containing a list of marks
+
 parameters
 -- store current value of parameter (set via parameterize) on the stack
 -- get-parameter: search backward down stack for parameter, otherwise, check thread values,
@@ -10,30 +21,16 @@ otherwise, use parameter initial value
 -- call/cc: just need to save dynamic stack index
 -- run-thread: copy thread values and add/update any modified parameters on the dynamic stack
 
--- parameters
+-- parameters:
+-- srfi-39 tests
+-- set-parameter for parameterized value
+-- more tests
+-- run-thread must collect initial values of parameters for the new thread
+-- parameterize is broken: should evaluate all parameters, then evaluate all values, then
+setup the parameterization
+
 -- dynamic-wind
 -- exceptions
-
--- (mark-continuation <key> <val> <thunk>)
--- (unwind-continuation <key>)
--- (capture-continuation <key> <proc>)
--- (current-continuation-marks)
-
--- (unwind-index <index>)
--- (capture-index <index>)
-
-scheme08-stack-marks.pdf
-decouple the lifetime of the mark from
-the lifetime of the stack frame by placing it, conceptually, at the
-boundary between two stack frames. Stack marks may be overwritten by marks placed by tail calls,
-but they are not discarded by a tail call that does not place marks
-
-icfp07-fyff.pdf
--- attach continuation marks to the stack frame of the parent, not than of the child
--- use a special frame for dynamic information; combine dynamic frames at runtime so that
-in tail recursive case there is only a single dynamic frame
--- three concepts: unwinding the current continuation to a marked location; capturing
-and composing part or all of a contination; dynamic information
 
 Set of all parameter bindings at a given time is called the dynamic environment.
 The system implicitly maintains a current exception handler in the dynamic enviroment.
@@ -934,9 +931,10 @@ TailCallPrimitive:
 
                     if (PairP(ts->IndexStack))
                     {
-                        FAssert(FixnumP(First(ts->IndexStack)));
+                        FAssert(PairP(First(ts->IndexStack)));
+                        FAssert(FixnumP(First(First(ts->IndexStack))));
 
-                        if (AsFixnum(First(ts->IndexStack)) == idx)
+                        if (AsFixnum(First(First(ts->IndexStack))) == idx)
                         {
                             ExtendContinuationMarks(ts, key, val);
 
@@ -947,7 +945,8 @@ TailCallPrimitive:
                     }
 
                     ts->MarkStack = MakePair(List(MakePair(key, val)), ts->MarkStack);
-                    ts->IndexStack = MakePair(MakeFixnum(ts->CStackPtr), ts->IndexStack);
+                    ts->IndexStack = MakePair(MakePair(MakeFixnum(ts->CStackPtr),
+                            MakeFixnum(ts->AStackPtr)), ts->IndexStack);
 
                     ts->ArgCount = 0;
                     ts->AStack[ts->AStackPtr] = thnk;

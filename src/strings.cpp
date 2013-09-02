@@ -223,7 +223,7 @@ static int ChCiCompare(FCh ch1, FCh ch2)
     return(ChDownCase(ch1) - ChDownCase(ch2));
 }
 
-static int StringCompare(FString * str1, FString * str2)
+int StringCompare(FString * str1, FString * str2)
 {
     for (unsigned int sdx = 0; sdx < StringLength(str1) && sdx < StringLength(str2); sdx++)
         if (str1->String[sdx] != str2->String[sdx])

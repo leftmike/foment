@@ -16,11 +16,6 @@ To Do:
 -- define-record-type
 
 -- parameterize
--- srfi-39 tests
--- set-parameter for parameterized value
--- more tests
--- run-thread must collect initial values of parameters for the new thread
-
 -- guard
 -- dynamic-wind
 -- with-exception-handler
@@ -389,6 +384,7 @@ FObject FoldCaseString(FObject s);
 unsigned int ByteLengthHash(char * b, int bl);
 unsigned int StringLengthHash(FCh * s, int sl);
 unsigned int StringHash(FObject obj);
+int StringCompare(FString * str1, FString * str2);
 int StringEqualP(FObject obj1, FObject obj2);
 int StringLengthEqualP(FCh * s, int sl, FObject obj);
 int StringCEqualP(char * s, FObject obj);
@@ -536,6 +532,27 @@ unsigned int HashtableSize(FObject ht);
 void HashtableWalkUpdate(FObject ht, FWalkUpdateFn wfn, FObject ctx);
 void HashtableWalkDelete(FObject ht, FWalkDeleteFn wfn, FObject ctx);
 void HashtableWalkVisit(FObject ht, FWalkVisitFn wfn, FObject ctx);
+
+// ---- AVL Trees ----
+
+#define AVLTreeP(obj) RecordP(obj, R.AVLTreeRecordType)
+#define AsAVLTree(obj) ((FAVLTree *) (obj))
+
+typedef int (*FCompareFn)(FObject obj1, FObject obj2);
+
+typedef struct
+{
+    FRecord Record;
+    FObject Key;
+    FObject Value;
+    FObject Height;
+    FObject Left;
+    FObject Right;
+} FAVLTree;
+
+FObject AVLTreeSearch(FObject tree, FObject key, FObject def, FCompareFn cfn);
+FObject AVLTreeSet(FObject tree, FObject key, FObject val, FCompareFn cfn, int gf);
+FObject AVLTreeDelete(FObject tree, FObject key, FCompareFn cfn);
 
 // ---- Symbols ----
 
@@ -771,6 +788,7 @@ typedef struct
 
     FObject HashtableRecordType;
     FObject ExceptionRecordType;
+    FObject AVLTreeRecordType;
 
     FObject Assertion;
     FObject Restriction;
@@ -868,8 +886,9 @@ void SetupIO();
 void SetupCompile();
 void SetupExecute();
 void SetupNumbers();
-void SetupGC();
+void SetupAVLTrees();
 void SetupThreads();
+void SetupGC();
 
 void WriteSpecialSyntax(FObject port, FObject obj, int df);
 void WriteInstruction(FObject port, FObject obj, int df);
