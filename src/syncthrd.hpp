@@ -108,9 +108,10 @@ typedef struct _FThread
     OSThreadHandle Handle;
     FObject Result;
     FObject Thunk;
+    FObject Parameters;
 } FThread;
 
-FObject MakeThread(OSThreadHandle h, FObject thnk);
+FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms);
 
 // ---- Exclusives ----
 
@@ -156,7 +157,7 @@ extern unsigned int TotalThreads;
 extern unsigned int WaitThreads;
 extern OSExclusive GCExclusive;
 
-void EnterThread(FThreadState * ts, FObject obj);
+void EnterThread(FThreadState * ts, FObject thrd, FObject prms);
 void LeaveThread(FThreadState * ts);
 
 #endif // __SYNCTHRD_HPP__

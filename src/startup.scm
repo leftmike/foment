@@ -1,4 +1,3 @@
-
 (define-library (foment base)
     (import (foment bedrock))
     (export compile-eval compile syntax-pass middle-pass generate-pass keyword syntax
@@ -23,10 +22,10 @@
         write display write-shared display-shared write-simple display-simple
         + * - / = < > <= >= zero? positive? negative? odd? even? exact-integer? expt abs sqrt
         number->string pair? cons car cdr
-        set-car! set-cdr! list null? append reverse list-ref map-car map-cdr string=?
+        set-car! set-cdr! list null? append reverse list-ref map-car map-cdr string=? string?
         vector? make-vector vector-ref vector-set! list->vector values apply
         call/cc (rename call/cc call-with-current-continuation) procedure? string->symbol
-        caar cadr cdar cddr newline)
+        caar cadr cdar cddr newline dynamic-wind)
     (begin
         (define (caar pair) (car (car pair)))
         (define (cadr pair) (car (cdr pair)))
@@ -65,6 +64,15 @@
         (define (call-with-values producer consumer)
                 (let-values ((args (producer))) (apply consumer args)))
 
+        (define (dynamic-wind before thunk after)
+            (begin
+                (before)
+                (let-values ((results (thunk)))
+                    (after)
+                    (apply values results))))
+
+        (define parameterize-key (cons #f #f))
+
         (define (make-parameter init . converter)
             (let* ((converter
                     (if (null? converter)
@@ -73,28 +81,49 @@
                             (car converter)
                             (full-error 'assertion-violation 'make-parameter
                                     "make-parameter: expected one or two arguments"))))
-                (init (converter init)))
-            (letrec ((parameter
-                        (case-lambda
-                            (() (get-parameter parameter init))
-                            ((val) (set-parameter! parameter (converter val)))
-                            ((val ignore) (converter val)) ;; used by parameterize
-                            (val (full-error 'assertion-violation '<parameter>
-                                    "<parameter>: expected zero or one arguments")))))
-                (procedure->parameter parameter)
-                parameter)))
+                    (init (converter init)))
+                (letrec ((parameter
+                            (case-lambda
+                                (() (get-parameter parameter init))
+                                ((val) (set-parameter! parameter (converter val)))
+                                ((val key) ;; used by parameterize
+                                    (if (eq? key parameterize-key)
+                                        (converter val)
+                                        (full-error 'assertion-violation '<parameter>
+                                            "<parameter>: expected zero or one arguments")))
+                                (val (full-error 'assertion-violation '<parameter>
+                                        "<parameter>: expected zero or one arguments")))))
+                    (procedure->parameter parameter)
+                    parameter)))
 
         (define-syntax parameterize
             (syntax-rules ()
                 ((parameterize () body1 body2 ...)
                         (begin body1 body2 ...))
                 ((parameterize ((param1 value1) (param2 value2) ...) body1 body2 ...)
-                        (let ((p param1))
-                            (if (not (parameter? p))
-                                (full-error 'assertion-violation 'parameterize
-                                        "parameterize: expected a parameter" p))
-                            (with-continuation-mark p (p value1 'convert)
-                                (parameterize ((param2 value2) ...) body1 body2 ...))))))
+                    (with-parameterize (list param1 param2 ...) (list value1 value2 ...)
+                            (lambda () body1 body2 ...)))))
+
+        (define (with-parameterize params vals thunk)
+            (define (before params vals thunk)
+                (if (null? params)
+                    (thunk)
+                    (let ((p (car params)))
+                        (if (not (parameter? p))
+                            (full-error 'assertion-violation 'parameterize
+                                    "parameterize: expected a parameter" p))
+                        (let ((val (p (car vals) parameterize-key)))
+                            (push-parameter p val)
+                            (with-continuation-mark p val
+                                    (before (cdr params) (cdr vals) thunk))))))
+            (define (after params)
+                (if (not (null? params))
+                    (begin
+                        (pop-parameter (car params))
+                        (after (cdr params)))))
+            (let-values ((results (before params vals thunk)))
+                (after params)
+                (apply values results)))
 
         (define (map proc . lists)
             (define (map proc lists)

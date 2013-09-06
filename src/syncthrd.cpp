@@ -6,17 +6,19 @@ Foment
 
 #include <windows.h>
 #include "foment.hpp"
+#include "execute.hpp"
 #include "syncthrd.hpp"
 
 // ---- Threads ----
 
-FObject MakeThread(OSThreadHandle h, FObject thnk)
+FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms)
 {
     FThread * thrd = (FThread *) MakeObject(sizeof(FThread), ThreadTag);
     thrd->Reserved = MakeLength(0, ThreadTag);
     thrd->Result = NoValueObject;
     thrd->Handle = h;
     thrd->Thunk = thnk;
+    thrd->Parameters = prms;
 
     return(thrd);
 }
@@ -106,7 +108,7 @@ static DWORD WINAPI FomentThread(FObject obj)
 
     FAssert(ThreadP(obj));
 
-    EnterThread(&ts, obj);
+    EnterThread(&ts, obj, AsThread(obj)->Parameters);
 
     try
     {
@@ -139,7 +141,7 @@ Define("run-thread", RunThreadPrimitive)(int argc, FObject argv[])
         RaiseExceptionC(R.Assertion, "run-thread",
                 "run-thread: expected a procedure or a primitive", List(argv[0]));
 
-    FObject thrd = MakeThread(0, argv[0]);
+    FObject thrd = MakeThread(0, argv[0], CurrentParameters());
 
 #ifdef FOMENT_WIN32
     HANDLE h = CreateThread(0, 0, FomentThread, thrd, CREATE_SUSPENDED, 0);

@@ -27,22 +27,38 @@
 (must-equal 16 (parameterize ((radix 16)) (radix)))
 (must-equal 2 (radix))
 
-;(define prompt
-;    (make-parameter 123
-;        (lambda (x)
-;            (if (string? x)
-;                x
-;                (with-output-to-string (lambda () (write x)))))))
+(define prompt
+    (make-parameter 123
+        (lambda (x)
+            (if (string? x)
+                x
+                (number->string x 10)))))
 
-;(prompt)       ==>  "123"
-;(prompt ">")
-;(prompt)       ==>  ">"
+(must-equal "123" (prompt))
+(prompt ">")
+(must-equal ">" (prompt))
 
-;(define (f n) (number->string n (radix)))
+(define (f n) (number->string n (radix)))
 
-;(f 10)                                               ==>  "1010"
-;(parameterize ((radix 8)) (f 10))                    ==>  "12"
-;(parameterize ((radix 8) (prompt (f 10))) (prompt))  ==>  "1010"
+(must-equal "1010" (f 10))
+(must-equal "12" (parameterize ((radix 8)) (f 10)))
+(must-equal "1010" (parameterize ((radix 8) (prompt (f 10))) (prompt)))
+
+(define p1 (make-parameter 10))
+(define p2 (make-parameter 20))
+
+(must-equal 10 (p1))
+(must-equal 20 (p2))
+(p1 100)
+(must-equal 100 (p1))
+
+(must-equal 1000 (parameterize ((p1 1000) (p2 200)) (p1)))
+(must-equal 100 (p1))
+(must-equal 20 (p2))
+(must-equal 1000 (parameterize ((p1 10) (p2 200)) (p1 1000) (p1)))
+(must-equal 100 (p1))
+(must-equal 20 (p2))
+(must-equal 1000 (parameterize ((p1 0)) (p1) (parameterize ((p2 200)) (p1 1000) (p1))))
 
 ;;
 ;; guardians

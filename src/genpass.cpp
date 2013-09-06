@@ -546,7 +546,8 @@ static FObject GPassCaseLambda(FCaseLambda * cl)
 
     FAssert(cases == EmptyListObject);
 
-    return(MakeProcedure(cl->Name, ListToVector(ReverseListModify(cdl)), AsFixnum(1), TrueObject));
+    return(MakeProcedure(cl->Name, ListToVector(ReverseListModify(cdl)), AsFixnum(1),
+            PROCEDURE_FLAG_RESTARG));
 }
 
 FObject GPassLambdaFrame(FLambda * lam, FObject cdl, FLambda * op)
@@ -873,7 +874,8 @@ FObject GPassLambda(FLambda * lam)
 //    lam->Procedure = MakeProcedure(lam->Name, NoValueObject, AsFixnum(lam->ArgCount),
 //            lam->RestArg);
     Modify(FLambda, lam, Procedure,
-            MakeProcedure(lam->Name, NoValueObject, AsFixnum(lam->ArgCount), lam->RestArg));
+            MakeProcedure(lam->Name, NoValueObject, AsFixnum(lam->ArgCount),
+            lam->RestArg == TrueObject ? PROCEDURE_FLAG_RESTARG : 0));
 
     FObject cdl = EmptyListObject;
 

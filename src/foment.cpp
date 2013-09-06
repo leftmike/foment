@@ -1200,7 +1200,6 @@ void SetupFoment(FThreadState * ts, int argc, char * argv[])
     SetupCompile();
     SetupExecute();
     SetupNumbers();
-    SetupAVLTrees();
     SetupThreads();
     SetupGC();
     SetupScheme();

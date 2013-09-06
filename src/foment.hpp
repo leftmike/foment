@@ -15,7 +15,6 @@ To Do:
 
 -- define-record-type
 
--- parameterize
 -- guard
 -- dynamic-wind
 -- with-exception-handler
@@ -32,14 +31,13 @@ To Do:
 
 -- from Gambit:
 Serial Numbers
-Serial numbers are used by the printer to 
-identify objects which can’t be read
+Serial numbers are used by the printer to identify objects which can’t be read
 Convenient for debugging
 > (let ((n 2)) (lambda (x) (* x n)))
 #<procedure #2>
-> (pp #2) 
+> (pp #2)
 (lambda (x) (* x n))
-> (map #2 ’(1 2 3 4 5)) 
+> (map #2 ’(1 2 3 4 5))
 (2 4 6 8 10)
 
 Future:
@@ -51,7 +49,6 @@ Future:
 Bugs:
 -- gc.cpp: AllocateSection failing is not handled by all callers
 -- ExecuteThunk does not check for CStack or AStack overflow
--- parameters are broken for threads
 -- string input ports have not been tested at all
 -- OpenInputFile and OpenOutFile don't convert the filename to C very carefully
 -- update FeaturesC as more code gets written
@@ -209,6 +206,9 @@ void InstallTracker(FObject obj, FObject ret, FObject tconc);
 #define WantValuesObject MakeImmediate(5, MiscellaneousTag)
 #define WantValuesObjectP(obj) ((obj) == WantValuesObject)
 
+#define NotFoundObject MakeImmediate(6, MiscellaneousTag)
+#define NotFoundObjectP(obj) ((obj) == NotFoundObject)
+
 #define ValuesCountP(obj) ImmediateP(obj, ValuesCountTag)
 #define MakeValuesCount(cnt) MakeImmediate(cnt, ValuesCountTag)
 #define AsValuesCount(obj) ((int) (AsValue(obj)))
@@ -263,7 +263,6 @@ FObject SpecialSyntaxMsgC(FObject obj, char * msg);
 #define IncludeLibraryDeclarationsSyntax MakeImmediate(37, SpecialSyntaxTag)
 
 /*
-#define ParameterizeSyntax MakeImmediate(, SpecialSyntaxTag)
 #define GuardSyntax MakeImmediate(, SpecialSyntaxTag)
 #define DefineRecordTypeSyntax MakeImmediate(, SpecialSyntaxTag)
 */
@@ -533,27 +532,6 @@ void HashtableWalkUpdate(FObject ht, FWalkUpdateFn wfn, FObject ctx);
 void HashtableWalkDelete(FObject ht, FWalkDeleteFn wfn, FObject ctx);
 void HashtableWalkVisit(FObject ht, FWalkVisitFn wfn, FObject ctx);
 
-// ---- AVL Trees ----
-
-#define AVLTreeP(obj) RecordP(obj, R.AVLTreeRecordType)
-#define AsAVLTree(obj) ((FAVLTree *) (obj))
-
-typedef int (*FCompareFn)(FObject obj1, FObject obj2);
-
-typedef struct
-{
-    FRecord Record;
-    FObject Key;
-    FObject Value;
-    FObject Height;
-    FObject Left;
-    FObject Right;
-} FAVLTree;
-
-FObject AVLTreeSearch(FObject tree, FObject key, FObject def, FCompareFn cfn);
-FObject AVLTreeSet(FObject tree, FObject key, FObject val, FCompareFn cfn, int gf);
-FObject AVLTreeDelete(FObject tree, FObject key, FCompareFn cfn);
-
 // ---- Symbols ----
 
 #define SymbolP(obj) (IndirectTag(obj) == SymbolTag)
@@ -686,13 +664,12 @@ typedef struct
     unsigned int Reserved;
     FObject Name;
     FObject Code;
-    FObject RestArg;
 } FProcedure;
 
 #define AsProcedure(obj) ((FProcedure *) (obj))
 #define ProcedureP(obj) (IndirectTag(obj) == ProcedureTag)
 
-FObject MakeProcedure(FObject nam, FObject cv, int ac, FObject ra);
+FObject MakeProcedure(FObject nam, FObject cv, int ac, unsigned int fl);
 
 #define MAXIMUM_ARG_COUNT 0xFFFF
 #define ProcedureArgCount(obj)\
@@ -701,6 +678,7 @@ FObject MakeProcedure(FObject nam, FObject cv, int ac, FObject ra);
 #define PROCEDURE_FLAG_CLOSURE      0x80000000
 #define PROCEDURE_FLAG_PARAMETER    0x40000000
 #define PROCEDURE_FLAG_CONTINUATION 0x20000000
+#define PROCEDURE_FLAG_RESTARG      0x10000000
 
 // ---- Exception ----
 
@@ -788,7 +766,6 @@ typedef struct
 
     FObject HashtableRecordType;
     FObject ExceptionRecordType;
-    FObject AVLTreeRecordType;
 
     FObject Assertion;
     FObject Restriction;
@@ -886,7 +863,6 @@ void SetupIO();
 void SetupCompile();
 void SetupExecute();
 void SetupNumbers();
-void SetupAVLTrees();
 void SetupThreads();
 void SetupGC();
 

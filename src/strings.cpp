@@ -281,6 +281,15 @@ int StringCEqualP(char * s, FObject obj)
     return(1);
 }
 
+Define("string?", StringPPrimitive)(int argc, FObject argv[])
+{
+    if (argc != 1)
+        RaiseExceptionC(R.Assertion, "string?", "string?: expected one argument",
+                EmptyListObject);
+
+    return(StringP(argv[0]) ? TrueObject : FalseObject);
+}
+
 Define("string-hash", StringHashPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
@@ -320,6 +329,7 @@ Define("string->symbol", StringToSymbolPrimitive)(int argc, FObject argv[])
 
 static FPrimitive * Primitives[] =
 {
+    &StringPPrimitive,
     &StringHashPrimitive,
     &StringEqualPPrimitive,
     &StringToSymbolPrimitive

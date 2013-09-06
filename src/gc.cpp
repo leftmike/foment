@@ -775,8 +775,6 @@ static void ScanChildren(FRaw raw, unsigned int tag, int fcf)
             ScanObject(&(AsProcedure(raw)->Name), fcf, mf);
         if (ObjectP(AsProcedure(raw)->Code))
             ScanObject(&(AsProcedure(raw)->Code), fcf, mf);
-        if (ObjectP(AsProcedure(raw)->RestArg))
-            ScanObject(&(AsProcedure(raw)->RestArg), fcf, mf);
         break;
 
     case SymbolTag:
@@ -1376,7 +1374,7 @@ void InstallTracker(FObject obj, FObject ret, FObject tconc)
 #endif // FOMENT_DEBUG
 }
 
-void EnterThread(FThreadState * ts, FObject obj)
+void EnterThread(FThreadState * ts, FObject thrd, FObject prms)
 {
 #ifdef FOMENT_WIN32
     FAssert(TlsGetValue(TlsIndex) == 0);
@@ -1399,7 +1397,7 @@ void EnterThread(FThreadState * ts, FObject obj)
     Threads = ts;
     LeaveExclusive(&GCExclusive);
 
-    ts->Thread = obj;
+    ts->Thread = thrd;
     ts->ActiveZero = 0;
     ts->ObjectsSinceLast = 0;
     ts->UsedRoots = 0;
@@ -1414,7 +1412,7 @@ void EnterThread(FThreadState * ts, FObject obj)
     ts->ArgCount = -1;
     ts->MarkStack = EmptyListObject;
     ts->IndexStack = EmptyListObject;
-    ts->Parameters = EmptyListObject;
+    ts->Parameters = prms;
 }
 
 void LeaveThread(FThreadState * ts)
@@ -1535,8 +1533,8 @@ void SetupCore(FThreadState * ts)
     HANDLE h = OpenThread(STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x3FF, 0,
             GetCurrentThreadId());
 #endif // FOMENT_WIN32
-    EnterThread(ts, NoValueObject);
-    ts->Thread = MakeThread(h, NoValueObject);
+    EnterThread(ts, NoValueObject, NoValueObject);
+    ts->Thread = MakeThread(h, NoValueObject, NoValueObject);
 
     for (unsigned int idx = 0; idx < sizeof(Sizes) / sizeof(unsigned int); idx++)
         Sizes[idx] = 0;

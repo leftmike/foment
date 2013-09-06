@@ -4,6 +4,8 @@
 
 (import (foment bedrock))
 
+(define p (make-parameter 0))
+
 ; An implementation of a mailbox used by producer(s) and consumer(s).
 
 (define not-empty (make-condition))
@@ -53,10 +55,11 @@
         (display " ")
         (consumer)))
 
+(p 1)
 (run-thread producer)
-(run-thread producer)
-(run-thread consumer)
-(run-thread consumer)
+(parameterize ((p 2)) (run-thread producer))
+(parameterize ((p 3)) (run-thread consumer)
+    (parameterize ((p 4)) (run-thread consumer)))
 (run-thread consumer)
 (run-thread consumer)
 

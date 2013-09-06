@@ -9,25 +9,19 @@ composing the current continuation with a captured continuation.
 (call-with-current-continuation <proc> [<prompt-tag>])
 (call-with-composable-continuation <proc> [<prompt-tag>])
 
--- continuation marks should be an AVLTree containing only marks at the current frame
--- mark stack is a stack of AVLTrees
--- cache stack is a stack of AVLTrees with each level containing a list of marks
+(continuation-capture <proc> <mark>) -- call <proc> with the current-continuation upto <mark>
+captured as an object
 
-parameters
--- store current value of parameter (set via parameterize) on the stack
--- get-parameter: search backward down stack for parameter, otherwise, check thread values,
-otherwise, use parameter initial value
--- set-parameter: same as get-parameter, except if no thread value, then add one for this parameter
--- call/cc: just need to save dynamic stack index
--- run-thread: copy thread values and add/update any modified parameters on the dynamic stack
+(compose-continuation <cont> <thunk>) -- call <thunk> in continuation <cont>
 
--- parameters:
--- srfi-39 tests
--- set-parameter for parameterized value
--- more tests
--- run-thread must collect initial values of parameters for the new thread
--- parameterize is broken: should evaluate all parameters, then evaluate all values, then
-setup the parameterization
+-- get rid of AVLTree
+
+-- parameter-wind: push value on stack
+-- parameter-unwind: pop stack
+
+-- when a continuation is restored, need to run a handler which runs the befores and the parameters
+
+-- call/cc: need to save and restore MarkStack and IndexStack
 
 -- dynamic-wind
 -- exceptions
@@ -42,8 +36,6 @@ The system implicitly maintains a current exception handler in the dynamic envir
 if no <cond-clause> matches then raise-continuable is invoked on object with
 current exception handler being that of guard and the dynamic environment of the original
 call to raise or raise-continuable
-
--- parameterize
 
 -- dynamic-wind
 (dynamic-wind <before> <thunk> <after>)
@@ -77,20 +69,14 @@ exception handler and the values that it returns get returned by the call to rai
 
 // ---- Procedure ----
 
-static FObject MakeProcedure(FObject nam, FObject cv, int ac, FObject ra, unsigned int fl)
+FObject MakeProcedure(FObject nam, FObject cv, int ac, unsigned int fl)
 {
     FProcedure * p = (FProcedure *) MakeObject(sizeof(FProcedure), ProcedureTag);
     p->Reserved = MakeLength(ac, ProcedureTag) | fl;
     p->Name = SyntaxToDatum(nam);
     p->Code = cv;
-    p->RestArg = ra;
 
     return(p);
-}
-
-FObject MakeProcedure(FObject nam, FObject cv, int ac, FObject ra)
-{
-    return(MakeProcedure(nam, cv, ac, ra, 0));
 }
 
 // ---- Instruction ----
@@ -167,39 +153,55 @@ void WriteInstruction(FObject port, FObject obj, int df)
 
 // --------
 
-static FObject UpdateContinuationMark(FObject ml, FObject kl, FObject key, FObject val)
+static FObject MarkListRef(FObject ml, FObject key, FObject def)
 {
-    FAssert(PairP(ml));
-
-    if (ml == kl)
-        return(MakePair(MakePair(key, val), Rest(ml)));
-
-    return(MakePair(First(ml), UpdateContinuationMark(Rest(ml), kl, key, val)));
-}
-
-static void ExtendContinuationMarks(FThreadState * ts, FObject key, FObject val)
-{
-    FAssert(PairP(ts->MarkStack));
-
-    FObject ml = First(ts->MarkStack);
-
     while (PairP(ml))
     {
         FAssert(PairP(First(ml)));
 
         if (EqP(First(First(ml)), key))
-        {
-            ts->MarkStack = MakePair(UpdateContinuationMark(First(ts->MarkStack), ml, key, val),
-                    Rest(ts->MarkStack));
-            break;
-        }
+            return(Rest(First(ml)));
 
         ml = Rest(ml);
     }
 
-    if (ml == EmptyListObject)
-        ts->MarkStack = MakePair(MakePair(MakePair(key, val),
-                First(ts->MarkStack)), Rest(ts->MarkStack));
+    FAssert(ml == EmptyListObject);
+
+    return(def);
+}
+
+static FObject MarkListUpdate(FObject ml, FObject key, FObject val)
+{
+    FAssert(PairP(ml));
+    FAssert(PairP(First(ml)));
+
+    if (EqP(First(First(ml)), key))
+        return(MakePair(MakePair(key, val), Rest(ml)));
+
+    return(MakePair(First(ml), MarkListUpdate(Rest(ml), key, val)));
+}
+
+static FObject MarkListSet(FObject ml, FObject key, FObject val)
+{
+    FAssert(val != NotFoundObject);
+
+    if (MarkListRef(ml, key, NotFoundObject) == NotFoundObject)
+        return(MakePair(MakePair(key, val), ml));
+
+    return(MarkListUpdate(ml, key, val));
+}
+
+static void MarkListWalkVisit(FObject ml, FWalkVisitFn wfn, FObject ctx)
+{
+    while (PairP(ml))
+    {
+        FAssert(PairP(First(ml)));
+
+        wfn(First(First(ml)), Rest(First(ml)), ctx);
+        ml = Rest(ml);
+    }
+
+    FAssert(ml == EmptyListObject);
 }
 
 FObject ExecuteThunk(FObject op)
@@ -387,7 +389,7 @@ FObject ExecuteThunk(FObject op)
                     FAssert(ts->AStackPtr > 0);
 
                     ts->AStackPtr -= 1;
-    //                AsVector(ts->Frame)->Vector[InstructionArg(obj)] = ts->AStack[ts->AStackPtr];
+//                    AsVector(ts->Frame)->Vector[InstructionArg(obj)] = ts->AStack[ts->AStackPtr];
                     ModifyVector(ts->Frame, InstructionArg(obj), ts->AStack[ts->AStackPtr]);
                     break;
 
@@ -635,7 +637,7 @@ TailCallPrimitive:
                     v[1] = ts->AStack[ts->AStackPtr];
                     v[2] = MakeInstruction(TailCallProcOpcode, 0);
                     FObject proc = MakeProcedure(NoValueObject, MakeVector(3, v, NoValueObject), 0,
-                            FalseObject, PROCEDURE_FLAG_CLOSURE);
+                            PROCEDURE_FLAG_CLOSURE);
                     ts->AStack[ts->AStackPtr - 1] = proc;
                     break;
                 }
@@ -819,7 +821,7 @@ TailCallPrimitive:
 
                         FAssert(ProcedureP(prc));
 
-                        if ((AsProcedure(prc)->RestArg == TrueObject
+                        if (((AsProcedure(prc)->Reserved & PROCEDURE_FLAG_RESTARG)
                                 && ts->ArgCount + 1 >= ProcedureArgCount(prc))
                                 || ProcedureArgCount(prc) == ts->ArgCount)
                         {
@@ -865,8 +867,8 @@ TailCallPrimitive:
 
                     op = ts->AStack[ts->AStackPtr - 1];
                     ts->AStack[ts->AStackPtr - 1] = MakeProcedure(NoValueObject,
-                            MakeVector(7, v, NoValueObject), 1, TrueObject,
-                            PROCEDURE_FLAG_CONTINUATION);
+                            MakeVector(7, v, NoValueObject), 1,
+                            PROCEDURE_FLAG_CONTINUATION | PROCEDURE_FLAG_RESTARG);
 
                     goto TailCall;
                 }
@@ -936,7 +938,8 @@ TailCallPrimitive:
 
                         if (AsFixnum(First(First(ts->IndexStack))) == idx)
                         {
-                            ExtendContinuationMarks(ts, key, val);
+                            ts->MarkStack = MakePair(MarkListSet(First(ts->MarkStack), key, val),
+                                    Rest(ts->MarkStack));
 
                             ts->ArgCount = 0;
                             op = thnk;
@@ -944,7 +947,8 @@ TailCallPrimitive:
                         }
                     }
 
-                    ts->MarkStack = MakePair(List(MakePair(key, val)), ts->MarkStack);
+                    ts->MarkStack = MakePair(MarkListSet(EmptyListObject, key, val),
+                            ts->MarkStack);
                     ts->IndexStack = MakePair(MakePair(MakeFixnum(ts->CStackPtr),
                             MakeFixnum(ts->AStackPtr)), ts->IndexStack);
 
@@ -984,7 +988,7 @@ Define("current-continuation-marks", CurrentContinuationMarksPrimitive)(int argc
 
 Define("get-parameter", GetParameterPrimitive)(int argc, FObject argv[])
 {
-    // (get-parameter <parameter> <init>)
+    // (get-parameter <parameter> <initial-value>)
 
     if (argc != 2)
         RaiseExceptionC(R.Assertion, "get-parameter", "get-parameter: expected two arguments",
@@ -995,41 +999,17 @@ Define("get-parameter", GetParameterPrimitive)(int argc, FObject argv[])
                 List(argv[0]));
 
     FThreadState * ts = GetThreadState();
-    FObject ms = ts->MarkStack;
 
-    while (PairP(ms))
+    if (HashtableP(ts->Parameters))
     {
-        FObject ml = First(ms);
+        FObject stk = EqHashtableRef(ts->Parameters, argv[0], EmptyListObject);
+        if (stk == EmptyListObject)
+            return(argv[1]);
 
-        while (PairP(ml))
-        {
-            FAssert(PairP(First(ml)));
+        FAssert(PairP(stk));
 
-            if (First(First(ml)) == argv[0])
-                return(Rest(First(ml)));
-
-            ml = Rest(ml);
-        }
-
-        FAssert(ml == EmptyListObject);
-
-        ms = Rest(ms);
+        return(First(stk));
     }
-
-    FAssert(ms == EmptyListObject);
-
-    FObject pl = ts->Parameters;
-    while (PairP(pl))
-    {
-        FAssert(PairP(First(pl)));
-
-        if (First(First(pl)) == argv[0])
-            return(Rest(First(pl)));
-
-        pl = Rest(pl);
-    }
-
-    FAssert(pl == EmptyListObject);
 
     return(argv[1]);
 }
@@ -1047,54 +1027,62 @@ Define("set-parameter!", SetParameterPrimitive)(int argc, FObject argv[])
                 List(argv[0]));
 
     FThreadState * ts = GetThreadState();
-    FObject ms = ts->MarkStack;
 
-    while (PairP(ms))
-    {
-        FObject ml = First(ms);
+    if (HashtableP(ts->Parameters) == 0)
+        ts->Parameters = MakeEqHashtable(0);
 
-        while (PairP(ml))
-        {
-            FAssert(PairP(First(ml)));
+    FObject stk = EqHashtableRef(ts->Parameters, argv[0], EmptyListObject);
+    if (stk != EmptyListObject)
+        stk = Rest(stk);
+    EqHashtableSet(ts->Parameters, argv[0], MakePair(argv[1], stk));
 
-            if (First(First(ml)) == argv[0])
-            {
-                
-                
-                // need to update the mark without modifying any pairs
-                FAssert(0);
-                
-                
-                return(NoValueObject);
-            }
+    return(NoValueObject);
+}
 
-            ml = Rest(ml);
-        }
+Define("push-parameter", PushParameterPrimitive)(int argc, FObject argv[])
+{
+    // (push-parameter <parameter> <value>)
 
-        FAssert(ml == EmptyListObject);
+    if (argc != 2)
+        RaiseExceptionC(R.Assertion, "push-parameter", "push-parameter: expected two arguments",
+                EmptyListObject);
 
-        ms = Rest(ms);
-    }
+    if (ParameterP(argv[0]) == 0)
+        RaiseExceptionC(R.Assertion, "push-parameter", "push-parameter: expected a parameter",
+                List(argv[0]));
 
-    FAssert(ms == EmptyListObject);
+    FThreadState * ts = GetThreadState();
 
-    FObject pl = ts->Parameters;
-    while (PairP(pl))
-    {
-        FAssert(PairP(First(pl)));
+    if (HashtableP(ts->Parameters) == 0)
+        ts->Parameters = MakeEqHashtable(0);
 
-        if (First(First(pl)) == argv[0])
-        {
-            SetRest(First(pl), argv[1]);
-            return(NoValueObject);
-        }
+    EqHashtableSet(ts->Parameters, argv[0],
+            MakePair(argv[1], EqHashtableRef(ts->Parameters, argv[0], EmptyListObject)));
 
-        pl = Rest(pl);
-    }
+    return(NoValueObject);
+}
 
-    FAssert(pl == EmptyListObject);
+Define("pop-parameter", PopParameterPrimitive)(int argc, FObject argv[])
+{
+    // (pop-parameter <parameter>)
 
-    ts->Parameters = MakePair(MakePair(argv[0], argv[1]), ts->Parameters);
+    if (argc != 1)
+        RaiseExceptionC(R.Assertion, "pop-parameter", "pop-parameter: expected one argument",
+                EmptyListObject);
+
+    if (ParameterP(argv[0]) == 0)
+        RaiseExceptionC(R.Assertion, "pop-parameter", "pop-parameter: expected a parameter",
+                List(argv[0]));
+
+    FThreadState * ts = GetThreadState();
+
+    FAssert(HashtableP(ts->Parameters));
+
+    FObject stk = EqHashtableRef(ts->Parameters, argv[0], EmptyListObject);
+
+    FAssert(PairP(stk));
+
+    EqHashtableSet(ts->Parameters, argv[0], Rest(stk));
 
     return(NoValueObject);
 }
@@ -1123,11 +1111,39 @@ Define("parameter?", ParameterPPrimitive)(int argc, FObject argv[])
     return(ParameterP(argv[0]) ? TrueObject : FalseObject);
 }
 
+static void WalkVisit(FObject key, FObject val, FObject ht)
+{
+    if (ParameterP(key) && EqHashtableContainsP(ht, key) == 0)
+        EqHashtableSet(ht, key, val);
+}
+
+FObject CurrentParameters()
+{
+    FObject ht = MakeEqHashtable(0);
+    FThreadState * ts = GetThreadState();
+    FObject ms = ts->MarkStack;
+
+    while (PairP(ms))
+    {
+        MarkListWalkVisit(First(ms), WalkVisit, ht);
+        ms = Rest(ms);
+    }
+
+    FAssert(ms == EmptyListObject);
+
+    if (HashtableP(ts->Parameters))
+        HashtableWalkVisit(ts->Parameters, WalkVisit, ht);
+
+    return(ht);
+}
+
 static FPrimitive * Primitives[] =
 {
     &CurrentContinuationMarksPrimitive,
     &GetParameterPrimitive,
     &SetParameterPrimitive,
+    &PushParameterPrimitive,
+    &PopParameterPrimitive,
     &ProcedureToParameterPrimitive,
     &ParameterPPrimitive
 };
@@ -1148,24 +1164,24 @@ void SetupExecute()
     v[1] = MakeInstruction(ReturnOpcode, 0);
     LibraryExport(R.BedrockLibrary,
             EnvironmentSetC(R.Bedrock, "values", MakeProcedure(StringCToSymbol("values"),
-            MakeVector(2, v, NoValueObject), 1, TrueObject)));
+            MakeVector(2, v, NoValueObject), 1, PROCEDURE_FLAG_RESTARG)));
 
     v[0] = MakeInstruction(ApplyOpcode, 0);
     v[1] = MakeInstruction(TailCallOpcode, 0);
     LibraryExport(R.BedrockLibrary,
             EnvironmentSetC(R.Bedrock, "apply", MakeProcedure(StringCToSymbol("apply"),
-            MakeVector(2, v, NoValueObject), 2, TrueObject)));
+            MakeVector(2, v, NoValueObject), 2, PROCEDURE_FLAG_RESTARG)));
 
     v[0] = MakeInstruction(CallWithCCOpcode, 0);
     LibraryExport(R.BedrockLibrary,
             EnvironmentSetC(R.Bedrock, "call/cc", MakeProcedure(StringCToSymbol("call/cc"),
-            MakeVector(1, v, NoValueObject), 1, FalseObject)));
+            MakeVector(1, v, NoValueObject), 1, 0)));
 
     v[0] = MakeInstruction(SetArgCountOpcode, 0);
     v[1] = MakeInstruction(CallOpcode, 0);
     v[2] = MakeInstruction(ReturnFromOpcode, 0);
     R.ExecuteThunk = MakeProcedure(StringCToSymbol("execute-thunk"),
-            MakeVector(3, v, NoValueObject), 1, FalseObject);
+            MakeVector(3, v, NoValueObject), 1, 0);
 
     v[0] = MakeInstruction(CheckCountOpcode, 3);
     v[1] = MakeInstruction(MarkContinuationOpcode, 0);
@@ -1177,5 +1193,5 @@ void SetupExecute()
     LibraryExport(R.BedrockLibrary,
             EnvironmentSetC(R.Bedrock, "mark-continuation",
             MakeProcedure(StringCToSymbol("mark-continuation"), MakeVector(7, v, NoValueObject),
-            3, FalseObject)));
+            3, 0)));
 }
