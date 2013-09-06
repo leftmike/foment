@@ -5,6 +5,7 @@ Foment
 -- Racket: prompts, aborting to a prompt, capturing a continuation up to a prompt, and
 composing the current continuation with a captured continuation.
 (call-with-continuation-prompt <proc> <prompt-tag> <handler> <arg> ...)
+(default-continuation-prompt-tag)
 (abort-current-continuation <prompt-tag> <val> ...)
 (call-with-current-continuation <proc> [<prompt-tag>])
 (call-with-composable-continuation <proc> [<prompt-tag>])
@@ -14,10 +15,10 @@ captured as an object
 
 (compose-continuation <cont> <thunk>) -- call <thunk> in continuation <cont>
 
--- get rid of AVLTree
-
 -- parameter-wind: push value on stack
 -- parameter-unwind: pop stack
+
+-- current-input-port and current-output-port need to be parameters
 
 -- when a continuation is restored, need to run a handler which runs the befores and the parameters
 
@@ -986,107 +987,6 @@ Define("current-continuation-marks", CurrentContinuationMarksPrimitive)(int argc
     return(GetThreadState()->MarkStack);
 }
 
-Define("get-parameter", GetParameterPrimitive)(int argc, FObject argv[])
-{
-    // (get-parameter <parameter> <initial-value>)
-
-    if (argc != 2)
-        RaiseExceptionC(R.Assertion, "get-parameter", "get-parameter: expected two arguments",
-                EmptyListObject);
-
-    if (ParameterP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "get-parameter", "get-parameter: expected a parameter",
-                List(argv[0]));
-
-    FThreadState * ts = GetThreadState();
-
-    if (HashtableP(ts->Parameters))
-    {
-        FObject stk = EqHashtableRef(ts->Parameters, argv[0], EmptyListObject);
-        if (stk == EmptyListObject)
-            return(argv[1]);
-
-        FAssert(PairP(stk));
-
-        return(First(stk));
-    }
-
-    return(argv[1]);
-}
-
-Define("set-parameter!", SetParameterPrimitive)(int argc, FObject argv[])
-{
-    // (set-parameter! <parameter> <value>)
-
-    if (argc != 2)
-        RaiseExceptionC(R.Assertion, "set-parameter!", "set-parameter!: expected two arguments",
-                EmptyListObject);
-
-    if (ParameterP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "set-parameter!", "set-parameter!: expected a parameter",
-                List(argv[0]));
-
-    FThreadState * ts = GetThreadState();
-
-    if (HashtableP(ts->Parameters) == 0)
-        ts->Parameters = MakeEqHashtable(0);
-
-    FObject stk = EqHashtableRef(ts->Parameters, argv[0], EmptyListObject);
-    if (stk != EmptyListObject)
-        stk = Rest(stk);
-    EqHashtableSet(ts->Parameters, argv[0], MakePair(argv[1], stk));
-
-    return(NoValueObject);
-}
-
-Define("push-parameter", PushParameterPrimitive)(int argc, FObject argv[])
-{
-    // (push-parameter <parameter> <value>)
-
-    if (argc != 2)
-        RaiseExceptionC(R.Assertion, "push-parameter", "push-parameter: expected two arguments",
-                EmptyListObject);
-
-    if (ParameterP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "push-parameter", "push-parameter: expected a parameter",
-                List(argv[0]));
-
-    FThreadState * ts = GetThreadState();
-
-    if (HashtableP(ts->Parameters) == 0)
-        ts->Parameters = MakeEqHashtable(0);
-
-    EqHashtableSet(ts->Parameters, argv[0],
-            MakePair(argv[1], EqHashtableRef(ts->Parameters, argv[0], EmptyListObject)));
-
-    return(NoValueObject);
-}
-
-Define("pop-parameter", PopParameterPrimitive)(int argc, FObject argv[])
-{
-    // (pop-parameter <parameter>)
-
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "pop-parameter", "pop-parameter: expected one argument",
-                EmptyListObject);
-
-    if (ParameterP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "pop-parameter", "pop-parameter: expected a parameter",
-                List(argv[0]));
-
-    FThreadState * ts = GetThreadState();
-
-    FAssert(HashtableP(ts->Parameters));
-
-    FObject stk = EqHashtableRef(ts->Parameters, argv[0], EmptyListObject);
-
-    FAssert(PairP(stk));
-
-    EqHashtableSet(ts->Parameters, argv[0], Rest(stk));
-
-    return(NoValueObject);
-}
-
 Define("procedure->parameter", ProcedureToParameterPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
@@ -1140,10 +1040,6 @@ FObject CurrentParameters()
 static FPrimitive * Primitives[] =
 {
     &CurrentContinuationMarksPrimitive,
-    &GetParameterPrimitive,
-    &SetParameterPrimitive,
-    &PushParameterPrimitive,
-    &PopParameterPrimitive,
     &ProcedureToParameterPrimitive,
     &ParameterPPrimitive
 };

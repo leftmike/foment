@@ -1,14 +1,16 @@
 (define-library (foment base)
     (import (foment bedrock))
     (export compile-eval compile syntax-pass middle-pass generate-pass keyword syntax
-            unsyntax get-parameter set-parameter! procedure->parameter eq-hash eqv-hash
+            unsyntax procedure->parameter eq-hash eqv-hash
             equal-hash full-error loaded-libraries library-path full-command-line
             open-output-string get-output-string write-pretty display-pretty string-hash
             current-continuation-marks with-continuation-mark)
     (begin
         (define-syntax with-continuation-mark
             (syntax-rules ()
-                ((_ key val expr) (mark-continuation key val (lambda () expr)))))))
+                ((_ key val expr) (mark-continuation key val (lambda () expr)))))
+        (define (call-with-continuation-prompt proc tag handler . args)
+            (with-continuation-mark tag handler (apply proc args)))))
 
 (define-library (scheme base)
     (import (foment bedrock))
@@ -82,17 +84,25 @@
                             (full-error 'assertion-violation 'make-parameter
                                     "make-parameter: expected one or two arguments"))))
                     (init (converter init)))
-                (letrec ((parameter
-                            (case-lambda
-                                (() (get-parameter parameter init))
-                                ((val) (set-parameter! parameter (converter val)))
-                                ((val key) ;; used by parameterize
-                                    (if (eq? key parameterize-key)
-                                        (converter val)
-                                        (full-error 'assertion-violation '<parameter>
-                                            "<parameter>: expected zero or one arguments")))
-                                (val (full-error 'assertion-violation '<parameter>
-                                        "<parameter>: expected zero or one arguments")))))
+                (letrec
+                    ((parameter
+                        (case-lambda
+                            (() (let ((stk (eq-hashtable-ref (thread-parameters) parameter '())))
+                                    (if (null? stk)
+                                        init
+                                        (car stk))))
+                            ((val)
+                                (let ((stk (eq-hashtable-ref (thread-parameters) parameter '())))
+                                    (eq-hashtable-set (thread-parameters) parameter
+                                            (cons (converter val)
+                                            (if (null? stk) '() (cdr stk))))))
+                            ((val key) ;; used by parameterize
+                                (if (eq? key parameterize-key)
+                                    (converter val)
+                                    (full-error 'assertion-violation '<parameter>
+                                        "<parameter>: expected zero or one arguments")))
+                            (val (full-error 'assertion-violation '<parameter>
+                                    "<parameter>: expected zero or one arguments")))))
                     (procedure->parameter parameter)
                     parameter)))
 
@@ -113,13 +123,15 @@
                             (full-error 'assertion-violation 'parameterize
                                     "parameterize: expected a parameter" p))
                         (let ((val (p (car vals) parameterize-key)))
-                            (push-parameter p val)
+                            (eq-hashtable-set (thread-parameters) p
+                                    (cons val (eq-hashtable-ref (thread-parameters) p '())))
                             (with-continuation-mark p val
                                     (before (cdr params) (cdr vals) thunk))))))
             (define (after params)
                 (if (not (null? params))
                     (begin
-                        (pop-parameter (car params))
+                        (eq-hashtable-set (thread-parameters) (car params)
+                                (cdr (eq-hashtable-ref (thread-parameters) (car params) '())))
                         (after (cdr params)))))
             (let-values ((results (before params vals thunk)))
                 (after params)

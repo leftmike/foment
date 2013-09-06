@@ -76,8 +76,8 @@ unsigned int BytesSinceLast = 0;
 unsigned int ObjectsSinceLast = 0;
 unsigned int CollectionCount = 0;
 unsigned int PartialPerFull = 4;
-unsigned int TriggerBytes = SECTION_SIZE * 4;
-unsigned int TriggerObjects = TriggerBytes / (sizeof(FPair) * 4);
+unsigned int TriggerBytes = SECTION_SIZE * 8;
+unsigned int TriggerObjects = TriggerBytes / (sizeof(FPair) * 8);
 unsigned int MaximumBackRefFraction = 128;
 
 int GCRequired;

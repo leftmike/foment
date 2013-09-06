@@ -646,6 +646,60 @@ void HashtableWalkVisit(FObject ht, FWalkVisitFn wfn, FObject ctx)
     }
 }
 
+Define("make-eq-hashtable", MakeEqHashtablePrimitive)(int argc, FObject argv[])
+{
+    if (argc > 1)
+        RaiseExceptionC(R.Assertion, "make-eq-hashtable",
+                "make-eq-hashtable: expected zero or one arguments", EmptyListObject);
+
+    if (argc == 1 && FixnumP(argv[0]) == 0)
+        RaiseExceptionC(R.Assertion, "make-eq-hashtable",
+                "make-eq-hashtable: expected a fixnum", List(argv[0]));
+
+    return(MakeEqHashtable(argc == 0 ? 0 : AsFixnum(argv[0])));
+}
+
+Define("eq-hashtable-ref", EqHashtableRefPrimitive)(int argc, FObject argv[])
+{
+    if (argc != 3)
+        RaiseExceptionC(R.Assertion, "eq-hashtable-ref",
+                "eq-hashtable-ref: expected three arguments", EmptyListObject);
+
+    if (HashtableP(argv[0]) == 0 || PairP(AsHashtable(argv[0])->Tracker) == 0)
+        RaiseExceptionC(R.Assertion, "eq-hashtable-ref",
+                "eq-hashtable-ref: expected an eq-hashtable", List(argv[0]));
+
+    return(EqHashtableRef(argv[0], argv[1], argv[2]));
+}
+
+Define("eq-hashtable-set", EqHashtableSetPrimitive)(int argc, FObject argv[])
+{
+    if (argc != 3)
+        RaiseExceptionC(R.Assertion, "eq-hashtable-set",
+                "eq-hashtable-set: expected three arguments", EmptyListObject);
+
+    if (HashtableP(argv[0]) == 0 || PairP(AsHashtable(argv[0])->Tracker) == 0)
+        RaiseExceptionC(R.Assertion, "eq-hashtable-set",
+                "eq-hashtable-set: expected an eq-hashtable", List(argv[0]));
+
+    EqHashtableSet(argv[0], argv[1], argv[2]);
+    return(NoValueObject);
+}
+
+Define("eq-hashtable-delete", EqHashtableDeletePrimitive)(int argc, FObject argv[])
+{
+    if (argc != 2)
+        RaiseExceptionC(R.Assertion, "eq-hashtable-delete",
+                "eq-hashtable-delete: expected two arguments", EmptyListObject);
+
+    if (HashtableP(argv[0]) == 0 || PairP(AsHashtable(argv[0])->Tracker) == 0)
+        RaiseExceptionC(R.Assertion, "eq-hashtable-delete",
+                "eq-hashtable-delete: expected an eq-hashtable", List(argv[0]));
+
+    EqHashtableDelete(argv[0], argv[1]);
+    return(NoValueObject);
+}
+
 // ---- Symbols ----
 
 static unsigned int NextSymbolHash = 0;
@@ -1050,6 +1104,10 @@ static FPrimitive * Primitives[] =
     &EqHashPrimitive,
     &EqvHashPrimitive,
     &EqualHashPrimitive,
+    &MakeEqHashtablePrimitive,
+    &EqHashtableRefPrimitive,
+    &EqHashtableSetPrimitive,
+    &EqHashtableDeletePrimitive,
     &ErrorPrimitive,
     &FullErrorPrimitive,
     &EqPPrimitive,
@@ -1148,6 +1206,8 @@ void SetupFoment(FThreadState * ts, int argc, char * argv[])
             MakeLength(RecordTypeNumFields(R.HashtableRecordType), RecordTag);
 
     FAssert(HashtableP(R.SymbolHashtable));
+
+    ts->Parameters = MakeEqHashtable(0);
 
     SetupLibrary();
     R.ExceptionRecordType = MakeRecordTypeC("exception",
