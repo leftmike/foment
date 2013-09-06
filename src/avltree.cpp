@@ -47,7 +47,7 @@ static FObject MakeAVLTreeRight(FObject tree, FObject rt)
     return(MakeAVLTree(AsAVLTree(tree)->Key, AsAVLTree(tree)->Value, AsAVLTree(tree)->Left, rt));
 }
 
-FObject AVLTreeSearch(FObject tree, FObject key, FObject def, FCompareFn cfn)
+FObject AVLTreeRef(FObject tree, FObject key, FObject def, FCompareFn cfn)
 {
     while (AVLTreeP(tree))
     {
@@ -80,23 +80,23 @@ static FObject MakeBalanced(FObject tree)
     return(tree);
 }
 
-FObject AVLTreeSet(FObject tree, FObject key, FObject val, FCompareFn cfn, int gf)
+FObject AVLTreeSet(FObject tree, FObject key, FObject val, FCompareFn cfn, int af)
 {
     FAssert(tree == EmptyListObject || AVLTreeP(tree));
 
     if (AVLTreeP(tree) == 0)
-        return(MakeAVLTree(key, gf ? MakePair(val, EmptyListObject) : val , EmptyListObject,
+        return(MakeAVLTree(key, af ? MakePair(val, EmptyListObject) : val , EmptyListObject,
                 EmptyListObject));
 
     int cmp = cfn(AsAVLTree(tree)->Key, key);
     if (cmp == 0)
-        return(MakeAVLTree(key, gf ? MakePair(val, AsAVLTree(tree)->Value) : val,
+        return(MakeAVLTree(key, af ? MakePair(val, AsAVLTree(tree)->Value) : val,
                 AsAVLTree(tree)->Left, AsAVLTree(tree)->Right));
 
     if (cmp > 0)
-        return(MakeAVLTreeRight(tree, AVLTreeSet(AsAVLTree(tree)->Right, key, val, cfn, gf)));
+        return(MakeAVLTreeRight(tree, AVLTreeSet(AsAVLTree(tree)->Right, key, val, cfn, af)));
 
-    return(MakeAVLTreeLeft(tree, AVLTreeSet(AsAVLTree(tree)->Left, key, val, cfn, gf)));
+    return(MakeAVLTreeLeft(tree, AVLTreeSet(AsAVLTree(tree)->Left, key, val, cfn, af)));
 }
 
 FObject AVLTreeDelete(FObject tree, FObject key, FCompareFn cfn)
@@ -169,23 +169,23 @@ static int Compare(FObject obj1, FObject obj2)
     return(FixnumP(obj1) ? 1 : -1);
 }
 
-Define("avl-tree-search", AVLTreeSearchPrimitive)(int argc, FObject argv[])
+Define("avl-tree-ref", AVLTreeRefPrimitive)(int argc, FObject argv[])
 {
-    // (avl-tree-search <tree> <key> <default>)
+    // (avl-tree-ref <tree> <key> <default>)
 
     if (argc != 3)
-        RaiseExceptionC(R.Assertion, "avl-tree-search",
-                "avl-tree-search: expected three arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "avl-tree-ref",
+                "avl-tree-ref: expected three arguments", EmptyListObject);
 
     if (argv[0] != EmptyListObject && AVLTreeP(argv[0]) == 0)
-         RaiseExceptionC(R.Assertion, "avl-tree-search",
-                 "avl-tree-search: expected an AVL tree", List(argv[0]));
+         RaiseExceptionC(R.Assertion, "avl-tree-ref",
+                 "avl-tree-ref: expected an AVL tree", List(argv[0]));
 
     if (ComparableP(argv[1]) == 0)
-         RaiseExceptionC(R.Assertion, "avl-tree-search",
-                 "avl-tree-search: expected a value that can be compared", List(argv[1]));
+         RaiseExceptionC(R.Assertion, "avl-tree-ref",
+                 "avl-tree-ref: expected a value that can be compared", List(argv[1]));
 
-    return(AVLTreeSearch(argv[0], argv[1], argv[2], Compare));
+    return(AVLTreeRef(argv[0], argv[1], argv[2], Compare));
 }
 
 Define("avl-tree-set", AVLTreeSetPrimitive)(int argc, FObject argv[])
@@ -244,7 +244,7 @@ Define("avl-tree-write", AVLTreeWritePrimitive)(int argc, FObject argv[])
 
 static FPrimitive * Primitives[] =
 {
-    &AVLTreeSearchPrimitive,
+    &AVLTreeRefPrimitive,
     &AVLTreeSetPrimitive,
     &AVLTreeGrowPrimitive,
     &AVLTreeWritePrimitive
