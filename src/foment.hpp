@@ -68,6 +68,10 @@ void FAssertFailed(char * fn, int ln, char * expr);
 #define FAssert(expr)
 #endif // FOMENT_DEBUG
 
+void FMustBeFailed(char * fn, int ln, char * expr);
+#define FMustBe(expr)\
+    if (! (expr)) FMustBeFailed(__FILE__, __LINE__, #expr)
+
 typedef void * FObject;
 typedef unsigned short FCh;
 typedef int FFixnum;
@@ -680,6 +684,19 @@ FObject MakeProcedure(FObject nam, FObject cv, int ac, unsigned int fl);
 #define PROCEDURE_FLAG_CONTINUATION 0x20000000
 #define PROCEDURE_FLAG_RESTARG      0x10000000
 
+// ---- Dynamic ----
+
+typedef struct
+{
+    FRecord Record;
+    FObject CStackPtr;
+    FObject AStackPtr;
+    FObject Marks;
+} FDynamic;
+
+#define AsDynamic(obj) ((FDynamic *) (obj))
+#define DynamicP(obj) RecordP(obj, R.DynamicRecordType)
+
 // ---- Exception ----
 
 typedef struct
@@ -745,8 +762,7 @@ typedef struct _FThreadState
     int IP;
     int ArgCount;
 
-    FObject MarkStack;
-    FObject IndexStack;
+    FObject DynamicStack;
     FObject Parameters;
 } FThreadState;
 
@@ -823,6 +839,8 @@ typedef struct
     FObject UnexpectedNumberOfValues;
     FObject UndefinedMessage;
     FObject ExecuteThunk;
+
+    FObject DynamicRecordType;
 
     FObject ExclusivesTConc;
 } FRoots;

@@ -306,6 +306,14 @@ FObject Assq(FObject obj, FObject alst)
     return(FalseObject);
 }
 
+Define("assq", AssqPrimitive)(int argc, FObject argv[])
+{
+    if (argc != 2)
+        RaiseExceptionC(R.Assertion, "assq", "assq: expected two arguments", EmptyListObject);
+
+        return(Assq(argv[0], argv[1]));
+}
+
 FObject MakeTConc()
 {
     FObject lp = MakePair(FalseObject, EmptyListObject);
@@ -358,7 +366,8 @@ static FPrimitive * Primitives[] =
     &ReversePrimitive,
     &ListRefPrimitive,
     &MapCarPrimitive,
-    &MapCdrPrimitive
+    &MapCdrPrimitive,
+    &AssqPrimitive
 };
 
 void SetupPairs()

@@ -23,6 +23,14 @@ void FAssertFailed(char * fn, int ln, char * expr)
     exit(1);
 }
 
+void FMustBeFailed(char * fn, int ln, char * expr)
+{
+    printf("FMustBe: %s (%d)%s\n", expr, ln, fn);
+
+//    *((char *) 0) = 0;
+    exit(1);
+}
+
 // ---- Immediates ----
 
 static char * SpecialSyntaxes[] =
@@ -1124,7 +1132,7 @@ static FPrimitive * Primitives[] =
 
 // ----------------
 
-extern char StartupCode[];
+extern char BaseCode[];
 
 static void SetupScheme()
 {
@@ -1137,7 +1145,7 @@ static void SetupScheme()
 
     LibraryExport(R.BedrockLibrary, EnvironmentLookup(R.Bedrock, StringCToSymbol("and")));
 
-    FObject port = MakeStringCInputPort(StartupCode);
+    FObject port = MakeStringCInputPort(BaseCode);
     PushRoot(&port);
 
     for (;;)

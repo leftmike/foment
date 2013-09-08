@@ -300,19 +300,15 @@ Define("keyword", KeywordPrimitive)(int argc, FObject argv[])
 
 Define("syntax", SyntaxPrimitive)(int argc, FObject argv[])
 {
-    FObject env = R.Bedrock;
-
     if (argc != 1)
         RaiseExceptionC(R.Assertion, "syntax", "syntax: expected one argument",
                 EmptyListObject);
 
-    return(ExpandExpression(MakeSyntacticEnv(R.Bedrock), DatumToSyntax(argv[0])));
+    return(ExpandExpression(MakeSyntacticEnv(GetInteractionEnv()), DatumToSyntax(argv[0])));
 }
 
 Define("unsyntax", UnsyntaxPrimitive)(int argc, FObject argv[])
 {
-    FObject env = R.Bedrock;
-
     if (argc != 1)
         RaiseExceptionC(R.Assertion, "unsyntax", "unsyntax: expected one argument",
                 EmptyListObject);

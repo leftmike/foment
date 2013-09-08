@@ -101,47 +101,6 @@ Define("thread?", ThreadPPrimitive)(int argc, FObject argv[])
     return(ThreadP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("thread-mark-stack", ThreadMarkStackPrimitive)(int argc, FObject argv[])
-{
-    if (argc > 1)
-        RaiseExceptionC(R.Assertion, "thread-mark-stack",
-                "thread-mark-stack: expected zero or one arguments", EmptyListObject);
-
-    FThreadState * ts = GetThreadState();
-    FObject ms = ts->MarkStack;
-
-    if (argc == 1)
-        ts->MarkStack = argv[0];
-
-    return(ms);
-}
-
-Define("thread-index-stack", ThreadIndexStackPrimitive)(int argc, FObject argv[])
-{
-    if (argc > 1)
-        RaiseExceptionC(R.Assertion, "thread-index-stack",
-                "thread-index-stack: expected zero or one arguments", EmptyListObject);
-
-    FThreadState * ts = GetThreadState();
-    FObject ms = ts->IndexStack;
-
-    if (argc == 1)
-        ts->IndexStack = argv[0];
-
-    return(ms);
-}
-
-Define("thread-parameters", ThreadParametersPrimitive)(int argc, FObject argv[])
-{
-    // (thread-parameters)
-
-    if (argc != 0)
-        RaiseExceptionC(R.Assertion, "thread-parameters",
-                "thread-parameters: expected zero arguments", EmptyListObject);
-
-    return(GetThreadState()->Parameters);
-}
-
 #ifdef FOMENT_WIN32
 static DWORD WINAPI FomentThread(FObject obj)
 {
@@ -350,9 +309,6 @@ static FPrimitive * Primitives[] =
 {
     &CurrentThreadPrimitive,
     &ThreadPPrimitive,
-    &ThreadMarkStackPrimitive,
-    &ThreadIndexStackPrimitive,
-    &ThreadParametersPrimitive,
     &RunThreadPrimitive,
     &SleepPrimitive,
     &ExclusivePPrimitive,

@@ -39,32 +39,32 @@ release:
 manual:
     -mkdir manual
 
-debug\startup.cpp: debug\txt2cpp.exe ..\src\startup.scm makefile
-    debug\txt2cpp ..\src\startup.scm debug\startup.cpp StartupCode
+debug\base.cpp: debug\txt2cpp.exe ..\src\base.scm makefile
+    debug\txt2cpp ..\src\base.scm debug\base.cpp BaseCode
 
 debug\foment.exe: debug\foment.obj debug\gc.obj debug\syncthrd.obj debug\compile.obj debug\io.obj\
         debug\synrules.obj debug\synpass.obj debug\midpass.obj debug\genpass.obj\
         debug\pairs.obj debug\strings.obj debug\vectors.obj debug\library.obj\
         debug\execute.obj debug\numbers.obj debug\pretty.obj debug\main.obj\
-        debug\startup.obj debug\test.obj
+        debug\base.obj debug\test.obj
     link /nologo /subsystem:console /out:debug\foment.exe\
         /debug /pdb:debug\foment.pdb\
         debug\foment.obj debug\gc.obj debug\syncthrd.obj debug\compile.obj debug\io.obj\
         debug\synrules.obj debug\synpass.obj debug\midpass.obj debug\genpass.obj debug\pairs.obj\
         debug\strings.obj debug\vectors.obj debug\library.obj debug\execute.obj debug\numbers.obj\
-        debug\pretty.obj debug\main.obj debug\startup.obj debug\test.obj
+        debug\pretty.obj debug\main.obj debug\base.obj debug\test.obj
 
 release\foment.exe: release\foment.obj release\gc.obj release\syncthrd.obj release\compile.obj\
         release\io.obj release\synrules.obj release\synpass.obj release\midpass.obj\
         release\genpass.obj release\pairs.obj release\strings.obj release\vectors.obj\
         release\library.obj release\execute.obj release\numbers.obj\
-        release\pretty.obj release\main.obj release\startup.obj release\test.obj
+        release\pretty.obj release\main.obj release\base.obj release\test.obj
     link /nologo /subsystem:console /out:release\foment.exe\
         release\foment.obj release\gc.obj  release\syncthrd.obj release\compile.obj\
         release\io.obj release\synrules.obj release\synpass.obj release\midpass.obj\
         release\genpass.obj release\pairs.obj release\strings.obj release\vectors.obj\
         release\library.obj release\execute.obj release\numbers.obj\
-        release\pretty.obj release\main.obj release\startup.obj release\test.obj
+        release\pretty.obj release\main.obj release\base.obj release\test.obj
 
 debug\txt2cpp.exe: debug\txt2cpp.obj
     link /nologo /subsystem:console /out:debug\txt2cpp.exe\
@@ -87,7 +87,7 @@ debug\numbers.obj: ..\src\numbers.cpp ..\src\foment.hpp
 debug\io.obj: ..\src\io.cpp ..\src\foment.hpp ..\src\io.hpp
 debug\pretty.obj: ..\src\pretty.cpp ..\src\foment.hpp ..\src\io.hpp ..\src\compile.hpp
 debug\main.obj: ..\src\main.cpp ..\src\foment.hpp
-debug\startup.obj: debug\startup.cpp
+debug\base.obj: debug\base.cpp
 debug\test.obj: ..\src\test.cpp ..\src\foment.hpp
 
 release\foment.obj: ..\src\foment.cpp ..\src\foment.hpp
@@ -107,7 +107,7 @@ release\numbers.obj: ..\src\numbers.cpp ..\src\foment.hpp
 release\io.obj: ..\src\io.cpp ..\src\foment.hpp ..\src\io.hpp
 release\pretty.obj: ..\src\pretty.cpp ..\src\foment.hpp ..\src\io.hpp ..\src\compile.hpp
 release\main.obj: ..\src\main.cpp ..\src\foment.hpp
-release\startup.obj: debug\startup.cpp
+release\base.obj: debug\base.cpp
 release\test.obj: ..\src\test.cpp ..\src\foment.hpp
 
 debug\txt2cpp.obj: ..\src\txt2cpp.cpp

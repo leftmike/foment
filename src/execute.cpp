@@ -10,10 +10,26 @@ composing the current continuation with a captured continuation.
 (call-with-current-continuation <proc> [<prompt-tag>])
 (call-with-composable-continuation <proc> [<prompt-tag>])
 
-(continuation-capture <proc> <mark>) -- call <proc> with the current-continuation upto <mark>
+(continuation-capture <proc> <mark>) -- call <proc> with the current-continuation up to <mark>,
 captured as an object
 
 (compose-continuation <cont> <thunk>) -- call <thunk> in continuation <cont>
+
+-- abort-current-continuation:
+-- find prompt tag on mark stack: (find-mark-position <mark>) --> a continuation-position or #f
+-- gradually unwind mark stack running dynamic-wind afters and parameterize unwinds:
+    (unwind-mark-stack) --> a list of marks that just got unwound
+-- jump to index of prompt tag: (abort-position <position> <thunk>): abort to position and run thunk
+-- call handler with values
+
+-- calling a continuation:
+-- copy continuation into place: (compose-continuation <cont> <thunk>)
+-- run thunk
+-- gradually copy mark frames from old continuation to current continuation
+-- run dynamic-wind befores and parameterize winds
+-- return values to current continuation
+
+-- capturing a continuation:
 
 -- parameter-wind: push value on stack
 -- parameter-unwind: pop stack
@@ -22,7 +38,7 @@ captured as an object
 
 -- when a continuation is restored, need to run a handler which runs the befores and the parameters
 
--- call/cc: need to save and restore MarkStack and IndexStack
+-- call/cc: need to save and restore DynamicStack
 
 -- dynamic-wind
 -- exceptions
@@ -80,6 +96,31 @@ FObject MakeProcedure(FObject nam, FObject cv, int ac, unsigned int fl)
     return(p);
 }
 
+// ---- Dynamic ----
+
+static char * DynamicFieldsC[] = {"cstack-ptr", "astack-ptr", "marks"};
+
+static FObject MakeDynamic(FObject cdx, FObject adx, FObject ml)
+{
+    FAssert(sizeof(FDynamic) == sizeof(DynamicFieldsC) + sizeof(FRecord));
+    FAssert(FixnumP(cdx));
+    FAssert(FixnumP(adx));
+
+    FDynamic * dyn = (FDynamic *) MakeRecord(R.DynamicRecordType);
+    dyn->CStackPtr = cdx;
+    dyn->AStackPtr = adx;
+    dyn->Marks = ml;
+
+    return(dyn);
+}
+
+static FObject MakeDynamic(FObject dyn, FObject ml)
+{
+    FAssert(DynamicP(dyn));
+
+    return(MakeDynamic(AsDynamic(dyn)->CStackPtr, AsDynamic(dyn)->AStackPtr, ml));
+}
+
 // ---- Instruction ----
 
 static char * Opcodes[] =
@@ -128,9 +169,10 @@ static char * Opcodes[] =
     "case-lambda",
     "call-with-cc",
     "call-continuation",
+    "abort",
     "return-from",
     "mark-continuation",
-    "pop-mark-stack"
+    "pop-mark-stack",
 };
 
 void WriteInstruction(FObject port, FObject obj, int df)
@@ -914,6 +956,31 @@ TailCallPrimitive:
                     break;
                 }
 
+
+                case AbortOpcode:
+                {
+                    FAssert(ts->ArgCount == 2);
+
+                    ts->AStackPtr -= 1;
+                    FObject thnk = ts->AStack[ts->AStackPtr];
+                    ts->AStackPtr -= 1;
+                    FObject dyn = ts->AStack[ts->AStackPtr];
+
+                    FAssert(ProcedureP(thnk));
+                    FAssert(DynamicP(dyn));
+
+                    FAssert(FixnumP(AsDynamic(dyn)->CStackPtr));
+                    FAssert(FixnumP(AsDynamic(dyn)->AStackPtr));
+
+                    ts->CStackPtr = AsFixnum(AsDynamic(dyn)->CStackPtr);
+                    ts->AStackPtr = AsFixnum(AsDynamic(dyn)->AStackPtr);
+                    ts->ArgCount = 0;
+                    ts->Proc = thnk;
+                    ts->IP = 0;
+                    ts->Frame = NoValueObject;
+                    break;
+                }
+
                 case ReturnFromOpcode:
                     FAssert(ts->AStackPtr == 1);
                     FAssert(ts->CStackPtr == 0);
@@ -932,15 +999,19 @@ TailCallPrimitive:
 
                     int idx = ts->CStackPtr - 3; // WantValuesObject, Proc, IP
 
-                    if (PairP(ts->IndexStack))
+                    if (PairP(ts->DynamicStack))
                     {
-                        FAssert(PairP(First(ts->IndexStack)));
-                        FAssert(FixnumP(First(First(ts->IndexStack))));
+                        FAssert(DynamicP(First(ts->DynamicStack)));
 
-                        if (AsFixnum(First(First(ts->IndexStack))) == idx)
+                        FObject dyn = First(ts->DynamicStack);
+
+                        FAssert(FixnumP(AsDynamic(dyn)->CStackPtr));
+
+                        if (AsFixnum(AsDynamic(dyn)->CStackPtr) == idx)
                         {
-                            ts->MarkStack = MakePair(MarkListSet(First(ts->MarkStack), key, val),
-                                    Rest(ts->MarkStack));
+                            ts->DynamicStack = MakePair(MakeDynamic(dyn,
+                                    MarkListSet(AsDynamic(dyn)->Marks, key, val)),
+                                    Rest(ts->DynamicStack));
 
                             ts->ArgCount = 0;
                             op = thnk;
@@ -948,10 +1019,9 @@ TailCallPrimitive:
                         }
                     }
 
-                    ts->MarkStack = MakePair(MarkListSet(EmptyListObject, key, val),
-                            ts->MarkStack);
-                    ts->IndexStack = MakePair(MakePair(MakeFixnum(ts->CStackPtr),
-                            MakeFixnum(ts->AStackPtr)), ts->IndexStack);
+                    ts->DynamicStack = MakePair(MakeDynamic(MakeFixnum(ts->CStackPtr),
+                            MakeFixnum(ts->AStackPtr), MarkListSet(EmptyListObject, key, val)),
+                            ts->DynamicStack);
 
                     ts->ArgCount = 0;
                     ts->AStack[ts->AStackPtr] = thnk;
@@ -959,12 +1029,10 @@ TailCallPrimitive:
                     break;
                 }
 
-                case PopMarkStackOpcode:
-                    FAssert(PairP(ts->MarkStack));
-                    FAssert(PairP(ts->IndexStack));
+                case PopDynamicStackOpcode:
+                    FAssert(PairP(ts->DynamicStack));
 
-                    ts->MarkStack = Rest(ts->MarkStack);
-                    ts->IndexStack = Rest(ts->IndexStack);
+                    ts->DynamicStack = Rest(ts->DynamicStack);
                     break;
                 }
             }
@@ -978,58 +1046,86 @@ TailCallPrimitive:
 
 #define ParameterP(obj) (ProcedureP(obj) && AsProcedure(obj)->Reserved & PROCEDURE_FLAG_PARAMETER)
 
-Define("current-continuation-marks", CurrentContinuationMarksPrimitive)(int argc, FObject argv[])
+Define("%dynamic-stack", DynamicStackPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 0)
-        RaiseExceptionC(R.Assertion, "current-continuation-marks",
-                "current-continuation-marks: expected zero arguments", EmptyListObject);
+    // (%dynamic-stack)
+    // (%dynamic-stack <stack>)
 
-    return(GetThreadState()->MarkStack);
+    FMustBe(argc == 0 || argc == 1);
+
+    FThreadState * ts = GetThreadState();
+    FObject ds = ts->DynamicStack;
+
+    if (argc == 1)
+    {
+        FMustBe(argv[0] == EmptyListObject || PairP(argv[0]));
+
+        ts->DynamicStack = argv[0];
+    }
+
+    return(ds);
 }
 
-Define("procedure->parameter", ProcedureToParameterPrimitive)(int argc, FObject argv[])
+Define("%dynamic?", DynamicPPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "procedure->parameter",
-                "procedure->parameter: expected one argument", EmptyListObject);
+    // (%dynamic? <obj>)
 
-    if (ProcedureP(argv[0]) == 0)
-         RaiseExceptionC(R.Assertion, "procedure->parameter",
-                 "procedure->parameter: expected a procedure", List(argv[0]));
+    FMustBe(argc == 1);
+
+    return(DynamicP(argv[0]) ? TrueObject : FalseObject);
+}
+
+Define("%dynamic-marks", DynamicMarksPrimitive)(int argc, FObject argv[])
+{
+    // (%dynamic-marks <dynamic>)
+
+    FMustBe(argc == 1);
+    FMustBe(DynamicP(argv[0]));
+
+    return(AsDynamic(argv[0])->Marks);
+}
+
+Define("%parameters", ParametersPrimitive)(int argc, FObject argv[])
+{
+    // (%parameters)
+
+    FMustBe(argc == 0);
+
+    return(GetThreadState()->Parameters);
+}
+
+Define("%procedure->parameter", ProcedureToParameterPrimitive)(int argc, FObject argv[])
+{
+    // (%procedure->parameter <proc>)
+
+    FMustBe(argc == 1);
+    FMustBe(ProcedureP(argv[0]));
 
     AsProcedure(argv[0])->Reserved |= PROCEDURE_FLAG_PARAMETER;
 
     return(NoValueObject);
 }
 
-Define("parameter?", ParameterPPrimitive)(int argc, FObject argv[])
+Define("%parameter?", ParameterPPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "parameter?", "parameter?: expected one argument",
-                EmptyListObject);
+    // (%parameter? <obj>)
+
+    FMustBe(argc == 1);
 
     return(ParameterP(argv[0]) ? TrueObject : FalseObject);
 }
 
 static void WalkVisit(FObject key, FObject val, FObject ht)
 {
-    if (ParameterP(key) && EqHashtableContainsP(ht, key) == 0)
-        EqHashtableSet(ht, key, val);
+    FAssert(ParameterP(key));
+
+    EqHashtableSet(ht, key, PairP(val) ? MakePair(First(val), EmptyListObject) : EmptyListObject);
 }
 
 FObject CurrentParameters()
 {
     FObject ht = MakeEqHashtable(0);
     FThreadState * ts = GetThreadState();
-    FObject ms = ts->MarkStack;
-
-    while (PairP(ms))
-    {
-        MarkListWalkVisit(First(ms), WalkVisit, ht);
-        ms = Rest(ms);
-    }
-
-    FAssert(ms == EmptyListObject);
 
     if (HashtableP(ts->Parameters))
         HashtableWalkVisit(ts->Parameters, WalkVisit, ht);
@@ -1039,7 +1135,10 @@ FObject CurrentParameters()
 
 static FPrimitive * Primitives[] =
 {
-    &CurrentContinuationMarksPrimitive,
+    &DynamicStackPrimitive,
+    &DynamicPPrimitive,
+    &DynamicMarksPrimitive,
+    &ParametersPrimitive,
     &ProcedureToParameterPrimitive,
     &ParameterPPrimitive
 };
@@ -1052,6 +1151,9 @@ void SetupExecute()
     R.NotCallable = MakeStringC("not callable");
     R.UnexpectedNumberOfValues = MakeStringC("unexpected number of values");
     R.UndefinedMessage = MakeStringC("variable is undefined");
+
+    R.DynamicRecordType = MakeRecordTypeC("dynamic", sizeof(DynamicFieldsC) / sizeof(char *),
+            DynamicFieldsC);
 
     for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
@@ -1084,10 +1186,16 @@ void SetupExecute()
     v[2] = MakeInstruction(PushWantValuesOpcode, 0);
     v[3] = MakeInstruction(CallOpcode, 0);
     v[4] = MakeInstruction(PopCStackOpcode, 1);
-    v[5] = MakeInstruction(PopMarkStackOpcode, 0);
+    v[5] = MakeInstruction(PopDynamicStackOpcode, 0);
     v[6] = MakeInstruction(ReturnOpcode, 0);
     LibraryExport(R.BedrockLibrary,
-            EnvironmentSetC(R.Bedrock, "mark-continuation",
-            MakeProcedure(StringCToSymbol("mark-continuation"), MakeVector(7, v, NoValueObject),
+            EnvironmentSetC(R.Bedrock, "%mark-continuation",
+            MakeProcedure(StringCToSymbol("%mark-continuation"), MakeVector(7, v, NoValueObject),
             3, 0)));
+
+    v[0] = MakeInstruction(AbortOpcode, 0);
+    LibraryExport(R.BedrockLibrary,
+            EnvironmentSetC(R.Bedrock, "%abort-dynamic",
+            MakeProcedure(StringCToSymbol("%abort-dynamic"), MakeVector(1, v, NoValueObject),
+            2, 0)));
 }

@@ -73,9 +73,10 @@ typedef enum
     CaseLambdaOpcode,
     CallWithCCOpcode,
     CallContinuationOpcode,
+    AbortOpcode,
     ReturnFromOpcode,
     MarkContinuationOpcode,
-    PopMarkStackOpcode
+    PopDynamicStackOpcode
 } FOpcode;
 
 FObject CurrentParameters();
