@@ -17,7 +17,9 @@
         syntax unsyntax eq-hash eqv-hash
         equal-hash full-error loaded-libraries library-path full-command-line
         open-output-string get-output-string write-pretty display-pretty string-hash
-        with-continuation-mark call-with-continuation-prompt abort-current-continuation)
+        with-continuation-mark call-with-continuation-prompt abort-current-continuation
+        default-prompt-tag (rename default-prompt-tag default-continuation-prompt-tag)
+        default-prompt-handler current-continuation-marks)
     (begin
         (define (caar pair) (car (car pair)))
         (define (cadr pair) (car (cdr pair)))
@@ -53,6 +55,32 @@
                     (if test
                         (begin result1 result2 ...)
                         (cond clause1 clause2 ...)))))
+
+        (define (map proc . lists)
+            (define (map proc lists)
+                (let ((cars (map-car lists))
+                        (cdrs (map-cdr lists)))
+                    (if (null? cars)
+                        '()
+                        (cons (apply proc cars) (map proc cdrs)))))
+            (if (null? lists)
+                (full-error 'assertion-violation 'map "map: expected at least one argument")
+                (map proc lists)))
+
+        (define (for-each proc . lists)
+            (define (for-each proc lists)
+                (let ((cars (map-car lists))
+                        (cdrs (map-cdr lists)))
+                    (if (null? cars)
+                        #f
+                        (begin (apply proc cars) (for-each proc cdrs)))))
+            (if (null? lists)
+                (full-error 'assertion-violation 'for-each
+                        "for-each: expected at least one argument")
+                (for-each proc lists)))
+
+        (define (eval expr env)
+            ((compile-eval expr env)))
 
         (define (call-with-values producer consumer)
                 (let-values ((args (producer))) (apply consumer args)))
@@ -129,37 +157,23 @@
                 (after-parameterize params)
                 (apply values results)))
 
-        (define (map proc . lists)
-            (define (map proc lists)
-                (let ((cars (map-car lists))
-                        (cdrs (map-cdr lists)))
-                    (if (null? cars)
-                        '()
-                        (cons (apply proc cars) (map proc cdrs)))))
-            (if (null? lists)
-                (full-error 'assertion-violation 'map "map: expected at least one argument")
-                (map proc lists)))
-
-        (define (for-each proc . lists)
-            (define (for-each proc lists)
-                (let ((cars (map-car lists))
-                        (cdrs (map-cdr lists)))
-                    (if (null? cars)
-                        #f
-                        (begin (apply proc cars) (for-each proc cdrs)))))
-            (if (null? lists)
-                (full-error 'assertion-violation 'for-each
-                        "for-each: expected at least one argument")
-                (for-each proc lists)))
-
-        (define (eval expr env)
-            ((compile-eval expr env)))
-
         (define-syntax with-continuation-mark
             (syntax-rules ()
                 ((_ key val expr) (%mark-continuation key val (lambda () expr)))))
 
+        (define (current-continuation-marks)
+            (reverse (cdr (reverse (map (lambda (dyn) (%dynamic-marks dyn)) (%dynamic-stack))))))
+
+        (define (default-prompt-tag)
+            (%default-prompt-tag))
+
+        (define (default-prompt-handler proc)
+            (call-with-continuation-prompt proc (default-prompt-tag) default-prompt-handler))
+
         (define (call-with-continuation-prompt proc tag handler . args)
+            (if (and (eq? tag (default-prompt-tag)) (not (eq? handler default-prompt-handler)))
+                (full-error 'assertion-violation 'call-with-continuation-prompt
+                        "call-with-continuation-prompt: use of default-prompt-tag requires use of default-prompt-handler"))
             (with-continuation-mark tag handler (apply proc args)))
 
         (define (find-mark ds key)
@@ -192,6 +206,12 @@
                             "abort-current-continuation-tag: expected a prompt tag" tag))
                 (unwind-dynamic-stack dyn)
                 (%abort-dynamic dyn (lambda () (apply handler vals)))))
+
+        (define (execute-thunk thunk)
+            (%return (call-with-continuation-prompt thunk (default-prompt-tag)
+                    default-prompt-handler)))
+
+        (begin (%execute-thunk execute-thunk))
         ))
 
 (define-library (scheme base)
@@ -209,8 +229,3 @@
         vector? make-vector vector-ref vector-set! list->vector values apply
         call/cc (rename call/cc call-with-current-continuation) procedure? string->symbol
         caar cadr cdar cddr newline dynamic-wind))
-
-
-
-
-

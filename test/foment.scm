@@ -4,9 +4,84 @@
 
 (import (foment bedrock))
 
-;;
-;; ---- syntax ----
-;;
+;; with-continuation-mark
+;; current-continuation-marks
+
+(define (test)
+    (with-continuation-mark 'a 1
+        (with-continuation-mark 'b 2
+            (let ((ret (with-continuation-mark 'c 3 (current-continuation-marks))))
+                ret))))
+
+(must-equal (((c . 3)) ((b . 2) (a . 1))) (let ((ret (test))) ret))
+
+(define (count n m)
+    (if (= n m)
+        (current-continuation-marks)
+        (let ((r (with-continuation-mark 'key n (count (+ n 1) m))))
+            r)))
+
+(must-equal (((key . 3)) ((key . 2)) ((key . 1)) ((key . 0))) (count 0 4))
+
+;; call-with-continuation-prompt
+;; abort-current-continuation
+;; default-prompt-tag
+;; default-prompt-handler
+
+(define rl '())
+(define (st o)
+    (set! rl (cons o rl)))
+
+(define (at1)
+    (call-with-continuation-prompt
+        (lambda (x y) (st x) (st y)
+            (dynamic-wind
+                (lambda () (st 'before))
+                (lambda () (st 'thunk) (abort-current-continuation 'prompt-tag 'a 'b 'c))
+                (lambda () (st 'after))))
+        'prompt-tag
+        (lambda (a b c) (st a) (st b) (st c))
+        'x 'y)
+    (reverse rl))
+
+(must-equal (x y before thunk after a b c) (at1))
+
+(set! rl '())
+(define (at2)
+    (call-with-continuation-prompt
+        (lambda () (st 'proc)
+            (dynamic-wind
+                (lambda () (st 'before))
+                (lambda () (st 'thunk) (abort-current-continuation (default-prompt-tag)
+                    (lambda () (st 'handler))))
+                (lambda () (st 'after))))
+        (default-prompt-tag)
+        default-prompt-handler)
+    (reverse rl))
+
+(must-equal (proc before thunk after handler) (at2))
+
+(set! rl '())
+(define (at3)
+    (call-with-continuation-prompt
+        (lambda () (st 'proc)
+            (dynamic-wind
+                (lambda () (st 'before1))
+                (lambda ()
+                    (st 'thunk1)
+                    (dynamic-wind
+                        (lambda () (st 'before2))
+                        (lambda ()
+                            (st 'thunk2)
+                            (abort-current-continuation (default-prompt-tag)
+                            (lambda () (st 'handler))))
+                        (lambda () (st 'after2))))
+                (lambda () (st 'after1))))
+        (default-prompt-tag)
+        default-prompt-handler)
+    (reverse rl))
+
+(must-equal (proc before1 thunk1 before2 thunk2 after2 after1 handler) (at3))
 
 ;; srfi-39
 ;; parameterize

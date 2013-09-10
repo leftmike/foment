@@ -684,19 +684,6 @@ FObject MakeProcedure(FObject nam, FObject cv, int ac, unsigned int fl);
 #define PROCEDURE_FLAG_CONTINUATION 0x20000000
 #define PROCEDURE_FLAG_RESTARG      0x10000000
 
-// ---- Dynamic ----
-
-typedef struct
-{
-    FRecord Record;
-    FObject CStackPtr;
-    FObject AStackPtr;
-    FObject Marks;
-} FDynamic;
-
-#define AsDynamic(obj) ((FDynamic *) (obj))
-#define DynamicP(obj) RecordP(obj, R.DynamicRecordType)
-
 // ---- Exception ----
 
 typedef struct
@@ -839,8 +826,10 @@ typedef struct
     FObject UnexpectedNumberOfValues;
     FObject UndefinedMessage;
     FObject ExecuteThunk;
+    FObject DefaultPromptTag;
 
     FObject DynamicRecordType;
+    FObject ContinuationRecordType;
 
     FObject ExclusivesTConc;
 } FRoots;

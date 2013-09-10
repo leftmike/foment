@@ -4,23 +4,14 @@ Foment
 
 -- Racket: prompts, aborting to a prompt, capturing a continuation up to a prompt, and
 composing the current continuation with a captured continuation.
-(call-with-continuation-prompt <proc> <prompt-tag> <handler> <arg> ...)
-(default-continuation-prompt-tag)
-(abort-current-continuation <prompt-tag> <val> ...)
+
 (call-with-current-continuation <proc> [<prompt-tag>])
 (call-with-composable-continuation <proc> [<prompt-tag>])
 
-(continuation-capture <proc> <mark>) -- call <proc> with the current-continuation up to <mark>,
-captured as an object
+(%capture-continuation <proc> <prompt-tag>) -- call <proc> with the current-continuation up
+to <prompt-tag>, captured as an object
 
-(compose-continuation <cont> <thunk>) -- call <thunk> in continuation <cont>
-
--- abort-current-continuation:
--- find prompt tag on mark stack: (find-mark-position <mark>) --> a continuation-position or #f
--- gradually unwind mark stack running dynamic-wind afters and parameterize unwinds:
-    (unwind-mark-stack) --> a list of marks that just got unwound
--- jump to index of prompt tag: (abort-position <position> <thunk>): abort to position and run thunk
--- call handler with values
+(%compose-continuation <cont> <thunk>) -- call <thunk> in continuation <cont>
 
 -- calling a continuation:
 -- copy continuation into place: (compose-continuation <cont> <thunk>)
@@ -29,18 +20,8 @@ captured as an object
 -- run dynamic-wind befores and parameterize winds
 -- return values to current continuation
 
--- capturing a continuation:
-
--- parameter-wind: push value on stack
--- parameter-unwind: pop stack
-
 -- current-input-port and current-output-port need to be parameters
 
--- when a continuation is restored, need to run a handler which runs the befores and the parameters
-
--- call/cc: need to save and restore DynamicStack
-
--- dynamic-wind
 -- exceptions
 
 Set of all parameter bindings at a given time is called the dynamic environment.
@@ -53,12 +34,6 @@ The system implicitly maintains a current exception handler in the dynamic envir
 if no <cond-clause> matches then raise-continuable is invoked on object with
 current exception handler being that of guard and the dynamic environment of the original
 call to raise or raise-continuable
-
--- dynamic-wind
-(dynamic-wind <before> <thunk> <after>)
-whenever control enters dynamic extent of <thunk> then <before> is called first
-whenever control leaves dynamic extent of <thunk> then <after> is called after
-<before> and <after> are called in the same dynamic environment as the call to dynamic-wind
 
 -- with-exception-handler
 (with-exception-handler <handler> <thunk>)
@@ -98,6 +73,17 @@ FObject MakeProcedure(FObject nam, FObject cv, int ac, unsigned int fl)
 
 // ---- Dynamic ----
 
+typedef struct
+{
+    FRecord Record;
+    FObject CStackPtr;
+    FObject AStackPtr;
+    FObject Marks;
+} FDynamic;
+
+#define AsDynamic(obj) ((FDynamic *) (obj))
+#define DynamicP(obj) RecordP(obj, R.DynamicRecordType)
+
 static char * DynamicFieldsC[] = {"cstack-ptr", "astack-ptr", "marks"};
 
 static FObject MakeDynamic(FObject cdx, FObject adx, FObject ml)
@@ -119,6 +105,39 @@ static FObject MakeDynamic(FObject dyn, FObject ml)
     FAssert(DynamicP(dyn));
 
     return(MakeDynamic(AsDynamic(dyn)->CStackPtr, AsDynamic(dyn)->AStackPtr, ml));
+}
+
+// ---- Continuation ----
+
+typedef struct
+{
+    FRecord Record;
+    FObject CStackPtr;
+    FObject CStack;
+    FObject AStackPtr;
+    FObject AStack;
+} FContinuation;
+
+#define AsContinuation(obj) ((FContinuation *) (obj))
+#define ContinuationP(obj) RecordP(obj, R.ContinuationRecordType)
+
+static char * ContinuationFieldsC[] = {"cstack-ptr", "cstack", "astack-ptr", "astack"};
+
+static FObject MakeContinuation(FObject cdx, FObject cv, FObject adx, FObject av)
+{
+    FAssert(sizeof(FContinuation) == sizeof(ContinuationFieldsC) + sizeof(FRecord));
+    FAssert(FixnumP(cdx));
+    FAssert(VectorP(cv));
+    FAssert(FixnumP(adx));
+    FAssert(VectorP(av));
+
+    FContinuation * cont = (FContinuation *) MakeRecord(R.ContinuationRecordType);
+    cont->CStackPtr = cdx;
+    cont->CStack = cv;
+    cont->AStackPtr = adx;
+    cont->AStack = av;
+
+    return(cont);
 }
 
 // ---- Instruction ----
@@ -169,6 +188,7 @@ static char * Opcodes[] =
     "case-lambda",
     "call-with-cc",
     "call-continuation",
+    "capture-continuation",
     "abort",
     "return-from",
     "mark-continuation",
@@ -253,6 +273,7 @@ FObject ExecuteThunk(FObject op)
 
     ts->AStackPtr = 1;
     ts->AStack[0] = op;
+    ts->ArgCount = 1;
     ts->CStackPtr = 0;
     ts->Proc = R.ExecuteThunk;
     FAssert(ProcedureP(ts->Proc));
@@ -260,7 +281,7 @@ FObject ExecuteThunk(FObject op)
 
     ts->IP = 0;
     ts->Frame = NoValueObject;
-    ts->ArgCount = 0;
+    ts->DynamicStack = EmptyListObject;
 
     try
     {
@@ -956,18 +977,42 @@ TailCallPrimitive:
                     break;
                 }
 
+                case CaptureContinuationOpcode:
+                {
+                    FMustBe(ts->ArgCount == 2);
+
+                    op = ts->AStack[ts->AStackPtr - 2];
+                    FObject dyn = ts->AStack[ts->AStackPtr - 1];
+
+                    FMustBe(ProcedureP(op));
+                    FMustBe(DynamicP(dyn));
+
+                    ts->AStack[ts->AStackPtr - 2] = MakeContinuation(MakeFixnum(ts->CStackPtr),
+                            MakeVector(ts->CStackPtr, ts->CStack - ts->CStackPtr + 1,
+                            NoValueObject), MakeFixnum(ts->AStackPtr - 2),
+                            MakeVector(ts->AStackPtr - 2, ts->AStack, NoValueObject));
+                            
+                            
+                            
+                    ts->AStack[ts->AStackPtr - 1] = ts->DynamicStack;
+                    
+                    
+                    
+
+                    goto TailCall;
+                }
 
                 case AbortOpcode:
                 {
-                    FAssert(ts->ArgCount == 2);
+                    FMustBe(ts->ArgCount == 2);
 
                     ts->AStackPtr -= 1;
                     FObject thnk = ts->AStack[ts->AStackPtr];
                     ts->AStackPtr -= 1;
                     FObject dyn = ts->AStack[ts->AStackPtr];
 
-                    FAssert(ProcedureP(thnk));
-                    FAssert(DynamicP(dyn));
+                    FMustBe(ProcedureP(thnk));
+                    FMustBe(DynamicP(dyn));
 
                     FAssert(FixnumP(AsDynamic(dyn)->CStackPtr));
                     FAssert(FixnumP(AsDynamic(dyn)->AStackPtr));
@@ -1042,6 +1087,26 @@ TailCallPrimitive:
     {
         throw obj;
     }
+}
+
+Define("%execute-thunk", ExecuteThunkPrimitive)(int argc, FObject argv[])
+{
+    // (%execute-thunk <proc>)
+
+    FMustBe(argc == 1);
+    FMustBe(ProcedureP(argv[0]));
+
+    R.ExecuteThunk = argv[0];
+    return(NoValueObject);
+}
+
+Define("%default-prompt-tag", DefaultPromptTagPrimitive)(int argc, FObject argv[])
+{
+    // (%default-prompt-tag)
+
+    FMustBe(argc == 0);
+
+    return(R.DefaultPromptTag);
 }
 
 #define ParameterP(obj) (ProcedureP(obj) && AsProcedure(obj)->Reserved & PROCEDURE_FLAG_PARAMETER)
@@ -1135,6 +1200,8 @@ FObject CurrentParameters()
 
 static FPrimitive * Primitives[] =
 {
+    &ExecuteThunkPrimitive,
+    &DefaultPromptTagPrimitive,
     &DynamicStackPrimitive,
     &DynamicPPrimitive,
     &DynamicMarksPrimitive,
@@ -1152,8 +1219,12 @@ void SetupExecute()
     R.UnexpectedNumberOfValues = MakeStringC("unexpected number of values");
     R.UndefinedMessage = MakeStringC("variable is undefined");
 
+    R.DefaultPromptTag = MakePair(FalseObject, FalseObject);
+
     R.DynamicRecordType = MakeRecordTypeC("dynamic", sizeof(DynamicFieldsC) / sizeof(char *),
             DynamicFieldsC);
+    R.ContinuationRecordType = MakeRecordTypeC("continuation",
+            sizeof(ContinuationFieldsC) / sizeof(char *), ContinuationFieldsC);
 
     for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
@@ -1170,16 +1241,32 @@ void SetupExecute()
             EnvironmentSetC(R.Bedrock, "apply", MakeProcedure(StringCToSymbol("apply"),
             MakeVector(2, v, NoValueObject), 2, PROCEDURE_FLAG_RESTARG)));
 
+    v[0] = MakeInstruction(SetArgCountOpcode, 0);
+    v[1] = MakeInstruction(CallOpcode, 0);
+    v[2] = MakeInstruction(ReturnFromOpcode, 0);
+    R.ExecuteThunk = MakeProcedure(NoValueObject, MakeVector(3, v, NoValueObject), 1, 0);
+
     v[0] = MakeInstruction(CallWithCCOpcode, 0);
     LibraryExport(R.BedrockLibrary,
             EnvironmentSetC(R.Bedrock, "call/cc", MakeProcedure(StringCToSymbol("call/cc"),
             MakeVector(1, v, NoValueObject), 1, 0)));
 
-    v[0] = MakeInstruction(SetArgCountOpcode, 0);
-    v[1] = MakeInstruction(CallOpcode, 0);
-    v[2] = MakeInstruction(ReturnFromOpcode, 0);
-    R.ExecuteThunk = MakeProcedure(StringCToSymbol("execute-thunk"),
-            MakeVector(3, v, NoValueObject), 1, 0);
+    // (%return <value>)
+
+    v[0] = MakeInstruction(ReturnFromOpcode, 0);
+    LibraryExport(R.BedrockLibrary,
+            EnvironmentSetC(R.Bedrock, "%return",
+            MakeProcedure(StringCToSymbol("%return-from"), MakeVector(1, v, NoValueObject), 1,
+            0)));
+
+    // (%capture-continuation <proc> <dynamic>)
+
+    v[0] = MakeInstruction(CaptureContinuationOpcode, 0);
+    LibraryExport(R.BedrockLibrary, EnvironmentSetC(R.Bedrock, "%capture-continuation",
+            MakeProcedure(StringCToSymbol("%capture-continuation"),
+            MakeVector(1, v, NoValueObject), 1, 0)));
+
+    // (%mark-continuation <key> <value> <thunk>)
 
     v[0] = MakeInstruction(CheckCountOpcode, 3);
     v[1] = MakeInstruction(MarkContinuationOpcode, 0);
@@ -1192,6 +1279,8 @@ void SetupExecute()
             EnvironmentSetC(R.Bedrock, "%mark-continuation",
             MakeProcedure(StringCToSymbol("%mark-continuation"), MakeVector(7, v, NoValueObject),
             3, 0)));
+
+    // (%abort-dynamic <dynamic> <thunk>)
 
     v[0] = MakeInstruction(AbortOpcode, 0);
     LibraryExport(R.BedrockLibrary,

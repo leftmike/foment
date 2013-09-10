@@ -75,6 +75,7 @@ unsigned int BytesAllocated = 0;
 unsigned int BytesSinceLast = 0;
 unsigned int ObjectsSinceLast = 0;
 unsigned int CollectionCount = 0;
+unsigned int PartialCount = 0;
 unsigned int PartialPerFull = 4;
 unsigned int TriggerBytes = SECTION_SIZE * 8;
 unsigned int TriggerObjects = TriggerBytes / (sizeof(FPair) * 8);
@@ -1316,10 +1317,16 @@ void Collect()
         while (WaitThreads < TotalThreads)
             ConditionWait(&GCCondition, &GCExclusive);
 
-        if (FullGCRequired)
+        if (FullGCRequired || PartialCount >= PartialPerFull)
+        {
+            PartialCount = 0;
             Collect(1);
+        }
         else
-            Collect((CollectionCount + 1) % (PartialPerFull + 1) == 0);
+        {
+            PartialCount += 1;
+            Collect(0);
+        }
 
         WaitThreads -= 1;
         GCPending = 0;

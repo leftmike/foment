@@ -73,6 +73,7 @@ typedef enum
     CaseLambdaOpcode,
     CallWithCCOpcode,
     CallContinuationOpcode,
+    CaptureContinuationOpcode,
     AbortOpcode,
     ReturnFromOpcode,
     MarkContinuationOpcode,
