@@ -189,6 +189,7 @@ static char * Opcodes[] =
     "call-with-cc",
     "call-continuation",
     "capture-continuation",
+    "compose-continuation",
     "abort",
     "return-from",
     "mark-continuation",
@@ -1002,6 +1003,35 @@ TailCallPrimitive:
                     goto TailCall;
                 }
 
+                case ComposeContinuationOpcode:
+                {
+                    FMustBe(ts->ArgCount == 2);
+
+                    FObject cont = ts->AStack[ts->AStackPtr - 2];
+                    op = ts->AStack[ts->AStackPtr - 1];
+
+                    FMustBe(ContinuationP(cont));
+                    FMustBe(ProcedureP(op) || PrimitiveP(op));
+
+                    FAssert(FixnumP(AsContinuation(cont)->AStackPtr));
+                    ts->AStackPtr = AsFixnum(AsContinuation(cont)->AStackPtr);
+
+                    FAssert(VectorP(AsContinuation(cont)->AStack));
+                    for (int adx = 0; adx < ts->AStackPtr; adx++)
+                        ts->AStack[adx] = AsVector(AsContinuation(cont)->AStack)->Vector[adx];
+
+                    FAssert(FixnumP(AsContinuation(cont)->CStackPtr));
+                    ts->CStackPtr = AsFixnum(AsContinuation(cont)->CStackPtr);
+
+                    FAssert(VectorP(AsContinuation(cont)->CStack));
+                    FObject * cs = ts->CStack - ts->CStackPtr + 1;
+                    for (int cdx = 0; cdx < ts->CStackPtr; cdx++)
+                        cs[cdx] = AsVector(AsContinuation(cont)->CStack)->Vector[cdx];
+
+                    ts->ArgCount = 0;
+                    goto TailCall;
+                }
+
                 case AbortOpcode:
                 {
                     FMustBe(ts->ArgCount == 2);
@@ -1246,10 +1276,12 @@ void SetupExecute()
     v[2] = MakeInstruction(ReturnFromOpcode, 0);
     R.ExecuteThunk = MakeProcedure(NoValueObject, MakeVector(3, v, NoValueObject), 1, 0);
 
-    v[0] = MakeInstruction(CallWithCCOpcode, 0);
+/*    v[0] = MakeInstruction(CallWithCCOpcode, 0);
     LibraryExport(R.BedrockLibrary,
-            EnvironmentSetC(R.Bedrock, "call/cc", MakeProcedure(StringCToSymbol("call/cc"),
+            EnvironmentSetC(R.Bedrock, "call-with-current-continuation",
+            MakeProcedure(StringCToSymbol("call-with-current-continuation"),
             MakeVector(1, v, NoValueObject), 1, 0)));
+*/
 
     // (%return <value>)
 
@@ -1264,7 +1296,14 @@ void SetupExecute()
     v[0] = MakeInstruction(CaptureContinuationOpcode, 0);
     LibraryExport(R.BedrockLibrary, EnvironmentSetC(R.Bedrock, "%capture-continuation",
             MakeProcedure(StringCToSymbol("%capture-continuation"),
-            MakeVector(1, v, NoValueObject), 1, 0)));
+            MakeVector(1, v, NoValueObject), 2, 0)));
+
+    // (%compose-continuation <cont> <thunk>)
+
+    v[0] = MakeInstruction(ComposeContinuationOpcode, 0);
+    LibraryExport(R.BedrockLibrary, EnvironmentSetC(R.Bedrock, "%compose-continuation",
+            MakeProcedure(StringCToSymbol("%compose-continuation"),
+            MakeVector(1, v, NoValueObject), 2, 0)));
 
     // (%mark-continuation <key> <value> <thunk>)
 

@@ -11,8 +11,8 @@
         number->string pair? cons car cdr
         set-car! set-cdr! list null? append reverse list-ref map-car map-cdr string=? string?
         vector? make-vector vector-ref vector-set! list->vector values apply
-        call/cc (rename call/cc call-with-current-continuation) procedure? string->symbol
-        caar cadr cdar cddr newline dynamic-wind)
+        call-with-current-continuation (rename call-with-current-continuation call/cc) procedure?
+        string->symbol caar cadr cdar cddr newline dynamic-wind)
     (export
         syntax unsyntax eq-hash eqv-hash
         equal-hash full-error loaded-libraries library-path full-command-line
@@ -212,6 +212,35 @@
                     default-prompt-handler)))
 
         (begin (%execute-thunk execute-thunk))
+
+        (define (call-with-cc proc tag)
+            (let-values (((dyn handler) (find-mark (%dynamic-stack) tag)))
+                (if (not dyn)
+                    (full-error 'assertion-violation 'call-with-current-continuation
+                            "call-with-current-continuation: expected a prompt tag" tag))
+                (%capture-continuation
+                    (lambda (cont ds)
+                        (proc
+                            (lambda vals
+                                
+                                ;; need to unwind dynamic stack
+                                
+                                (%abort-dynamic dyn
+                                    (lambda ()
+                                        (%compose-continuation cont
+                                            (lambda ()
+                                                
+                                                ;; need to rewind dynamic stack
+                                                
+                                                (apply values vals))))))))
+                    dyn)))
+
+        (define call-with-current-continuation
+            (case-lambda
+                ((proc) (call-with-cc proc (default-prompt-tag)))
+                ((proc tag) (call-with-cc proc tag))
+                (lst (full-error 'assertion-violation 'call-with-current-continuation
+                        "call-with-current-continuation: expected one or two arguments"))))
         ))
 
 (define-library (scheme base)

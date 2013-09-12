@@ -74,6 +74,7 @@ typedef enum
     CallWithCCOpcode,
     CallContinuationOpcode,
     CaptureContinuationOpcode,
+    ComposeContinuationOpcode,
     AbortOpcode,
     ReturnFromOpcode,
     MarkContinuationOpcode,

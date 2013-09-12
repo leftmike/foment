@@ -16,7 +16,6 @@ To Do:
 -- define-record-type
 
 -- guard
--- dynamic-wind
 -- with-exception-handler
 -- raise
 -- raise-continuable

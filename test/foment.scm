@@ -37,7 +37,10 @@
         (lambda (x y) (st x) (st y)
             (dynamic-wind
                 (lambda () (st 'before))
-                (lambda () (st 'thunk) (abort-current-continuation 'prompt-tag 'a 'b 'c))
+                (lambda ()
+                    (st 'thunk)
+                    (abort-current-continuation 'prompt-tag 'a 'b 'c)
+                    (st 'oops))
                 (lambda () (st 'after))))
         'prompt-tag
         (lambda (a b c) (st a) (st b) (st c))
@@ -53,7 +56,7 @@
             (dynamic-wind
                 (lambda () (st 'before))
                 (lambda () (st 'thunk) (abort-current-continuation (default-prompt-tag)
-                    (lambda () (st 'handler))))
+                    (lambda () (st 'handler))) (st 'oops))
                 (lambda () (st 'after))))
         (default-prompt-tag)
         default-prompt-handler)
@@ -74,7 +77,8 @@
                         (lambda ()
                             (st 'thunk2)
                             (abort-current-continuation (default-prompt-tag)
-                            (lambda () (st 'handler))))
+                                (lambda () (st 'handler)))
+                            (st 'oops))
                         (lambda () (st 'after2))))
                 (lambda () (st 'after1))))
         (default-prompt-tag)

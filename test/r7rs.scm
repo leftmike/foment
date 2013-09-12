@@ -832,10 +832,10 @@
                             (else (return #f))))))
                     (r obj))))))
 
-(must-raise (assertion-violation call/cc) (call/cc))
-(must-raise (assertion-violation call/cc) (call/cc #t))
-(must-raise (assertion-violation call/cc) (call/cc #t #t))
-(must-raise (assertion-violation call/cc) (call/cc (lambda (e) e) #t))
+(must-raise (assertion-violation call-with-current-continuation) (call/cc))
+(must-raise (assertion-violation) (call/cc #t))
+(must-raise (assertion-violation call-with-current-continuation) (call/cc #t #t))
+(must-raise (assertion-violation call-with-current-continuation) (call/cc (lambda (e) e) #t))
 
 (must-equal 4 (list-length '(1 2 3 4)))
 (must-equal #f (list-length '(a b . c)))
