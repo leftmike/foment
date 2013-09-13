@@ -8,11 +8,12 @@
         interaction-environment boolean? not error eq? eqv? equal? command-line
         write display write-shared display-shared write-simple display-simple
         + * - / = < > <= >= zero? positive? negative? odd? even? exact-integer? expt abs sqrt
-        number->string pair? cons car cdr
+        number->string pair? cons car cdr length
         set-car! set-cdr! list null? append reverse list-ref map-car map-cdr string=? string?
         vector? make-vector vector-ref vector-set! list->vector values apply
         call-with-current-continuation (rename call-with-current-continuation call/cc) procedure?
-        string->symbol caar cadr cdar cddr newline dynamic-wind)
+        string->symbol caar cadr cdar cddr newline dynamic-wind with-exception-handler
+        raise-continuable raise)
     (export
         syntax unsyntax eq-hash eqv-hash
         equal-hash full-error loaded-libraries library-path full-command-line
@@ -134,6 +135,17 @@
                     (call-with-parameterize (list param1 param2 ...) (list value1 value2 ...)
                             (lambda () body1 body2 ...)))))
 
+        (define (before-parameterize params vals)
+            (if (not (null? params))
+                (let ((p (car params)))
+                    (if (not (%parameter? p))
+                        (full-error 'assertion-violation 'parameterize
+                                "parameterize: expected a parameter" p))
+                    (let ((val (p (car vals) parameterize-key)))
+                        (eq-hashtable-set (%parameters) p
+                                (cons val (eq-hashtable-ref (%parameters) p '())))
+                        (before-parameterize (cdr params) (cdr vals))))))
+
         (define (after-parameterize params)
             (if (not (null? params))
                 (begin
@@ -142,17 +154,7 @@
                     (after-parameterize (cdr params)))))
 
         (define (call-with-parameterize params vals thunk)
-            (define (before params vals)
-                (if (not (null? params))
-                    (let ((p (car params)))
-                        (if (not (%parameter? p))
-                            (full-error 'assertion-violation 'parameterize
-                                    "parameterize: expected a parameter" p))
-                        (let ((val (p (car vals) parameterize-key)))
-                            (eq-hashtable-set (%parameters) p
-                                    (cons val (eq-hashtable-ref (%parameters) p '())))
-                            (before (cdr params) (cdr vals))))))
-            (before params vals)
+            (before-parameterize params vals)
             (let-values ((results (%mark-continuation 'parameterize (cons params vals) thunk)))
                 (after-parameterize params)
                 (apply values results)))
@@ -176,72 +178,91 @@
                         "call-with-continuation-prompt: use of default-prompt-tag requires use of default-prompt-handler"))
             (with-continuation-mark tag handler (apply proc args)))
 
-        (define (find-mark ds key)
-            (if (null? ds)
-                (values #f #f)
-                (let ((ret (assq key (%dynamic-marks (car ds)))))
-                    (if (not ret)
-                        (find-mark (cdr ds) key)
-                        (values (car ds) (cdr ret))))))
+        (define (unwind-mark-list ml)
+            (if (pair? ml)
+                (begin
+                    (if (eq? (car (car ml)) 'parameterize)
+                        (after-parameterize (car (cdr (car ml))))
+                        (if (eq? (car (car ml)) 'dynamic-wind)
+                            ((cdr (cdr (car ml)))))) ; dynamic-wind after
+                    (unwind-mark-list (cdr ml)))))
 
-        (define (unwind-dynamic-stack to)
-            (define (unwind-mark-list ml)
-                (if (not (null? ml))
-                    (begin
-                        (if (eq? (car (car ml)) 'parameterize)
-                            (after-parameterize (car (cdr (car ml))))
-                            (if (eq? (car (car ml)) 'dynamic-wind)
-                                ((cdr (cdr (car ml)))))) ; dynamic-wind after
-                        (unwind-mark-list (cdr ml)))))
-            (let ((dyn (car (%dynamic-stack))))
-                (%dynamic-stack (cdr (%dynamic-stack)))
-                (unwind-mark-list (%dynamic-marks dyn))
-                (if (not (eq? dyn to))
-                    (unwind-dynamic-stack to))))
+        (define (rewind-mark-list ml)
+            (if (pair? ml)
+                (begin
+                    (if (eq? (car (car ml)) 'parameterize)
+                        (before-parameterize (car (cdr (car ml))) (cdr (cdr (car ml))))
+                        (if (eq? (car (car ml)) 'dynamic-wind)
+                            ((car (cdr (car ml)))))) ; dynamic-wind before
+                    (rewind-mark-list (cdr ml)))))
 
         (define (abort-current-continuation tag . vals)
+            (define (find-mark ds key)
+                (if (null? ds)
+                    (values #f #f)
+                    (let ((ret (assq key (%dynamic-marks (car ds)))))
+                        (if (not ret)
+                            (find-mark (cdr ds) key)
+                            (values (car ds) (cdr ret))))))
+            (define (unwind to)
+                (let ((dyn (car (%dynamic-stack))))
+                    (%dynamic-stack (cdr (%dynamic-stack)))
+                    (unwind-mark-list (%dynamic-marks dyn))
+                    (if (not (eq? dyn to))
+                        (unwind to))))
             (let-values (((dyn handler) (find-mark (%dynamic-stack) tag)))
                 (if (not dyn)
                     (full-error 'assertion-violation 'abort-current-continuation-tag
                             "abort-current-continuation-tag: expected a prompt tag" tag))
-                (unwind-dynamic-stack dyn)
+                (unwind dyn)
                 (%abort-dynamic dyn (lambda () (apply handler vals)))))
 
         (define (execute-thunk thunk)
             (%return (call-with-continuation-prompt thunk (default-prompt-tag)
                     default-prompt-handler)))
 
-        (begin (%execute-thunk execute-thunk))
+        (%execute-thunk execute-thunk)
 
-        (define (call-with-cc proc tag)
-            (let-values (((dyn handler) (find-mark (%dynamic-stack) tag)))
-                (if (not dyn)
-                    (full-error 'assertion-violation 'call-with-current-continuation
-                            "call-with-current-continuation: expected a prompt tag" tag))
-                (%capture-continuation
-                    (lambda (cont ds)
+        (define (call-with-current-continuation proc)
+            (define (unwind ds)
+                (if (pair? ds)
+                    (begin
+                        (unwind-mark-list (%dynamic-marks (car ds)))
+                        (unwind (cdr ds)))))
+            (define (rewind ds)
+                (if (pair? ds)
+                    (begin
+                        (rewind (cdr ds))
+                        (%dynamic-stack ds)
+                        (rewind-mark-list (%dynamic-marks (car ds))))))
+            (%capture-continuation
+                (lambda (cont)
+                    (let ((ds (%dynamic-stack)))
                         (proc
                             (lambda vals
-                                
-                                ;; need to unwind dynamic stack
-                                
-                                (%abort-dynamic dyn
+                                (unwind (%dynamic-stack))
+                                (%call-continuation cont
                                     (lambda ()
-                                        (%compose-continuation cont
-                                            (lambda ()
-                                                
-                                                ;; need to rewind dynamic stack
-                                                
-                                                (apply values vals))))))))
-                    dyn)))
+                                        (rewind ds)
+                                        (apply values vals)))))))))
 
-        (define call-with-current-continuation
-            (case-lambda
-                ((proc) (call-with-cc proc (default-prompt-tag)))
-                ((proc tag) (call-with-cc proc tag))
-                (lst (full-error 'assertion-violation 'call-with-current-continuation
-                        "call-with-current-continuation: expected one or two arguments"))))
-        ))
+        (define (with-exception-handler handler thunk)
+            (%mark-continuation 'exception-handler
+                    (cons handler (%find-mark 'exception-handler '())) thunk))
+
+        (define (raise-handler obj lst)
+            (%mark-continuation 'exception-handler (cdr lst)
+                    (lambda () ((car lst) obj) (raise obj))))
+
+        (%raise-handler raise-handler)
+
+        (define (raise-continuable obj)
+            (let ((lst (%find-mark 'exception-handler '())))
+                (if (null? lst)
+                    (raise obj))
+                (%mark-continuation 'exception-handler (cdr lst)
+                        (lambda () ((car lst) obj)))))
+    ))
 
 (define-library (scheme base)
     (import (foment base))
@@ -253,8 +274,8 @@
         interaction-environment boolean? not error eq? eqv? equal? command-line
         write display write-shared display-shared write-simple display-simple
         + * - / = < > <= >= zero? positive? negative? odd? even? exact-integer? expt abs sqrt
-        number->string pair? cons car cdr
+        number->string pair? cons car cdr length
         set-car! set-cdr! list null? append reverse list-ref map-car map-cdr string=? string?
         vector? make-vector vector-ref vector-set! list->vector values apply
         call/cc (rename call/cc call-with-current-continuation) procedure? string->symbol
-        caar cadr cdar cddr newline dynamic-wind))
+        caar cadr cdar cddr newline dynamic-wind with-exception-handler raise-continuable raise))

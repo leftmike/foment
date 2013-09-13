@@ -874,6 +874,16 @@ void Raise(FObject obj)
     throw obj;
 }
 
+Define("raise", RaisePrimitive)(int argc, FObject argv[])
+{
+    if (argc != 1)
+        RaiseExceptionC(R.Assertion, "raise", "raise: expected one argument", EmptyListObject);
+
+    Raise(argv[0]);
+
+    return(NoValueObject);
+}
+
 Define("error", ErrorPrimitive)(int argc, FObject argv[])
 {
     if (argc < 1)
@@ -1116,6 +1126,7 @@ static FPrimitive * Primitives[] =
     &EqHashtableRefPrimitive,
     &EqHashtableSetPrimitive,
     &EqHashtableDeletePrimitive,
+    &RaisePrimitive,
     &ErrorPrimitive,
     &FullErrorPrimitive,
     &EqPPrimitive,

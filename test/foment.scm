@@ -139,6 +139,34 @@
 (must-equal 20 (p2))
 (must-equal 1000 (parameterize ((p1 0)) (p1) (parameterize ((p2 200)) (p1 1000) (p1))))
 
+(define *k* #f)
+(define p (make-parameter 1))
+(define (test)
+    (parameterize ((p 10))
+        (if (call/cc (lambda (k) (set! *k* k) #t))
+            (p 100)
+            #f)
+        (p)))
+
+(must-equal 1 (p))
+(must-equal 100 (test))
+(must-equal 1 (p))
+(must-equal 10 (*k* #f))
+(must-equal 1 (p))
+
+(define *k2* #f)
+(define p2 (make-parameter 2))
+(define (test2)
+    (parameterize ((p2 20))
+        (call/cc (lambda (k) (set! *k2* k)))
+        (p2)))
+
+(must-equal 2 (p2))
+(must-equal 20 (test2))
+(must-equal 2 (p2))
+(must-equal 20 (*k2*))
+(must-equal 2 (p2))
+
 ;;
 ;; guardians
 ;;

@@ -10,8 +10,9 @@ Foment
 // ---- Common Middle Pass ----
 
 typedef void (*FLambdaFormalFn)(FLambda * lam, FBinding * bd);
+typedef void (*FLambdaEnclosingFn)(FLambda * enc, FLambda * lam, int cf);
 typedef void (*FLambdaBeforeFn)(FLambda * enc, FLambda * lam, int cf);
-typedef void (*FLambdaAfterFn)(FLambda * enc, FLambda * lam, int cf);
+typedef void (*FLambdaAfterFn)(FLambda * lam, int cf);
 typedef void (*FCaseLambdaFn)(FLambda * enc, FCaseLambda * cl, int cf);
 typedef void (*FReferenceFn)(FLambda * lam, FObject pair, FReference * ref, int cf);
 typedef void (*FSetReferenceFn)(FLambda * lam, FReference * ref);
@@ -24,6 +25,7 @@ typedef struct
 {
     FObject MiddlePass;
     FLambdaFormalFn LambdaFormalFn;
+    FLambdaEnclosingFn LambdaEnclosingFn;
     FLambdaBeforeFn LambdaBeforeFn;
     FLambdaAfterFn LambdaAfterFn;
     FCaseLambdaFn CaseLambdaFn;
@@ -374,6 +376,9 @@ static void MPassLambdaFormals(FMiddlePass * mp, FLambda * lam, FObject flst)
 
 static void MPassLambda(FMiddlePass * mp, FLambda * enc, FLambda * lam, int cf)
 {
+    if (enc != 0 && mp->LambdaEnclosingFn != 0)
+        mp->LambdaEnclosingFn(enc, lam, cf);
+
     if (lam->MiddlePass != mp->MiddlePass)
     {
 //        lam->MiddlePass = mp->MiddlePass;
@@ -388,7 +393,7 @@ static void MPassLambda(FMiddlePass * mp, FLambda * enc, FLambda * lam, int cf)
         MPassSequence(mp, lam, lam->Body);
 
         if (mp->LambdaAfterFn != 0)
-            mp->LambdaAfterFn(enc, lam, cf);
+            mp->LambdaAfterFn(lam, cf);
     }
 }
 
@@ -453,6 +458,7 @@ static FMiddlePass MOne =
 {
     MakeFixnum(1),
     0,
+    0,
     MOneLambdaBefore,
     0,
     MOneCaseLambda,
@@ -484,16 +490,18 @@ static void MTwoLambdaFormal(FLambda * lam, FBinding * bd)
     }
 }
 
+static void MTwoLambdaEnclosing(FLambda * enc, FLambda * lam, int cf)
+{
+    FAssert(enc != 0);
+
+//    enc->MayInline = FalseObject;
+    Modify(FLambda, enc, MayInline, FalseObject);
+}
+
 static void MTwoLambdaBefore(FLambda * enc, FLambda * lam, int cf)
 {
 //    lam->ArgCount = MakeFixnum(ListLength(lam->Bindings));
     Modify(FLambda, lam, ArgCount, MakeFixnum(ListLength(lam->Bindings)));
-
-    if (enc != 0)
-    {
-//        enc->MayInline = FalseObject;
-        Modify(FLambda, enc, MayInline, FalseObject);
-    }
 }
 
 static FObject CompileInlineTemplate(FObject flst, FObject expr)
@@ -526,7 +534,7 @@ static FObject CompileInlineTemplate(FObject flst, FObject expr)
     return(expr);
 }
 
-static void MTwoLambdaAfter(FLambda * enc, FLambda * lam, int cf)
+static void MTwoLambdaAfter(FLambda * lam, int cf)
 {
     if (Config.InlineProcedures == 0)
     {
@@ -691,6 +699,7 @@ static FMiddlePass MTwo =
 {
     MakeFixnum(2),
     MTwoLambdaFormal,
+    MTwoLambdaEnclosing,
     MTwoLambdaBefore,
     MTwoLambdaAfter,
     0,
@@ -790,6 +799,14 @@ static void MFourLambdaFormal(FLambda * lam, FBinding * bd)
     }
 }
 
+static void MFourLambdaEnclosing(FLambda * enc, FLambda * lam, int cf)
+{
+    FAssert(enc != 0);
+
+//    enc->UseStack = FalseObject;
+    Modify(FLambda, enc, UseStack, FalseObject);
+}
+
 static void MFourLambdaBefore(FLambda * enc, FLambda * lam, int cf)
 {
 //    lam->SlotCount = MakeFixnum(1); // Slot 0 is reserved for the enclosing frame.
@@ -804,8 +821,6 @@ static void MFourLambdaBefore(FLambda * enc, FLambda * lam, int cf)
     {
 //        lam->Level = MakeFixnum(AsFixnum(enc->Level) + 1);
         Modify(FLambda, lam, Level, MakeFixnum(AsFixnum(enc->Level) + 1));
-//        enc->UseStack = FalseObject;
-        Modify(FLambda, enc, UseStack, FalseObject);
     }
 }
 
@@ -826,6 +841,7 @@ static FMiddlePass MFour =
 {
     MakeFixnum(4),
     MFourLambdaFormal,
+    MFourLambdaEnclosing,
     MFourLambdaBefore,
     0,
     0,

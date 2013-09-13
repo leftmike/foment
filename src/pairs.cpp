@@ -33,7 +33,7 @@ int ListLength(FObject obj)
             obj = Rest(obj);
         }
         else
-            RaiseExceptionC(R.Assertion, "list-length", "list-length: not a proper list",
+            RaiseExceptionC(R.Assertion, "length", "length: not a proper list",
                     List(list));
     }
 
@@ -166,6 +166,14 @@ Define("null?", NullPPrimitive)(int argc, FObject argv[])
         RaiseExceptionC(R.Assertion, "null?", "null?: expected one argument", EmptyListObject);
 
     return(argv[0] == EmptyListObject ? TrueObject : FalseObject);
+}
+
+Define("length", LengthPrimitive)(int argc, FObject argv[])
+{
+    if (argc != 1)
+        RaiseExceptionC(R.Assertion, "length", "length: expected one argument", EmptyListObject);
+
+    return(MakeFixnum(ListLength(argv[0])));
 }
 
 static FObject ReverseList(FObject list)
@@ -362,6 +370,7 @@ static FPrimitive * Primitives[] =
     &SetCdrPrimitive,
     &ListPrimitive,
     &NullPPrimitive,
+    &LengthPrimitive,
     &AppendPrimitive,
     &ReversePrimitive,
     &ListRefPrimitive,

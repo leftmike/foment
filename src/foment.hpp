@@ -44,8 +44,10 @@ Future:
 -- inline primitives in GPassExpression
 -- debugging information
 -- number tags should require only a single test by sharing part of a tag
+-- composable continuations
 
 Bugs:
+-- call/cc: unwind only as far as the common tail
 -- gc.cpp: AllocateSection failing is not handled by all callers
 -- ExecuteThunk does not check for CStack or AStack overflow
 -- string input ports have not been tested at all
@@ -825,6 +827,8 @@ typedef struct
     FObject UnexpectedNumberOfValues;
     FObject UndefinedMessage;
     FObject ExecuteThunk;
+    FObject RaiseHandler;
+    FObject ExceptionHandlerSymbol;
     FObject DefaultPromptTag;
 
     FObject DynamicRecordType;

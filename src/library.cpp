@@ -179,6 +179,9 @@ void EnvironmentImportLibrary(FObject env, FObject nam)
     }
 
     FAssert(elst == EmptyListObject);
+
+    if (ProcedureP(AsLibrary(lib)->OnStartup))
+        ExecuteThunk(AsLibrary(lib)->OnStartup);
 }
 
 // ---- Globals ----
