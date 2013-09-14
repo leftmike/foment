@@ -575,6 +575,29 @@
 (radix 16)
 (must-raise (assertion-violation error) (parameterize ((radix 0)) (f 12)))
 
+;; guard
+
+(must-equal 42
+    (guard
+        (condition
+            ((assq 'a condition) => cdr)
+            ((assq 'b condition)))
+        (raise (list (cons 'a 42)))))
+
+(must-equal (b . 23)
+    (guard
+        (condition
+            ((assq 'a condition) => cdr)
+            ((assq 'b condition)))
+        (raise (list (cons 'b 23)))))
+
+(must-equal else (guard (excpt ((= excpt 10) (- 10)) (else 'else)) (raise 11)))
+
+(must-equal 121 (with-exception-handler
+    (lambda (obj) (* obj obj))
+    (lambda ()
+        (guard (excpt ((= excpt 10) (- 10)) ((= excpt 12) (- 12))) (raise 11)))))
+
 ;; quasiquote
 
 (must-equal (list 3 4) `(list ,(+ 1 2) 4))

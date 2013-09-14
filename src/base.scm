@@ -13,7 +13,7 @@
         vector? make-vector vector-ref vector-set! list->vector values apply
         call-with-current-continuation (rename call-with-current-continuation call/cc) procedure?
         string->symbol caar cadr cdar cddr newline dynamic-wind with-exception-handler
-        raise-continuable raise)
+        raise-continuable raise guard assq)
     (export
         syntax unsyntax eq-hash eqv-hash
         equal-hash full-error loaded-libraries library-path full-command-line
@@ -212,8 +212,8 @@
                         (unwind to))))
             (let-values (((dyn handler) (find-mark (%dynamic-stack) tag)))
                 (if (not dyn)
-                    (full-error 'assertion-violation 'abort-current-continuation-tag
-                            "abort-current-continuation-tag: expected a prompt tag" tag))
+                    (full-error 'assertion-violation 'abort-current-continuation
+                            "abort-current-continuation expected a prompt tag" tag))
                 (unwind dyn)
                 (%abort-dynamic dyn (lambda () (apply handler vals)))))
 
@@ -262,6 +262,34 @@
                     (raise obj))
                 (%mark-continuation 'exception-handler (cdr lst)
                         (lambda () ((car lst) obj)))))
+
+        (define (with-guard guard thunk)
+            (let ((gds (%dynamic-stack)))
+                (call-with-continuation-prompt
+                    (lambda ()
+                        (with-exception-handler
+                            (lambda (obj)
+                                (let ((hds (%dynamic-stack)))
+                                    (%dynamic-stack gds)
+                                    (let-values ((lst (guard obj hds)))
+                                        (%dynamic-stack hds)
+                                        (abort-current-continuation 'guard lst))))
+                            thunk))
+                    'guard
+                    (lambda (lst) (apply values lst)))))
+
+        (define-syntax guard
+            (syntax-rules (else)
+                ((guard (var clause1 clause2 ... (else result1 result2 ...)) body1 body2 ...)
+                    (with-guard
+                        (lambda (var hds) (cond clause1 clause2 ... (else result1 result2 ...)))
+                        (lambda () body1 body2 ...)))
+                ((guard (var clause1 clause2 ...) body1 body2 ...)
+                    (with-guard
+                        (lambda (var hds)
+                            (cond clause1 clause2 ...
+                                (else (%dynamic-stack hds) (raise-continuable var))))
+                        (lambda () body1 body2 ...)))))
     ))
 
 (define-library (scheme base)
@@ -278,4 +306,5 @@
         set-car! set-cdr! list null? append reverse list-ref map-car map-cdr string=? string?
         vector? make-vector vector-ref vector-set! list->vector values apply
         call/cc (rename call/cc call-with-current-continuation) procedure? string->symbol
-        caar cadr cdar cddr newline dynamic-wind with-exception-handler raise-continuable raise))
+        caar cadr cdar cddr newline dynamic-wind with-exception-handler raise-continuable raise
+        guard assq))

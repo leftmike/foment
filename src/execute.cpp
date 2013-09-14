@@ -2,15 +2,6 @@
 
 Foment
 
--- current-input-port and current-output-port need to be parameters
-
--- guard
-(guard (<variable> <cond-clause> ...) <body>)
-<body> has (<variable> <cond-clause> ...) as exception handler
-(<variable> ...) has a continuation and dynamic environment of guard expression
-if no <cond-clause> matches then raise-continuable is invoked on object with
-current exception handler being that of guard and the dynamic environment of the original
-call to raise or raise-continuable
 */
 
 #include <windows.h>
@@ -19,8 +10,6 @@ call to raise or raise-continuable
 #include "foment.hpp"
 #include "execute.hpp"
 #include "syncthrd.hpp"
-
-#define MAXIMUM_CONTINUATION_ARGS 16
 
 // ---- Procedure ----
 
@@ -1051,6 +1040,8 @@ FObject ExecuteThunk(FObject op)
 }
 
 #if 0
+#define MAXIMUM_CONTINUATION_ARGS 16
+
 FObject ExecuteThunk(FObject op)
 {
     FThreadState * ts = GetThreadState();
@@ -1947,15 +1938,6 @@ Define("%dynamic-stack", DynamicStackPrimitive)(int argc, FObject argv[])
     return(ds);
 }
 
-Define("%dynamic?", DynamicPPrimitive)(int argc, FObject argv[])
-{
-    // (%dynamic? <obj>)
-
-    FMustBe(argc == 1);
-
-    return(DynamicP(argv[0]) ? TrueObject : FalseObject);
-}
-
 Define("%dynamic-marks", DynamicMarksPrimitive)(int argc, FObject argv[])
 {
     // (%dynamic-marks <dynamic>)
@@ -2029,7 +2011,6 @@ static FPrimitive * Primitives[] =
     &RaiseHandlerPrimitive,
     &DefaultPromptTagPrimitive,
     &DynamicStackPrimitive,
-    &DynamicPPrimitive,
     &DynamicMarksPrimitive,
     &ParametersPrimitive,
     &ProcedureToParameterPrimitive,

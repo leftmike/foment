@@ -70,16 +70,18 @@
 (define e1 (make-exclusive))
 (define c1 (make-condition))
 
+(define run #t)
+
 (define (stress1)
     (enter-exclusive e1)
     (condition-wait c1 e1)
     (leave-exclusive e1)
-    (stress1))
+    (if run (stress1)))
 
 (define (stress2)
     (sleep (random 1000))
     (wake-condition c1)
-    (stress2))
+    (if run (stress2)))
 
 (run-thread stress1)
 (run-thread stress1)
@@ -90,9 +92,8 @@
 (enter-exclusive e2)
 (run-thread (lambda () (enter-exclusive e2)))
 
+(define run #f)
+
 (run-thread (lambda () (define (recur n) (recur (+ n 1))) (recur 0)))
 (run-thread (lambda () (define (recur n) (recur (+ n 1))) (recur 0)))
 (run-thread (lambda () (define (recur n) (recur (+ n 1))) (recur 0)))
-
-
-
