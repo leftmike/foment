@@ -1907,15 +1907,6 @@ Define("%raise-handler", RaiseHandlerPrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("%default-prompt-tag", DefaultPromptTagPrimitive)(int argc, FObject argv[])
-{
-    // (%default-prompt-tag)
-
-    FMustBe(argc == 0);
-
-    return(R.DefaultPromptTag);
-}
-
 #define ParameterP(obj) (ProcedureP(obj) && AsProcedure(obj)->Reserved & PROCEDURE_FLAG_PARAMETER)
 
 Define("%dynamic-stack", DynamicStackPrimitive)(int argc, FObject argv[])
@@ -2009,7 +2000,6 @@ static FPrimitive * Primitives[] =
 {
     &ExecuteThunkPrimitive,
     &RaiseHandlerPrimitive,
-    &DefaultPromptTagPrimitive,
     &DynamicStackPrimitive,
     &DynamicMarksPrimitive,
     &ParametersPrimitive,
@@ -2028,8 +2018,6 @@ void SetupExecute()
     R.UndefinedMessage = MakeStringC("variable is undefined");
 
     R.ExceptionHandlerSymbol = StringCToSymbol("exception-handler");
-
-    R.DefaultPromptTag = MakePair(FalseObject, FalseObject);
 
     R.DynamicRecordType = MakeRecordTypeC("dynamic", sizeof(DynamicFieldsC) / sizeof(char *),
             DynamicFieldsC);

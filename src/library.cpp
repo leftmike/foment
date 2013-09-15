@@ -179,9 +179,6 @@ void EnvironmentImportLibrary(FObject env, FObject nam)
     }
 
     FAssert(elst == EmptyListObject);
-
-    if (ProcedureP(AsLibrary(lib)->OnStartup))
-        ExecuteThunk(AsLibrary(lib)->OnStartup);
 }
 
 // ---- Globals ----
@@ -229,7 +226,7 @@ static FObject ImportGlobal(FObject env, FObject nam, FObject gl)
 
 // ---- Libraries ----
 
-static char * LibraryFieldsC[] = {"name", "exports", "on-startup"};
+static char * LibraryFieldsC[] = {"name", "exports"};
 
 static FObject MakeLibrary(FObject nam, FObject exports, FObject proc)
 {
@@ -238,9 +235,12 @@ static FObject MakeLibrary(FObject nam, FObject exports, FObject proc)
     FLibrary * lib = (FLibrary *) MakeRecord(R.LibraryRecordType);
     lib->Name = nam;
     lib->Exports = exports;
-    lib->OnStartup = proc;
 
     R.LoadedLibraries = MakePair(lib, R.LoadedLibraries);
+
+    if (ProcedureP(proc))
+        R.LibraryStartupList = MakePair(List(proc), R.LibraryStartupList);
+
     return(lib);
 }
 
@@ -410,23 +410,6 @@ FObject LibraryName(FObject lst)
     return(ReverseListModify(nlst));
 }
 
-static void AddImportLibrary(FObject * pill, FObject lib)
-{
-    FObject ill = *pill;
-
-    while (PairP(ill))
-    {
-        if (First(ill) == lib)
-            return;
-
-        ill = Rest(ill);
-    }
-
-    FAssert(ill == EmptyListObject);
-
-    *pill = MakePair(lib, *pill);
-}
-
 static int CheckForIdentifier(FObject nam, FObject ids)
 {
     FAssert(SymbolP(nam));
@@ -470,13 +453,13 @@ static FObject CheckForRename(FObject nam, FObject rlst)
     return(NoValueObject);
 }
 
-static FObject DoImportSet(FObject env, FObject is, FObject form, FObject * pill);
-static FObject DoOnlyOrExcept(FObject env, FObject is, FObject * pill, int cfif)
+static FObject DoImportSet(FObject env, FObject is, FObject form);
+static FObject DoOnlyOrExcept(FObject env, FObject is, int cfif)
 {
     if (PairP(Rest(is)) == 0)
         return(NoValueObject);
 
-    FObject ilst = DoImportSet(env, First(Rest(is)), is, pill);
+    FObject ilst = DoImportSet(env, First(Rest(is)), is);
     FObject ids = Rest(Rest(is));
     while (PairP(ids))
     {
@@ -505,7 +488,7 @@ static FObject DoOnlyOrExcept(FObject env, FObject is, FObject * pill, int cfif)
     return(nlst);
 }
 
-static FObject DoImportSet(FObject env, FObject is, FObject form, FObject * pill)
+static FObject DoImportSet(FObject env, FObject is, FObject form)
 {
     // <library-name>
     // (only <import-set> <identifier> ...)
@@ -520,7 +503,7 @@ static FObject DoImportSet(FObject env, FObject is, FObject form, FObject * pill
     FObject op = EnvironmentGet(R.Bedrock, AsIdentifier(First(is))->Symbol);
     if (op == OnlySyntax)
     {
-        FObject ilst = DoOnlyOrExcept(env, is, pill, 1);
+        FObject ilst = DoOnlyOrExcept(env, is, 1);
         if (ilst == NoValueObject)
             RaiseExceptionC(R.Syntax, "import",
                     "import: expected (only <import-set> <identifier> ...)", List(form, is));
@@ -529,7 +512,7 @@ static FObject DoImportSet(FObject env, FObject is, FObject form, FObject * pill
     }
     else if (op == ExceptSyntax)
     {
-        FObject ilst = DoOnlyOrExcept(env, is, pill, 0);
+        FObject ilst = DoOnlyOrExcept(env, is, 0);
         if (ilst == NoValueObject)
             RaiseExceptionC(R.Syntax, "import",
                     "import: expected (except <import-set> <identifier> ...)", List(form, is));
@@ -545,7 +528,7 @@ static FObject DoImportSet(FObject env, FObject is, FObject form, FObject * pill
                     "import: expected (prefix <import-set> <identifier>)", List(form, is));
 
         FObject prfx = AsSymbol(AsIdentifier(First(Rest(Rest(is))))->Symbol)->String;
-        FObject ilst = DoImportSet(env, First(Rest(is)), is, pill);
+        FObject ilst = DoImportSet(env, First(Rest(is)), is);
         FObject lst = ilst;
         while (PairP(lst))
         {
@@ -567,7 +550,7 @@ static FObject DoImportSet(FObject env, FObject is, FObject form, FObject * pill
                     "import: expected (rename <import-set> (<identifier> <identifier>) ...)",
                     List(form, is));
 
-        FObject ilst = DoImportSet(env, First(Rest(is)), is, pill);
+        FObject ilst = DoImportSet(env, First(Rest(is)), is);
         FObject rlst = Rest(Rest(is));
         while (PairP(rlst))
         {
@@ -616,8 +599,6 @@ static FObject DoImportSet(FObject env, FObject is, FObject form, FObject * pill
     if (LibraryP(lib) == 0)
         RaiseExceptionC(R.Syntax, "import", "import: library not found", List(form, nam));
 
-    AddImportLibrary(pill, lib);
-
     FObject ilst = EmptyListObject;
     FObject elst = AsLibrary(lib)->Exports;
 
@@ -636,11 +617,11 @@ static FObject DoImportSet(FObject env, FObject is, FObject form, FObject * pill
     return(ilst);
 }
 
-static void DoImport(FObject env, FObject is, FObject form, FObject * pill)
+static void DoImport(FObject env, FObject is, FObject form)
 {
     // (import <import-set> ...)
 
-    FObject ilst = DoImportSet(env, is, form, pill);
+    FObject ilst = DoImportSet(env, is, form);
 
     while (PairP(ilst))
     {
@@ -656,14 +637,14 @@ static void DoImport(FObject env, FObject is, FObject form, FObject * pill)
     FAssert(ilst == EmptyListObject);
 }
 
-void EnvironmentImport(FObject env, FObject form, FObject * pill)
+void EnvironmentImport(FObject env, FObject form)
 {
     FAssert(PairP(form));
 
     FObject islst = Rest(form);
     while (PairP(islst))
     {
-        DoImport(env, First(islst), form, pill);
+        DoImport(env, First(islst), form);
         islst = Rest(islst);
     }
 
@@ -672,7 +653,7 @@ void EnvironmentImport(FObject env, FObject form, FObject * pill)
 
 // ----------------
 
-static FObject ExpandLibraryDeclarations(FObject env, FObject lst, FObject body, FObject * pill)
+static FObject ExpandLibraryDeclarations(FObject env, FObject lst, FObject body)
 {
     while (PairP(lst))
     {
@@ -684,12 +665,12 @@ static FObject ExpandLibraryDeclarations(FObject env, FObject lst, FObject body,
         FObject op = EnvironmentGet(R.Bedrock, AsIdentifier(First(form))->Symbol);
 
         if (op == ImportSyntax)
-            EnvironmentImport(env, form, pill);
+            EnvironmentImport(env, form);
         else if (op == IncludeLibraryDeclarationsSyntax)
-            body = ExpandLibraryDeclarations(env, ReadInclude(Rest(form), 0), body, pill);
+            body = ExpandLibraryDeclarations(env, ReadInclude(Rest(form), 0), body);
         else if (op == CondExpandSyntax)
             body = ExpandLibraryDeclarations(env,
-                    CondExpand(MakeSyntacticEnv(R.Bedrock), form, Rest(form)), body, pill);
+                    CondExpand(MakeSyntacticEnv(R.Bedrock), form, Rest(form)), body);
         else if (op != ExportSyntax && op != BeginSyntax && op != IncludeSyntax
                 && op != IncludeCISyntax)
             RaiseExceptionC(R.Syntax, "define-library",
@@ -736,23 +717,6 @@ static FObject CompileEvalBegin(FObject obj, FObject env, FObject body, FObject 
     if (obj != EmptyListObject)
         RaiseException(R.Syntax, SpecialSyntaxToSymbol(ss),
                 SpecialSyntaxMsgC(ss, "expected a proper list"), List(form, obj));
-
-    return(body);
-}
-
-static FObject AddOnStartupToBody(FObject ill, FObject body)
-{
-    while (PairP(ill))
-    {
-        FAssert(LibraryP(First(ill)));
-
-        if (ProcedureP(AsLibrary(First(ill))->OnStartup))
-            body = MakePair(List(AsLibrary(First(ill))->OnStartup), body);
-
-        ill = Rest(ill);
-    }
-
-    FAssert(ill == EmptyListObject);
 
     return(body);
 }
@@ -850,10 +814,7 @@ static FObject CompileEvalExpr(FObject obj, FObject env, FObject body)
         }
         else if (op == ImportSyntax)
         {
-            FObject ill = EmptyListObject;
-
-            EnvironmentImport(env, obj, &ill);
-            body = AddOnStartupToBody(ill, body);
+            EnvironmentImport(env, obj);
             if (body != EmptyListObject)
                 body = MakePair(List(R.NoValuePrimitiveObject), body);
 
@@ -885,12 +846,17 @@ FObject CompileEval(FObject obj, FObject env)
     FAssert(EnvironmentP(env));
 
     FObject body = CompileEvalExpr(obj, env, EmptyListObject);
-    if (body == EmptyListObject)
+
+    body = ReverseListModify(body);
+    if (R.LibraryStartupList != EmptyListObject)
+    {
+        body = MakePair(MakePair(BeginSyntax, ReverseListModify(R.LibraryStartupList)), body);
+        R.LibraryStartupList = EmptyListObject;
+    }
+    else if (body == EmptyListObject)
         return(R.NoValuePrimitiveObject);
 
-    FAssert(PairP(body));
-
-    return(CompileLambda(env, NoValueObject, EmptyListObject, ReverseListModify(body)));
+    return(CompileLambda(env, NoValueObject, EmptyListObject, body));
 }
 
 FObject Eval(FObject obj, FObject env)
@@ -904,7 +870,7 @@ FObject Eval(FObject obj, FObject env)
     return(ExecuteThunk(proc));
 }
 
-static FObject CompileLibraryCode(FObject env, FObject lst, FObject ill)
+static FObject CompileLibraryCode(FObject env, FObject lst)
 {
     FObject body = EmptyListObject;
 
@@ -969,7 +935,6 @@ static FObject CompileLibraryCode(FObject env, FObject lst, FObject ill)
         SetRest(slst, blst);
     }
 
-    body = AddOnStartupToBody(ill, body);
     return(CompileLambda(env, NoValueObject, EmptyListObject, body));
 }
 
@@ -1068,11 +1033,10 @@ void CompileLibrary(FObject expr)
                 List(First(Rest(expr))));
 
     FObject env = MakeEnvironment(ln, FalseObject);
-    FObject ill = EmptyListObject;
     FObject body = ReverseListModify(ExpandLibraryDeclarations(env, Rest(Rest(expr)),
-            EmptyListObject, &ill));
+            EmptyListObject));
 
-    FObject proc = CompileLibraryCode(env, body, ill);
+    FObject proc = CompileLibraryCode(env, body);
     FObject exports = CompileExports(env, body);
 
     HashtableWalkVisit(AsEnvironment(env)->Hashtable, WalkVisit, expr);
@@ -1087,4 +1051,6 @@ void SetupLibrary()
             GlobalFieldsC);
     R.LibraryRecordType = MakeRecordTypeC("library", sizeof(LibraryFieldsC) / sizeof(char *),
             LibraryFieldsC);
+
+    R.LibraryStartupList = EmptyListObject;
 }

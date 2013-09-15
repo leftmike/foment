@@ -166,8 +166,10 @@
         (define (current-continuation-marks)
             (reverse (cdr (reverse (map (lambda (dyn) (%dynamic-marks dyn)) (%dynamic-stack))))))
 
+        (define default-prompt-tag-key (cons #f #f))
+
         (define (default-prompt-tag)
-            (%default-prompt-tag))
+            default-prompt-tag-key)
 
         (define (default-prompt-handler proc)
             (call-with-continuation-prompt proc (default-prompt-tag) default-prompt-handler))

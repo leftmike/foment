@@ -13,8 +13,6 @@ To Do:
 -- CompileProgram
 -- RunProgram
 
--- fix loading libraries and running OnStartup code
-
 -- define-record-type
 
 -- syntax: (with-exclusive _exclusive_ _expr1_ _expr2_ _..._)
@@ -634,7 +632,6 @@ typedef struct
     FRecord Record;
     FObject Name;
     FObject Exports;
-    FObject OnStartup;
 } FLibrary;
 
 FObject MakeLibrary(FObject nam);
@@ -821,6 +818,7 @@ typedef struct
     FObject GlobalRecordType;
     FObject LibraryRecordType;
     FObject NoValuePrimitiveObject;
+    FObject LibraryStartupList;
 
     FObject WrongNumberOfArguments;
     FObject NotCallable;
@@ -829,7 +827,6 @@ typedef struct
     FObject ExecuteThunk;
     FObject RaiseHandler;
     FObject ExceptionHandlerSymbol;
-    FObject DefaultPromptTag;
 
     FObject DynamicRecordType;
     FObject ContinuationRecordType;
