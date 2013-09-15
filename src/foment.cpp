@@ -808,6 +808,110 @@ FObject MakeRecordTypeC(char * nam, unsigned int nf, char * flds[])
     return(MakeRecordType(StringCToSymbol(nam), nf, oflds));
 }
 
+Define("%make-record-type", MakeRecordTypePrimitive)(int argc, FObject argv[])
+{
+    // (%make-record-type <record-type-name> (<field> ...))
+
+    FMustBe(argc == 2);
+
+    if (SymbolP(argv[0]) == 0)
+        RaiseExceptionC(R.Assertion, "define-record-type",
+                "define-record-type: expected a symbol", List(argv[0]));
+
+    FObject flds = EmptyListObject;
+    FObject flst = argv[1];
+    while (PairP(flst))
+    {
+        if (PairP(First(flst)) == 0 || SymbolP(First(First(flst))) == 0)
+            RaiseExceptionC(R.Assertion, "define-record-type",
+                    "define-record-type: expected a list of fields", List(argv[1], First(flst)));
+
+        if (Memq(First(First(flst)), flds) != FalseObject)
+            RaiseExceptionC(R.Assertion, "define-record-type",
+                    "define-record-type: duplicate field name", List(argv[1], First(flst)));
+
+        flds = MakePair(First(First(flst)), flds);
+        flst = Rest(flst);
+    }
+
+    FAssert(flst == EmptyListObject);
+
+    flds = ListToVector(ReverseListModify(flds));
+    return(MakeRecordType(argv[0], VectorLength(flds), AsVector(flds)->Vector));
+}
+
+Define("%make-record", MakeRecordPrimitive)(int argc, FObject argv[])
+{
+    // (%make-record <record-type>)
+
+    FMustBe(argc == 1);
+    FMustBe(RecordTypeP(argv[0]));
+
+    return(MakeRecord(argv[0]));
+}
+
+Define("%record-predicate", RecordPredicatePrimitive)(int argc, FObject argv[])
+{
+    // (%record-predicate <record-type> <obj>)
+
+    FMustBe(argc == 2);
+    FMustBe(RecordTypeP(argv[0]));
+
+    return(RecordP(argv[1], argv[0]) ? TrueObject : FalseObject);
+}
+
+Define("%record-index", RecordIndexPrimitive)(int argc, FObject argv[])
+{
+    // (%record-index <record-type> <field-name>)
+
+    FMustBe(argc == 2);
+    FMustBe(RecordTypeP(argv[0]));
+
+    for (unsigned int rdx = 1; rdx < RecordTypeNumFields(argv[0]); rdx++)
+        if (EqP(argv[1], AsRecordType(argv[0])->Fields[rdx]))
+            return(MakeFixnum(rdx));
+
+    RaiseExceptionC(R.Assertion, "define-record-type", "define-record-type: expected a field-name",
+            List(argv[1], argv[0]));
+
+    return(NoValueObject);
+}
+
+Define("%record-ref", RecordRefPrimitive)(int argc, FObject argv[])
+{
+    // (%record-ref <record-type> <obj> <index>)
+
+    FMustBe(argc == 3);
+    FMustBe(RecordTypeP(argv[0]));
+
+    if (RecordP(argv[1], argv[0]) == 0)
+        RaiseExceptionC(R.Assertion, "%record-ref",
+                "%record-ref: not a record of the expected type", List(argv[1], argv[0]));
+
+    FMustBe(FixnumP(argv[2]));
+    FMustBe(AsFixnum(argv[2]) > 0 && AsFixnum(argv[2]) < (int) RecordNumFields(argv[1]));
+
+    return(AsGenericRecord(argv[1])->Fields[AsFixnum(argv[2])]);
+}
+
+Define("%record-set!", RecordSetPrimitive)(int argc, FObject argv[])
+{
+    // (%record-set! <record-type> <obj> <index> <value>)
+
+    FMustBe(argc == 4);
+    FMustBe(RecordTypeP(argv[0]));
+
+    if (RecordP(argv[1], argv[0]) == 0)
+        RaiseExceptionC(R.Assertion, "%record-set!",
+                "%record-set!: not a record of the expected type", List(argv[1], argv[0]));
+
+    FMustBe(FixnumP(argv[2]));
+    FMustBe(AsFixnum(argv[2]) > 0 && AsFixnum(argv[2]) < (int) RecordNumFields(argv[1]));
+
+    AsGenericRecord(argv[1])->Fields[AsFixnum(argv[2])] = argv[3];
+    return(NoValueObject);
+}
+
 // ---- Records ----
 
 FObject MakeRecord(FObject rt)
@@ -1126,6 +1230,12 @@ static FPrimitive * Primitives[] =
     &EqHashtableRefPrimitive,
     &EqHashtableSetPrimitive,
     &EqHashtableDeletePrimitive,
+    &MakeRecordTypePrimitive,
+    &MakeRecordPrimitive,
+    &RecordPredicatePrimitive,
+    &RecordIndexPrimitive,
+    &RecordRefPrimitive,
+    &RecordSetPrimitive,
     &RaisePrimitive,
     &ErrorPrimitive,
     &FullErrorPrimitive,

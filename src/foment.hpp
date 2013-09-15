@@ -7,7 +7,6 @@ Goals:
 -- simple implementation
 
 To Do:
--- documentation
 -- ports optionally return or seek to a location
 -- ports describe whether they use char offset, byte offset, or line number for location
 -- CompileProgram
@@ -314,6 +313,7 @@ FObject List(FObject obj1, FObject obj2);
 FObject List(FObject obj1, FObject obj2, FObject obj3);
 FObject List(FObject obj1, FObject obj2, FObject obj3, FObject obj4);
 
+FObject Memq(FObject obj, FObject lst);
 FObject Assq(FObject obj, FObject alst);
 
 FObject MakeTConc();

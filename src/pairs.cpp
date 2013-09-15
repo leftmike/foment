@@ -297,6 +297,21 @@ Define("map-cdr", MapCdrPrimitive)(int argc, FObject argv[])
     return(ReverseListModify(ret));
 }
 
+FObject Memq(FObject obj, FObject lst)
+{
+    while (PairP(lst))
+    {
+        if (EqP(First(lst), obj))
+            return(lst);
+
+        lst = Rest(lst);
+    }
+
+    FAssert(lst == EmptyListObject);
+
+    return(FalseObject);
+}
+
 FObject Assq(FObject obj, FObject alst)
 {
     while (PairP(alst))

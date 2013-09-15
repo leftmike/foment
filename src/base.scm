@@ -13,14 +13,18 @@
         vector? make-vector vector-ref vector-set! list->vector values apply
         call-with-current-continuation (rename call-with-current-continuation call/cc) procedure?
         string->symbol caar cadr cdar cddr newline dynamic-wind with-exception-handler
-        raise-continuable raise guard assq)
+        raise-continuable raise guard assq define-record-type open-output-string
+        get-output-string vector-length)
     (export
         syntax unsyntax eq-hash eqv-hash
         equal-hash full-error loaded-libraries library-path full-command-line
-        open-output-string get-output-string write-pretty display-pretty string-hash
+        write-pretty display-pretty string-hash
         with-continuation-mark call-with-continuation-prompt abort-current-continuation
         default-prompt-tag (rename default-prompt-tag default-continuation-prompt-tag)
-        default-prompt-handler current-continuation-marks)
+        default-prompt-handler current-continuation-marks collect make-guardian make-tracker
+        make-exclusive make-condition current-thread run-thread enter-exclusive leave-exclusive
+        condition-wait thread? condition-wake sleep exclusive? try-exclusive condition?
+        condition-wake-all no-value)
     (begin
         (define (caar pair) (car (car pair)))
         (define (cadr pair) (car (cdr pair)))
@@ -56,6 +60,42 @@
                     (if test
                         (begin result1 result2 ...)
                         (cond clause1 clause2 ...)))))
+
+        (define-syntax define-record-field
+            (syntax-rules ()
+                ((define-record-field type (name accessor))
+                    (define accessor
+                        (let ((idx (%record-index type 'name)))
+                            (lambda (obj) (%record-ref type obj idx)))))
+                ((define-record-field type (name accessor modifier))
+                    (begin
+                        (define accessor
+                            (let ((idx (%record-index type 'name)))
+                                (lambda (obj) (%record-ref type obj idx))))
+                        (define modifier
+                            (let ((idx (%record-index type 'name)))
+                                (lambda (obj val) (%record-set! type obj idx val))))))))
+
+
+        (define-syntax define-record-maker
+            (syntax-rules ()
+                ((define-record-maker type (arg ...) (adx ...) fld flds ...)
+                    (let ((idx (%record-index type 'fld)))
+                        (define-record-maker type (arg ... fld) (adx ... idx) flds ...)))
+                ((define-record-maker type (arg ...) (idx ...))
+                    (lambda (arg ...)
+                        (let ((obj (%make-record type)))
+                            (%record-set! type obj idx arg) ...
+                            obj)))))
+
+        (define-syntax define-record-type
+            (syntax-rules ()
+                ((define-record-type type (maker arg ...) predicate field ...)
+                    (begin
+                        (define type (%make-record-type 'type '(field ...)))
+                        (define maker (define-record-maker type () () arg ...))
+                        (define (predicate obj) (%record-predicate type obj))
+                        (define-record-field type field) ...))))
 
         (define (map proc . lists)
             (define (map proc lists)
@@ -309,4 +349,4 @@
         vector? make-vector vector-ref vector-set! list->vector values apply
         call/cc (rename call/cc call-with-current-continuation) procedure? string->symbol
         caar cadr cdar cddr newline dynamic-wind with-exception-handler raise-continuable raise
-        guard assq))
+        guard assq define-record-type open-output-string get-output-string vector-length))

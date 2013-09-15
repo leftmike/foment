@@ -1407,6 +1407,7 @@ static FObject SPassBodyExpression(FObject se, FObject expr)
         return(expr);
 
     FObject op = SPassBodyExpression(se, First(expr));
+
     if (IdentifierP(op))
     {
         FObject be = ResolveIdentifier(se, op);

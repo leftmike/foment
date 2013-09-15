@@ -2,7 +2,7 @@
 ;;; Foment
 ;;;
 
-(import (foment bedrock))
+(import (foment base))
 
 ;; with-continuation-mark
 ;; current-continuation-marks

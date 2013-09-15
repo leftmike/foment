@@ -721,13 +721,29 @@ static FObject CompileEvalBegin(FObject obj, FObject env, FObject body, FObject 
     return(body);
 }
 
+static FObject ResolvedGet(FObject env, FObject id)
+{
+    FAssert(IdentifierP(id));
+
+    while (IdentifierP(AsIdentifier(id)->Wrapped))
+    {
+        env = AsSyntacticEnv(AsIdentifier(id)->SyntacticEnv)->GlobalBindings;
+        id = AsIdentifier(id)->Wrapped;
+    }
+
+    FAssert(EnvironmentP(env));
+
+    return(EnvironmentGet(env, AsIdentifier(id)->Symbol));
+}
+
 static FObject CompileEvalExpr(FObject obj, FObject env, FObject body)
 {
     if (VectorP(obj))
         return(MakePair(SyntaxToDatum(obj), body));
     else if (PairP(obj) && IdentifierP(First(obj)))
     {
-        FObject op = EnvironmentGet(env, AsIdentifier(First(obj))->Symbol);
+//        FObject op = EnvironmentGet(env, AsIdentifier(First(obj))->Symbol);
+        FObject op = ResolvedGet(env, First(obj));
 
         if (op == DefineSyntax)
         {

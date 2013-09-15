@@ -2,7 +2,7 @@
 ;;; R7RS
 ;;;
 
-(import (foment base))
+(import (scheme base))
 
 ;;
 ;; ---- expressions ----
@@ -687,6 +687,34 @@
 ;; ---- program structure ----
 ;;
 
+;; define-record-type
+
+(define-record-type <pare>
+    (kons x y)
+    pare?
+    (x kar set-kar!)
+    (y kdr))
+
+(must-equal #t (pare? (kons 1 2)))
+(must-equal #f (pare? (cons 1 2)))
+(must-equal 1 (kar (kons 1 2)))
+(must-equal 2 (kdr (kons 1 2)))
+(must-equal 3
+    (let ((k (kons 1 2)))
+        (set-kar! k 3)
+        (kar k)))
+
+(must-equal 3
+    ((lambda ()
+        (define-record-type <pare>
+            (kons x y)
+            pare?
+            (x kar set-kar!)
+            (y kdr))
+        (let ((k (kons 1 2)))
+            (set-kar! k 3)
+            (kar k)))))
+
 ;; define-library
 
 (must-equal 100 (begin (import (lib a b c)) lib-a-b-c))
@@ -920,6 +948,32 @@
 
 ;; with-exception-handler
 
+(define e #f)
+(must-equal exception (call-with-current-continuation
+    (lambda (k)
+        (with-exception-handler
+            (lambda (x) (set! e x) (k 'exception))
+            (lambda () (+ 1 (raise 'an-error)))))))
+(must-equal an-error e)
+
+(must-equal (another-error)
+    (guard (o ((eq? o 10) 10) (else (list o)))
+        (with-exception-handler
+            (lambda (x) (set! e x))
+            (lambda ()
+                (+ 1 (raise 'another-error))))))
+(must-equal another-error e)
+
+(must-equal 65
+    (with-exception-handler
+        (lambda (con)
+            (cond
+                ((string? con) (set! e con))
+                (else (set! e "a warning has been issued")))
+            42)
+        (lambda ()
+            (+ (raise-continuable "should be a number") 23))))
+(must-equal "should be a number" e)
 
 ;;
 ;; ---- input and output ----
