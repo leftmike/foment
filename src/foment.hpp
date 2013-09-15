@@ -12,10 +12,6 @@ To Do:
 -- CompileProgram
 -- RunProgram
 
--- define-record-type
-
--- syntax: (with-exclusive _exclusive_ _expr1_ _expr2_ _..._)
-
 -- strings and srfi-13
 
 -- current-input-port and current-output-port need to be parameters
@@ -43,7 +39,6 @@ Future:
 -- composable continuations
 
 Bugs:
--- use private key for prompt-tag used by guard
 -- call/cc: unwind only as far as the common tail
 -- gc.cpp: AllocateSection failing is not handled by all callers
 -- ExecuteThunk does not check for CStack or AStack overflow

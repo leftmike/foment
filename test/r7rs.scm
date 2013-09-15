@@ -3,6 +3,9 @@
 ;;;
 
 (import (scheme base))
+(import (scheme case-lambda))
+(import (scheme inexact))
+(import (scheme write))
 
 ;;
 ;; ---- expressions ----
