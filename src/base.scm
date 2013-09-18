@@ -24,16 +24,16 @@
 ;        assv
         begin
 ;        binary-port?
-;        boolean=?
+        boolean=?
         boolean?
-;        bytevector
-;        bytevector-append
-;        bytevector-copy
-;        bytevector-copy!
-;        bytevector-length
-;        bytevector-u8-ref
-;        bytevector-u8-set!
-;        bytevector?
+        bytevector
+        bytevector-append
+        bytevector-copy
+        bytevector-copy!
+        bytevector-length
+        bytevector-u8-ref
+        bytevector-u8-set!
+        bytevector?
         caar
         cadr
         call-with-current-continuation
@@ -127,7 +127,7 @@
 ;        list-set!
 ;        list-tail
 ;        list?
-;        make-bytevector
+        make-bytevector
 ;        make-list
         make-parameter
 ;        make-string
@@ -187,7 +187,7 @@
 ;        string->list
 ;        string->number
         string->symbol
-;        string->utf8
+        string->utf8
 ;        string->vector
 ;        string-append
 ;        string-copy
@@ -219,7 +219,7 @@
         unless
         unquote
         unquote-splicing
-;        utf8->string
+        utf8->string
         values
 ;        vector
 ;        vector->list
@@ -618,7 +618,7 @@
         *
         +
         -
-;        ...
+;;        ...
         /
         <
         <=
@@ -630,25 +630,25 @@
         and
         append
         apply
-;        assoc
+;;        assoc
         assq
-;        assv
+;;        assv
         begin
-;        binary-port?
-;        boolean=?
+;;        binary-port?
+        boolean=?
         boolean?
-;        bytevector
-;        bytevector-append
-;        bytevector-copy
-;        bytevector-copy!
-;        bytevector-length
-;        bytevector-u8-ref
-;        bytevector-u8-set!
-;        bytevector?
+        bytevector
+        bytevector-append
+        bytevector-copy
+        bytevector-copy!
+        bytevector-length
+        bytevector-u8-ref
+        bytevector-u8-set!
+        bytevector?
         caar
         cadr
         call-with-current-continuation
-;        call-with-port
+;;        call-with-port
         call-with-values
         (rename call-with-current-continuation call/cc)
         car
@@ -656,71 +656,71 @@
         cdar
         cddr
         cdr
-;        ceiling
-;        char->integer
-;        char-ready?
-;        char<=?
-;        char<?
-;        char=?
-;        char>=?
-;        char>?
-;        char?
-;        close-input-port
-;        close-output-port
-;        close-port
-;        complex?
+;;        ceiling
+;;        char->integer
+;;        char-ready?
+;;        char<=?
+;;        char<?
+;;        char=?
+;;        char>=?
+;;        char>?
+;;        char?
+;;        close-input-port
+;;        close-output-port
+;;        close-port
+;;        complex?
         cond
         cond-expand
         cons
-;        current-error-port
-;        current-input-port
-;        current-output-port
+;;        current-error-port
+;;        current-input-port
+;;        current-output-port
         define
         define-record-type
         define-syntax
         define-values
-;        denominator
+;;        denominator
         do
         dynamic-wind
         else
-;        eof-object
-;        eof-object?
+;;        eof-object
+;;        eof-object?
         eq?
         equal?
         eqv?
         error
-;        error-object-irritants
-;        error-object-message
-;        error-object?
+;;        error-object-irritants
+;;        error-object-message
+;;        error-object?
         even?
-;        exact
-;        exact-integer-sqrt
+;;        exact
+;;        exact-integer-sqrt
         exact-integer?
-;        exact?
+;;        exact?
         expt
-;        features
-;        file-error?
-;        floor
-;        floor-quotient
-;        floor-remainder
-;        floor/
-;        flush-output-port
+;;        features
+;;        file-error?
+;;        floor
+;;        floor-quotient
+;;        floor-remainder
+;;        floor/
+;;        flush-output-port
         for-each
-;        gcd
-;        get-output-bytevector
+;;        gcd
+;;        get-output-bytevector
         get-output-string
         guard
         if
         include
         include-ci
-;        inexact
-;        inexact?
-;        input-port-open?
-;        input-port?
-;        integer->char
-;        integer?
+;;        inexact
+;;        inexact?
+;;        input-port-open?
+;;        input-port?
+;;        integer->char
+;;        integer?
         lambda
-;        lcm
+;;        lcm
         length
         let
         let*
@@ -731,126 +731,126 @@
         letrec*
         letrec-syntax
         list
-;        list->string
+;;        list->string
         list->vector
-;        list-copy
+;;        list-copy
         list-ref
-;        list-set!
-;        list-tail
-;        list?
-;        make-bytevector
-;        make-list
+;;        list-set!
+;;        list-tail
+;;        list?
+        make-bytevector
+;;        make-list
         make-parameter
-;        make-string
+;;        make-string
         make-vector
         map
-;        max
-;        member
-;        memq
-;        memv
-;        min
-;        modulo
+;;        max
+;;        member
+;;        memq
+;;        memv
+;;        min
+;;        modulo
         negative?
         newline
         not
         null?
         number->string
-;        number?
-;        numerator
+;;        number?
+;;        numerator
         odd?
-;        open-input-bytevector
-;        open-input-string
-;        open-output-bytevector
+;;        open-input-bytevector
+;;        open-input-string
+;;        open-output-bytevector
         open-output-string
         or
-;        output-port-open?
-;        output-port?
+;;        output-port-open?
+;;        output-port?
         pair?
         parameterize
-;        peek-char
-;        peek-u8
-;        port?
+;;        peek-char
+;;        peek-u8
+;;        port?
         positive?
         procedure?
         quasiquote
         quote
-;        quotient
+;;        quotient
         raise
         raise-continuable
-;        rational?
-;        rationalize
-;        read-bytevector
-;        read-bytevector!
-;        read-char
-;        read-error?
-;        read-line
-;        read-string
-;        read-u8
-;        real?
-;        remainder
+;;        rational?
+;;        rationalize
+;;        read-bytevector
+;;        read-bytevector!
+;;        read-char
+;;        read-error?
+;;        read-line
+;;        read-string
+;;        read-u8
+;;        real?
+;;        remainder
         reverse
-;        round
+;;        round
         set!
         set-car!
         set-cdr!
-;        square
-;        string
-;        string->list
-;        string->number
+;;        square
+;;        string
+;;        string->list
+;;        string->number
         string->symbol
-;        string->utf8
-;        string->vector
-;        string-append
-;        string-copy
-;        string-copy!
-;        string-fill!
-;        string-for-each
-;        string-length
-;        string-map
-;        string-ref
-;        string-set!
-;        string<=?
-;        string<?
+        string->utf8
+;;        string->vector
+;;        string-append
+;;        string-copy
+;;        string-copy!
+;;        string-fill!
+;;        string-for-each
+;;        string-length
+;;        string-map
+;;        string-ref
+;;        string-set!
+;;        string<=?
+;;        string<?
         string=?
-;        string>=?
-;        string>?
+;;        string>=?
+;;        string>?
         string?
-;        substring
-;        symbol->string
-;        symbol=?
-;        symbol?
+;;        substring
+;;        symbol->string
+;;        symbol=?
+;;        symbol?
         syntax-error
         syntax-rules
-;        textual-port?
-;        truncate
-;        truncate-quotient
-;        truncate-remainder
-;        truncate/
-;        u8-ready?
+;;        textual-port?
+;;        truncate
+;;        truncate-quotient
+;;        truncate-remainder
+;;        truncate/
+;;        u8-ready?
         unless
         unquote
         unquote-splicing
-;        utf8->string
+        utf8->string
         values
-;        vector
-;        vector->list
-;        vector->string
-;        vector-append
-;        vector-copy
-;        vector-copy!
-;        vector-fill!
-;        vector-for-each
+;;        vector
+;;        vector->list
+;;        vector->string
+;;        vector-append
+;;        vector-copy
+;;        vector-copy!
+;;        vector-fill!
+;;        vector-for-each
         vector-length
-;        vector-map
+;;        vector-map
         vector-ref
         vector-set!
         vector?
         when
         with-exception-handler
-;        write-bytevector
-;        write-char
-;        Write-string
-;        write-u8
+;;        write-bytevector
+;;        write-char
+;;        Write-string
+;;        write-u8
         zero?))
 
 (define-library (scheme case-lambda)
@@ -859,55 +859,55 @@
     (export
         case-lambda))
 
-; (define-library (scheme char)
+;; (define-library (scheme char)
 
-; (define-library (scheme complex)
+;; (define-library (scheme complex)
 
-; (define-library (scheme cxr)
+;; (define-library (scheme cxr)
 
 (define-library (scheme eval)
     (import (foment base))
 
     (export
-;        environment
+;;        environment
          eval))
 
-; (define-library (scheme file)
+;; (define-library (scheme file)
 
 (define-library (scheme inexact)
     (import (foment base))
 
     (export
-;        acos
-;        asin
-;        atan
-;        cos
-;        exp
-;        finite?
-;        infinite?
-;        log
-;        nan?
-;        sin
+;;        acos
+;;        asin
+;;        atan
+;;        cos
+;;        exp
+;;        finite?
+;;        infinite?
+;;        log
+;;        nan?
+;;        sin
         sqrt
-;        tan
+;;        tan
     ))
 
-; (define-library (scheme lazy)
+;; (define-library (scheme lazy)
 
-; (define-library (scheme load)
+;; (define-library (scheme load)
 
 (define-library (scheme process-context)
     (import (foment base))
 
      (export
          command-line
-;         exit
-;         get-environment-variable
-;         get-environment-variables
-;         emergency-exit
+;;         exit
+;;         get-environment-variable
+;;         get-environment-variables
+;;         emergency-exit
      ))
 
-; (define-library (scheme read)
+;; (define-library (scheme read)
 
 (define-library (scheme repl)
     (import (foment base))
@@ -915,7 +915,7 @@
     (export
         interaction-environment))
 
-; (define-library (scheme time)
+;; (define-library (scheme time)
 
 (define-library (scheme write)
     (import (foment base))

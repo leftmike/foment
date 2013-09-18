@@ -37,7 +37,7 @@
 (must-equal #t '#t)
 (must-equal #t #t)
 ;(must-equal #t #true)
-;(must-equal #f #false
+;(must-equal #f #false)
 
 (must-equal #(a 10) ((lambda () '#(a 10))))
 (must-equal #(a 10) ((lambda () #(a 10))))
@@ -777,6 +777,30 @@
 (must-equal 10 (lib-t15-b 10 20))
 
 ;;
+;; ---- booleans ----
+;;
+
+(must-equal #f (not #t))
+(must-equal #f (not 3))
+(must-equal #f (not (list 3)))
+(must-equal #t (not #f))
+(must-equal #f (not '()))
+(must-equal #f (not (list)))
+(must-equal #f (not 'nil))
+
+(must-equal #t (boolean? #f))
+(must-equal #f (boolean? 0))
+(must-equal #f (boolean? '()))
+
+(must-equal #t (boolean=? #t #t))
+(must-equal #t (boolean=? #t #t #t))
+(must-equal #t (boolean=? #f #f))
+(must-equal #t (boolean=? #f #f #f))
+(must-equal #f (boolean=? 1 #t))
+(must-equal #f (boolean=? #t #t 0))
+(must-equal #f (boolean=? #f 2))
+
+;;
 ;; ---- pairs ----
 ;;
 
@@ -816,6 +840,110 @@
 
 (must-equal (c b a) (reverse '(a b c)))
 (must-equal ((e (f)) d (b c) a) (reverse '(a (b c) d (e (f)))))
+
+;;
+;; ---- bytevectors ----
+
+(must-equal #t (bytevector? #u8()))
+(must-equal #t (bytevector? #u8(1 2)))
+(must-equal #f (bytevector? #(1 2)))
+(must-equal #f (bytevector? 12))
+(must-raise (assertion-violation bytevector?) (bytevector?))
+(must-raise (assertion-violation bytevector?) (bytevector? #u8() #u8()))
+
+(must-equal #u8(12 12) (make-bytevector 2 12))
+(must-equal #u8() (make-bytevector 0))
+(must-equal 10 (bytevector-length (make-bytevector 10)))
+(must-raise (assertion-violation make-bytevector) (make-bytevector))
+(must-raise (assertion-violation make-bytevector) (make-bytevector -1))
+(must-raise (assertion-violation make-bytevector) (make-bytevector 1 -1))
+(must-raise (assertion-violation make-bytevector) (make-bytevector 1 256))
+(must-raise (assertion-violation make-bytevector) (make-bytevector 1 1 1))
+
+(must-equal #u8(1 3 5 1 3 5) (bytevector 1 3 5 1 3 5))
+(must-equal #u8() (bytevector))
+(must-raise (assertion-violation bytevector) (bytevector -1))
+(must-raise (assertion-violation bytevector) (bytevector 256))
+(must-raise (assertion-violation bytevector) (bytevector 10 20 -1))
+(must-raise (assertion-violation bytevector) (bytevector 10 20 256 30))
+
+(must-equal 0 (bytevector-length #u8()))
+(must-equal 4 (bytevector-length #u8(1 2 3 4)))
+(must-raise (assertion-violation bytevector-length) (bytevector-length))
+(must-raise (assertion-violation bytevector-length) (bytevector-length 10))
+(must-raise (assertion-violation bytevector-length) (bytevector-length #() #()))
+(must-raise (assertion-violation bytevector-length) (bytevector-length #() 10))
+
+(must-equal 8 (bytevector-u8-ref #u8(1 1 2 3 5 8 13 21) 5))
+(must-raise (assertion-violation bytevector-u8-ref) (bytevector-u8-ref 1 1))
+(must-raise (assertion-violation bytevector-u8-ref) (bytevector-u8-ref #(1 2 3)))
+(must-raise (assertion-violation bytevector-u8-ref) (bytevector-u8-ref #(1 2 3) 1 1))
+(must-raise (assertion-violation bytevector-u8-ref) (bytevector-u8-ref #(1 2 3) -1))
+(must-raise (assertion-violation bytevector-u8-ref) (bytevector-u8-ref #(1 2 3) 3))
+
+(must-equal #u8(1 3 3 4)
+    (let ((bv (bytevector 1 2 3 4)))
+        (bytevector-u8-set! bv 1 3)
+        bv))
+
+(define bv (bytevector 1 2 3 4))
+(must-raise (assertion-violation bytevector-u8-set!) (bytevector-u8-set! 1 1 1))
+(must-raise (assertion-violation bytevector-u8-set!) (bytevector-u8-set! bv 1))
+(must-raise (assertion-violation bytevector-u8-set!) (bytevector-u8-set! bv 1 1 1))
+(must-raise (assertion-violation bytevector-u8-set!) (bytevector-u8-set! bv -1 1))
+(must-raise (assertion-violation bytevector-u8-set!) (bytevector-u8-set! bv 4 1))
+(must-raise (assertion-violation bytevector-u8-set!) (bytevector-u8-set! bv 1 -1))
+(must-raise (assertion-violation bytevector-u8-set!) (bytevector-u8-set! bv 1 256))
+
+(define a #u8(1 2 3 4 5))
+(must-equal #u8(3 4) (bytevector-copy a 2 4))
+
+(define bv (bytevector 1 2 3 4))
+(must-raise (assertion-violation bytevector-copy) (bytevector-copy))
+(must-raise (assertion-violation bytevector-copy) (bytevector-copy 1))
+(must-raise (assertion-violation bytevector-copy) (bytevector-copy bv 1 2 1))
+(must-raise (assertion-violation bytevector-copy) (bytevector-copy bv -1 2))
+(must-raise (assertion-violation bytevector-copy) (bytevector-copy bv 3 2))
+(must-raise (assertion-violation bytevector-copy) (bytevector-copy bv 1 4))
+
+(define a (bytevector 1 2 3 4 5))
+(define b (bytevector 10 20 30 40 50))
+(bytevector-copy! b 1 a 0 2)
+(must-equal #u8(10 1 2 40 50) b)
+
+(must-raise (assertion-violation bytevector-copy!) (bytevector-copy! a 0))
+(must-raise (assertion-violation bytevector-copy!) (bytevector-copy! a 0 b 1 1 1))
+(must-raise (assertion-violation bytevector-copy!) (bytevector-copy! 1 0 b))
+(must-raise (assertion-violation bytevector-copy!) (bytevector-copy! a 0 1))
+(must-raise (assertion-violation bytevector-copy!) (bytevector-copy! a -1 b))
+(must-raise (assertion-violation bytevector-copy!) (bytevector-copy! a 3 b))
+(must-raise (assertion-violation bytevector-copy!) (bytevector-copy! a 0 b -1))
+(must-raise (assertion-violation bytevector-copy!) (bytevector-copy! a 0 b 1 0))
+(must-raise (assertion-violation bytevector-copy!) (bytevector-copy! a 0 b 1 5))
+
+(must-equal #u8(0 1 2 3 4 5) (bytevector-append #u8(0 1 2) #u8(3 4 5)))
+(must-raise (assertion-violation bytevector-append) (bytevector-append 1))
+(must-raise (assertion-violation bytevector-append) (bytevector-append #u8(1 2) 1))
+
+(must-equal "ABCDE" (utf8->string #u8(65 66 67 68 69)))
+(must-equal "CDE" (utf8->string #u8(65 66 67 68 69) 2))
+(must-equal "BCD" (utf8->string #u8(65 66 67 68 69) 1 4))
+(must-raise (assertion-violation utf8->string) (utf8->string))
+(must-raise (assertion-violation utf8->string) (utf8->string 1))
+(must-raise (assertion-violation utf8->string) (utf8->string #u8(65 66 67) 1 2 2))
+(must-raise (assertion-violation utf8->string) (utf8->string #u8(65 66 67) -1))
+(must-raise (assertion-violation utf8->string) (utf8->string #u8(65 66 67) 3))
+(must-raise (assertion-violation utf8->string) (utf8->string #u8(65 66 67) 2 1))
+(must-raise (assertion-violation utf8->string) (utf8->string #u8(65 66 67) 0 3))
+
+(must-equal #u8(207 187) (string->utf8 (utf8->string #u8(207 187))))
+(must-raise (assertion-violation string->utf8) (string->utf8))
+(must-raise (assertion-violation string->utf8) (string->utf8 1))
+(must-raise (assertion-violation string->utf8) (string->utf8 "ABC" 1 2 2))
+(must-raise (assertion-violation string->utf8) (string->utf8 "ABC" -1))
+(must-raise (assertion-violation string->utf8) (string->utf8 "ABC" 3))
+(must-raise (assertion-violation string->utf8) (string->utf8 "ABC" 2 1))
+(must-raise (assertion-violation string->utf8) (string->utf8 "ABC" 0 3))
 
 ;;
 ;; ---- control features ----

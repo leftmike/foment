@@ -859,6 +859,7 @@ static void CleanScan(int fcf)
                 FObject *pobj = (FObject *) (((char *) ys) + ys->Scan);
 
                 FAssert(SectionTable[SectionIndex(pobj)] == OneSectionTag);
+                FAssert(GCTagP(*pobj));
 
                 unsigned int tag = AsValue(*pobj);
                 FObject obj = (FObject) (pobj + 1);
@@ -869,6 +870,7 @@ static void CleanScan(int fcf)
 
             ys = ys->Next;
         }
+
         if (GenerationOne->Scan == GenerationOne->Used && ScanSections->Used == 0)
             break;
     }
@@ -1139,6 +1141,8 @@ printf("Partial Collection...");
                     ScanObject(brs->BackRef[idx].Ref, fcf, 0);
                     brs->BackRef[idx].Value = *brs->BackRef[idx].Ref;
                 }
+                else
+                    brs->BackRef[idx].Value = 0;
             }
 
             brs = brs->Next;

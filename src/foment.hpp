@@ -12,6 +12,11 @@ To Do:
 -- CompileProgram
 -- RunProgram
 
+-- import and define-library should not be in (scheme base), but should be in whatever
+library is used by interaction-environment
+
+-- read: #true and #false
+
 -- strings and srfi-13
 
 -- current-input-port and current-output-port need to be parameters
@@ -48,6 +53,9 @@ Bugs:
 -- remove Hash from FSymbol (part of Reserved)
 -- r5rs_pitfall.scm: yin-yang does not terminate
 
+Testing:
+-- bytevectors complete except utf8 conversions need more testing
+
 */
 
 #ifndef __FOMENT_HPP__
@@ -66,7 +74,7 @@ void FMustBeFailed(char * fn, int ln, char * expr);
     if (! (expr)) FMustBeFailed(__FILE__, __LINE__, #expr)
 
 typedef void * FObject;
-typedef unsigned short FCh;
+typedef unsigned int FCh;
 typedef int FFixnum;
 typedef unsigned int FImmediate;
 
@@ -416,7 +424,7 @@ typedef struct
     FByte Vector[1];
 } FBytevector;
 
-FObject MakeBytevector(unsigned int vl, FByte * v);
+FObject MakeBytevector(unsigned int vl);
 FObject U8ListToBytevector(FObject obj);
 
 #define BytevectorLength(obj) ByteLength(obj)

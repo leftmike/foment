@@ -124,6 +124,16 @@ void WriteSpecialSyntax(FObject port, FObject obj, int df)
     PutCh(port, '>');
 }
 
+// ---- Booleans ----
+
+Define("not", NotPrimitive)(int argc, FObject argv[])
+{
+    if (argc != 1)
+        RaiseExceptionC(R.Assertion, "not", "not: expected one argument", EmptyListObject);
+
+    return(argv[0] == FalseObject ? TrueObject : FalseObject);
+}
+
 Define("boolean?", BooleanPPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
@@ -133,12 +143,20 @@ Define("boolean?", BooleanPPrimitive)(int argc, FObject argv[])
     return(BooleanP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("not", NotPrimitive)(int argc, FObject argv[])
+Define("boolean=?", BooleanEqualPPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "not", "not: expected one argument", EmptyListObject);
+    if (argc < 2)
+        RaiseExceptionC(R.Assertion, "boolean=?", "boolean=?: expected at least two arguments",
+                EmptyListObject);
 
-    return(argv[0] == FalseObject ? TrueObject : FalseObject);
+    if (BooleanP(argv[0]) == 0)
+        return(FalseObject);
+
+    for (int adx = 1; adx < argc; adx++)
+        if (argv[0] != argv[adx])
+            return(FalseObject);
+
+    return(TrueObject);
 }
 
 // ---- Boxes ----
@@ -1221,8 +1239,9 @@ Define("no-value", NoValuePrimitive)(int argc, FObject argv[])
 
 static FPrimitive * Primitives[] =
 {
-    &BooleanPPrimitive,
     &NotPrimitive,
+    &BooleanPPrimitive,
+    &BooleanEqualPPrimitive,
     &EqHashPrimitive,
     &EqvHashPrimitive,
     &EqualHashPrimitive,
