@@ -128,14 +128,13 @@ Define("write-pretty", WritePrettyPrimitive)(int argc, FObject argv[])
     FObject port;
 
     if (argc < 1 || argc > 2)
-        RaiseExceptionC(R.Assertion, "write-pretty", "write-pretty: expected one or two arguments",
+        RaiseExceptionC(R.Assertion, "write-pretty", "expected one or two arguments",
                 EmptyListObject);
 
     if (argc == 2)
     {
         if (OutputPortP(argv[1]) == 0)
-            RaiseExceptionC(R.Assertion, "write-pretty",
-                    "write-pretty: expected an output port", List(argv[1]));
+            RaiseExceptionC(R.Assertion, "write-pretty", "expected an output port", List(argv[1]));
 
         port = argv[1];
     }
@@ -152,14 +151,14 @@ Define("display-pretty", DisplayPrettyPrimitive)(int argc, FObject argv[])
     FObject port;
 
     if (argc < 1 || argc > 2)
-        RaiseExceptionC(R.Assertion, "display-pretty",
-                "display-pretty: expected one or two arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "display-pretty", "expected one or two arguments",
+                EmptyListObject);
 
     if (argc == 2)
     {
         if (OutputPortP(argv[1]) == 0)
-            RaiseExceptionC(R.Assertion, "display-pretty",
-                    "display-pretty: expected an output port", List(argv[1]));
+            RaiseExceptionC(R.Assertion, "display-pretty", "expected an output port",
+                    List(argv[1]));
 
         port = argv[1];
     }

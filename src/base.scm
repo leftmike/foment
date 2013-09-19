@@ -221,7 +221,7 @@
         unquote-splicing
         utf8->string
         values
-;        vector
+        vector
 ;        vector->list
 ;        vector->string
 ;        vector-append
@@ -428,7 +428,7 @@
                                         (car stk))))
                             ((val)
                                 (let ((stk (eq-hashtable-ref (%parameters) parameter '())))
-                                    (eq-hashtable-set (%parameters) parameter
+                                    (eq-hashtable-set! (%parameters) parameter
                                             (cons (converter val)
                                             (if (null? stk) '() (cdr stk))))))
                             ((val key) ;; used by parameterize
@@ -456,14 +456,14 @@
                         (full-error 'assertion-violation 'parameterize
                                 "parameterize: expected a parameter" p))
                     (let ((val (p (car vals) parameterize-key)))
-                        (eq-hashtable-set (%parameters) p
+                        (eq-hashtable-set! (%parameters) p
                                 (cons val (eq-hashtable-ref (%parameters) p '())))
                         (before-parameterize (cdr params) (cdr vals))))))
 
         (define (after-parameterize params)
             (if (not (null? params))
                 (begin
-                    (eq-hashtable-set (%parameters) (car params)
+                    (eq-hashtable-set! (%parameters) (car params)
                             (cdr (eq-hashtable-ref (%parameters) (car params) '())))
                     (after-parameterize (cdr params)))))
 
@@ -832,7 +832,7 @@
         unquote-splicing
         utf8->string
         values
-;;        vector
+        vector
 ;;        vector->list
 ;;        vector->string
 ;;        vector-append

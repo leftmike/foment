@@ -842,6 +842,54 @@
 (must-equal ((e (f)) d (b c) a) (reverse '(a (b c) d (e (f)))))
 
 ;;
+;; ---- vectors ----
+;;
+
+(must-equal #t (vector? #()))
+(must-equal #t (vector? #(a b c)))
+(must-equal #f (vector? #u8()))
+(must-equal #f (vector? 12))
+(must-raise (assertion-violation vector?) (vector?))
+(must-raise (assertion-violation vector?) (vector? #() #()))
+
+(must-equal #() (make-vector 0))
+(must-equal #(a a a) (make-vector 3 'a))
+(must-raise (assertion-violation make-vector) (make-vector))
+(must-raise (assertion-violation make-vector) (make-vector -1))
+(must-raise (assertion-violation make-vector) (make-vector 1 1 1))
+
+(must-equal #(a b c) (vector 'a 'b 'c))
+(must-equal #() (vector))
+
+(must-equal 0 (vector-length #()))
+(must-equal 3 (vector-length #(a b c)))
+(must-raise (assertion-violation vector-length) (vector-length))
+(must-raise (assertion-violation vector-length) (vector-length #u8()))
+(must-raise (assertion-violation vector-length) (vector-length #() #()))
+
+(must-equal 8 (vector-ref #(1 1 2 3 5 8 13 21) 5))
+(must-raise (assertion-violation vector-ref) (vector-ref))
+(must-raise (assertion-violation vector-ref) (vector-ref #(1 2 3)))
+(must-raise (assertion-violation vector-ref) (vector-ref #(1 2 3) -1))
+(must-raise (assertion-violation vector-ref) (vector-ref #(1 2 3) 3))
+(must-raise (assertion-violation vector-ref) (vector-ref #(1 2 3) 1 1))
+(must-raise (assertion-violation vector-ref) (vector-ref 1 1))
+
+(must-equal #(0 ("Sue" "Sue") "Anna")
+    (let ((vec (vector 0 '(2 2 2 2) "Anna")))
+        (vector-set! vec 1 '("Sue" "Sue"))
+        vec))
+
+(define v (vector 1 2 3))
+(must-raise (assertion-violation vector-set!) (vector-set!))
+(must-raise (assertion-violation vector-set!) (vector-set! v))
+(must-raise (assertion-violation vector-set!) (vector-set! v 1))
+(must-raise (assertion-violation vector-set!) (vector-set! v 1 1 1))
+(must-raise (assertion-violation vector-set!) (vector-set! 1 1 1))
+(must-raise (assertion-violation vector-set!) (vector-set! v -1 1 1))
+(must-raise (assertion-violation vector-set!) (vector-set! v 3 1 1))
+
+;;
 ;; ---- bytevectors ----
 
 (must-equal #t (bytevector? #u8()))

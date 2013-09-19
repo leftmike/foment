@@ -741,7 +741,7 @@ TailCallPrimitive:
                         if (InstructionP(cd) == 0 || InstructionOpcode(cd)
                                 != DiscardResultOpcode)
                            RaiseExceptionC(R.Assertion, "values",
-                                   "values: caller not expecting multiple values",
+                                   "caller not expecting multiple values",
                                    List(AsProcedure(ts->CStack[- (ts->CStackPtr - 2)])->Name));
 
                         if (ts->ArgCount == 0)
@@ -762,8 +762,8 @@ TailCallPrimitive:
             case ApplyOpcode:
             {
                 if (ts->ArgCount < 2)
-                   RaiseExceptionC(R.Assertion, "apply",
-                           "apply: expected at least two arguments", EmptyListObject);
+                   RaiseExceptionC(R.Assertion, "apply", "expected at least two arguments",
+                           EmptyListObject);
 
                 FObject prc = ts->AStack[ts->AStackPtr - ts->ArgCount];
                 FObject lst = ts->AStack[ts->AStackPtr - 1];
@@ -788,8 +788,7 @@ TailCallPrimitive:
                 }
 
                 if (ptr != EmptyListObject)
-                   RaiseExceptionC(R.Assertion, "apply", "apply: expected a proper list",
-                           List(lst));
+                   RaiseExceptionC(R.Assertion, "apply", "expected a proper list", List(lst));
 
                 ts->AStack[ts->AStackPtr] = prc;
                 ts->AStackPtr += 1;
@@ -829,8 +828,8 @@ TailCallPrimitive:
                 }
 
                 if (cc == 0)
-                    RaiseExceptionC(R.Assertion, "case-lambda",
-                            "case-lambda: no matching case", List(MakeFixnum(ts->ArgCount)));
+                    RaiseExceptionC(R.Assertion, "case-lambda", "no matching case",
+                            List(MakeFixnum(ts->ArgCount)));
                 break;
             }
             case CaptureContinuationOpcode:
@@ -1590,7 +1589,7 @@ TailCallPrimitive:
                             if (InstructionP(cd) == 0 || InstructionOpcode(cd)
                                     != DiscardResultOpcode)
                                RaiseExceptionC(R.Assertion, "values",
-                                       "values: caller not expecting multiple values",
+                                       "caller not expecting multiple values",
                                        List(AsProcedure(ts->CStack[- (ts->CStackPtr - 2)])->Name));
 
                             if (ts->ArgCount == 0)
@@ -1611,8 +1610,8 @@ TailCallPrimitive:
                 case ApplyOpcode:
                 {
                     if (ts->ArgCount < 2)
-                       RaiseExceptionC(R.Assertion, "apply",
-                               "apply: expected at least two arguments", EmptyListObject);
+                       RaiseExceptionC(R.Assertion, "apply", "expected at least two arguments",
+                               EmptyListObject);
 
                     FObject prc = ts->AStack[ts->AStackPtr - ts->ArgCount];
                     FObject lst = ts->AStack[ts->AStackPtr - 1];
@@ -1637,8 +1636,7 @@ TailCallPrimitive:
                     }
 
                     if (ptr != EmptyListObject)
-                       RaiseExceptionC(R.Assertion, "apply", "apply: expected a proper list",
-                               List(lst));
+                       RaiseExceptionC(R.Assertion, "apply", "expected a proper list", List(lst));
 
                     ts->AStack[ts->AStackPtr] = prc;
                     ts->AStackPtr += 1;
@@ -1678,20 +1676,20 @@ TailCallPrimitive:
                     }
 
                     if (cc == 0)
-                        RaiseExceptionC(R.Assertion, "case-lambda",
-                                "case-lambda: no matching case", List(MakeFixnum(ts->ArgCount)));
+                        RaiseExceptionC(R.Assertion, "case-lambda", "no matching case",
+                                List(MakeFixnum(ts->ArgCount)));
                     break;
                 }
 
 /*                case CallWithCCOpcode:
                 {
                     if (ts->ArgCount != 1)
-                        RaiseExceptionC(R.Assertion, "call/cc", "call/cc: expected one argument",
+                        RaiseExceptionC(R.Assertion, "call/cc", "expected one argument",
                                 EmptyListObject);
 
                     if (ProcedureP(ts->AStack[ts->AStackPtr - 1]) == 0
                             && PrimitiveP(ts->AStack[ts->AStackPtr - 1]) == 0)
-                        RaiseExceptionC(R.Assertion, "call/cc", "call/cc: expected a procedure",
+                        RaiseExceptionC(R.Assertion, "call/cc", "expected a procedure",
                                 List(ts->AStack[ts->AStackPtr - 1]));
 
                     FObject v[7];
@@ -1718,7 +1716,7 @@ TailCallPrimitive:
 
                     if (ts->ArgCount > MAXIMUM_CONTINUATION_ARGS)
                         RaiseExceptionC(R.Restriction, "call/cc",
-                                "call/cc: too many arguments to captured continuation",
+                                "too many arguments to captured continuation",
                                 List(MakeFixnum(ts->ArgCount)));
 
                     for (int adx = 0; adx < ts->ArgCount; adx++)

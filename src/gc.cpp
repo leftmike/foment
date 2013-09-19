@@ -1553,16 +1553,15 @@ Define("install-guardian", InstallGuardianPrimitive)(int argc, FObject argv[])
     // (install-guardian <obj> <tconc>)
 
     if (argc != 2)
-        RaiseExceptionC(R.Assertion, "install-guardian",
-                "install-guardian: expected two arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "install-guardian", "expected two arguments",
+                EmptyListObject);
 
     if (ObjectP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "install-guardian",
-                "install-guardian: immediate object unexpected", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "install-guardian", "immediate object unexpected",
+                List(argv[0]));
 
     if (PairP(argv[1]) == 0 || PairP(First(argv[1])) == 0 || PairP(Rest(argv[1])) == 0)
-        RaiseExceptionC(R.Assertion, "install-guardian",
-                "install-guardian: expected a tconc", List(argv[1]));
+        RaiseExceptionC(R.Assertion, "install-guardian", "expected a tconc", List(argv[1]));
 
     InstallGuardian(argv[0], argv[1]);
     return(NoValueObject);
@@ -1573,16 +1572,15 @@ Define("install-tracker", InstallTrackerPrimitive)(int argc, FObject argv[])
     // (install-tracker <obj> <ret> <tconc>)
 
     if (argc != 3)
-        RaiseExceptionC(R.Assertion, "install-tracker",
-                "install-tracker: expected three arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "install-tracker", "expected three arguments",
+                EmptyListObject);
 
     if (ObjectP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "install-tracker",
-                "install-tracker: immediate object unexpected", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "install-tracker", "immediate object unexpected",
+                List(argv[0]));
 
     if (PairP(argv[2]) == 0 || PairP(First(argv[2])) == 0 || PairP(Rest(argv[2])) == 0)
-        RaiseExceptionC(R.Assertion, "install-tracker",
-                "install-tracker: expected a tconc", List(argv[2]));
+        RaiseExceptionC(R.Assertion, "install-tracker", "expected a tconc", List(argv[2]));
 
     InstallTracker(argv[0], argv[1], argv[2]);
     return(NoValueObject);
@@ -1593,8 +1591,7 @@ Define("collect", CollectPrimitive)(int argc, FObject argv[])
     // (collect [<full>])
 
     if (argc > 1)
-        RaiseExceptionC(R.Assertion, "collect", "collect: expected zero or one arguments",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "collect", "expected zero or one arguments", EmptyListObject);
 
     EnterExclusive(&GCExclusive);
     GCRequired = 1;
@@ -1611,14 +1608,14 @@ Define("partial-per-full", PartialPerFullPrimitive)(int argc, FObject argv[])
     // (partial-per-full [<val>])
 
     if (argc > 1)
-        RaiseExceptionC(R.Assertion, "partial-per-full",
-                "partial-per-full: expected zero or one arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "partial-per-full", "expected zero or one arguments",
+                EmptyListObject);
 
     if (argc > 0)
     {
         if (FixnumP(argv[0]) == 0 || AsFixnum(argv[0]) < 0)
-            RaiseExceptionC(R.Assertion, "partial-per-full",
-                "partial-per-full: expected a non-negative fixnum", List(argv[0]));
+            RaiseExceptionC(R.Assertion, "partial-per-full", "expected a non-negative fixnum",
+                    List(argv[0]));
 
         PartialPerFull = AsFixnum(argv[0]);
     }
@@ -1631,14 +1628,14 @@ Define("trigger-bytes", TriggerBytesPrimitive)(int argc, FObject argv[])
     // (trigger-bytes [<val>])
 
     if (argc > 1)
-        RaiseExceptionC(R.Assertion, "trigger-bytes",
-                "trigger-bytes: expected zero or one arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "trigger-bytes", "expected zero or one arguments",
+                EmptyListObject);
 
     if (argc > 0)
     {
         if (FixnumP(argv[0]) == 0 || AsFixnum(argv[0]) < 0)
-            RaiseExceptionC(R.Assertion, "trigger-bytes",
-                "trigger-bytes: expected a non-negative fixnum", List(argv[0]));
+            RaiseExceptionC(R.Assertion, "trigger-bytes", "expected a non-negative fixnum",
+                    List(argv[0]));
 
         TriggerBytes = AsFixnum(argv[0]);
     }
@@ -1651,14 +1648,14 @@ Define("trigger-objects", TriggerObjectsPrimitive)(int argc, FObject argv[])
     // (trigger-objects [<val>])
 
     if (argc > 1)
-        RaiseExceptionC(R.Assertion, "trigger-objects",
-                "trigger-objects: expected zero or one arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "trigger-objects", "expected zero or one arguments",
+                EmptyListObject);
 
     if (argc > 0)
     {
         if (FixnumP(argv[0]) == 0 || AsFixnum(argv[0]) < 0)
-            RaiseExceptionC(R.Assertion, "trigger-objects",
-                "trigger-objects: expected a non-negative fixnum", List(argv[0]));
+            RaiseExceptionC(R.Assertion, "trigger-objects", "expected a non-negative fixnum",
+                    List(argv[0]));
 
         TriggerObjects = AsFixnum(argv[0]);
     }
@@ -1669,7 +1666,7 @@ Define("trigger-objects", TriggerObjectsPrimitive)(int argc, FObject argv[])
 Define("dump-gc", DumpGCPrimitive)(int argc, FObject argv[])
 {
     if (argc != 0)
-        RaiseExceptionC(R.Assertion, "dump-gc", "dump-gc: expected zero arguments",
+        RaiseExceptionC(R.Assertion, "dump-gc", "expected zero arguments",
                 EmptyListObject);
 
     for (unsigned int idx = 0; idx < sizeof(Sizes) / sizeof(unsigned int); idx++)

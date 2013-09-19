@@ -4,6 +4,7 @@ Foment
 
 */
 
+#define _CRT_SECURE_NO_WARNINGS
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -129,7 +130,7 @@ void WriteSpecialSyntax(FObject port, FObject obj, int df)
 Define("not", NotPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(R.Assertion, "not", "not: expected one argument", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "not", "expected one argument", EmptyListObject);
 
     return(argv[0] == FalseObject ? TrueObject : FalseObject);
 }
@@ -137,8 +138,7 @@ Define("not", NotPrimitive)(int argc, FObject argv[])
 Define("boolean?", BooleanPPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(R.Assertion, "boolean?", "boolean?: expected one argument",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "boolean?", "expected one argument", EmptyListObject);
 
     return(BooleanP(argv[0]) ? TrueObject : FalseObject);
 }
@@ -146,7 +146,7 @@ Define("boolean?", BooleanPPrimitive)(int argc, FObject argv[])
 Define("boolean=?", BooleanEqualPPrimitive)(int argc, FObject argv[])
 {
     if (argc < 2)
-        RaiseExceptionC(R.Assertion, "boolean=?", "boolean=?: expected at least two arguments",
+        RaiseExceptionC(R.Assertion, "boolean=?", "expected at least two arguments",
                 EmptyListObject);
 
     if (BooleanP(argv[0]) == 0)
@@ -236,8 +236,7 @@ unsigned int EqualHash(FObject obj)
 Define("eq-hash", EqHashPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(R.Assertion, "eq-hash", "eq-hash: expected one argument",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "eq-hash", "expected one argument", EmptyListObject);
 
     return(MakeFixnum(EqHash(argv[0])));
 }
@@ -245,8 +244,7 @@ Define("eq-hash", EqHashPrimitive)(int argc, FObject argv[])
 Define("eqv-hash", EqvHashPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(R.Assertion, "eqv-hash", "eqv-hash: expected one argument",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "eqv-hash", "expected one argument", EmptyListObject);
 
     return(MakeFixnum(EqvHash(argv[0])));
 }
@@ -254,8 +252,7 @@ Define("eqv-hash", EqvHashPrimitive)(int argc, FObject argv[])
 Define("equal-hash", EqualHashPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(R.Assertion, "equal-hash", "equal-hash: expected one argument",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "equal-hash", "expected one argument", EmptyListObject);
 
     return(MakeFixnum(EqualHash(argv[0])));
 }
@@ -675,12 +672,11 @@ void HashtableWalkVisit(FObject ht, FWalkVisitFn wfn, FObject ctx)
 Define("make-eq-hashtable", MakeEqHashtablePrimitive)(int argc, FObject argv[])
 {
     if (argc > 1)
-        RaiseExceptionC(R.Assertion, "make-eq-hashtable",
-                "make-eq-hashtable: expected zero or one arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "make-eq-hashtable", "expected zero or one arguments",
+                EmptyListObject);
 
     if (argc == 1 && FixnumP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "make-eq-hashtable",
-                "make-eq-hashtable: expected a fixnum", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "make-eq-hashtable", "expected a fixnum", List(argv[0]));
 
     return(MakeEqHashtable(argc == 0 ? 0 : AsFixnum(argv[0])));
 }
@@ -688,25 +684,25 @@ Define("make-eq-hashtable", MakeEqHashtablePrimitive)(int argc, FObject argv[])
 Define("eq-hashtable-ref", EqHashtableRefPrimitive)(int argc, FObject argv[])
 {
     if (argc != 3)
-        RaiseExceptionC(R.Assertion, "eq-hashtable-ref",
-                "eq-hashtable-ref: expected three arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "eq-hashtable-ref", "expected three arguments",
+                EmptyListObject);
 
     if (HashtableP(argv[0]) == 0 || PairP(AsHashtable(argv[0])->Tracker) == 0)
-        RaiseExceptionC(R.Assertion, "eq-hashtable-ref",
-                "eq-hashtable-ref: expected an eq-hashtable", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "eq-hashtable-ref", "expected an eq-hashtable",
+                List(argv[0]));
 
     return(EqHashtableRef(argv[0], argv[1], argv[2]));
 }
 
-Define("eq-hashtable-set", EqHashtableSetPrimitive)(int argc, FObject argv[])
+Define("eq-hashtable-set!", EqHashtableSetPrimitive)(int argc, FObject argv[])
 {
     if (argc != 3)
-        RaiseExceptionC(R.Assertion, "eq-hashtable-set",
-                "eq-hashtable-set: expected three arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "eq-hashtable-set!", "expected three arguments",
+                EmptyListObject);
 
     if (HashtableP(argv[0]) == 0 || PairP(AsHashtable(argv[0])->Tracker) == 0)
-        RaiseExceptionC(R.Assertion, "eq-hashtable-set",
-                "eq-hashtable-set: expected an eq-hashtable", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "eq-hashtable-set!", "expected an eq-hashtable",
+                List(argv[0]));
 
     EqHashtableSet(argv[0], argv[1], argv[2]);
     return(NoValueObject);
@@ -715,12 +711,12 @@ Define("eq-hashtable-set", EqHashtableSetPrimitive)(int argc, FObject argv[])
 Define("eq-hashtable-delete", EqHashtableDeletePrimitive)(int argc, FObject argv[])
 {
     if (argc != 2)
-        RaiseExceptionC(R.Assertion, "eq-hashtable-delete",
-                "eq-hashtable-delete: expected two arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "eq-hashtable-delete", "expected two arguments",
+                EmptyListObject);
 
     if (HashtableP(argv[0]) == 0 || PairP(AsHashtable(argv[0])->Tracker) == 0)
-        RaiseExceptionC(R.Assertion, "eq-hashtable-delete",
-                "eq-hashtable-delete: expected an eq-hashtable", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "eq-hashtable-delete", "expected an eq-hashtable",
+                List(argv[0]));
 
     EqHashtableDelete(argv[0], argv[1]);
     return(NoValueObject);
@@ -833,20 +829,19 @@ Define("%make-record-type", MakeRecordTypePrimitive)(int argc, FObject argv[])
     FMustBe(argc == 2);
 
     if (SymbolP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "define-record-type",
-                "define-record-type: expected a symbol", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "define-record-type", "expected a symbol", List(argv[0]));
 
     FObject flds = EmptyListObject;
     FObject flst = argv[1];
     while (PairP(flst))
     {
         if (PairP(First(flst)) == 0 || SymbolP(First(First(flst))) == 0)
-            RaiseExceptionC(R.Assertion, "define-record-type",
-                    "define-record-type: expected a list of fields", List(argv[1], First(flst)));
+            RaiseExceptionC(R.Assertion, "define-record-type", "expected a list of fields",
+                    List(argv[1], First(flst)));
 
         if (Memq(First(First(flst)), flds) != FalseObject)
-            RaiseExceptionC(R.Assertion, "define-record-type",
-                    "define-record-type: duplicate field name", List(argv[1], First(flst)));
+            RaiseExceptionC(R.Assertion, "define-record-type", "duplicate field name",
+                    List(argv[1], First(flst)));
 
         flds = MakePair(First(First(flst)), flds);
         flst = Rest(flst);
@@ -889,7 +884,7 @@ Define("%record-index", RecordIndexPrimitive)(int argc, FObject argv[])
         if (EqP(argv[1], AsRecordType(argv[0])->Fields[rdx]))
             return(MakeFixnum(rdx));
 
-    RaiseExceptionC(R.Assertion, "define-record-type", "define-record-type: expected a field-name",
+    RaiseExceptionC(R.Assertion, "define-record-type", "expected a field-name",
             List(argv[1], argv[0]));
 
     return(NoValueObject);
@@ -903,8 +898,8 @@ Define("%record-ref", RecordRefPrimitive)(int argc, FObject argv[])
     FMustBe(RecordTypeP(argv[0]));
 
     if (RecordP(argv[1], argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "%record-ref",
-                "%record-ref: not a record of the expected type", List(argv[1], argv[0]));
+        RaiseExceptionC(R.Assertion, "%record-ref", "not a record of the expected type",
+                List(argv[1], argv[0]));
 
     FMustBe(FixnumP(argv[2]));
     FMustBe(AsFixnum(argv[2]) > 0 && AsFixnum(argv[2]) < (int) RecordNumFields(argv[1]));
@@ -920,8 +915,8 @@ Define("%record-set!", RecordSetPrimitive)(int argc, FObject argv[])
     FMustBe(RecordTypeP(argv[0]));
 
     if (RecordP(argv[1], argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "%record-set!",
-                "%record-set!: not a record of the expected type", List(argv[1], argv[0]));
+        RaiseExceptionC(R.Assertion, "%record-set!", "not a record of the expected type",
+                List(argv[1], argv[0]));
 
     FMustBe(FixnumP(argv[2]));
     FMustBe(AsFixnum(argv[2]) > 0 && AsFixnum(argv[2]) < (int) RecordNumFields(argv[1]));
@@ -988,7 +983,20 @@ void RaiseException(FObject typ, FObject who, FObject msg, FObject lst)
 
 void RaiseExceptionC(FObject typ, char * who, char * msg, FObject lst)
 {
-    Raise(MakeException(typ, StringCToSymbol(who), MakeStringC(msg), lst));
+    char buf[128];
+
+    FAssert(strlen(who) + strlen(msg) + 2 < sizeof(buf));
+
+    if (strlen(who) + strlen(msg) + 2 >= sizeof(buf))
+        Raise(MakeException(typ, StringCToSymbol(who), MakeStringC(msg), lst));
+    else
+    {
+        strcpy(buf, who);
+        strcat(buf, ": ");
+        strcat(buf, msg);
+
+        Raise(MakeException(typ, StringCToSymbol(who), MakeStringC(buf), lst));
+    }
 }
 
 void Raise(FObject obj)
@@ -999,7 +1007,7 @@ void Raise(FObject obj)
 Define("raise", RaisePrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(R.Assertion, "raise", "raise: expected one argument", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "raise", "expected one argument", EmptyListObject);
 
     Raise(argv[0]);
 
@@ -1009,11 +1017,10 @@ Define("raise", RaisePrimitive)(int argc, FObject argv[])
 Define("error", ErrorPrimitive)(int argc, FObject argv[])
 {
     if (argc < 1)
-        RaiseExceptionC(R.Assertion, "error", "error: expected at least one argument",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "error", "expected at least one argument", EmptyListObject);
 
     if (StringP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "error", "error: expected a string", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "error", "expected a string", List(argv[0]));
 
     FObject lst = EmptyListObject;
     while (argc > 1)
@@ -1030,20 +1037,17 @@ Define("error", ErrorPrimitive)(int argc, FObject argv[])
 Define("full-error", FullErrorPrimitive)(int argc, FObject argv[])
 {
     if (argc < 3)
-        RaiseExceptionC(R.Assertion, "full-error",
-                "full-error: expected at least three arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "full-error", "expected at least three arguments",
+                EmptyListObject);
 
     if (SymbolP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "full-error", "full-error: expected a symbol",
-                List(argv[0]));
+        RaiseExceptionC(R.Assertion, "full-error", "expected a symbol", List(argv[0]));
 
     if (SymbolP(argv[1]) == 0)
-        RaiseExceptionC(R.Assertion, "full-error", "full-error: expected a symbol",
-                List(argv[1]));
+        RaiseExceptionC(R.Assertion, "full-error", "expected a symbol", List(argv[1]));
 
     if (StringP(argv[2]) == 0)
-        RaiseExceptionC(R.Assertion, "full-error", "full-error: expected a string",
-                List(argv[2]));
+        RaiseExceptionC(R.Assertion, "full-error", "expected a string", List(argv[2]));
 
     FObject lst = EmptyListObject;
     while (argc > 3)
@@ -1141,7 +1145,7 @@ int EqualP(FObject obj1, FObject obj2)
 Define("eq?", EqPPrimitive)(int argc, FObject argv[])
 {
     if (argc != 2)
-        RaiseExceptionC(R.Assertion, "eq?", "eq?: expected two arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "eq?", "expected two arguments", EmptyListObject);
 
     return(EqP(argv[0], argv[1]) ? TrueObject : FalseObject);
 }
@@ -1149,7 +1153,7 @@ Define("eq?", EqPPrimitive)(int argc, FObject argv[])
 Define("eqv?", EqvPPrimitive)(int argc, FObject argv[])
 {
     if (argc != 2)
-        RaiseExceptionC(R.Assertion, "eqv?", "eqv?: expected two arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "eqv?", "expected two arguments", EmptyListObject);
 
     return(EqvP(argv[0], argv[1]) ? TrueObject : FalseObject);
 }
@@ -1157,7 +1161,7 @@ Define("eqv?", EqvPPrimitive)(int argc, FObject argv[])
 Define("equal?", EqualPPrimitive)(int argc, FObject argv[])
 {
     if (argc != 2)
-        RaiseExceptionC(R.Assertion, "equal?", "equal?: expected two arguments",
+        RaiseExceptionC(R.Assertion, "equal?", "expected two arguments",
                 EmptyListObject);
 
     return(EqualP(argv[0], argv[1]) ? TrueObject : FalseObject);
@@ -1168,8 +1172,7 @@ Define("equal?", EqualPPrimitive)(int argc, FObject argv[])
 Define("procedure?", ProcedurePPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(R.Assertion, "procedure?", "procedure?: expected one argument",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "procedure?", "expected one argument", EmptyListObject);
 
     return(ProcedureP(argv[0]) ? TrueObject : FalseObject);
 }
@@ -1179,8 +1182,7 @@ Define("procedure?", ProcedurePPrimitive)(int argc, FObject argv[])
 Define("command-line", CommandLinePrimitive)(int argc, FObject argv[])
 {
     if (argc != 0)
-        RaiseExceptionC(R.Assertion, "command-line", "command-line: expected no arguments",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "command-line", "expected no arguments", EmptyListObject);
 
     return(R.CommandLine);
 }
@@ -1190,8 +1192,7 @@ Define("command-line", CommandLinePrimitive)(int argc, FObject argv[])
 Define("loaded-libraries", LoadedLibrariesPrimitive)(int argc, FObject argv[])
 {
     if (argc != 0)
-        RaiseExceptionC(R.Assertion, "loaded-libraries",
-                "loaded-libraries: expected no arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "loaded-libraries", "expected no arguments", EmptyListObject);
 
     return(R.LoadedLibraries);
 }
@@ -1199,8 +1200,7 @@ Define("loaded-libraries", LoadedLibrariesPrimitive)(int argc, FObject argv[])
 Define("library-path", LibraryPathPrimitive)(int argc, FObject argv[])
 {
     if (argc != 0)
-        RaiseExceptionC(R.Assertion, "library-path", "library-path: expected no arguments",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "library-path", "expected no arguments", EmptyListObject);
 
     return(R.LibraryPath);
 }
@@ -1208,8 +1208,8 @@ Define("library-path", LibraryPathPrimitive)(int argc, FObject argv[])
 Define("full-command-line", FullCommandLinePrimitive)(int argc, FObject argv[])
 {
     if (argc != 0)
-        RaiseExceptionC(R.Assertion, "full-command-line",
-                "full-command-line: expected no arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "full-command-line", "expected no arguments",
+                EmptyListObject);
 
     return(R.FullCommandLine);
 }
@@ -1217,11 +1217,10 @@ Define("full-command-line", FullCommandLinePrimitive)(int argc, FObject argv[])
 Define("random", RandomPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(R.Assertion, "random", "random: expected one argument", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "random", "expected one argument", EmptyListObject);
 
     if (FixnumP(argv[0]) == 0 || AsFixnum(argv[0]) < 0)
-        RaiseExceptionC(R.Assertion, "random", "random: expected a non-negative fixnum",
-                List(argv[0]));
+        RaiseExceptionC(R.Assertion, "random", "expected a non-negative fixnum", List(argv[0]));
 
     return(MakeFixnum(rand() % AsFixnum(argv[0])));
 }
@@ -1229,8 +1228,7 @@ Define("random", RandomPrimitive)(int argc, FObject argv[])
 Define("no-value", NoValuePrimitive)(int argc, FObject argv[])
 {
     if (argc != 0)
-        RaiseExceptionC(R.Assertion, "no-value", "no-value: expected zero arguments",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "no-value", "expected zero arguments", EmptyListObject);
 
     return(NoValueObject);
 }

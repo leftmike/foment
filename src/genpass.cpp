@@ -638,7 +638,7 @@ static FObject GPassMakeCall(FLambda * lam, FObject cdl, FObject op, int argc, F
         }
 
         if (cases == EmptyListObject)
-            RaiseExceptionC(R.Assertion, "case-lambda", "case-lambda: no matching case",
+            RaiseExceptionC(R.Assertion, "case-lambda", "no matching case",
                     List(expr, op, MakeFixnum(argc)));
     }
 

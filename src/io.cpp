@@ -177,8 +177,7 @@ FObject OpenInputFile(FObject fn, int ref)
         if (ref == 0)
             return(NoValueObject);
 
-        RaiseExceptionC(R.Assertion, "open-input-file",
-                "open-input-file: can not open file for reading", List(fn));
+        RaiseExceptionC(R.Assertion, "open-input-file", "can not open file for reading", List(fn));
     }
 
     return(MakeFILEPort(fn, f, 1, 0, 0));
@@ -201,8 +200,8 @@ FObject OpenOutputFile(FObject fn, int ref)
         if (ref == 0)
             return(NoValueObject);
 
-        RaiseExceptionC(R.Assertion, "open-output-file",
-                "open-output-file: can not open file for writing", List(fn));
+        RaiseExceptionC(R.Assertion, "open-output-file", "can not open file for writing",
+                List(fn));
     }
 
     return(MakeFILEPort(fn, f, 0, 1, 0));
@@ -359,8 +358,8 @@ FObject GetOutputString(FObject port)
 Define("open-output-string", OpenOutputStringPrimitive)(int argc, FObject argv[])
 {
     if (argc != 0)
-        RaiseExceptionC(R.Assertion, "open-output-string",
-                "open-output-string: expected no arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "open-output-string", "expected no arguments",
+                EmptyListObject);
 
     return(MakeStringOutputPort());
 }
@@ -368,12 +367,12 @@ Define("open-output-string", OpenOutputStringPrimitive)(int argc, FObject argv[]
 Define("get-output-string", GetOutputStringPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(R.Assertion, "get-output-string",
-                "get-output-string: expected one argument", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "get-output-string", "expected one argument",
+                EmptyListObject);
 
     if (OutputPortP(argv[0]) == 0 || AsPort(argv[0])->Output != &StringOutputPort)
-        RaiseExceptionC(R.Assertion, "get-output-string",
-                "get-output-string: expected a string output port", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "get-output-string", "expected a string output port",
+                List(argv[0]));
 
     return(GetOutputString(argv[0]));
 }
@@ -481,13 +480,13 @@ static FObject DoReadString(FObject port)
         if (ch == '\\')
             ch = GetCh(port, &eof);
         if (eof)
-            RaiseExceptionC(R.Lexical, "read", "read: unexpected end-of-file reading string",
+            RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading string",
                     List(port));
 
         s[sl] = ch;
         sl += 1;
         if (sl == sizeof(s) / sizeof(FCh))
-            RaiseExceptionC(R.Restriction, "read", "read: string too long", List(port));
+            RaiseExceptionC(R.Restriction, "read", "string too long", List(port));
     }
 
     return(MakeString(s, sl));
@@ -510,8 +509,7 @@ static FObject DoReadSymbolOrNumber(FObject port, int ch, int rif, int fcf)
         s[sl] = ch;
         sl += 1;
         if (sl == sizeof(s) / sizeof(FCh))
-            RaiseExceptionC(R.Restriction, "read", "read: symbol or number too long",
-                    List(port));
+            RaiseExceptionC(R.Restriction, "read", "symbol or number too long", List(port));
 
         ch = PeekCh(port, &eof);
         if (eof || SymbolChP(ch) == 0)
@@ -560,8 +558,8 @@ static FObject DoRead(FObject port, int eaf, int rlf, int rif, int fcf)
             case '#':
                 ch = GetCh(port, &eof);
                 if (eof)
-                    RaiseExceptionC(R.Lexical, "read",
-                            "read: unexpected end-of-file reading #", List(port));
+                    RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading #",
+                            List(port));
 
                 switch (ch)
                 {
@@ -576,8 +574,8 @@ static FObject DoRead(FObject port, int eaf, int rlf, int rif, int fcf)
                 case '\\':
                     ch = GetCh(port, &eof);
                     if (eof)
-                        RaiseExceptionC(R.Lexical, "read",
-                                "read: unexpected end-of-file reading #\\", List(port));
+                        RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading #\\",
+                                List(port));
                     return(MakeCharacter(ch));
 
                 case '(':
@@ -587,20 +585,20 @@ static FObject DoRead(FObject port, int eaf, int rlf, int rif, int fcf)
                     ch = GetCh(port, &eof);
                     if (eof)
                         RaiseExceptionC(R.Lexical, "read",
-                                "read: unexpected end-of-file reading bytevector", List(port));
+                                "unexpected end-of-file reading bytevector", List(port));
                     if (ch != '8')
-                        RaiseExceptionC(R.Lexical, "read", "read: expected #\u8(", List(port));
+                        RaiseExceptionC(R.Lexical, "read", "expected #\u8(", List(port));
 
                     ch = GetCh(port, &eof);
                     if (eof)
                         RaiseExceptionC(R.Lexical, "read",
-                                "read: unexpected end-of-file reading bytevector", List(port));
+                                "unexpected end-of-file reading bytevector", List(port));
                     if (ch != '(')
-                        RaiseExceptionC(R.Lexical, "read", "read: expected #\u8(", List(port));
+                        RaiseExceptionC(R.Lexical, "read", "expected #\u8(", List(port));
                     return(U8ListToBytevector(DoReadList(port, rif, fcf)));
                 }
 
-                RaiseExceptionC(R.Lexical, "read", "read: unexpected character following #",
+                RaiseExceptionC(R.Lexical, "read", "unexpected character following #",
                         List(port));
                 break;
 
@@ -613,14 +611,14 @@ static FObject DoRead(FObject port, int eaf, int rlf, int rif, int fcf)
             case ')':
                 if (rlf)
                     return(EolObject);
-                RaiseExceptionC(R.Lexical, "read", "read: unexpected )", List(port));
+                RaiseExceptionC(R.Lexical, "read", "unexpected )", List(port));
                 break;
 
             case '.':
                 ch = PeekCh(port, &eof);
                 if (eof)
                     RaiseExceptionC(R.Lexical, "read",
-                            "read: unexpected end-of-file reading dotted pair", List(port));
+                            "unexpected end-of-file reading dotted pair", List(port));
                 if (ch == '.')
                 {
                     GetCh(port, &eof);
@@ -628,17 +626,16 @@ static FObject DoRead(FObject port, int eaf, int rlf, int rif, int fcf)
                     ch = GetCh(port, &eof);
                     if (eof)
                         RaiseExceptionC(R.Lexical, "read",
-                                "read: unexpected end-of-file reading ...", List(port));
+                                "unexpected end-of-file reading ...", List(port));
                         if (ch != '.')
-                            RaiseExceptionC(R.Lexical, "read", "read: expected ...",
-                                    List(port));
+                            RaiseExceptionC(R.Lexical, "read", "expected ...", List(port));
                     return(rif ? MakeIdentifier(R.EllipsisSymbol, GetLocation(port))
                             : R.EllipsisSymbol);
                 }
 
                 if (rlf)
                     return(DotObject);
-                RaiseExceptionC(R.Lexical, "read", "read: unexpected dotted pair", List(port));
+                RaiseExceptionC(R.Lexical, "read", "unexpected dotted pair", List(port));
                 break;
 
             case '\'':
@@ -662,8 +659,8 @@ static FObject DoRead(FObject port, int eaf, int rlf, int rif, int fcf)
             {
                 ch = PeekCh(port, &eof);
                 if (eof)
-                    RaiseExceptionC(R.Lexical, "read",
-                            "read: unexpected end-of-file reading unquote", List(port));
+                    RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading unquote",
+                            List(port));
 
                 FObject sym;
                 if (ch == '@')
@@ -692,8 +689,8 @@ static FObject DoRead(FObject port, int eaf, int rlf, int rif, int fcf)
 Eof:
 
     if (eaf == 0)
-        RaiseExceptionC(R.Lexical, "read",
-                "read: unexpected end-of-file reading list or vector", List(port));
+        RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading list or vector",
+                List(port));
     return(EndOfFileObject);
 }
 
@@ -711,7 +708,7 @@ static FObject DoReadList(FObject port, int rif, int fcf)
         obj = DoRead(port, 0, 0, rif, fcf);
 
         if (DoRead(port, 0, 1, rif, fcf) != EolObject)
-            RaiseExceptionC(R.Lexical, "read", "read: bad dotted pair", List(port));
+            RaiseExceptionC(R.Lexical, "read", "bad dotted pair", List(port));
         return(obj);
     }
 
@@ -1254,14 +1251,12 @@ Define("write", WritePrimitive)(int argc, FObject argv[])
     FObject port;
 
     if (argc < 1 || argc > 2)
-        RaiseExceptionC(R.Assertion, "write", "write: expected one or two arguments",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "write", "expected one or two arguments", EmptyListObject);
 
     if (argc == 2)
     {
         if (OutputPortP(argv[1]) == 0)
-            RaiseExceptionC(R.Assertion, "write", "write: expected an output port",
-                    List(argv[1]));
+            RaiseExceptionC(R.Assertion, "write", "expected an output port", List(argv[1]));
 
         port = argv[1];
     }
@@ -1278,14 +1273,12 @@ Define("display", DisplayPrimitive)(int argc, FObject argv[])
     FObject port;
 
     if (argc < 1 || argc > 2)
-        RaiseExceptionC(R.Assertion, "display", "display: expected one or two arguments",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "display", "expected one or two arguments", EmptyListObject);
 
     if (argc == 2)
     {
         if (OutputPortP(argv[1]) == 0)
-            RaiseExceptionC(R.Assertion, "display", "display: expected an output port",
-                    List(argv[1]));
+            RaiseExceptionC(R.Assertion, "display", "expected an output port", List(argv[1]));
 
         port = argv[1];
     }
@@ -1302,14 +1295,14 @@ Define("write-shared", WriteSharedPrimitive)(int argc, FObject argv[])
     FObject port;
 
     if (argc < 1 || argc > 2)
-        RaiseExceptionC(R.Assertion, "write-shared",
-                "write-shared: expected one or two arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "write-shared", "expected one or two arguments",
+                EmptyListObject);
 
     if (argc == 2)
     {
         if (OutputPortP(argv[1]) == 0)
-            RaiseExceptionC(R.Assertion, "write-shared",
-                    "write-shared: expected an output port", List(argv[1]));
+            RaiseExceptionC(R.Assertion, "write-shared", "expected an output port",
+                    List(argv[1]));
 
         port = argv[1];
     }
@@ -1326,14 +1319,14 @@ Define("display-shared", DisplaySharedPrimitive)(int argc, FObject argv[])
     FObject port;
 
     if (argc < 1 || argc > 2)
-        RaiseExceptionC(R.Assertion, "display-shared",
-                "display-shared: expected one or two arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "display-shared", "expected one or two arguments",
+                EmptyListObject);
 
     if (argc == 2)
     {
         if (OutputPortP(argv[1]) == 0)
-            RaiseExceptionC(R.Assertion, "display-shared",
-                    "display-shared: expected an output port", List(argv[1]));
+            RaiseExceptionC(R.Assertion, "display-shared", "expected an output port",
+                    List(argv[1]));
 
         port = argv[1];
     }
@@ -1350,14 +1343,13 @@ Define("write-simple", WriteSimplePrimitive)(int argc, FObject argv[])
     FObject port;
 
     if (argc < 1 || argc > 2)
-        RaiseExceptionC(R.Assertion, "write-simple",
-                "write-simple: expected one or two arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "write-simple", "expected one or two arguments",
+                EmptyListObject);
 
     if (argc == 2)
     {
         if (OutputPortP(argv[1]) == 0)
-            RaiseExceptionC(R.Assertion, "write-simple",
-                    "write-simple: expected an output port", List(argv[1]));
+            RaiseExceptionC(R.Assertion, "write-simple", "expected an output port", List(argv[1]));
 
         port = argv[1];
     }
@@ -1374,14 +1366,14 @@ Define("display-simple", DisplaySimplePrimitive)(int argc, FObject argv[])
     FObject port;
 
     if (argc < 1 || argc > 2)
-        RaiseExceptionC(R.Assertion, "display-simple",
-                "display-simple: expected one or two arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "display-simple", "expected one or two arguments",
+                EmptyListObject);
 
     if (argc == 2)
     {
         if (OutputPortP(argv[1]) == 0)
-            RaiseExceptionC(R.Assertion, "display-simple",
-                    "display-simple: expected an output port", List(argv[1]));
+            RaiseExceptionC(R.Assertion, "display-simple", "expected an output port",
+                    List(argv[1]));
 
         port = argv[1];
     }
@@ -1398,14 +1390,12 @@ Define("newline", NewlinePrimitive)(int argc, FObject argv[])
     FObject port;
 
     if (argc > 1)
-        RaiseExceptionC(R.Assertion, "newline", "newline: expected zero or one arguments",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "newline", "expected zero or one arguments", EmptyListObject);
 
     if (argc == 1)
     {
         if (OutputPortP(argv[0]) == 0)
-            RaiseExceptionC(R.Assertion, "newline", "newline: expected an output port",
-                    List(argv[0]));
+            RaiseExceptionC(R.Assertion, "newline", "expected an output port", List(argv[0]));
 
         port = argv[1];
     }

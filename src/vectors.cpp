@@ -90,7 +90,7 @@ FObject VectorToList(FObject vec)
 Define("vector?", VectorPPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(R.Assertion, "vector?", "vector?: expected one argument", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "vector?", "expected one argument", EmptyListObject);
 
     return(VectorP(argv[0]) ? TrueObject : FalseObject);
 }
@@ -98,25 +98,42 @@ Define("vector?", VectorPPrimitive)(int argc, FObject argv[])
 Define("make-vector", MakeVectorPrimitive)(int argc, FObject argv[])
 {
     if (argc < 1 || argc > 2)
-        RaiseExceptionC(R.Assertion, "make-vector", "make-vector: expected one or two arguments",
+        RaiseExceptionC(R.Assertion, "make-vector", "expected one or two arguments",
                 EmptyListObject);
 
-    if (FixnumP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "make-vector",
-                "make-vector: expected a fixnum", List(argv[0]));
+    if (FixnumP(argv[0]) == 0 || AsFixnum(argv[0]) < 0)
+        RaiseExceptionC(R.Assertion, "make-vector", "expected a non-negative integer",
+                List(argv[0]));
 
     return(MakeVector(AsFixnum(argv[0]), 0, argc == 2 ? argv[1] : NoValueObject));
+}
+
+Define("vector", VectorPrimitive)(int argc, FObject argv[])
+{
+    int mf = 0;
+    FObject v = MakeVector(argc, "vector", &mf);
+
+    if (mf)
+    {
+        for (int adx = 0; adx < argc; adx++)
+            ModifyVector(v, adx, argv[adx]);
+    }
+    else
+    {
+        for (int adx = 0; adx < argc; adx++)
+            AsVector(v)->Vector[adx] = argv[adx];
+    }
+
+    return(v);
 }
 
 Define("vector-length", VectorLengthPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(R.Assertion, "vector-length", "vector-length: expected one argument",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "vector-length", "expected one argument", EmptyListObject);
 
     if (VectorP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "vector-length",
-                "vector-length: expected a vector", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "vector-length", "expected a vector", List(argv[0]));
 
     return(MakeFixnum(VectorLength(argv[0])));
 }
@@ -124,17 +141,14 @@ Define("vector-length", VectorLengthPrimitive)(int argc, FObject argv[])
 Define("vector-ref", VectorRefPrimitive)(int argc, FObject argv[])
 {
     if (argc != 2)
-        RaiseExceptionC(R.Assertion, "vector-ref", "vector-ref: expected two arguments",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "vector-ref", "expected two arguments", EmptyListObject);
 
     if (VectorP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "vector-ref", "vector-ref: expected a vector", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "vector-ref", "expected a vector", List(argv[0]));
 
-    if (FixnumP(argv[1]) == 0)
-        RaiseExceptionC(R.Assertion, "vector-ref", "vector-ref: expected a fixnum", List(argv[1]));
-
-    if (AsFixnum(argv[1]) < 0 || AsFixnum(argv[1]) >= (FFixnum) VectorLength(argv[0]))
-        RaiseExceptionC(R.Assertion, "vector-ref", "vector-ref: invalid index", List(argv[1]));
+    if (FixnumP(argv[1]) == 0 || AsFixnum(argv[1]) < 0
+            || AsFixnum(argv[1]) >= (FFixnum) VectorLength(argv[0]))
+        RaiseExceptionC(R.Assertion, "vector-ref", "expected a valid index", List(argv[1]));
 
     return(AsVector(argv[0])->Vector[AsFixnum(argv[1])]);
 }
@@ -142,19 +156,14 @@ Define("vector-ref", VectorRefPrimitive)(int argc, FObject argv[])
 Define("vector-set!", VectorSetPrimitive)(int argc, FObject argv[])
 {
     if (argc != 3)
-        RaiseExceptionC(R.Assertion, "vector-set!", "vector-set!: expected three arguments",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "vector-set!", "expected three arguments", EmptyListObject);
 
     if (VectorP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "vector-set!",
-                "vector-set!: expected a vector", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "vector-set!", "expected a vector", List(argv[0]));
 
-    if (FixnumP(argv[1]) == 0)
-        RaiseExceptionC(R.Assertion, "vector-set!",
-                "vector-set!: expected a fixnum", List(argv[1]));
-
-    if (AsFixnum(argv[1]) < 0 || AsFixnum(argv[1]) >= (FFixnum) VectorLength(argv[0]))
-        RaiseExceptionC(R.Assertion, "vector-set!", "vector-set!: invalid index", List(argv[1]));
+    if (FixnumP(argv[1]) == 0 || AsFixnum(argv[1]) < 0
+            || AsFixnum(argv[1]) >= (FFixnum) VectorLength(argv[0]))
+        RaiseExceptionC(R.Assertion, "vector-set!", "expected a valid index", List(argv[1]));
 
 //    AsVector(argv[0])->Vector[AsFixnum(argv[1])] = argv[2];
     ModifyVector(argv[0], AsFixnum(argv[1]), argv[2]);
@@ -164,8 +173,7 @@ Define("vector-set!", VectorSetPrimitive)(int argc, FObject argv[])
 Define("list->vector", ListToVectorPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(R.Assertion, "list->vector", "list->vector: expected one argument",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "list->vector", "expected one argument", EmptyListObject);
 
     return(ListToVector(argv[0]));
 }
@@ -202,8 +210,7 @@ FObject U8ListToBytevector(FObject obj)
     {
         if (FixnumP(First(obj)) == 0 || AsFixnum(First(obj)) > 0xFF
                 || AsFixnum(First(obj)) < 0)
-            RaiseExceptionC(R.Assertion, "u8-list->bytevector", "u8-list->bytevector: not a byte",
-                    List(First(obj)));
+            RaiseExceptionC(R.Assertion, "u8-list->bytevector", "not a byte", List(First(obj)));
         nv->Vector[idx] = (FByte) AsFixnum(First(obj));
         obj = Rest(obj);
     }
@@ -231,8 +238,7 @@ unsigned int BytevectorHash(FObject obj)
 Define("bytevector?", BytevectorPPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(R.Assertion, "bytevector?", "bytevector?: expected one argument",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "bytevector?", "expected one argument", EmptyListObject);
 
     return(BytevectorP(argv[0]) ? TrueObject : FalseObject);
 }
@@ -245,16 +251,15 @@ static inline int ByteP(FObject obj)
 Define("make-bytevector", MakeBytevectorPrimitive)(int argc, FObject argv[])
 {
     if (argc < 1 || argc > 2)
-        RaiseExceptionC(R.Assertion, "make-bytevector",
-                "make-bytevector: expected one or two arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "make-bytevector", "expected one or two arguments",
+                EmptyListObject);
 
     if (FixnumP(argv[0]) == 0 || AsFixnum(argv[0]) < 0)
-        RaiseExceptionC(R.Assertion, "make-bytevector",
-                "make-bytevector: expected an exact non-negative integer", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "make-bytevector", "expected an exact non-negative integer",
+                List(argv[0]));
 
     if (argc == 2 && ByteP(argv[1]) == 0)
-        RaiseExceptionC(R.Assertion, "make-bytevector", "make-bytevector: expected a byte",
-                List(argv[1]));
+        RaiseExceptionC(R.Assertion, "make-bytevector", "expected a byte", List(argv[1]));
 
     FObject bv = MakeBytevector(AsFixnum(argv[0]));
 
@@ -272,8 +277,7 @@ Define("bytevector", BytevectorPrimitive)(int argc, FObject argv[])
     for (int adx = 0; adx < argc; adx++)
     {
         if (ByteP(argv[adx]) == 0)
-            RaiseExceptionC(R.Assertion, "bytevector", "bytevector: expected a byte",
-                    List(argv[adx]));
+            RaiseExceptionC(R.Assertion, "bytevector", "expected a byte", List(argv[adx]));
 
         AsBytevector(bv)->Vector[adx] = (FByte) AsFixnum(argv[adx]);
     }
@@ -284,12 +288,12 @@ Define("bytevector", BytevectorPrimitive)(int argc, FObject argv[])
 Define("bytevector-length", BytevectorLengthPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(R.Assertion, "bytevector-length",
-                "bytevector-length: expected one argument", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "bytevector-length", "expected one argument",
+                EmptyListObject);
 
     if (BytevectorP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "bytevector-length",
-                "bytevector-length: expected a bytevector", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "bytevector-length", "expected a bytevector",
+                List(argv[0]));
 
     return(MakeFixnum(BytevectorLength(argv[0])));
 }
@@ -297,17 +301,15 @@ Define("bytevector-length", BytevectorLengthPrimitive)(int argc, FObject argv[])
 Define("bytevector-u8-ref", BytevectorU8RefPrimitive)(int argc, FObject argv[])
 {
     if (argc != 2)
-        RaiseExceptionC(R.Assertion, "bytevector-u8-ref",
-                "bytevector-u8-ref: expected two arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "bytevector-u8-ref", "expected two arguments",
+                EmptyListObject);
 
     if (BytevectorP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "bytevector-u8-ref",
-                "bytevector-u8-ref: expected a bytevector", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "bytevector-u8-ref", "expected a bytevector", List(argv[0]));
 
     if (FixnumP(argv[1]) == 0 || AsFixnum(argv[1]) < 0
-            || AsFixnum(argv[1]) >= (int) BytevectorLength(argv[0]))
-        RaiseExceptionC(R.Assertion, "bytevector-u8-ref",
-                "bytevector-u8-ref: expected a valid index", List(argv[1]));
+            || AsFixnum(argv[1]) >= (FFixnum) BytevectorLength(argv[0]))
+        RaiseExceptionC(R.Assertion, "bytevector-u8-ref", "expected a valid index", List(argv[1]));
 
     return(MakeFixnum(AsBytevector(argv[0])->Vector[AsFixnum(argv[1])]));
 }
@@ -315,21 +317,19 @@ Define("bytevector-u8-ref", BytevectorU8RefPrimitive)(int argc, FObject argv[])
 Define("bytevector-u8-set!", BytevectorU8SetPrimitive)(int argc, FObject argv[])
 {
     if (argc != 3)
-        RaiseExceptionC(R.Assertion, "bytevector-u8-set!",
-                "bytevector-u8-set!: expected three arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "bytevector-u8-set!", "expected three arguments",
+                EmptyListObject);
 
     if (BytevectorP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "bytevector-u8-set!",
-                "bytevector-u8-set!: expected a bytevector", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "bytevector-u8-set!", "expected a bytevector", List(argv[0]));
 
     if (FixnumP(argv[1]) == 0 || AsFixnum(argv[1]) < 0
-            || AsFixnum(argv[1]) >= (int) BytevectorLength(argv[0]))
-        RaiseExceptionC(R.Assertion, "bytevector-u8-set!",
-                "bytevector-u8-set!: expected a valid index", List(argv[1]));
+            || AsFixnum(argv[1]) >= (FFixnum) BytevectorLength(argv[0]))
+        RaiseExceptionC(R.Assertion, "bytevector-u8-set!", "expected a valid index",
+                List(argv[1]));
 
     if (ByteP(argv[2]) == 0)
-        RaiseExceptionC(R.Assertion, "bytevector-u8-set!", "bytevector-u8-set!: expected a byte",
-                    List(argv[2]));
+        RaiseExceptionC(R.Assertion, "bytevector-u8-set!", "expected a byte", List(argv[2]));
 
     AsBytevector(argv[0])->Vector[AsFixnum(argv[1])] = (FByte) AsFixnum(argv[2]);
     return(NoValueObject);
@@ -341,28 +341,27 @@ Define("bytevector-copy", BytevectorCopyPrimitive)(int argc, FObject argv[])
     int end;
 
     if (argc < 1 || argc > 3)
-        RaiseExceptionC(R.Assertion, "bytevector-copy",
-                "bytevector-copy: expected one to three arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "bytevector-copy", "expected one to three arguments",
+                EmptyListObject);
 
     if (BytevectorP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "bytevector-copy",
-                "bytevector-copy: expected a bytevector", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "bytevector-copy", "expected a bytevector", List(argv[0]));
 
     if (argc > 1)
     {
         if (FixnumP(argv[1]) == 0 || AsFixnum(argv[1]) < 0
-            || AsFixnum(argv[1]) >= (int) BytevectorLength(argv[0]))
-            RaiseExceptionC(R.Assertion, "bytevector-copy",
-                    "bytevector-copy: expected a valid index", List(argv[1]));
+            || AsFixnum(argv[1]) >= (FFixnum) BytevectorLength(argv[0]))
+            RaiseExceptionC(R.Assertion, "bytevector-copy", "expected a valid index",
+                    List(argv[1]));
 
         strt = AsFixnum(argv[1]);
 
         if (argc > 2)
         {
             if (FixnumP(argv[2]) == 0 || AsFixnum(argv[2]) < strt
-                || AsFixnum(argv[2]) >= (int) BytevectorLength(argv[0]))
-                RaiseExceptionC(R.Assertion, "bytevector-copy",
-                        "bytevector-copy: expected a valid index", List(argv[2]));
+                || AsFixnum(argv[2]) >= (FFixnum) BytevectorLength(argv[0]))
+                RaiseExceptionC(R.Assertion, "bytevector-copy", "expected a valid index",
+                        List(argv[2]));
 
             end = AsFixnum(argv[2]);
         }
@@ -389,37 +388,34 @@ Define("bytevector-copy!", BytevectorCopyModifyPrimitive)(int argc, FObject argv
     int end;
 
     if (argc < 3 || argc > 5)
-        RaiseExceptionC(R.Assertion, "bytevector-copy!",
-                "bytevector-copy!: expected three to five arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "bytevector-copy!", "expected three to five arguments",
+                EmptyListObject);
 
     if (BytevectorP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "bytevector-copy!",
-                "bytevector-copy!: expected a bytevector", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "bytevector-copy!", "expected a bytevector", List(argv[0]));
 
     if (FixnumP(argv[1]) == 0 || AsFixnum(argv[1]) < 0
-        || AsFixnum(argv[1]) >= (int) BytevectorLength(argv[0]))
-        RaiseExceptionC(R.Assertion, "bytevector-copy!",
-                "bytevector-copy!: expected a valid index", List(argv[1]));
+        || AsFixnum(argv[1]) >= (FFixnum) BytevectorLength(argv[0]))
+        RaiseExceptionC(R.Assertion, "bytevector-copy!", "expected a valid index", List(argv[1]));
 
     if (BytevectorP(argv[2]) == 0)
-        RaiseExceptionC(R.Assertion, "bytevector-copy!",
-                "bytevector-copy!: expected a bytevector", List(argv[2]));
+        RaiseExceptionC(R.Assertion, "bytevector-copy!", "expected a bytevector", List(argv[2]));
 
     if (argc > 3)
     {
         if (FixnumP(argv[3]) == 0 || AsFixnum(argv[3]) < 0
-            || AsFixnum(argv[3]) >= (int) BytevectorLength(argv[2]))
-            RaiseExceptionC(R.Assertion, "bytevector-copy!",
-                    "bytevector-copy!: expected a valid index", List(argv[3]));
+            || AsFixnum(argv[3]) >= (FFixnum) BytevectorLength(argv[2]))
+            RaiseExceptionC(R.Assertion, "bytevector-copy!", "expected a valid index",
+                    List(argv[3]));
 
         strt = AsFixnum(argv[3]);
 
         if (argc > 4)
         {
             if (FixnumP(argv[4]) == 0 || AsFixnum(argv[4]) < strt
-                || AsFixnum(argv[4]) >= (int) BytevectorLength(argv[2]))
-                RaiseExceptionC(R.Assertion, "bytevector-copy!",
-                        "bytevector-copy!: expected a valid index", List(argv[4]));
+                || AsFixnum(argv[4]) >= (FFixnum) BytevectorLength(argv[2]))
+                RaiseExceptionC(R.Assertion, "bytevector-copy!", "expected a valid index",
+                        List(argv[4]));
 
             end = AsFixnum(argv[4]);
         }
@@ -432,9 +428,8 @@ Define("bytevector-copy!", BytevectorCopyModifyPrimitive)(int argc, FObject argv
         end = (int) BytevectorLength(argv[2]);
     }
 
-    if ((int) BytevectorLength(argv[0]) - AsFixnum(argv[1]) < end - strt)
-        RaiseExceptionC(R.Assertion, "bytevector-copy!",
-                "bytevector-copy!: expected a valid index", List(argv[1]));
+    if ((FFixnum) BytevectorLength(argv[0]) - AsFixnum(argv[1]) < end - strt)
+        RaiseExceptionC(R.Assertion, "bytevector-copy!", "expected a valid index", List(argv[1]));
 
     FAssert(end >= strt);
 
@@ -451,8 +446,8 @@ Define("bytevector-append", BytevectorAppendPrimitive)(int argc, FObject argv[])
     for (int adx = 0; adx < argc; adx++)
     {
         if (BytevectorP(argv[adx]) == 0)
-            RaiseExceptionC(R.Assertion, "bytevector-append",
-                    "bytevector-append: expected a bytevector", List(argv[adx]));
+            RaiseExceptionC(R.Assertion, "bytevector-append", "expected a bytevector",
+                    List(argv[adx]));
 
         len += BytevectorLength(argv[adx]);
     }
@@ -651,28 +646,26 @@ Define("utf8->string", Utf8ToStringPrimitive)(int argc, FObject argv[])
     int end;
 
     if (argc < 1 || argc > 3)
-        RaiseExceptionC(R.Assertion, "utf8->string",
-                "utf8->string: expected one to three arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "utf8->string", "expected one to three arguments",
+                EmptyListObject);
 
     if (BytevectorP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "utf8->string",
-                "utf8->string: expected a bytevector", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "utf8->string", "expected a bytevector", List(argv[0]));
 
     if (argc > 1)
     {
         if (FixnumP(argv[1]) == 0 || AsFixnum(argv[1]) < 0
-            || AsFixnum(argv[1]) >= (int) BytevectorLength(argv[0]))
-            RaiseExceptionC(R.Assertion, "utf8->string",
-                    "utf8->string: expected a valid index", List(argv[1]));
+            || AsFixnum(argv[1]) >= (FFixnum) BytevectorLength(argv[0]))
+            RaiseExceptionC(R.Assertion, "utf8->string", "expected a valid index", List(argv[1]));
 
         strt = AsFixnum(argv[1]);
 
         if (argc > 2)
         {
             if (FixnumP(argv[2]) == 0 || AsFixnum(argv[2]) < strt
-                || AsFixnum(argv[2]) >= (int) BytevectorLength(argv[0]))
-                RaiseExceptionC(R.Assertion, "utf8->string",
-                        "utf8->string: expected a valid index", List(argv[2]));
+                || AsFixnum(argv[2]) >= (FFixnum) BytevectorLength(argv[0]))
+                RaiseExceptionC(R.Assertion, "utf8->string", "expected a valid index",
+                        List(argv[2]));
 
             end = AsFixnum(argv[2]);
         }
@@ -701,28 +694,26 @@ Define("string->utf8", StringToUtf8Primitive)(int argc, FObject argv[])
     int end;
 
     if (argc < 1 || argc > 3)
-        RaiseExceptionC(R.Assertion, "string->utf8",
-                "string->utf8: expected one to three arguments", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "string->utf8", "expected one to three arguments",
+                EmptyListObject);
 
     if (StringP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "string->utf8",
-                "string->utf8: expected a string", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "string->utf8", "expected a string", List(argv[0]));
 
     if (argc > 1)
     {
         if (FixnumP(argv[1]) == 0 || AsFixnum(argv[1]) < 0
-            || AsFixnum(argv[1]) >= (int) StringLength(argv[0]))
-            RaiseExceptionC(R.Assertion, "string->utf8",
-                    "string->utf8: expected a valid index", List(argv[1]));
+            || AsFixnum(argv[1]) >= (FFixnum) StringLength(argv[0]))
+            RaiseExceptionC(R.Assertion, "string->utf8", "expected a valid index", List(argv[1]));
 
         strt = AsFixnum(argv[1]);
 
         if (argc > 2)
         {
             if (FixnumP(argv[2]) == 0 || AsFixnum(argv[2]) < strt
-                || AsFixnum(argv[2]) >= (int) StringLength(argv[0]))
-                RaiseExceptionC(R.Assertion, "string->utf8",
-                        "string->utf8: expected a valid index", List(argv[2]));
+                || AsFixnum(argv[2]) >= (FFixnum) StringLength(argv[0]))
+                RaiseExceptionC(R.Assertion, "string->utf8", "expected a valid index",
+                        List(argv[2]));
 
             end = AsFixnum(argv[2]);
         }
@@ -749,6 +740,7 @@ static FPrimitive * Primitives[] =
 {
     &VectorPPrimitive,
     &MakeVectorPrimitive,
+    &VectorPrimitive,
     &VectorLengthPrimitive,
     &VectorRefPrimitive,
     &VectorSetPrimitive,

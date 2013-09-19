@@ -284,8 +284,7 @@ int StringCEqualP(char * s, FObject obj)
 Define("string?", StringPPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(R.Assertion, "string?", "string?: expected one argument",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "string?", "expected one argument", EmptyListObject);
 
     return(StringP(argv[0]) ? TrueObject : FalseObject);
 }
@@ -293,11 +292,9 @@ Define("string?", StringPPrimitive)(int argc, FObject argv[])
 Define("string-hash", StringHashPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(R.Assertion, "string-hash", "string-hash: expected one argument",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "string-hash", "expected one argument", EmptyListObject);
     if (StringP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "string-hash",
-                "string-hash: expected a string", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "string-hash", "expected a string", List(argv[0]));
 
     return(MakeFixnum(StringHash(argv[0])));
 }
@@ -305,12 +302,11 @@ Define("string-hash", StringHashPrimitive)(int argc, FObject argv[])
 Define("string=?", StringEqualPPrimitive)(int argc, FObject argv[])
 {
     if (argc != 2)
-        RaiseExceptionC(R.Assertion, "string=?", "string=?: expected two arguments",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "string=?", "expected two arguments", EmptyListObject);
     if (StringP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "string=?", "string=?: expected a string", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "string=?", "expected a string", List(argv[0]));
     if (StringP(argv[1]) == 0)
-        RaiseExceptionC(R.Assertion, "string=?", "string=?: expected a string", List(argv[1]));
+        RaiseExceptionC(R.Assertion, "string=?", "expected a string", List(argv[1]));
 
     return(StringEqualP(argv[0], argv[1]) ? TrueObject : FalseObject);
 }
@@ -318,11 +314,9 @@ Define("string=?", StringEqualPPrimitive)(int argc, FObject argv[])
 Define("string->symbol", StringToSymbolPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
-        RaiseExceptionC(R.Assertion, "string->symbol", "string->symbol: expected one argument",
-                EmptyListObject);
+        RaiseExceptionC(R.Assertion, "string->symbol", "expected one argument", EmptyListObject);
     if (StringP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "string->symbol", "string->symbol: expected a string",
-                List(argv[0]));
+        RaiseExceptionC(R.Assertion, "string->symbol", "expected a string", List(argv[0]));
 
     return(StringToSymbol(argv[0]));
 }
