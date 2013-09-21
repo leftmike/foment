@@ -889,6 +889,100 @@
 (must-raise (assertion-violation vector-set!) (vector-set! v -1 1 1))
 (must-raise (assertion-violation vector-set!) (vector-set! v 3 1 1))
 
+(must-equal (dah dah didah) (vector->list '#(dah dah didah)))
+(must-equal (dah) (vector->list '#(dah dah didah) 1 2))
+
+(must-raise (assertion-violation vector->list) (vector->list))
+(must-raise (assertion-violation vector->list) (vector->list #u8()))
+(must-raise (assertion-violation vector->list) (vector->list '()))
+(must-raise (assertion-violation vector->list) (vector->list #(1 2 3 4) #f))
+(must-raise (assertion-violation vector->list) (vector->list #(1 2 3 4) -1))
+(must-raise (assertion-violation vector->list) (vector->list #(1 2 3 4) 4))
+(must-raise (assertion-violation vector->list) (vector->list #(1 2 3 4) 1 0))
+(must-raise (assertion-violation vector->list) (vector->list #(1 2 3 4) 1 5))
+(must-raise (assertion-violation vector->list) (vector->list #(1 2 3 4) 1 2 3))
+
+(must-equal #(dididit dah) (list->vector '(dididit dah)))
+
+(must-equal "123" (vector->string #(#\1 #\2 #\3)))
+(must-equal "def" (vector->string #(#\a #\b #\c #\d #\e #\f #\g #\h) 3 6))
+(must-equal "gh" (vector->string #(#\a #\b #\c #\d #\e #\f #\g #\h) 6 8))
+
+(must-raise (assertion-violation vector->string) (vector->string))
+(must-raise (assertion-violation vector->string) (vector->string '()))
+(must-raise (assertion-violation vector->string) (vector->string #(#\a #\b #\c) #f))
+(must-raise (assertion-violation vector->string) (vector->string #(#\a #\b #\c) -1))
+(must-raise (assertion-violation vector->string) (vector->string #(#\a #\b #\c) 4))
+(must-raise (assertion-violation vector->string) (vector->string #(#\a #\b #\c) 0 #f))
+(must-raise (assertion-violation vector->string) (vector->string #(#\a #\b #\c) 0 4))
+(must-raise (assertion-violation vector->string) (vector->string #(#\a #\b #\c) 1 2 3))
+
+(must-equal #(#\A #\B #\C) (string->vector "ABC"))
+
+(must-raise (assertion-violation string->vector) (string->vector))
+(must-raise (assertion-violation string->vector) (string->vector '()))
+(must-raise (assertion-violation string->vector) (string->vector "abc" #f))
+(must-raise (assertion-violation string->vector) (string->vector "abc" -1))
+(must-raise (assertion-violation string->vector) (string->vector "abc" 4))
+(must-raise (assertion-violation string->vector) (string->vector "abc" 0 #f))
+(must-raise (assertion-violation string->vector) (string->vector "abc" 0 4))
+(must-raise (assertion-violation string->vector) (string->vector "abc" 1 2 3))
+
+(define a #(1 8 2 8))
+(define b (vector-copy a))
+(must-equal #(1 8 2 8) b)
+(vector-set! b 0 3)
+(must-equal #(3 8 2 8) b)
+(define c (vector-copy b 1 3))
+(must-equal #(8 2) c)
+
+(define v (vector 1 2 3 4))
+(must-raise (assertion-violation vector-copy) (vector-copy))
+(must-raise (assertion-violation vector-copy) (vector-copy 1))
+(must-raise (assertion-violation vector-copy) (vector-copy v 1 2 1))
+(must-raise (assertion-violation vector-copy) (vector-copy v -1 2))
+(must-raise (assertion-violation vector-copy) (vector-copy v 3 2))
+(must-raise (assertion-violation vector-copy) (vector-copy v 1 5))
+
+(define a (vector 1 2 3 4 5))
+(define b (vector 10 20 30 40 50))
+(vector-copy! b 1 a 0 2)
+(must-equal #(10 1 2 40 50) b)
+
+(define x (vector 'a 'b 'c 'd 'e 'f 'g))
+(vector-copy! x 1 x 0 3)
+(must-equal #(a a b c e f g) x)
+
+(define x (vector 'a 'b 'c 'd 'e 'f 'g))
+(vector-copy! x 1 x 3 6)
+(must-equal #(a d e f e f g) x)
+
+(must-raise (assertion-violation vector-copy!) (vector-copy! a 0))
+(must-raise (assertion-violation vector-copy!) (vector-copy! a 0 b 1 1 1))
+(must-raise (assertion-violation vector-copy!) (vector-copy! 1 0 b))
+(must-raise (assertion-violation vector-copy!) (vector-copy! a 0 1))
+(must-raise (assertion-violation vector-copy!) (vector-copy! a -1 b))
+(must-raise (assertion-violation vector-copy!) (vector-copy! a 3 b))
+(must-raise (assertion-violation vector-copy!) (vector-copy! a 0 b -1))
+(must-raise (assertion-violation vector-copy!) (vector-copy! a 0 b 1 0))
+(must-raise (assertion-violation vector-copy!) (vector-copy! a 0 b 1 6))
+
+(must-equal #(a b c d e f) (vector-append #(a b c) #(d e f)))
+(must-raise (assertion-violation vector-append) (vector-append 1))
+(must-raise (assertion-violation vector-append) (vector-append #(1 2) 1))
+
+(define a (vector 1 2 3 4 5))
+(vector-fill! a 'smash 2 4)
+(must-equal #(1 2 smash smash 5) a)
+
+(define v (vector 1 2 3 4))
+(must-raise (assertion-violation vector-fill!) (vector-fill! 1))
+(must-raise (assertion-violation vector-fill!) (vector-fill! 1 #f))
+(must-raise (assertion-violation vector-fill!) (vector-fill! v #f 1 2 1))
+(must-raise (assertion-violation vector-fill!) (vector-fill! v #f -1 2))
+(must-raise (assertion-violation vector-fill!) (vector-fill! v #f 3 2))
+(must-raise (assertion-violation vector-fill!) (vector-fill! v #f 1 5))
+
 ;;
 ;; ---- bytevectors ----
 
@@ -952,7 +1046,7 @@
 (must-raise (assertion-violation bytevector-copy) (bytevector-copy bv 1 2 1))
 (must-raise (assertion-violation bytevector-copy) (bytevector-copy bv -1 2))
 (must-raise (assertion-violation bytevector-copy) (bytevector-copy bv 3 2))
-(must-raise (assertion-violation bytevector-copy) (bytevector-copy bv 1 4))
+(must-raise (assertion-violation bytevector-copy) (bytevector-copy bv 1 5))
 
 (define a (bytevector 1 2 3 4 5))
 (define b (bytevector 10 20 30 40 50))
@@ -967,7 +1061,7 @@
 (must-raise (assertion-violation bytevector-copy!) (bytevector-copy! a 3 b))
 (must-raise (assertion-violation bytevector-copy!) (bytevector-copy! a 0 b -1))
 (must-raise (assertion-violation bytevector-copy!) (bytevector-copy! a 0 b 1 0))
-(must-raise (assertion-violation bytevector-copy!) (bytevector-copy! a 0 b 1 5))
+(must-raise (assertion-violation bytevector-copy!) (bytevector-copy! a 0 b 1 6))
 
 (must-equal #u8(0 1 2 3 4 5) (bytevector-append #u8(0 1 2) #u8(3 4 5)))
 (must-raise (assertion-violation bytevector-append) (bytevector-append 1))
@@ -982,7 +1076,7 @@
 (must-raise (assertion-violation utf8->string) (utf8->string #u8(65 66 67) -1))
 (must-raise (assertion-violation utf8->string) (utf8->string #u8(65 66 67) 3))
 (must-raise (assertion-violation utf8->string) (utf8->string #u8(65 66 67) 2 1))
-(must-raise (assertion-violation utf8->string) (utf8->string #u8(65 66 67) 0 3))
+(must-raise (assertion-violation utf8->string) (utf8->string #u8(65 66 67) 0 4))
 
 (must-equal #u8(207 187) (string->utf8 (utf8->string #u8(207 187))))
 (must-raise (assertion-violation string->utf8) (string->utf8))
@@ -991,7 +1085,7 @@
 (must-raise (assertion-violation string->utf8) (string->utf8 "ABC" -1))
 (must-raise (assertion-violation string->utf8) (string->utf8 "ABC" 3))
 (must-raise (assertion-violation string->utf8) (string->utf8 "ABC" 2 1))
-(must-raise (assertion-violation string->utf8) (string->utf8 "ABC" 0 3))
+(must-raise (assertion-violation string->utf8) (string->utf8 "ABC" 0 4))
 
 ;;
 ;; ---- control features ----

@@ -7,6 +7,97 @@ Foment
 #include <string.h>
 #include "foment.hpp"
 
+inline void OneArgCheck(char * who, int argc)
+{
+    if (argc != 1)
+        RaiseExceptionC(R.Assertion, who, "expected one argument", EmptyListObject);
+}
+
+inline void TwoArgsCheck(char * who, int argc)
+{
+    if (argc != 2)
+        RaiseExceptionC(R.Assertion, who, "expected two arguments", EmptyListObject);
+}
+
+inline void ThreeArgsCheck(char * who, int argc)
+{
+    if (argc != 3)
+        RaiseExceptionC(R.Assertion, who, "expected three arguments", EmptyListObject);
+}
+
+inline void OneOrTwoArgsCheck(char * who, int argc)
+{
+    if (argc < 1 || argc > 2)
+        RaiseExceptionC(R.Assertion, who, "expected one or two arguments", EmptyListObject);
+}
+
+inline void OneToThreeArgsCheck(char * who, int argc)
+{
+    if (argc < 1 || argc > 3)
+        RaiseExceptionC(R.Assertion, who, "expected one to three arguments", EmptyListObject);
+}
+
+inline void TwoToFourArgsCheck(char * who, int argc)
+{
+    if (argc < 2 || argc > 4)
+        RaiseExceptionC(R.Assertion, who, "expected two to four arguments", EmptyListObject);
+}
+
+inline void ThreeToFiveArgsCheck(char * who, int argc)
+{
+    if (argc < 3 || argc > 5)
+        RaiseExceptionC(R.Assertion, who, "expected three to five arguments", EmptyListObject);
+}
+
+inline void NonNegativeArgCheck(char * who, FObject arg)
+{
+    if (FixnumP(arg) == 0 || AsFixnum(arg) < 0)
+        RaiseExceptionC(R.Assertion, who, "expected an exact non-negative integer", List(arg));
+}
+
+inline void IndexArgCheck(char * who, FObject arg, FFixnum len)
+{
+    if (FixnumP(arg) == 0 || AsFixnum(arg) < 0 || AsFixnum(arg) >= len)
+        RaiseExceptionC(R.Assertion, who, "expected a valid index", List(arg));
+}
+
+inline void EndIndexArgCheck(char * who, FObject arg, FFixnum strt, FFixnum len)
+{
+    if (FixnumP(arg) == 0 || AsFixnum(arg) < strt || AsFixnum(arg) > len)
+        RaiseExceptionC(R.Assertion, who, "expected a valid index", List(arg));
+}
+
+inline void ByteArgCheck(char * who, FObject obj)
+{
+    if (FixnumP(obj) == 0 || AsFixnum(obj) < 0 || AsFixnum(obj) >= 256)
+        RaiseExceptionC(R.Assertion, who, "expected a byte: an exact integer between 0 and 255",
+                List(obj));
+}
+
+inline void CharacterArgCheck(char * who, FObject obj)
+{
+    if (CharacterP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a character", List(obj));
+}
+
+inline void StringArgCheck(char * who, FObject obj)
+{
+    if (StringP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a string", List(obj));
+}
+
+inline void VectorArgCheck(char * who, FObject obj)
+{
+    if (VectorP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a vector", List(obj));
+}
+
+inline void BytevectorArgCheck(char * who, FObject obj)
+{
+    if (BytevectorP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a bytevector", List(obj));
+}
+
 // ---- Vectors ----
 
 static FVector * MakeVector(unsigned int vl, char * who, int * mf)
@@ -89,21 +180,15 @@ FObject VectorToList(FObject vec)
 
 Define("vector?", VectorPPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "vector?", "expected one argument", EmptyListObject);
+    OneArgCheck("vector?", argc);
 
     return(VectorP(argv[0]) ? TrueObject : FalseObject);
 }
 
 Define("make-vector", MakeVectorPrimitive)(int argc, FObject argv[])
 {
-    if (argc < 1 || argc > 2)
-        RaiseExceptionC(R.Assertion, "make-vector", "expected one or two arguments",
-                EmptyListObject);
-
-    if (FixnumP(argv[0]) == 0 || AsFixnum(argv[0]) < 0)
-        RaiseExceptionC(R.Assertion, "make-vector", "expected a non-negative integer",
-                List(argv[0]));
+    OneOrTwoArgsCheck("make-vector", argc);
+    NonNegativeArgCheck("make-vector", argv[0]);
 
     return(MakeVector(AsFixnum(argv[0]), 0, argc == 2 ? argv[1] : NoValueObject));
 }
@@ -129,53 +214,308 @@ Define("vector", VectorPrimitive)(int argc, FObject argv[])
 
 Define("vector-length", VectorLengthPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "vector-length", "expected one argument", EmptyListObject);
-
-    if (VectorP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "vector-length", "expected a vector", List(argv[0]));
+    OneArgCheck("vector-length", argc);
+    VectorArgCheck("vector-length", argv[0]);
 
     return(MakeFixnum(VectorLength(argv[0])));
 }
 
 Define("vector-ref", VectorRefPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 2)
-        RaiseExceptionC(R.Assertion, "vector-ref", "expected two arguments", EmptyListObject);
-
-    if (VectorP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "vector-ref", "expected a vector", List(argv[0]));
-
-    if (FixnumP(argv[1]) == 0 || AsFixnum(argv[1]) < 0
-            || AsFixnum(argv[1]) >= (FFixnum) VectorLength(argv[0]))
-        RaiseExceptionC(R.Assertion, "vector-ref", "expected a valid index", List(argv[1]));
+    TwoArgsCheck("vector-ref", argc);
+    VectorArgCheck("vector-ref", argv[0]);
+    IndexArgCheck("vector-ref", argv[1], VectorLength(argv[0]));
 
     return(AsVector(argv[0])->Vector[AsFixnum(argv[1])]);
 }
 
 Define("vector-set!", VectorSetPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 3)
-        RaiseExceptionC(R.Assertion, "vector-set!", "expected three arguments", EmptyListObject);
-
-    if (VectorP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "vector-set!", "expected a vector", List(argv[0]));
-
-    if (FixnumP(argv[1]) == 0 || AsFixnum(argv[1]) < 0
-            || AsFixnum(argv[1]) >= (FFixnum) VectorLength(argv[0]))
-        RaiseExceptionC(R.Assertion, "vector-set!", "expected a valid index", List(argv[1]));
+    ThreeArgsCheck("vector-set!", argc);
+    VectorArgCheck("vector-set!", argv[0]);
+    IndexArgCheck("vector-set!", argv[1], VectorLength(argv[0]));
 
 //    AsVector(argv[0])->Vector[AsFixnum(argv[1])] = argv[2];
     ModifyVector(argv[0], AsFixnum(argv[1]), argv[2]);
     return(NoValueObject);
 }
 
+Define("vector->list", VectorToListPrimitive)(int argc, FObject argv[])
+{
+    FFixnum strt;
+    FFixnum end;
+
+    OneToThreeArgsCheck("vector->list", argc);
+    VectorArgCheck("vector->list", argv[0]);
+
+    if (argc > 1)
+    {
+        IndexArgCheck("vector->list", argv[1], VectorLength(argv[0]));
+
+        strt = AsFixnum(argv[1]);
+
+        if (argc > 2)
+        {
+            EndIndexArgCheck("vector->list", argv[2], strt, VectorLength(argv[0]));
+
+            end = AsFixnum(argv[2]);
+        }
+        else
+            end = (FFixnum) VectorLength(argv[0]);
+    }
+    else
+    {
+        strt = 0;
+        end = (FFixnum) VectorLength(argv[0]);
+    }
+
+    FAssert(end >= strt);
+
+    FObject lst = EmptyListObject;
+
+    for (FFixnum idx = end; idx > strt; idx--)
+        lst = MakePair(AsVector(argv[0])->Vector[idx - 1], lst);
+
+    return(lst);
+}
+
 Define("list->vector", ListToVectorPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "list->vector", "expected one argument", EmptyListObject);
+    OneArgCheck("list->vector", argc);
 
     return(ListToVector(argv[0]));
+}
+
+Define("vector->string", VectorToStringPrimitive)(int argc, FObject argv[])
+{
+    FFixnum strt;
+    FFixnum end;
+
+    OneToThreeArgsCheck("vector->string", argc);
+    VectorArgCheck("vector->string", argv[0]);
+
+    if (argc > 1)
+    {
+        IndexArgCheck("vector->string", argv[1], VectorLength(argv[0]));
+
+        strt = AsFixnum(argv[1]);
+
+        if (argc > 2)
+        {
+            EndIndexArgCheck("vector->string", argv[2], strt, VectorLength(argv[0]));
+
+            end = AsFixnum(argv[2]);
+        }
+        else
+            end = (FFixnum) VectorLength(argv[0]);
+    }
+    else
+    {
+        strt = 0;
+        end = (FFixnum) VectorLength(argv[0]);
+    }
+
+    FAssert(end >= strt);
+
+    FObject s = MakeString(0, end - strt);
+
+    for (FFixnum idx = 0; idx < end - strt; idx ++)
+    {
+        CharacterArgCheck("vector->string", AsVector(argv[0])->Vector[idx + strt]);
+
+        AsString(s)->String[idx] = AsCharacter(AsVector(argv[0])->Vector[idx + strt]);
+    }
+
+    return(s);
+}
+
+Define("string->vector", StringToVectorPrimitive)(int argc, FObject argv[])
+{
+    FFixnum strt;
+    FFixnum end;
+
+    OneToThreeArgsCheck("string->vector", argc);
+    StringArgCheck("string->vector", argv[0]);
+
+    if (argc > 1)
+    {
+        IndexArgCheck("string->vector", argv[1], StringLength(argv[0]));
+
+        strt = AsFixnum(argv[1]);
+
+        if (argc > 2)
+        {
+            EndIndexArgCheck("string->vector", argv[2], strt, StringLength(argv[0]));
+
+            end = AsFixnum(argv[2]);
+        }
+        else
+            end = (FFixnum) StringLength(argv[0]);
+    }
+    else
+    {
+        strt = 0;
+        end = (FFixnum) StringLength(argv[0]);
+    }
+
+    FAssert(end >= strt);
+
+    int mf = 0;
+    FObject v = MakeVector(end - strt, "string->vector", &mf);
+
+    for (FFixnum idx = 0; idx < end - strt; idx ++)
+        AsVector(v)->Vector[idx] = MakeCharacter(AsString(argv[0])->String[idx + strt]);
+
+    return(v);
+}
+
+Define("vector-copy", VectorCopyPrimitive)(int argc, FObject argv[])
+{
+    FFixnum strt;
+    FFixnum end;
+
+    OneToThreeArgsCheck("vector-copy", argc);
+    VectorArgCheck("vector-copy", argv[0]);
+
+    if (argc > 1)
+    {
+        IndexArgCheck("vector-copy", argv[1], VectorLength(argv[0]));
+
+        strt = AsFixnum(argv[1]);
+
+        if (argc > 2)
+        {
+            EndIndexArgCheck("vector-copy", argv[2], strt, VectorLength(argv[0]));
+
+            end = AsFixnum(argv[2]);
+        }
+        else
+            end = (FFixnum) VectorLength(argv[0]);
+    }
+    else
+    {
+        strt = 0;
+        end = (FFixnum) VectorLength(argv[0]);
+    }
+
+    FAssert(end >= strt);
+
+    return(MakeVector(end - strt, AsVector(argv[0])->Vector + strt, NoValueObject));
+}
+
+Define("vector-copy!", VectorCopyModifyPrimitive)(int argc, FObject argv[])
+{
+    FFixnum strt;
+    FFixnum end;
+
+    ThreeToFiveArgsCheck("vector-copy!", argc);
+    VectorArgCheck("vector-copy!", argv[0]);
+    IndexArgCheck("vector-copy!", argv[1], VectorLength(argv[0]));
+    VectorArgCheck("vector-copy!", argv[2]);
+
+    if (argc > 3)
+    {
+        IndexArgCheck("vector-copy!", argv[3], VectorLength(argv[2]));
+
+        strt = AsFixnum(argv[3]);
+
+        if (argc > 4)
+        {
+            EndIndexArgCheck("vector-copy!", argv[4], strt, VectorLength(argv[2]));
+
+            end = AsFixnum(argv[4]);
+        }
+        else
+            end = (FFixnum) VectorLength(argv[2]);
+    }
+    else
+    {
+        strt = 0;
+        end = (FFixnum) VectorLength(argv[2]);
+    }
+
+    if ((FFixnum) VectorLength(argv[0]) - AsFixnum(argv[1]) < end - strt)
+        RaiseExceptionC(R.Assertion, "vector-copy!", "expected a valid index", List(argv[1]));
+
+    FAssert(end >= strt);
+
+    FFixnum at = AsFixnum(argv[1]);
+
+    if (at > strt)
+    {
+        for (FFixnum idx = end - strt; idx > 0; idx--)
+            ModifyVector(argv[0], idx + at - 1, AsVector(argv[2])->Vector[idx + strt - 1]);
+    }
+    else
+    {
+        for (FFixnum idx = 0; idx < end - strt; idx++)
+            ModifyVector(argv[0], idx + at, AsVector(argv[2])->Vector[idx + strt]);
+    }
+
+    return(NoValueObject);
+}
+
+Define("vector-append", VectorAppendPrimitive)(int argc, FObject argv[])
+{
+    int len = 0;
+
+    for (int adx = 0; adx < argc; adx++)
+    {
+        VectorArgCheck("vector-append", argv[adx]);
+
+        len += VectorLength(argv[adx]);
+    }
+
+    int mf = 0;
+    FObject v = MakeVector(len, "vector-append", &mf);
+    int idx = 0;
+
+    for (int adx = 0; adx < argc; adx++)
+    {
+        for (int vdx = 0; vdx < (int) VectorLength(argv[adx]); vdx++)
+            AsVector(v)->Vector[idx + vdx] = AsVector(argv[adx])->Vector[vdx];
+
+        idx += VectorLength(argv[adx]);
+    }
+
+    return(v);
+}
+
+Define("vector-fill!", VectorFillPrimitive)(int argc, FObject argv[])
+{
+    FFixnum strt;
+    FFixnum end;
+
+    TwoToFourArgsCheck("vector-fill!", argc);
+    VectorArgCheck("vector-fill!", argv[0]);
+
+    if (argc > 2)
+    {
+        IndexArgCheck("vector-fill!", argv[2], VectorLength(argv[0]));
+
+        strt = AsFixnum(argv[2]);
+
+        if (argc > 3)
+        {
+            EndIndexArgCheck("vector-fill!", argv[3], strt, VectorLength(argv[0]));
+
+            end = AsFixnum(argv[3]);
+        }
+        else
+            end = (FFixnum) VectorLength(argv[0]);
+    }
+    else
+    {
+        strt = 0;
+        end = (FFixnum) VectorLength(argv[0]);
+    }
+
+    FAssert(end >= strt);
+
+    for (FFixnum idx = strt; idx < end; idx++)
+        ModifyVector(argv[0], idx, argv[1]);
+
+    return(NoValueObject);
 }
 
 // ---- Bytevectors ----
@@ -237,29 +577,18 @@ unsigned int BytevectorHash(FObject obj)
 
 Define("bytevector?", BytevectorPPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "bytevector?", "expected one argument", EmptyListObject);
+    OneArgCheck("bytevector?", argc);
 
     return(BytevectorP(argv[0]) ? TrueObject : FalseObject);
 }
 
-static inline int ByteP(FObject obj)
-{
-    return(FixnumP(obj) && AsFixnum(obj) >= 0 && AsFixnum(obj) < 256);
-}
-
 Define("make-bytevector", MakeBytevectorPrimitive)(int argc, FObject argv[])
 {
-    if (argc < 1 || argc > 2)
-        RaiseExceptionC(R.Assertion, "make-bytevector", "expected one or two arguments",
-                EmptyListObject);
+    OneOrTwoArgsCheck("make-bytevector", argc);
+    NonNegativeArgCheck("make-bytevector", argv[0]);
 
-    if (FixnumP(argv[0]) == 0 || AsFixnum(argv[0]) < 0)
-        RaiseExceptionC(R.Assertion, "make-bytevector", "expected an exact non-negative integer",
-                List(argv[0]));
-
-    if (argc == 2 && ByteP(argv[1]) == 0)
-        RaiseExceptionC(R.Assertion, "make-bytevector", "expected a byte", List(argv[1]));
+    if (argc == 2)
+        ByteArgCheck("make-bytevector", argv[1]);
 
     FObject bv = MakeBytevector(AsFixnum(argv[0]));
 
@@ -276,8 +605,7 @@ Define("bytevector", BytevectorPrimitive)(int argc, FObject argv[])
 
     for (int adx = 0; adx < argc; adx++)
     {
-        if (ByteP(argv[adx]) == 0)
-            RaiseExceptionC(R.Assertion, "bytevector", "expected a byte", List(argv[adx]));
+        ByteArgCheck("bytevector", argv[adx]);
 
         AsBytevector(bv)->Vector[adx] = (FByte) AsFixnum(argv[adx]);
     }
@@ -287,49 +615,27 @@ Define("bytevector", BytevectorPrimitive)(int argc, FObject argv[])
 
 Define("bytevector-length", BytevectorLengthPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "bytevector-length", "expected one argument",
-                EmptyListObject);
-
-    if (BytevectorP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "bytevector-length", "expected a bytevector",
-                List(argv[0]));
+    OneArgCheck("bytevector-length", argc);
+    BytevectorArgCheck("bytevector-length",argv[0]);
 
     return(MakeFixnum(BytevectorLength(argv[0])));
 }
 
 Define("bytevector-u8-ref", BytevectorU8RefPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 2)
-        RaiseExceptionC(R.Assertion, "bytevector-u8-ref", "expected two arguments",
-                EmptyListObject);
-
-    if (BytevectorP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "bytevector-u8-ref", "expected a bytevector", List(argv[0]));
-
-    if (FixnumP(argv[1]) == 0 || AsFixnum(argv[1]) < 0
-            || AsFixnum(argv[1]) >= (FFixnum) BytevectorLength(argv[0]))
-        RaiseExceptionC(R.Assertion, "bytevector-u8-ref", "expected a valid index", List(argv[1]));
+    TwoArgsCheck("bytevector-u8-ref", argc);
+    BytevectorArgCheck("bytevector-u8-ref", argv[0]);
+    IndexArgCheck("bytevector-u8-ref", argv[1], BytevectorLength(argv[0]));
 
     return(MakeFixnum(AsBytevector(argv[0])->Vector[AsFixnum(argv[1])]));
 }
 
 Define("bytevector-u8-set!", BytevectorU8SetPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 3)
-        RaiseExceptionC(R.Assertion, "bytevector-u8-set!", "expected three arguments",
-                EmptyListObject);
-
-    if (BytevectorP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "bytevector-u8-set!", "expected a bytevector", List(argv[0]));
-
-    if (FixnumP(argv[1]) == 0 || AsFixnum(argv[1]) < 0
-            || AsFixnum(argv[1]) >= (FFixnum) BytevectorLength(argv[0]))
-        RaiseExceptionC(R.Assertion, "bytevector-u8-set!", "expected a valid index",
-                List(argv[1]));
-
-    if (ByteP(argv[2]) == 0)
-        RaiseExceptionC(R.Assertion, "bytevector-u8-set!", "expected a byte", List(argv[2]));
+    ThreeArgsCheck("bytevector-u8-set!", argc);
+    BytevectorArgCheck("bytevector-u8-set!", argv[0]);
+    IndexArgCheck("bytevector-u8-set!", argv[1], BytevectorLength(argv[0]));
+    ByteArgCheck("bytevector-u8-set!", argv[2]);
 
     AsBytevector(argv[0])->Vector[AsFixnum(argv[1])] = (FByte) AsFixnum(argv[2]);
     return(NoValueObject);
@@ -337,41 +643,31 @@ Define("bytevector-u8-set!", BytevectorU8SetPrimitive)(int argc, FObject argv[])
 
 Define("bytevector-copy", BytevectorCopyPrimitive)(int argc, FObject argv[])
 {
-    int strt;
-    int end;
+    FFixnum strt;
+    FFixnum end;
 
-    if (argc < 1 || argc > 3)
-        RaiseExceptionC(R.Assertion, "bytevector-copy", "expected one to three arguments",
-                EmptyListObject);
-
-    if (BytevectorP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "bytevector-copy", "expected a bytevector", List(argv[0]));
+    OneToThreeArgsCheck("bytevector-copy", argc);
+    BytevectorArgCheck("bytevector-copy", argv[0]);
 
     if (argc > 1)
     {
-        if (FixnumP(argv[1]) == 0 || AsFixnum(argv[1]) < 0
-            || AsFixnum(argv[1]) >= (FFixnum) BytevectorLength(argv[0]))
-            RaiseExceptionC(R.Assertion, "bytevector-copy", "expected a valid index",
-                    List(argv[1]));
+        IndexArgCheck("bytevector-copy", argv[1], BytevectorLength(argv[0]));
 
         strt = AsFixnum(argv[1]);
 
         if (argc > 2)
         {
-            if (FixnumP(argv[2]) == 0 || AsFixnum(argv[2]) < strt
-                || AsFixnum(argv[2]) >= (FFixnum) BytevectorLength(argv[0]))
-                RaiseExceptionC(R.Assertion, "bytevector-copy", "expected a valid index",
-                        List(argv[2]));
+            EndIndexArgCheck("bytevector-copy", argv[2], strt, BytevectorLength(argv[0]));
 
             end = AsFixnum(argv[2]);
         }
         else
-            end = (int) BytevectorLength(argv[0]);
+            end = (FFixnum) BytevectorLength(argv[0]);
     }
     else
     {
         strt = 0;
-        end = (int) BytevectorLength(argv[0]);
+        end = (FFixnum) BytevectorLength(argv[0]);
     }
 
     FAssert(end >= strt);
@@ -384,48 +680,33 @@ Define("bytevector-copy", BytevectorCopyPrimitive)(int argc, FObject argv[])
 
 Define("bytevector-copy!", BytevectorCopyModifyPrimitive)(int argc, FObject argv[])
 {
-    int strt;
-    int end;
+    FFixnum strt;
+    FFixnum end;
 
-    if (argc < 3 || argc > 5)
-        RaiseExceptionC(R.Assertion, "bytevector-copy!", "expected three to five arguments",
-                EmptyListObject);
-
-    if (BytevectorP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "bytevector-copy!", "expected a bytevector", List(argv[0]));
-
-    if (FixnumP(argv[1]) == 0 || AsFixnum(argv[1]) < 0
-        || AsFixnum(argv[1]) >= (FFixnum) BytevectorLength(argv[0]))
-        RaiseExceptionC(R.Assertion, "bytevector-copy!", "expected a valid index", List(argv[1]));
-
-    if (BytevectorP(argv[2]) == 0)
-        RaiseExceptionC(R.Assertion, "bytevector-copy!", "expected a bytevector", List(argv[2]));
+    ThreeToFiveArgsCheck("bytevector-copy!", argc);
+    BytevectorArgCheck("bytevector-copy!", argv[0]);
+    IndexArgCheck("bytevector-copy!", argv[1], BytevectorLength(argv[0]));
+    BytevectorArgCheck("bytevector-copy!", argv[2]);
 
     if (argc > 3)
     {
-        if (FixnumP(argv[3]) == 0 || AsFixnum(argv[3]) < 0
-            || AsFixnum(argv[3]) >= (FFixnum) BytevectorLength(argv[2]))
-            RaiseExceptionC(R.Assertion, "bytevector-copy!", "expected a valid index",
-                    List(argv[3]));
+        IndexArgCheck("bytevector-copy!", argv[3], BytevectorLength(argv[2]));
 
         strt = AsFixnum(argv[3]);
 
         if (argc > 4)
         {
-            if (FixnumP(argv[4]) == 0 || AsFixnum(argv[4]) < strt
-                || AsFixnum(argv[4]) >= (FFixnum) BytevectorLength(argv[2]))
-                RaiseExceptionC(R.Assertion, "bytevector-copy!", "expected a valid index",
-                        List(argv[4]));
+            EndIndexArgCheck("bytevector-copy!", argv[4], strt, BytevectorLength(argv[2]));
 
             end = AsFixnum(argv[4]);
         }
         else
-            end = (int) BytevectorLength(argv[2]);
+            end = (FFixnum) BytevectorLength(argv[2]);
     }
     else
     {
         strt = 0;
-        end = (int) BytevectorLength(argv[2]);
+        end = (FFixnum) BytevectorLength(argv[2]);
     }
 
     if ((FFixnum) BytevectorLength(argv[0]) - AsFixnum(argv[1]) < end - strt)
@@ -445,9 +726,7 @@ Define("bytevector-append", BytevectorAppendPrimitive)(int argc, FObject argv[])
 
     for (int adx = 0; adx < argc; adx++)
     {
-        if (BytevectorP(argv[adx]) == 0)
-            RaiseExceptionC(R.Assertion, "bytevector-append", "expected a bytevector",
-                    List(argv[adx]));
+        BytevectorArgCheck("bytevector-append", argv[adx]);
 
         len += BytevectorLength(argv[adx]);
     }
@@ -645,37 +924,28 @@ Define("utf8->string", Utf8ToStringPrimitive)(int argc, FObject argv[])
     int strt;
     int end;
 
-    if (argc < 1 || argc > 3)
-        RaiseExceptionC(R.Assertion, "utf8->string", "expected one to three arguments",
-                EmptyListObject);
-
-    if (BytevectorP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "utf8->string", "expected a bytevector", List(argv[0]));
+    OneToThreeArgsCheck("utf8->string", argc);
+    BytevectorArgCheck("utf8->string", argv[0]);
 
     if (argc > 1)
     {
-        if (FixnumP(argv[1]) == 0 || AsFixnum(argv[1]) < 0
-            || AsFixnum(argv[1]) >= (FFixnum) BytevectorLength(argv[0]))
-            RaiseExceptionC(R.Assertion, "utf8->string", "expected a valid index", List(argv[1]));
+        IndexArgCheck("utf8->string", argv[1], BytevectorLength(argv[0]));
 
         strt = AsFixnum(argv[1]);
 
         if (argc > 2)
         {
-            if (FixnumP(argv[2]) == 0 || AsFixnum(argv[2]) < strt
-                || AsFixnum(argv[2]) >= (FFixnum) BytevectorLength(argv[0]))
-                RaiseExceptionC(R.Assertion, "utf8->string", "expected a valid index",
-                        List(argv[2]));
+            EndIndexArgCheck("utf8->string", argv[2], strt, BytevectorLength(argv[0]));
 
             end = AsFixnum(argv[2]);
         }
         else
-            end = (int) BytevectorLength(argv[0]);
+            end = (FFixnum) BytevectorLength(argv[0]);
     }
     else
     {
         strt = 0;
-        end = (int) BytevectorLength(argv[0]);
+        end = (FFixnum) BytevectorLength(argv[0]);
     }
 
     FAssert(end >= strt);
@@ -693,37 +963,28 @@ Define("string->utf8", StringToUtf8Primitive)(int argc, FObject argv[])
     int strt;
     int end;
 
-    if (argc < 1 || argc > 3)
-        RaiseExceptionC(R.Assertion, "string->utf8", "expected one to three arguments",
-                EmptyListObject);
-
-    if (StringP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "string->utf8", "expected a string", List(argv[0]));
+    OneToThreeArgsCheck("string->utf8", argc);
+    StringArgCheck("string->utf8", argv[0]);
 
     if (argc > 1)
     {
-        if (FixnumP(argv[1]) == 0 || AsFixnum(argv[1]) < 0
-            || AsFixnum(argv[1]) >= (FFixnum) StringLength(argv[0]))
-            RaiseExceptionC(R.Assertion, "string->utf8", "expected a valid index", List(argv[1]));
+        IndexArgCheck("string->utf8", argv[1], StringLength(argv[0]));
 
         strt = AsFixnum(argv[1]);
 
         if (argc > 2)
         {
-            if (FixnumP(argv[2]) == 0 || AsFixnum(argv[2]) < strt
-                || AsFixnum(argv[2]) >= (FFixnum) StringLength(argv[0]))
-                RaiseExceptionC(R.Assertion, "string->utf8", "expected a valid index",
-                        List(argv[2]));
+            EndIndexArgCheck("string->utf8", argv[2], strt, StringLength(argv[0]));
 
             end = AsFixnum(argv[2]);
         }
         else
-            end = (int) StringLength(argv[0]);
+            end = (FFixnum) StringLength(argv[0]);
     }
     else
     {
         strt = 0;
-        end = (int) StringLength(argv[0]);
+        end = (FFixnum) StringLength(argv[0]);
     }
 
     FAssert(end >= strt);
@@ -744,7 +1005,14 @@ static FPrimitive * Primitives[] =
     &VectorLengthPrimitive,
     &VectorRefPrimitive,
     &VectorSetPrimitive,
+    &VectorToListPrimitive,
     &ListToVectorPrimitive,
+    &VectorToStringPrimitive,
+    &StringToVectorPrimitive,
+    &VectorCopyPrimitive,
+    &VectorCopyModifyPrimitive,
+    &VectorAppendPrimitive,
+    &VectorFillPrimitive,
     &BytevectorPPrimitive,
     &MakeBytevectorPrimitive,
     &BytevectorPrimitive,

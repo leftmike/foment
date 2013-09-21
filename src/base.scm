@@ -188,7 +188,7 @@
 ;        string->number
         string->symbol
         string->utf8
-;        string->vector
+        string->vector
 ;        string-append
 ;        string-copy
 ;        string-copy!
@@ -222,12 +222,12 @@
         utf8->string
         values
         vector
-;        vector->list
-;        vector->string
-;        vector-append
-;        vector-copy
-;        vector-copy!
-;        vector-fill!
+        vector->list
+        vector->string
+        vector-append
+        vector-copy
+        vector-copy!
+        vector-fill!
 ;        vector-for-each
         vector-length
 ;        vector-map
@@ -799,7 +799,7 @@
 ;;        string->number
         string->symbol
         string->utf8
-;;        string->vector
+        string->vector
 ;;        string-append
 ;;        string-copy
 ;;        string-copy!
@@ -833,12 +833,12 @@
         utf8->string
         values
         vector
-;;        vector->list
-;;        vector->string
-;;        vector-append
-;;        vector-copy
-;;        vector-copy!
-;;        vector-fill!
+        vector->list
+        vector->string
+        vector-append
+        vector-copy
+        vector-copy!
+        vector-fill!
 ;;        vector-for-each
         vector-length
 ;;        vector-map

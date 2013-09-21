@@ -55,6 +55,7 @@ Bugs:
 
 Testing:
 -- bytevectors complete except utf8 conversions need more testing
+-- vectors complete except list->vector needs to type check list
 
 */
 
