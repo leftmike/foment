@@ -22,7 +22,7 @@ library is used by interaction-environment
 -- current-input-port and current-output-port need to be parameters
 
 -- IO and GC
--- boxes, vectors, procedures, records, and pairs need to be read using scheme code
+-- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
 -- use EnterWait and LeaveWait
 
 -- from Gambit:
