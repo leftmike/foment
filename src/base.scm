@@ -46,14 +46,14 @@
         cddr
         cdr
 ;        ceiling
-;        char->integer
+        char->integer
 ;        char-ready?
-;        char<=?
-;        char<?
-;        char=?
-;        char>=?
-;        char>?
-;        char?
+        char<=?
+        char<?
+        char=?
+        char>=?
+        char>?
+        char?
 ;        close-input-port
 ;        close-output-port
 ;        close-port
@@ -106,7 +106,7 @@
 ;        inexact?
 ;        input-port-open?
 ;        input-port?
-;        integer->char
+        integer->char
 ;        integer?
         lambda
 ;        lcm
@@ -245,6 +245,30 @@
     (export ;; (scheme case-lambda)
         case-lambda)
 
+    (export ;; (scheme char)
+;        char-alphabetic?
+        char-ci<=?
+        char-ci<?
+        char-ci=?
+        char-ci>=?
+        char-ci>?
+;        char-downcase
+        char-foldcase
+;        char-lower-case?
+        char-numeric?
+;        char-upcase
+;        char-upper-case?
+;        char-whitespace?
+        digit-value
+;        string-ci<=?
+;        string-ci<?
+;        string-ci=?
+;        string-ci>=?
+;        string-ci>?
+;        string-downcase
+;        string-foldcase
+;        string-upcase
+    )
     (export ;; (scheme eval)
 ;        environment
          eval)
@@ -657,14 +681,14 @@
         cddr
         cdr
 ;;        ceiling
-;;        char->integer
+        char->integer
 ;;        char-ready?
-;;        char<=?
-;;        char<?
-;;        char=?
-;;        char>=?
-;;        char>?
-;;        char?
+        char<=?
+        char<?
+        char=?
+        char>=?
+        char>?
+        char?
 ;;        close-input-port
 ;;        close-output-port
 ;;        close-port
@@ -717,7 +741,7 @@
 ;;        inexact?
 ;;        input-port-open?
 ;;        input-port?
-;;        integer->char
+        integer->char
 ;;        integer?
         lambda
 ;;        lcm
@@ -859,7 +883,33 @@
     (export
         case-lambda))
 
-;; (define-library (scheme char)
+(define-library (scheme char)
+    (import (foment base))
+
+    (export
+;;        char-alphabetic?
+        char-ci<=?
+        char-ci<?
+        char-ci=?
+        char-ci>=?
+        char-ci>?
+;;        char-downcase
+        char-foldcase
+;;        char-lower-case?
+        char-numeric?
+;;        char-upcase
+;;        char-upper-case?
+;;        char-whitespace?
+        digit-value
+;;        string-ci<=?
+;;        string-ci<?
+;;        string-ci=?
+;;        string-ci>=?
+;;        string-ci>?
+;;        string-downcase
+;;        string-foldcase
+;;        string-upcase
+    ))
 
 ;; (define-library (scheme complex)
 

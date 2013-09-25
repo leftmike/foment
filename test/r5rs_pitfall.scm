@@ -53,9 +53,9 @@
 (must-equal #t
   (letrec ((x (call-with-current-continuation
 		  (lambda (c)
-		    (list #T c)))))
+		    (list #t c)))))
       (if (car x)
-	  ((cadr x) (list #F (lambda () x)))
+	  ((cadr x) (list #f (lambda () x)))
 	  (eq? x ((cadr x))))))
 
 ;; Section 2: Proper call/cc and procedure application

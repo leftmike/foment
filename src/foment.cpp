@@ -1400,6 +1400,7 @@ void SetupFoment(FThreadState * ts, int argc, char * argv[])
     }
 
     SetupPairs();
+    SetupCharacters();
     SetupStrings();
     SetupVectors();
     SetupIO();

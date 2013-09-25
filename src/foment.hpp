@@ -15,8 +15,6 @@ To Do:
 -- import and define-library should not be in (scheme base), but should be in whatever
 library is used by interaction-environment
 
--- read: #true and #false
-
 -- strings and srfi-13
 
 -- current-input-port and current-output-port need to be parameters
@@ -54,8 +52,8 @@ Bugs:
 -- r5rs_pitfall.scm: yin-yang does not terminate
 
 Testing:
--- bytevectors complete except utf8 conversions need more testing
--- vectors complete except list->vector needs to type check list
+-- 6.8 vectors complete except list->vector needs to type check list
+-- 6.9 bytevectors complete except utf8 conversions need more testing
 
 */
 
@@ -379,7 +377,7 @@ inline unsigned int StringLength(FObject obj)
 }
 
 void StringToC(FObject s, char * b, int bl);
-int StringAsNumber(FCh * s, int sl, FFixnum * np);
+int StringToNumber(FCh * s, int sl, FFixnum * np, FFixnum b);
 int NumberAsString(FFixnum n, FCh * s, FFixnum b);
 int ChAlphabeticP(FCh ch);
 int ChNumericP(FCh ch);
@@ -393,7 +391,7 @@ unsigned int StringHash(FObject obj);
 int StringCompare(FString * str1, FString * str2);
 int StringEqualP(FObject obj1, FObject obj2);
 int StringLengthEqualP(FCh * s, int sl, FObject obj);
-int StringCEqualP(char * s, FObject obj);
+int StringCEqualP(char * s1, FCh * s2, int sl2);
 unsigned int BytevectorHash(FObject obj);
 
 // ---- Vectors ----
@@ -755,7 +753,7 @@ typedef struct _FThreadState
     FObject Parameters;
 } FThreadState;
 
-// ----------------
+// ---- Roots ----
 
 typedef struct
 {
@@ -840,6 +838,113 @@ typedef struct
 
 extern FRoots R;
 
+// ---- Argument Checking ----
+
+inline void OneArgCheck(char * who, int argc)
+{
+    if (argc != 1)
+        RaiseExceptionC(R.Assertion, who, "expected one argument", EmptyListObject);
+}
+
+inline void TwoArgsCheck(char * who, int argc)
+{
+    if (argc != 2)
+        RaiseExceptionC(R.Assertion, who, "expected two arguments", EmptyListObject);
+}
+
+inline void ThreeArgsCheck(char * who, int argc)
+{
+    if (argc != 3)
+        RaiseExceptionC(R.Assertion, who, "expected three arguments", EmptyListObject);
+}
+
+inline void AtLeastTwoArgsCheck(char * who, int argc)
+{
+    if (argc < 2)
+        RaiseExceptionC(R.Assertion, who, "expected at least two arguments", EmptyListObject);
+}
+
+inline void OneOrTwoArgsCheck(char * who, int argc)
+{
+    if (argc < 1 || argc > 2)
+        RaiseExceptionC(R.Assertion, who, "expected one or two arguments", EmptyListObject);
+}
+
+inline void OneToThreeArgsCheck(char * who, int argc)
+{
+    if (argc < 1 || argc > 3)
+        RaiseExceptionC(R.Assertion, who, "expected one to three arguments", EmptyListObject);
+}
+
+inline void TwoToFourArgsCheck(char * who, int argc)
+{
+    if (argc < 2 || argc > 4)
+        RaiseExceptionC(R.Assertion, who, "expected two to four arguments", EmptyListObject);
+}
+
+inline void ThreeToFiveArgsCheck(char * who, int argc)
+{
+    if (argc < 3 || argc > 5)
+        RaiseExceptionC(R.Assertion, who, "expected three to five arguments", EmptyListObject);
+}
+
+inline void NonNegativeArgCheck(char * who, FObject arg)
+{
+    if (FixnumP(arg) == 0 || AsFixnum(arg) < 0)
+        RaiseExceptionC(R.Assertion, who, "expected an exact non-negative integer", List(arg));
+}
+
+inline void IndexArgCheck(char * who, FObject arg, FFixnum len)
+{
+    if (FixnumP(arg) == 0 || AsFixnum(arg) < 0 || AsFixnum(arg) >= len)
+        RaiseExceptionC(R.Assertion, who, "expected a valid index", List(arg));
+}
+
+inline void EndIndexArgCheck(char * who, FObject arg, FFixnum strt, FFixnum len)
+{
+    if (FixnumP(arg) == 0 || AsFixnum(arg) < strt || AsFixnum(arg) > len)
+        RaiseExceptionC(R.Assertion, who, "expected a valid index", List(arg));
+}
+
+inline void ByteArgCheck(char * who, FObject obj)
+{
+    if (FixnumP(obj) == 0 || AsFixnum(obj) < 0 || AsFixnum(obj) >= 256)
+        RaiseExceptionC(R.Assertion, who, "expected a byte: an exact integer between 0 and 255",
+                List(obj));
+}
+
+inline void FixnumArgCheck(char * who, FObject obj)
+{
+    if (FixnumP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a fixnum", List(obj));
+}
+
+inline void CharacterArgCheck(char * who, FObject obj)
+{
+    if (CharacterP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a character", List(obj));
+}
+
+inline void StringArgCheck(char * who, FObject obj)
+{
+    if (StringP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a string", List(obj));
+}
+
+inline void VectorArgCheck(char * who, FObject obj)
+{
+    if (VectorP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a vector", List(obj));
+}
+
+inline void BytevectorArgCheck(char * who, FObject obj)
+{
+    if (BytevectorP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a bytevector", List(obj));
+}
+
+// ----------------
+
 extern unsigned int BytesAllocated;
 extern unsigned int CollectionCount;
 
@@ -868,6 +973,7 @@ extern unsigned int SetupComplete;
 void SetupCore(FThreadState * ts);
 void SetupLibrary();
 void SetupPairs();
+void SetupCharacters();
 void SetupStrings();
 void SetupVectors();
 void SetupIO();

@@ -22,9 +22,9 @@ clean: debug release manual
 
 test: all
     debug\foment -I ..\test -t ..\test\r7rs.scm ..\test\foment.scm ..\test\eccentric.scm\
-        ..\test\r5rs_pitfall.scm
+        ..\test\r5rs_pitfall.scm ..\test\unicode.scm
     release\foment -I ..\test -t ..\test\r7rs.scm ..\test\foment.scm ..\test\eccentric.scm\
-        ..\test\r5rs_pitfall.scm
+        ..\test\r5rs_pitfall.scm ..\test\unicode.scm
 
 stress: all
     debug\foment -I ..\test -t ..\test\stress.scm ..\test\r7rs.scm
@@ -39,36 +39,52 @@ release:
 manual:
     -mkdir manual
 
+unicode: debug\genuni.exe
+#    debug\genuni ..\unidata\UnicodeData.txt
+    debug\genuni ..\unidata\CaseFolding.txt 0 2 0 556 > debug\cf0to556.txt
+    debug\genuni ..\unidata\CaseFolding.txt 0 2 10A0 10CD > debug\cf10A0to10CD.txt
+    debug\genuni ..\unidata\CaseFolding.txt 0 2 1E00 1FFC > debug\cf1E00to1FFC.txt
+    debug\genuni ..\unidata\CaseFolding.txt 0 2 2126 2183 > debug\cf2126to2183.txt
+    debug\genuni ..\unidata\CaseFolding.txt 0 2 24B6 24CF > debug\cf24B6to24CF.txt
+    debug\genuni ..\unidata\CaseFolding.txt 0 2 2C00 2CF2 > debug\cf2C00to2CF2.txt
+    debug\genuni ..\unidata\CaseFolding.txt 0 2 A640 A7AA > debug\cfA640toA7AA.txt
+    debug\genuni ..\unidata\CaseFolding.txt 0 2 FF21 FF3A > debug\cfFF21toFF3A.txt
+    debug\genuni ..\unidata\CaseFolding.txt 0 2 10400 10427 > debug\cf10400to10427.txt
+
 debug\base.cpp: debug\txt2cpp.exe ..\src\base.scm makefile
     debug\txt2cpp ..\src\base.scm debug\base.cpp BaseCode
 
 debug\foment.exe: debug\foment.obj debug\gc.obj debug\syncthrd.obj debug\compile.obj debug\io.obj\
         debug\synrules.obj debug\synpass.obj debug\midpass.obj debug\genpass.obj\
-        debug\pairs.obj debug\strings.obj debug\vectors.obj debug\library.obj\
+        debug\pairs.obj debug\chars.obj debug\strings.obj debug\vectors.obj debug\library.obj\
         debug\execute.obj debug\numbers.obj debug\pretty.obj debug\main.obj\
         debug\base.obj debug\test.obj
     link /nologo /subsystem:console /out:debug\foment.exe\
         /debug /pdb:debug\foment.pdb\
         debug\foment.obj debug\gc.obj debug\syncthrd.obj debug\compile.obj debug\io.obj\
         debug\synrules.obj debug\synpass.obj debug\midpass.obj debug\genpass.obj debug\pairs.obj\
-        debug\strings.obj debug\vectors.obj debug\library.obj debug\execute.obj debug\numbers.obj\
-        debug\pretty.obj debug\main.obj debug\base.obj debug\test.obj
+        debug\strings.obj debug\chars.obj debug\vectors.obj debug\library.obj debug\execute.obj\
+        debug\numbers.obj debug\pretty.obj debug\main.obj debug\base.obj debug\test.obj
 
 release\foment.exe: release\foment.obj release\gc.obj release\syncthrd.obj release\compile.obj\
         release\io.obj release\synrules.obj release\synpass.obj release\midpass.obj\
-        release\genpass.obj release\pairs.obj release\strings.obj release\vectors.obj\
-        release\library.obj release\execute.obj release\numbers.obj\
+        release\genpass.obj release\pairs.obj release\chars.obj release\strings.obj\
+        release\vectors.obj release\library.obj release\execute.obj release\numbers.obj\
         release\pretty.obj release\main.obj release\base.obj release\test.obj
     link /nologo /subsystem:console /out:release\foment.exe\
         release\foment.obj release\gc.obj  release\syncthrd.obj release\compile.obj\
         release\io.obj release\synrules.obj release\synpass.obj release\midpass.obj\
-        release\genpass.obj release\pairs.obj release\strings.obj release\vectors.obj\
-        release\library.obj release\execute.obj release\numbers.obj\
+        release\genpass.obj release\pairs.obj release\chars.obj release\strings.obj\
+        release\vectors.obj release\library.obj release\execute.obj release\numbers.obj\
         release\pretty.obj release\main.obj release\base.obj release\test.obj
 
 debug\txt2cpp.exe: debug\txt2cpp.obj
     link /nologo /subsystem:console /out:debug\txt2cpp.exe\
     debug\txt2cpp.obj
+
+debug\genuni.exe: debug\genuni.obj
+    link /nologo /subsystem:console /out:debug\genuni.exe\
+    debug\genuni.obj
 
 debug\foment.obj: ..\src\foment.cpp ..\src\foment.hpp
 debug\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\io.hpp ..\src\syncthrd.hpp
@@ -79,6 +95,7 @@ debug\synpass.obj: ..\src\synpass.cpp ..\src\foment.hpp ..\src\compile.hpp
 debug\midpass.obj: ..\src\midpass.cpp ..\src\foment.hpp ..\src\compile.hpp
 debug\genpass.obj: ..\src\genpass.cpp ..\src\foment.hpp ..\src\compile.hpp ..\src\execute.hpp
 debug\pairs.obj: ..\src\pairs.cpp ..\src\foment.hpp
+debug\chars.obj: ..\src\chars.cpp ..\src\foment.hpp ..\src\unidata.hpp
 debug\strings.obj: ..\src\strings.cpp ..\src\foment.hpp
 debug\vectors.obj: ..\src\vectors.cpp ..\src\foment.hpp
 debug\library.obj: ..\src\library.cpp ..\src\foment.hpp ..\src\compile.hpp
@@ -99,6 +116,7 @@ release\synpass.obj: ..\src\synpass.cpp ..\src\foment.hpp ..\src\compile.hpp
 release\midpass.obj: ..\src\midpass.cpp ..\src\foment.hpp ..\src\compile.hpp
 release\genpass.obj: ..\src\genpass.cpp ..\src\foment.hpp ..\src\compile.hpp ..\src\execute.hpp
 release\pairs.obj: ..\src\pairs.cpp ..\src\foment.hpp
+release\chars.obj: ..\src\chars.cpp ..\src\foment.hpp ..\src\unidata.hpp
 release\strings.obj: ..\src\strings.cpp ..\src\foment.hpp
 release\vectors.obj: ..\src\vectors.cpp ..\src\foment.hpp
 release\library.obj: ..\src\library.cpp ..\src\foment.hpp ..\src\compile.hpp
@@ -111,6 +129,7 @@ release\base.obj: debug\base.cpp
 release\test.obj: ..\src\test.cpp ..\src\foment.hpp
 
 debug\txt2cpp.obj: ..\src\txt2cpp.cpp
+debug\genuni.obj: .\genuni.cpp
 
 {.}.cpp.{debug}.obj:
     cl $(CLDEBUG) $(*B).cpp

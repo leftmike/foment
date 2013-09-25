@@ -492,23 +492,17 @@ static FObject DoReadString(FObject port)
     return(MakeString(s, sl));
 }
 
-static FObject DoReadSymbolOrNumber(FObject port, int ch, int rif, int fcf)
+static int DoReadToken(FObject port, int ch, FCh * s, int msl)
 {
-    FCh s[256];
     int sl;
     int eof;
-    FFixnum n;
-    int ln;
-
-    if (rif)
-        ln = GetLocation(port);
 
     sl = 0;
     for (;;)
     {
         s[sl] = ch;
         sl += 1;
-        if (sl == sizeof(s) / sizeof(FCh))
+        if (sl == msl)
             RaiseExceptionC(R.Restriction, "read", "symbol or number too long", List(port));
 
         ch = PeekCh(port, &eof);
@@ -519,7 +513,21 @@ static FObject DoReadSymbolOrNumber(FObject port, int ch, int rif, int fcf)
         FAssert(eof == 0);
     }
 
-    if (StringAsNumber(s, sl, &n))
+    return(sl);
+}
+
+static FObject DoReadSymbolOrNumber(FObject port, int ch, int rif, int fcf)
+{
+    FCh s[256];
+    FFixnum n;
+    int ln;
+
+    if (rif)
+        ln = GetLocation(port);
+
+    int sl = DoReadToken(port, ch, s, sizeof(s) / sizeof(FCh));
+
+    if (StringToNumber(s, sl, &n, 10))
         return(MakeFixnum(n));
 
     FObject sym = fcf ? StringToSymbol(FoldCaseString(MakeString(s, sl)))
@@ -530,6 +538,133 @@ static FObject DoReadSymbolOrNumber(FObject port, int ch, int rif, int fcf)
 }
 
 static FObject DoReadList(FObject port, int rif, int fcf);
+static FObject DoReadSharp(FObject port, int rif, int fcf)
+{
+    int eof;
+
+    int ch = GetCh(port, &eof);
+    if (eof)
+        RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading #", List(port));
+
+    if (ch == 't' || ch == 'f')
+    {
+        FCh s[16];
+
+        int sl = DoReadToken(port, ch, s, sizeof(s) / sizeof(FCh));
+
+        if (StringCEqualP("t", s, sl) || StringCEqualP("true", s, sl))
+            return(TrueObject);
+
+        if (StringCEqualP("f", s, sl) || StringCEqualP("false", s, sl))
+            return(FalseObject);
+
+        RaiseExceptionC(R.Lexical, "read", "unexpected character(s) following #",
+                List(port, MakeString(s, sl)));
+    }
+    else if (ch == '\\')
+    {
+        FCh s[32];
+
+        ch = GetCh(port, &eof);
+        if (eof)
+            RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading #\\", List(port));
+
+        if (SymbolChP(ch) == 0)
+            return(MakeCharacter(ch));
+
+        int sl = DoReadToken(port, ch, s, sizeof(s) / sizeof(FCh));
+
+        if (sl == 1)
+            return(MakeCharacter(ch));
+
+        if (s[0] == 'x')
+        {
+            FAssert(sl > 1);
+
+            FFixnum n;
+
+            if (StringToNumber(s + 1, sl - 1, &n, 16) == 0 || n < 0)
+                RaiseExceptionC(R.Lexical, "read", "expected #\\x<hex value>",
+                        List(port, MakeString(s, sl)));
+
+            return(MakeCharacter(n));
+        }
+
+        if (StringCEqualP("alarm", s, sl))
+            return(MakeCharacter(0x0007));
+
+        if (StringCEqualP("backspace", s, sl))
+            return(MakeCharacter(0x0008));
+
+        if (StringCEqualP("delete", s, sl))
+            return(MakeCharacter(0x007F));
+
+        if (StringCEqualP("escape", s, sl))
+            return(MakeCharacter(0x001B));
+
+        if (StringCEqualP("newline", s, sl))
+            return(MakeCharacter(0x000A));
+
+        if (StringCEqualP("null", s, sl))
+            return(MakeCharacter(0x0000));
+
+        if (StringCEqualP("return", s, sl))
+            return(MakeCharacter(0x000D));
+
+        if (StringCEqualP("space", s, sl))
+            return(MakeCharacter(' '));
+
+        if (StringCEqualP("tag", s, sl))
+            return(MakeCharacter(0x0009));
+
+        RaiseExceptionC(R.Lexical, "read", "unexpected character name",
+                List(port, MakeString(s, sl)));
+    }
+    else if (ch == 'b' || ch == 'o' || ch == 'd' || ch == 'x')
+    {
+        FCh s[32];
+        FFixnum n;
+        int b = (ch == 'b' ? 2 : (ch == 'o' ? 8 : (ch == 'd' ? 10 : 16)));
+
+        ch = GetCh(port, &eof);
+        if (eof)
+            RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading constant",
+                    List(port));
+
+        int sl = DoReadToken(port, ch, s, sizeof(s) / sizeof(FCh));
+
+        if (StringToNumber(s, sl, &n, b) == 0)
+            RaiseExceptionC(R.Lexical, "read", "expected a numerical constant",
+                    List(port, MakeString(s, sl)));
+
+        return(MakeFixnum(n));
+    }
+    else if (ch ==  '(')
+        return(ListToVector(DoReadList(port, rif, fcf)));
+    else if (ch == 'u')
+    {
+        ch = GetCh(port, &eof);
+        if (eof)
+            RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading bytevector",
+                    List(port));
+        if (ch != '8')
+            RaiseExceptionC(R.Lexical, "read", "expected #\u8(", List(port));
+
+        ch = GetCh(port, &eof);
+        if (eof)
+            RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading bytevector",
+                    List(port));
+        if (ch != '(')
+            RaiseExceptionC(R.Lexical, "read", "expected #\u8(", List(port));
+        return(U8ListToBytevector(DoReadList(port, rif, fcf)));
+    }
+
+    RaiseExceptionC(R.Lexical, "read", "unexpected character following #",
+            List(port, MakeCharacter(ch)));
+
+    return(NoValueObject);
+}
+
 static FObject DoRead(FObject port, int eaf, int rlf, int rif, int fcf)
 {
     FCh ch;
@@ -556,51 +691,7 @@ static FObject DoRead(FObject port, int eaf, int rlf, int rif, int fcf)
             switch (ch)
             {
             case '#':
-                ch = GetCh(port, &eof);
-                if (eof)
-                    RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading #",
-                            List(port));
-
-                switch (ch)
-                {
-                case 't':
-                case 'T':
-                    return(TrueObject);
-
-                case 'f':
-                case 'F':
-                    return(FalseObject);
-
-                case '\\':
-                    ch = GetCh(port, &eof);
-                    if (eof)
-                        RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading #\\",
-                                List(port));
-                    return(MakeCharacter(ch));
-
-                case '(':
-                    return(ListToVector(DoReadList(port, rif, fcf)));
-
-                case 'u':
-                    ch = GetCh(port, &eof);
-                    if (eof)
-                        RaiseExceptionC(R.Lexical, "read",
-                                "unexpected end-of-file reading bytevector", List(port));
-                    if (ch != '8')
-                        RaiseExceptionC(R.Lexical, "read", "expected #\u8(", List(port));
-
-                    ch = GetCh(port, &eof);
-                    if (eof)
-                        RaiseExceptionC(R.Lexical, "read",
-                                "unexpected end-of-file reading bytevector", List(port));
-                    if (ch != '(')
-                        RaiseExceptionC(R.Lexical, "read", "expected #\u8(", List(port));
-                    return(U8ListToBytevector(DoReadList(port, rif, fcf)));
-                }
-
-                RaiseExceptionC(R.Lexical, "read", "unexpected character following #",
-                        List(port));
-                break;
+                return(DoReadSharp(port, rif, fcf));
 
             case '"':
                 return(DoReadString(port));
@@ -1183,9 +1274,19 @@ void WriteGeneric(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx)
     }
     else if (CharacterP(obj))
     {
-        if (df == 0)
-            PutStringC(port, "#\\");
-        PutCh(port, AsCharacter(obj));
+        if (AsCharacter(obj) < 128)
+        {
+            if (df == 0)
+                PutStringC(port, "#\\");
+            PutCh(port, AsCharacter(obj));
+        }
+        else
+        {
+            FCh s[16];
+            int sl = NumberAsString(AsCharacter(obj), s, 16);
+            PutStringC(port, "#\\x");
+            PutString(port, s, sl);
+        }
     }
     else if (SpecialSyntaxP(obj))
         WriteSpecialSyntax(port, obj, df);

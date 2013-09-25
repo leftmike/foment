@@ -4,6 +4,7 @@
 
 (import (scheme base))
 (import (scheme case-lambda))
+(import (scheme char))
 (import (scheme inexact))
 (import (scheme write))
 
@@ -28,16 +29,16 @@
 (must-equal 145932 145932)
 (must-equal "abc" '"abc")
 (must-equal "abc" "abc")
-;(must-equal # '#)
-;(must-equal # #)
+(must-equal #\a '#\a)
+(must-equal #\a #\a)
 (must-equal #(a 10) '#(a 10))
 (must-equal #(a 10) #(a 10))
 (must-equal #u8(64 65) '#u8(64 65))
 (must-equal #u8(64 65) #u8(64 65))
 (must-equal #t '#t)
 (must-equal #t #t)
-;(must-equal #t #true)
-;(must-equal #f #false)
+(must-equal #t #true)
+(must-equal #f #false)
 
 (must-equal #(a 10) ((lambda () '#(a 10))))
 (must-equal #(a 10) ((lambda () #(a 10))))
@@ -840,6 +841,153 @@
 
 (must-equal (c b a) (reverse '(a b c)))
 (must-equal ((e (f)) d (b c) a) (reverse '(a (b c) d (e (f)))))
+
+;;
+;; ---- characters ----
+;;
+
+(must-equal #\x7f #\delete)
+(must-equal #\x1B #\escape)
+
+(must-equal #t (char? #\a))
+(must-equal #t (char? #\x03BB))
+(must-equal #f (char? #x03BB))
+(must-equal #f (char? "a"))
+
+(must-raise (assertion-violation char?) (char?))
+(must-raise (assertion-violation char?) (char? #\a 10))
+
+(must-equal #t (char=? #\delete #\x7f))
+(must-equal #t (char=? #\a #\a))
+(must-equal #t (char=? #\a #\a #\a))
+(must-equal #f (char=? #\a #\a #\b))
+
+(must-raise (assertion-violation char=?) (char=? #\a))
+(must-raise (assertion-violation char=?) (char=? #\a #\a 10))
+
+(must-equal #t (char<? #\a #\b))
+(must-equal #t (char<? #\a #\b #\c))
+(must-equal #f (char<? #\a #\b #\c #\c))
+(must-equal #f (char<? #\b #\b #\c))
+
+(must-raise (assertion-violation char<?) (char<? #\a))
+(must-raise (assertion-violation char<?) (char<? #\a #\b 10))
+
+(must-equal #t (char>? #\b #\a))
+(must-equal #t (char>? #\c #\b #\a))
+(must-equal #f (char>? #\c #\b #\a #\a))
+(must-equal #f (char>? #\b #\b #\a))
+
+(must-raise (assertion-violation char>?) (char>? #\a))
+(must-raise (assertion-violation char>?) (char>? #\b #\a 10))
+
+(must-equal #t (char<=? #\a #\b #\b #\c #\d))
+(must-equal #f (char<=? #\a #\c #\d #\a))
+
+(must-raise (assertion-violation char<=?) (char<=? #\a))
+(must-raise (assertion-violation char<=?) (char<=? #\a #\a 10))
+
+(must-equal #t (char>=? #\d #\c #\c #\b #\a))
+(must-equal #f (char>=? #\d #\c #\b #\c))
+
+(must-raise (assertion-violation char>=?) (char>=? #\a))
+(must-raise (assertion-violation char>=?) (char>=? #\a #\a 10))
+
+(must-equal #t (char-ci=? #\delete #\x7f))
+(must-equal #t (char-ci=? #\a #\a))
+(must-equal #t (char-ci=? #\a #\A #\a))
+(must-equal #f (char-ci=? #\a #\a #\b))
+
+(must-raise (assertion-violation char-ci=?) (char-ci=? #\a))
+(must-raise (assertion-violation char-ci=?) (char-ci=? #\a #\a 10))
+
+(must-equal #t (char-ci<? #\a #\b))
+(must-equal #t (char-ci<? #\a #\B #\c))
+(must-equal #f (char-ci<? #\a #\b #\c #\c))
+(must-equal #f (char-ci<? #\b #\B #\c))
+
+(must-raise (assertion-violation char-ci<?) (char-ci<? #\a))
+(must-raise (assertion-violation char-ci<?) (char-ci<? #\a #\b 10))
+
+(must-equal #t (char-ci>? #\b #\a))
+(must-equal #t (char-ci>? #\c #\B #\a))
+(must-equal #f (char-ci>? #\c #\b #\a #\a))
+(must-equal #f (char-ci>? #\b #\B #\a))
+
+(must-raise (assertion-violation char-ci>?) (char-ci>? #\a))
+(must-raise (assertion-violation char-ci>?) (char-ci>? #\b #\a 10))
+
+(must-equal #t (char-ci<=? #\a #\B #\b #\c #\d))
+(must-equal #f (char-ci<=? #\a #\c #\d #\A))
+
+(must-raise (assertion-violation char-ci<=?) (char-ci<=? #\a))
+(must-raise (assertion-violation char-ci<=?) (char-ci<=? #\a #\a 10))
+
+(must-equal #t (char-ci>=? #\d #\c #\C #\b #\a))
+(must-equal #f (char-ci>=? #\d #\C #\b #\c))
+
+(must-raise (assertion-violation char-ci>=?) (char-ci>=? #\a))
+(must-raise (assertion-violation char-ci>=?) (char-ci>=? #\a #\a 10))
+
+    
+    
+(must-equal #t (char-numeric? #\3))
+(must-equal #t (char-numeric? #\x0664))
+(must-equal #t (char-numeric? #\x0AE6))
+(must-equal #f (char-numeric? #\x0EA6))
+
+(must-raise (assertion-violation char-numeric?) (char-numeric?))
+(must-raise (assertion-violation char-numeric?) (char-numeric? 10))
+(must-raise (assertion-violation char-numeric?) (char-numeric? #\a #\a))
+    
+    
+(must-equal 3 (digit-value #\3))
+(must-equal 4 (digit-value #\x0664))
+(must-equal 0 (digit-value #\x0AE6))
+(must-equal #f (digit-value #\x0EA6))
+
+(must-raise (assertion-violation digit-value) (digit-value))
+(must-raise (assertion-violation digit-value) (digit-value 10))
+(must-raise (assertion-violation digit-value) (digit-value #\a #\a))
+
+(must-equal #x03BB (char->integer #\x03BB))
+(must-equal #xD (char->integer #\return))
+
+(must-raise (assertion-violation char->integer) (char->integer))
+(must-raise (assertion-violation char->integer) (char->integer #\a #\a))
+(must-raise (assertion-violation char->integer) (char->integer 10))
+
+(must-equal #\newline (integer->char #x0A))
+
+(must-raise (assertion-violation integer->char) (integer->char))
+(must-raise (assertion-violation integer->char) (integer->char 10 10))
+(must-raise (assertion-violation integer->char) (integer->char #\a))
+
+    
+    
+    
+
+(must-equal #\x0064 (char-foldcase #\x0044))
+(must-equal #\x00FE (char-foldcase #\x00DE))
+(must-equal #\x016D (char-foldcase #\x016C))
+(must-equal #\x0201 (char-foldcase #\x0200))
+(must-equal #\x043B (char-foldcase #\x041B))
+(must-equal #\x0511 (char-foldcase #\x0510))
+(must-equal #\x1E1F (char-foldcase #\x1E1E))
+(must-equal #\x1EF7 (char-foldcase #\x1EF6))
+(must-equal #\x2C52 (char-foldcase #\x2C22))
+(must-equal #\xA743 (char-foldcase #\xA742))
+(must-equal #\xFF4D (char-foldcase #\xFF2D))
+(must-equal #\x1043D (char-foldcase #\x10415))
+
+(must-equal #\x0020 (char-foldcase #\x0020))
+(must-equal #\x0091 (char-foldcase #\x0091))
+(must-equal #\x0765 (char-foldcase #\x0765))
+(must-equal #\x6123 (char-foldcase #\x6123))
+
+(must-raise (assertion-violation char-foldcase) (char-foldcase))
+(must-raise (assertion-violation char-foldcase) (char-foldcase 10))
+(must-raise (assertion-violation char-foldcase) (char-foldcase #\x10 #\x10))
 
 ;;
 ;; ---- vectors ----
