@@ -614,7 +614,7 @@ static FObject DoReadSharp(FObject port, int rif, int fcf)
         if (StringCEqualP("space", s, sl))
             return(MakeCharacter(' '));
 
-        if (StringCEqualP("tag", s, sl))
+        if (StringCEqualP("tab", s, sl))
             return(MakeCharacter(0x0009));
 
         RaiseExceptionC(R.Lexical, "read", "unexpected character name",

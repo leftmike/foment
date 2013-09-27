@@ -39,17 +39,42 @@ release:
 manual:
     -mkdir manual
 
-unicode: debug\genuni.exe
-#    debug\genuni ..\unidata\UnicodeData.txt
-    debug\genuni ..\unidata\CaseFolding.txt 0 2 0 556 > debug\cf0to556.txt
-    debug\genuni ..\unidata\CaseFolding.txt 0 2 10A0 10CD > debug\cf10A0to10CD.txt
-    debug\genuni ..\unidata\CaseFolding.txt 0 2 1E00 1FFC > debug\cf1E00to1FFC.txt
-    debug\genuni ..\unidata\CaseFolding.txt 0 2 2126 2183 > debug\cf2126to2183.txt
-    debug\genuni ..\unidata\CaseFolding.txt 0 2 24B6 24CF > debug\cf24B6to24CF.txt
-    debug\genuni ..\unidata\CaseFolding.txt 0 2 2C00 2CF2 > debug\cf2C00to2CF2.txt
-    debug\genuni ..\unidata\CaseFolding.txt 0 2 A640 A7AA > debug\cfA640toA7AA.txt
-    debug\genuni ..\unidata\CaseFolding.txt 0 2 FF21 FF3A > debug\cfFF21toFF3A.txt
-    debug\genuni ..\unidata\CaseFolding.txt 0 2 10400 10427 > debug\cf10400to10427.txt
+uni: debug\genap.exe
+    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic 11680 12000
+
+unicode: debug\gencf.exe debug\genap.exe
+    type << > ..\src\unidata.hpp
+/*
+
+Foment
+
+*/
+
+// Automatically generated unicode data included by chars.cpp.
+
+<<
+    debug\gencf ..\unidata\CaseFolding.txt 0 2 0 556 >> ..\src\unidata.hpp
+    debug\gencf ..\unidata\CaseFolding.txt 0 2 10A0 10CD >> ..\src\unidata.hpp
+    debug\gencf ..\unidata\CaseFolding.txt 0 2 1E00 1FFC >> ..\src\unidata.hpp
+    debug\gencf ..\unidata\CaseFolding.txt 0 2 2126 2183 >> ..\src\unidata.hpp
+    debug\gencf ..\unidata\CaseFolding.txt 0 2 24B6 24CF >> ..\src\unidata.hpp
+    debug\gencf ..\unidata\CaseFolding.txt 0 2 2C00 2CF2 >> ..\src\unidata.hpp
+    debug\gencf ..\unidata\CaseFolding.txt 0 2 A640 A7AA >> ..\src\unidata.hpp
+    debug\gencf ..\unidata\CaseFolding.txt 0 2 FF21 FF3A >> ..\src\unidata.hpp
+    debug\gencf ..\unidata\CaseFolding.txt 0 2 10400 10427 >> ..\src\unidata.hpp
+    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic 0 1FE0 >> ..\src\unidata.hpp
+    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic 2060 2180 >> ..\src\unidata.hpp
+    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic 24A0 24E0 >> ..\src\unidata.hpp
+    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic 2C00 2E20 >> ..\src\unidata.hpp
+    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic 3000 31E0 >> ..\src\unidata.hpp
+    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic A480 ABE0 >> ..\src\unidata.hpp
+    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic D7A0 D7E0 >> ..\src\unidata.hpp
+    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic F900 10480 >> ..\src\unidata.hpp
+    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic 10800 10C40 >> ..\src\unidata.hpp
+    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic 11000 111C0 >> ..\src\unidata.hpp
+    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic 16F00 16F80 >> ..\src\unidata.hpp
+    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic 1D400 1D7C0 >> ..\src\unidata.hpp
+    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic 1EE00 1EEA0 >> ..\src\unidata.hpp
 
 debug\base.cpp: debug\txt2cpp.exe ..\src\base.scm makefile
     debug\txt2cpp ..\src\base.scm debug\base.cpp BaseCode
@@ -81,10 +106,6 @@ release\foment.exe: release\foment.obj release\gc.obj release\syncthrd.obj relea
 debug\txt2cpp.exe: debug\txt2cpp.obj
     link /nologo /subsystem:console /out:debug\txt2cpp.exe\
     debug\txt2cpp.obj
-
-debug\genuni.exe: debug\genuni.obj
-    link /nologo /subsystem:console /out:debug\genuni.exe\
-    debug\genuni.obj
 
 debug\foment.obj: ..\src\foment.cpp ..\src\foment.hpp
 debug\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\io.hpp ..\src\syncthrd.hpp
@@ -129,7 +150,6 @@ release\base.obj: debug\base.cpp
 release\test.obj: ..\src\test.cpp ..\src\foment.hpp
 
 debug\txt2cpp.obj: ..\src\txt2cpp.cpp
-debug\genuni.obj: .\genuni.cpp
 
 {.}.cpp.{debug}.obj:
     cl $(CLDEBUG) $(*B).cpp
@@ -148,4 +168,9 @@ debug\genuni.obj: .\genuni.cpp
 
 {debug\}.cpp.{release}.obj:
     cl $(CLRELEASE) debug\$(*B).cpp
+
+{.}.cpp.{debug}.exe:
+    cl $(CLDEBUG) $(*B).cpp
+    link /nologo /subsystem:console /out:debug\$(*B).exe\
+    debug\$(*B).obj
 

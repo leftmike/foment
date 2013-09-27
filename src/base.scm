@@ -246,7 +246,7 @@
         case-lambda)
 
     (export ;; (scheme char)
-;        char-alphabetic?
+        char-alphabetic?
         char-ci<=?
         char-ci<?
         char-ci=?
@@ -258,7 +258,7 @@
         char-numeric?
 ;        char-upcase
 ;        char-upper-case?
-;        char-whitespace?
+        char-whitespace?
         digit-value
 ;        string-ci<=?
 ;        string-ci<?
@@ -887,7 +887,7 @@
     (import (foment base))
 
     (export
-;;        char-alphabetic?
+        char-alphabetic?
         char-ci<=?
         char-ci<?
         char-ci=?
@@ -899,7 +899,7 @@
         char-numeric?
 ;;        char-upcase
 ;;        char-upper-case?
-;;        char-whitespace?
+        char-whitespace?
         digit-value
 ;;        string-ci<=?
 ;;        string-ci<?

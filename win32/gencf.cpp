@@ -1,8 +1,8 @@
 /*
 
-Generate Unicode Tables
+Generate CharFoldcase Unicode Tables
 
-genuni <file>
+gencf <file> <index-field> <value-field> <first> <last>
 
 */
 
@@ -53,7 +53,7 @@ unsigned int ParseCodePoint(char * fld)
             n = n * 16 + *fld - 'A' + 10;
         else
         {
-            printf("error: genuni: unable to parse field: %s\n", s);
+            fprintf(stderr, "error: gencf: unable to parse field: %s\n", s);
             return(0);
         }
 
@@ -65,7 +65,7 @@ unsigned int ParseCodePoint(char * fld)
 
 void Usage()
 {
-    printf("usage: genuni <file> <index-field> <value-field> <first> <last>\n");
+    fprintf(stderr, "usage: gencf <file> <index-field> <value-field> <first> <last>\n");
 }
 
 unsigned int Map[0x110000];
@@ -92,7 +92,7 @@ int main(int argc, char * argv[])
     FILE * fp = fopen(argv[1], "rt");
     if (fp == 0)
     {
-        printf("error: genuni: unable to open %s\n", argv[1]);
+        fprintf(stderr, "error: gencf: unable to open %s\n", argv[1]);
         return(1);
     }
 
@@ -109,13 +109,13 @@ int main(int argc, char * argv[])
 
             if (idxfld >= nflds)
             {
-                printf("error: genuni: <index-field> too large: %d\n", idxfld);
+                fprintf(stderr, "error: gencf: <index-field> too large: %d\n", idxfld);
                 return(1);
             }
 
             if (valfld >= nflds)
             {
-                printf("error: genuni: <value-field> too large: %d\n", valfld);
+                fprintf(stderr, "error: gencf: <value-field> too large: %d\n", valfld);
                 return(1);
             }
 
@@ -128,11 +128,15 @@ int main(int argc, char * argv[])
         }
     }
 
+    printf("static const FCh Foldcase0x%04xTo0x%04x[] =\n{\n", fst, lst);
+
     while (fst <= lst)
     {
-        printf("    0x%x, // 0x%x\n", Map[fst], fst);
+        printf("    0x%04x, // 0x%04x\n", Map[fst], fst);
         fst += 1;
     }
+
+    printf("    0x0\n};\n");
 
     fclose(fp);
     return(0);

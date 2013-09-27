@@ -2,8 +2,6 @@
 
 Foment
 
-- char-alphabetic?: [Alphabetic] use DerivedCoreProperties.txt
-- char-whitespace?: [White_Space] use PropList.txt
 - char-upper-case?: [Uppercase] use DerivedCoreProperties.txt
 - char-lower-case?: [Lowercase] use DerivedCoreProperties.txt
 - char-upcase: use UnicodeData.txt
@@ -17,6 +15,40 @@ character range: 0x0000 to 0x10FFFF which is 21 bits
 #include "unidata.hpp"
 
 // ---- Unicode ----
+
+static int Whitespace(FCh ch)
+{
+    // From:
+    // PropList-6.2.0.txt
+    // Date: 2012-05-23, 20:34:59 GMT [MD]
+
+    if (ch >= 0x0009 && ch <= 0x000D)
+        return(1);
+    else if (ch == 0x0020)
+        return(1);
+    else if (ch == 0x0085)
+        return(1);
+    else if (ch == 0x00A0)
+        return(1);
+    else if (ch == 0x1680)
+        return(1);
+    else if (ch == 0x180E)
+        return(1);
+    else if (ch >= 0x2000 && ch <= 0x200A)
+        return(1);
+    else if (ch == 0x2028)
+        return(1);
+    else if (ch == 0x2029)
+        return(1);
+    else if (ch == 0x202F)
+        return(1);
+    else if (ch == 0x205F)
+        return(1);
+    else if (ch == 0x3000)
+        return(1);
+
+    return(0);
+}
 
 static int DigitValue(FCh ch)
 {
@@ -236,13 +268,13 @@ FCh CharFoldcase(FCh ch)
     {
     case 0x10:
         if (ch >= 0x10A0 && ch <= 0x10CD)
-            return(Foldcase0x10A0To10CD[ch - 0x10A0]);
+            return(Foldcase0x10a0To0x10cd[ch - 0x10A0]);
         break;
 
     case 0x1E:
     case 0x1F:
         if (ch >= 0x1E00 && ch <= 0x1FFC)
-            return(Foldcase0x1E00To0x1FFC[ch - 0x1E00]);
+            return(Foldcase0x1e00To0x1ffc[ch - 0x1E00]);
         break;
 
     case 0x21:
@@ -252,23 +284,23 @@ FCh CharFoldcase(FCh ch)
 
     case 0x24:
         if (ch >= 0x24B6 && ch <= 0x24CF)
-            return(Foldcase0x24B6To0x24CF[ch - 0x24B6]);
+            return(Foldcase0x24b6To0x24cf[ch - 0x24B6]);
         break;
 
     case 0x2C:
         if (ch >= 0x2C00 && ch <= 0x2CF2)
-            return(Foldcase0x2C00To0x2CF2[ch - 0x2C00]);
+            return(Foldcase0x2c00To0x2cf2[ch - 0x2C00]);
         break;
 
     case 0xA6:
     case 0xA7:
         if (ch >= 0xA640 && ch <= 0xA7AA)
-            return(Foldcase0xA640To0xA7AA[ch - 0xA640]);
+            return(Foldcase0xa640To0xa7aa[ch - 0xA640]);
         break;
 
     case 0xFF:
         if (ch >= 0xFF21 && ch <= 0xFF3A)
-            return(Foldcase0xFF21To0xFF3A[ch - 0xFF21]);
+            return(Foldcase0xff21To0xff3a[ch - 0xFF21]);
         break;
 
     case 0x104:
@@ -278,6 +310,175 @@ FCh CharFoldcase(FCh ch)
     }
 
     return(ch);
+}
+
+static inline unsigned int MapCh(const unsigned int * mp, FCh bs, FCh ch)
+{
+    FAssert(ch >= bs);
+
+    ch -= bs;
+    return(mp[ch / 32] & (1 << (ch % 32)));
+}
+
+unsigned int AlphabeticP(FCh ch)
+{
+    // From:
+    // DerivedCoreProperties-6.2.0.txt
+    // Date: 2012-05-20, 00:42:31 GMT [MD]
+
+    switch (ch >> 12)
+    {
+    case 0x00:
+    case 0x01:
+        return(MapCh(Alphabetic0x0000To0x1fff, 0, ch));
+
+    case 0x02:
+        if (ch >= 0x2060 && ch <= 0x219F)
+            return(MapCh(Alphabetic0x2060To0x219f, 0x2060, ch));
+        if (ch >= 0x24A0 && ch <= 0x24FF)
+            return(MapCh(Alphabetic0x24a0To0x24ff, 0x24A0, ch));
+        if (ch >= 0x2C00 && ch <= 0x2E3F)
+            return(MapCh(Alphabetic0x2c00To0x2e3f, 0x2C00, ch));
+        break;
+
+    case 0x03:
+        if (ch >= 0x3000 && ch <= 0x31FF)
+            return(MapCh(Alphabetic0x3000To0x31ff, 0x3000, ch));
+
+        // No break.
+
+    case 0x04:
+        if (ch >= 0x3400 && ch <= 0x4DB5)
+            return(1);
+
+        // No break.
+
+    case 0x05:
+    case 0x06:
+    case 0x07:
+    case 0x08:
+    case 0x09:
+        if (ch >= 0x4E00 && ch <= 0x9FCC)
+            return(1);
+        break;
+
+    case 0x0A:
+        if (ch >= 0xA000 && ch <= 0xA48C)
+            return(1);
+        if (ch >= 0xA480 && ch <= 0xABFF)
+            return(MapCh(Alphabetic0xa480To0xabff, 0xA480, ch));
+
+        // No break.
+
+    case 0x0B:
+    case 0x0C:
+    case 0x0D:
+        if (ch >= 0xAC00 && ch <= 0xD7A3)
+            return(1);
+        if (ch >= 0xD7A0 && ch <= 0xD7FF)
+            return(MapCh(Alphabetic0xd7a0To0xd7ff, 0xD7A0, ch));
+        break;
+
+    case 0x0E:
+        break;
+
+    case 0x0F:
+    case 0x10:
+        if (ch >= 0xF900 && ch <= 0x1049F)
+            return(MapCh(Alphabetic0xf900To0x1049f, 0xF900, ch));
+        if (ch >= 0x10800 && ch <=0x10C5F)
+            return(MapCh(Alphabetic0x10800To0x10c5f, 0x10800, ch));
+        break;
+
+    case 0x11:
+        if (ch >= 0x11000 && ch <= 0x111DF)
+            return(MapCh(Alphabetic0x11000To0x111df, 0x11000, ch));
+        if (ch >= 11680 && ch <= 0x116AF)
+            return(1);
+        break;
+
+    case 0x12:
+        if (ch >= 0x12000 && ch <= 0x1236E)
+            return(1);
+        if (ch >= 0x12400 && ch <= 0x12462)
+            return(1);
+        break;
+
+    case 0x13:
+        if (ch >= 0x13000 && ch <= 0x1342E)
+            return(1);
+
+    case 0x14:
+    case 0x15:
+        break;
+
+    case 0x16:
+        if (ch >= 0x16800 && ch <= 0x16A38)
+            return(1);
+        if (ch >= 0x16F00 && ch <= 0x16F9F)
+            return(MapCh(Alphabetic0x16f00To0x16f9f, 0x16F00, ch));
+        break;
+
+    case 0x17:
+    case 0x18:
+    case 0x19:
+    case 0x1A:
+        break;
+
+    case 0x1B:
+        if (ch >= 0x1B000 && ch <= 0x1B001)
+            return(1);
+        break;
+
+    case 0x1C:
+        break;
+
+    case 0x1D:
+        if (ch >= 0x1D400 && ch <= 0x1D7DF)
+            return(MapCh(Alphabetic0x1d400To0x1d7df, 0x1D400, ch));
+        if (ch >= 0x1EE00 && ch <= 0x1EEBF)
+            return(MapCh(Alphabetic0x1ee00To0x1eebf, 0x1EE00, ch));
+        break;
+
+    case 0x1E:
+    case 0x1F:
+        break;
+
+    case 0x20:
+    case 0x21:
+    case 0x22:
+    case 0x23:
+    case 0x24:
+    case 0x25:
+    case 0x26:
+    case 0x27:
+    case 0x28:
+    case 0x29:
+    case 0x2A:
+        if (ch >= 0x20000 && ch <= 0x2A6D6)
+            return(1);
+
+        // No break.
+
+    case 0x2B:
+        if (ch >= 0x2A700 && ch <= 0x2B734)
+            return(1);
+        if (ch >= 0x2B740 && ch <= 0x2B81D)
+            return(1);
+        break;
+
+    case 0x2C:
+    case 0x2D:
+    case 0x2E:
+        break;
+
+    case 0x2F:
+        if (ch >= 0x2F800 && ch <= 0x2FA1D)
+            return(1);
+        break;
+    }
+
+    return(0);
 }
 
 // ---- Characters ----
@@ -449,6 +650,14 @@ Define("char-ci>=?", CharCiGreaterThanEqualPPrimitive)(int argc, FObject argv[])
     return(TrueObject);
 }
 
+Define("char-alphabetic?", CharAlphabeticPPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("char-alphabetic?", argc);
+    CharacterArgCheck("char-alphabetic?", argv[0]);
+
+    return(AlphabeticP(AsCharacter(argv[0])) ? TrueObject : FalseObject);
+}
+
 Define("char-numeric?", CharNumericPPrimitive)(int argc, FObject argv[])
 {
     OneArgCheck("char-numeric?", argc);
@@ -458,6 +667,14 @@ Define("char-numeric?", CharNumericPPrimitive)(int argc, FObject argv[])
     if (dv < 0 || dv > 9)
         return(FalseObject);
     return(TrueObject);
+}
+
+Define("char-whitespace?", CharWhitespacePPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("char-whitespace?", argc);
+    CharacterArgCheck("char-whitespace?", argv[0]);
+
+    return(Whitespace(AsCharacter(argv[0])) ? TrueObject : FalseObject);
 }
 
 Define("digit-value", DigitValuePrimitive)(int argc, FObject argv[])
@@ -508,8 +725,9 @@ static FPrimitive * Primitives[] =
     &CharCiGreaterThanPPrimitive,
     &CharCiLessThanEqualPPrimitive,
     &CharCiGreaterThanEqualPPrimitive,
-    
+    &CharAlphabeticPPrimitive,
     &CharNumericPPrimitive,
+    &CharWhitespacePPrimitive,
     
     &DigitValuePrimitive,
     &CharToIntegerPrimitive,

@@ -929,8 +929,17 @@
 (must-raise (assertion-violation char-ci>=?) (char-ci>=? #\a))
 (must-raise (assertion-violation char-ci>=?) (char-ci>=? #\a #\a 10))
 
-    
-    
+(must-equal #f (char-alphabetic? #\tab))
+(must-equal #t (char-alphabetic? #\a))
+(must-equal #t (char-alphabetic? #\Q))
+(must-equal #t (char-alphabetic? #\x1A59))
+(must-equal #f (char-alphabetic? #\x1A60))
+(must-equal #f (char-alphabetic? #\x2000))
+
+(must-raise (assertion-violation char-alphabetic?) (char-alphabetic?))
+(must-raise (assertion-violation char-alphabetic?) (char-alphabetic? 10))
+(must-raise (assertion-violation char-alphabetic?) (char-alphabetic? #\a #\a))
+
 (must-equal #t (char-numeric? #\3))
 (must-equal #t (char-numeric? #\x0664))
 (must-equal #t (char-numeric? #\x0AE6))
@@ -939,6 +948,17 @@
 (must-raise (assertion-violation char-numeric?) (char-numeric?))
 (must-raise (assertion-violation char-numeric?) (char-numeric? 10))
 (must-raise (assertion-violation char-numeric?) (char-numeric? #\a #\a))
+
+(must-equal #t (char-whitespace? #\ ))
+(must-equal #t (char-whitespace? #\x2001))
+(must-equal #t (char-whitespace? #\x00A0))
+(must-equal #f (char-whitespace? #\a))
+(must-equal #f (char-whitespace? #\x0EA6))
+
+(must-raise (assertion-violation char-whitespace?) (char-whitespace?))
+(must-raise (assertion-violation char-whitespace?) (char-whitespace? 10))
+(must-raise (assertion-violation char-whitespace?) (char-whitespace? #\a #\a))
+
     
     
 (must-equal 3 (digit-value #\3))
