@@ -252,12 +252,12 @@
         char-ci=?
         char-ci>=?
         char-ci>?
-;        char-downcase
+        char-downcase
         char-foldcase
-;        char-lower-case?
+        char-lower-case?
         char-numeric?
-;        char-upcase
-;        char-upper-case?
+        char-upcase
+        char-upper-case?
         char-whitespace?
         digit-value
 ;        string-ci<=?
@@ -893,12 +893,12 @@
         char-ci=?
         char-ci>=?
         char-ci>?
-;;        char-downcase
+        char-downcase
         char-foldcase
-;;        char-lower-case?
+        char-lower-case?
         char-numeric?
-;;        char-upcase
-;;        char-upper-case?
+        char-upcase
+        char-upper-case?
         char-whitespace?
         digit-value
 ;;        string-ci<=?

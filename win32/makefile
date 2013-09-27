@@ -39,10 +39,12 @@ release:
 manual:
     -mkdir manual
 
-uni: debug\genap.exe
-    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic 11680 12000
+uni: debug\genudf.exe
+    debug\genudf ..\unidata\UnicodeData.txt Upcase 12 50
+    debug\genudf ..\unidata\UnicodeData.txt Downcase 13 50
+    debug\genudf ..\unidata\CaseFolding.txt Foldcase 2 50
 
-unicode: debug\gencf.exe debug\genap.exe
+unicode: debug\genaul.exe debug\genudf.exe
     type << > ..\src\unidata.hpp
 /*
 
@@ -50,58 +52,66 @@ Foment
 
 */
 
-// Automatically generated unicode data included by chars.cpp.
+// Automatically generated unicode data and code included by unicode.cpp.
 
 <<
-    debug\gencf ..\unidata\CaseFolding.txt 0 2 0 556 >> ..\src\unidata.hpp
-    debug\gencf ..\unidata\CaseFolding.txt 0 2 10A0 10CD >> ..\src\unidata.hpp
-    debug\gencf ..\unidata\CaseFolding.txt 0 2 1E00 1FFC >> ..\src\unidata.hpp
-    debug\gencf ..\unidata\CaseFolding.txt 0 2 2126 2183 >> ..\src\unidata.hpp
-    debug\gencf ..\unidata\CaseFolding.txt 0 2 24B6 24CF >> ..\src\unidata.hpp
-    debug\gencf ..\unidata\CaseFolding.txt 0 2 2C00 2CF2 >> ..\src\unidata.hpp
-    debug\gencf ..\unidata\CaseFolding.txt 0 2 A640 A7AA >> ..\src\unidata.hpp
-    debug\gencf ..\unidata\CaseFolding.txt 0 2 FF21 FF3A >> ..\src\unidata.hpp
-    debug\gencf ..\unidata\CaseFolding.txt 0 2 10400 10427 >> ..\src\unidata.hpp
-    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic 0 1FE0 >> ..\src\unidata.hpp
-    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic 2060 2180 >> ..\src\unidata.hpp
-    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic 24A0 24E0 >> ..\src\unidata.hpp
-    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic 2C00 2E20 >> ..\src\unidata.hpp
-    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic 3000 31E0 >> ..\src\unidata.hpp
-    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic A480 ABE0 >> ..\src\unidata.hpp
-    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic D7A0 D7E0 >> ..\src\unidata.hpp
-    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic F900 10480 >> ..\src\unidata.hpp
-    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic 10800 10C40 >> ..\src\unidata.hpp
-    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic 11000 111C0 >> ..\src\unidata.hpp
-    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic 16F00 16F80 >> ..\src\unidata.hpp
-    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic 1D400 1D7C0 >> ..\src\unidata.hpp
-    debug\genap ..\unidata\DerivedCoreProperties.txt Alphabetic 1EE00 1EEA0 >> ..\src\unidata.hpp
+    debug\genudf ..\unidata\UnicodeData.txt Upcase 12 50 >> ..\src\unidata.hpp
+    debug\genudf ..\unidata\UnicodeData.txt Downcase 13 50 >> ..\src\unidata.hpp
+    debug\genudf ..\unidata\CaseFolding.txt Foldcase 2 50 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Alphabetic 0 1FE0 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Alphabetic 2060 2180 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Alphabetic 24A0 24E0 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Alphabetic 2C00 2E20 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Alphabetic 3000 31E0 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Alphabetic A480 ABE0 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Alphabetic D7A0 D7E0 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Alphabetic F900 10480 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Alphabetic 10800 10C40 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Alphabetic 11000 111C0 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Alphabetic 16F00 16F80 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Alphabetic 1D400 1D7C0 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Alphabetic 1EE00 1EEA0 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Uppercase 0 0580 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Uppercase 10A0 10C0 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Uppercase 1E00 1FE0 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Uppercase 2100 2180 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Uppercase 2C00 2D20 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Uppercase A640 A7A0 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Uppercase 1D400 1D7C0 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Lowercase 0 0580 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Lowercase 1D00 1FE0 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Lowercase 2060 2180 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Lowercase 2C20 2D20 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Lowercase A640 A7E0 >> ..\src\unidata.hpp
+    debug\genaul ..\unidata\DerivedCoreProperties.txt Lowercase 1D400 1D7C0 >> ..\src\unidata.hpp
 
 debug\base.cpp: debug\txt2cpp.exe ..\src\base.scm makefile
     debug\txt2cpp ..\src\base.scm debug\base.cpp BaseCode
 
 debug\foment.exe: debug\foment.obj debug\gc.obj debug\syncthrd.obj debug\compile.obj debug\io.obj\
         debug\synrules.obj debug\synpass.obj debug\midpass.obj debug\genpass.obj\
-        debug\pairs.obj debug\chars.obj debug\strings.obj debug\vectors.obj debug\library.obj\
-        debug\execute.obj debug\numbers.obj debug\pretty.obj debug\main.obj\
+        debug\pairs.obj debug\unicode.obj debug\chars.obj debug\strings.obj debug\vectors.obj\
+        debug\library.obj debug\execute.obj debug\numbers.obj debug\pretty.obj debug\main.obj\
         debug\base.obj debug\test.obj
     link /nologo /subsystem:console /out:debug\foment.exe\
         /debug /pdb:debug\foment.pdb\
         debug\foment.obj debug\gc.obj debug\syncthrd.obj debug\compile.obj debug\io.obj\
         debug\synrules.obj debug\synpass.obj debug\midpass.obj debug\genpass.obj debug\pairs.obj\
-        debug\strings.obj debug\chars.obj debug\vectors.obj debug\library.obj debug\execute.obj\
-        debug\numbers.obj debug\pretty.obj debug\main.obj debug\base.obj debug\test.obj
+        debug\unicode.obj debug\strings.obj debug\chars.obj debug\vectors.obj debug\library.obj\
+        debug\execute.obj debug\numbers.obj debug\pretty.obj debug\main.obj debug\base.obj\
+        debug\test.obj
 
 release\foment.exe: release\foment.obj release\gc.obj release\syncthrd.obj release\compile.obj\
         release\io.obj release\synrules.obj release\synpass.obj release\midpass.obj\
-        release\genpass.obj release\pairs.obj release\chars.obj release\strings.obj\
-        release\vectors.obj release\library.obj release\execute.obj release\numbers.obj\
-        release\pretty.obj release\main.obj release\base.obj release\test.obj
+        release\genpass.obj release\pairs.obj release\unicode.obj release\chars.obj\
+        release\strings.obj release\vectors.obj release\library.obj release\execute.obj\
+        release\numbers.obj release\pretty.obj release\main.obj release\base.obj release\test.obj
     link /nologo /subsystem:console /out:release\foment.exe\
         release\foment.obj release\gc.obj  release\syncthrd.obj release\compile.obj\
         release\io.obj release\synrules.obj release\synpass.obj release\midpass.obj\
-        release\genpass.obj release\pairs.obj release\chars.obj release\strings.obj\
-        release\vectors.obj release\library.obj release\execute.obj release\numbers.obj\
-        release\pretty.obj release\main.obj release\base.obj release\test.obj
+        release\genpass.obj release\pairs.obj release\unicode.obj release\chars.obj\
+        release\strings.obj release\vectors.obj release\library.obj release\execute.obj\
+        release\numbers.obj release\pretty.obj release\main.obj release\base.obj release\test.obj
 
 debug\txt2cpp.exe: debug\txt2cpp.obj
     link /nologo /subsystem:console /out:debug\txt2cpp.exe\
@@ -116,7 +126,8 @@ debug\synpass.obj: ..\src\synpass.cpp ..\src\foment.hpp ..\src\compile.hpp
 debug\midpass.obj: ..\src\midpass.cpp ..\src\foment.hpp ..\src\compile.hpp
 debug\genpass.obj: ..\src\genpass.cpp ..\src\foment.hpp ..\src\compile.hpp ..\src\execute.hpp
 debug\pairs.obj: ..\src\pairs.cpp ..\src\foment.hpp
-debug\chars.obj: ..\src\chars.cpp ..\src\foment.hpp ..\src\unidata.hpp
+debug\unicode.obj: ..\src\unicode.cpp ..\src\foment.hpp ..\src\unicode.hpp ..\src\unidata.hpp
+debug\chars.obj: ..\src\chars.cpp ..\src\foment.hpp ..\src\unicode.hpp
 debug\strings.obj: ..\src\strings.cpp ..\src\foment.hpp
 debug\vectors.obj: ..\src\vectors.cpp ..\src\foment.hpp
 debug\library.obj: ..\src\library.cpp ..\src\foment.hpp ..\src\compile.hpp
@@ -137,7 +148,8 @@ release\synpass.obj: ..\src\synpass.cpp ..\src\foment.hpp ..\src\compile.hpp
 release\midpass.obj: ..\src\midpass.cpp ..\src\foment.hpp ..\src\compile.hpp
 release\genpass.obj: ..\src\genpass.cpp ..\src\foment.hpp ..\src\compile.hpp ..\src\execute.hpp
 release\pairs.obj: ..\src\pairs.cpp ..\src\foment.hpp
-release\chars.obj: ..\src\chars.cpp ..\src\foment.hpp ..\src\unidata.hpp
+release\unicode.obj: ..\src\unicode.cpp ..\src\foment.hpp ..\src\unicode.hpp ..\src\unidata.hpp
+release\chars.obj: ..\src\chars.cpp ..\src\foment.hpp ..\src\unicode.hpp
 release\strings.obj: ..\src\strings.cpp ..\src\foment.hpp
 release\vectors.obj: ..\src\vectors.cpp ..\src\foment.hpp
 release\library.obj: ..\src\library.cpp ..\src\foment.hpp ..\src\compile.hpp

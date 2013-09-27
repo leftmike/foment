@@ -50,8 +50,10 @@ Bugs:
 -- update FeaturesC as more code gets written
 -- remove Hash from FSymbol (part of Reserved)
 -- r5rs_pitfall.scm: yin-yang does not terminate
+-- exhaustively test unicode: char-alphabetic?, char-upcase, etc
 
 Testing:
+-- 6.6 characters complete
 -- 6.8 vectors complete except list->vector needs to type check list
 -- 6.9 bytevectors complete except utf8 conversions need more testing
 

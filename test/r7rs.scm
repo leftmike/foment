@@ -959,8 +959,24 @@
 (must-raise (assertion-violation char-whitespace?) (char-whitespace? 10))
 (must-raise (assertion-violation char-whitespace?) (char-whitespace? #\a #\a))
 
-    
-    
+(must-equal #t (char-upper-case? #\R))
+(must-equal #f (char-upper-case? #\r))
+(must-equal #t (char-upper-case? #\x1E20))
+(must-equal #f (char-upper-case? #\x9999))
+
+(must-raise (assertion-violation char-upper-case?) (char-upper-case?))
+(must-raise (assertion-violation char-upper-case?) (char-upper-case? 10))
+(must-raise (assertion-violation char-upper-case?) (char-upper-case? #\a #\a))
+
+(must-equal #t (char-lower-case? #\s))
+(must-equal #f (char-lower-case? #\S))
+(must-equal #t (char-lower-case? #\xA687))
+(must-equal #f (char-lower-case? #\x2CED))
+
+(must-raise (assertion-violation char-lower-case?) (char-lower-case?))
+(must-raise (assertion-violation char-lower-case?) (char-lower-case? 10))
+(must-raise (assertion-violation char-lower-case?) (char-lower-case? #\a #\a))
+
 (must-equal 3 (digit-value #\3))
 (must-equal 4 (digit-value #\x0664))
 (must-equal 0 (digit-value #\x0AE6))
@@ -983,9 +999,21 @@
 (must-raise (assertion-violation integer->char) (integer->char 10 10))
 (must-raise (assertion-violation integer->char) (integer->char #\a))
 
-    
-    
-    
+(must-equal #\A (char-upcase #\a))
+(must-equal #\A (char-upcase #\A))
+(must-equal #\9 (char-upcase #\9))
+
+(must-raise (assertion-violation char-upcase) (char-upcase))
+(must-raise (assertion-violation char-upcase) (char-upcase 10))
+(must-raise (assertion-violation char-upcase) (char-upcase #\x10 #\x10))
+
+(must-equal #\a (char-downcase #\a))
+(must-equal #\a (char-downcase #\A))
+(must-equal #\9 (char-downcase #\9))
+
+(must-raise (assertion-violation char-downcase) (char-downcase))
+(must-raise (assertion-violation char-downcase) (char-downcase 10))
+(must-raise (assertion-violation char-downcase) (char-downcase #\x10 #\x10))
 
 (must-equal #\x0064 (char-foldcase #\x0044))
 (must-equal #\x00FE (char-foldcase #\x00DE))

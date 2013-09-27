@@ -1,8 +1,8 @@
 /*
 
-Generate CharAlphabectic Unicode Tables
+Generate Alphabectic, Uppercase, and Lowercase Unicode Tables
 
-genap <file> <type> <first> <last>
+genaul <file> <type> <first> <last>
 
 */
 
@@ -104,7 +104,7 @@ unsigned int ParseCodePoint(char * fld)
             n = n * 16 + *fld - 'A' + 10;
         else
         {
-            fprintf(stderr, "error: genap: unable to parse field: %s\n", s);
+            fprintf(stderr, "error: genaul: unable to parse field: %s\n", s);
             return(0);
         }
 
@@ -114,9 +114,25 @@ unsigned int ParseCodePoint(char * fld)
     return(n);
 }
 
+int MatchField(char * fld, char * s)
+{
+    char * r = strstr(fld, s);
+    if (r == 0)
+        return(0);
+
+    if (r > fld && *(r - 1) != ' ')
+        return(0);
+
+    r += strlen(s);
+    if (*r == ' ' || *r == 0)
+        return(1);
+
+    return(0);
+}
+
 void Usage()
 {
-    fprintf(stderr, "usage: genap <file> <type> <first> <last>\n");
+    fprintf(stderr, "usage: genaul <file> <type> <first> <last>\n");
 }
 
 unsigned int Map[0x110000];
@@ -139,14 +155,14 @@ int main(int argc, char * argv[])
 
     if (fst % 32 != 0)
     {
-        fprintf(stderr, "error: genap: first must be divible by 32\n");
+        fprintf(stderr, "error: genaul: first must be divible by 32\n");
         return(1);
     }
 
     FILE * fp = fopen(argv[1], "rt");
     if (fp == 0)
     {
-        fprintf(stderr, "error: genap: unable to open %s\n", argv[1]);
+        fprintf(stderr, "error: genaul: unable to open %s\n", argv[1]);
         return(1);
     }
 
@@ -158,12 +174,12 @@ int main(int argc, char * argv[])
         {
             int nflds = ParseFields(s, flds);
 
-            if (nflds == 2 && strstr(flds[1], argv[2]))
+            if (nflds == 2 && MatchField(flds[1], argv[2]))
                 ParseRange(flds[0], Map);
         }
     }
 
-    printf("static const unsigned int Alphabetic0x%04xTo0x%04x[] =\n{\n", fst,
+    printf("static const unsigned int %s0x%04xTo0x%04x[] =\n{\n", argv[2], fst,
             (lst / 32) * 32 + 31);
 
     while (fst <= lst)
@@ -172,7 +188,7 @@ int main(int argc, char * argv[])
 
         for (int idx = 0; idx < 32; idx++)
             if (Map[fst + idx])
-                msk |= 1 << idx;
+                msk |= (1 << idx);
 
         if (msk == 0)
             printf("    0x0, // 0x%04x\n", fst);
