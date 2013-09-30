@@ -789,6 +789,16 @@ FObject PrefixSymbol(FObject str, FObject sym)
     return(StringToSymbol(nstr));
 }
 
+Define("string->symbol", StringToSymbolPrimitive)(int argc, FObject argv[])
+{
+    if (argc != 1)
+        RaiseExceptionC(R.Assertion, "string->symbol", "expected one argument", EmptyListObject);
+    if (StringP(argv[0]) == 0)
+        RaiseExceptionC(R.Assertion, "string->symbol", "expected a string", List(argv[0]));
+
+    return(StringToSymbol(argv[0]));
+}
+
 // ---- Record Types ----
 
 FObject MakeRecordType(FObject nam, unsigned int nf, FObject flds[])
@@ -1247,6 +1257,7 @@ static FPrimitive * Primitives[] =
     &EqHashtableRefPrimitive,
     &EqHashtableSetPrimitive,
     &EqHashtableDeletePrimitive,
+    &StringToSymbolPrimitive,
     &MakeRecordTypePrimitive,
     &MakeRecordPrimitive,
     &RecordPredicatePrimitive,
@@ -1301,6 +1312,7 @@ static void SetupScheme()
 static char * FeaturesC[] =
 {
     "r7rs",
+    "full-unicode",
 #ifdef FOMENT_WIN32
     "windows",
 #endif // FOMENT_WIN32

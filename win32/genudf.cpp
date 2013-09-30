@@ -2,7 +2,7 @@
 
 Generate Upcase, Downcase and Foldcase Unicode Tables
 
-genudf <file> Upcase|Downcase|Foldcase <field> <max-gap>
+genudf <file> Upcase|Downcase|Foldcase|Fullfold|Fullup|Fulldown <field> <max-gap>
 
 */
 
@@ -10,6 +10,8 @@ genudf <file> Upcase|Downcase|Foldcase <field> <max-gap>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define MAX_FULL_CHARS 3
 
 int ParseFields(char * s, char ** flds)
 {
@@ -63,19 +65,60 @@ unsigned int ParseCodePoint(char * fld)
     return(n);
 }
 
-void Usage()
+unsigned int ParseSeveralPoints(char * fld, unsigned int chars[MAX_FULL_CHARS])
 {
-    fprintf(stderr, "usage: genudf <file> Upcase|Downcase|Foldcase  <field> <max-gap>\n");
+    unsigned int cnt = 0;
+    char * s;
+
+    for (;;)
+    {
+        while (*fld == ' ')
+            fld += 1;
+
+        s = strchr(fld, ' ');
+        if (s)
+            *s = 0;
+
+        chars[cnt] = ParseCodePoint(fld);
+        cnt += 1;
+
+        if (s == 0)
+            break;
+
+        fld = s + 1;
+    }
+
+    return(cnt);
 }
 
+void Usage()
+{
+    fprintf(stderr,
+            "usage: genudf <file> Upcase|Downcase|Foldcase|Fullfold|Fullup|Fulldown  <field> <max-gap>\n");
+}
+
+typedef struct
+{
+    unsigned int Count;
+    unsigned int Chars[MAX_FULL_CHARS];
+} FullChar;
+
 unsigned int Map[0x110000];
+FullChar FullMap[0x110000];
 
 int main(int argc, char * argv[])
 {
     char s[256];
 
     for (int idx = 0; idx < 0x110000; idx++)
+    {
         Map[idx] = idx;
+
+        FullMap[idx].Count = 1;
+        FullMap[idx].Chars[0] = idx;
+        FullMap[idx].Chars[1] = 0;
+        FullMap[idx].Chars[2] = 0;
+    }
 
     if (argc != 5)
     {
@@ -83,13 +126,18 @@ int main(int argc, char * argv[])
         return(1);
     }
 
-    if (strcmp(argv[2], "Upcase") && strcmp(argv[2], "Downcase") && strcmp(argv[2], "Foldcase"))
+    if (strcmp(argv[2], "Upcase") && strcmp(argv[2], "Downcase") && strcmp(argv[2], "Foldcase")
+            && strcmp(argv[2], "Fullfold") && strcmp(argv[2], "Fullup")
+            && strcmp(argv[2], "Fulldown"))
     {
-        fprintf(stderr, "error: genudf: expected 'Upcase' or 'Downcase' or 'Foldcase'\n");
+        fprintf(stderr,
+                "error: genudf: expected 'Upcase', 'Downcase', 'Foldcase', 'Fullfold', 'Fullup', or 'Fulldown'\n");
         return(1);
     }
 
-    int fcf = (strcmp(argv[2], "Foldcase") == 0);
+    int fcf = (strcmp(argv[2], "Foldcase") == 0 || strcmp(argv[2], "Fullfold") == 0);
+    int ff = (strcmp(argv[2], "Fullfold") == 0 || strcmp(argv[2], "Fullup") == 0
+            || strcmp(argv[2], "Fulldown") == 0);
     int fdx = atoi(argv[3]);
 
     unsigned int maxgap = ParseCodePoint(argv[4]);
@@ -109,7 +157,18 @@ int main(int argc, char * argv[])
         {
             int nflds = ParseFields(s, flds);
 
-            if (fcf && *flds[1] != 'C' && *flds[1] != 'S')
+            if (fcf)
+            {
+                if (ff)
+                {
+                    if (*flds[1] != 'F')
+                        continue;
+                }
+                else if (*flds[1] != 'C' && *flds[1] != 'S')
+                    continue;
+            }
+
+            if (nflds > 5 && (strcmp(argv[2], "Fullup") == 0 || strcmp(argv[2], "Fulldown") == 0))
                 continue;
 
             if (fdx >= nflds)
@@ -121,9 +180,23 @@ int main(int argc, char * argv[])
             if (*flds[fdx])
             {
                 unsigned int idx = ParseCodePoint(flds[0]);
-                unsigned int val = ParseCodePoint(flds[fdx]);
 
-                Map[idx] = val;
+                if (ff)
+                {
+                    FullMap[idx].Count = ParseSeveralPoints(flds[fdx], FullMap[idx].Chars);
+                    Map[idx] = FullMap[idx].Chars[0];
+
+                    if (FullMap[idx].Count == 0)
+                    {
+                        fprintf(stderr, "error: genudf: unexpected full mapping: 0x%04x\n", idx);
+                        return(1);
+                    }
+                }
+                else
+                {
+                    unsigned int val = ParseCodePoint(flds[fdx]);
+                    Map[idx] = val;
+                }
             }
         }
     }
@@ -167,31 +240,74 @@ int main(int argc, char * argv[])
             End[cnt] = end;
             cnt += 1;
 
-//            printf("0x%04x --> 0x%04x [%d]\n", strt, end, end - strt);
+            fprintf(stderr, "0x%04x --> 0x%04x [%d]\n", strt, end, end - strt);
             tot += (end - strt);
         }
     }
 
 //    printf("%d\n", tot);
 
-    for (unsigned int cdx = 0; cdx < cnt; cdx++)
+    if (ff)
     {
-        printf("static const FCh %s0x%04x[] =\n{\n", argv[2], Start[cdx]);
+        printf("#ifndef __FFULLCASE__\n");
+        printf("#define __FFULLCASE__\n");
+        printf("typedef struct {unsigned int Count; FCh Chars[3];} FFullCase;\n");
+        printf("#endif\n\n");
 
-        for (idx = Start[cdx]; idx < End[cdx]; idx++)
-            printf("    0x%04x, // 0x%04x\n", Map[idx], idx);
-        printf("    0x%04x  // 0x%04x\n};\n\n", Map[idx], idx);
+        unsigned int fdx = 0;
+
+        printf("static const unsigned int %sSet[] =\n{\n", argv[2]);
+
+        while (fdx <= 0x1FFF)
+        {
+            unsigned int msk = 0;
+
+            for (int idx = 0; idx < 32; idx++)
+                if (FullMap[fdx + idx].Count > 1)
+                    msk |= (1 << idx);
+
+            if (msk == 0)
+                printf("    0x0, // 0x%04x\n", fdx);
+            else
+                printf("    0x%08x, // 0x%04x\n", msk, fdx);
+            fdx += 32;
+        }
+
+        printf("    0x0\n};\n\n");
+
+        for (unsigned int cdx = 0; cdx < cnt; cdx++)
+        {
+            printf("static FFullCase %s0x%04xTo0x%04x[] =\n{\n", argv[2], Start[cdx], End[cdx]);
+
+            for (idx = Start[cdx]; idx < End[cdx]; idx++)
+                printf("    {%d, {0x%04x, 0x%04x, 0x%04x}}, // 0x%04x\n", FullMap[idx].Count,
+                        FullMap[idx].Chars[0], FullMap[idx].Chars[1], FullMap[idx].Chars[2], idx);
+            printf("    {%d, {0x%04x, 0x%04x, 0x%04x}} // 0x%04x\n};\n\n", FullMap[idx].Count,
+                    FullMap[idx].Chars[0], FullMap[idx].Chars[1], FullMap[idx].Chars[2], idx);
+        }
     }
-
-    printf("FCh Char%s(FCh ch)\n{\n", argv[2]);
-    for (unsigned int cdx = 0; cdx < cnt; cdx++)
+    else
     {
-        printf("    if (ch >= 0x%04x && ch <= 0x%04x)\n", Start[cdx], End[cdx]);
-        printf("        return(%s0x%04x[ch - 0x%04x]);\n", argv[2], Start[cdx], Start[cdx]);
+        for (unsigned int cdx = 0; cdx < cnt; cdx++)
+        {
+            printf("static const FCh %s0x%04x[] =\n{\n", argv[2], Start[cdx]);
+
+            for (idx = Start[cdx]; idx < End[cdx]; idx++)
+                printf("    0x%04x, // 0x%04x\n", Map[idx], idx);
+            printf("    0x%04x  // 0x%04x\n};\n\n", Map[idx], idx);
+        }
+
+        printf("FCh Char%s(FCh ch)\n{\n", argv[2]);
+        for (unsigned int cdx = 0; cdx < cnt; cdx++)
+        {
+            printf("    if (ch <= 0x%04x)\n    {\n", End[cdx]);
+            printf("        if (ch >= 0x%04x)\n",  Start[cdx]);
+            printf("            return(%s0x%04x[ch - 0x%04x]);\n", argv[2], Start[cdx], Start[cdx]);
+            printf("        return(ch);\n    }\n");
+        }
+        printf("    return(ch);\n}\n\n");
     }
-    printf("    return(ch);\n}\n\n");
 
     fclose(fp);
     return(0);
 }
-

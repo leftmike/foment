@@ -13,6 +13,7 @@ Foment
 #include <string.h>
 #include "foment.hpp"
 #include "io.hpp"
+#include "unicode.hpp"
 
 // ---- Ports ----
 
@@ -454,39 +455,143 @@ FCh PeekCh(FObject port, int * eof)
     return(AsPort(port)->Input->PeekChFn(AsPort(port)->Context, AsPort(port)->Object, eof));
 }
 
-#define SymbolChP(ch) \
-    (ChAlphabeticP((ch)) || ChNumericP((ch)) \
-        || (ch) == '+' || (ch) == '-' || (ch) == '.' \
-        || (ch) == '*' || (ch) == '/' || (ch) == '<' || (ch) == '=' \
-        || (ch) == '>' || (ch) == '!' || (ch) == '?' || (ch) == ':' \
-        || (ch) == '$' || (ch) == '%' || (ch) == '_' || (ch) == '&' \
-        || (ch) == '~' || (ch) == '^')
+static int NumericP(FCh ch)
+{
+    int dv = DigitValue(ch);
+    if (dv < 0 || dv > 9)
+        return(0);
+    return(1);
+}
+
+static int SymbolCharP(FCh ch)
+{
+    return(AlphabeticP(ch) || NumericP(ch) || ch == '!' || ch == '$' || ch == '%' || ch == '&'
+             || ch =='*' || ch == '+' || ch == '-' || ch == '.' || ch == '/' || ch == ':'
+             || ch == '<' || ch == '=' || ch == '>' || ch == '?' || ch == '@' || ch == '^'
+             || ch == '_' || ch == '~');
+}
 
 #define DotObject ((FObject) -1)
 #define EolObject ((FObject *) -2)
 
-static FObject DoReadString(FObject port)
+static FCh DoReadStringHexChar(FObject port)
 {
-    FCh s[512];
-    int sl = 0;
+    FCh s[16];
+    int sl = 2;
     FCh ch;
     int eof;
 
     for (;;)
     {
         ch = GetCh(port, &eof);
-        if (ch == '"')
-            break;
-        if (ch == '\\')
-            ch = GetCh(port, &eof);
         if (eof)
             RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading string",
                     List(port));
+
+        if (ch == ';')
+            break;
+
+        s[sl] = ch;
+        sl += 1;
+        if (sl == sizeof(s) / sizeof(FCh))
+            RaiseExceptionC(R.Lexical, "read",
+                    "missing ; to terminate \\x<hex-value> in string", List(port));
+    }
+
+    FFixnum n;
+
+    if (StringToNumber(s + 2, sl - 2, &n, 16) == 0)
+    {
+        s[0] = '\\';
+        s[1] = 'x';
+
+        RaiseExceptionC(R.Lexical, "read", "expected a valid hexidecimal value for a character",
+                List(port, MakeString(s, sl)));
+    }
+
+    return((FCh) n);
+}
+
+static FObject DoReadString(FObject port)
+{
+    FCh s[512];
+    int sl = 0;
+    FCh ch;
+    int eof = 0;
+
+    for (;;)
+    {
+        ch = GetCh(port, &eof);
+        if (eof)
+            break;
+
+Again:
+
+        if (ch == '"')
+            break;
+
+        if (ch == '\\')
+        {
+            ch = GetCh(port, &eof);
+            if (eof)
+                break;
+
+            if (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r')
+            {
+                while (ch == ' ' || ch == '\t')
+                {
+                    ch = GetCh(port, &eof);
+                    if (eof)
+                        goto UnexpectedEof;
+                }
+
+                while (ch == '\r' || ch == '\n')
+                {
+                    ch = GetCh(port, &eof);
+                    if (eof)
+                        goto UnexpectedEof;
+                }
+
+                while (ch == ' ' || ch == '\t')
+                {
+                    ch = GetCh(port, &eof);
+                    if (eof)
+                        goto UnexpectedEof;
+                }
+
+                goto Again;
+            }
+
+            switch (ch)
+            {
+            case 'a': ch = 0x0007; break;
+            case 'b': ch = 0x0008; break;
+            case 't': ch = 0x0009; break;
+            case 'n': ch = 0x000A; break;
+            case 'r': ch = 0x000D; break;
+            case '"': ch = 0x0022; break;
+            case '\\': ch = 0x005C; break;
+            case '|': ch = 0x007C; break;
+            case 'x':
+                ch = DoReadStringHexChar(port);
+                break;
+            default:
+                RaiseExceptionC(R.Lexical, "read", "unexpected character following \\",
+                        List(port, MakeCharacter(ch)));
+            }
+        }
 
         s[sl] = ch;
         sl += 1;
         if (sl == sizeof(s) / sizeof(FCh))
             RaiseExceptionC(R.Restriction, "read", "string too long", List(port));
+    }
+
+    if (eof)
+    {
+UnexpectedEof:
+
+        RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading string", List(port));
     }
 
     return(MakeString(s, sl));
@@ -506,7 +611,7 @@ static int DoReadToken(FObject port, int ch, FCh * s, int msl)
             RaiseExceptionC(R.Restriction, "read", "symbol or number too long", List(port));
 
         ch = PeekCh(port, &eof);
-        if (eof || SymbolChP(ch) == 0)
+        if (eof || SymbolCharP(ch) == 0)
             break;
 
         GetCh(port, &eof);
@@ -530,7 +635,7 @@ static FObject DoReadSymbolOrNumber(FObject port, int ch, int rif, int fcf)
     if (StringToNumber(s, sl, &n, 10))
         return(MakeFixnum(n));
 
-    FObject sym = fcf ? StringToSymbol(FoldCaseString(MakeString(s, sl)))
+    FObject sym = fcf ? StringToSymbol(FoldcaseString(MakeString(s, sl)))
             : StringLengthToSymbol(s, sl);
     if (rif)
         return(MakeIdentifier(sym, ln));
@@ -569,7 +674,7 @@ static FObject DoReadSharp(FObject port, int rif, int fcf)
         if (eof)
             RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading #\\", List(port));
 
-        if (SymbolChP(ch) == 0)
+        if (SymbolCharP(ch) == 0)
             return(MakeCharacter(ch));
 
         int sl = DoReadToken(port, ch, s, sizeof(s) / sizeof(FCh));
@@ -770,7 +875,7 @@ static FObject DoRead(FObject port, int eaf, int rlf, int rif, int fcf)
             }
 
             default:
-                if (SymbolChP(ch))
+                if (SymbolCharP(ch))
                     return(DoReadSymbolOrNumber(port, ch, rif, fcf));
                 break;
             }
@@ -1070,17 +1175,28 @@ static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn,
     }
 
     case StringTag:
-        if (df == 0)
+        if (df)
+            PutString(port, AsString(obj)->String, StringLength(obj));
+        else
+        {
             PutCh(port, '"');
-        PutString(port, AsString(obj)->String, StringLength(obj));
-        if (df == 0)
+
+            for (unsigned int idx = 0; idx < StringLength(obj); idx++)
+            {
+                FCh ch = AsString(obj)->String[idx];
+                if (ch == '\\' || ch == '"')
+                    PutCh(port, '\\');
+                PutCh(port, ch);
+            }
+
             PutCh(port, '"');
+        }
         break;
 
     case VectorTag:
     {
         PutStringC(port, "#(");
-        for (unsigned idx = 0; idx < VectorLength(obj); idx++)
+        for (unsigned int idx = 0; idx < VectorLength(obj); idx++)
         {
             if (idx > 0)
                 PutCh(port, ' ');

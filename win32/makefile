@@ -40,9 +40,8 @@ manual:
     -mkdir manual
 
 uni: debug\genudf.exe
-    debug\genudf ..\unidata\UnicodeData.txt Upcase 12 50
-    debug\genudf ..\unidata\UnicodeData.txt Downcase 13 50
-    debug\genudf ..\unidata\CaseFolding.txt Foldcase 2 50
+    debug\genudf ..\unidata\CaseFolding.txt Fullfold 2 20
+    debug\genudf ..\unidata\SpecialCasing.txt Fullup 3 20
 
 unicode: debug\genaul.exe debug\genudf.exe
     type << > ..\src\unidata.hpp
@@ -84,6 +83,8 @@ Foment
     debug\genaul ..\unidata\DerivedCoreProperties.txt Lowercase 2C20 2D20 >> ..\src\unidata.hpp
     debug\genaul ..\unidata\DerivedCoreProperties.txt Lowercase A640 A7E0 >> ..\src\unidata.hpp
     debug\genaul ..\unidata\DerivedCoreProperties.txt Lowercase 1D400 1D7C0 >> ..\src\unidata.hpp
+    debug\genudf ..\unidata\CaseFolding.txt Fullfold 2 20 >> ..\src\unidata.hpp
+    debug\genudf ..\unidata\SpecialCasing.txt Fullup 3 20 >> ..\src\unidata.hpp
 
 debug\base.cpp: debug\txt2cpp.exe ..\src\base.scm makefile
     debug\txt2cpp ..\src\base.scm debug\base.cpp BaseCode
@@ -128,12 +129,12 @@ debug\genpass.obj: ..\src\genpass.cpp ..\src\foment.hpp ..\src\compile.hpp ..\sr
 debug\pairs.obj: ..\src\pairs.cpp ..\src\foment.hpp
 debug\unicode.obj: ..\src\unicode.cpp ..\src\foment.hpp ..\src\unicode.hpp ..\src\unidata.hpp
 debug\chars.obj: ..\src\chars.cpp ..\src\foment.hpp ..\src\unicode.hpp
-debug\strings.obj: ..\src\strings.cpp ..\src\foment.hpp
+debug\strings.obj: ..\src\strings.cpp ..\src\foment.hpp ..\src\unicode.hpp
 debug\vectors.obj: ..\src\vectors.cpp ..\src\foment.hpp
 debug\library.obj: ..\src\library.cpp ..\src\foment.hpp ..\src\compile.hpp
 debug\execute.obj: ..\src\execute.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\syncthrd.hpp
 debug\numbers.obj: ..\src\numbers.cpp ..\src\foment.hpp
-debug\io.obj: ..\src\io.cpp ..\src\foment.hpp ..\src\io.hpp
+debug\io.obj: ..\src\io.cpp ..\src\foment.hpp ..\src\io.hpp ..\src\unicode.hpp
 debug\pretty.obj: ..\src\pretty.cpp ..\src\foment.hpp ..\src\io.hpp ..\src\compile.hpp
 debug\main.obj: ..\src\main.cpp ..\src\foment.hpp
 debug\base.obj: debug\base.cpp
@@ -150,12 +151,12 @@ release\genpass.obj: ..\src\genpass.cpp ..\src\foment.hpp ..\src\compile.hpp ..\
 release\pairs.obj: ..\src\pairs.cpp ..\src\foment.hpp
 release\unicode.obj: ..\src\unicode.cpp ..\src\foment.hpp ..\src\unicode.hpp ..\src\unidata.hpp
 release\chars.obj: ..\src\chars.cpp ..\src\foment.hpp ..\src\unicode.hpp
-release\strings.obj: ..\src\strings.cpp ..\src\foment.hpp
+release\strings.obj: ..\src\strings.cpp ..\src\foment.hpp ..\src\unicode.hpp
 release\vectors.obj: ..\src\vectors.cpp ..\src\foment.hpp
 release\library.obj: ..\src\library.cpp ..\src\foment.hpp ..\src\compile.hpp
 release\execute.obj: ..\src\execute.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\syncthrd.hpp
 release\numbers.obj: ..\src\numbers.cpp ..\src\foment.hpp
-release\io.obj: ..\src\io.cpp ..\src\foment.hpp ..\src\io.hpp
+release\io.obj: ..\src\io.cpp ..\src\foment.hpp ..\src\io.hpp ..\src\unicode.hpp
 release\pretty.obj: ..\src\pretty.cpp ..\src\foment.hpp ..\src\io.hpp ..\src\compile.hpp
 release\main.obj: ..\src\main.cpp ..\src\foment.hpp
 release\base.obj: debug\base.cpp

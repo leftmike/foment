@@ -13,6 +13,15 @@ unsigned int AlphabeticP(FCh ch);
 unsigned int UppercaseP(FCh ch);
 unsigned int LowercaseP(FCh ch);
 
+unsigned int CharFullfoldLength(FCh ch);
+FCh * CharFullfold(FCh ch);
+
+unsigned int CharFullupLength(FCh ch);
+FCh * CharFullup(FCh ch);
+
+unsigned int CharFulldownLength(FCh ch);
+FCh * CharFulldown(FCh ch);
+
 // Generate code in unicode.hpp.
 
 FCh CharFoldcase(FCh ch);

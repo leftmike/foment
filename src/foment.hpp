@@ -15,8 +15,6 @@ To Do:
 -- import and define-library should not be in (scheme base), but should be in whatever
 library is used by interaction-environment
 
--- strings and srfi-13
-
 -- current-input-port and current-output-port need to be parameters
 
 -- IO and GC
@@ -40,6 +38,7 @@ Future:
 -- debugging information
 -- number tags should require only a single test by sharing part of a tag
 -- composable continuations
+-- strings and srfi-13
 
 Bugs:
 -- call/cc: unwind only as far as the common tail
@@ -54,6 +53,7 @@ Bugs:
 
 Testing:
 -- 6.6 characters complete
+-- 6.7 strings complete except list->string needs to type check list
 -- 6.8 vectors complete except list->vector needs to type check list
 -- 6.9 bytevectors complete except utf8 conversions need more testing
 
@@ -381,16 +381,10 @@ inline unsigned int StringLength(FObject obj)
 void StringToC(FObject s, char * b, int bl);
 int StringToNumber(FCh * s, int sl, FFixnum * np, FFixnum b);
 int NumberAsString(FFixnum n, FCh * s, FFixnum b);
-int ChAlphabeticP(FCh ch);
-int ChNumericP(FCh ch);
-int ChWhitespaceP(FCh ch);
-FCh ChUpCase(FCh ch);
-FCh ChDownCase(FCh ch);
-FObject FoldCaseString(FObject s);
+FObject FoldcaseString(FObject s);
 unsigned int ByteLengthHash(char * b, int bl);
 unsigned int StringLengthHash(FCh * s, int sl);
 unsigned int StringHash(FObject obj);
-int StringCompare(FString * str1, FString * str2);
 int StringEqualP(FObject obj1, FObject obj2);
 int StringLengthEqualP(FCh * s, int sl, FObject obj);
 int StringCEqualP(char * s1, FCh * s2, int sl2);

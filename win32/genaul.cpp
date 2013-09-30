@@ -197,7 +197,7 @@ int main(int argc, char * argv[])
         fst += 32;
     }
 
-    printf("    0x0\n};\n");
+    printf("    0x0\n};\n\n");
 
     fclose(fp);
     return(0);

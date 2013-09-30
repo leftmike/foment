@@ -1038,6 +1038,216 @@
 (must-raise (assertion-violation char-foldcase) (char-foldcase #\x10 #\x10))
 
 ;;
+;; ---- strings ----
+;;
+
+(must-equal #t (string? ""))
+(must-equal #t (string? "123"))
+(must-equal #f (string? #\a))
+(must-equal #f (string? 'abc))
+
+(must-raise (assertion-violation string?) (string?))
+(must-raise (assertion-violation string?) (string? #\a 10))
+
+(must-equal "" (make-string 0))
+(must-equal 10 (string-length (make-string 10)))
+(must-equal "aaaaaaaaaaaaaaaa" (make-string 16 #\a))
+
+(must-raise (assertion-violation make-string) (make-string))
+(must-raise (assertion-violation make-string) (make-string #\a))
+(must-raise (assertion-violation make-string) (make-string 10 10))
+(must-raise (assertion-violation make-string) (make-string 10 #\a 10))
+
+(must-equal "" (string))
+(must-equal "1234" (string #\1 #\2 #\3 #\4))
+
+(must-raise (assertion-violation string) (string 1))
+(must-raise (assertion-violation string) (string #\1 1))
+
+(must-equal 0 (string-length ""))
+(must-equal 4 (string-length "1234"))
+
+(must-raise (assertion-violation string-length) (string-length))
+(must-raise (assertion-violation string-length) (string-length #\a))
+(must-raise (assertion-violation string-length) (string-length "" #\a))
+
+(must-equal #\3 (string-ref "123456" 2))
+
+(must-raise (assertion-violation string-ref) (string-ref ""))
+(must-raise (assertion-violation string-ref) (string-ref "" 2 2))
+(must-raise (assertion-violation string-ref) (string-ref "123" 3))
+(must-raise (assertion-violation string-ref) (string-ref "123" -1))
+(must-raise (assertion-violation string-ref) (string-ref #(1 2 3) 1))
+
+(must-equal "*?*"
+    (let ((s (make-string 3 #\*)))
+        (string-set! s 1 #\?)
+        s))
+
+(define s (string #\1 #\2 #\3 #\4))
+(must-raise (assertion-violation string-set!) (string-set! s 10))
+(must-raise (assertion-violation string-set!) (string-set! s 10 #\a 10))
+(must-raise (assertion-violation string-set!) (string-set! #\a 10 #\a))
+(must-raise (assertion-violation string-set!) (string-set! s #t #\a))
+(must-raise (assertion-violation string-set!) (string-set! s 10 'a))
+
+(must-equal #t (string=? "aaaa" (make-string 4 #\a)))
+(must-equal #t (string=? "\t\"\\" "\x9;\x22;\x5C;"))
+(must-equal #t (string=? "aaa" "aaa" "aaa"))
+(must-equal #f (string=? "aaa" "aaa" "bbb"))
+
+(must-raise (assertion-violation string=?) (string=? "a"))
+(must-raise (assertion-violation string=?) (string=? "a" "a" 10))
+
+(must-equal #t (string<? "aaaa" (make-string 4 #\b)))
+(must-equal #t (string<? "\t\"\\" "\x9;\x22;\x5C;c"))
+(must-equal #t (string<? "aaa" "aab" "caa"))
+(must-equal #f (string<? "aaa" "bbb" "bbb"))
+
+(must-raise (assertion-violation string<?) (string<? "a"))
+(must-raise (assertion-violation string<?) (string<? "a" "b" 10))
+
+(must-equal #t (string>? "cccc" (make-string 4 #\b)))
+(must-equal #t (string>? "\t\"\\c" "\x9;\x22;\x5C;"))
+(must-equal #t (string>? "aac" "aab" "aaa"))
+(must-equal #f (string>? "ccc" "bbb" "bbb"))
+
+(must-raise (assertion-violation string>?) (string>? "a"))
+(must-raise (assertion-violation string>?) (string>? "c" "b" 10))
+
+(must-equal #t (string<=? "aaaa" (make-string 4 #\b) "bbbb"))
+(must-equal #t (string<=? "\t\"\\" "\x9;\x22;\x5C;"))
+(must-equal #t (string<=? "aaa" "aaa" "aab" "caa"))
+(must-equal #f (string<=? "aaa" "bbb" "bbb" "a"))
+
+(must-raise (assertion-violation string<=?) (string<=? "a"))
+(must-raise (assertion-violation string<=?) (string<=? "a" "b" 10))
+
+(must-equal #t (string>=? "cccc" (make-string 4 #\b) "bbbb"))
+(must-equal #t (string>=? "\t\"\\c" "\x9;\x22;\x5C;"))
+(must-equal #t (string>=? "aac" "aab" "aaa"))
+(must-equal #f (string>=? "ccc" "bbb" "bbb" "ddd"))
+
+(must-raise (assertion-violation string>=?) (string>=? "a"))
+(must-raise (assertion-violation string>=?) (string>=? "c" "b" 10))
+
+(must-equal #t (string-ci=? "aaaa" (make-string 4 #\A)))
+(must-equal #t (string-ci=? "\t\"\\" "\x9;\x22;\x5C;"))
+(must-equal #t (string-ci=? "aaA" "aAa" "Aaa"))
+(must-equal #f (string-ci=? "aaa" "aaA" "Bbb"))
+
+(must-raise (assertion-violation string-ci=?) (string-ci=? "a"))
+(must-raise (assertion-violation string-ci=?) (string-ci=? "a" "a" 10))
+
+(must-equal #t (string-ci<? "aAAa" (make-string 4 #\b)))
+(must-equal #t (string-ci<? "\t\"\\" "\x9;\x22;\x5C;c"))
+(must-equal #t (string-ci<? "aAa" "aaB" "cAa"))
+(must-equal #f (string-ci<? "aaa" "bbb" "bBb"))
+
+(must-raise (assertion-violation string-ci<?) (string-ci<? "a"))
+(must-raise (assertion-violation string-ci<?) (string-ci<? "a" "b" 10))
+
+(must-equal #t (string-ci>? "cccc" (make-string 4 #\B)))
+(must-equal #t (string-ci>? "\t\"\\c" "\x9;\x22;\x5C;"))
+(must-equal #t (string-ci>? "Aac" "aAb" "aaA"))
+(must-equal #f (string-ci>? "ccC" "Bbb" "bbB"))
+
+(must-raise (assertion-violation string-ci>?) (string-ci>? "a"))
+(must-raise (assertion-violation string-ci>?) (string-ci>? "c" "b" 10))
+
+(must-equal #t (string-ci<=? "aaAa" (make-string 4 #\b) "bBBb"))
+(must-equal #t (string-ci<=? "\t\"\\" "\x9;\x22;\x5C;"))
+(must-equal #t (string-ci<=? "aaA" "Aaa" "aAb" "caa"))
+(must-equal #f (string-ci<=? "aaa" "bbb" "BBB" "a"))
+
+(must-raise (assertion-violation string-ci<=?) (string-ci<=? "a"))
+(must-raise (assertion-violation string-ci<=?) (string-ci<=? "a" "b" 10))
+
+(must-equal #t (string-ci>=? "cccc" (make-string 4 #\B) "bbbb"))
+(must-equal #t (string-ci>=? "\t\"\\c" "\x9;\x22;\x5C;"))
+(must-equal #t (string-ci>=? "aac" "AAB" "aaa"))
+(must-equal #f (string-ci>=? "ccc" "BBB" "bbb" "ddd"))
+
+(must-raise (assertion-violation string-ci>=?) (string-ci>=? "a"))
+(must-raise (assertion-violation string-ci>=?) (string-ci>=? "c" "b" 10))
+
+(must-equal "AAA" (string-upcase "aaa"))
+(must-equal "AAA" (string-upcase "aAa"))
+(must-equal "\x0399;\x0308;\x0301;\x03A5;\x0308;\x0301;\x1FBA;\x0399;"
+        (string-upcase "\x0390;\x03B0;\x1FB2;"))
+
+(must-raise (assertion-violation string-upcase) (string-upcase))
+(must-raise (assertion-violation string-upcase) (string-upcase #\a))
+(must-raise (assertion-violation string-upcase) (string-upcase "a" "a"))
+
+(must-equal "aaa" (string-downcase "AAA"))
+(must-equal "aaa" (string-downcase "aAa"))
+(must-equal "a\x0069;\x0307;a" (string-downcase "A\x0130;a"))
+
+(must-raise (assertion-violation string-downcase) (string-downcase))
+(must-raise (assertion-violation string-downcase) (string-downcase #\a))
+(must-raise (assertion-violation string-downcase) (string-downcase "a" "a"))
+
+(must-equal #t (string=? (string-foldcase "AAA") (string-foldcase "aaa")))
+(must-equal #t (string=? (string-foldcase "AAA") (string-foldcase "aAa")))
+(must-equal #t (string=? (string-foldcase "\x1E9A;") "\x0061;\x02BE;"))
+(must-equal #t (string=? (string-foldcase "\x1F52;\x1F54;\x1F56;")
+        "\x03C5;\x0313;\x0300;\x03C5;\x0313;\x0301;\x03C5;\x0313;\x0342;"))
+
+(must-raise (assertion-violation string-foldcase) (string-foldcase))
+(must-raise (assertion-violation string-foldcase) (string-foldcase #\a))
+(must-raise (assertion-violation string-foldcase) (string-foldcase "a" "a"))
+
+(must-equal "123abcdEFGHI" (string-append "123" "abcd" "EFGHI"))
+
+(must-raise (assertion-violation string-append) (string-append #\a))
+(must-raise (assertion-violation string-append) (string-append "a" #\a))
+
+(must-equal (#\1 #\2 #\3 #\4) (string->list "1234"))
+(must-equal (#\b #\c #\d) (string->list "abcdefg" 1 4))
+(must-equal (#\w #\x #\y #\z) (string->list "qrstuvwxyz" 6))
+
+(must-raise (assertion-violation string->list) (string->list))
+(must-raise (assertion-violation string->list) (string->list #\a))
+(must-raise (assertion-violation string->list) (string->list "123" -1))
+(must-raise (assertion-violation string->list) (string->list "123" #\a))
+(must-raise (assertion-violation string->list) (string->list "123" 1 0))
+(must-raise (assertion-violation string->list) (string->list "123" 1 4))
+(must-raise (assertion-violation string->list) (string->list "123" 1 #t))
+(must-raise (assertion-violation string->list) (string->list "123" 1 3 3))
+
+(must-equal "abc" (list->string '(#\a #\b #\c)))
+(must-equal "" (list->string '()))
+
+(must-raise (assertion-violation list->string) (list->string))
+(must-raise (assertion-violation) (list->string "abc"))
+
+(must-equal "234" (substring "12345" 1 4))
+
+(must-equal "12345" (string-copy "12345"))
+(must-equal "2345" (string-copy "12345" 1))
+(must-equal "23" (string-copy "12345" 1 3))
+
+(must-raise (assertion-violation string-copy) (string-copy))
+(must-raise (assertion-violation string-copy) (string-copy #\a))
+(must-raise (assertion-violation string-copy) (string-copy "abc" -1))
+(must-raise (assertion-violation string-copy) (string-copy "abc" #t))
+(must-raise (assertion-violation string-copy) (string-copy "abc" 3))
+(must-raise (assertion-violation string-copy) (string-copy "abc" 1 0))
+(must-raise (assertion-violation string-copy) (string-copy "abc" 1 4))
+(must-raise (assertion-violation string-copy) (string-copy "abc" 1 2 3))
+
+(define a "12345")
+(define b (string-copy "abcde"))
+(string-copy! b 1 a 0 2)
+(must-equal "a12de" b)
+(must-equal "abcde" (let ((s (make-string 5))) (string-copy! s 0 "abcde") s))
+(must-equal "0abc0" (let ((s (make-string 5 #\0))) (string-copy! s 1 "abc") s))
+
+(must-raise (assertion-violation string-copy!) (string-copy! (make-string 5) 0))
+(must-raise (assertion-violation string-copy!) (string-copy! #\a 0 "abcde"))
+
+;;
 ;; ---- vectors ----
 ;;
 

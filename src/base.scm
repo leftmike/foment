@@ -120,7 +120,7 @@
         letrec*
         letrec-syntax
         list
-;        list->string
+        list->string
         list->vector
 ;        list-copy
         list-ref
@@ -130,7 +130,7 @@
         make-bytevector
 ;        make-list
         make-parameter
-;        make-string
+        make-string
         make-vector
         map
 ;        max
@@ -183,28 +183,28 @@
         set-car!
         set-cdr!
 ;        square
-;        string
-;        string->list
+        string
+        string->list
 ;        string->number
         string->symbol
         string->utf8
         string->vector
-;        string-append
-;        string-copy
-;        string-copy!
-;        string-fill!
+        string-append
+        string-copy
+        string-copy!
+        string-fill!
 ;        string-for-each
-;        string-length
+        string-length
 ;        string-map
-;        string-ref
-;        string-set!
-;        string<=?
-;        string<?
+        string-ref
+        string-set!
+        string<=?
+        string<?
         string=?
-;        string>=?
-;        string>?
+        string>=?
+        string>?
         string?
-;        substring
+        substring
 ;        symbol->string
 ;        symbol=?
 ;        symbol?
@@ -260,14 +260,14 @@
         char-upper-case?
         char-whitespace?
         digit-value
-;        string-ci<=?
-;        string-ci<?
-;        string-ci=?
-;        string-ci>=?
-;        string-ci>?
-;        string-downcase
-;        string-foldcase
-;        string-upcase
+        string-ci<=?
+        string-ci<?
+        string-ci=?
+        string-ci>=?
+        string-ci>?
+        string-downcase
+        string-foldcase
+        string-upcase
     )
     (export ;; (scheme eval)
 ;        environment
@@ -308,7 +308,7 @@
     (export
         syntax unsyntax eq-hash eqv-hash display-shared display-simple
         equal-hash full-error loaded-libraries library-path full-command-line
-        write-pretty display-pretty string-hash
+        write-pretty display-pretty
         with-continuation-mark call-with-continuation-prompt abort-current-continuation
         default-prompt-tag (rename default-prompt-tag default-continuation-prompt-tag)
         default-prompt-handler current-continuation-marks collect make-guardian make-tracker
@@ -320,6 +320,8 @@
         (define (cadr pair) (car (cdr pair)))
         (define (cdar pair) (cdr (car pair)))
         (define (cddr pair) (cdr (cdr pair)))
+
+        (define (substring string start end) (string-copy string start end))
 
         (define-syntax when
             (syntax-rules ()
@@ -755,7 +757,7 @@
         letrec*
         letrec-syntax
         list
-;;        list->string
+        list->string
         list->vector
 ;;        list-copy
         list-ref
@@ -765,7 +767,7 @@
         make-bytevector
 ;;        make-list
         make-parameter
-;;        make-string
+        make-string
         make-vector
         map
 ;;        max
@@ -818,28 +820,28 @@
         set-car!
         set-cdr!
 ;;        square
-;;        string
-;;        string->list
+        string
+        string->list
 ;;        string->number
         string->symbol
         string->utf8
         string->vector
-;;        string-append
-;;        string-copy
-;;        string-copy!
-;;        string-fill!
+        string-append
+        string-copy
+        string-copy!
+        string-fill!
 ;;        string-for-each
-;;        string-length
+        string-length
 ;;        string-map
-;;        string-ref
-;;        string-set!
-;;        string<=?
-;;        string<?
+        string-ref
+        string-set!
+        string<=?
+        string<?
         string=?
-;;        string>=?
-;;        string>?
+        string>=?
+        string>?
         string?
-;;        substring
+        substring
 ;;        symbol->string
 ;;        symbol=?
 ;;        symbol?
@@ -901,14 +903,14 @@
         char-upper-case?
         char-whitespace?
         digit-value
-;;        string-ci<=?
-;;        string-ci<?
-;;        string-ci=?
-;;        string-ci>=?
-;;        string-ci>?
-;;        string-downcase
-;;        string-foldcase
-;;        string-upcase
+        string-ci<=?
+        string-ci<?
+        string-ci=?
+        string-ci>=?
+        string-ci>?
+        string-downcase
+        string-foldcase
+        string-upcase
     ))
 
 ;; (define-library (scheme complex)

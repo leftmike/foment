@@ -587,3 +587,159 @@ unsigned int LowercaseP(FCh ch)
 
     return(0);
 }
+unsigned int CharFullfoldLength(FCh ch)
+{
+    // From:
+    // CaseFolding-6.2.0.txt
+    // Date: 2012-08-14, 17:54:49 GMT [MD]
+
+    if (ch < 0x2000)
+    {
+        if (FullfoldSet[ch / 32] & (1 << (ch % 32)))
+        {
+            if (ch == 0x00df)
+                return(Fullfold0x00dfTo0x00df[0].Count);
+            else if (ch >= 0x0130 && ch <= 0x0149)
+                return(Fullfold0x0130To0x0149[ch - 0x0130].Count);
+            else if (ch == 0x01f0)
+                return(Fullfold0x01f0To0x01f0[0].Count);
+            else if (ch >= 0x0390 && ch <= 0x03b0)
+                return(Fullfold0x0390To0x03b0[ch - 0x0390].Count);
+            else if (ch == 0x0587)
+                return(Fullfold0x0587To0x0587[0].Count);
+            else if (ch >= 0x1e96 && ch <= 0x1e9e)
+                return(Fullfold0x1e96To0x1e9e[ch - 0x1e96].Count);
+            else if (ch >= 0x1f50 && ch <= 0x1f56)
+                return(Fullfold0x1f50To0x1f56[ch - 0x1f50].Count);
+            else if (ch >= 0x1f80 && ch <= 0x1ffc)
+                return(Fullfold0x1f80To0x1ffc[ch - 0x1f80].Count);
+        }
+
+        return(1);
+    }
+    else if (ch >= 0xfb00 && ch <= 0xfb17)
+        return(Fullfold0xfb00To0xfb17[ch - 0xfb00].Count);
+
+    return(1);
+}
+
+FCh * CharFullfold(FCh ch)
+{
+    // From:
+    // CaseFolding-6.2.0.txt
+    // Date: 2012-08-14, 17:54:49 GMT [MD]
+
+    FAssert(ch >= 0x2000 || FullfoldSet[ch / 32] & (1 << (ch % 32)));
+
+    if (ch == 0x00df)
+        return(Fullfold0x00dfTo0x00df[0].Chars);
+    else if (ch >= 0x0130 && ch <= 0x0149)
+        return(Fullfold0x0130To0x0149[ch - 0x0130].Chars);
+    else if (ch == 0x01f0)
+        return(Fullfold0x01f0To0x01f0[0].Chars);
+    else if (ch >= 0x0390 && ch <= 0x03b0)
+        return(Fullfold0x0390To0x03b0[ch - 0x0390].Chars);
+    else if (ch == 0x0587)
+        return(Fullfold0x0587To0x0587[0].Chars);
+    else if (ch >= 0x1e96 && ch <= 0x1e9e)
+        return(Fullfold0x1e96To0x1e9e[ch - 0x1e96].Chars);
+    else if (ch >= 0x1f50 && ch <= 0x1f56)
+        return(Fullfold0x1f50To0x1f56[ch - 0x1f50].Chars);
+    else if (ch >= 0x1f80 && ch <= 0x1ffc)
+        return(Fullfold0x1f80To0x1ffc[ch - 0x1f80].Chars);
+
+    FAssert(ch >= 0xfb00 && ch <= 0xfb17);
+
+    return(Fullfold0xfb00To0xfb17[ch - 0xfb00].Chars);
+}
+
+unsigned int CharFullupLength(FCh ch)
+{
+    // From:
+    // SpecialCasing-6.2.0.txt
+    // Date: 2012-05-23, 20:35:15 GMT [MD]
+
+    if (ch < 0x2000)
+    {
+        if (FullupSet[ch / 32] & (1 << (ch % 32)))
+        {
+            if (ch == 0x00df)
+                return(Fullup0x00dfTo0x00df[0].Count);
+            else if (ch == 0x0149)
+                return(Fullup0x0149To0x0149[0].Count);
+            else if (ch == 0x01f0)
+                return(Fullup0x01f0To0x01f0[0].Count);
+            else if (ch >= 0x0390 && ch <= 0x03b0)
+                return(Fullup0x0390To0x03b0[ch - 0x0390].Count);
+            else if (ch == 0x0587)
+                return(Fullup0x0587To0x0587[0].Count);
+            else if (ch >= 0x1e96 && ch <= 0x1e9a)
+                return(Fullup0x1e96To0x1e9a[ch - 0x1e96].Count);
+            else if (ch >= 0x1f50 && ch <= 0x1f56)
+                return(Fullup0x1f50To0x1f56[ch - 0x1f50].Count);
+            else if (ch >= 0x1f80 && ch <= 0x1ffc)
+                return(Fullup0x1f80To0x1ffc[ch - 0x1f80].Count);
+        }
+
+        return(1);
+    }
+    else if (ch >= 0xfb00 && ch <= 0xfb17)
+        return(Fullup0xfb00To0xfb17[ch - 0xfb00].Count);
+
+    return(1);
+}
+
+FCh * CharFullup(FCh ch)
+{
+    // From:
+    // SpecialCasing-6.2.0.txt
+    // Date: 2012-05-23, 20:35:15 GMT [MD]
+
+    FAssert(ch >= 0x2000 || FullupSet[ch / 32] & (1 << (ch % 32)));
+
+    if (ch == 0x00df)
+        return(Fullup0x00dfTo0x00df[0].Chars);
+    else if (ch == 0x0149)
+        return(Fullup0x0149To0x0149[0].Chars);
+    else if (ch == 0x01f0)
+        return(Fullup0x01f0To0x01f0[0].Chars);
+    else if (ch >= 0x0390 && ch <= 0x03b0)
+        return(Fullup0x0390To0x03b0[ch - 0x0390].Chars);
+    else if (ch == 0x0587)
+        return(Fullup0x0587To0x0587[0].Chars);
+    else if (ch >= 0x1e96 && ch <= 0x1e9a)
+        return(Fullup0x1e96To0x1e9a[ch - 0x1e96].Chars);
+    else if (ch >= 0x1f50 && ch <= 0x1f56)
+        return(Fullup0x1f50To0x1f56[ch - 0x1f50].Chars);
+    else if (ch >= 0x1f80 && ch <= 0x1ffc)
+        return(Fullup0x1f80To0x1ffc[ch - 0x1f80].Chars);
+
+    FAssert(ch >= 0xfb00 && ch <= 0xfb17);
+
+    return(Fullup0xfb00To0xfb17[ch - 0xfb00].Chars);
+}
+
+unsigned int CharFulldownLength(FCh ch)
+{
+    // From:
+    // SpecialCasing-6.2.0.txt
+    // Date: 2012-05-23, 20:35:15 GMT [MD]
+
+    if (ch == 0x0130)
+        return(2);
+    return(1);
+}
+
+static FCh Fulldown0x0130[] = {0x0069, 0x0307};
+
+FCh * CharFulldown(FCh ch)
+{
+    // From:
+    // SpecialCasing-6.2.0.txt
+    // Date: 2012-05-23, 20:35:15 GMT [MD]
+
+    FAssert(ch == 0x0130);
+
+    return(Fulldown0x0130);
+}
+
