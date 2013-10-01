@@ -78,9 +78,9 @@
         equal?
         eqv?
         error
-;        error-object-irritants
-;        error-object-message
-;        error-object?
+        error-object-irritants
+        error-object-message
+        error-object?
         even?
 ;        exact
 ;        exact-integer-sqrt
@@ -88,7 +88,7 @@
 ;        exact?
         expt
 ;        features
-;        file-error?
+        file-error?
 ;        floor
 ;        floor-quotient
 ;        floor-remainder
@@ -171,7 +171,7 @@
 ;        read-bytevector
 ;        read-bytevector!
 ;        read-char
-;        read-error?
+        read-error?
 ;        read-line
 ;        read-string
 ;        read-u8
@@ -307,7 +307,7 @@
 
     (export
         syntax unsyntax eq-hash eqv-hash display-shared display-simple
-        equal-hash full-error loaded-libraries library-path full-command-line
+        equal-hash error-object-who full-error loaded-libraries library-path full-command-line
         write-pretty display-pretty
         with-continuation-mark call-with-continuation-prompt abort-current-continuation
         default-prompt-tag (rename default-prompt-tag default-continuation-prompt-tag)
@@ -456,6 +456,15 @@
                         "vector-for-each: expected at least one argument")
                 (for-each proc 0 vectors)))
 
+        (define (read-error? obj)
+            (and (error-object? obj) (eq? (error-object-who 'read))))
+
+        (define (file-error? obj)
+            (and (error-object? obj)
+                (let ((who (error-object-who obj)))
+                    (or (eq? who 'open-input-file) (eq? 'open-binary-input-file)
+                            (eq? who 'open-output-file) (eq? 'open-binary-output-file)))))
+
         (define (eval expr env)
             ((compile-eval expr env)))
 
@@ -599,7 +608,7 @@
             (let-values (((dyn handler) (find-mark (%dynamic-stack) tag)))
                 (if (not dyn)
                     (full-error 'assertion-violation 'abort-current-continuation
-                            "abort-current-continuation expected a prompt tag" tag))
+                            "abort-current-continuation: expected a prompt tag" tag))
                 (unwind dyn)
                 (%abort-dynamic dyn (lambda () (apply handler vals)))))
 
@@ -633,6 +642,9 @@
                                         (apply values vals)))))))))
 
         (define (with-exception-handler handler thunk)
+            (if (not (procedure? handler))
+                (full-error 'assertion-violation 'with-exception-handler
+                            "with-exception-handler: expected a procedure" handler))
             (%mark-continuation 'exception-handler
                     (cons handler (%find-mark 'exception-handler '())) thunk))
 
@@ -759,9 +771,9 @@
         equal?
         eqv?
         error
-;;        error-object-irritants
-;;        error-object-message
-;;        error-object?
+        error-object-irritants
+        error-object-message
+        error-object?
         even?
 ;;        exact
 ;;        exact-integer-sqrt
@@ -769,7 +781,7 @@
 ;;        exact?
         expt
 ;;        features
-;;        file-error?
+        file-error?
 ;;        floor
 ;;        floor-quotient
 ;;        floor-remainder
@@ -852,7 +864,7 @@
 ;;        read-bytevector
 ;;        read-bytevector!
 ;;        read-char
-;;        read-error?
+        read-error?
 ;;        read-line
 ;;        read-string
 ;;        read-u8

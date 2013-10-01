@@ -365,6 +365,134 @@ Define("string->symbol", StringToSymbolPrimitive)(int argc, FObject argv[])
     return(StringToSymbol(argv[0]));
 }
 
+// ---- Exceptions ----
+
+static char * ExceptionFieldsC[] = {"type", "who", "message", "irritants"};
+
+FObject MakeException(FObject typ, FObject who, FObject msg, FObject lst)
+{
+    FAssert(sizeof(FException) == sizeof(ExceptionFieldsC) + sizeof(FRecord));
+
+    FException * exc = (FException *) MakeRecord(R.ExceptionRecordType);
+    exc->Type = typ;
+    exc->Who = who;
+    exc->Message = msg;
+    exc->Irritants = lst;
+
+    return(exc);
+}
+
+void RaiseException(FObject typ, FObject who, FObject msg, FObject lst)
+{
+    Raise(MakeException(typ, who, msg, lst));
+}
+
+void RaiseExceptionC(FObject typ, char * who, char * msg, FObject lst)
+{
+    char buf[128];
+
+    FAssert(strlen(who) + strlen(msg) + 2 < sizeof(buf));
+
+    if (strlen(who) + strlen(msg) + 2 >= sizeof(buf))
+        Raise(MakeException(typ, StringCToSymbol(who), MakeStringC(msg), lst));
+    else
+    {
+        strcpy(buf, who);
+        strcat(buf, ": ");
+        strcat(buf, msg);
+
+        Raise(MakeException(typ, StringCToSymbol(who), MakeStringC(buf), lst));
+    }
+}
+
+void Raise(FObject obj)
+{
+    throw obj;
+}
+
+Define("raise", RaisePrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("raise", argc);
+
+    Raise(argv[0]);
+    return(NoValueObject);
+}
+
+Define("error", ErrorPrimitive)(int argc, FObject argv[])
+{
+    AtLeastOneArgCheck("error", argc);
+    StringArgCheck("error", argv[0]);
+
+    FObject lst = EmptyListObject;
+    while (argc > 1)
+    {
+        argc -= 1;
+        lst = MakePair(argv[argc], lst);
+    }
+
+    throw MakeException(R.Assertion, StringCToSymbol("error"), argv[0], lst);
+    return(NoValueObject);
+}
+
+Define("error-object?", ErrorObjectPPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("error-object?", argc);
+
+    return(ExceptionP(argv[0]) ? TrueObject : FalseObject);
+}
+
+Define("error-object-who", ErrorObjectWhoPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("error-object-who", argc);
+    ExceptionArgCheck("error-object-who", argv[0]);
+
+    return(AsException(argv[0])->Who);
+}
+
+Define("error-object-message", ErrorObjectMessagePrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("error-object-message", argc);
+    ExceptionArgCheck("error-object-message", argv[0]);
+
+    return(AsException(argv[0])->Message);
+}
+
+Define("error-object-irritants", ErrorObjectIrritantsPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("error-object-irritants", argc);
+    ExceptionArgCheck("error-object-irritants", argv[0]);
+
+    return(AsException(argv[0])->Irritants);
+}
+
+Define("full-error", FullErrorPrimitive)(int argc, FObject argv[])
+{
+    AtLeastThreeArgsCheck("full-error", argc);
+    SymbolArgCheck("full-error", argv[0]);
+    SymbolArgCheck("full-error", argv[1]);
+    StringArgCheck("full-error", argv[2]);
+
+    FObject lst = EmptyListObject;
+    while (argc > 3)
+    {
+        argc -= 1;
+        lst = MakePair(argv[argc], lst);
+    }
+
+    throw MakeException(argv[0], argv[1], argv[2], lst);
+    return(NoValueObject);
+}
+
+// ---- System interface ----
+
+Define("command-line", CommandLinePrimitive)(int argc, FObject argv[])
+{
+    if (argc != 0)
+        RaiseExceptionC(R.Assertion, "command-line", "expected no arguments", EmptyListObject);
+
+    return(R.CommandLine);
+}
+
 // ---- Boxes ----
 
 FObject MakeBox(FObject val)
@@ -1098,118 +1226,6 @@ void DefinePrimitive(FObject env, FObject lib, FPrimitive * prim)
     LibraryExport(lib, EnvironmentSetC(env, prim->Name, MakePrimitive(prim)));
 }
 
-// ---- Exception ----
-
-static char * ExceptionFieldsC[] = {"type", "who", "message", "irritants"};
-
-FObject MakeException(FObject typ, FObject who, FObject msg, FObject lst)
-{
-    FAssert(sizeof(FException) == sizeof(ExceptionFieldsC) + sizeof(FRecord));
-
-    FException * exc = (FException *) MakeRecord(R.ExceptionRecordType);
-    exc->Type = typ;
-    exc->Who = who;
-    exc->Message = msg;
-    exc->Irritants = lst;
-
-    return(exc);
-}
-
-void RaiseException(FObject typ, FObject who, FObject msg, FObject lst)
-{
-    Raise(MakeException(typ, who, msg, lst));
-}
-
-void RaiseExceptionC(FObject typ, char * who, char * msg, FObject lst)
-{
-    char buf[128];
-
-    FAssert(strlen(who) + strlen(msg) + 2 < sizeof(buf));
-
-    if (strlen(who) + strlen(msg) + 2 >= sizeof(buf))
-        Raise(MakeException(typ, StringCToSymbol(who), MakeStringC(msg), lst));
-    else
-    {
-        strcpy(buf, who);
-        strcat(buf, ": ");
-        strcat(buf, msg);
-
-        Raise(MakeException(typ, StringCToSymbol(who), MakeStringC(buf), lst));
-    }
-}
-
-void Raise(FObject obj)
-{
-    throw obj;
-}
-
-Define("raise", RaisePrimitive)(int argc, FObject argv[])
-{
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "raise", "expected one argument", EmptyListObject);
-
-    Raise(argv[0]);
-
-    return(NoValueObject);
-}
-
-Define("error", ErrorPrimitive)(int argc, FObject argv[])
-{
-    if (argc < 1)
-        RaiseExceptionC(R.Assertion, "error", "expected at least one argument", EmptyListObject);
-
-    if (StringP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "error", "expected a string", List(argv[0]));
-
-    FObject lst = EmptyListObject;
-    while (argc > 1)
-    {
-        argc -= 1;
-        lst = MakePair(argv[argc], lst);
-    }
-
-    throw MakeException(R.Assertion, StringCToSymbol("error"), argv[0], lst);
-
-    return(NoValueObject);
-}
-
-Define("full-error", FullErrorPrimitive)(int argc, FObject argv[])
-{
-    if (argc < 3)
-        RaiseExceptionC(R.Assertion, "full-error", "expected at least three arguments",
-                EmptyListObject);
-
-    if (SymbolP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "full-error", "expected a symbol", List(argv[0]));
-
-    if (SymbolP(argv[1]) == 0)
-        RaiseExceptionC(R.Assertion, "full-error", "expected a symbol", List(argv[1]));
-
-    if (StringP(argv[2]) == 0)
-        RaiseExceptionC(R.Assertion, "full-error", "expected a string", List(argv[2]));
-
-    FObject lst = EmptyListObject;
-    while (argc > 3)
-    {
-        argc -= 1;
-        lst = MakePair(argv[argc], lst);
-    }
-
-    throw MakeException(argv[0], argv[1], argv[2], lst);
-
-    return(NoValueObject);
-}
-
-// System interface
-
-Define("command-line", CommandLinePrimitive)(int argc, FObject argv[])
-{
-    if (argc != 0)
-        RaiseExceptionC(R.Assertion, "command-line", "expected no arguments", EmptyListObject);
-
-    return(R.CommandLine);
-}
-
 // Foment specific
 
 Define("loaded-libraries", LoadedLibrariesPrimitive)(int argc, FObject argv[])
@@ -1269,7 +1285,13 @@ static FPrimitive * Primitives[] =
     &SymbolEqualPPrimitive,
     &SymbolToStringPrimitive,
     &StringToSymbolPrimitive,
-    
+    &RaisePrimitive,
+    &ErrorPrimitive,
+    &ErrorObjectPPrimitive,
+    &ErrorObjectWhoPrimitive,
+    &ErrorObjectMessagePrimitive,
+    &ErrorObjectIrritantsPrimitive,
+    &FullErrorPrimitive,
     
     
     &EqHashPrimitive,
@@ -1285,9 +1307,6 @@ static FPrimitive * Primitives[] =
     &RecordIndexPrimitive,
     &RecordRefPrimitive,
     &RecordSetPrimitive,
-    &RaisePrimitive,
-    &ErrorPrimitive,
-    &FullErrorPrimitive,
     &CommandLinePrimitive,
     &LoadedLibrariesPrimitive,
     &LibraryPathPrimitive,

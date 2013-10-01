@@ -65,6 +65,7 @@ Testing:
 -- 6.8 vectors complete except list->vector needs to type check list
 -- 6.9 bytevectors complete except utf8 conversions need more testing
 -- 6.10 control features complete
+-- 6.11 exceptions complete
 
 */
 
@@ -870,10 +871,22 @@ inline void ThreeArgsCheck(char * who, int argc)
         RaiseExceptionC(R.Assertion, who, "expected three arguments", EmptyListObject);
 }
 
+inline void AtLeastOneArgCheck(char * who, int argc)
+{
+    if (argc < 1)
+        RaiseExceptionC(R.Assertion, who, "expected at least one argument", EmptyListObject);
+}
+
 inline void AtLeastTwoArgsCheck(char * who, int argc)
 {
     if (argc < 2)
         RaiseExceptionC(R.Assertion, who, "expected at least two arguments", EmptyListObject);
+}
+
+inline void AtLeastThreeArgsCheck(char * who, int argc)
+{
+    if (argc < 3)
+        RaiseExceptionC(R.Assertion, who, "expected at least three arguments", EmptyListObject);
 }
 
 inline void OneOrTwoArgsCheck(char * who, int argc)
@@ -947,6 +960,12 @@ inline void SymbolArgCheck(char * who, FObject obj)
 {
     if (SymbolP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a symbol", List(obj));
+}
+
+inline void ExceptionArgCheck(char * who, FObject obj)
+{
+    if (ExceptionP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected an error-object", List(obj));
 }
 
 inline void StringArgCheck(char * who, FObject obj)

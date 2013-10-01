@@ -1846,6 +1846,64 @@
             (+ (raise-continuable "should be a number") 23))))
 (must-equal "should be a number" e)
 
+(must-raise (assertion-violation with-exception-handler)
+        (with-exception-handler (lambda (obj) 'handler)))
+(must-raise (assertion-violation with-exception-handler)
+        (with-exception-handler (lambda (obj) 'handler) (lambda () 'thunk) (lambda () 'extra)))
+(must-raise (assertion-violation with-exception-handler)
+        (with-exception-handler 10 (lambda () 'thunk)))
+(must-raise (assertion-violation)
+        (with-exception-handler (lambda (obj) 'handler) 10))
+(must-raise (assertion-violation)
+        (with-exception-handler (lambda (obj) 'handler) (lambda (oops) 'thunk)))
+
+(must-raise (assertion-violation raise) (raise))
+(must-raise (assertion-violation raise) (raise 1 2))
+
+(must-raise (assertion-violation raise-continuable) (raise-continuable))
+(must-raise (assertion-violation raise-continuable) (raise-continuable 1 2))
+
+(define (null-list? l)
+    (cond ((pair? l) #f)
+        ((null? l) #t)
+        (else (error "null-list?: argument out of domain" l))))
+
+(must-raise (assertion-violation error) (null-list? #\a))
+(must-raise (assertion-violation error) (error))
+(must-raise (assertion-violation error) (error #\a))
+
+(must-equal #t (error-object?
+    (call/cc (lambda (cont)
+        (with-exception-handler (lambda (obj) (cont obj)) (lambda () (error "testing")))))))
+(must-equal #f (error-object? 'error))
+
+(must-raise (assertion-violation error-object?) (error-object?))
+(must-raise (assertion-violation error-object?) (error-object? 1 2))
+
+(must-equal "testing" (error-object-message
+    (call/cc (lambda (cont)
+        (with-exception-handler (lambda (obj) (cont obj)) (lambda () (error "testing")))))))
+
+(must-raise (assertion-violation error-object-message) (error-object-message))
+(must-raise (assertion-violation error-object-message) (error-object-message 1 2))
+
+(must-equal (a b c) (error-object-irritants
+    (call/cc (lambda (cont)
+        (with-exception-handler
+                (lambda (obj) (cont obj)) (lambda () (error "testing" 'a 'b 'c)))))))
+
+(must-raise (assertion-violation error-object-irritants) (error-object-irritants))
+(must-raise (assertion-violation error-object-irritants) (error-object-irritants 1 2))
+
+(must-equal #f (read-error? 'read))
+
+(must-raise (assertion-violation read-error?) (read-error?))
+(must-raise (assertion-violation read-error?) (read-error? 1 2))
+
+(must-equal #f (file-error? 'file))
+
+(must-raise (assertion-violation file-error?) (file-error?))
+(must-raise (assertion-violation file-error?) (file-error? 1 2))
 ;;
 ;; ---- input and output ----
 ;;
