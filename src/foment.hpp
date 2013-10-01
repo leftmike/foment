@@ -12,10 +12,15 @@ To Do:
 -- CompileProgram
 -- RunProgram
 
+-- #!fold-case and #!no-fold-case
+
 -- import and define-library should not be in (scheme base), but should be in whatever
 library is used by interaction-environment
 
 -- current-input-port and current-output-port need to be parameters
+
+-- command-line like Kawa
+-- use tests from chibi
 
 -- IO and GC
 -- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
@@ -52,10 +57,14 @@ Bugs:
 -- exhaustively test unicode: char-alphabetic?, char-upcase, etc
 
 Testing:
+-- 6.1 equivalence predicates complete
+-- 6.3 booleans complete
+-- 6.5 symbols complete
 -- 6.6 characters complete
 -- 6.7 strings complete except list->string needs to type check list
 -- 6.8 vectors complete except list->vector needs to type check list
 -- 6.9 bytevectors complete except utf8 conversions need more testing
+-- 6.10 control features complete
 
 */
 
@@ -518,6 +527,7 @@ typedef struct
 
 FObject MakeHashtable(int nb);
 FObject HashtableRef(FObject ht, FObject key, FObject def, FEquivFn efn, FHashFn hfn);
+FObject HashtableStringRef(FObject ht, FCh * s, int sl, FObject def);
 void HashtableSet(FObject ht, FObject key, FObject val, FEquivFn efn, FHashFn hfn);
 void HashtableDelete(FObject ht, FObject key, FEquivFn efn, FHashFn hfn);
 int HashtableContainsP(FObject ht, FObject key, FEquivFn efn, FHashFn hfn);
@@ -836,6 +846,12 @@ extern FRoots R;
 
 // ---- Argument Checking ----
 
+inline void ZeroArgsCheck(char * who, int argc)
+{
+    if (argc != 0)
+        RaiseExceptionC(R.Assertion, who, "expected no arguments", EmptyListObject);
+}
+
 inline void OneArgCheck(char * who, int argc)
 {
     if (argc != 1)
@@ -919,6 +935,18 @@ inline void CharacterArgCheck(char * who, FObject obj)
 {
     if (CharacterP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a character", List(obj));
+}
+
+inline void BooleanArgCheck(char * who, FObject obj)
+{
+    if (BooleanP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a boolean", List(obj));
+}
+
+inline void SymbolArgCheck(char * who, FObject obj)
+{
+    if (SymbolP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a symbol", List(obj));
 }
 
 inline void StringArgCheck(char * who, FObject obj)

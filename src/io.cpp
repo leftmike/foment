@@ -512,12 +512,14 @@ static FCh DoReadStringHexChar(FObject port)
     return((FCh) n);
 }
 
-static FObject DoReadString(FObject port)
+static FObject DoReadString(FObject port, FCh tch)
 {
     FCh s[512];
     int sl = 0;
     FCh ch;
     int eof = 0;
+
+    FAssert(tch == '"' || tch == '|');
 
     for (;;)
     {
@@ -527,7 +529,7 @@ static FObject DoReadString(FObject port)
 
 Again:
 
-        if (ch == '"')
+        if (ch == tch)
             break;
 
         if (ch == '\\')
@@ -643,7 +645,8 @@ static FObject DoReadSymbolOrNumber(FObject port, int ch, int rif, int fcf)
 }
 
 static FObject DoReadList(FObject port, int rif, int fcf);
-static FObject DoReadSharp(FObject port, int rif, int fcf)
+static FObject DoRead(FObject port, int eaf, int rlf, int rif, int fcf);
+static FObject DoReadSharp(FObject port, int eaf, int rlf, int rif, int fcf)
 {
     int eof;
 
@@ -763,6 +766,34 @@ static FObject DoReadSharp(FObject port, int rif, int fcf)
             RaiseExceptionC(R.Lexical, "read", "expected #\u8(", List(port));
         return(U8ListToBytevector(DoReadList(port, rif, fcf)));
     }
+    else if (ch == ';')
+    {
+        DoRead(port, 0, 0, 0, 0);
+
+        return(DoRead(port, eaf, rlf, rif, fcf));
+    }
+    else if (ch == '|')
+    {
+        int lvl = 1;
+
+        FCh pch = 0;
+        while (lvl > 0)
+        {
+            ch = GetCh(port, &eof);
+            if (eof)
+                RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file in block comment",
+                        List(port));
+
+            if (pch == '#' && ch == '|')
+                lvl += 1;
+            else if (pch == '|' && ch == '#')
+                lvl -= 1;
+
+            pch = ch;
+        }
+
+        return(DoRead(port, eaf, rlf, rif, fcf));
+    }
 
     RaiseExceptionC(R.Lexical, "read", "unexpected character following #",
             List(port, MakeCharacter(ch)));
@@ -796,10 +827,22 @@ static FObject DoRead(FObject port, int eaf, int rlf, int rif, int fcf)
             switch (ch)
             {
             case '#':
-                return(DoReadSharp(port, rif, fcf));
+                return(DoReadSharp(port, eaf, rlf, rif, fcf));
 
             case '"':
-                return(DoReadString(port));
+                return(DoReadString(port, '"'));
+
+            case '|':
+            {
+                int ln;
+
+                if (rif)
+                    ln = GetLocation(port);
+
+                FObject sym = fcf ? StringToSymbol(FoldcaseString(DoReadString(port, '|')))
+                        : StringToSymbol(DoReadString(port, '|'));
+                return(rif ? MakeIdentifier(sym, ln) : sym);
+            }
 
             case '(':
                 return(DoReadList(port, rif, fcf));

@@ -125,38 +125,244 @@ void WriteSpecialSyntax(FObject port, FObject obj, int df)
     PutCh(port, '>');
 }
 
+// ---- Equivalence predicates ----
+
+int EqvP(FObject obj1, FObject obj2)
+{
+    if (obj1 == obj2)
+        return(1);
+
+    return(0);
+}
+
+int EqP(FObject obj1, FObject obj2)
+{
+    if (obj1 == obj2)
+        return(1);
+
+    return(0);
+}
+
+int EqualP(FObject obj1, FObject obj2)
+{
+    if (EqvP(obj1, obj2))
+        return(1);
+
+    if (PairP(obj1))
+    {
+        if (PairP(obj2) == 0)
+            return(0);
+
+        if (EqualP(First(obj1), First(obj2)) == 0
+                || EqualP(Rest(obj1), Rest(obj2)) == 0)
+            return(0);
+        return(1);
+    }
+
+    if (BoxP(obj1))
+    {
+        if (BoxP(obj2) == 0)
+            return(0);
+
+        return(EqualP(Unbox(obj1), Unbox(obj2)));
+    }
+
+    if (StringP(obj1))
+    {
+        if (StringP(obj2) == 0)
+            return(0);
+
+        return(StringEqualP(obj1, obj2));
+    }
+
+    if (VectorP(obj1))
+    {
+        if (VectorP(obj2) == 0)
+            return(0);
+
+        if (VectorLength(obj1) != VectorLength(obj2))
+            return(0);
+
+        for (unsigned int idx = 0; idx < VectorLength(obj1); idx++)
+            if (EqualP(AsVector(obj1)->Vector[idx], AsVector(obj2)->Vector[idx]) == 0)
+                return(0);
+        return(1);
+    }
+
+    if (BytevectorP(obj1))
+    {
+        if (BytevectorP(obj2) == 0)
+            return(0);
+
+        if (BytevectorLength(obj1) != BytevectorLength(obj2))
+            return(0);
+
+        for (unsigned int idx = 0; idx < BytevectorLength(obj1); idx++)
+            if (AsBytevector(obj1)->Vector[idx] != AsBytevector(obj2)->Vector[idx])
+                return(0);
+        return(1);
+    }
+
+    return(0);
+}
+
+Define("eqv?", EqvPPrimitive)(int argc, FObject argv[])
+{
+    TwoArgsCheck("eqv?", argc);
+
+    return(EqvP(argv[0], argv[1]) ? TrueObject : FalseObject);
+}
+
+Define("eq?", EqPPrimitive)(int argc, FObject argv[])
+{
+    TwoArgsCheck("eq?", argc);
+
+    return(EqP(argv[0], argv[1]) ? TrueObject : FalseObject);
+}
+
+Define("equal?", EqualPPrimitive)(int argc, FObject argv[])
+{
+    TwoArgsCheck("equal?", argc);
+
+    return(EqualP(argv[0], argv[1]) ? TrueObject : FalseObject);
+}
+
 // ---- Booleans ----
 
 Define("not", NotPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "not", "expected one argument", EmptyListObject);
+    OneArgCheck("not", argc);
 
     return(argv[0] == FalseObject ? TrueObject : FalseObject);
 }
 
 Define("boolean?", BooleanPPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "boolean?", "expected one argument", EmptyListObject);
+    OneArgCheck("boolean?", argc);
 
     return(BooleanP(argv[0]) ? TrueObject : FalseObject);
 }
 
 Define("boolean=?", BooleanEqualPPrimitive)(int argc, FObject argv[])
 {
-    if (argc < 2)
-        RaiseExceptionC(R.Assertion, "boolean=?", "expected at least two arguments",
-                EmptyListObject);
-
-    if (BooleanP(argv[0]) == 0)
-        return(FalseObject);
+    AtLeastTwoArgsCheck("boolean=?", argc);
+    BooleanArgCheck("boolean=?", argv[0]);
 
     for (int adx = 1; adx < argc; adx++)
-        if (argv[0] != argv[adx])
+    {
+        BooleanArgCheck("boolean=?", argv[adx]);
+
+        if (argv[adx - 1] != argv[adx])
             return(FalseObject);
+    }
 
     return(TrueObject);
+}
+
+// ---- Symbols ----
+
+static unsigned int NextSymbolHash = 0;
+
+FObject StringToSymbol(FObject str)
+{
+    FAssert(StringP(str));
+
+    FObject obj = HashtableRef(R.SymbolHashtable, str, FalseObject, StringEqualP, StringHash);
+    if (obj == FalseObject)
+    {
+        FSymbol * sym = (FSymbol *) MakeObject(sizeof(FSymbol), SymbolTag);
+        sym->Reserved = MakeLength(NextSymbolHash, SymbolTag);
+        sym->String = str;
+        NextSymbolHash += 1;
+        if (NextSymbolHash > MAXIMUM_OBJECT_LENGTH)
+            NextSymbolHash = 0;
+
+        obj = sym;
+        HashtableSet(R.SymbolHashtable, str, obj, StringEqualP, StringHash);
+    }
+
+    FAssert(SymbolP(obj));
+    return(obj);
+}
+
+FObject StringCToSymbol(char * s)
+{
+    return(StringToSymbol(MakeStringC(s)));
+}
+
+FObject StringLengthToSymbol(FCh * s, int sl)
+{
+    FObject obj = HashtableStringRef(R.SymbolHashtable, s, sl, FalseObject);
+    if (obj == FalseObject)
+    {
+        FSymbol * sym = (FSymbol *) MakeObject(sizeof(FSymbol), SymbolTag);
+        sym->Reserved = MakeLength(NextSymbolHash, SymbolTag);
+        sym->String = MakeString(s, sl);
+        NextSymbolHash += 1;
+        if (NextSymbolHash > MAXIMUM_OBJECT_LENGTH)
+            NextSymbolHash = 0;
+
+        obj = sym;
+        HashtableSet(R.SymbolHashtable, sym->String, obj, StringEqualP, StringHash);
+    }
+
+    FAssert(SymbolP(obj));
+    return(obj);
+}
+
+FObject PrefixSymbol(FObject str, FObject sym)
+{
+    FAssert(StringP(str));
+    FAssert(SymbolP(sym));
+
+    FObject nstr = MakeStringCh(StringLength(str) + StringLength(AsSymbol(sym)->String), 0);
+    unsigned int sdx;
+    for (sdx = 0; sdx < StringLength(str); sdx++)
+        AsString(nstr)->String[sdx] = AsString(str)->String[sdx];
+
+    for (unsigned int idx = 0; idx < StringLength(AsSymbol(sym)->String); idx++)
+        AsString(nstr)->String[sdx + idx] = AsString(AsSymbol(sym)->String)->String[idx];
+
+    return(StringToSymbol(nstr));
+}
+
+Define("symbol?", SymbolPPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("symbol?", argc);
+
+    return(SymbolP(argv[0]) ? TrueObject : FalseObject);
+}
+
+Define("symbol=?", SymbolEqualPPrimitive)(int argc, FObject argv[])
+{
+    AtLeastTwoArgsCheck("symbol=?", argc);
+    SymbolArgCheck("symbol=?", argv[0]);
+
+    for (int adx = 1; adx < argc; adx++)
+    {
+        SymbolArgCheck("symbol=?", argv[adx]);
+
+        if (argv[adx - 1] != argv[adx])
+            return(FalseObject);
+    }
+
+    return(TrueObject);
+}
+
+Define("symbol->string", SymbolToStringPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("symbol->string", argc);
+    SymbolArgCheck("symbol->string", argv[0]);
+
+    return(AsSymbol(argv[0])->String);
+}
+
+Define("string->symbol", StringToSymbolPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("string->symbol", argc);
+    StringArgCheck("string->symbol", argv[0]);
+
+    return(StringToSymbol(argv[0]));
 }
 
 // ---- Boxes ----
@@ -337,7 +543,7 @@ FObject HashtableRef(FObject ht, FObject key, FObject def, FEquivFn efn, FHashFn
     return(def);
 }
 
-static FObject HashtableStringRef(FObject ht, FCh * s, int sl, FObject def)
+FObject HashtableStringRef(FObject ht, FCh * s, int sl, FObject def)
 {
     FAssert(HashtableP(ht));
 
@@ -722,83 +928,6 @@ Define("eq-hashtable-delete", EqHashtableDeletePrimitive)(int argc, FObject argv
     return(NoValueObject);
 }
 
-// ---- Symbols ----
-
-static unsigned int NextSymbolHash = 0;
-
-FObject StringToSymbol(FObject str)
-{
-    FAssert(StringP(str));
-
-    FObject obj = HashtableRef(R.SymbolHashtable, str, FalseObject, StringEqualP, StringHash);
-    if (obj == FalseObject)
-    {
-        FSymbol * sym = (FSymbol *) MakeObject(sizeof(FSymbol), SymbolTag);
-        sym->Reserved = MakeLength(NextSymbolHash, SymbolTag);
-        sym->String = str;
-        NextSymbolHash += 1;
-        if (NextSymbolHash > MAXIMUM_OBJECT_LENGTH)
-            NextSymbolHash = 0;
-
-        obj = sym;
-        HashtableSet(R.SymbolHashtable, str, obj, StringEqualP, StringHash);
-    }
-
-    FAssert(SymbolP(obj));
-    return(obj);
-}
-
-FObject StringCToSymbol(char * s)
-{
-    return(StringToSymbol(MakeStringC(s)));
-}
-
-FObject StringLengthToSymbol(FCh * s, int sl)
-{
-    FObject obj = HashtableStringRef(R.SymbolHashtable, s, sl, FalseObject);
-    if (obj == FalseObject)
-    {
-        FSymbol * sym = (FSymbol *) MakeObject(sizeof(FSymbol), SymbolTag);
-        sym->Reserved = MakeLength(NextSymbolHash, SymbolTag);
-        sym->String = MakeString(s, sl);
-        NextSymbolHash += 1;
-        if (NextSymbolHash > MAXIMUM_OBJECT_LENGTH)
-            NextSymbolHash = 0;
-
-        obj = sym;
-        HashtableSet(R.SymbolHashtable, sym->String, obj, StringEqualP, StringHash);
-    }
-
-    FAssert(SymbolP(obj));
-    return(obj);
-}
-
-FObject PrefixSymbol(FObject str, FObject sym)
-{
-    FAssert(StringP(str));
-    FAssert(SymbolP(sym));
-
-    FObject nstr = MakeStringCh(StringLength(str) + StringLength(AsSymbol(sym)->String), 0);
-    unsigned int sdx;
-    for (sdx = 0; sdx < StringLength(str); sdx++)
-        AsString(nstr)->String[sdx] = AsString(str)->String[sdx];
-
-    for (unsigned int idx = 0; idx < StringLength(AsSymbol(sym)->String); idx++)
-        AsString(nstr)->String[sdx + idx] = AsString(AsSymbol(sym)->String)->String[idx];
-
-    return(StringToSymbol(nstr));
-}
-
-Define("string->symbol", StringToSymbolPrimitive)(int argc, FObject argv[])
-{
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "string->symbol", "expected one argument", EmptyListObject);
-    if (StringP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "string->symbol", "expected a string", List(argv[0]));
-
-    return(StringToSymbol(argv[0]));
-}
-
 // ---- Record Types ----
 
 FObject MakeRecordType(FObject nam, unsigned int nf, FObject flds[])
@@ -1071,122 +1200,6 @@ Define("full-error", FullErrorPrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-// ----------------
-
-int EqvP(FObject obj1, FObject obj2)
-{
-    if (obj1 == obj2)
-        return(1);
-
-    return(0);
-}
-
-int EqP(FObject obj1, FObject obj2)
-{
-    if (obj1 == obj2)
-        return(1);
-
-    return(0);
-}
-
-int EqualP(FObject obj1, FObject obj2)
-{
-    if (EqvP(obj1, obj2))
-        return(1);
-
-    if (PairP(obj1))
-    {
-        if (PairP(obj2) == 0)
-            return(0);
-
-        if (EqualP(First(obj1), First(obj2)) == 0
-                || EqualP(Rest(obj1), Rest(obj2)) == 0)
-            return(0);
-        return(1);
-    }
-
-    if (BoxP(obj1))
-    {
-        if (BoxP(obj2) == 0)
-            return(0);
-
-        return(EqualP(Unbox(obj1), Unbox(obj2)));
-    }
-
-    if (StringP(obj1))
-    {
-        if (StringP(obj2) == 0)
-            return(0);
-
-        return(StringEqualP(obj1, obj2));
-    }
-
-    if (VectorP(obj1))
-    {
-        if (VectorP(obj2) == 0)
-            return(0);
-
-        if (VectorLength(obj1) != VectorLength(obj2))
-            return(0);
-
-        for (unsigned int idx = 0; idx < VectorLength(obj1); idx++)
-            if (EqualP(AsVector(obj1)->Vector[idx], AsVector(obj2)->Vector[idx]) == 0)
-                return(0);
-        return(1);
-    }
-
-    if (BytevectorP(obj1))
-    {
-        if (BytevectorP(obj2) == 0)
-            return(0);
-
-        if (BytevectorLength(obj1) != BytevectorLength(obj2))
-            return(0);
-
-        for (unsigned int idx = 0; idx < BytevectorLength(obj1); idx++)
-            if (AsBytevector(obj1)->Vector[idx] != AsBytevector(obj2)->Vector[idx])
-                return(0);
-        return(1);
-    }
-
-    return(0);
-}
-
-Define("eq?", EqPPrimitive)(int argc, FObject argv[])
-{
-    if (argc != 2)
-        RaiseExceptionC(R.Assertion, "eq?", "expected two arguments", EmptyListObject);
-
-    return(EqP(argv[0], argv[1]) ? TrueObject : FalseObject);
-}
-
-Define("eqv?", EqvPPrimitive)(int argc, FObject argv[])
-{
-    if (argc != 2)
-        RaiseExceptionC(R.Assertion, "eqv?", "expected two arguments", EmptyListObject);
-
-    return(EqvP(argv[0], argv[1]) ? TrueObject : FalseObject);
-}
-
-Define("equal?", EqualPPrimitive)(int argc, FObject argv[])
-{
-    if (argc != 2)
-        RaiseExceptionC(R.Assertion, "equal?", "expected two arguments",
-                EmptyListObject);
-
-    return(EqualP(argv[0], argv[1]) ? TrueObject : FalseObject);
-}
-
-// Procedures
-
-Define("procedure?", ProcedurePPrimitive)(int argc, FObject argv[])
-{
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "procedure?", "expected one argument", EmptyListObject);
-
-    return(ProcedureP(argv[0]) ? TrueObject : FalseObject);
-}
-
 // System interface
 
 Define("command-line", CommandLinePrimitive)(int argc, FObject argv[])
@@ -1237,8 +1250,7 @@ Define("random", RandomPrimitive)(int argc, FObject argv[])
 
 Define("no-value", NoValuePrimitive)(int argc, FObject argv[])
 {
-    if (argc != 0)
-        RaiseExceptionC(R.Assertion, "no-value", "expected zero arguments", EmptyListObject);
+    ZeroArgsCheck("no-value", argc);
 
     return(NoValueObject);
 }
@@ -1247,9 +1259,19 @@ Define("no-value", NoValuePrimitive)(int argc, FObject argv[])
 
 static FPrimitive * Primitives[] =
 {
+    &EqvPPrimitive,
+    &EqPPrimitive,
+    &EqualPPrimitive,
     &NotPrimitive,
     &BooleanPPrimitive,
     &BooleanEqualPPrimitive,
+    &SymbolPPrimitive,
+    &SymbolEqualPPrimitive,
+    &SymbolToStringPrimitive,
+    &StringToSymbolPrimitive,
+    
+    
+    
     &EqHashPrimitive,
     &EqvHashPrimitive,
     &EqualHashPrimitive,
@@ -1257,7 +1279,6 @@ static FPrimitive * Primitives[] =
     &EqHashtableRefPrimitive,
     &EqHashtableSetPrimitive,
     &EqHashtableDeletePrimitive,
-    &StringToSymbolPrimitive,
     &MakeRecordTypePrimitive,
     &MakeRecordPrimitive,
     &RecordPredicatePrimitive,
@@ -1267,10 +1288,6 @@ static FPrimitive * Primitives[] =
     &RaisePrimitive,
     &ErrorPrimitive,
     &FullErrorPrimitive,
-    &EqPPrimitive,
-    &EqvPPrimitive,
-    &EqualPPrimitive,
-    &ProcedurePPrimitive,
     &CommandLinePrimitive,
     &LoadedLibrariesPrimitive,
     &LibraryPathPrimitive,

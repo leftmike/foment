@@ -1883,6 +1883,107 @@ TailCallPrimitive:
 }
 #endif // 0
 
+Define("procedure?", ProcedurePPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("procedure?", argc);
+
+    return((ProcedureP(argv[0]) || PrimitiveP(argv[0])) ? TrueObject : FalseObject);
+}
+
+Define("%map-car", MapCarPrimitive)(int argc, FObject argv[])
+{
+    // (%map-car lists)
+
+    FMustBe(argc == 1);
+
+    FObject ret = EmptyListObject;
+    FObject lst = argv[0];
+
+    while (PairP(lst))
+    {
+        if (PairP(First(lst)) == 0)
+            return(EmptyListObject);
+
+        ret = MakePair(First(First(lst)), ret);
+        lst = Rest(lst);
+    }
+
+    return(ReverseListModify(ret));
+}
+
+Define("%map-cdr", MapCdrPrimitive)(int argc, FObject argv[])
+{
+    // (%map-cdr lists)
+
+    FMustBe(argc == 1);
+
+    FObject ret = EmptyListObject;
+    FObject lst = argv[0];
+
+    while (PairP(lst))
+    {
+        if (PairP(First(lst)) == 0)
+            return(EmptyListObject);
+
+        ret = MakePair(Rest(First(lst)), ret);
+        lst = Rest(lst);
+    }
+
+    return(ReverseListModify(ret));
+}
+
+Define("%map-strings", MapStringsPrimitive)(int argc, FObject argv[])
+{
+    // (%map-strings index strings)
+
+    FMustBe(argc == 2);
+    FMustBe(FixnumP(argv[0]));
+    FMustBe(AsFixnum(argv[0]) >= 0);
+
+    int idx = AsFixnum(argv[0]);
+    FObject ret = EmptyListObject;
+    FObject lst = argv[1];
+
+    while (PairP(lst))
+    {
+        StringArgCheck("string-map", First(lst));
+
+        if (idx == StringLength(First(lst)))
+            return(EmptyListObject);
+
+        ret = MakePair(MakeCharacter(AsString(First(lst))->String[idx]), ret);
+        lst = Rest(lst);
+    }
+
+    return(ReverseListModify(ret));
+}
+
+Define("%map-vectors", MapVectorsPrimitive)(int argc, FObject argv[])
+{
+    // (%map-vectors index vectors)
+
+    FMustBe(argc == 2);
+    FMustBe(FixnumP(argv[0]));
+    FMustBe(AsFixnum(argv[0]) >= 0);
+
+    int idx = AsFixnum(argv[0]);
+    FObject ret = EmptyListObject;
+    FObject lst = argv[1];
+
+    while (PairP(lst))
+    {
+        VectorArgCheck("vector-map", First(lst));
+
+        if (idx == VectorLength(First(lst)))
+            return(EmptyListObject);
+
+        ret = MakePair(AsVector(First(lst))->Vector[idx], ret);
+        lst = Rest(lst);
+    }
+
+    return(ReverseListModify(ret));
+}
+
 Define("%execute-thunk", ExecuteThunkPrimitive)(int argc, FObject argv[])
 {
     // (%execute-thunk <proc>)
@@ -1996,6 +2097,12 @@ FObject CurrentParameters()
 
 static FPrimitive * Primitives[] =
 {
+    &ProcedurePPrimitive,
+    
+    &MapCarPrimitive,
+    &MapCdrPrimitive,
+    &MapStringsPrimitive,
+    &MapVectorsPrimitive,
     &ExecuteThunkPrimitive,
     &RaiseHandlerPrimitive,
     &DynamicStackPrimitive,

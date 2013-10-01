@@ -256,46 +256,6 @@ Define("list-ref", ListRefPrimitive)(int argc, FObject argv[])
     return(First(lst));
 }
 
-Define("map-car", MapCarPrimitive)(int argc, FObject argv[])
-{
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "map-car", "expected one argument", EmptyListObject);
-
-    FObject ret = EmptyListObject;
-    FObject lst = argv[0];
-
-    while (PairP(lst))
-    {
-        if (PairP(First(lst)) == 0)
-            return(EmptyListObject);
-
-        ret = MakePair(First(First(lst)), ret);
-        lst = Rest(lst);
-    }
-
-    return(ReverseListModify(ret));
-}
-
-Define("map-cdr", MapCdrPrimitive)(int argc, FObject argv[])
-{
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "map-cdr", "expected one argument", EmptyListObject);
-
-    FObject ret = EmptyListObject;
-    FObject lst = argv[0];
-
-    while (PairP(lst))
-    {
-        if (PairP(First(lst)) == 0)
-            return(EmptyListObject);
-
-        ret = MakePair(Rest(First(lst)), ret);
-        lst = Rest(lst);
-    }
-
-    return(ReverseListModify(ret));
-}
-
 FObject Memq(FObject obj, FObject lst)
 {
     while (PairP(lst))
@@ -334,6 +294,24 @@ Define("assq", AssqPrimitive)(int argc, FObject argv[])
         RaiseExceptionC(R.Assertion, "assq", "expected two arguments", EmptyListObject);
 
         return(Assq(argv[0], argv[1]));
+}
+
+Define("make-list", MakeListPrimitive)(int argc, FObject argv[])
+{
+    OneOrTwoArgsCheck("make-list", argc);
+    NonNegativeArgCheck("make-list", argv[0]);
+
+    FObject obj = argc == 1 ? FalseObject : argv[1];
+    FObject lst = EmptyListObject;
+    int n = AsFixnum(argv[0]);
+
+    while (n > 0)
+    {
+        lst = MakePair(obj, lst);
+        n -= 1;
+    }
+
+    return(lst);
 }
 
 FObject MakeTConc()
@@ -388,9 +366,8 @@ static FPrimitive * Primitives[] =
     &AppendPrimitive,
     &ReversePrimitive,
     &ListRefPrimitive,
-    &MapCarPrimitive,
-    &MapCdrPrimitive,
-    &AssqPrimitive
+    &AssqPrimitive,
+    &MakeListPrimitive
 };
 
 void SetupPairs()

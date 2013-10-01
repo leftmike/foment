@@ -9,6 +9,16 @@
 (import (scheme write))
 
 ;;
+;; ---- comments ----
+
+#;(bad food)
+#;
+    
+(really bad food)
+
+#| (bad code) #| in bad code |# |#
+
+;;
 ;; ---- expressions ----
 ;;
 
@@ -778,6 +788,64 @@
 (must-equal 10 (lib-t15-b 10 20))
 
 ;;
+;; ---- equivalence predicates ----
+;;
+
+(must-equal #t (eqv? 'a 'a))
+(must-equal #f (eqv? 'a 'b))
+(must-equal #t (eqv? 2 2))
+;(must-equal #f (eqv? 2 2.0))
+(must-equal #t (eqv? '() '()))
+(must-equal #t (eqv? 100000000 100000000))
+;(must-equal #f (eqv? 0.0 +nan.0))
+(must-equal #f (eqv? (cons 1 2) (cons 1 2)))
+(must-equal #f (eqv? (lambda () 1) (lambda () 2)))
+(must-equal #t (let ((p (lambda (x) x))) (eqv? p p)))
+(must-equal #f (eqv? #f 'nil))
+
+(define gen-counter
+    (lambda ()
+        (let ((n 0))
+            (lambda () (set! n (+ n 1)) n))))
+(must-equal #t (let ((g (gen-counter))) (eqv? g g)))
+(must-equal #f (eqv? (gen-counter) (gen-counter)))
+
+(define gen-loser
+    (lambda ()
+        (let ((n 0))
+            (lambda () (set! n (+ n 1)) 27))))
+(must-equal #t (let ((g (gen-loser))) (eqv? g g)))
+
+(must-equal #f (letrec ((f (lambda () (if (eqv? f g) 'f 'both)))
+        (g (lambda () (if (eqv? f g) 'g 'both)))) (eqv? f g)))
+(must-equal #t (let ((x '(a))) (eqv? x x)))
+
+(must-raise (assertion-violation eqv?) (eqv? 1))
+(must-raise (assertion-violation eqv?) (eqv? 1 2 3))
+
+(must-equal #t (eq? 'a 'a))
+(must-equal #f (eq? (list 'a) (list 'a)))
+(must-equal #t (eq? '() '()))
+(must-equal #t (eq? car car))
+(must-equal #t (let ((x '(a))) (eq? x x)))
+(must-equal #t (let ((x '#())) (eq? x x)))
+(must-equal #t (let ((p (lambda (x) x))) (eq? p p)))
+
+(must-raise (assertion-violation eq?) (eq? 1))
+(must-raise (assertion-violation eq?) (eq? 1 2 3))
+
+(must-equal #t (equal? 'a 'a))
+(must-equal #t (equal? '(a) '(a)))
+(must-equal #t (equal? '(a (b) c) '(a (b) c)))
+(must-equal #t (equal? "abc" "abc"))
+(must-equal #t (equal? 2 2))
+(must-equal #t (equal? (make-vector 5 'a) (make-vector 5 'a)))
+;(must-equal #t (equal? '#1=(a b . #1#) '#2=(a b a b . #2#)))
+
+(must-raise (assertion-violation equal?) (equal? 1))
+(must-raise (assertion-violation equal?) (equal? 1 2 3))
+
+;;
 ;; ---- booleans ----
 ;;
 
@@ -789,20 +857,29 @@
 (must-equal #f (not (list)))
 (must-equal #f (not 'nil))
 
+(must-raise (assertion-violation not) (not))
+(must-raise (assertion-violation not) (not 1 2))
+
 (must-equal #t (boolean? #f))
 (must-equal #f (boolean? 0))
 (must-equal #f (boolean? '()))
+
+(must-raise (assertion-violation boolean?) (boolean?))
+(must-raise (assertion-violation boolean?) (boolean? 1 2))
 
 (must-equal #t (boolean=? #t #t))
 (must-equal #t (boolean=? #t #t #t))
 (must-equal #t (boolean=? #f #f))
 (must-equal #t (boolean=? #f #f #f))
-(must-equal #f (boolean=? 1 #t))
-(must-equal #f (boolean=? #t #t 0))
-(must-equal #f (boolean=? #f 2))
+(must-equal #f (boolean=? #f #t))
+(must-equal #f (boolean=? #t #t #f))
+
+(must-raise (assertion-violation boolean=?) (boolean=? #f))
+(must-raise (assertion-violation boolean=?) (boolean=? #f 1))
+(must-raise (assertion-violation boolean=?) (boolean=? #f #f 1))
 
 ;;
-;; ---- pairs ----
+;; ---- pairs and lists ----
 ;;
 
 ;; pair?
@@ -841,6 +918,47 @@
 
 (must-equal (c b a) (reverse '(a b c)))
 (must-equal ((e (f)) d (b c) a) (reverse '(a (b c) d (e (f)))))
+
+;;
+;; ---- symbols ----
+;;
+
+(must-equal #t (symbol? 'foo))
+(must-equal #t (symbol? (car '(a b))))
+(must-equal #f (symbol? "bar"))
+(must-equal #t (symbol? 'nil))
+(must-equal #f (symbol? '()))
+(must-equal #f (symbol? #f))
+
+(must-raise (assertion-violation symbol?) (symbol?))
+(must-raise (assertion-violation symbol?) (symbol? 1 2))
+
+(must-equal #t (symbol=? 'a 'a (string->symbol "a")))
+(must-equal #f (symbol=? 'a 'b))
+
+(must-raise (assertion-violation symbol=?) (symbol=? 'a))
+(must-raise (assertion-violation symbol=?) (symbol=? 'a 1))
+(must-raise (assertion-violation symbol=?) (symbol=? 'a 'a 1))
+
+(must-equal "flying-fish" (symbol->string 'flying-fish))
+(must-equal "Martin" (symbol->string 'Martin))
+(must-equal "Malvina" (symbol->string (string->symbol "Malvina")))
+
+(must-raise (assertion-violation symbol->string) (symbol->string))
+(must-raise (assertion-violation symbol->string) (symbol->string "a string"))
+(must-raise (assertion-violation symbol->string) (symbol->string 'a 'a))
+
+(must-equal mISSISSIppi (string->symbol "mISSISSIppi"))
+(must-equal #t (eqv? 'bitBlt (string->symbol "bitBlt")))
+(must-equal #t (eqv? 'LollyPop (string->symbol (symbol->string 'LollyPop))))
+(must-equal #t (string=? "K. Harper, M.D." (symbol->string (string->symbol "K. Harper, M.D."))))
+
+(must-raise (assertion-violation string->symbol) (string->symbol))
+(must-raise (assertion-violation string->symbol) (string->symbol 'a))
+(must-raise (assertion-violation string->symbol) (string->symbol "a" "a"))
+
+(must-equal #t (eq? '|H\x65;llo| 'Hello))
+(must-equal #t (eq? '|\x9;\x9;| '|\t\t|))
 
 ;;
 ;; ---- characters ----
@@ -1499,6 +1617,15 @@
 
 ;; procedure?
 
+(must-equal #t (procedure? car))
+(must-equal #f (procedure? 'car))
+(must-equal #t (procedure? (lambda (x) (* x x))))
+(must-equal #f (procedure? '(lambda (x) (* x x))))
+(must-equal #t (call-with-current-continuation procedure?))
+
+(must-raise (assertion-violation procedure?) (procedure?))
+(must-raise (assertion-violation procedure?) (procedure? 1 2))
+
 ;; apply
 
 (must-equal 7 (apply + (list 3 4)))
@@ -1520,14 +1647,36 @@
 
 ;; map
 
-(define (cadr obj) (car (cdr obj)))
 (must-equal (b e h) (map cadr '((a b) (d e) (g h))))
 (must-equal (1 4 27 256 3125) (map (lambda (n) (expt n n)) '(1 2 3 4 5)))
 (must-equal (5 7 9) (map + '(1 2 3) '(4 5 6 7)))
 
+(must-raise (assertion-violation map) (map car))
+(must-raise (assertion-violation apply) (map 12 '(1 2 3 4)))
+(must-raise (assertion-violation car) (map car '(1 2 3 4) '(a b c d)))
+
 ;; string-map
 
+(must-equal "abdegh" (string-map char-foldcase "AbdEgH"))
+
+(must-equal "IBM" (string-map (lambda (c) (integer->char (+ 1 (char->integer c)))) "HAL"))
+(must-equal "StUdLyCaPs" (string-map (lambda (c k) ((if (eqv? k #\u) char-upcase char-downcase) c))
+    "studlycaps xxx" "ululululul"))
+
+(must-raise (assertion-violation string-map) (string-map char-foldcase))
+(must-raise (assertion-violation string-map) (string-map char-foldcase '(#\a #\b #\c)))
+(must-raise (assertion-violation apply) (string-map 12 "1234"))
+(must-raise (assertion-violation char-foldcase) (string-map char-foldcase "1234" "abcd"))
+
 ;; vector-map
+
+(must-equal #(b e h) (vector-map cadr '#((a b) (d e) (g h))))
+(must-equal #(1 4 27 256 3125) (vector-map (lambda (n) (expt n n)) '#(1 2 3 4 5)))
+(must-equal #(5 7 9) (vector-map + '#(1 2 3) '#(4 5 6 7)))
+
+(must-raise (assertion-violation vector-map) (vector-map +))
+(must-raise (assertion-violation apply) (vector-map 12 #(1 2 3 4)))
+(must-raise (assertion-violation not) (vector-map not #(#t #f #t) #(#f #t #f)))
 
 ;; for-each
 
@@ -1536,9 +1685,31 @@
         (for-each (lambda (i) (vector-set! v i (* i i))) '(0 1 2 3 4))
         v))
 
+(must-raise (assertion-violation for-each) (for-each +))
+(must-raise (assertion-violation apply) (for-each 12 '(1 2 3 4)))
+(must-raise (assertion-violation not) (for-each not '(#t #t #t) '(#f #f #f)))
+
 ;; string-for-each
 
+(must-equal (101 100 99 98 97)
+    (let ((v '()))
+        (string-for-each (lambda (c) (set! v (cons (char->integer c) v))) "abcde")
+        v))
+
+(must-raise (assertion-violation string-for-each) (string-for-each char-foldcase))
+(must-raise (assertion-violation apply) (string-for-each 12 "1234"))
+(must-raise (assertion-violation char-foldcase) (string-for-each char-foldcase "abc" "123"))
+
 ;; vector-for-each
+
+;(must-equal (0 1 4 9 16)
+;    (let ((v (make-list 5)))
+;        (vector-for-each (lambda (i) (list-set! v i (* i i))) '#(0 1 2 3 4))
+;        v))
+
+(must-raise (assertion-violation vector-for-each) (vector-for-each +))
+(must-raise (assertion-violation apply) (vector-for-each 12 #(1 2 3 4)))
+(must-raise (assertion-violation not) (vector-for-each not #(#t #t #t) #(#f #f #f)))
 
 ;; call-with-current-continuation
 ;; call/cc
@@ -1604,6 +1775,11 @@
 (must-equal 4 (call-with-values (lambda () (values 4 5)) (lambda (a b) a)))
 (must-equal -1 (call-with-values * -))
 
+(must-raise (assertion-violation call-with-values) (call-with-values *))
+(must-raise (assertion-violation call-with-values) (call-with-values * - +))
+(must-raise (assertion-violation apply) (call-with-values * 10))
+(must-raise (assertion-violation call-with-values) (call-with-values 10 -))
+
 ;; dynamic-wind
 
 (must-equal (connect talk1 disconnect connect talk2 disconnect)
@@ -1621,6 +1797,22 @@
             (if (< (length path) 4)
                 (c 'talk2)
                 (reverse path)))))
+
+(must-raise (assertion-violation dynamic-wind) (dynamic-wind (lambda () 'one) (lambda () 'two)))
+(must-raise (assertion-violation dynamic-wind) (dynamic-wind (lambda () 'one) (lambda () 'two)
+        (lambda () 'three) (lambda () 'four)))
+(must-raise (assertion-violation dynamic-wind) (dynamic-wind 10 (lambda () 'thunk)
+        (lambda () 'after)))
+(must-raise (assertion-violation) (dynamic-wind (lambda () 'before) 10
+        (lambda () 'after)))
+(must-raise (assertion-violation dynamic-wind) (dynamic-wind (lambda () 'before)
+        (lambda () 'thunk) 10))
+(must-raise (assertion-violation) (dynamic-wind (lambda (n) 'before)
+        (lambda () 'thunk) (lambda () 'after)))
+(must-raise (assertion-violation) (dynamic-wind (lambda () 'before)
+        (lambda (n) 'thunk) (lambda () 'after)))
+(must-raise (assertion-violation) (dynamic-wind (lambda () 'before)
+        (lambda () 'thunk) (lambda (n) 'after)))
 
 ;;
 ;; ---- exceptions ----

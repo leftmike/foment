@@ -128,7 +128,7 @@
 ;        list-tail
 ;        list?
         make-bytevector
-;        make-list
+        make-list
         make-parameter
         make-string
         make-vector
@@ -193,9 +193,9 @@
         string-copy
         string-copy!
         string-fill!
-;        string-for-each
+        string-for-each
         string-length
-;        string-map
+        string-map
         string-ref
         string-set!
         string<=?
@@ -205,9 +205,9 @@
         string>?
         string?
         substring
-;        symbol->string
-;        symbol=?
-;        symbol?
+        symbol->string
+        symbol=?
+        symbol?
         syntax-error
         syntax-rules
 ;        textual-port?
@@ -228,9 +228,9 @@
         vector-copy
         vector-copy!
         vector-fill!
-;        vector-for-each
+        vector-for-each
         vector-length
-;        vector-map
+        vector-map
         vector-ref
         vector-set!
         vector?
@@ -314,7 +314,7 @@
         default-prompt-handler current-continuation-marks collect make-guardian make-tracker
         make-exclusive make-condition current-thread run-thread enter-exclusive leave-exclusive
         condition-wait thread? condition-wake sleep exclusive? try-exclusive condition?
-        condition-wake-all no-value with-exclusive)
+        condition-wake-all with-exclusive no-value)
     (begin
         (define (caar pair) (car (car pair)))
         (define (cadr pair) (car (cdr pair)))
@@ -391,8 +391,8 @@
 
         (define (map proc . lists)
             (define (map proc lists)
-                (let ((cars (map-car lists))
-                        (cdrs (map-cdr lists)))
+                (let ((cars (%map-car lists))
+                        (cdrs (%map-cdr lists)))
                     (if (null? cars)
                         '()
                         (cons (apply proc cars) (map proc cdrs)))))
@@ -400,17 +400,61 @@
                 (full-error 'assertion-violation 'map "map: expected at least one argument")
                 (map proc lists)))
 
+        (define (string-map proc . strings)
+            (define (map proc idx strings)
+                (let ((args (%map-strings idx strings)))
+                    (if (null? args)
+                        '()
+                        (cons (apply proc args) (map proc (+ idx 1) strings)))))
+            (if (null? strings)
+                (full-error 'assertion-violation 'string-map
+                        "string-map: expected at least one argument")
+                (list->string (map proc 0 strings))))
+
+        (define (vector-map proc . vectors)
+            (define (map proc idx vectors)
+                (let ((args (%map-vectors idx vectors)))
+                    (if (null? args)
+                        '()
+                        (cons (apply proc args) (map proc (+ idx 1) vectors)))))
+            (if (null? vectors)
+                (full-error 'assertion-violation 'vector-map
+                        "vector-map: expected at least one argument")
+                (list->vector (map proc 0 vectors))))
+
         (define (for-each proc . lists)
             (define (for-each proc lists)
-                (let ((cars (map-car lists))
-                        (cdrs (map-cdr lists)))
+                (let ((cars (%map-car lists))
+                        (cdrs (%map-cdr lists)))
                     (if (null? cars)
-                        #f
+                        (no-value)
                         (begin (apply proc cars) (for-each proc cdrs)))))
             (if (null? lists)
                 (full-error 'assertion-violation 'for-each
                         "for-each: expected at least one argument")
                 (for-each proc lists)))
+
+        (define (string-for-each proc . strings)
+            (define (for-each proc idx strings)
+                (let ((args (%map-strings idx strings)))
+                    (if (null? args)
+                        (no-value)
+                        (begin (apply proc args) (for-each proc (+ idx 1) strings)))))
+            (if (null? strings)
+                (full-error 'assertion-violation 'string-for-each
+                        "string-for-each: expected at least one argument")
+                (for-each proc 0 strings)))
+
+        (define (vector-for-each proc . vectors)
+            (define (for-each proc idx vectors)
+                (let ((args (%map-vectors idx vectors)))
+                    (if (null? args)
+                        (no-value)
+                        (begin (apply proc args) (for-each proc (+ idx 1) vectors)))))
+            (if (null? vectors)
+                (full-error 'assertion-violation 'vector-for-each
+                        "vector-for-each: expected at least one argument")
+                (for-each proc 0 vectors)))
 
         (define (eval expr env)
             ((compile-eval expr env)))
@@ -765,7 +809,7 @@
 ;;        list-tail
 ;;        list?
         make-bytevector
-;;        make-list
+        make-list
         make-parameter
         make-string
         make-vector
@@ -830,9 +874,9 @@
         string-copy
         string-copy!
         string-fill!
-;;        string-for-each
+        string-for-each
         string-length
-;;        string-map
+        string-map
         string-ref
         string-set!
         string<=?
@@ -842,9 +886,9 @@
         string>?
         string?
         substring
-;;        symbol->string
-;;        symbol=?
-;;        symbol?
+        symbol->string
+        symbol=?
+        symbol?
         syntax-error
         syntax-rules
 ;;        textual-port?
@@ -865,9 +909,9 @@
         vector-copy
         vector-copy!
         vector-fill!
-;;        vector-for-each
+        vector-for-each
         vector-length
-;;        vector-map
+        vector-map
         vector-ref
         vector-set!
         vector?
