@@ -271,6 +271,14 @@ FObject Memq(FObject obj, FObject lst)
     return(FalseObject);
 }
 
+Define("memq", MemqPrimitive)(int argc, FObject argv[])
+{
+    if (argc != 2)
+        RaiseExceptionC(R.Assertion, "memq", "expected two arguments", EmptyListObject);
+
+    return(Memq(argv[0], argv[1]));
+}
+
 FObject Assq(FObject obj, FObject alst)
 {
     while (PairP(alst))
@@ -288,12 +296,37 @@ FObject Assq(FObject obj, FObject alst)
     return(FalseObject);
 }
 
+FObject Assoc(FObject obj, FObject alst)
+{
+    while (PairP(alst))
+    {
+        FAssert(PairP(First(alst)));
+
+        if (EqualP(First(First(alst)), obj))
+            return(First(alst));
+
+        alst = Rest(alst);
+    }
+
+    FAssert(alst == EmptyListObject);
+
+    return(FalseObject);
+}
+
 Define("assq", AssqPrimitive)(int argc, FObject argv[])
 {
     if (argc != 2)
         RaiseExceptionC(R.Assertion, "assq", "expected two arguments", EmptyListObject);
 
-        return(Assq(argv[0], argv[1]));
+    return(Assq(argv[0], argv[1]));
+}
+
+Define("assoc", AssocPrimitive)(int argc, FObject argv[])
+{
+    if (argc != 2)
+        RaiseExceptionC(R.Assertion, "assoc", "expected two arguments", EmptyListObject);
+
+    return(Assoc(argv[0], argv[1]));
 }
 
 Define("make-list", MakeListPrimitive)(int argc, FObject argv[])
@@ -366,7 +399,9 @@ static FPrimitive * Primitives[] =
     &AppendPrimitive,
     &ReversePrimitive,
     &ListRefPrimitive,
+    &MemqPrimitive,
     &AssqPrimitive,
+    &AssocPrimitive,
     &MakeListPrimitive
 };
 

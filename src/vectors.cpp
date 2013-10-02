@@ -6,6 +6,7 @@ Foment
 
 #include <string.h>
 #include "foment.hpp"
+#include "convertutf.h"
 
 // ---- Vectors ----
 
@@ -683,27 +684,6 @@ static const unsigned char Utf8TrailingBytes[256] =
     4, 4, 5, 5, 5, 5
 };
 
-static const unsigned long Utf8Magic[6] =
-{
-    0x00000000UL,
-    0x00003080UL,
-    0x000E2080UL,
-    0x03C82080UL,
-    0xFA082080UL,
-    0x82082080UL
-};
-
-static const unsigned char Utf8ByteMark[7] =
-{
-    0x00,
-    0x00,
-    0xC0,
-    0xE0,
-    0xF0,
-    0xF8,
-    0xFC
-};
-
 static int ChLengthOfUtf8(FByte * bv, int bvl)
 {
     int sl = 0;
@@ -712,56 +692,6 @@ static int ChLengthOfUtf8(FByte * bv, int bvl)
         bdx += Utf8TrailingBytes[bv[bdx]] + 1;
 
     return(sl);
-}
-
-static FCh Utf8ToCh(FByte * bv)
-{
-    int eb;
-    FCh ch;
-
-    eb = Utf8TrailingBytes[*bv];
-    ch = 0;
-    switch (eb)
-    {
-        case 3:
-            ch += *bv;
-            ch <<= 6;
-            bv += 1;
-
-        case 2:
-            ch += *bv;
-            ch <<= 6;
-            bv += 1;
-
-        case 1:
-            ch += *bv;
-            ch <<= 6;
-            bv += 1;
-
-        case 0:
-            ch += *bv;
-    }
-
-    ch -= Utf8Magic[eb];
-    if (ch > 0x7FFFFFFF)
-        ch = 0x0000FFFD;
-
-    return(ch);
-}
-
-static void Utf8ToString(FByte * bv, int bvl, FCh * s)
-{
-    int eb;
-
-    for (int bdx = 0; bdx < bvl; s++)
-    {
-        eb = Utf8TrailingBytes[bv[bdx]];
-        if (bdx + eb >= bvl)
-            break;
-
-        *s = Utf8ToCh(bv + bdx);
-        bdx += eb + 1;
-    }
 }
 
 static int Utf8LengthOfCh(FCh * s, int sl)
@@ -783,49 +713,6 @@ static int Utf8LengthOfCh(FCh * s, int sl)
     }
 
     return(bvl);
-}
-
-static void StringToUtf8(FCh * s, int sl, FByte * bv)
-{
-    for (int sdx = 0; sdx < sl; sdx++)
-    {
-        FCh ch = s[sdx];
-        int btw;
-
-        if (ch < 0x80UL)
-            btw = 1;
-        else if (ch < 0x800UL)
-            btw = 2;
-        else if (ch < 0x10000UL)
-            btw = 3;
-        else if (ch < 0x200000UL)
-            btw = 4;
-        else
-        {
-            btw = 2;
-            ch = 0x0000FFFDUL;
-        }
-
-        switch (btw)
-        {
-            case 4:
-                bv[3] = (unsigned char) ((ch | 0x80UL) & 0xBFUL);
-                ch >>= 6;
-
-            case 3:
-                bv[2] = (unsigned char) ((ch | 0x80UL) & 0xBFUL);
-                ch >>= 6;
-
-            case 2:
-                bv[1] = (unsigned char) ((ch | 0x80UL) & 0xBFUL);
-                ch >>= 6;
-
-            case 1:
-                bv[0] = (unsigned char) (ch | Utf8ByteMark[btw]);
-        }
-
-        bv += btw;
-    }
 }
 
 Define("utf8->string", Utf8ToStringPrimitive)(int argc, FObject argv[])
@@ -862,7 +749,11 @@ Define("utf8->string", Utf8ToStringPrimitive)(int argc, FObject argv[])
     int sl = ChLengthOfUtf8(AsBytevector(argv[0])->Vector + strt, end - strt);
     FObject s = MakeString(0, sl);
 
-    Utf8ToString(AsBytevector(argv[0])->Vector + strt, end - strt, AsString(s)->String);
+    const UTF8 * utf8 = AsBytevector(argv[0])->Vector + strt;
+    UTF32 * utf32 = (UTF32 *) AsString(s)->String;
+    if (ConvertUTF8toUTF32(&utf8, AsBytevector(argv[0])->Vector + end, &utf32, utf32 + sl,
+            strictConversion) != conversionOK)
+        RaiseExceptionC(R.Assertion, "utf8->string", "illegal utf8", argv[0]);
 
     return(s);
 }
@@ -901,7 +792,12 @@ Define("string->utf8", StringToUtf8Primitive)(int argc, FObject argv[])
     int bvl = Utf8LengthOfCh(AsString(argv[0])->String + strt, end - strt);
     FObject bv = MakeBytevector(bvl);
 
-    StringToUtf8(AsString(argv[0])->String + strt, end - strt, AsBytevector(bv)->Vector);
+    const UTF32 * utf32 = (UTF32 *) AsString(argv[0])->String + strt;
+    UTF8 * utf8 = AsBytevector(bv)->Vector;
+    ConversionResult cr = ConvertUTF32toUTF8(&utf32, (UTF32 *) AsString(argv[0])->String + end,
+            &utf8, AsBytevector(bv)->Vector + bvl, lenientConversion);
+
+    FAssert(cr == conversionOK);
 
     return(bv);
 }

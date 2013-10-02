@@ -2,16 +2,95 @@
 
 Foment
 
-- char-upcase: use UnicodeData.txt
-- char-downcase: use UnicodeData.txt
-
-character range: 0x0000 to 0x10FFFF which is 21 bits
-
 */
 
+#include <string.h>
 #include "foment.hpp"
 #include "unicode.hpp"
 #include "unidata.hpp"
+#include "convertutf.h"
+
+// ---- System String Conversions ----
+
+static unsigned int Utf16LengthOfString(FObject s)
+{
+    unsigned int sl = 0;
+
+    for (unsigned int idx = 0; idx < StringLength(s); idx++)
+    {
+        sl += 1;
+
+        if (AsString(s)->String[idx] > 0xFFFF)
+            sl += 1;
+    }
+
+    return(sl);
+}
+
+SCh * ConvertToStringS(FObject s, SCh * b, unsigned int bl)
+{
+    FAssert(StringP(s));
+
+    unsigned int sl = Utf16LengthOfString(s) + 1;
+    if (bl < sl)
+    {
+        FObject bv = MakeBytevector(sl * sizeof(SCh));
+        b = (SCh *) AsBytevector(bv)->Vector;
+    }
+
+    const UTF32 * utf32 = (UTF32 *) AsString(s)->String;
+    UTF16 * utf16 = (UTF16 *) b;
+    ConversionResult cr = ConvertUTF32toUTF16(&utf32,
+            (UTF32 *) AsString(s)->String + StringLength(s), &utf16, (UTF16 *) b + sl - 1,
+            lenientConversion);
+
+    FAssert(cr == conversionOK);
+
+    *utf16 = 0;
+    return(b);
+}
+
+#define UNI_SUR_HIGH_START  (UTF32)0xD800
+#define UNI_SUR_HIGH_END    (UTF32)0xDBFF
+#define UNI_SUR_LOW_START   (UTF32)0xDC00
+#define UNI_SUR_LOW_END     (UTF32)0xDFFF
+
+static unsigned int ChLengthOfUtf16(SCh * ss, unsigned int ssl)
+{
+    unsigned int sl = 0;
+
+    while (ssl > 0)
+    {
+        if (*ss < UNI_SUR_HIGH_START || *ss > UNI_SUR_HIGH_END)
+            sl += 1;
+
+        ss += 1;
+        ssl -= 1;
+    }
+
+    return(sl);
+}
+
+FObject MakeStringS(SCh * ss)
+{
+    return(MakeStringS(ss, wcslen(ss)));
+}
+
+FObject MakeStringS(SCh * ss, unsigned int ssl)
+{
+    unsigned int sl = ChLengthOfUtf16(ss, ssl);
+    FObject s = MakeString(0, sl);
+
+    const UTF16 * utf16 = (UTF16 *) ss;
+    UTF32 * utf32 = (UTF32 *) AsString(s)->String;
+    ConversionResult cr = ConvertUTF16toUTF32(&utf16, utf16 + ssl, &utf32, utf32 + sl,
+            lenientConversion);
+
+    FAssert(cr == conversionOK);
+    FAssert(utf32 == (UTF32 *) AsString(s)->String + sl);
+
+    return(s);
+}
 
 // ---- Unicode ----
 

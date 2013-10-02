@@ -9,15 +9,17 @@ Foment
 static FObject MustEqualSymbol;
 static FObject MustRaiseSymbol;
 
-static int TestFile(char * fn, FObject env)
+static int TestFile(SCh * fn, FObject env)
 {
     try
     {
-        FObject port = OpenInputFile(MakeStringC(fn), 1);
+        FObject sfn = MakeStringS(fn);
+        FObject port = OpenInputFile(sfn, 1);
         FObject obj = NoValueObject;
         FObject exp = NoValueObject;
 
         PushRoot(&env);
+        PushRoot(&sfn);
         PushRoot(&port);
         PushRoot(&obj);
         PushRoot(&exp);
@@ -49,7 +51,7 @@ static int TestFile(char * fn, FObject env)
                     FCh s[16];
                     int sl;
 
-                    PutStringC(R.StandardOutput, fn);
+                    Write(R.StandardOutput, sfn, 1);
                     PutCh(R.StandardOutput, '@');
                     sl = NumberAsString(ln, s, 10);
                     PutString(R.StandardOutput, s, sl);
@@ -95,7 +97,7 @@ static int TestFile(char * fn, FObject env)
                     FCh s[16];
                     int sl;
 
-                    PutStringC(R.StandardOutput, fn);
+                    Write(R.StandardOutput, sfn, 1);
                     PutCh(R.StandardOutput, '@');
                     sl = NumberAsString(ln, s, 10);
                     PutString(R.StandardOutput, s, sl);
@@ -112,7 +114,7 @@ static int TestFile(char * fn, FObject env)
                         FCh s[16];
                         int sl;
 
-                        PutStringC(R.StandardOutput, fn);
+                        Write(R.StandardOutput, sfn, 1);
                         PutCh(R.StandardOutput, '@');
                         sl = NumberAsString(ln, s, 10);
                         PutString(R.StandardOutput, s, sl);
@@ -145,11 +147,12 @@ static int TestFile(char * fn, FObject env)
     PopRoot();
     PopRoot();
     PopRoot();
+    PopRoot();
 
     return(0);
 }
 
-int RunTest(FObject env, int argc, char * argv[])
+int RunTest(FObject env, int argc, SCh * argv[])
 {
     int ret;
 
@@ -166,7 +169,7 @@ int RunTest(FObject env, int argc, char * argv[])
     for (int adx = 0; adx < argc; adx++)
     {
         PutStringC(R.StandardOutput, "    ");
-        PutStringC(R.StandardOutput, argv[adx]);
+        Write(R.StandardOutput, MakeStringS(argv[adx]), 1);
         PutCh(R.StandardOutput, '\n');
 
         ret = TestFile(argv[adx], env);

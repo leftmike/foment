@@ -5,7 +5,10 @@
 (import (scheme base))
 (import (scheme case-lambda))
 (import (scheme char))
+(import (scheme file))
 (import (scheme inexact))
+(import (scheme process-context))
+(import (scheme time))
 (import (scheme write))
 
 ;;
@@ -1904,6 +1907,55 @@
 
 (must-raise (assertion-violation file-error?) (file-error?))
 (must-raise (assertion-violation file-error?) (file-error? 1 2))
+
+;;
+;; ---- system interface ----
+;;
+
+(must-equal #f (file-exists? "not-a-real-filename"))
+(must-equal #t (file-exists? "..\\test\\r7rs.scm"))
+
+(must-raise (assertion-violation file-exists?) (file-exists?))
+(must-raise (assertion-violation file-exists?) (file-exists? #\a))
+(must-raise (assertion-violation file-exists?) (file-exists? "filename" 2))
+
+(must-raise (assertion-violation delete-file) (delete-file))
+(must-raise (assertion-violation delete-file) (delete-file #\a))
+(must-raise (assertion-violation delete-file) (delete-file "filename" 2))
+
+(must-raise (assertion-violation command-line) (command-line 1))
+
+(must-raise (assertion-violation emergency-exit) (emergency-exit 1 2))
+
+(must-equal #f (get-environment-variable "not the name of an environment variable"))
+(must-equal #t (string? (get-environment-variable "Path")))
+
+(must-raise (assertion-violation get-environment-variable) (get-environment-variable))
+(must-raise (assertion-violation get-environment-variable) (get-environment-variable #\a))
+(must-raise (assertion-violation get-environment-variable) (get-environment-variable "Path" 2))
+
+(must-equal #f (assoc "not the name of an environment variable" (get-environment-variables)))
+(must-equal #t (string? (car (assoc "Path" (get-environment-variables)))))
+
+(must-raise (assertion-violation get-environment-variables) (get-environment-variables 1))
+
+(must-equal #t (> (current-second) 0))
+
+(must-raise (assertion-violation current-second) (current-second 1))
+
+(must-equal #t (> (current-jiffy) 0))
+
+(must-raise (assertion-violation current-jiffy) (current-jiffy 1))
+
+(must-equal #t (> (jiffies-per-second) 0))
+
+(must-raise (assertion-violation jiffies-per-second) (jiffies-per-second 1))
+
+(must-equal #f (memq 'not-a-feature (features)))
+(must-equal #t (pair? (memq 'r7rs (features))))
+
+(must-raise (assertion-violation features) (features 1))
+
 ;;
 ;; ---- input and output ----
 ;;

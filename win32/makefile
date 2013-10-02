@@ -92,27 +92,29 @@ debug\base.cpp: debug\txt2cpp.exe ..\src\base.scm makefile
 debug\foment.exe: debug\foment.obj debug\gc.obj debug\syncthrd.obj debug\compile.obj debug\io.obj\
         debug\synrules.obj debug\synpass.obj debug\midpass.obj debug\genpass.obj\
         debug\pairs.obj debug\unicode.obj debug\chars.obj debug\strings.obj debug\vectors.obj\
-        debug\library.obj debug\execute.obj debug\numbers.obj debug\pretty.obj debug\main.obj\
-        debug\base.obj debug\test.obj
+        debug\convertutf.obj debug\library.obj debug\execute.obj debug\numbers.obj\
+        debug\pretty.obj debug\main.obj debug\base.obj debug\test.obj
     link /nologo /subsystem:console /out:debug\foment.exe\
         /debug /pdb:debug\foment.pdb\
         debug\foment.obj debug\gc.obj debug\syncthrd.obj debug\compile.obj debug\io.obj\
         debug\synrules.obj debug\synpass.obj debug\midpass.obj debug\genpass.obj debug\pairs.obj\
-        debug\unicode.obj debug\strings.obj debug\chars.obj debug\vectors.obj debug\library.obj\
-        debug\execute.obj debug\numbers.obj debug\pretty.obj debug\main.obj debug\base.obj\
-        debug\test.obj
+        debug\unicode.obj debug\strings.obj debug\chars.obj debug\vectors.obj debug\convertutf.obj\
+        debug\library.obj debug\execute.obj debug\numbers.obj debug\pretty.obj debug\main.obj\
+        debug\base.obj debug\test.obj
 
 release\foment.exe: release\foment.obj release\gc.obj release\syncthrd.obj release\compile.obj\
         release\io.obj release\synrules.obj release\synpass.obj release\midpass.obj\
         release\genpass.obj release\pairs.obj release\unicode.obj release\chars.obj\
-        release\strings.obj release\vectors.obj release\library.obj release\execute.obj\
-        release\numbers.obj release\pretty.obj release\main.obj release\base.obj release\test.obj
+        release\strings.obj release\vectors.obj release\convertutf.obj release\library.obj\
+        release\execute.obj release\numbers.obj release\pretty.obj release\main.obj\
+        release\base.obj release\test.obj
     link /nologo /subsystem:console /out:release\foment.exe\
         release\foment.obj release\gc.obj  release\syncthrd.obj release\compile.obj\
         release\io.obj release\synrules.obj release\synpass.obj release\midpass.obj\
         release\genpass.obj release\pairs.obj release\unicode.obj release\chars.obj\
-        release\strings.obj release\vectors.obj release\library.obj release\execute.obj\
-        release\numbers.obj release\pretty.obj release\main.obj release\base.obj release\test.obj
+        release\strings.obj release\vectors.obj release\convertutf.obj release\library.obj\
+        release\execute.obj release\numbers.obj release\pretty.obj release\main.obj\
+        release\base.obj release\test.obj
 
 debug\txt2cpp.exe: debug\txt2cpp.obj
     link /nologo /subsystem:console /out:debug\txt2cpp.exe\
@@ -127,10 +129,12 @@ debug\synpass.obj: ..\src\synpass.cpp ..\src\foment.hpp ..\src\compile.hpp
 debug\midpass.obj: ..\src\midpass.cpp ..\src\foment.hpp ..\src\compile.hpp
 debug\genpass.obj: ..\src\genpass.cpp ..\src\foment.hpp ..\src\compile.hpp ..\src\execute.hpp
 debug\pairs.obj: ..\src\pairs.cpp ..\src\foment.hpp
-debug\unicode.obj: ..\src\unicode.cpp ..\src\foment.hpp ..\src\unicode.hpp ..\src\unidata.hpp
+debug\unicode.obj: ..\src\unicode.cpp ..\src\foment.hpp ..\src\unicode.hpp ..\src\unidata.hpp\
+        ..\src\convertutf.h
 debug\chars.obj: ..\src\chars.cpp ..\src\foment.hpp ..\src\unicode.hpp
 debug\strings.obj: ..\src\strings.cpp ..\src\foment.hpp ..\src\unicode.hpp
-debug\vectors.obj: ..\src\vectors.cpp ..\src\foment.hpp
+debug\vectors.obj: ..\src\vectors.cpp ..\src\foment.hpp ..\src\convertutf.h
+debug\convertutf.obj: ..\src\convertutf.c ..\src\convertutf.h
 debug\library.obj: ..\src\library.cpp ..\src\foment.hpp ..\src\compile.hpp
 debug\execute.obj: ..\src\execute.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\syncthrd.hpp
 debug\numbers.obj: ..\src\numbers.cpp ..\src\foment.hpp
@@ -149,10 +153,12 @@ release\synpass.obj: ..\src\synpass.cpp ..\src\foment.hpp ..\src\compile.hpp
 release\midpass.obj: ..\src\midpass.cpp ..\src\foment.hpp ..\src\compile.hpp
 release\genpass.obj: ..\src\genpass.cpp ..\src\foment.hpp ..\src\compile.hpp ..\src\execute.hpp
 release\pairs.obj: ..\src\pairs.cpp ..\src\foment.hpp
-release\unicode.obj: ..\src\unicode.cpp ..\src\foment.hpp ..\src\unicode.hpp ..\src\unidata.hpp
+release\unicode.obj: ..\src\unicode.cpp ..\src\foment.hpp ..\src\unicode.hpp ..\src\unidata.hpp\
+        ..\src\convertutf.h
 release\chars.obj: ..\src\chars.cpp ..\src\foment.hpp ..\src\unicode.hpp
 release\strings.obj: ..\src\strings.cpp ..\src\foment.hpp ..\src\unicode.hpp
-release\vectors.obj: ..\src\vectors.cpp ..\src\foment.hpp
+release\vectors.obj: ..\src\vectors.cpp ..\src\foment.hpp ..\src\convertutf.h
+release\convertutf.obj: ..\src\convertutf.c ..\src\convertutf.h
 release\library.obj: ..\src\library.cpp ..\src\foment.hpp ..\src\compile.hpp
 release\execute.obj: ..\src\execute.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\syncthrd.hpp
 release\numbers.obj: ..\src\numbers.cpp ..\src\foment.hpp
@@ -170,6 +176,9 @@ debug\txt2cpp.obj: ..\src\txt2cpp.cpp
 {..\src\}.cpp.{debug}.obj:
     cl $(CLDEBUG) ..\src\$(*B).cpp
 
+{..\src\}.c.{debug}.obj:
+    cl $(CLDEBUG) ..\src\$(*B).c
+
 {debug\}.cpp.{debug}.obj:
     cl $(CLDEBUG) debug\$(*B).cpp
 
@@ -178,6 +187,9 @@ debug\txt2cpp.obj: ..\src\txt2cpp.cpp
 
 {..\src\}.cpp.{release}.obj:
     cl $(CLRELEASE) ..\src\$(*B).cpp
+
+{..\src\}.c.{release}.obj:
+    cl $(CLRELEASE) ..\src\$(*B).c
 
 {debug\}.cpp.{release}.obj:
     cl $(CLRELEASE) debug\$(*B).cpp

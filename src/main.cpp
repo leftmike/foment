@@ -9,7 +9,7 @@ Foment
 #include "foment.hpp"
 
 #ifdef FOMENT_TEST
-int RunTest(FObject env, int argc, char * argv[]);
+int RunTest(FObject env, int argc, SCh * argv[]);
 #endif // FOMENT_TEST
 
 static void LoadFile(FObject fn, FObject env)
@@ -118,6 +118,35 @@ static int Usage()
     return(1);
 }
 
+static FObject MakeInvocation(int argc, wchar_t * argv[])
+{
+    int sl = -1;
+
+    for (int adx = 0; adx < argc; adx++)
+        sl += wcslen(argv[adx]) + 1;
+
+    FObject s = MakeString(0, sl);
+    int sdx = 0;
+
+    for (int adx = 0; adx < argc; adx++)
+    {
+        sl = wcslen(argv[adx]);
+        for (int idx = 0; idx < sl; idx++)
+        {
+            AsString(s)->String[sdx] = argv[adx][idx];
+            sdx += 1;
+        }
+
+        if (adx + 1 < argc)
+        {
+            AsString(s)->String[sdx] = ' ';
+            sdx += 1;
+        }
+    }
+
+    return(s);
+}
+
 typedef enum
 {
 #ifdef FOMENT_TEST
@@ -127,7 +156,7 @@ typedef enum
     ReplMode
 } FMode;
 
-int main(int argc, char * argv[])
+int wmain(int argc, wchar_t * argv[])
 {
 #ifdef FOMENT_DEBUG
     printf("Foment (Debug) Scheme 0.1\n");
@@ -187,7 +216,7 @@ int main(int argc, char * argv[])
                 case 'e':
                 case 'p':
                 {
-                    FObject ret = Eval(ReadStringC(argv[adx], 1), GetInteractionEnv());
+                    FObject ret = Eval(ReadStringS(argv[adx], 1), GetInteractionEnv());
                     if (argv[adx - 1][1] == 'p')
                     {
                         WritePretty(R.StandardOutput, ret, 0);
@@ -198,7 +227,7 @@ int main(int argc, char * argv[])
                 }
 
                 case 'l':
-                    LoadFile(MakeStringC(argv[adx]), GetInteractionEnv());
+                    LoadFile(MakeStringS(argv[adx]), GetInteractionEnv());
                     break;
 
                 case 'A':
@@ -214,13 +243,13 @@ int main(int argc, char * argv[])
                         lp = Rest(lp);
                     }
 
-//                    AsPair(lp)->Rest = MakePair(MakeStringC(argv[adx]), EmptyListObject);
-                    SetRest(lp, MakePair(MakeStringC(argv[adx]), EmptyListObject));
+//                    AsPair(lp)->Rest = MakePair(MakeStringS(argv[adx]), EmptyListObject);
+                    SetRest(lp, MakePair(MakeStringS(argv[adx]), EmptyListObject));
                     break;
                 }
 
                 case 'I':
-                    R.LibraryPath = MakePair(MakeStringC(argv[adx]), R.LibraryPath);
+                    R.LibraryPath = MakePair(MakeStringS(argv[adx]), R.LibraryPath);
                     break;
 
                 default:
@@ -233,7 +262,8 @@ int main(int argc, char * argv[])
         }
 
         FAssert(adx <= argc);
-        R.CommandLine = MakeCommandLine(argc - adx, argv + adx);
+        R.CommandLine = MakePair(MakeInvocation(adx, argv),
+                MakeCommandLine(argc - adx, argv + adx));
 
         if (mode == ReplMode || adx == argc)
             return(RunRepl(GetInteractionEnv()));
@@ -252,13 +282,19 @@ int main(int argc, char * argv[])
 
         if (adx < argc)
         {
-            char * s = strrchr(argv[adx], PathCh);
-            if (s != 0)
+            SCh * s = argv[adx];
+            SCh * pth = 0;
+
+            while (*s)
             {
-                *s = 0;
-                R.LibraryPath = MakePair(MakeStringC(argv[adx]), R.LibraryPath);
-                *s = PathCh;
+                if (*s == PathCh)
+                    pth = s;
+
+                s += 1;
             }
+
+            if (pth != 0)
+                R.LibraryPath = MakePair(MakeStringS(argv[adx], pth - argv[adx]), R.LibraryPath);
         }
         
         

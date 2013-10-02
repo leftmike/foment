@@ -11,6 +11,7 @@ Foment
 #include <stdio.h>
 #include <malloc.h>
 #include <string.h>
+#include <io.h>
 #include "foment.hpp"
 #include "io.hpp"
 #include "unicode.hpp"
@@ -229,6 +230,7 @@ static FCh StringInputGetCh(void * ctx, FObject obj, int * eof)
 
     FCh ch = AsString(obj)->String[sic->Index];
     sic->Index += 1;
+    *eof = 0;
 
     return(ch);
 }
@@ -245,6 +247,7 @@ static FCh StringInputPeekCh(void * ctx, FObject obj, int * eof)
         return(0);
     }
 
+    *eof = 0;
     return(AsString(obj)->String[sic->Index]);
 }
 
@@ -356,6 +359,35 @@ FObject GetOutputString(FObject port)
     return(s);
 }
 
+// ---- System interface ----
+
+Define("file-exists?", FileExistsPPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("file-exists?", argc);
+    StringArgCheck("file-exists?", argv[0]);
+
+    SCh * ss;
+    ConvertToSystem(argv[0], ss);
+
+    return(_waccess(ss, 0) == 0 ? TrueObject : FalseObject);
+}
+
+Define("delete-file", DeleteFilePrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("delete-file", argc);
+    StringArgCheck("delete-file", argv[0]);
+
+    SCh * ss;
+    ConvertToSystem(argv[0], ss);
+
+    if (_wremove(ss) != 0)
+        RaiseExceptionC(R.Assertion, "delete-file", "unable to delete file", List(argv[0]));
+
+    return(NoValueObject);
+}
+
+// ---- Input and output ----
+
 Define("open-output-string", OpenOutputStringPrimitive)(int argc, FObject argv[])
 {
     if (argc != 0)
@@ -437,6 +469,11 @@ FObject MakeStringCInputPort(char * s)
 FObject ReadStringC(char * s, int rif)
 {
     return(Read(MakeStringCInputPort(s), rif, 0));
+}
+
+FObject ReadStringS(SCh * s, int rif)
+{
+    return(Read(MakeStringInputPort(MakeStringS(s)), rif, 0));
 }
 
 // ---- Port Input ----
@@ -1669,6 +1706,9 @@ Define("newline", NewlinePrimitive)(int argc, FObject argv[])
 
 static FPrimitive * Primitives[] =
 {
+    &FileExistsPPrimitive,
+    &DeleteFilePrimitive,
+    
     &OpenOutputStringPrimitive,
     &GetOutputStringPrimitive,
     &WritePrimitive,

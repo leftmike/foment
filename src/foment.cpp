@@ -5,11 +5,14 @@ Foment
 */
 
 #define _CRT_SECURE_NO_WARNINGS
+#include <windows.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
 #include "foment.hpp"
+
+ULONGLONG StartingTicks = 0;
 
 unsigned int SetupComplete = 0;
 
@@ -21,7 +24,7 @@ void FAssertFailed(char * fn, int ln, char * expr)
     printf("FAssert: %s (%d)%s\n", expr, ln, fn);
 
 //    *((char *) 0) = 0;
-    exit(1);
+    _exit(1);
 }
 
 void FMustBeFailed(char * fn, int ln, char * expr)
@@ -29,7 +32,7 @@ void FMustBeFailed(char * fn, int ln, char * expr)
     printf("FMustBe: %s (%d)%s\n", expr, ln, fn);
 
 //    *((char *) 0) = 0;
-    exit(1);
+    _exit(1);
 }
 
 // ---- Immediates ----
@@ -487,10 +490,109 @@ Define("full-error", FullErrorPrimitive)(int argc, FObject argv[])
 
 Define("command-line", CommandLinePrimitive)(int argc, FObject argv[])
 {
-    if (argc != 0)
-        RaiseExceptionC(R.Assertion, "command-line", "expected no arguments", EmptyListObject);
+    ZeroArgsCheck("command-line", argc);
 
     return(R.CommandLine);
+}
+
+Define("emergency-exit", EmergencyExitPrimitive)(int argc, FObject argv[])
+{
+    ZeroOrOneArgsCheck("emergency-exit", argc);
+
+    if (argc == 0 || argv[0] == TrueObject)
+        _exit(0);
+
+    if (FixnumP(argv[0]))
+        _exit(AsFixnum(argv[0]));
+
+    _exit(-1);
+
+    return(NoValueObject);
+}
+
+static void GetEnvironmentVariables()
+{
+    SCh ** envp = _wenviron;
+    FObject lst = EmptyListObject;
+
+    while (*envp)
+    {
+        SCh * s = *envp;
+        while (*s)
+        {
+            if (*s == '=')
+                break;
+            s += 1;
+        }
+
+        FAssert(*s != 0);
+
+        if (*s != 0)
+            lst = MakePair(MakePair(MakeStringS(*envp, s - *envp), MakeStringS(s + 1)), lst);
+
+        envp += 1;
+    }
+
+    R.EnvironmentVariables = lst;
+}
+
+Define("get-environment-variable", GetEnvironmentVariablePrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("get-environment-variable", argc);
+    StringArgCheck("get-environment-variable", argv[0]);
+
+    if (PairP(R.EnvironmentVariables) == 0)
+        GetEnvironmentVariables();
+
+    FObject ret = Assoc(argv[0], R.EnvironmentVariables);
+    if (PairP(ret))
+        return(First(ret));
+    return(ret);
+}
+
+Define("get-environment-variables", GetEnvironmentVariablesPrimitive)(int argc, FObject argv[])
+{
+    ZeroArgsCheck("get-environment-variables", argc);
+
+    if (PairP(R.EnvironmentVariables))
+        return(R.EnvironmentVariables);
+
+    GetEnvironmentVariables();
+
+    FAssert(PairP(R.EnvironmentVariables));
+
+    return(R.EnvironmentVariables);
+}
+
+Define("current-second", CurrentSecondPrimitive)(int argc, FObject argv[])
+{
+    ZeroArgsCheck("current-second", argc);
+
+    time_t t = time(0);
+
+    return(MakeFixnum(t));
+}
+
+Define("current-jiffy", CurrentJiffyPrimitive)(int argc, FObject argv[])
+{
+    ZeroArgsCheck("current-jiffy", argc);
+
+    ULONGLONG tc = (GetTickCount64() - StartingTicks) / 10;
+    return(MakeFixnum(tc));
+}
+
+Define("jiffies-per-second", JiffiesPerSecondPrimitive)(int argc, FObject argv[])
+{
+    ZeroArgsCheck("jiffies-per-second", argc);
+
+    return(MakeFixnum(100));
+}
+
+Define("features", FeaturesPrimitive)(int argc, FObject argv[])
+{
+    ZeroArgsCheck("features", argc);
+
+    return(R.Features);
 }
 
 // ---- Boxes ----
@@ -1244,15 +1346,6 @@ Define("library-path", LibraryPathPrimitive)(int argc, FObject argv[])
     return(R.LibraryPath);
 }
 
-Define("full-command-line", FullCommandLinePrimitive)(int argc, FObject argv[])
-{
-    if (argc != 0)
-        RaiseExceptionC(R.Assertion, "full-command-line", "expected no arguments",
-                EmptyListObject);
-
-    return(R.FullCommandLine);
-}
-
 Define("random", RandomPrimitive)(int argc, FObject argv[])
 {
     if (argc != 1)
@@ -1294,6 +1387,16 @@ static FPrimitive * Primitives[] =
     &FullErrorPrimitive,
     
     
+    &CommandLinePrimitive,
+    &EmergencyExitPrimitive,
+    &GetEnvironmentVariablePrimitive,
+    &GetEnvironmentVariablesPrimitive,
+    &CurrentSecondPrimitive,
+    &CurrentJiffyPrimitive,
+    &JiffiesPerSecondPrimitive,
+    &FeaturesPrimitive,
+    
+    
     &EqHashPrimitive,
     &EqvHashPrimitive,
     &EqualHashPrimitive,
@@ -1307,10 +1410,8 @@ static FPrimitive * Primitives[] =
     &RecordIndexPrimitive,
     &RecordRefPrimitive,
     &RecordSetPrimitive,
-    &CommandLinePrimitive,
     &LoadedLibrariesPrimitive,
     &LibraryPathPrimitive,
-    &FullCommandLinePrimitive,
     &RandomPrimitive,
     &NoValuePrimitive
 };
@@ -1359,21 +1460,22 @@ static char * FeaturesC[] =
     "foment-0.1"
 };
 
-FObject MakeCommandLine(int argc, char * argv[])
+FObject MakeCommandLine(int argc, SCh * argv[])
 {
     FObject cl = EmptyListObject;
 
     while (argc > 0)
     {
         argc -= 1;
-        cl = MakePair(MakeStringC(argv[argc]), cl);
+        cl = MakePair(MakeStringS(argv[argc]), cl);
     }
 
     return(cl);
 }
 
-void SetupFoment(FThreadState * ts, int argc, char * argv[])
+void SetupFoment(FThreadState * ts, int argc, SCh * argv[])
 {
+    StartingTicks = GetTickCount64();
     srand((unsigned int) time(0));
 
     FObject * rv = (FObject *) &R;
@@ -1432,19 +1534,22 @@ void SetupFoment(FThreadState * ts, int argc, char * argv[])
     for (int idx = 0; idx < sizeof(FeaturesC) / sizeof(char *); idx++)
         R.Features = MakePair(StringCToSymbol(FeaturesC[idx]), R.Features);
 
-    R.FullCommandLine = MakeCommandLine(argc, argv);
-    R.CommandLine = R.FullCommandLine;
+    R.CommandLine = MakeCommandLine(argc, argv);
     R.LibraryPath = MakePair(MakeStringC("."), EmptyListObject);
 
     if (argc > 0)
     {
-        char * s = strrchr(argv[0], PathCh);
-        if (s != 0)
+        SCh * s = argv[0];
+        while (*s)
         {
-            *s = 0;
-            R.LibraryPath = MakePair(MakeStringC(argv[0]), R.LibraryPath);
-            *s = PathCh;
+            if (*s == PathCh)
+                break;
+
+            s += 1;
         }
+
+        if (*s == PathCh)
+            R.LibraryPath = MakePair(MakeStringS(argv[0], s - argv[0]), R.LibraryPath);
     }
 
     SetupPairs();

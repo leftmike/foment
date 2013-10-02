@@ -1,6 +1,5 @@
 (define-library (foment base)
     (import (foment bedrock))
-
     (export ;; (scheme base)
         import
         define-library
@@ -19,7 +18,7 @@
         and
         append
         apply
-;        assoc
+        assoc
         assq
 ;        assv
         begin
@@ -87,7 +86,7 @@
         exact-integer?
 ;        exact?
         expt
-;        features
+        features
         file-error?
 ;        floor
 ;        floor-quotient
@@ -135,7 +134,7 @@
         map
 ;        max
 ;        member
-;        memq
+        memq
 ;        memv
 ;        min
 ;        modulo
@@ -241,10 +240,8 @@
 ;        Write-string
 ;        write-u8
         zero?)
-
     (export ;; (scheme case-lambda)
         case-lambda)
-
     (export ;; (scheme char)
         char-alphabetic?
         char-ci<=?
@@ -267,12 +264,22 @@
         string-ci>?
         string-downcase
         string-foldcase
-        string-upcase
-    )
+        string-upcase)
     (export ;; (scheme eval)
 ;        environment
          eval)
-
+    (export ;; (scheme file)
+;        call-with-input-file
+;        call-with-output-file
+        delete-file
+        file-exists?
+;        open-binary-input-file
+;        open-binary-output-file
+;        open-input-file
+;        open-output-file
+;        with-input-from-file
+;        with-output-to-file
+    )
     (export ;; (scheme inexact)
 ;        acos
 ;        asin
@@ -287,27 +294,26 @@
         sqrt
 ;        tan
     )
-
      (export ;; (scheme process-context)
          command-line
 ;         exit
-;         get-environment-variable
-;         get-environment-variables
-;         emergency-exit
-     )
-
+         get-environment-variable
+         get-environment-variables
+         emergency-exit)
     (export ;; (scheme repl)
         interaction-environment)
-
+    (export ;; (scheme time)
+        current-jiffy
+        current-second
+        jiffies-per-second)
     (export ;; (scheme write)
          display
          write
          write-shared
          write-simple)
-
     (export
         syntax unsyntax eq-hash eqv-hash display-shared display-simple
-        equal-hash error-object-who full-error loaded-libraries library-path full-command-line
+        equal-hash error-object-who full-error loaded-libraries library-path
         write-pretty display-pretty
         with-continuation-mark call-with-continuation-prompt abort-current-continuation
         default-prompt-tag (rename default-prompt-tag default-continuation-prompt-tag)
@@ -463,7 +469,8 @@
             (and (error-object? obj)
                 (let ((who (error-object-who obj)))
                     (or (eq? who 'open-input-file) (eq? 'open-binary-input-file)
-                            (eq? who 'open-output-file) (eq? 'open-binary-output-file)))))
+                            (eq? who 'open-output-file) (eq? 'open-binary-output-file)
+                            (eq? who 'delete-file)))))
 
         (define (eval expr env)
             ((compile-eval expr env)))
@@ -712,7 +719,7 @@
         and
         append
         apply
-;;        assoc
+        assoc
         assq
 ;;        assv
         begin
@@ -780,7 +787,7 @@
         exact-integer?
 ;;        exact?
         expt
-;;        features
+        features
         file-error?
 ;;        floor
 ;;        floor-quotient
@@ -828,7 +835,7 @@
         map
 ;;        max
 ;;        member
-;;        memq
+        memq
 ;;        memv
 ;;        min
 ;;        modulo
@@ -937,13 +944,11 @@
 
 (define-library (scheme case-lambda)
     (import (foment base))
-
     (export
         case-lambda))
 
 (define-library (scheme char)
     (import (foment base))
-
     (export
         char-alphabetic?
         char-ci<=?
@@ -966,8 +971,7 @@
         string-ci>?
         string-downcase
         string-foldcase
-        string-upcase
-    ))
+        string-upcase))
 
 ;; (define-library (scheme complex)
 
@@ -975,16 +979,27 @@
 
 (define-library (scheme eval)
     (import (foment base))
-
     (export
 ;;        environment
          eval))
 
-;; (define-library (scheme file)
+ (define-library (scheme file)
+    (import (foment base))
+    (export
+;;        call-with-input-file
+;;        call-with-output-file
+        delete-file
+        file-exists?
+;;        open-binary-input-file
+;;        open-binary-output-file
+;;        open-input-file
+;;        open-output-file
+;;        with-input-from-file
+;;        with-output-to-file
+    ))
 
 (define-library (scheme inexact)
     (import (foment base))
-
     (export
 ;;        acos
 ;;        asin
@@ -1006,28 +1021,29 @@
 
 (define-library (scheme process-context)
     (import (foment base))
-
      (export
          command-line
 ;;         exit
-;;         get-environment-variable
-;;         get-environment-variables
-;;         emergency-exit
-     ))
+         get-environment-variable
+         get-environment-variables
+         emergency-exit))
 
 ;; (define-library (scheme read)
 
 (define-library (scheme repl)
     (import (foment base))
-
     (export
         interaction-environment))
 
-;; (define-library (scheme time)
+(define-library (scheme time)
+    (import (foment base))
+    (export
+        current-jiffy
+        current-second
+        jiffies-per-second))
 
 (define-library (scheme write)
     (import (foment base))
-
     (export
          display
          write

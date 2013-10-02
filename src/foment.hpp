@@ -19,7 +19,6 @@ library is used by interaction-environment
 
 -- current-input-port and current-output-port need to be parameters
 
--- command-line like Kawa
 -- use tests from chibi
 
 -- IO and GC
@@ -44,8 +43,10 @@ Future:
 -- number tags should require only a single test by sharing part of a tag
 -- composable continuations
 -- strings and srfi-13
+-- use wmain instead of main and fix command-line accordingly
 
 Bugs:
+-- ConvertToSystem does not protect an object from GC in some cases
 -- call/cc: unwind only as far as the common tail
 -- gc.cpp: AllocateSection failing is not handled by all callers
 -- ExecuteThunk does not check for CStack or AStack overflow
@@ -66,6 +67,10 @@ Testing:
 -- 6.9 bytevectors complete except utf8 conversions need more testing
 -- 6.10 control features complete
 -- 6.11 exceptions complete
+-- 6.12 environments and evaluation missing environment, scheme-report-environment,
+        and null-environment
+-- 6.14 system interface missing load and exit, otherwise complete except current-second
+    returns an exact integer
 
 */
 
@@ -86,6 +91,7 @@ void FMustBeFailed(char * fn, int ln, char * expr);
 
 typedef void * FObject;
 typedef unsigned int FCh;
+typedef wchar_t SCh;
 typedef int FFixnum;
 typedef unsigned int FImmediate;
 
@@ -329,6 +335,7 @@ FObject List(FObject obj1, FObject obj2, FObject obj3, FObject obj4);
 
 FObject Memq(FObject obj, FObject lst);
 FObject Assq(FObject obj, FObject alst);
+FObject Assoc(FObject obj, FObject alst);
 
 FObject MakeTConc();
 int TConcEmptyP(FObject tconc);
@@ -379,6 +386,8 @@ typedef struct
 FObject MakeString(FCh * s, unsigned int sl);
 FObject MakeStringCh(unsigned int sl, FCh ch);
 FObject MakeStringC(char * s);
+FObject MakeStringS(SCh * ss);
+FObject MakeStringS(SCh * ss, unsigned int ssl);
 
 inline unsigned int StringLength(FObject obj)
 {
@@ -399,6 +408,12 @@ int StringEqualP(FObject obj1, FObject obj2);
 int StringLengthEqualP(FCh * s, int sl, FObject obj);
 int StringCEqualP(char * s1, FCh * s2, int sl2);
 unsigned int BytevectorHash(FObject obj);
+
+#define ConvertToSystem(obj, ss)\
+    SCh __ssbuf[256];\
+    ss = ConvertToStringS(obj, __ssbuf, sizeof(__ssbuf) / sizeof(SCh))
+
+SCh * ConvertToStringS(FObject s, SCh * b, unsigned int bl);
 
 // ---- Vectors ----
 
@@ -450,6 +465,7 @@ FObject Read(FObject port, int rif, int fcf);
 
 FObject MakeStringCInputPort(char * s);
 FObject ReadStringC(char * s, int rif);
+FObject ReadStringS(SCh * s, int rif);
 
 void PutCh(FObject port, FCh ch);
 void PutString(FObject port, FCh * s, int sl);
@@ -743,7 +759,7 @@ typedef struct _FThreadState
     unsigned int ObjectsSinceLast;
 
     int UsedRoots;
-    FObject * Roots[8];
+    FObject * Roots[12];
 
     int StackSize;
     int AStackPtr;
@@ -769,8 +785,8 @@ typedef struct
     FObject EllipsisSymbol;
     FObject Features;
     FObject CommandLine;
-    FObject FullCommandLine;
     FObject LibraryPath;
+    FObject EnvironmentVariables;
 
     FObject SymbolHashtable;
 
@@ -887,6 +903,12 @@ inline void AtLeastThreeArgsCheck(char * who, int argc)
 {
     if (argc < 3)
         RaiseExceptionC(R.Assertion, who, "expected at least three arguments", EmptyListObject);
+}
+
+inline void ZeroOrOneArgsCheck(char * who, int argc)
+{
+    if (argc > 1)
+        RaiseExceptionC(R.Assertion, who, "expected zero or one arguments", EmptyListObject);
 }
 
 inline void OneOrTwoArgsCheck(char * who, int argc)
@@ -1007,8 +1029,8 @@ FObject DatumToSyntax(FObject obj);
 
 FObject ExecuteThunk(FObject op);
 
-FObject MakeCommandLine(int argc, char * argv[]);
-void SetupFoment(FThreadState * ts, int argc, char * argv[]);
+FObject MakeCommandLine(int argc, SCh * argv[]);
+void SetupFoment(FThreadState * ts, int argc, SCh * argv[]);
 extern unsigned int SetupComplete;
 
 // ---- Do Not Call Directly ----
