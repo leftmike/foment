@@ -155,16 +155,16 @@ void WriteInstruction(FObject port, FObject obj, int df)
     FCh s[16];
     int sl = NumberAsString(InstructionArg(obj), s, 10);
 
-    PutStringC(port, "#<");
+    WriteStringC(port, "#<");
 
     if (InstructionOpcode(obj) < 0 || InstructionOpcode(obj) >= sizeof(Opcodes) / sizeof(char *))
-        PutStringC(port, "unknown");
+        WriteStringC(port, "unknown");
     else
-        PutStringC(port, Opcodes[InstructionOpcode(obj)]);
+        WriteStringC(port, Opcodes[InstructionOpcode(obj)]);
 
-    PutStringC(port, ": ");
-    PutString(port, s, sl);
-    PutCh(port, '>');
+    WriteStringC(port, ": ");
+    WriteString(port, s, sl);
+    WriteCh(port, '>');
 }
 
 // --------

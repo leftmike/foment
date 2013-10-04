@@ -7,8 +7,6 @@ Goals:
 -- simple implementation
 
 To Do:
--- ports optionally return or seek to a location
--- ports describe whether they use char offset, byte offset, or line number for location
 -- CompileProgram
 -- RunProgram
 
@@ -43,7 +41,6 @@ Future:
 -- number tags should require only a single test by sharing part of a tag
 -- composable continuations
 -- strings and srfi-13
--- use wmain instead of main and fix command-line accordingly
 
 Bugs:
 -- ConvertToSystem does not protect an object from GC in some cases
@@ -59,16 +56,19 @@ Bugs:
 
 Testing:
 -- 6.1 equivalence predicates complete
+-- 6.2
 -- 6.3 booleans complete
+-- 6.4
 -- 6.5 symbols complete
 -- 6.6 characters complete
 -- 6.7 strings complete except list->string needs to type check list
 -- 6.8 vectors complete except list->vector needs to type check list
--- 6.9 bytevectors complete except utf8 conversions need more testing
+-- 6.9 bytevectors complete
 -- 6.10 control features complete
 -- 6.11 exceptions complete
 -- 6.12 environments and evaluation missing environment, scheme-report-environment,
         and null-environment
+-- 6.13
 -- 6.14 system interface missing load and exit, otherwise complete except current-second
     returns an exact integer
 
@@ -122,7 +122,8 @@ typedef enum
     StringTag,
     VectorTag,
     BytevectorTag,
-    PortTag,
+    BinaryPortTag,
+    TextualPortTag,
     ProcedureTag,
     SymbolTag,
     RecordTypeTag,
@@ -451,34 +452,101 @@ FObject U8ListToBytevector(FObject obj);
 
 // ---- Ports ----
 
-#define PortP(obj) (IndirectTag(obj) == PortTag)
-int InputPortP(FObject obj);
-int OutputPortP(FObject obj);
-void ClosePort(FObject port);
+#define PORT_FLAG_INPUT         0x80000000
+#define PORT_FLAG_INPUT_OPEN    0x40000000
+#define PORT_FLAG_OUTPUT        0x20000000
+#define PORT_FLAG_OUTPUT_OPEN   0x10000000
+#define PORT_FLAG_STRING_OUTPUT 0x08000000
 
-FObject OpenInputFile(FObject fn, int ref);
-FObject OpenOutputFile(FObject fn, int ref);
+typedef void (*FCloseInputFn)(FObject port);
+typedef void (*FCloseOutputFn)(FObject port);
+typedef void (*FFlushOutputFn)(FObject port);
 
-FCh GetCh(FObject port, int * eof);
-FCh PeekCh(FObject port, int * eof);
+typedef struct
+{
+    unsigned int Flags;
+    FObject Name;
+    FObject Object;
+    void * InputContext;
+    void * OutputContext;
+    FCloseInputFn CloseInputFn;
+    FCloseOutputFn CloseOutputFn;
+    FFlushOutputFn FlushOutputFn;
+} FGenericPort;
+
+#define AsGenericPort(obj) ((FGenericPort *) obj)
+
+#define TextualPortP(obj) (IndirectTag(obj) == TextualPortTag)
+#define BinaryPortP(obj) (IndirectTag(obj) == BinaryPortTag)
+
+inline int InputPortP(FObject obj)
+{
+    return((BinaryPortP(obj) || TextualPortP(obj))
+            && (AsGenericPort(obj)->Flags & PORT_FLAG_INPUT));
+}
+
+inline int OutputPortP(FObject obj)
+{
+    return((BinaryPortP(obj) || TextualPortP(obj))
+            && (AsGenericPort(obj)->Flags & PORT_FLAG_OUTPUT));
+}
+
+inline int InputPortOpenP(FObject obj)
+{
+    FAssert(BinaryPortP(obj) || TextualPortP(obj));
+
+    return(AsGenericPort(obj)->Flags & PORT_FLAG_INPUT_OPEN);
+}
+
+inline int OutputPortOpenP(FObject obj)
+{
+    FAssert(BinaryPortP(obj) || TextualPortP(obj));
+
+    return(AsGenericPort(obj)->Flags & PORT_FLAG_OUTPUT_OPEN);
+}
+
+inline int StringOutputPortP(FObject obj)
+{
+    return(TextualPortP(obj) && (AsGenericPort(obj)->Flags & PORT_FLAG_STRING_OUTPUT));
+}
+
+// Binary and textual ports
+
+void CloseInput(FObject port);
+void CloseOutput(FObject port);
+void FlushOutput(FObject port);
+int GetLocation(FObject port);
+
+// Binary ports
+
+unsigned int ReadBytes(FObject port, FByte * b, unsigned int bl);
+int PeekByte(FObject port, FByte * b);
+int ByteReadyP(FObject port);
+void WriteBytes(FObject port, void * b, unsigned int bl);
+
+// Textual ports
+
+FObject OpenInputFile(FObject fn);
+FObject OpenOutputFile(FObject fn);
+FObject MakeStringInputPort(FObject str);
+FObject MakeStringCInputPort(char * s);
+FObject MakeStringOutputPort();
+FObject GetOutputString(FObject port);
+
+unsigned int ReadCh(FObject port, FCh * ch);
+unsigned int PeekCh(FObject port, FCh * ch);
+int CharReadyP(FObject port);
+
 FObject Read(FObject port, int rif, int fcf);
 
-FObject MakeStringCInputPort(char * s);
-FObject ReadStringC(char * s, int rif);
-FObject ReadStringS(SCh * s, int rif);
+void WriteCh(FObject port, FCh ch);
+void WriteString(FObject port, FCh * s, int sl);
+void WriteStringC(FObject port, char * s);
 
-void PutCh(FObject port, FCh ch);
-void PutString(FObject port, FCh * s, int sl);
-void PutStringC(FObject port, char * s);
 void Write(FObject port, FObject obj, int df);
 void WriteShared(FObject port, FObject obj, int df);
 void WriteSimple(FObject port, FObject obj, int df);
 void WritePretty(FObject port, FObject obj, int df);
-
-int GetLocation(FObject port);
-
-FObject MakeStringOutputPort();
-FObject GetOutputString(FObject port);
 
 // ---- Record Types ----
 
@@ -684,7 +752,7 @@ typedef struct
 FObject MakeIdentifier(FObject sym, int ln);
 FObject WrapIdentifier(FObject id, FObject se);
 
-// ---- Procedure ----
+// ---- Procedures ----
 
 typedef struct
 {

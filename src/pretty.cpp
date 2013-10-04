@@ -12,15 +12,15 @@ static void WritePrettyObject(FObject port, FObject obj, int df, FWriteFn wfn, v
 {
     if (EnvironmentP(obj))
     {
-        PutStringC(port, "#<");
+        WriteStringC(port, "#<");
         WriteGeneric(port, AsEnvironment(obj)->Name, 1, (FWriteFn) WriteGeneric, 0);
-        PutCh(port, '>');
+        WriteCh(port, '>');
     }
     else if (LibraryP(obj))
     {
-        PutStringC(port, "#<library: ");
+        WriteStringC(port, "#<library: ");
         WriteGeneric(port, AsLibrary(obj)->Name, 1, (FWriteFn) WriteGeneric, 0);
-/*        PutStringC(port, " (");
+/*        WriteStringC(port, " (");
 
         FObject lst = AsLibrary(obj)->Exports;
         while (PairP(lst))
@@ -32,25 +32,25 @@ static void WritePrettyObject(FObject port, FObject obj, int df, FWriteFn wfn, v
             lst = Rest(lst);
 
             if (lst != EmptyListObject)
-                PutCh(port, ' ');
+                WriteCh(port, ' ');
         }
 
-        PutStringC(port, ")>");
+        WriteStringC(port, ")>");
 */
-        PutCh(port, '>');
+        WriteCh(port, '>');
     }
     else if (IdentifierP(obj))
     {
         WriteGeneric(port, AsIdentifier(obj)->Symbol, 1, (FWriteFn) WriteGeneric, 0);
-        PutCh(port, '.');
+        WriteCh(port, '.');
         WriteGeneric(port, AsIdentifier(obj)->Magic, 1, (FWriteFn) WriteGeneric, 0);
-        PutCh(port, '.');
+        WriteCh(port, '.');
         WriteGeneric(port, AsIdentifier(obj)->SyntacticEnv, 1, wfn, 0);
     }
     else if (ReferenceP(obj))
     {
         wfn(port, AsReference(obj)->Identifier, 1, wfn, ctx);
-        PutCh(port, ':');
+        WriteCh(port, ':');
         wfn(port, AsReference(obj)->Binding, 1, wfn, ctx);
     }
     else if (BindingP(obj))
@@ -58,36 +58,36 @@ static void WritePrettyObject(FObject port, FObject obj, int df, FWriteFn wfn, v
         FCh s[16];
         int sl = NumberAsString((FFixnum) obj, s, 16);
 
-        PutStringC(port, "#<binding: #x");
-        PutString(port, s, sl);
-        PutCh(port, ' ');
+        WriteStringC(port, "#<binding: #x");
+        WriteString(port, s, sl);
+        WriteCh(port, ' ');
 
         obj = AsBinding(obj)->Identifier;
         WriteGeneric(port, AsIdentifier(obj)->Symbol, 1, (FWriteFn) WriteGeneric, 0);
-        PutCh(port, '.');
+        WriteCh(port, '.');
         WriteGeneric(port, AsIdentifier(obj)->Magic, 1, (FWriteFn) WriteGeneric, 0);
-        PutCh(port, '>');
+        WriteCh(port, '>');
     }
     else if (LambdaP(obj))
     {
-        PutStringC(port, "#<(lambda: ");
+        WriteStringC(port, "#<(lambda: ");
         if (AsLambda(obj)->Name != NoValueObject)
         {
             wfn(port, AsLambda(obj)->Name, 1, wfn, ctx);
-            PutCh(port, ' ');
+            WriteCh(port, ' ');
         }
 
         wfn(port, AsLambda(obj)->Bindings, 1, wfn, ctx);
 
-        PutCh(port, ' ');
+        WriteCh(port, ' ');
         wfn(port, AsLambda(obj)->Body, 1, wfn, ctx);
-        PutStringC(port, ")>");
+        WriteStringC(port, ")>");
     }
     else if (PatternVariableP(obj))
     {
-        PutCh(port, '{');
+        WriteCh(port, '{');
         wfn(port, AsPatternVariable(obj)->Variable, 1, wfn, ctx);
-        PutCh(port, '}');
+        WriteCh(port, '}');
     }
     else if (ctx == 0)
         WriteGeneric(port, obj, df, wfn, 0);
@@ -133,8 +133,8 @@ Define("write-pretty", WritePrettyPrimitive)(int argc, FObject argv[])
 
     if (argc == 2)
     {
-        if (OutputPortP(argv[1]) == 0)
-            RaiseExceptionC(R.Assertion, "write-pretty", "expected an output port", List(argv[1]));
+//        if (OldOutputPortP(argv[1]) == 0)
+//            RaiseExceptionC(R.Assertion, "write-pretty", "expected an output port", List(argv[1]));
 
         port = argv[1];
     }
@@ -156,9 +156,9 @@ Define("display-pretty", DisplayPrettyPrimitive)(int argc, FObject argv[])
 
     if (argc == 2)
     {
-        if (OutputPortP(argv[1]) == 0)
-            RaiseExceptionC(R.Assertion, "display-pretty", "expected an output port",
-                    List(argv[1]));
+//        if (OldOutputPortP(argv[1]) == 0)
+//            RaiseExceptionC(R.Assertion, "display-pretty", "expected an output port",
+//                    List(argv[1]));
 
         port = argv[1];
     }

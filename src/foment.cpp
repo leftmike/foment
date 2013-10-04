@@ -123,9 +123,9 @@ void WriteSpecialSyntax(FObject port, FObject obj, int df)
 {
     char * n = SpecialSyntaxToName(obj);
 
-    PutStringC(port, "#<syntax: ");
-    PutStringC(port, n);
-    PutCh(port, '>');
+    WriteStringC(port, "#<syntax: ");
+    WriteStringC(port, n);
+    WriteCh(port, '>');
 }
 
 // ---- Equivalence predicates ----
@@ -1422,12 +1422,12 @@ extern char BaseCode[];
 
 static void SetupScheme()
 {
-    Eval(ReadStringC(
+    Eval(Read(MakeStringCInputPort(
         "(define-syntax and"
             "(syntax-rules ()"
                 "((and) #t)"
                 "((and test) test)"
-                "((and test1 test2 ...) (if test1 (and test2 ...) #f))))", 1), R.Bedrock);
+                "((and test1 test2 ...) (if test1 (and test2 ...) #f))))"), 1, 0), R.Bedrock);
 
     LibraryExport(R.BedrockLibrary, EnvironmentLookup(R.Bedrock, StringCToSymbol("and")));
 

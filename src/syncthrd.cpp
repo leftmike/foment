@@ -27,12 +27,12 @@ void WriteThread(FObject port, FObject obj, int df)
 {
     FAssert(ThreadP(obj));
 
-    PutStringC(port, "#<thread: ");
+    WriteStringC(port, "#<thread: ");
 
     FCh s[16];
     int sl = NumberAsString((FFixnum) AsThread(obj)->Handle, s, 16);
-    PutString(port, s, sl);
-    PutCh(port, '>');
+    WriteString(port, s, sl);
+    WriteCh(port, '>');
 }
 
 // ---- Exclusives ----
@@ -52,12 +52,12 @@ void WriteExclusive(FObject port, FObject obj, int df)
 {
     FAssert(ExclusiveP(obj));
 
-    PutStringC(port, "#<exclusive: ");
+    WriteStringC(port, "#<exclusive: ");
 
     FCh s[16];
     int sl = NumberAsString((FFixnum) &AsExclusive(obj)->Exclusive, s, 16);
-    PutString(port, s, sl);
-    PutCh(port, '>');
+    WriteString(port, s, sl);
+    WriteCh(port, '>');
 }
 
 // ---- Conditions ----
@@ -75,12 +75,12 @@ void WriteCondition(FObject port, FObject obj, int df)
 {
     FAssert(ConditionP(obj));
 
-    PutStringC(port, "#<condition: ");
+    WriteStringC(port, "#<condition: ");
 
     FCh s[16];
     int sl = NumberAsString((FFixnum) &AsCondition(obj)->Condition, s, 16);
-    PutString(port, s, sl);
-    PutCh(port, '>');
+    WriteString(port, s, sl);
+    WriteCh(port, '>');
 }
 
 Define("current-thread", CurrentThreadPrimitive)(int argc, FObject argv[])

@@ -1738,7 +1738,11 @@ FObject ReadInclude(FObject lst, int cif)
         if (StringP(First(lst)) == 0)
             return(EmptyListObject);
 
-        FObject port = OpenInputFile(First(lst), 1);
+        FObject port = OpenInputFile(First(lst));
+        if (TextualPortP(port) == 0)
+            RaiseExceptionC(R.Assertion, "open-input-file", "can not open file for reading",
+                    List(First(lst)));
+
         for (;;)
         {
             FObject obj = Read(port, 1, cif);

@@ -16,7 +16,11 @@ static void LoadFile(FObject fn, FObject env)
 {
     try
     {
-        FObject port = OpenInputFile(fn, 1);
+        FObject port = OpenInputFile(fn);
+        if (TextualPortP(port) == 0)
+            RaiseExceptionC(R.Assertion, "open-input-file", "can not open file for reading",
+                    List(fn));
+
         PushRoot(&port);
         PushRoot(&env);
 
@@ -29,16 +33,16 @@ static void LoadFile(FObject fn, FObject env)
             if (ret != NoValueObject)
             {
                 WritePretty(R.StandardOutput, ret, 0);
-                PutCh(R.StandardOutput, '\n');
+                WriteCh(R.StandardOutput, '\n');
             }
         }
     }
     catch (FObject obj)
     {
         if (ExceptionP(obj) == 0)
-            PutStringC(R.StandardOutput, "exception: ");
+            WriteStringC(R.StandardOutput, "exception: ");
         WritePretty(R.StandardOutput, obj, 0);
-        PutCh(R.StandardOutput, '\n');
+        WriteCh(R.StandardOutput, '\n');
     }
 
     PopRoot();
@@ -58,15 +62,15 @@ static int RunRepl(FObject env)
             FCh s[16];
             int sl;
 
-            PutCh(R.StandardOutput, '{');
+            WriteCh(R.StandardOutput, '{');
             sl = NumberAsString(BytesAllocated, s, 10);
-            PutString(R.StandardOutput, s, sl);
-            PutStringC(R.StandardOutput, "} ");
+            WriteString(R.StandardOutput, s, sl);
+            WriteStringC(R.StandardOutput, "} ");
             BytesAllocated = 0;
 
             sl = NumberAsString(ln, s, 10);
-            PutString(R.StandardOutput, s, sl);
-            PutStringC(R.StandardOutput, " =] ");
+            WriteString(R.StandardOutput, s, sl);
+            WriteStringC(R.StandardOutput, " =] ");
 
             FObject obj = Read(R.StandardInput, 1, 0);
             if (obj == EndOfFileObject)
@@ -75,15 +79,15 @@ static int RunRepl(FObject env)
             if (ret != NoValueObject)
             {
                 WritePretty(R.StandardOutput, ret, 0);
-                PutCh(R.StandardOutput, '\n');
+                WriteCh(R.StandardOutput, '\n');
             }
         }
         catch (FObject obj)
         {
             if (ExceptionP(obj) == 0)
-                PutStringC(R.StandardOutput, "exception: ");
+                WriteStringC(R.StandardOutput, "exception: ");
             WritePretty(R.StandardOutput, obj, 0);
-            PutCh(R.StandardOutput, '\n');
+            WriteCh(R.StandardOutput, '\n');
         }
 
         ln = GetLocation(R.StandardInput) + 1;
@@ -216,11 +220,12 @@ int wmain(int argc, wchar_t * argv[])
                 case 'e':
                 case 'p':
                 {
-                    FObject ret = Eval(ReadStringS(argv[adx], 1), GetInteractionEnv());
+                    FObject ret = Eval(Read(MakeStringInputPort(MakeStringS(argv[adx])), 1, 0),
+                            GetInteractionEnv());
                     if (argv[adx - 1][1] == 'p')
                     {
                         WritePretty(R.StandardOutput, ret, 0);
-                        PutCh(R.StandardOutput, '\n');
+                        WriteCh(R.StandardOutput, '\n');
                     }
 
                     break;
@@ -304,9 +309,9 @@ int wmain(int argc, wchar_t * argv[])
     catch (FObject obj)
     {
         if (ExceptionP(obj) == 0)
-            PutStringC(R.StandardOutput, "exception: ");
+            WriteStringC(R.StandardOutput, "exception: ");
         WritePretty(R.StandardOutput, obj, 0);
-        PutCh(R.StandardOutput, '\n');
+        WriteCh(R.StandardOutput, '\n');
 
         return(1);
     }

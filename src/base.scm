@@ -697,6 +697,29 @@
                             (cond clause1 clause2 ...
                                 (else (%dynamic-stack hds) (raise-continuable var))))
                         (lambda () body1 body2 ...)))))
+
+        (define (make-guardian)
+            (let ((tconc (let ((last (cons #f '()))) (cons last last))))
+                (case-lambda
+                    (()
+                        (if (eq? (car tconc) (cdr tconc))
+                            #f
+                            (let ((first (car tconc)))
+                                (set-car! tconc (cdr first))
+                                (car first))))
+                    ((obj) (install-guardian obj tconc)))))
+
+        (define (make-tracker)
+            (let ((tconc (let ((last (cons #f '()))) (cons last last))))
+                (case-lambda
+                    (()
+                        (if (eq? (car tconc) (cdr tconc))
+                            #f
+                            (let ((first (car tconc)))
+                                (set-car! tconc (cdr first))
+                                (car first))))
+                    ((obj) (install-tracker obj obj tconc))
+                    ((obj ret) (install-tracker obj ret tconc)))))
     ))
 
 (define-library (scheme base)

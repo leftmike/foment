@@ -16,341 +16,462 @@ Foment
 #include "io.hpp"
 #include "unicode.hpp"
 
-// ---- Ports ----
+#define NOT_PEEKED ((unsigned int) -1)
 
-int InputPortP(FObject obj)
+// ---- Binary Ports ----
+
+FObject MakeBinaryPort(FObject nam, FObject obj, void * ictx, void * octx, FCloseInputFn cifn,
+    FCloseOutputFn cofn, FFlushOutputFn fofn, FReadBytesFn rbfn, FByteReadyPFn brpfn,
+    FWriteBytesFn wbfn)
 {
-    return(PortP(obj) && AsPort(obj)->Input != 0);
-}
+    FAssert((cifn == 0 && rbfn == 0 && brpfn == 0) || (cifn != 0 && rbfn != 0 && brpfn != 0));
+    FAssert((cofn == 0 && wbfn == 0 && fofn == 0) || (cofn != 0 && wbfn != 0 && fofn != 0));
+    FAssert(cifn != 0 || cofn != 0);
 
-int OutputPortP(FObject obj)
-{
-    return(PortP(obj) && AsPort(obj)->Output != 0);
-}
-
-void ClosePort(FObject port)
-{
-    FAssert(PortP(port));
-
-    if (AsPort(port)->CloseFn != 0)
-    {
-        if (AsPort(port)->Context != 0)
-        {
-            AsPort(port)->CloseFn(AsPort(port)->Context, AsPort(port)->Object);
-            AsPort(port)->Context = 0;
-        }
-    }
-}
-
-FObject MakePort(FObject nam, FInputPort * inp, FOutputPort * outp, FPortLocation* loc,
-    FCloseFn cfn, void * ctx, FObject obj)
-{
-    FAssert(inp != 0 || outp != 0);
-    FAssert(ctx != 0);
-
-    FPort * port = (FPort *) MakeObject(sizeof(FPort), PortTag);
-    port->Reserved = PortTag;
-    port->Name = nam;
-    port->Input = inp;
-    port->Output = outp;
-    port->Location = loc;
-    port->CloseFn = cfn;
-    port->Context = ctx;
-    port->Object = obj;
+    FBinaryPort * port = (FBinaryPort *) MakeObject(sizeof(FBinaryPort), BinaryPortTag);
+    port->Generic.Flags = BinaryPortTag
+            | (cifn != 0 ? (PORT_FLAG_INPUT | PORT_FLAG_INPUT_OPEN) : 0)
+            | (cofn != 0 ? (PORT_FLAG_OUTPUT | PORT_FLAG_OUTPUT_OPEN) : 0);
+    port->Generic.Name = nam;
+    port->Generic.Object = obj;
+    port->Generic.InputContext = ictx;
+    port->Generic.OutputContext = octx;
+    port->Generic.CloseInputFn = cifn;
+    port->Generic.CloseOutputFn = cofn;
+    port->Generic.FlushOutputFn = fofn;
+    port->ReadBytesFn = rbfn;
+    port->ByteReadyPFn = brpfn;
+    port->WriteBytesFn = wbfn;
+    port->PeekedByte = NOT_PEEKED;
 
     return(port);
 }
 
-// ---- FILE Input and Output Ports ----
-
-typedef struct
+unsigned int ReadBytes(FObject port, FByte * b, unsigned int bl)
 {
-    FILE * File;
-    FCh PeekedCh;
-    int PeekedFlag;
-    int DontCloseFile;
-    int LineNumber;
-} FILEContext;
+    FAssert(BinaryPortP(port) && InputPortOpenP(port));
+    FAssert(bl > 0);
 
-#define ToFileContext(ctx) ((FILEContext *) (ctx))
-
-static FCh FILEGetCh(void * ctx, FObject obj, int * eof)
-{
-    if (ToFileContext(ctx)->PeekedFlag)
+    if (AsBinaryPort(port)->PeekedByte != NOT_PEEKED)
     {
-        ToFileContext(ctx)->PeekedFlag = 0;
-        *eof = 0;
-        return(ToFileContext(ctx)->PeekedCh);
+        FAssert(AsBinaryPort(port)->PeekedByte >= 0 && AsBinaryPort(port)->PeekedByte <= 0xFF);
+
+        *b = AsBinaryPort(port)->PeekedByte;
+        AsBinaryPort(port)->PeekedByte = NOT_PEEKED;
+
+        if (bl == 1)
+            return(1);
+
+        return(AsBinaryPort(port)->ReadBytesFn(port, b + 1, bl - 1) + 1);
     }
 
-    int ch = fgetc(ToFileContext(ctx)->File);
-    *eof = (ch == EOF ? 1 : 0);
-    if (ch == '\n')
-        ToFileContext(ctx)->LineNumber += 1;
-    return(ch);
+    return(AsBinaryPort(port)->ReadBytesFn(port, b, bl));
 }
 
-static FCh FILEPeekCh(void * ctx, FObject obj, int * eof)
+int PeekByte(FObject port, FByte * b)
 {
-    *eof = 0;
+    FAssert(BinaryPortP(port) && InputPortOpenP(port));
 
-    if (ToFileContext(ctx)->PeekedFlag)
-        return(ToFileContext(ctx)->PeekedCh);
-
-    int ch = fgetc(ToFileContext(ctx)->File);
-    if (ch == EOF)
+    if (AsBinaryPort(port)->PeekedByte != NOT_PEEKED)
     {
-        *eof = 1;
-        return(ch);
-    }
+        FAssert(AsBinaryPort(port)->PeekedByte >= 0 && AsBinaryPort(port)->PeekedByte <= 0xFF);
 
-    ToFileContext(ctx)->PeekedFlag = 1;
-    ToFileContext(ctx)->PeekedCh = ch;
-    return(ch);
-}
-
-static void FILEPutCh(void * ctx, FObject obj, FCh ch)
-{
-    fputc(ch, ToFileContext(ctx)->File);
-}
-
-static void FILEPutString(void * ctx, FObject obj, FCh * s, int sl)
-{
-    int sdx;
-
-    for (sdx = 0; sdx < sl; sdx++)
-        fputc(s[sdx], ToFileContext(ctx)->File);
-}
-
-static void FILEPutStringC(void * ctx, FObject obj, char * s)
-{
-    fputs(s, ToFileContext(ctx)->File);
-}
-
-static void FILEClose(void *ctx, FObject obj)
-{
-    FAssert(ctx != 0);
-    FAssert(ToFileContext(ctx)->File != 0);
-
-    if (ToFileContext(ctx)->DontCloseFile == 0)
-        fclose(ToFileContext(ctx)->File);
-
-    free(ctx);
-}
-
-static int FILEGetLocation(void * ctx, FObject obj)
-{
-    return(ToFileContext(ctx)->LineNumber);
-}
-
-static FInputPort FILEInputPort = {FILEGetCh, FILEPeekCh};
-static FOutputPort FILEOutputPort = {FILEPutCh, FILEPutString, FILEPutStringC};
-static FPortLocation FILEPortLocation = {FILEGetLocation, 0};
-
-static FObject MakeFILEPort(FObject nam, FILE * f, int ipf, int opf, int dcf)
-{
-    FAssert(f != 0);
-    FAssert(ipf != 0 || opf != 0);
-
-    FILEContext * fc = (FILEContext *) malloc(sizeof(FILEContext));
-    fc->File = f;
-    fc->PeekedFlag = 0;
-    fc->DontCloseFile = dcf;
-    fc->LineNumber = 1;
-
-    return(MakePort(nam, ipf ? &FILEInputPort : 0, opf ? &FILEOutputPort : 0,
-            &FILEPortLocation, FILEClose, fc, FalseObject));
-}
-
-FObject OpenInputFile(FObject fn, int ref)
-{
-    FAssert(StringP(fn));
-
-    char cfn[256];
-
-    for (unsigned int idx = 0; idx < StringLength(fn) && idx < sizeof(cfn); idx++)
-        cfn[idx] = (char) AsString(fn)->String[idx];
-
-    cfn[StringLength(fn) >= sizeof(cfn) ? sizeof(cfn) - 1 : StringLength(fn)] = 0;
-
-    FILE * f = fopen(cfn, "r");
-    if (f == 0)
-    {
-        if (ref == 0)
-            return(NoValueObject);
-
-        RaiseExceptionC(R.Assertion, "open-input-file", "can not open file for reading", List(fn));
-    }
-
-    return(MakeFILEPort(fn, f, 1, 0, 0));
-}
-
-FObject OpenOutputFile(FObject fn, int ref)
-{
-    FAssert(StringP(fn));
-
-    char cfn[256];
-
-    for (unsigned int idx = 0; idx < StringLength(fn) && idx < sizeof(cfn); idx++)
-        cfn[idx] = (char) AsString(fn)->String[idx];
-
-    cfn[StringLength(fn) >= sizeof(cfn) ? sizeof(cfn) - 1 : StringLength(fn)] = 0;
-
-    FILE * f = fopen(cfn, "w");
-    if (f == 0)
-    {
-        if (ref == 0)
-            return(NoValueObject);
-
-        RaiseExceptionC(R.Assertion, "open-output-file", "can not open file for writing",
-                List(fn));
-    }
-
-    return(MakeFILEPort(fn, f, 0, 1, 0));
-}
-
-// ---- String Input Ports ----
-
-typedef struct
-{
-    int Index;
-} StringInputContext;
-
-static FCh StringInputGetCh(void * ctx, FObject obj, int * eof)
-{
-    FAssert(StringP(obj));
-
-    StringInputContext * sic = (StringInputContext *) ctx;
-
-    if (StringLength(obj) == sic->Index)
-    {
-        *eof = 1;
+        *b = (FByte) AsBinaryPort(port)->PeekedByte;
         return(0);
     }
 
-    FCh ch = AsString(obj)->String[sic->Index];
-    sic->Index += 1;
-    *eof = 0;
+    if (AsBinaryPort(port)->ReadBytesFn(port, b, 1) == 0)
+        return(1);
 
-    return(ch);
+    AsBinaryPort(port)->PeekedByte = *b;
+    return(0);
 }
 
-static FCh StringInputPeekCh(void * ctx, FObject obj, int * eof)
+int ByteReadyP(FObject port)
 {
-    FAssert(StringP(obj));
+    FAssert(BinaryPortP(port) && InputPortOpenP(port));
 
-    StringInputContext * sic = (StringInputContext *) ctx;
+    if (AsBinaryPort(port)->PeekedByte != NOT_PEEKED)
+        return(1);
 
-    if (StringLength(obj) == sic->Index)
+    return(AsBinaryPort(port)->ByteReadyPFn(port));
+}
+
+void WriteBytes(FObject port, void * b, unsigned int bl)
+{
+    FAssert(BinaryPortP(port) && OutputPortOpenP(port));
+    FAssert(bl > 0);
+
+    AsBinaryPort(port)->WriteBytesFn(port, b, bl);
+}
+
+static void StdioCloseInput(FObject port)
+{
+    FAssert(BinaryPortP(port));
+
+    if (OutputPortOpenP(port) == 0
+            || AsGenericPort(port)->InputContext != AsGenericPort(port)->OutputContext)
+        fclose((FILE *) AsGenericPort(port)->InputContext);
+}
+
+static void StdioCloseOutput(FObject port)
+{
+    FAssert(BinaryPortP(port));
+
+    if (InputPortOpenP(port) == 0
+            || AsGenericPort(port)->InputContext != AsGenericPort(port)->OutputContext)
+        fclose((FILE *) AsGenericPort(port)->OutputContext);
+}
+
+static void StdioFlushOutput(FObject port)
+{
+    FAssert(BinaryPortP(port) && OutputPortOpenP(port));
+
+    fflush((FILE *) AsGenericPort(port)->OutputContext);
+}
+
+static unsigned int StdioReadBytes(FObject port, void * b, unsigned int bl)
+{
+    FAssert(BinaryPortP(port) && InputPortOpenP(port));
+    FAssert(AsGenericPort(port)->InputContext != 0);
+
+    return(fread(b, 1, bl, (FILE *) AsGenericPort(port)->InputContext));
+}
+
+static int StdioByteReadyP(FObject port)
+{
+    
+    
+    return(0);
+}
+
+static void StdioWriteBytes(FObject port, void * b, unsigned int bl)
+{
+    FAssert(BinaryPortP(port) && OutputPortOpenP(port));
+    FAssert(AsGenericPort(port)->OutputContext != 0);
+
+    fwrite(b, 1, bl, (FILE *) AsGenericPort(port)->OutputContext);
+}
+
+static FObject MakeStdioPort(FObject nam, FILE * ifp, FILE * ofp)
+{
+    return(MakeBinaryPort(nam, NoValueObject, ifp, ofp, ifp ? StdioCloseInput : 0,
+            ofp ? StdioCloseOutput : 0, ofp ? StdioFlushOutput : 0, ifp ? StdioReadBytes : 0,
+            ifp ? StdioByteReadyP : 0, ofp ? StdioWriteBytes : 0));
+}
+
+// ---- Textual Ports ----
+
+FObject MakeTextualPort(FObject nam, FObject obj, void * ictx, void * octx, FCloseInputFn cifn,
+    FCloseOutputFn cofn, FFlushOutputFn fofn, FReadChFn rcfn, FCharReadyPFn crpfn,
+    FWriteStringFn wsfn)
+{
+    FAssert((cifn == 0 && rcfn == 0 && crpfn == 0) || (cifn != 0 && rcfn != 0 && crpfn != 0));
+    FAssert((cofn == 0 && wsfn == 0 && fofn == 0) || (cofn != 0 && wsfn != 0 && fofn != 0));
+    FAssert(cifn != 0 || cofn != 0);
+
+    FTextualPort * port = (FTextualPort *) MakeObject(sizeof(FTextualPort), TextualPortTag);
+    port->Generic.Flags = TextualPortTag
+            | (cifn != 0 ? (PORT_FLAG_INPUT | PORT_FLAG_INPUT_OPEN) : 0)
+            | (cofn != 0 ? (PORT_FLAG_OUTPUT | PORT_FLAG_OUTPUT_OPEN) : 0);
+    port->Generic.Name = nam;
+    port->Generic.Object = obj;
+    port->Generic.InputContext = ictx;
+    port->Generic.OutputContext = octx;
+    port->Generic.CloseInputFn = cifn;
+    port->Generic.CloseOutputFn = cofn;
+    port->Generic.FlushOutputFn = fofn;
+    port->ReadChFn = rcfn;
+    port->CharReadyPFn = crpfn;
+    port->WriteStringFn = wsfn;
+    port->PeekedChar = NOT_PEEKED;
+
+    return(port);
+}
+
+unsigned int ReadCh(FObject port, FCh * ch)
+{
+    FAssert(TextualPortP(port) && InputPortOpenP(port));
+
+    if (AsTextualPort(port)->PeekedChar != NOT_PEEKED)
     {
-        *eof = 1;
-        return(0);
+        *ch = AsTextualPort(port)->PeekedChar;
+        AsTextualPort(port)->PeekedChar = NOT_PEEKED;
+
+        return(1);
     }
 
-    *eof = 0;
-    return(AsString(obj)->String[sic->Index]);
+    return(AsTextualPort(port)->ReadChFn(port, ch));
 }
 
-static void StringInputClose(void *ctx, FObject obj)
+unsigned int PeekCh(FObject port, FCh * ch)
 {
-    FAssert(ctx != 0);
-    free(ctx);
+    FAssert(TextualPortP(port) && InputPortOpenP(port));
+
+    if (AsTextualPort(port)->PeekedChar != NOT_PEEKED)
+    {
+        *ch = AsTextualPort(port)->PeekedChar;
+        return(1);
+    }
+
+    if (ReadCh(port, ch) == 0)
+        return(0);
+
+    AsTextualPort(port)->PeekedChar = *ch;
+    return(1);
 }
 
-static FInputPort StringInputPort = {StringInputGetCh, StringInputPeekCh};
-
-static FObject MakeStringInputPort(FObject str)
+int CharReadyP(FObject port)
 {
-    FAssert(StringP(str));
+    FAssert(TextualPortP(port) && InputPortOpenP(port));
 
-    StringInputContext * sic = (StringInputContext *) malloc(sizeof(StringInputContext));
-    sic->Index = 0;
+    if (AsTextualPort(port)->PeekedChar != NOT_PEEKED)
+        return(1);
 
-    return(MakePort(FalseObject, &StringInputPort, 0, 0, StringInputClose, sic, str));
+    return(AsTextualPort(port)->CharReadyPFn(port));
 }
 
-// ---- String Output Ports ----
-
-typedef struct
+void WriteCh(FObject port, FCh ch)
 {
-    int Count;
-} StringOutputContext;
+    FAssert(TextualPortP(port) && OutputPortOpenP(port));
 
-#define ToStringOutputContext(ctx) ((StringOutputContext *) (ctx))
-
-static void StringOutputPutCh(void * ctx, FObject obj, FCh ch)
-{
-    FAssert(BoxP(obj));
-
-    ToStringOutputContext(ctx)->Count += 1;
-//    AsBox(obj)->Value = MakePair(MakeCharacter(ch), Unbox(obj));
-    Modify(FBox, obj, Value, MakePair(MakeCharacter(ch), Unbox(obj)));
+    AsTextualPort(port)->WriteStringFn(port, &ch, 1);
 }
 
-static void StringOutputPutString(void * ctx, FObject obj, FCh * s, int sl)
+void WriteString(FObject port, FCh * s, int sl)
 {
-    FAssert(BoxP(obj));
+    FAssert(TextualPortP(port) && OutputPortOpenP(port));
 
-    ToStringOutputContext(ctx)->Count += sl;
-//    AsBox(obj)->Value = MakePair(MakeString(s, sl), Unbox(obj));
-    Modify(FBox, obj, Value, MakePair(MakeString(s, sl), Unbox(obj)));
+    AsTextualPort(port)->WriteStringFn(port, s, sl);
 }
 
-static void StringOutputPutStringC(void * ctx, FObject obj, char * s)
+void WriteStringC(FObject port, char * s)
 {
-    FAssert(BoxP(obj));
+    FAssert(TextualPortP(port) && OutputPortOpenP(port));
 
-    ToStringOutputContext(ctx)->Count += strlen(s);
-//    AsBox(obj)->Value = MakePair(MakeStringC(s), Unbox(obj));
-    Modify(FBox, obj, Value, MakePair(MakeStringC(s), Unbox(obj)));
+    while (*s)
+    {
+        FCh ch = *s;
+        AsTextualPort(port)->WriteStringFn(port, &ch, 1);
+        s += 1;
+    }
 }
 
-static void StringOutputClose(void * ctx, FObject obj)
+void CloseInput(FObject port)
 {
-    FAssert(ctx != 0);
+    FAssert(BinaryPortP(port) || TextualPortP(port));
 
-    free(ctx);
+    if (InputPortOpenP(port))
+    {
+        AsGenericPort(port)->Flags &= ~PORT_FLAG_INPUT_OPEN;
+
+        AsGenericPort(port)->CloseInputFn(port);
+    }
 }
 
-static FOutputPort StringOutputPort = {StringOutputPutCh, StringOutputPutString,
-    StringOutputPutStringC};
-
-FObject MakeStringOutputPort()
+void CloseOutput(FObject port)
 {
-    StringOutputContext * soc = (StringOutputContext *) malloc(sizeof(StringOutputContext));
-    soc->Count = 0;
+    FAssert(BinaryPortP(port) || TextualPortP(port));
 
-    return(MakePort(FalseObject, 0, &StringOutputPort, 0, StringInputClose, soc,
-            MakeBox(EmptyListObject)));
+    if (OutputPortOpenP(port))
+    {
+        AsGenericPort(port)->Flags &= ~PORT_FLAG_OUTPUT_OPEN;
+
+        AsGenericPort(port)->CloseOutputFn(port);
+    }
+}
+
+void FlushOutput(FObject port)
+{
+    FAssert(BinaryPortP(port) || TextualPortP(port));
+    FAssert(OutputPortOpenP(port));
+
+    AsGenericPort(port)->FlushOutputFn(port);
+}
+
+static void TranslatorCloseInput(FObject port)
+{
+    FAssert(BinaryPortP(AsGenericPort(port)->Object));
+
+    CloseInput(AsGenericPort(port)->Object);
+}
+
+static void TranslatorCloseOutput(FObject port)
+{
+    FAssert(BinaryPortP(AsGenericPort(port)->Object));
+
+    CloseOutput(AsGenericPort(port)->Object);
+}
+
+static void TranslatorFlushOutput(FObject port)
+{
+    FAssert(BinaryPortP(AsGenericPort(port)->Object));
+
+    FlushOutput(AsGenericPort(port)->Object);
+}
+
+static FObject MakeTranslatorPort(FObject port, FReadChFn rcfn, FCharReadyPFn crpfn,
+    FWriteStringFn wsfn)
+{
+    FAssert(BinaryPortP(port));
+
+    return(MakeTextualPort(AsGenericPort(port)->Name, port, 0, 0,
+            (AsGenericPort(port)->Flags & PORT_FLAG_INPUT) ? TranslatorCloseInput : 0,
+            (AsGenericPort(port)->Flags & PORT_FLAG_OUTPUT) ? TranslatorCloseOutput : 0,
+            (AsGenericPort(port)->Flags & PORT_FLAG_OUTPUT) ? TranslatorFlushOutput : 0,
+            (AsGenericPort(port)->Flags & PORT_FLAG_INPUT) ? rcfn : 0,
+            (AsGenericPort(port)->Flags & PORT_FLAG_INPUT) ? crpfn : 0,
+            (AsGenericPort(port)->Flags & PORT_FLAG_OUTPUT) ? wsfn : 0));
+}
+
+static unsigned int Latin1ReadCh(FObject port, FCh * ch)
+{
+    FAssert(BinaryPortP(AsGenericPort(port)->Object));
+
+    unsigned char b;
+
+    if (ReadBytes(AsGenericPort(port)->Object, &b, 1) != 1)
+        return(0);
+
+    *ch = b;
+    return(1);
+}
+
+static int Latin1CharReadyP(FObject port)
+{
+    FAssert(BinaryPortP(AsGenericPort(port)->Object));
+
+    return(ByteReadyP(AsGenericPort(port)->Object));
+}
+
+void Latin1WriteString(FObject port, FCh * s, unsigned int sl)
+{
+    FAssert(BinaryPortP(AsGenericPort(port)->Object));
+
+    for (unsigned int sdx = 0; sdx < sl; sdx++)
+    {
+        unsigned char b;
+
+        if (s[sdx] > 0xFF)
+            b = '?';
+        else
+            b = (unsigned char) s[sdx];
+
+        WriteBytes(AsGenericPort(port)->Object, &b, 1);
+    }
+}
+
+FObject MakeLatin1Port(FObject port)
+{
+    return(MakeTranslatorPort(port, Latin1ReadCh, Latin1CharReadyP, Latin1WriteString));
+}
+
+FObject OpenInputFile(FObject fn)
+{
+    SCh * ss;
+    ConvertToSystem(fn, ss);
+
+    FILE * fp = _wfopen(ss, L"r");
+    if (fp == 0)
+        return(NoValueObject);
+
+    return(MakeLatin1Port(MakeStdioPort(fn, fp, 0)));
+}
+
+FObject OpenOutputFile(FObject fn)
+{
+    SCh * ss;
+    ConvertToSystem(fn, ss);
+
+    FILE * fp = _wfopen(ss, L"w");
+    if (fp == 0)
+        return(NoValueObject);
+
+    return(MakeLatin1Port(MakeStdioPort(fn, 0, fp)));
+}
+
+static void SinCloseInput(FObject port)
+{
+    FAssert(TextualPortP(port));
+
+    AsGenericPort(port)->Object = NoValueObject;
+}
+
+static unsigned int SinReadCh(FObject port, FCh * ch)
+{
+    FAssert(TextualPortP(port));
+
+    FObject s = AsGenericPort(port)->Object;
+    unsigned int sdx = (unsigned int) AsGenericPort(port)->InputContext;
+
+    FAssert(StringP(s));
+    FAssert(sdx <= StringLength(s));
+
+    if (sdx == StringLength(s))
+        return(0);
+
+    *ch = AsString(s)->String[sdx];
+    AsGenericPort(port)->InputContext = (void *) (sdx + 1);
+
+    return(1);
+}
+
+static int SinCharReadyP(FObject port)
+{
+    return(1);
+}
+
+FObject MakeStringInputPort(FObject s)
+{
+    FAssert(StringP(s));
+
+    return(MakeTextualPort(NoValueObject, s, 0, 0, SinCloseInput, 0, 0, SinReadCh, SinCharReadyP,
+            0));
+}
+
+static void SoutCloseOutput(FObject port)
+{
+    FAssert(TextualPortP(port));
+
+    AsGenericPort(port)->Object = NoValueObject;
+}
+
+static void SoutFlushOutput(FObject port)
+{
+    // Nothing.
+}
+
+static void SoutWriteString(FObject port, FCh * s, unsigned int sl)
+{
+    FAssert(TextualPortP(port));
+    FAssert(AsGenericPort(port)->Object == EmptyListObject || PairP(AsGenericPort(port)->Object));
+
+    FObject lst = AsGenericPort(port)->Object;
+
+    for (unsigned int sdx = 0; sdx < sl; sdx++)
+        lst = MakePair(MakeCharacter(s[sdx]), lst);
+
+    AsGenericPort(port)->Object = lst;
 }
 
 FObject GetOutputString(FObject port)
 {
-    FAssert(OutputPortP(port));
-    FAssert(AsPort(port)->Output == &StringOutputPort);
-    FAssert(BoxP(AsPort(port)->Object));
+    FAssert(StringOutputPortP(port));
+    FAssert(AsGenericPort(port)->Object == EmptyListObject || PairP(AsGenericPort(port)->Object));
 
-    int idx = ToStringOutputContext(AsPort(port)->Context)->Count;
-    FObject s = MakeStringCh(idx, 0);
-    FObject lst = Unbox(AsPort(port)->Object);
+    FObject lst = AsGenericPort(port)->Object;
+    int sl = ListLength(lst);
+    FObject s = MakeString(0, sl);
+    int sdx = sl;
 
     while (PairP(lst))
     {
-        if (CharacterP(First(lst)))
-        {
-            idx -= 1;
-            AsString(s)->String[idx] = AsCharacter(First(lst));
-        }
-        else
-        {
-            FAssert(StringP(First(lst)));
+        sdx -= 1;
 
-            idx -= (int) StringLength(First(lst));
+        FAssert(sdx >= 0);
+        FAssert(CharacterP(First(lst)));
 
-            for (unsigned int sdx = 0; sdx < StringLength(First(lst)); sdx++)
-                AsString(s)->String[idx + sdx] = AsString(First(lst))->String[sdx];
-        }
-
+        AsString(s)->String[sdx] = AsCharacter(First(lst));
         lst = Rest(lst);
     }
 
@@ -359,137 +480,52 @@ FObject GetOutputString(FObject port)
     return(s);
 }
 
-// ---- System interface ----
-
-Define("file-exists?", FileExistsPPrimitive)(int argc, FObject argv[])
+FObject MakeStringOutputPort()
 {
-    OneArgCheck("file-exists?", argc);
-    StringArgCheck("file-exists?", argv[0]);
-
-    SCh * ss;
-    ConvertToSystem(argv[0], ss);
-
-    return(_waccess(ss, 0) == 0 ? TrueObject : FalseObject);
+    FObject port = MakeTextualPort(NoValueObject, EmptyListObject, 0, 0, 0, SoutCloseOutput,
+            SoutFlushOutput, 0, 0, SoutWriteString);
+    AsGenericPort(port)->Flags |= PORT_FLAG_STRING_OUTPUT;
+    return(port);
 }
 
-Define("delete-file", DeleteFilePrimitive)(int argc, FObject argv[])
+static void CinCloseInput(FObject port)
 {
-    OneArgCheck("delete-file", argc);
-    StringArgCheck("delete-file", argv[0]);
-
-    SCh * ss;
-    ConvertToSystem(argv[0], ss);
-
-    if (_wremove(ss) != 0)
-        RaiseExceptionC(R.Assertion, "delete-file", "unable to delete file", List(argv[0]));
-
-    return(NoValueObject);
+    // Nothing.
 }
 
-// ---- Input and output ----
-
-Define("open-output-string", OpenOutputStringPrimitive)(int argc, FObject argv[])
+static unsigned int CinReadCh(FObject port, FCh * ch)
 {
-    if (argc != 0)
-        RaiseExceptionC(R.Assertion, "open-output-string", "expected no arguments",
-                EmptyListObject);
+    FAssert(TextualPortP(port));
 
-    return(MakeStringOutputPort());
+    char * s = (char *) AsGenericPort(port)->InputContext;
+
+    if (*s == 0)
+        return(0);
+
+    *ch = *s;
+    AsGenericPort(port)->InputContext = (void *) (s + 1);
+
+    return(1);
 }
 
-Define("get-output-string", GetOutputStringPrimitive)(int argc, FObject argv[])
+static int CinCharReadyP(FObject port)
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "get-output-string", "expected one argument",
-                EmptyListObject);
-
-    if (OutputPortP(argv[0]) == 0 || AsPort(argv[0])->Output != &StringOutputPort)
-        RaiseExceptionC(R.Assertion, "get-output-string", "expected a string output port",
-                List(argv[0]));
-
-    return(GetOutputString(argv[0]));
+    return(1);
 }
-
-// ---- ReadStringC ----
-
-typedef struct
-{
-    char * String;
-} StringCInputContext;
-
-static FCh StringCInputPortGetCh(void * ctx, FObject obj, int * eof)
-{
-    StringCInputContext * sctx = (StringCInputContext *) ctx;
-    FCh ch;
-
-    ch = *sctx->String;
-    if (ch == 0)
-        *eof = 1;
-    else
-    {
-        *eof = 0;
-        sctx->String += 1;
-    }
-
-    return(ch);
-}
-
-static FCh StringCInputPortPeekCh(void * ctx, FObject obj, int * eof)
-{
-    StringCInputContext * sctx = (StringCInputContext *) ctx;
-    FCh ch;
-
-    ch = *sctx->String;
-    if (ch == 0)
-        *eof = 1;
-    else
-        *eof = 0;
-
-    return(ch);
-}
-
-static void StringCInputPortClose(void * ctx, FObject obj)
-{
-    FAssert(ctx != 0);
-    free(ctx);
-}
-
-static FInputPort StringCInputPort = {StringCInputPortGetCh, StringCInputPortPeekCh};
 
 FObject MakeStringCInputPort(char * s)
 {
-    StringCInputContext * ctx = (StringCInputContext *) malloc(
-            sizeof(StringCInputContext));
-    ctx->String = s;
-
-    return(MakePort(FalseObject, &StringCInputPort, 0, 0, StringCInputPortClose, ctx,
-            FalseObject));
+    return(MakeTextualPort(NoValueObject, NoValueObject, s, 0, CinCloseInput, 0, 0, CinReadCh,
+            CinCharReadyP, 0));
 }
 
-FObject ReadStringC(char * s, int rif)
+int GetLocation(FObject port)
 {
-    return(Read(MakeStringCInputPort(s), rif, 0));
-}
-
-FObject ReadStringS(SCh * s, int rif)
-{
-    return(Read(MakeStringInputPort(MakeStringS(s)), rif, 0));
-}
-
-// ---- Port Input ----
-
-FCh GetCh(FObject port, int * eof)
-{
-    FAssert(InputPortP(port) && AsPort(port)->Context != 0);
-
-    return(AsPort(port)->Input->GetChFn(AsPort(port)->Context, AsPort(port)->Object, eof));
-}
-
-FCh PeekCh(FObject port, int * eof)
-{
-    FAssert(InputPortP(port) && AsPort(port)->Context != 0);
-
-    return(AsPort(port)->Input->PeekChFn(AsPort(port)->Context, AsPort(port)->Object, eof));
+    
+    
+    
+    
+    return(0);
 }
 
 static int NumericP(FCh ch)
@@ -516,12 +552,10 @@ static FCh DoReadStringHexChar(FObject port)
     FCh s[16];
     int sl = 2;
     FCh ch;
-    int eof;
 
     for (;;)
     {
-        ch = GetCh(port, &eof);
-        if (eof)
+        if (ReadCh(port, &ch) == 0)
             RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading string",
                     List(port));
 
@@ -554,15 +588,13 @@ static FObject DoReadString(FObject port, FCh tch)
     FCh s[512];
     int sl = 0;
     FCh ch;
-    int eof = 0;
 
     FAssert(tch == '"' || tch == '|');
 
     for (;;)
     {
-        ch = GetCh(port, &eof);
-        if (eof)
-            break;
+        if (ReadCh(port, &ch) == 0)
+            goto UnexpectedEof;
 
 Again:
 
@@ -571,30 +603,26 @@ Again:
 
         if (ch == '\\')
         {
-            ch = GetCh(port, &eof);
-            if (eof)
-                break;
+            if (ReadCh(port, &ch) == 0)
+                goto UnexpectedEof;
 
             if (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r')
             {
                 while (ch == ' ' || ch == '\t')
                 {
-                    ch = GetCh(port, &eof);
-                    if (eof)
+                    if (ReadCh(port, &ch) == 0)
                         goto UnexpectedEof;
                 }
 
                 while (ch == '\r' || ch == '\n')
                 {
-                    ch = GetCh(port, &eof);
-                    if (eof)
+                    if (ReadCh(port, &ch) == 0)
                         goto UnexpectedEof;
                 }
 
                 while (ch == ' ' || ch == '\t')
                 {
-                    ch = GetCh(port, &eof);
-                    if (eof)
+                    if (ReadCh(port, &ch) == 0)
                         goto UnexpectedEof;
                 }
 
@@ -626,20 +654,16 @@ Again:
             RaiseExceptionC(R.Restriction, "read", "string too long", List(port));
     }
 
-    if (eof)
-    {
-UnexpectedEof:
-
-        RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading string", List(port));
-    }
-
     return(MakeString(s, sl));
+
+UnexpectedEof:
+    RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading string", List(port));
+    return(NoValueObject);
 }
 
-static int DoReadToken(FObject port, int ch, FCh * s, int msl)
+static int DoReadToken(FObject port, FCh ch, FCh * s, int msl)
 {
     int sl;
-    int eof;
 
     sl = 0;
     for (;;)
@@ -649,12 +673,13 @@ static int DoReadToken(FObject port, int ch, FCh * s, int msl)
         if (sl == msl)
             RaiseExceptionC(R.Restriction, "read", "symbol or number too long", List(port));
 
-        ch = PeekCh(port, &eof);
-        if (eof || SymbolCharP(ch) == 0)
+        if (PeekCh(port, &ch) == 0)
             break;
 
-        GetCh(port, &eof);
-        FAssert(eof == 0);
+        if (SymbolCharP(ch) == 0)
+            break;
+
+        ReadCh(port, &ch);
     }
 
     return(sl);
@@ -685,10 +710,9 @@ static FObject DoReadList(FObject port, int rif, int fcf);
 static FObject DoRead(FObject port, int eaf, int rlf, int rif, int fcf);
 static FObject DoReadSharp(FObject port, int eaf, int rlf, int rif, int fcf)
 {
-    int eof;
+    FCh ch;
 
-    int ch = GetCh(port, &eof);
-    if (eof)
+    if (ReadCh(port, &ch) == 0)
         RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading #", List(port));
 
     if (ch == 't' || ch == 'f')
@@ -710,8 +734,7 @@ static FObject DoReadSharp(FObject port, int eaf, int rlf, int rif, int fcf)
     {
         FCh s[32];
 
-        ch = GetCh(port, &eof);
-        if (eof)
+        if (ReadCh(port, &ch) == 0)
             RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading #\\", List(port));
 
         if (SymbolCharP(ch) == 0)
@@ -771,8 +794,7 @@ static FObject DoReadSharp(FObject port, int eaf, int rlf, int rif, int fcf)
         FFixnum n;
         int b = (ch == 'b' ? 2 : (ch == 'o' ? 8 : (ch == 'd' ? 10 : 16)));
 
-        ch = GetCh(port, &eof);
-        if (eof)
+        if (ReadCh(port, &ch) == 0)
             RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading constant",
                     List(port));
 
@@ -788,15 +810,13 @@ static FObject DoReadSharp(FObject port, int eaf, int rlf, int rif, int fcf)
         return(ListToVector(DoReadList(port, rif, fcf)));
     else if (ch == 'u')
     {
-        ch = GetCh(port, &eof);
-        if (eof)
+        if (ReadCh(port, &ch) == 0)
             RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading bytevector",
                     List(port));
         if (ch != '8')
             RaiseExceptionC(R.Lexical, "read", "expected #\u8(", List(port));
 
-        ch = GetCh(port, &eof);
-        if (eof)
+        if (ReadCh(port, &ch) == 0)
             RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading bytevector",
                     List(port));
         if (ch != '(')
@@ -816,8 +836,7 @@ static FObject DoReadSharp(FObject port, int eaf, int rlf, int rif, int fcf)
         FCh pch = 0;
         while (lvl > 0)
         {
-            ch = GetCh(port, &eof);
-            if (eof)
+            if (ReadCh(port, &ch) == 0)
                 RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file in block comment",
                         List(port));
 
@@ -841,20 +860,17 @@ static FObject DoReadSharp(FObject port, int eaf, int rlf, int rif, int fcf)
 static FObject DoRead(FObject port, int eaf, int rlf, int rif, int fcf)
 {
     FCh ch;
-    int eof;
 
     for (;;)
     {
-        ch = GetCh(port, &eof);
-        if (eof)
+        if (ReadCh(port, &ch) == 0)
             break;
 
         if (ch == ';')
         {
             do
             {
-                ch = GetCh(port, &eof);
-                if (eof)
+                if (ReadCh(port, &ch) == 0)
                     goto Eof;
             }
             while (ch != '\n' && ch != '\r');
@@ -891,16 +907,14 @@ static FObject DoRead(FObject port, int eaf, int rlf, int rif, int fcf)
                 break;
 
             case '.':
-                ch = PeekCh(port, &eof);
-                if (eof)
+                if (PeekCh(port, &ch) == 0)
                     RaiseExceptionC(R.Lexical, "read",
                             "unexpected end-of-file reading dotted pair", List(port));
                 if (ch == '.')
                 {
-                    GetCh(port, &eof);
+                    ReadCh(port, &ch);
 
-                    ch = GetCh(port, &eof);
-                    if (eof)
+                    if (ReadCh(port, &ch) == 0)
                         RaiseExceptionC(R.Lexical, "read",
                                 "unexpected end-of-file reading ...", List(port));
                         if (ch != '.')
@@ -933,15 +947,14 @@ static FObject DoRead(FObject port, int eaf, int rlf, int rif, int fcf)
 
             case ',':
             {
-                ch = PeekCh(port, &eof);
-                if (eof)
+                if (PeekCh(port, &ch) == 0)
                     RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading unquote",
                             List(port));
 
                 FObject sym;
                 if (ch == '@')
                 {
-                    GetCh(port, &eof);
+                    ReadCh(port, &ch);
                     sym = R.UnquoteSplicingSymbol;
                 }
                 else
@@ -993,32 +1006,9 @@ static FObject DoReadList(FObject port, int rif, int fcf)
 
 FObject Read(FObject port, int rif, int fcf)
 {
-    FAssert(InputPortP(port) && AsPort(port)->Context != 0);
+//    FAssert(OldInputPortP(port) && AsPort(port)->Context != 0);
 
     return(DoRead(port, 1, 0, rif, fcf));
-}
-
-// ---- Port Output ----
-
-void PutCh(FObject port, FCh ch)
-{
-    FAssert(OutputPortP(port) && AsPort(port)->Context != 0);
-
-    AsPort(port)->Output->PutChFn(AsPort(port)->Context, AsPort(port)->Object, ch);
-}
-
-void PutString(FObject port, FCh * s, int sl)
-{
-    FAssert(OutputPortP(port) && AsPort(port)->Context != 0);
-
-    AsPort(port)->Output->PutStringFn(AsPort(port)->Context, AsPort(port)->Object, s, sl);
-}
-
-void PutStringC(FObject port, char * s)
-{
-    FAssert(OutputPortP(port) && AsPort(port)->Context != 0);
-
-    AsPort(port)->Output->PutStringCFn(AsPort(port)->Context, AsPort(port)->Object, s);
 }
 
 unsigned int FindSharedObjects(FObject ht, FObject obj, unsigned int cnt, int cof)
@@ -1096,35 +1086,35 @@ void WriteSharedObject(FObject port, FObject obj, int df, FWriteFn wfn, void * c
                 EqHashtableSet(ToWriteSharedCtx(ctx)->Hashtable, obj,
                         MakeFixnum(ToWriteSharedCtx(ctx)->Label));
 
-                PutCh(port, '#');
+                WriteCh(port, '#');
                 FCh s[8];
                 int sl = NumberAsString(ToWriteSharedCtx(ctx)->Label, s, 10);
-                PutString(port, s, sl);
-                PutCh(port, '=');
+                WriteString(port, s, sl);
+                WriteCh(port, '=');
             }
 
             if (PairP(obj))
             {
-                PutCh(port, '(');
+                WriteCh(port, '(');
                 for (;;)
                 {
                     wfn(port, First(obj), df, wfn, ctx);
                     if (PairP(Rest(obj)) && EqHashtableRef(ToWriteSharedCtx(ctx)->Hashtable,
                             Rest(obj), FalseObject) == FalseObject)
                     {
-                        PutCh(port, ' ');
+                        WriteCh(port, ' ');
                         obj = Rest(obj);
                     }
                     else if (Rest(obj) == EmptyListObject)
                     {
-                        PutCh(port, ')');
+                        WriteCh(port, ')');
                         break;
                     }
                     else
                     {
-                        PutStringC(port, " . ");
+                        WriteStringC(port, " . ");
                         wfn(port, Rest(obj), df, wfn, ctx);
-                        PutCh(port, ')');
+                        WriteCh(port, ')');
                         break;
                     }
                 }
@@ -1136,11 +1126,11 @@ void WriteSharedObject(FObject port, FObject obj, int df, FWriteFn wfn, void * c
         {
             FAssert(FixnumP(val));
 
-            PutCh(port, '#');
+            WriteCh(port, '#');
             FCh s[8];
             int sl = NumberAsString(AsFixnum(val), s, 10);
-            PutString(port, s, sl);
-            PutCh(port, '#');
+            WriteString(port, s, sl);
+            WriteCh(port, '#');
         }
     }
     else
@@ -1213,25 +1203,25 @@ static void WritePair(FObject port, FObject obj, int df, FWriteFn wfn, void * ct
 {
     FAssert(PairP(obj));
 
-    PutCh(port, '(');
+    WriteCh(port, '(');
     for (;;)
     {
         wfn(port, First(obj), df, wfn, ctx);
         if (PairP(Rest(obj)))
         {
-            PutCh(port, ' ');
+            WriteCh(port, ' ');
             obj = Rest(obj);
         }
         else if (Rest(obj) == EmptyListObject)
         {
-            PutCh(port, ')');
+            WriteCh(port, ')');
             break;
         }
         else
         {
-            PutStringC(port, " . ");
+            WriteStringC(port, " . ");
             wfn(port, Rest(obj), df, wfn, ctx);
-            PutCh(port, ')');
+            WriteCh(port, ')');
             break;
         }
     }
@@ -1246,44 +1236,44 @@ static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn,
         FCh s[16];
         int sl = NumberAsString((FFixnum) obj, s, 16);
 
-        PutStringC(port, "#<(box: #x");
-        PutString(port, s, sl);
-        PutCh(port, ' ');
+        WriteStringC(port, "#<(box: #x");
+        WriteString(port, s, sl);
+        WriteCh(port, ' ');
         wfn(port, Unbox(obj), df, wfn, ctx);
-        PutStringC(port, ")>");
+        WriteStringC(port, ")>");
         break;
     }
 
     case StringTag:
         if (df)
-            PutString(port, AsString(obj)->String, StringLength(obj));
+            WriteString(port, AsString(obj)->String, StringLength(obj));
         else
         {
-            PutCh(port, '"');
+            WriteCh(port, '"');
 
             for (unsigned int idx = 0; idx < StringLength(obj); idx++)
             {
                 FCh ch = AsString(obj)->String[idx];
                 if (ch == '\\' || ch == '"')
-                    PutCh(port, '\\');
-                PutCh(port, ch);
+                    WriteCh(port, '\\');
+                WriteCh(port, ch);
             }
 
-            PutCh(port, '"');
+            WriteCh(port, '"');
         }
         break;
 
     case VectorTag:
     {
-        PutStringC(port, "#(");
+        WriteStringC(port, "#(");
         for (unsigned int idx = 0; idx < VectorLength(obj); idx++)
         {
             if (idx > 0)
-                PutCh(port, ' ');
+                WriteCh(port, ' ');
             wfn(port, AsVector(obj)->Vector[idx], df, wfn, ctx);
         }
 
-        PutCh(port, ')');
+        WriteCh(port, ')');
         break;
     }
 
@@ -1292,43 +1282,54 @@ static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn,
         FCh s[8];
         int sl;
 
-        PutStringC(port, "#u8(");
+        WriteStringC(port, "#u8(");
         for (unsigned int idx = 0; idx < BytevectorLength(obj); idx++)
         {
             if (idx > 0)
-                PutCh(port, ' ');
+                WriteCh(port, ' ');
 
             sl = NumberAsString((FFixnum) AsBytevector(obj)->Vector[idx], s, 10);
-            PutString(port, s, sl);
+            WriteString(port, s, sl);
         }
 
-        PutCh(port, ')');
+        WriteCh(port, ')');
         break;
     }
 
-    case PortTag:
+    case BinaryPortTag:
+    case TextualPortTag:
     {
         FCh s[16];
         int sl = NumberAsString((FFixnum) obj, s, 16);
 
-        PutStringC(port, "#<");
-        if (InputPortP(obj))
-            PutStringC(port, "input-");
-        if (OutputPortP(obj))
-            PutStringC(port, "output-");
-        PutStringC(port, "port: #x");
-        PutString(port, s, sl);
-
-        if (AsPort(obj)->Context == 0)
-            PutStringC(port, " closed");
-
-        if (StringP(AsPort(obj)->Name))
+        WriteStringC(port, "#<");
+        if (TextualPortP(obj))
+            WriteStringC(port, "textual-");
+        else
         {
-            PutCh(port, ' ');
-            PutString(port, AsString(AsPort(obj)->Name)->String, StringLength(AsPort(obj)->Name));
+            FAssert(BinaryPortP(obj));
+
+            WriteStringC(port, "binary-");
         }
 
-        PutCh(port, '>');
+        if (InputPortP(obj))
+            WriteStringC(port, "input-");
+        if (OutputPortP(obj))
+            WriteStringC(port, "output-");
+        WriteStringC(port, "port: #x");
+        WriteString(port, s, sl);
+
+        if (InputPortOpenP(obj) == 0 && OutputPortOpenP(obj) == 0)
+            WriteStringC(port, " closed");
+
+        if (StringP(AsGenericPort(obj)->Name))
+        {
+            WriteCh(port, ' ');
+            WriteString(port, AsString(AsGenericPort(obj)->Name)->String,
+                    StringLength(AsGenericPort(obj)->Name));
+        }
+
+        WriteCh(port, '>');
         break;
     }
 
@@ -1337,32 +1338,32 @@ static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn,
         FCh s[16];
         int sl = NumberAsString((FFixnum) obj, s, 16);
 
-        PutStringC(port, "#<procedure: ");
-        PutString(port, s, sl);
+        WriteStringC(port, "#<procedure: ");
+        WriteString(port, s, sl);
 
         if (AsProcedure(obj)->Name != NoValueObject)
         {
-            PutCh(port, ' ');
+            WriteCh(port, ' ');
             wfn(port, AsProcedure(obj)->Name, df, wfn, ctx);
         }
 
         if (AsProcedure(obj)->Reserved & PROCEDURE_FLAG_CLOSURE)
-            PutStringC(port, " closure");
+            WriteStringC(port, " closure");
 
         if (AsProcedure(obj)->Reserved & PROCEDURE_FLAG_PARAMETER)
-            PutStringC(port, " parameter");
+            WriteStringC(port, " parameter");
 
         if (AsProcedure(obj)->Reserved & PROCEDURE_FLAG_CONTINUATION)
-            PutStringC(port, " continuation");
+            WriteStringC(port, " continuation");
 
-//        PutCh(port, ' ');
+//        WriteCh(port, ' ');
 //        wfn(port, AsProcedure(obj)->Code, df, wfn, ctx);
-        PutCh(port, '>');
+        WriteCh(port, '>');
         break;
     }
 
     case SymbolTag:
-        PutString(port, AsString(AsSymbol(obj)->String)->String,
+        WriteString(port, AsString(AsSymbol(obj)->String)->String,
                 StringLength(AsSymbol(obj)->String));
         break;
 
@@ -1371,18 +1372,18 @@ static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn,
         FCh s[16];
         int sl = NumberAsString((FFixnum) obj, s, 16);
 
-        PutStringC(port, "#<record-type: #x");
-        PutString(port, s, sl);
-        PutCh(port, ' ');
+        WriteStringC(port, "#<record-type: #x");
+        WriteString(port, s, sl);
+        WriteCh(port, ' ');
         wfn(port, RecordTypeName(obj), df, wfn, ctx);
 
         for (unsigned int fdx = 1; fdx < RecordTypeNumFields(obj); fdx += 1)
         {
-            PutCh(port, ' ');
+            WriteCh(port, ' ');
             wfn(port, AsRecordType(obj)->Fields[fdx], df, wfn, ctx);
         }
 
-        PutStringC(port, ">");
+        WriteStringC(port, ">");
         break;
     }
 
@@ -1392,28 +1393,28 @@ static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn,
         FCh s[16];
         int sl = NumberAsString((FFixnum) obj, s, 16);
 
-        PutStringC(port, "#<(");
+        WriteStringC(port, "#<(");
         wfn(port, RecordTypeName(rt), df, wfn, ctx);
-        PutStringC(port, ": #x");
-        PutString(port, s, sl);
+        WriteStringC(port, ": #x");
+        WriteString(port, s, sl);
 
         for (unsigned int fdx = 1; fdx < RecordNumFields(obj); fdx++)
         {
-            PutCh(port, ' ');
+            WriteCh(port, ' ');
             wfn(port, AsRecordType(rt)->Fields[fdx], df, wfn, ctx);
-            PutStringC(port, ": ");
+            WriteStringC(port, ": ");
             wfn(port, AsGenericRecord(obj)->Fields[fdx], df, wfn, ctx);
         }
 
-        PutStringC(port, ")>");
+        WriteStringC(port, ")>");
         break;
     }
 
     case PrimitiveTag:
     {
-        PutStringC(port, "#<primitive: ");
-        PutStringC(port, AsPrimitive(obj)->Name);
-        PutCh(port, ' ');
+        WriteStringC(port, "#<primitive: ");
+        WriteStringC(port, AsPrimitive(obj)->Name);
+        WriteCh(port, ' ');
 
         char * fn = AsPrimitive(obj)->Filename;
         char * p = fn;
@@ -1425,12 +1426,12 @@ static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn,
             p += 1;
         }
 
-        PutStringC(port, fn);
-        PutCh(port, '@');
+        WriteStringC(port, fn);
+        WriteCh(port, '@');
         FCh s[16];
         int sl = NumberAsString(AsPrimitive(obj)->LineNumber, s, 10);
-        PutString(port, s, sl);
-        PutCh(port, '>');
+        WriteString(port, s, sl);
+        WriteCh(port, '>');
         break;
     }
 
@@ -1451,9 +1452,9 @@ static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn,
         FCh s[16];
         int sl = NumberAsString((FFixnum) obj, s, 16);
 
-        PutStringC(port, "#<unknown: ");
-        PutString(port, s, sl);
-        PutCh(port, '>');
+        WriteStringC(port, "#<unknown: ");
+        WriteString(port, s, sl);
+        WriteCh(port, '>');
         break;
     }
 
@@ -1466,22 +1467,22 @@ void WriteGeneric(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx)
     {
         FCh s[16];
         int sl = NumberAsString(AsFixnum(obj), s, 10);
-        PutString(port, s, sl);
+        WriteString(port, s, sl);
     }
     else if (CharacterP(obj))
     {
         if (AsCharacter(obj) < 128)
         {
             if (df == 0)
-                PutStringC(port, "#\\");
-            PutCh(port, AsCharacter(obj));
+                WriteStringC(port, "#\\");
+            WriteCh(port, AsCharacter(obj));
         }
         else
         {
             FCh s[16];
             int sl = NumberAsString(AsCharacter(obj), s, 16);
-            PutStringC(port, "#\\x");
-            PutString(port, s, sl);
+            WriteStringC(port, "#\\x");
+            WriteString(port, s, sl);
         }
     }
     else if (SpecialSyntaxP(obj))
@@ -1490,58 +1491,99 @@ void WriteGeneric(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx)
         WriteInstruction(port, obj, df);
     else if (ValuesCountP(obj))
     {
-        PutStringC(port, "#<values-count: ");
+        WriteStringC(port, "#<values-count: ");
 
         FCh s[16];
         int sl = NumberAsString(AsValuesCount(obj), s, 10);
-        PutString(port, s, sl);
+        WriteString(port, s, sl);
 
-        PutCh(port, '>');
+        WriteCh(port, '>');
     }
     else if (PairP(obj))
         WritePair(port, obj, df, wfn, ctx);
     else if (IndirectP(obj))
         WriteIndirectObject(port, obj, df, wfn, ctx);
     else if (obj == EmptyListObject)
-        PutStringC(port, "()");
+        WriteStringC(port, "()");
     else if (obj == FalseObject)
-        PutStringC(port, "#f");
+        WriteStringC(port, "#f");
     else if (obj == TrueObject)
-        PutStringC(port, "#t");
+        WriteStringC(port, "#t");
     else if (obj == EndOfFileObject)
-        PutStringC(port, "#<end-of-file>");
+        WriteStringC(port, "#<end-of-file>");
     else if (obj == NoValueObject)
-        PutStringC(port, "#<no-value>");
+        WriteStringC(port, "#<no-value>");
     else if (obj == WantValuesObject)
-        PutStringC(port, "#<want-values>");
+        WriteStringC(port, "#<want-values>");
     else
     {
         FCh s[16];
         int sl = NumberAsString((FFixnum) obj, s, 16);
 
-        PutStringC(port, "#<unknown: ");
-        PutString(port, s, sl);
-        PutCh(port, '>');
+        WriteStringC(port, "#<unknown: ");
+        WriteString(port, s, sl);
+        WriteCh(port, '>');
     }
 }
 
 void WriteSimple(FObject port, FObject obj, int df)
 {
-    FAssert(OutputPortP(port) && AsPort(port)->Context != 0);
+//    FAssert(OutputPortP(port) && AsPort(port)->Context != 0);
 
     WriteGeneric(port, obj, df, (FWriteFn) WriteGeneric, 0);
 }
 
-int GetLocation(FObject port)
-{
-    FAssert(PortP(port) && AsPort(port)->Context != 0);
+// ---- System interface ----
 
-    if (AsPort(port)->Location == 0 || AsPort(port)->Location->GetLocationFn == 0)
-        return(-1);
-    return(AsPort(port)->Location->GetLocationFn(AsPort(port)->Context, AsPort(port)->Object));
+Define("file-exists?", FileExistsPPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("file-exists?", argc);
+    StringArgCheck("file-exists?", argv[0]);
+
+    SCh * ss;
+    ConvertToSystem(argv[0], ss);
+
+    return(_waccess(ss, 0) == 0 ? TrueObject : FalseObject);
 }
 
-// ---- Primitives ----
+Define("delete-file", DeleteFilePrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("delete-file", argc);
+    StringArgCheck("delete-file", argv[0]);
+
+    SCh * ss;
+    ConvertToSystem(argv[0], ss);
+
+    if (_wremove(ss) != 0)
+        RaiseExceptionC(R.Assertion, "delete-file", "unable to delete file", List(argv[0]));
+
+    return(NoValueObject);
+}
+
+// ---- Input and output ----
+
+Define("open-output-string", OpenOutputStringPrimitive)(int argc, FObject argv[])
+{
+    if (argc != 0)
+        RaiseExceptionC(R.Assertion, "open-output-string", "expected no arguments",
+                EmptyListObject);
+
+    return(MakeStringOutputPort());
+}
+
+Define("get-output-string", GetOutputStringPrimitive)(int argc, FObject argv[])
+{
+#if 0
+    if (argc != 1)
+        RaiseExceptionC(R.Assertion, "get-output-string", "expected one argument",
+                EmptyListObject);
+
+    if (OldOutputPortP(argv[0]) == 0 || AsPort(argv[0])->Output != &StringOutputPort)
+        RaiseExceptionC(R.Assertion, "get-output-string", "expected a string output port",
+                List(argv[0]));
+#endif // 0
+    return(GetOutputString(argv[0]));
+}
 
 Define("write", WritePrimitive)(int argc, FObject argv[])
 {
@@ -1699,7 +1741,7 @@ Define("newline", NewlinePrimitive)(int argc, FObject argv[])
     else
         port = R.StandardOutput;
 
-    PutCh(port, '\n');
+    WriteCh(port, '\n');
 
     return(NoValueObject);
 }
@@ -1722,8 +1764,9 @@ static FPrimitive * Primitives[] =
 
 void SetupIO()
 {
-    R.StandardInput = MakeFILEPort(MakeStringC("--standard-input--"), stdin, 1, 0, 1);
-    R.StandardOutput = MakeFILEPort(MakeStringC("--standard-output--"), stdout, 0, 1, 1);
+    R.StandardInput = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-input"), stdin, 0));
+    R.StandardOutput = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-output"), 0, stdout));
+
     R.QuoteSymbol = StringCToSymbol("quote");
     R.QuasiquoteSymbol = StringCToSymbol("quasiquote");
     R.UnquoteSymbol = StringCToSymbol("unquote");

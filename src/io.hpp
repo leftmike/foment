@@ -2,60 +2,63 @@
 
 Foment
 
+-- StdioByteReadyP
+
+-- MakeUtf8Port(FObject port): for utf8 characters
+-- MakeUtf16Port(FObject port): and utf16 characters
+
+-- GetLocation
+-- ports optionally return or seek to a location
+-- ports describe whether they use char offset, byte offset, or line number for location
+
 */
 
-#ifndef __PORT_HPP__
-#define __PORT_HPP__
+#ifndef __IO_HPP__
+#define __IO_HPP__
 
-// ---- Ports ----
+// ---- Binary Ports ----
 
-typedef FCh (*FGetChFn)(void * ctx, FObject obj, int * eof);
-typedef FCh (*FPeekChFn)(void * ctx, FObject obj, int * eof);
-
-typedef struct
-{
-    FGetChFn GetChFn;
-    FPeekChFn PeekChFn;
-} FInputPort;
-
-typedef void (*FPutChFn)(void * ctx, FObject obj, FCh ch);
-typedef void (*FPutStringFn)(void * ctx, FObject obj, FCh * s, int sl);
-typedef void (*FPutStringCFn)(void * ctx, FObject obj, char * s);
+typedef unsigned int (*FReadBytesFn)(FObject port, void * b, unsigned int bl);
+typedef int (*FByteReadyPFn)(FObject port);
+typedef void (*FWriteBytesFn)(FObject port, void * b, unsigned int bl);
 
 typedef struct
 {
-    FPutChFn PutChFn;
-    FPutStringFn PutStringFn;
-    FPutStringCFn PutStringCFn;
-} FOutputPort;
+    FGenericPort Generic;
+    FReadBytesFn ReadBytesFn;
+    FByteReadyPFn ByteReadyPFn;
+    FWriteBytesFn WriteBytesFn;
+    unsigned int PeekedByte;
+} FBinaryPort;
 
-typedef int (*FGetLocationFn)(void * ctx, FObject obj);
-typedef void (*FSetLocationFn)(void * ctx, FObject obj, int loc);
+#define AsBinaryPort(obj) ((FBinaryPort *) obj)
+
+FObject MakeBinaryPort(FObject nam, FObject obj, void * ictx, void * octx, FCloseInputFn cifn,
+    FCloseOutputFn cofn, FFlushOutputFn fofn, FReadBytesFn rbfn, FByteReadyPFn brpfn,
+    FWriteBytesFn wbfn);
+
+// ---- Textual Ports ----
+
+typedef unsigned int (*FReadChFn)(FObject port, FCh * ch);
+typedef int (*FCharReadyPFn)(FObject port);
+typedef void (*FWriteStringFn)(FObject port, FCh * s, unsigned int sl);
 
 typedef struct
 {
-    FGetLocationFn GetLocationFn;
-    FSetLocationFn SetLocationFn;
-} FPortLocation;
+    FGenericPort Generic;
+    FReadChFn ReadChFn;
+    FCharReadyPFn CharReadyPFn;
+    FWriteStringFn WriteStringFn;
+    FCh PeekedChar;
+} FTextualPort;
 
-typedef void (*FCloseFn)(void * ctx, FObject obj);
+#define AsTextualPort(obj) ((FTextualPort *) obj)
 
-typedef struct
-{
-    unsigned int Reserved;
-    FObject Name;
-    FInputPort * Input;
-    FOutputPort * Output;
-    FPortLocation * Location;
-    FCloseFn CloseFn;
-    void * Context;
-    FObject Object;
-} FPort;
+FObject MakeTextualPort(FObject nam, FObject obj, void * ictx, void * octx, FCloseInputFn cifn,
+    FCloseOutputFn cofn, FFlushOutputFn fofn, FReadChFn rcfn, FCharReadyPFn crpfn,
+    FWriteStringFn wsfn);
 
-#define AsPort(obj) ((FPort *) obj)
-
-FObject MakePort(FObject nam, FInputPort * inp, FOutputPort * outp, FPortLocation * loc,
-    FCloseFn cfn, void * ctx, FObject obj);
+// Write
 
 inline int SharedObjectP(FObject obj)
 {
@@ -80,4 +83,4 @@ void WriteSharedObject(FObject port, FObject obj, int df, FWriteFn wfn, void * c
 
 void SetupPrettyPrint();
 
-#endif // __PORT_HPP__
+#endif // __IO_HPP__

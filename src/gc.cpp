@@ -255,10 +255,15 @@ static unsigned int ObjectSize(FObject obj, unsigned int tag)
         return(len);
     }
 
-    case PortTag:
-        FAssert(PortP(obj));
+    case BinaryPortTag:
+        FAssert(BinaryPortP(obj));
 
-        return(sizeof(FPort));
+        return(sizeof(FBinaryPort));
+
+    case TextualPortTag:
+        FAssert(TextualPortP(obj));
+
+        return(sizeof(FTextualPort));
 
     case ProcedureTag:
         FAssert(ProcedureP(obj));
@@ -764,11 +769,12 @@ static void ScanChildren(FRaw raw, unsigned int tag, int fcf)
     case BytevectorTag:
         break;
 
-    case PortTag:
-        if (ObjectP(AsPort(raw)->Name))
-            ScanObject(&(AsPort(raw)->Name), fcf, mf);
-        if (ObjectP(AsPort(raw)->Object))
-            ScanObject(&(AsPort(raw)->Object), fcf, mf);
+    case BinaryPortTag:
+    case TextualPortTag:
+        if (ObjectP(AsGenericPort(raw)->Name))
+            ScanObject(&(AsGenericPort(raw)->Name), fcf, mf);
+        if (ObjectP(AsGenericPort(raw)->Object))
+            ScanObject(&(AsGenericPort(raw)->Object), fcf, mf);
         break;
 
     case ProcedureTag:
@@ -1718,35 +1724,4 @@ void SetupGC()
 {
     for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
-
-    Eval(ReadStringC(
-        "(define (make-guardian)"
-            "(let ((tconc (let ((last (cons #f '()))) (cons last last))))"
-                "(case-lambda"
-                    "(()"
-                        "(if (eq? (car tconc) (cdr tconc))"
-                            "#f"
-                            "(let ((first (car tconc)))"
-                                "(set-car! tconc (cdr first))"
-                                "(car first))))"
-                    "((obj) (install-guardian obj tconc)))))", 1), R.Bedrock);
-
-    LibraryExport(R.BedrockLibrary, EnvironmentLookup(R.Bedrock,
-            StringCToSymbol("make-guardian")));
-
-    Eval(ReadStringC(
-        "(define (make-tracker)"
-            "(let ((tconc (let ((last (cons #f '()))) (cons last last))))"
-                "(case-lambda"
-                    "(()"
-                        "(if (eq? (car tconc) (cdr tconc))"
-                            "#f"
-                            "(let ((first (car tconc)))"
-                                "(set-car! tconc (cdr first))"
-                                "(car first))))"
-                    "((obj) (install-tracker obj obj tconc))"
-                    "((obj ret) (install-tracker obj ret tconc)))))", 1), R.Bedrock);
-
-    LibraryExport(R.BedrockLibrary, EnvironmentLookup(R.Bedrock,
-            StringCToSymbol("make-tracker")));
 }

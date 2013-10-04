@@ -293,7 +293,7 @@ static FObject LibraryNameFlat(FObject dir, FObject nam)
 {
     FObject out = MakeStringOutputPort();
     WriteSimple(out, dir, 1);
-    PutCh(out, PathCh);
+    WriteCh(out, PathCh);
 
     while (PairP(nam))
     {
@@ -303,12 +303,12 @@ static FObject LibraryNameFlat(FObject dir, FObject nam)
 
         nam = Rest(nam);
         if (nam != EmptyListObject)
-            PutCh(out, '-');
+            WriteCh(out, '-');
     }
 
     FAssert(nam == EmptyListObject);
 
-    PutStringC(out, ".scm");
+    WriteStringC(out, ".scm");
 
     return(GetOutputString(out));
 }
@@ -323,7 +323,7 @@ static FObject LibraryNameDeep(FObject dir, FObject nam)
     {
         FAssert(SymbolP(First(nam)));
 
-        PutCh(out, PathCh);
+        WriteCh(out, PathCh);
         WriteSimple(out, First(nam), 1);
 
         nam = Rest(nam);
@@ -331,7 +331,7 @@ static FObject LibraryNameDeep(FObject dir, FObject nam)
 
     FAssert(nam == EmptyListObject);
 
-    PutStringC(out, ".scm");
+    WriteStringC(out, ".scm");
 
     return(GetOutputString(out));
 }
@@ -344,11 +344,11 @@ static FObject LoadLibrary(FObject nam)
     {
         FAssert(StringP(First(lp)));
 
-        FObject port = OpenInputFile(LibraryNameFlat(First(lp), nam), 0);
-        if (PortP(port) == 0)
-            port = OpenInputFile(LibraryNameDeep(First(lp), nam), 0);
+        FObject port = OpenInputFile(LibraryNameFlat(First(lp), nam));
+        if (TextualPortP(port) == 0)
+            port = OpenInputFile(LibraryNameDeep(First(lp), nam));
 
-        if (PortP(port))
+        if (TextualPortP(port))
         {
             for (;;)
             {

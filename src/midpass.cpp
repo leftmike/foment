@@ -556,9 +556,9 @@ static void MTwoLambdaAfter(FLambda * lam, int cf)
             FAssert(lam->RestArg == FalseObject);
 
 //WritePretty(StandardOutput, lam->Name, 0);
-//PutCh(StandardOutput, ' ');
+//WriteCh(StandardOutput, ' ');
 //WritePretty(StandardOutput, lam->MayInline, 0);
-//PutCh(StandardOutput, '\n');
+//WriteCh(StandardOutput, '\n');
 
 //            lam->MayInline = CompileInlineTemplate(lam->Bindings, lam->Body);
             Modify(FLambda, lam, MayInline, CompileInlineTemplate(lam->Bindings, lam->Body));
@@ -749,9 +749,9 @@ static void MThreeProcedureCall(FLambda * lam, FObject expr)
             && ListLength(Rest(expr)) == AsFixnum(AsLambda(First(expr))->ArgCount))
     {
 //WritePretty(StandardOutput, AsLambda(First(expr))->MayInline, 0);
-//PutCh(StandardOutput, '\n');
+//WriteCh(StandardOutput, '\n');
 //WritePretty(StandardOutput, Rest(expr), 0);
-//PutCh(StandardOutput, '\n');
+//WriteCh(StandardOutput, '\n');
 
         FObject exp = ExpandInlineTemplate(Rest(expr), AsLambda(First(expr))->MayInline);
 //        AsPair(expr)->First = BeginSyntax;
