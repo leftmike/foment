@@ -2,7 +2,7 @@
 
 Foment
 
--- StdioByteReadyP
+-- use Win32 console APIs
 
 -- MakeUtf8Port(FObject port): for utf8 characters
 -- MakeUtf16Port(FObject port): and utf16 characters
@@ -10,6 +10,8 @@ Foment
 -- GetLocation
 -- ports optionally return or seek to a location
 -- ports describe whether they use char offset, byte offset, or line number for location
+
+-- need a port guardian to make sure ports are closed
 
 */
 

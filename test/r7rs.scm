@@ -1960,6 +1960,18 @@
 ;; ---- input and output ----
 ;;
 
+;call-with-port
+;call-with-input-file
+;call-with-output-file
+
+
+;with-input-from-file
+;with-output-to-file
+
+;open-input-file
+
+;open-output-file
+
 ;; write
 
 (define (cddr o) (cdr (cdr o)))

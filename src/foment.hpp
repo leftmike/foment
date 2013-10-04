@@ -47,8 +47,6 @@ Bugs:
 -- call/cc: unwind only as far as the common tail
 -- gc.cpp: AllocateSection failing is not handled by all callers
 -- ExecuteThunk does not check for CStack or AStack overflow
--- string input ports have not been tested at all
--- OpenInputFile and OpenOutFile don't convert the filename to C very carefully
 -- update FeaturesC as more code gets written
 -- remove Hash from FSymbol (part of Reserved)
 -- r5rs_pitfall.scm: yin-yang does not terminate
@@ -452,11 +450,12 @@ FObject U8ListToBytevector(FObject obj);
 
 // ---- Ports ----
 
-#define PORT_FLAG_INPUT         0x80000000
-#define PORT_FLAG_INPUT_OPEN    0x40000000
-#define PORT_FLAG_OUTPUT        0x20000000
-#define PORT_FLAG_OUTPUT_OPEN   0x10000000
-#define PORT_FLAG_STRING_OUTPUT 0x08000000
+#define PORT_FLAG_INPUT             0x80000000
+#define PORT_FLAG_INPUT_OPEN        0x40000000
+#define PORT_FLAG_OUTPUT            0x20000000
+#define PORT_FLAG_OUTPUT_OPEN       0x10000000
+#define PORT_FLAG_STRING_OUTPUT     0x08000000
+#define PORT_FLAG_BYTEVECTOR_OUTPUT 0x04000000
 
 typedef void (*FCloseInputFn)(FObject port);
 typedef void (*FCloseOutputFn)(FObject port);
@@ -508,6 +507,11 @@ inline int OutputPortOpenP(FObject obj)
 inline int StringOutputPortP(FObject obj)
 {
     return(TextualPortP(obj) && (AsGenericPort(obj)->Flags & PORT_FLAG_STRING_OUTPUT));
+}
+
+inline int BytevectorOutputPortP(FObject obj)
+{
+    return(BinaryPortP(obj) && (AsGenericPort(obj)->Flags & PORT_FLAG_BYTEVECTOR_OUTPUT));
 }
 
 // Binary and textual ports
@@ -896,6 +900,7 @@ typedef struct
 
     FObject StandardInput;
     FObject StandardOutput;
+    FObject StandardError;
     FObject QuoteSymbol;
     FObject QuasiquoteSymbol;
     FObject UnquoteSymbol;
@@ -1023,7 +1028,7 @@ inline void EndIndexArgCheck(char * who, FObject arg, FFixnum strt, FFixnum len)
 
 inline void ByteArgCheck(char * who, FObject obj)
 {
-    if (FixnumP(obj) == 0 || AsFixnum(obj) < 0 || AsFixnum(obj) >= 256)
+    if (FixnumP(obj) == 0 || AsFixnum(obj) < 0 || AsFixnum(obj) > 0xFF)
         RaiseExceptionC(R.Assertion, who, "expected a byte: an exact integer between 0 and 255",
                 List(obj));
 }
@@ -1074,6 +1079,48 @@ inline void BytevectorArgCheck(char * who, FObject obj)
 {
     if (BytevectorP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a bytevector", List(obj));
+}
+
+inline void PortArgCheck(char * who, FObject obj)
+{
+    if (BinaryPortP(obj) == 0 && TextualPortP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a port", List(obj));
+}
+
+inline void InputPortArgCheck(char * who, FObject obj)
+{
+    if (BinaryPortP(obj) == 0 && TextualPortP(obj) == 0 && InputPortP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected an input port", List(obj));
+}
+
+inline void OutputPortArgCheck(char * who, FObject obj)
+{
+    if (BinaryPortP(obj) == 0 && TextualPortP(obj) == 0 && OutputPortP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected an output port", List(obj));
+}
+
+inline void BinaryPortArgCheck(char * who, FObject obj)
+{
+    if (BinaryPortP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a binary port", List(obj));
+}
+
+inline void TextualPortArgCheck(char * who, FObject obj)
+{
+    if (TextualPortP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a textual port", List(obj));
+}
+
+inline void StringOutputPortArgCheck(char * who, FObject obj)
+{
+    if (StringOutputPortP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a string output port", List(obj));
+}
+
+inline void BytevectorOutputPortArgCheck(char * who, FObject obj)
+{
+    if (BytevectorOutputPortP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a bytevector output port", List(obj));
 }
 
 // ----------------

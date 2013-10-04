@@ -22,7 +22,7 @@
         assq
 ;        assv
         begin
-;        binary-port?
+        binary-port?
         boolean=?
         boolean?
         bytevector
@@ -53,16 +53,16 @@
         char>=?
         char>?
         char?
-;        close-input-port
-;        close-output-port
-;        close-port
+        close-input-port
+        close-output-port
+        close-port
 ;        complex?
         cond
         cond-expand
         cons
-;        current-error-port
-;        current-input-port
-;        current-output-port
+        current-error-port
+        current-input-port
+        current-output-port
         define
         define-record-type
         define-syntax
@@ -95,7 +95,7 @@
 ;        flush-output-port
         for-each
 ;        gcd
-;        get-output-bytevector
+        get-output-bytevector
         get-output-string
         guard
         if
@@ -103,8 +103,8 @@
         include-ci
 ;        inexact
 ;        inexact?
-;        input-port-open?
-;        input-port?
+        input-port-open?
+        input-port?
         integer->char
 ;        integer?
         lambda
@@ -146,18 +146,18 @@
 ;        number?
 ;        numerator
         odd?
-;        open-input-bytevector
-;        open-input-string
-;        open-output-bytevector
+        open-input-bytevector
+        open-input-string
+        open-output-bytevector
         open-output-string
         or
-;        output-port-open?
-;        output-port?
+        output-port-open?
+        output-port?
         pair?
         parameterize
 ;        peek-char
 ;        peek-u8
-;        port?
+        port?
         positive?
         procedure?
         quasiquote
@@ -209,7 +209,7 @@
         symbol?
         syntax-error
         syntax-rules
-;        textual-port?
+        textual-port?
 ;        truncate
 ;        truncate-quotient
 ;        truncate-remainder
@@ -273,8 +273,8 @@
 ;        call-with-output-file
         delete-file
         file-exists?
-;        open-binary-input-file
-;        open-binary-output-file
+        open-binary-input-file
+        open-binary-output-file
 ;        open-input-file
 ;        open-output-file
 ;        with-input-from-file
@@ -468,8 +468,7 @@
         (define (file-error? obj)
             (and (error-object? obj)
                 (let ((who (error-object-who obj)))
-                    (or (eq? who 'open-input-file) (eq? 'open-binary-input-file)
-                            (eq? who 'open-output-file) (eq? 'open-binary-output-file)
+                    (or (eq? 'open-binary-input-file) (eq? 'open-binary-output-file)
                             (eq? who 'delete-file)))))
 
         (define (eval expr env)
@@ -720,6 +719,30 @@
                                 (car first))))
                     ((obj) (install-tracker obj obj tconc))
                     ((obj ret) (install-tracker obj ret tconc)))))
+
+        (define current-input-port
+            (make-parameter %standard-input
+                (lambda (obj)
+                    (if (not (and (input-port? obj) (input-port-open? obj)))
+                        (full-error 'current-input-port
+                                "current-input-port: expected an open textual input port" obj))
+                    obj)))
+
+        (define current-output-port
+            (make-parameter %standard-output
+                (lambda (obj)
+                    (if (not (and (output-port? obj) (output-port-open? obj)))
+                        (full-error 'current-output-port
+                                "current-output-port: expected an open textual output port" obj))
+                    obj)))
+
+        (define current-error-port
+            (make-parameter %standard-error
+                (lambda (obj)
+                    (if (not (and (output-port? obj) (output-port-open? obj)))
+                        (full-error 'current-error-port
+                                "current-error-port: expected an open textual output port" obj))
+                    obj)))
     ))
 
 (define-library (scheme base)
@@ -746,7 +769,7 @@
         assq
 ;;        assv
         begin
-;;        binary-port?
+        binary-port?
         boolean=?
         boolean?
         bytevector
@@ -777,16 +800,16 @@
         char>=?
         char>?
         char?
-;;        close-input-port
-;;        close-output-port
-;;        close-port
+        close-input-port
+        close-output-port
+        close-port
 ;;        complex?
         cond
         cond-expand
         cons
-;;        current-error-port
-;;        current-input-port
-;;        current-output-port
+        current-error-port
+        current-input-port
+        current-output-port
         define
         define-record-type
         define-syntax
@@ -819,7 +842,7 @@
 ;;        flush-output-port
         for-each
 ;;        gcd
-;;        get-output-bytevector
+        get-output-bytevector
         get-output-string
         guard
         if
@@ -827,8 +850,8 @@
         include-ci
 ;;        inexact
 ;;        inexact?
-;;        input-port-open?
-;;        input-port?
+        input-port-open?
+        input-port?
         integer->char
 ;;        integer?
         lambda
@@ -870,18 +893,18 @@
 ;;        number?
 ;;        numerator
         odd?
-;;        open-input-bytevector
-;;        open-input-string
-;;        open-output-bytevector
+        open-input-bytevector
+        open-input-string
+        open-output-bytevector
         open-output-string
         or
-;;        output-port-open?
-;;        output-port?
+        output-port-open?
+        output-port?
         pair?
         parameterize
 ;;        peek-char
 ;;        peek-u8
-;;        port?
+        port?
         positive?
         procedure?
         quasiquote
@@ -933,7 +956,7 @@
         symbol?
         syntax-error
         syntax-rules
-;;        textual-port?
+        textual-port?
 ;;        truncate
 ;;        truncate-quotient
 ;;        truncate-remainder
@@ -1013,8 +1036,8 @@
 ;;        call-with-output-file
         delete-file
         file-exists?
-;;        open-binary-input-file
-;;        open-binary-output-file
+        open-binary-input-file
+        open-binary-output-file
 ;;        open-input-file
 ;;        open-output-file
 ;;        with-input-from-file

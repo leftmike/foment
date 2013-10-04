@@ -1562,14 +1562,15 @@ void SetupFoment(FThreadState * ts, int argc, SCh * argv[])
     SetupNumbers();
     SetupThreads();
     SetupGC();
-    SetupScheme();
 
     LibraryExport(R.BedrockLibrary,
-            EnvironmentSetC(R.Bedrock, "standard-input", R.StandardInput));
+            EnvironmentSetC(R.Bedrock, "%standard-input", R.StandardInput));
     LibraryExport(R.BedrockLibrary,
-            EnvironmentSetC(R.Bedrock, "standard-output", R.StandardOutput));
+            EnvironmentSetC(R.Bedrock, "%standard-output", R.StandardOutput));
     LibraryExport(R.BedrockLibrary,
-            EnvironmentSetC(R.Bedrock, "symbol-hashtable", R.SymbolHashtable));
+            EnvironmentSetC(R.Bedrock, "%standard-error", R.StandardError));
+
+    SetupScheme();
 
     SetupComplete = 1;
 }

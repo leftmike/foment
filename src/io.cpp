@@ -140,9 +140,9 @@ static unsigned int StdioReadBytes(FObject port, void * b, unsigned int bl)
 
 static int StdioByteReadyP(FObject port)
 {
-    
-    
-    return(0);
+    FAssert(BinaryPortP(port) && InputPortOpenP(port));
+
+    return(1);
 }
 
 static void StdioWriteBytes(FObject port, void * b, unsigned int bl)
@@ -158,6 +158,109 @@ static FObject MakeStdioPort(FObject nam, FILE * ifp, FILE * ofp)
     return(MakeBinaryPort(nam, NoValueObject, ifp, ofp, ifp ? StdioCloseInput : 0,
             ofp ? StdioCloseOutput : 0, ofp ? StdioFlushOutput : 0, ifp ? StdioReadBytes : 0,
             ifp ? StdioByteReadyP : 0, ofp ? StdioWriteBytes : 0));
+}
+
+static void BvinCloseInput(FObject port)
+{
+    FAssert(BinaryPortP(port));
+
+    AsGenericPort(port)->Object = NoValueObject;
+}
+
+static unsigned int BvinReadBytes(FObject port, void * b, unsigned int bl)
+{
+    FAssert(BinaryPortP(port) && InputPortOpenP(port));
+
+    FObject bv = AsGenericPort(port)->Object;
+    unsigned int bdx = (unsigned int) AsGenericPort(port)->InputContext;
+
+    FAssert(BytevectorP(bv));
+    FAssert(bdx <= BytevectorLength(bv));
+
+    if (bdx == BytevectorLength(bv))
+        return(0);
+
+    if (bdx + bl > BytevectorLength(bv))
+        bl = BytevectorLength(bv) - bdx;
+
+    memcpy(b, AsBytevector(bv)->Vector + bdx, bl);
+    AsGenericPort(port)->InputContext = (void *) (bdx + bl);
+
+    return(bl);
+}
+
+static int BvinByteReadyP(FObject port)
+{
+    FAssert(BinaryPortP(port) && InputPortOpenP(port));
+
+    return(1);
+}
+
+static FObject MakeBytevectorInputPort(FObject bv)
+{
+    FAssert(BytevectorP(bv));
+
+    return(MakeBinaryPort(NoValueObject, bv, 0, 0, BvinCloseInput, 0, 0, BvinReadBytes,
+            BvinByteReadyP, 0));
+}
+
+static void BvoutCloseOutput(FObject port)
+{
+    FAssert(BinaryPortP(port));
+
+    AsGenericPort(port)->Object = NoValueObject;
+}
+
+static void BvoutFlushOutput(FObject port)
+{
+    // Nothing.
+}
+
+static void BvoutWriteBytes(FObject port, void * b, unsigned int bl)
+{
+    FAssert(BinaryPortP(port) && OutputPortOpenP(port));
+    FAssert(AsGenericPort(port)->Object == EmptyListObject || PairP(AsGenericPort(port)->Object));
+
+    FObject lst = AsGenericPort(port)->Object;
+
+    for (unsigned int bdx = 0; bdx < bl; bdx++)
+        lst = MakePair(MakeFixnum(((unsigned char *) b)[bdx]), lst);
+
+    AsGenericPort(port)->Object = lst;
+}
+
+static FObject GetOutputBytevector(FObject port)
+{
+    FAssert(BytevectorOutputPortP(port));
+    FAssert(AsGenericPort(port)->Object == EmptyListObject || PairP(AsGenericPort(port)->Object));
+
+    FObject lst = AsGenericPort(port)->Object;
+    int bl = ListLength(lst);
+    FObject bv = MakeBytevector(bl);
+    int bdx = bl;
+
+    while (PairP(lst))
+    {
+        bdx -= 1;
+
+        FAssert(bdx >= 0);
+        FAssert(FixnumP(First(lst)) && AsFixnum(First(lst)) >= 0 && AsFixnum(First(lst)) <= 0xFF);
+
+        AsBytevector(bv)->Vector[bdx] = AsFixnum(First(lst));
+        lst = Rest(lst);
+    }
+
+    FAssert(lst == EmptyListObject);
+
+    return(bv);
+}
+
+static FObject MakeBytevectorOutputPort()
+{
+    FObject port = MakeBinaryPort(NoValueObject, EmptyListObject, 0, 0, 0, BvoutCloseOutput,
+            BvoutFlushOutput, 0, 0, BvoutWriteBytes);
+    AsGenericPort(port)->Flags |= PORT_FLAG_BYTEVECTOR_OUTPUT;
+    return(port);
 }
 
 // ---- Textual Ports ----
@@ -399,7 +502,7 @@ static void SinCloseInput(FObject port)
 
 static unsigned int SinReadCh(FObject port, FCh * ch)
 {
-    FAssert(TextualPortP(port));
+    FAssert(TextualPortP(port) && InputPortOpenP(port));
 
     FObject s = AsGenericPort(port)->Object;
     unsigned int sdx = (unsigned int) AsGenericPort(port)->InputContext;
@@ -443,7 +546,7 @@ static void SoutFlushOutput(FObject port)
 
 static void SoutWriteString(FObject port, FCh * s, unsigned int sl)
 {
-    FAssert(TextualPortP(port));
+    FAssert(TextualPortP(port) && OutputPortOpenP(port));
     FAssert(AsGenericPort(port)->Object == EmptyListObject || PairP(AsGenericPort(port)->Object));
 
     FObject lst = AsGenericPort(port)->Object;
@@ -1562,28 +1665,172 @@ Define("delete-file", DeleteFilePrimitive)(int argc, FObject argv[])
 
 // ---- Input and output ----
 
+Define("input-port?", InputPortPPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("input-port?", argc);
+
+    return(InputPortP(argv[0]) ? TrueObject : FalseObject);
+}
+
+Define("output-port?", OutputPortPPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("output-port?", argc);
+
+    return(OutputPortP(argv[0]) ? TrueObject : FalseObject);
+}
+
+Define("textual-port?", TextualPortPPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("textual-port?", argc);
+
+    return(TextualPortP(argv[0]) ? TrueObject : FalseObject);
+}
+
+Define("binary-port?", BinaryPortPPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("binary-port?", argc);
+
+    return(BinaryPortP(argv[0]) ? TrueObject : FalseObject);
+}
+
+Define("port?", PortPPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("port?", argc);
+
+    return((TextualPortP(argv[0]) || BinaryPortP(argv[0])) ? TrueObject : FalseObject);
+}
+
+Define("input-port-open?", InputPortOpenPPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("input-port-open?", argc);
+    PortArgCheck("input-port-open?", argv[0]);
+
+    return(InputPortOpenP(argv[0]) ? TrueObject : FalseObject);
+}
+
+Define("output-port-open?", OutputPortOpenPPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("output-port-open?", argc);
+    PortArgCheck("output-port-open?", argv[0]);
+
+    return(OutputPortOpenP(argv[0]) ? TrueObject : FalseObject);
+}
+
+Define("open-binary-input-file", OpenBinaryInputFilePrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("open-binary-input-file", argc);
+    StringArgCheck("open-binary-input-file", argv[0]);
+
+    SCh * ss;
+    ConvertToSystem(argv[0], ss);
+
+    FILE * fp = _wfopen(ss, L"r");
+    if (fp == 0)
+        RaiseExceptionC(R.Assertion, "open-binary-input-file",
+                "unable to open file for input", List(argv[0]));
+
+    return(MakeStdioPort(argv[0], fp, 0));
+}
+
+Define("open-binary-output-file", OpenBinaryOutputFilePrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("open-binary-output-file", argc);
+    StringArgCheck("open-binary-output-file", argv[0]);
+
+    SCh * ss;
+    ConvertToSystem(argv[0], ss);
+
+    FILE * fp = _wfopen(ss, L"w");
+    if (fp == 0)
+        RaiseExceptionC(R.Assertion, "open-binary-output-file",
+                "unable to open file for input", List(argv[0]));
+
+    return(MakeStdioPort(argv[0], 0, fp));
+}
+
+Define("close-port", ClosePortPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("close-port", argc);
+    PortArgCheck("close-port", argv[0]);
+
+    CloseInput(argv[0]);
+    CloseOutput(argv[0]);
+
+    return(NoValueObject);
+}
+
+Define("close-input-port", CloseInputPortPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("close-input-port", argc);
+    InputPortArgCheck("close-input-port", argv[0]);
+
+    CloseInput(argv[0]);
+
+    return(NoValueObject);
+}
+
+Define("close-output-port", CloseOutputPortPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("close-output-port", argc);
+    OutputPortArgCheck("close-output-port", argv[0]);
+
+    CloseOutput(argv[0]);
+
+    return(NoValueObject);
+}
+
+Define("open-input-string", OpenInputStringPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("open-input-string", argc);
+    StringArgCheck("open-input-string", argv[0]);
+
+    return(MakeStringInputPort(argv[0]));
+}
+
 Define("open-output-string", OpenOutputStringPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 0)
-        RaiseExceptionC(R.Assertion, "open-output-string", "expected no arguments",
-                EmptyListObject);
+    ZeroArgsCheck("open-output-string", argc);
 
     return(MakeStringOutputPort());
 }
 
 Define("get-output-string", GetOutputStringPrimitive)(int argc, FObject argv[])
 {
-#if 0
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "get-output-string", "expected one argument",
-                EmptyListObject);
+    OneArgCheck("get-output-string", argc);
+    StringOutputPortArgCheck("get-output-string", argv[0]);
 
-    if (OldOutputPortP(argv[0]) == 0 || AsPort(argv[0])->Output != &StringOutputPort)
-        RaiseExceptionC(R.Assertion, "get-output-string", "expected a string output port",
-                List(argv[0]));
-#endif // 0
     return(GetOutputString(argv[0]));
 }
+
+Define("open-input-bytevector", OpenInputBytevectorPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("open-input-bytevector", argc);
+    BytevectorArgCheck("open-input-bytevector", argv[0]);
+
+    return(MakeBytevectorInputPort(argv[0]));
+}
+
+Define("open-output-bytevector", OpenOutputBytevectorPrimitive)(int argc, FObject argv[])
+{
+    ZeroArgsCheck("open-output-bytevector", argc);
+
+    return(MakeBytevectorOutputPort());
+}
+
+Define("get-output-bytevector", GetOutputBytevectorPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("get-output-bytevector", argc);
+    BytevectorOutputPortArgCheck("get-output-bytevector", argv[0]);
+
+    return(GetOutputBytevector(argv[0]));
+}
+
+    
+    
+    
+    
+    
+    
 
 Define("write", WritePrimitive)(int argc, FObject argv[])
 {
@@ -1750,9 +1997,28 @@ static FPrimitive * Primitives[] =
 {
     &FileExistsPPrimitive,
     &DeleteFilePrimitive,
-    
+    &InputPortPPrimitive,
+    &OutputPortPPrimitive,
+    &TextualPortPPrimitive,
+    &BinaryPortPPrimitive,
+    &PortPPrimitive,
+    &InputPortOpenPPrimitive,
+    &OutputPortOpenPPrimitive,
+    &OpenBinaryInputFilePrimitive,
+    &OpenBinaryOutputFilePrimitive,
+    &ClosePortPrimitive,
+    &CloseInputPortPrimitive,
+    &CloseOutputPortPrimitive,
+    &OpenInputStringPrimitive,
     &OpenOutputStringPrimitive,
     &GetOutputStringPrimitive,
+    &OpenInputBytevectorPrimitive,
+    &OpenOutputBytevectorPrimitive,
+    &GetOutputBytevectorPrimitive,
+    
+    
+    
+    
     &WritePrimitive,
     &DisplayPrimitive,
     &WriteSharedPrimitive,
@@ -1766,6 +2032,7 @@ void SetupIO()
 {
     R.StandardInput = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-input"), stdin, 0));
     R.StandardOutput = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-output"), 0, stdout));
+    R.StandardError = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-error"), 0, stderr));
 
     R.QuoteSymbol = StringCToSymbol("quote");
     R.QuasiquoteSymbol = StringCToSymbol("quasiquote");
