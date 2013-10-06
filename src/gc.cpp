@@ -8,8 +8,8 @@ Foment
 #include <stdio.h>
 #include <string.h>
 #include "foment.hpp"
-#include "io.hpp"
 #include "syncthrd.hpp"
+#include "io.hpp"
 
 typedef void * FRaw;
 #define AsRaw(obj) ((FRaw) (((unsigned int) (obj)) & ~0x3))
@@ -1130,6 +1130,10 @@ printf("Partial Collection...");
         if (ObjectP(ts->Parameters))
             ScanObject(&ts->Parameters, fcf, 0);
 
+        for (int idx = 0; idx < INDEX_PARAMETERS; idx++)
+            if (ObjectP(ts->IndexParameters[idx]))
+                ScanObject(ts->IndexParameters + idx, fcf, 0);
+
         ts = ts->Next;
     }
 
@@ -1427,6 +1431,9 @@ void EnterThread(FThreadState * ts, FObject thrd, FObject prms)
     ts->ArgCount = -1;
     ts->DynamicStack = EmptyListObject;
     ts->Parameters = prms;
+
+    for (int idx = 0; idx < INDEX_PARAMETERS; idx++)
+        ts->IndexParameters[idx] = NoValueObject;
 }
 
 void LeaveThread(FThreadState * ts)

@@ -3,6 +3,9 @@
 Foment
 
 -- use Win32 console APIs
+-- use Win32 file APIs and not stdio
+
+-- parameter for file-encoding: a procedure which converts from a binary port to a textual port
 
 -- MakeUtf8Port(FObject port): for utf8 characters
 -- MakeUtf16Port(FObject port): and utf16 characters
@@ -12,6 +15,8 @@ Foment
 -- ports describe whether they use char offset, byte offset, or line number for location
 
 -- need a port guardian to make sure ports are closed
+
+-- Alive to keep track of which are live objects
 
 */
 
@@ -60,29 +65,25 @@ FObject MakeTextualPort(FObject nam, FObject obj, void * ictx, void * octx, FClo
     FCloseOutputFn cofn, FFlushOutputFn fofn, FReadChFn rcfn, FCharReadyPFn crpfn,
     FWriteStringFn wsfn);
 
-// Write
-
-inline int SharedObjectP(FObject obj)
+inline FObject CurrentInputPort()
 {
-    return(PairP(obj) || BoxP(obj) || VectorP(obj) || ProcedureP(obj) || GenericRecordP(obj));
+    FObject port = IndexParameter(0);
+
+    FAssert(InputPortP(port) && InputPortOpenP(port));
+
+    return(port);
 }
 
-unsigned int FindSharedObjects(FObject ht, FObject obj, unsigned int cnt, int cof);
-FObject WalkUpdate(FObject key, FObject val, FObject ctx);
-int WalkDelete(FObject key, FObject val, FObject ctx);
-
-typedef void (*FWriteFn)(FObject port, FObject obj, int df, void * wfn, void * ctx);
-void WriteGeneric(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx);
-
-typedef struct
+inline FObject CurrentOutputPort()
 {
-    FObject Hashtable;
-    int Label;
-} FWriteSharedCtx;
+    FObject port = IndexParameter(1);
 
-#define ToWriteSharedCtx(ctx) ((FWriteSharedCtx *) (ctx))
-void WriteSharedObject(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx);
+    FAssert(OutputPortP(port) && OutputPortOpenP(port));
 
-void SetupPrettyPrint();
+    return(port);
+}
+
+void SetupWrite();
+void SetupRead();
 
 #endif // __IO_HPP__

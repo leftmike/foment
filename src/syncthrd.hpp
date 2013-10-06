@@ -160,4 +160,11 @@ extern OSExclusive GCExclusive;
 void EnterThread(FThreadState * ts, FObject thrd, FObject prms);
 void LeaveThread(FThreadState * ts);
 
+inline FObject IndexParameter(unsigned int idx)
+{
+    FAssert(idx < INDEX_PARAMETERS);
+
+    return(GetThreadState()->IndexParameters[idx]);
+}
+
 #endif // __SYNCTHRD_HPP__

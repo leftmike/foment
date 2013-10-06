@@ -12,15 +12,13 @@ To Do:
 
 -- #!fold-case and #!no-fold-case
 
--- import and define-library should not be in (scheme base), but should be in whatever
-library is used by interaction-environment
-
--- current-input-port and current-output-port need to be parameters
-
 -- use tests from chibi
+
+-- import and define-library should not be part of (scheme base)
 
 -- IO and GC
 -- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
+-- or use FAlive
 -- use EnterWait and LeaveWait
 
 -- from Gambit:
@@ -820,6 +818,8 @@ typedef struct _FYoungSection
     unsigned int Scan;
 } FYoungSection;
 
+#define INDEX_PARAMETERS 3
+
 typedef struct _FThreadState
 {
     struct _FThreadState * Next;
@@ -846,6 +846,7 @@ typedef struct _FThreadState
 
     FObject DynamicStack;
     FObject Parameters;
+    FObject IndexParameters[INDEX_PARAMETERS];
 } FThreadState;
 
 // ---- Roots ----

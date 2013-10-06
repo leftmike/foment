@@ -1,8 +1,6 @@
 (define-library (foment base)
     (import (foment bedrock))
     (export ;; (scheme base)
-        import
-        define-library
         *
         +
         -
@@ -36,7 +34,7 @@
         caar
         cadr
         call-with-current-continuation
-;        call-with-port
+        call-with-port
         call-with-values
         (rename call-with-current-continuation call/cc)
         car
@@ -269,16 +267,16 @@
 ;        environment
          eval)
     (export ;; (scheme file)
-;        call-with-input-file
-;        call-with-output-file
+        call-with-input-file
+        call-with-output-file
         delete-file
         file-exists?
         open-binary-input-file
         open-binary-output-file
-;        open-input-file
-;        open-output-file
-;        with-input-from-file
-;        with-output-to-file
+        open-input-file
+        open-output-file
+        with-input-from-file
+        with-output-to-file
     )
     (export ;; (scheme inexact)
 ;        acos
@@ -312,6 +310,11 @@
          write-shared
          write-simple)
     (export
+        make-latin-1-port
+        file-encoding
+        import
+        define-library
+        
         syntax unsyntax eq-hash eqv-hash display-shared display-simple
         equal-hash error-object-who full-error loaded-libraries library-path
         write-pretty display-pretty
@@ -493,7 +496,8 @@
                         (lambda () expr1 expr2 ...)
                         (lambda () (leave-exclusive exclusive))))))
 
-        (define parameterize-key (cons #f #f))
+        (define push-parameter (cons #f #f))
+        (define pop-parameter (cons #f #f))
 
         (define (make-parameter init . converter)
             (let* ((converter
@@ -512,19 +516,46 @@
                                         init
                                         (car stk))))
                             ((val)
-                                (let ((stk (eq-hashtable-ref (%parameters) parameter '())))
+                                (if (eq? val pop-parameter)
+                                    (eq-hashtable-set! (%parameters) parameter
+                                            (cdr (eq-hashtable-ref (%parameters)
+                                            parameter '()))) ;; used by parameterize
+                                    (let ((stk (eq-hashtable-ref (%parameters) parameter '())))
+                                        (eq-hashtable-set! (%parameters) parameter
+                                                (cons (converter val)
+                                                (if (null? stk) '() (cdr stk)))))))
+                            ((val key) ;; used by parameterize
+                                (if (eq? key push-parameter)
                                     (eq-hashtable-set! (%parameters) parameter
                                             (cons (converter val)
-                                            (if (null? stk) '() (cdr stk))))))
-                            ((val key) ;; used by parameterize
-                                (if (eq? key parameterize-key)
-                                    (converter val)
+                                            (eq-hashtable-ref (%parameters) parameter '())))
                                     (full-error 'assertion-violation '<parameter>
-                                        "<parameter>: expected zero or one arguments")))
+                                            "<parameter>: expected zero or one arguments")))
                             (val (full-error 'assertion-violation '<parameter>
                                     "<parameter>: expected zero or one arguments")))))
                     (%procedure->parameter parameter)
                     parameter)))
+
+        (define (make-index-parameter index init converter)
+            (let ((parameter
+                    (case-lambda
+                        (() (car (%index-parameter index)))
+                        ((val)
+                            (if (eq? val pop-parameter)
+                                (%index-parameter index (cdr (%index-parameter index)))
+                                (%index-parameter index
+                                        (cons (converter val) (cdr (%index-parameter index))))))
+                        ((val key) ;; used by parameterize
+                            (if (eq? key push-parameter)
+                                (%index-parameter index (cons (converter val)
+                                        (%index-parameter index)))
+                                (full-error 'assertion-violation '<parameter>
+                                        "<parameter>: expected zero or one arguments")))
+                        (val (full-error 'assertion-violation '<parameter>
+                                "<parameter>: expected zero or one arguments")))))
+                (%index-parameter index (list (converter init)))
+                (%procedure->parameter parameter)
+                parameter))
 
         (define-syntax parameterize
             (syntax-rules ()
@@ -540,16 +571,13 @@
                     (if (not (%parameter? p))
                         (full-error 'assertion-violation 'parameterize
                                 "parameterize: expected a parameter" p))
-                    (let ((val (p (car vals) parameterize-key)))
-                        (eq-hashtable-set! (%parameters) p
-                                (cons val (eq-hashtable-ref (%parameters) p '())))
-                        (before-parameterize (cdr params) (cdr vals))))))
+                    (p (car vals) push-parameter)
+                    (before-parameterize (cdr params) (cdr vals)))))
 
         (define (after-parameterize params)
             (if (not (null? params))
                 (begin
-                    (eq-hashtable-set! (%parameters) (car params)
-                            (cdr (eq-hashtable-ref (%parameters) (car params) '())))
+                    ((car params) pop-parameter)
                     (after-parameterize (cdr params)))))
 
         (define (call-with-parameterize params vals thunk)
@@ -721,28 +749,59 @@
                     ((obj ret) (install-tracker obj ret tconc)))))
 
         (define current-input-port
-            (make-parameter %standard-input
+            (make-index-parameter 0 %standard-input
                 (lambda (obj)
                     (if (not (and (input-port? obj) (input-port-open? obj)))
-                        (full-error 'current-input-port
+                        (full-error 'assertion-violation 'current-input-port
                                 "current-input-port: expected an open textual input port" obj))
                     obj)))
 
         (define current-output-port
-            (make-parameter %standard-output
+            (make-index-parameter 1 %standard-output
                 (lambda (obj)
                     (if (not (and (output-port? obj) (output-port-open? obj)))
-                        (full-error 'current-output-port
+                        (full-error 'assertion-violation 'current-output-port
                                 "current-output-port: expected an open textual output port" obj))
                     obj)))
 
         (define current-error-port
-            (make-parameter %standard-error
+            (make-index-parameter 2 %standard-error
                 (lambda (obj)
                     (if (not (and (output-port? obj) (output-port-open? obj)))
-                        (full-error 'current-error-port
+                        (full-error 'assertion-violation 'current-error-port
                                 "current-error-port: expected an open textual output port" obj))
                     obj)))
+
+        (define file-encoding (make-parameter make-latin-1-port))
+
+        (define (open-input-file string)
+            ((file-encoding) (open-binary-input-file string)))
+
+        (define (open-output-file string)
+            ((file-encoding) (open-binary-output-file string)))
+
+        (define (call-with-port port proc)
+            (let-values ((results (proc port)))
+                (close-port port)
+                (apply values results)))
+
+        (define (call-with-input-file string proc)
+            (call-with-port (open-input-file string) proc))
+
+        (define (call-with-output-file string proc)
+            (call-with-port (open-output-file string) proc))
+
+        (define (with-input-from-file string thunk)
+            (let ((port (open-input-file string)))
+                (let-values ((results (parameterize ((current-input-port port)) (thunk))))
+                    (close-input-port port)
+                    (apply values results))))
+
+        (define (with-output-to-file string thunk)
+            (let ((port (open-output-file string)))
+                (let-values ((results (parameterize ((current-output-port port)) (thunk))))
+                    (close-output-port port)
+                    (apply values results))))
     ))
 
 (define-library (scheme base)
@@ -750,6 +809,8 @@
     (export
         import
         define-library
+        
+        
         *
         +
         -
@@ -783,7 +844,7 @@
         caar
         cadr
         call-with-current-continuation
-;;        call-with-port
+        call-with-port
         call-with-values
         (rename call-with-current-continuation call/cc)
         car
@@ -1032,16 +1093,16 @@
  (define-library (scheme file)
     (import (foment base))
     (export
-;;        call-with-input-file
-;;        call-with-output-file
+        call-with-input-file
+        call-with-output-file
         delete-file
         file-exists?
         open-binary-input-file
         open-binary-output-file
-;;        open-input-file
-;;        open-output-file
-;;        with-input-from-file
-;;        with-output-to-file
+        open-input-file
+        open-output-file
+        with-input-from-file
+        with-output-to-file
     ))
 
 (define-library (scheme inexact)

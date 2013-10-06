@@ -93,35 +93,35 @@ debug\foment.exe: debug\foment.obj debug\gc.obj debug\syncthrd.obj debug\compile
         debug\synrules.obj debug\synpass.obj debug\midpass.obj debug\genpass.obj\
         debug\pairs.obj debug\unicode.obj debug\chars.obj debug\strings.obj debug\vectors.obj\
         debug\convertutf.obj debug\library.obj debug\execute.obj debug\numbers.obj\
-        debug\pretty.obj debug\main.obj debug\base.obj debug\test.obj
+        debug\write.obj debug\read.obj debug\main.obj debug\base.obj debug\test.obj
     link /nologo /subsystem:console /out:debug\foment.exe\
         /debug /pdb:debug\foment.pdb\
         debug\foment.obj debug\gc.obj debug\syncthrd.obj debug\compile.obj debug\io.obj\
         debug\synrules.obj debug\synpass.obj debug\midpass.obj debug\genpass.obj debug\pairs.obj\
         debug\unicode.obj debug\strings.obj debug\chars.obj debug\vectors.obj debug\convertutf.obj\
-        debug\library.obj debug\execute.obj debug\numbers.obj debug\pretty.obj debug\main.obj\
-        debug\base.obj debug\test.obj
+        debug\library.obj debug\execute.obj debug\numbers.obj debug\write.obj debug\read.obj\
+        debug\main.obj debug\base.obj debug\test.obj
 
 release\foment.exe: release\foment.obj release\gc.obj release\syncthrd.obj release\compile.obj\
         release\io.obj release\synrules.obj release\synpass.obj release\midpass.obj\
         release\genpass.obj release\pairs.obj release\unicode.obj release\chars.obj\
         release\strings.obj release\vectors.obj release\convertutf.obj release\library.obj\
-        release\execute.obj release\numbers.obj release\pretty.obj release\main.obj\
-        release\base.obj release\test.obj
+        release\execute.obj release\numbers.obj release\write.obj release\read.obj\
+        release\main.obj release\base.obj release\test.obj
     link /nologo /subsystem:console /out:release\foment.exe\
         release\foment.obj release\gc.obj  release\syncthrd.obj release\compile.obj\
         release\io.obj release\synrules.obj release\synpass.obj release\midpass.obj\
         release\genpass.obj release\pairs.obj release\unicode.obj release\chars.obj\
         release\strings.obj release\vectors.obj release\convertutf.obj release\library.obj\
-        release\execute.obj release\numbers.obj release\pretty.obj release\main.obj\
-        release\base.obj release\test.obj
+        release\execute.obj release\numbers.obj release\write.obj release\read.obj\
+        release\main.obj release\base.obj release\test.obj
 
 debug\txt2cpp.exe: debug\txt2cpp.obj
     link /nologo /subsystem:console /out:debug\txt2cpp.exe\
     debug\txt2cpp.obj
 
 debug\foment.obj: ..\src\foment.cpp ..\src\foment.hpp
-debug\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\io.hpp ..\src\syncthrd.hpp
+debug\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp
 debug\syncthrd.obj: ..\src\syncthrd.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\syncthrd.hpp
 debug\compile.obj: ..\src\compile.cpp ..\src\foment.hpp ..\src\compile.hpp
 debug\synrules.obj: ..\src\synrules.cpp ..\src\foment.hpp ..\src\compile.hpp
@@ -138,14 +138,17 @@ debug\convertutf.obj: ..\src\convertutf.c ..\src\convertutf.h
 debug\library.obj: ..\src\library.cpp ..\src\foment.hpp ..\src\compile.hpp
 debug\execute.obj: ..\src\execute.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\syncthrd.hpp
 debug\numbers.obj: ..\src\numbers.cpp ..\src\foment.hpp
-debug\io.obj: ..\src\io.cpp ..\src\foment.hpp ..\src\io.hpp ..\src\unicode.hpp
-debug\pretty.obj: ..\src\pretty.cpp ..\src\foment.hpp ..\src\io.hpp ..\src\compile.hpp
+debug\io.obj: ..\src\io.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp ..\src\unicode.hpp
+debug\write.obj: ..\src\write.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
+    ..\src\compile.hpp
+debug\read.obj: ..\src\read.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
+    ..\src\unicode.hpp
 debug\main.obj: ..\src\main.cpp ..\src\foment.hpp
 debug\base.obj: debug\base.cpp
 debug\test.obj: ..\src\test.cpp ..\src\foment.hpp
 
 release\foment.obj: ..\src\foment.cpp ..\src\foment.hpp
-release\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\io.hpp ..\src\syncthrd.hpp
+release\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp
 release\syncthrd.obj: ..\src\syncthrd.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\syncthrd.hpp
 release\compile.obj: ..\src\compile.cpp ..\src\foment.hpp ..\src\compile.hpp
 release\synrules.obj: ..\src\synrules.cpp ..\src\foment.hpp ..\src\compile.hpp
@@ -162,8 +165,12 @@ release\convertutf.obj: ..\src\convertutf.c ..\src\convertutf.h
 release\library.obj: ..\src\library.cpp ..\src\foment.hpp ..\src\compile.hpp
 release\execute.obj: ..\src\execute.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\syncthrd.hpp
 release\numbers.obj: ..\src\numbers.cpp ..\src\foment.hpp
-release\io.obj: ..\src\io.cpp ..\src\foment.hpp ..\src\io.hpp ..\src\unicode.hpp
-release\pretty.obj: ..\src\pretty.cpp ..\src\foment.hpp ..\src\io.hpp ..\src\compile.hpp
+release\io.obj: ..\src\io.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
+    ..\src\unicode.hpp
+release\write.obj: ..\src\write.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
+    ..\src\compile.hpp
+release\read.obj: ..\src\read.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
+    ..\src\unicode.hpp
 release\main.obj: ..\src\main.cpp ..\src\foment.hpp
 release\base.obj: debug\base.cpp
 release\test.obj: ..\src\test.cpp ..\src\foment.hpp

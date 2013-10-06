@@ -2068,6 +2068,27 @@ Define("%parameter?", ParameterPPrimitive)(int argc, FObject argv[])
     return(ParameterP(argv[0]) ? TrueObject : FalseObject);
 }
 
+Define("%index-parameter", IndexParameterPrimitive)(int argc, FObject argv[])
+{
+    // (%index-parameter <index>)
+    // (%index-parameter <index> <value>)
+
+    FMustBe(argc >= 1 && argc <= 2);
+    FMustBe(FixnumP(argv[0]) && AsFixnum(argv[0]) >= 0 && AsFixnum(argv[0]) < INDEX_PARAMETERS);
+
+    if (argc == 1)
+    {
+        FAssert(PairP(GetThreadState()->IndexParameters[AsFixnum(argv[0])]));
+
+        return(GetThreadState()->IndexParameters[AsFixnum(argv[0])]);
+    }
+
+    FAssert(PairP(argv[1]));
+
+    GetThreadState()->IndexParameters[AsFixnum(argv[0])] = argv[1];
+    return(NoValueObject);
+}
+
 Define("%find-mark", FindMarkPrimitive)(int argc, FObject argv[])
 {
     // (%find-mark <key> <default>)
@@ -2110,6 +2131,7 @@ static FPrimitive * Primitives[] =
     &ParametersPrimitive,
     &ProcedureToParameterPrimitive,
     &ParameterPPrimitive,
+    &IndexParameterPrimitive,
     &FindMarkPrimitive
 };
 
