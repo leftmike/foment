@@ -208,9 +208,7 @@ static FObject MakeBytevectorInputPort(FObject bv)
 
 static void BvoutCloseOutput(FObject port)
 {
-    FAssert(BinaryPortP(port));
-
-    AsGenericPort(port)->Object = NoValueObject;
+    // Nothing.
 }
 
 static void BvoutFlushOutput(FObject port)
@@ -605,9 +603,7 @@ FObject MakeStringInputPort(FObject s)
 
 static void SoutCloseOutput(FObject port)
 {
-    FAssert(TextualPortP(port));
-
-    AsGenericPort(port)->Object = NoValueObject;
+    // Nothing.
 }
 
 static void SoutFlushOutput(FObject port)

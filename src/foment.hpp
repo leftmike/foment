@@ -66,7 +66,9 @@ Testing:
 -- 6.11 exceptions complete
 -- 6.12 environments and evaluation missing environment, scheme-report-environment,
         and null-environment
--- 6.13
+-- 6.13.1 port complete
+-- 6.13.2
+-- 6.13.3
 -- 6.14 system interface missing load and exit, otherwise complete except current-second
     returns an exact integer
 
@@ -1101,13 +1103,13 @@ inline void PortArgCheck(char * who, FObject obj)
 
 inline void InputPortArgCheck(char * who, FObject obj)
 {
-    if (BinaryPortP(obj) == 0 && TextualPortP(obj) == 0 && InputPortP(obj) == 0)
+    if ((BinaryPortP(obj) == 0 && TextualPortP(obj) == 0) || InputPortP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected an input port", List(obj));
 }
 
 inline void OutputPortArgCheck(char * who, FObject obj)
 {
-    if (BinaryPortP(obj) == 0 && TextualPortP(obj) == 0 && OutputPortP(obj) == 0)
+    if ((BinaryPortP(obj) == 0 && TextualPortP(obj) == 0) || OutputPortP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected an output port", List(obj));
 }
 
@@ -1155,7 +1157,7 @@ inline void BinaryInputPortArgCheck(char * who, FObject obj)
 
 inline void BinaryOutputPortArgCheck(char * who, FObject obj)
 {
-    if (TextualPortP(obj) == 0 || OutputPortOpenP(obj) == 0)
+    if (BinaryPortP(obj) == 0 || OutputPortOpenP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected an open binary output port", List(obj));
 }
 

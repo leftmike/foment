@@ -16,7 +16,7 @@ Foment
 
 -- Alive to keep track of which are live objects
 
--- get rid of Pretty
+-- get rid of Pretty or clean it up and call it pp
 
 -- read
 -- write

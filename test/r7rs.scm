@@ -2093,6 +2093,170 @@
         (lambda (p)
             (parameterize ((current-error-port p)) (eq? p (current-error-port))))))
 
+(must-equal #t
+    (let ((p (current-input-port)))
+        (with-input-from-file "r7rs.scm" (lambda () (input-port-open? (current-input-port))))
+        (eq? p (current-input-port))))
+(must-equal #f
+    (let ((p (current-input-port)))
+        (with-input-from-file "r7rs.scm" (lambda () (eq? p (current-input-port))))))
+(must-equal #f
+    (let ((p #f))
+        (with-input-from-file "r7rs.scm" (lambda () (set! p (current-input-port))))
+        (input-port-open? p)))
+
+(must-raise (assertion-violation with-input-from-file) (with-input-from-file "r7rs.scm"))
+(must-raise (assertion-violation with-input-from-file)
+    (with-input-from-file "r7rs.scm" (lambda () (current-input-port)) 3))
+
+(must-equal #t
+    (let ((p (current-output-port)))
+        (with-output-to-file "output.txt" (lambda () (output-port-open? (current-output-port))))
+        (eq? p (current-output-port))))
+(must-equal #f
+    (let ((p (current-output-port)))
+        (with-output-to-file "output.txt" (lambda () (eq? p (current-output-port))))))
+(must-equal #f
+    (let ((p #f))
+        (with-output-to-file "output.txt" (lambda () (set! p (current-output-port))))
+        (output-port-open? p)))
+
+(must-raise (assertion-violation with-output-to-file) (with-output-to-file "output.txt"))
+(must-raise (assertion-violation with-output-to-file)
+    (with-output-to-file "output.txt" (lambda () (current-output-port)) 3))
+
+(must-equal #t
+    (let* ((p (open-input-file "r7rs.scm"))
+        (val (input-port-open? p)))
+        (close-port p)
+        val))
+(must-equal #t
+    (let* ((p (open-input-file "r7rs.scm")))
+        (close-port p)
+        (input-port? p)))
+
+(must-raise (assertion-violation open-input-file) (open-input-file))
+(must-raise (assertion-violation open-binary-input-file) (open-input-file 'r7rs.scm))
+(must-raise (assertion-violation open-input-file) (open-input-file "r7rs.scm" 2))
+
+(must-equal #t
+    (let* ((p (open-binary-input-file "r7rs.scm"))
+        (val (input-port-open? p)))
+        (close-port p)
+        val))
+(must-equal #t
+    (let* ((p (open-binary-input-file "r7rs.scm")))
+        (close-port p)
+        (input-port? p)))
+
+(must-raise (assertion-violation open-binary-input-file) (open-binary-input-file))
+(must-raise (assertion-violation open-binary-input-file) (open-binary-input-file 'r7rs.scm))
+(must-raise (assertion-violation open-binary-input-file) (open-binary-input-file "r7rs.scm" 2))
+
+(must-equal #t
+    (let* ((p (open-output-file "output.txt"))
+        (val (output-port-open? p)))
+        (close-port p)
+        val))
+(must-equal #t
+    (let* ((p (open-output-file "output.txt")))
+        (close-port p)
+        (output-port? p)))
+
+(must-raise (assertion-violation open-output-file) (open-output-file))
+(must-raise (assertion-violation open-binary-output-file) (open-output-file 'output.txt))
+(must-raise (assertion-violation open-output-file) (open-output-file "output.txt" 2))
+
+(must-equal #t
+    (let* ((p (open-binary-output-file "output.txt"))
+        (val (output-port-open? p)))
+        (close-port p)
+        val))
+(must-equal #t
+    (let* ((p (open-binary-output-file "output.txt")))
+        (close-port p)
+        (output-port? p)))
+
+(must-raise (assertion-violation open-binary-output-file) (open-binary-output-file))
+(must-raise (assertion-violation open-binary-output-file) (open-binary-output-file 'output.txt))
+(must-raise (assertion-violation open-binary-output-file) (open-binary-output-file "output.txt" 2))
+
+(must-equal #f
+    (let ((p (open-input-file "r7rs.scm")))
+        (close-port p)
+        (input-port-open? p)))
+
+(must-raise (assertion-violation close-port) (close-port))
+(must-raise (assertion-violation close-port) (close-port 'port))
+
+(must-equal #f
+    (let ((p (open-input-file "r7rs.scm")))
+        (close-input-port p)
+        (input-port-open? p)))
+(must-raise (assertion-violation close-input-port)
+    (let ((p (open-output-file "output.txt")))
+        (close-input-port p)))
+
+(must-raise (assertion-violation close-input-port) (close-input-port))
+(must-raise (assertion-violation close-input-port) (close-input-port 'port))
+
+(must-equal #f
+    (let ((p (open-output-file "output.txt")))
+        (close-output-port p)
+        (output-port-open? p)))
+(must-raise (assertion-violation close-output-port)
+    (let ((p (open-input-file "r7rs.scm")))
+        (close-output-port p)))
+
+(must-raise (assertion-violation close-output-port) (close-output-port))
+(must-raise (assertion-violation close-output-port) (close-output-port 'port))
+
+(must-equal (hello world) (read (open-input-string "(hello world)")))
+
+(must-raise (assertion-violation open-input-string) (open-input-string))
+(must-raise (assertion-violation open-input-string) (open-input-string 'string))
+(must-raise (assertion-violation open-input-string) (open-input-string "a string" 2))
+
+(must-equal "(hello world)"
+    (let ((p (open-output-string)))
+        (write '(hello world) p)
+        (close-port p)
+        (get-output-string p)))
+
+(must-raise (assertion-violation open-output-string) (open-output-string "a string"))
+(must-raise (assertion-violation get-output-string) (get-output-string))
+(must-raise (assertion-violation get-output-string)
+    (let ((p (open-output-file "output2.txt")))
+        (get-output-string p)))
+
+(must-equal "piece by piece by piece."
+    (parameterize ((current-output-port (open-output-string)))
+        (display "piece")
+        (display " by piece ")
+        (display "by piece.")
+        (get-output-string (current-output-port))))
+
+(must-equal #u8(1 2 3 4 5) (read-bytevector 5 (open-input-bytevector #u8(1 2 3 4 5))))
+
+(must-raise (assertion-violation open-input-bytevector) (open-input-bytevector))
+(must-raise (assertion-violation open-input-bytevector) (open-input-bytevector #(1 2 3 4 5)))
+(must-raise (assertion-violation open-input-bytevector) (open-input-bytevector #u8(1 2) 3))
+
+(must-equal #u8(1 2 3 4)
+    (let ((p (open-output-bytevector)))
+        (write-u8 1 p)
+        (write-u8 2 p)
+        (write-u8 3 p)
+        (write-u8 4 p)
+        (close-output-port p)
+        (get-output-bytevector p)))
+
+(must-raise (assertion-violation open-output-bytevector) (open-output-bytevector #u8(1 2 3)))
+(must-raise (assertion-violation get-output-bytevector) (get-output-bytevector))
+(must-raise (assertion-violation get-output-bytevector)
+    (let ((p (open-binary-output-file "output2.txt")))
+        (get-output-bytevector p)))
+
 ;; write
 
 (must-equal "#0=(a b c . #0#)"
