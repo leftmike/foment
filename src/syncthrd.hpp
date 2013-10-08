@@ -109,9 +109,10 @@ typedef struct _FThread
     FObject Result;
     FObject Thunk;
     FObject Parameters;
+    FObject IndexParameters;
 } FThread;
 
-FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms);
+FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms, FObject idxprms);
 
 // ---- Exclusives ----
 
@@ -157,7 +158,7 @@ extern unsigned int TotalThreads;
 extern unsigned int WaitThreads;
 extern OSExclusive GCExclusive;
 
-void EnterThread(FThreadState * ts, FObject thrd, FObject prms);
+void EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms);
 void LeaveThread(FThreadState * ts);
 
 inline FObject IndexParameter(unsigned int idx)

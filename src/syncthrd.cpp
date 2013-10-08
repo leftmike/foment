@@ -11,7 +11,7 @@ Foment
 
 // ---- Threads ----
 
-FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms)
+FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms, FObject idxprms)
 {
     FThread * thrd = (FThread *) MakeObject(sizeof(FThread), ThreadTag);
     thrd->Reserved = MakeLength(0, ThreadTag);
@@ -19,6 +19,7 @@ FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms)
     thrd->Handle = h;
     thrd->Thunk = thnk;
     thrd->Parameters = prms;
+    thrd->IndexParameters = idxprms;
 
     return(thrd);
 }
@@ -99,6 +100,21 @@ Define("thread?", ThreadPPrimitive)(int argc, FObject argv[])
     return(ThreadP(argv[0]) ? TrueObject : FalseObject);
 }
 
+static FObject CurrentIndexParameters()
+{
+    FObject v = MakeVector(INDEX_PARAMETERS, 0, NoValueObject);
+
+    for (int idx = 0; idx < INDEX_PARAMETERS; idx++)
+    {
+        FAssert(PairP(GetThreadState()->IndexParameters[idx]));
+
+        AsVector(v)->Vector[idx] = MakePair(First(GetThreadState()->IndexParameters[idx]),
+                EmptyListObject);
+    }
+
+    return(v);
+}
+
 #ifdef FOMENT_WIN32
 static DWORD WINAPI FomentThread(FObject obj)
 {
@@ -106,7 +122,9 @@ static DWORD WINAPI FomentThread(FObject obj)
 
     FAssert(ThreadP(obj));
 
-    EnterThread(&ts, obj, AsThread(obj)->Parameters);
+    EnterThread(&ts, obj, AsThread(obj)->Parameters, AsThread(obj)->IndexParameters);
+    AsThread(obj)->Parameters = NoValueObject;
+    AsThread(obj)->IndexParameters = NoValueObject;
 
     try
     {
@@ -121,6 +139,8 @@ static DWORD WINAPI FomentThread(FObject obj)
     }
     catch (FObject exc)
     {
+        Write(R.StandardOutput, exc, 0);
+
         AsThread(obj)->Result = exc;
     }
 
@@ -138,7 +158,7 @@ Define("run-thread", RunThreadPrimitive)(int argc, FObject argv[])
         RaiseExceptionC(R.Assertion, "run-thread", "expected a procedure or a primitive",
                 List(argv[0]));
 
-    FObject thrd = MakeThread(0, argv[0], CurrentParameters());
+    FObject thrd = MakeThread(0, argv[0], CurrentParameters(), CurrentIndexParameters());
 
 #ifdef FOMENT_WIN32
     HANDLE h = CreateThread(0, 0, FomentThread, thrd, CREATE_SUSPENDED, 0);

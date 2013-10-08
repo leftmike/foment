@@ -2,12 +2,12 @@
 ;;; R7RS
 ;;;
 
-(import (scheme base))
 (import (scheme case-lambda))
 (import (scheme char))
 (import (scheme file))
 (import (scheme inexact))
 (import (scheme process-context))
+(import (scheme read))
 (import (scheme time))
 (import (scheme write))
 
@@ -1960,13 +1960,141 @@
 ;; ---- input and output ----
 ;;
 
-    
-    
-    
+
+(must-equal #t
+    (let ((p (open-input-file "r7rs.scm")))
+        (call-with-port p (lambda (p) (input-port? p)))))
+(must-equal #t
+    (let ((p (open-input-file "r7rs.scm")))
+        (call-with-port p (lambda (p) (input-port-open? p)))))
+(must-equal #f
+    (let ((p (open-input-file "r7rs.scm")))
+        (call-with-port p (lambda (p) (read p)))
+        (input-port-open? p)))
+(must-equal (import (scheme case-lambda))
+    (let ((p (open-input-file "r7rs.scm")))
+        (call-with-port p (lambda (p) (read p)))))
+
+(must-raise (assertion-violation call-with-port) (call-with-port (open-input-file "r7rs.scm")))
+(must-raise (assertion-violation close-port) (call-with-port 'port (lambda (p) p)))
+
+(must-equal #t (call-with-input-file "r7rs.scm" (lambda (p) (input-port? p))))
+(must-equal #t (call-with-input-file "r7rs.scm" (lambda (p) (input-port-open? p))))
+(must-equal (import (scheme case-lambda)) (call-with-input-file "r7rs.scm" (lambda (p) (read p))))
+
+(must-raise (assertion-violation call-with-input-file) (call-with-input-file "r7rs.scm"))
+(must-raise (assertion-violation open-binary-input-file)
+        (call-with-input-file 'r7rs.scm (lambda (p) p)))
+
+(must-equal #t (call-with-output-file "output.txt" (lambda (p) (output-port? p))))
+(must-equal #t (call-with-output-file "output.txt" (lambda (p) (output-port-open? p))))
+(must-equal (hello world)
+    (begin
+        (call-with-output-file "output.txt" (lambda (p) (write '(hello world) p)))
+        (call-with-input-file "output.txt" (lambda (p) (read p)))))
+
+(must-equal #f (input-port? "port"))
+(must-equal #t (input-port? (current-input-port)))
+(must-equal #f (input-port? (current-output-port)))
+
+(must-raise (assertion-violation input-port?) (input-port?))
+(must-raise (assertion-violation input-port?) (input-port? 'port 'port))
+
+(must-equal #f (output-port? "port"))
+(must-equal #f (output-port? (current-input-port)))
+(must-equal #t (output-port? (current-output-port)))
+
+(must-raise (assertion-violation output-port?) (output-port?))
+(must-raise (assertion-violation output-port?) (output-port? 'port 'port))
+
+(must-equal #f (textual-port? "port"))
+(must-equal #t (textual-port? (current-input-port)))
+(must-equal #t (textual-port? (current-output-port)))
+(must-equal #f (call-with-port (open-binary-input-file "r7rs.scm") (lambda (p) (textual-port? p))))
+(must-equal #f
+    (call-with-port (open-binary-output-file "output.txt") (lambda (p) (textual-port? p))))
+
+(must-raise (assertion-violation textual-port?) (textual-port?))
+(must-raise (assertion-violation textual-port?) (textual-port? 'port 'port))
+
+(must-equal #f (binary-port? "port"))
+(must-equal #f (binary-port? (current-input-port)))
+(must-equal #f (binary-port? (current-output-port)))
+(must-equal #t (call-with-port (open-binary-input-file "r7rs.scm") (lambda (p) (binary-port? p))))
+(must-equal #t
+    (call-with-port (open-binary-output-file "output.txt") (lambda (p) (binary-port? p))))
+
+(must-raise (assertion-violation binary-port?) (binary-port?))
+(must-raise (assertion-violation binary-port?) (binary-port? 'port 'port))
+
+(must-equal #f (port? "port"))
+(must-equal #t (port? (current-input-port)))
+(must-equal #t (port? (current-output-port)))
+(must-equal #t (call-with-port (open-binary-input-file "r7rs.scm") (lambda (p) (port? p))))
+(must-equal #t
+    (call-with-port (open-binary-output-file "output.txt") (lambda (p) (port? p))))
+
+(must-raise (assertion-violation port?) (port?))
+(must-raise (assertion-violation port?) (port? 'port 'port))
+
+(must-equal #t (input-port-open? (current-input-port)))
+(must-equal #t
+    (let ((p (open-input-file "r7rs.scm")))
+        (call-with-port p (lambda (p) (input-port-open? p)))))
+(must-equal #f
+    (let ((p (open-output-file "output.txt")))
+        (call-with-port p (lambda (p) (input-port-open? p)))))
+(must-equal #f
+    (let ((p (open-input-file "r7rs.scm")))
+        (call-with-port p (lambda (p) p))
+        (input-port-open? p)))
+
+(must-raise (assertion-violation input-port-open?) (input-port-open?))
+(must-raise (assertion-violation input-port-open?) (input-port-open? 'port))
+(must-raise (assertion-violation input-port-open?) (input-port-open? (current-input-port) 2))
+
+(must-equal #t (output-port-open? (current-output-port)))
+(must-equal #f
+    (let ((p (open-input-file "r7rs.scm")))
+        (call-with-port p (lambda (p) (output-port-open? p)))))
+(must-equal #t
+    (let ((p (open-output-file "output.txt")))
+        (call-with-port p (lambda (p) (output-port-open? p)))))
+(must-equal #f
+    (let ((p (open-output-file "output.txt")))
+        (call-with-port p (lambda (p) p))
+        (output-port-open? p)))
+
+(must-raise (assertion-violation output-port-open?) (output-port-open?))
+(must-raise (assertion-violation output-port-open?) (output-port-open? 'port))
+(must-raise (assertion-violation output-port-open?) (output-port-open? (current-output-port) 2))
+
+(must-equal #t (port? (current-input-port)))
+(must-equal #t (input-port? (current-input-port)))
+(must-equal #t (textual-port? (current-input-port)))
+(must-equal #t
+    (call-with-input-file "r7rs.scm"
+        (lambda (p)
+            (parameterize ((current-input-port p)) (eq? p (current-input-port))))))
+
+(must-equal #t (port? (current-output-port)))
+(must-equal #t (output-port? (current-output-port)))
+(must-equal #t (textual-port? (current-output-port)))
+(must-equal #t
+    (call-with-output-file "output.txt"
+        (lambda (p)
+            (parameterize ((current-output-port p)) (eq? p (current-output-port))))))
+
+(must-equal #t (port? (current-error-port)))
+(must-equal #t (output-port? (current-error-port)))
+(must-equal #t (textual-port? (current-error-port)))
+(must-equal #t
+    (call-with-output-file "output.txt"
+        (lambda (p)
+            (parameterize ((current-error-port p)) (eq? p (current-error-port))))))
 
 ;; write
 
-(define (cddr o) (cdr (cdr o)))
 (must-equal "#0=(a b c . #0#)"
     (let ((p (open-output-string)))
         (let ((x (list 'a 'b 'c)))

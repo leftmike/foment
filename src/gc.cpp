@@ -809,6 +809,10 @@ static void ScanChildren(FRaw raw, unsigned int tag, int fcf)
             ScanObject(&(AsThread(raw)->Result), fcf, mf);
         if (ObjectP(AsThread(raw)->Thunk))
             ScanObject(&(AsThread(raw)->Thunk), fcf, mf);
+        if (ObjectP(AsThread(raw)->Parameters))
+            ScanObject(&(AsThread(raw)->Parameters), fcf, mf);
+        if (ObjectP(AsThread(raw)->IndexParameters))
+            ScanObject(&(AsThread(raw)->IndexParameters), fcf, mf);
         break;
 
     case ExclusiveTag:
@@ -1393,7 +1397,7 @@ void InstallTracker(FObject obj, FObject ret, FObject tconc)
 #endif // FOMENT_DEBUG
 }
 
-void EnterThread(FThreadState * ts, FObject thrd, FObject prms)
+void EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms)
 {
 #ifdef FOMENT_WIN32
     FAssert(TlsGetValue(TlsIndex) == 0);
@@ -1432,8 +1436,16 @@ void EnterThread(FThreadState * ts, FObject thrd, FObject prms)
     ts->DynamicStack = EmptyListObject;
     ts->Parameters = prms;
 
-    for (int idx = 0; idx < INDEX_PARAMETERS; idx++)
-        ts->IndexParameters[idx] = NoValueObject;
+    if (VectorP(idxprms))
+    {
+        FAssert(VectorLength(idxprms) == INDEX_PARAMETERS);
+
+        for (int idx = 0; idx < INDEX_PARAMETERS; idx++)
+            ts->IndexParameters[idx] = AsVector(idxprms)->Vector[idx];
+    }
+    else
+        for (int idx = 0; idx < INDEX_PARAMETERS; idx++)
+            ts->IndexParameters[idx] = NoValueObject;
 }
 
 void LeaveThread(FThreadState * ts)
@@ -1554,8 +1566,8 @@ void SetupCore(FThreadState * ts)
     HANDLE h = OpenThread(STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x3FF, 0,
             GetCurrentThreadId());
 #endif // FOMENT_WIN32
-    EnterThread(ts, NoValueObject, NoValueObject);
-    ts->Thread = MakeThread(h, NoValueObject, NoValueObject);
+    EnterThread(ts, NoValueObject, NoValueObject, NoValueObject);
+    ts->Thread = MakeThread(h, NoValueObject, NoValueObject, NoValueObject);
 
     for (unsigned int idx = 0; idx < sizeof(Sizes) / sizeof(unsigned int); idx++)
         Sizes[idx] = 0;

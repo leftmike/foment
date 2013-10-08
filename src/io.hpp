@@ -5,8 +5,6 @@ Foment
 -- use Win32 console APIs
 -- use Win32 file APIs and not stdio
 
--- parameter for file-encoding: a procedure which converts from a binary port to a textual port
-
 -- MakeUtf8Port(FObject port): for utf8 characters
 -- MakeUtf16Port(FObject port): and utf16 characters
 
@@ -17,6 +15,14 @@ Foment
 -- need a port guardian to make sure ports are closed
 
 -- Alive to keep track of which are live objects
+
+-- get rid of Pretty
+
+-- read
+-- write
+
+-- test all input and output procedures
+-- document additional io procedures
 
 */
 
@@ -67,7 +73,9 @@ FObject MakeTextualPort(FObject nam, FObject obj, void * ictx, void * octx, FClo
 
 inline FObject CurrentInputPort()
 {
-    FObject port = IndexParameter(0);
+    FAssert(PairP(IndexParameter(0)));
+
+    FObject port = First(IndexParameter(0));
 
     FAssert(InputPortP(port) && InputPortOpenP(port));
 
@@ -76,7 +84,9 @@ inline FObject CurrentInputPort()
 
 inline FObject CurrentOutputPort()
 {
-    FObject port = IndexParameter(1);
+    FAssert(PairP(IndexParameter(1)));
+
+    FObject port = First(IndexParameter(1));
 
     FAssert(OutputPortP(port) && OutputPortOpenP(port));
 

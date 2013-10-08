@@ -493,16 +493,186 @@ FObject Read(FObject port, int rif, int fcf)
     return(DoRead(port, 1, 0, rif, fcf));
 }
 
-/*
+// ---- Input ----
+
+Define("read", ReadPrimitive)(int argc, FObject argv[])
+{
+    ZeroOrOneArgsCheck("read", argc);
+    FObject port = (argc == 1 ? argv[0] : CurrentInputPort());
+    TextualInputPortArgCheck("read", port);
+
+    return(Read(port, 0, 0));
+}
+
+Define("read-char", ReadCharPrimitive)(int argc, FObject argv[])
+{
+    FCh ch;
+
+    ZeroOrOneArgsCheck("read-char", argc);
+    FObject port = (argc == 1 ? argv[0] : CurrentInputPort());
+    TextualInputPortArgCheck("read-char", port);
+
+    return(ReadCh(port, &ch) == 0 ? EndOfFileObject : MakeCharacter(ch));
+}
+
+Define("peek-char", PeekCharPrimitive)(int argc, FObject argv[])
+{
+    FCh ch;
+
+    ZeroOrOneArgsCheck("peek-char", argc);
+    FObject port = (argc == 1 ? argv[0] : CurrentInputPort());
+    TextualInputPortArgCheck("peek-char", port);
+
+    return(PeekCh(port, &ch) == 0 ? EndOfFileObject : MakeCharacter(ch));
+}
+
+Define("read-line", ReadLinePrimitive)(int argc, FObject argv[])
+{
+    ZeroOrOneArgsCheck("read-line", argc);
+    FObject port = (argc == 1 ? argv[0] : CurrentInputPort());
+    TextualInputPortArgCheck("read-line", port);
+
+    return(ReadLine(port));
+}
+
+Define("eof-object?", EofObjectPPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("eof-object?", argc);
+
+    return(argv[0] == EndOfFileObject ? TrueObject : FalseObject);
+}
+
+Define("eof-object", EofObjectPrimitive)(int argc, FObject argv[])
+{
+    ZeroArgsCheck("eof-object", argc);
+
+    return(EndOfFileObject);
+}
+
+Define("char-ready?", CharReadyPPrimitive)(int argc, FObject argv[])
+{
+    ZeroOrOneArgsCheck("char-ready?", argc);
+    FObject port = (argc == 1 ? argv[0] : CurrentInputPort());
+    TextualInputPortArgCheck("char-ready?", port);
+
+    return(CharReadyP(port) ? TrueObject : FalseObject);
+}
+
+Define("read-string", ReadStringPrimitive)(int argc, FObject argv[])
+{
+    OneOrTwoArgsCheck("read-string", argc);
+    NonNegativeArgCheck("read-string", argv[0]);
+    FObject port = (argc == 2 ? argv[1] : CurrentInputPort());
+    TextualInputPortArgCheck("read-string", port);
+
+    return(ReadString(port, AsFixnum(argv[0])));
+}
+
+Define("read-u8", ReadU8Primitive)(int argc, FObject argv[])
+{
+    ZeroOrOneArgsCheck("read-u8", argc);
+    FObject port = (argc == 1 ? argv[0] : CurrentInputPort());
+    BinaryInputPortArgCheck("read-u8", port);
+
+    FByte b;
+    return(ReadBytes(port, &b, 1) == 0 ? EndOfFileObject : MakeFixnum(b));
+}
+
+Define("peek-u8", PeekU8Primitive)(int argc, FObject argv[])
+{
+    ZeroOrOneArgsCheck("peek-u8", argc);
+    FObject port = (argc == 1 ? argv[0] : CurrentInputPort());
+    BinaryInputPortArgCheck("peek-u8", port);
+
+    FByte b;
+    return(PeekByte(port, &b) == 0 ? EndOfFileObject : MakeFixnum(b));
+}
+
+Define("u8-ready?", U8ReadyPPrimitive)(int argc, FObject argv[])
+{
+    ZeroOrOneArgsCheck("u8-ready?", argc);
+    FObject port = (argc == 1 ? argv[0] : CurrentInputPort());
+    BinaryInputPortArgCheck("u8-ready?", port);
+
+    return(ByteReadyP(port) ? TrueObject : FalseObject);
+}
+
+Define("read-bytevector", ReadBytevectorPrimitive)(int argc, FObject argv[])
+{
+    OneOrTwoArgsCheck("read-bytevector", argc);
+    NonNegativeArgCheck("read-bytevector", argv[0]);
+    FObject port = (argc == 2 ? argv[1] : CurrentInputPort());
+    BinaryInputPortArgCheck("read-bytevector", port);
+
+    int bvl = AsFixnum(argv[0]);
+    FObject bv = MakeBytevector(bvl);
+    int rl = ReadBytes(port, AsBytevector(bv)->Vector, bvl);
+    if (rl == 0)
+        return(EmptyListObject);
+
+    if (rl == bvl)
+        return(bv);
+
+    FObject nbv = MakeBytevector(rl);
+    memcpy(AsBytevector(nbv)->Vector, AsBytevector(bv), rl);
+    return(nbv);
+}
+
+Define("read-bytevector!", ReadBytevectorModifyPrimitive)(int argc, FObject argv[])
+{
+    OneToFourArgsCheck("read-bytevector!", argc);
+    BytevectorArgCheck("read-bytevector!", argv[0]);
+    FObject port = argc > 1 ? argv[1] : CurrentInputPort();
+    BinaryInputPortArgCheck("read-bytevector!", port);
+
+    int strt;
+    int end;
+    if (argc > 2)
+    {
+        IndexArgCheck("read-bytevector!", argv[2], BytevectorLength(argv[0]));
+
+        strt = AsFixnum(argv[2]);
+
+        if (argc > 3)
+        {
+            EndIndexArgCheck("read-bytevector!", argv[3], strt, BytevectorLength(argv[0]));
+
+            end = AsFixnum(argv[3]);
+        }
+        else
+            end = (int) BytevectorLength(argv[0]);
+    }
+    else
+    {
+        strt = 0;
+        end = (int) BytevectorLength(argv[0]);
+    }
+
+    int rl = ReadBytes(port, AsBytevector(argv[0])->Vector + strt, end - strt);
+    if (rl == 0)
+        return(EmptyListObject);
+    return(MakeFixnum(rl));
+}
+
 static FPrimitive * Primitives[] =
 {
-    &WritePrettyPrimitive,
-    &DisplayPrettyPrimitive
+    &ReadPrimitive,
+    &ReadCharPrimitive,
+    &PeekCharPrimitive,
+    &ReadLinePrimitive,
+    &EofObjectPPrimitive,
+    &EofObjectPrimitive,
+    &CharReadyPPrimitive,
+    &ReadStringPrimitive,
+    &ReadU8Primitive,
+    &PeekU8Primitive,
+    &U8ReadyPPrimitive,
+    &ReadBytevectorPrimitive,
+    &ReadBytevectorModifyPrimitive
 };
-*/
 
 void SetupRead()
 {
-//    for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
-//        DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
+    for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+        DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

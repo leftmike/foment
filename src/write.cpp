@@ -667,223 +667,167 @@ void WritePretty(FObject port, FObject obj, int df)
 
 Define("write", WritePrimitive)(int argc, FObject argv[])
 {
-    FObject port;
-
-    if (argc < 1 || argc > 2)
-        RaiseExceptionC(R.Assertion, "write", "expected one or two arguments", EmptyListObject);
-
-    if (argc == 2)
-    {
-        if (OutputPortP(argv[1]) == 0)
-            RaiseExceptionC(R.Assertion, "write", "expected an output port", List(argv[1]));
-
-        port = argv[1];
-    }
-    else
-        port = R.StandardOutput;
+    OneOrTwoArgsCheck("write", argc);
+    FObject port = (argc == 2 ? argv[1] : CurrentOutputPort());
+    TextualOutputPortArgCheck("write", port);
 
     Write(port, argv[0], 0);
-
-    return(NoValueObject);
-}
-
-Define("display", DisplayPrimitive)(int argc, FObject argv[])
-{
-    FObject port;
-
-    if (argc < 1 || argc > 2)
-        RaiseExceptionC(R.Assertion, "display", "expected one or two arguments", EmptyListObject);
-
-    if (argc == 2)
-    {
-        if (OutputPortP(argv[1]) == 0)
-            RaiseExceptionC(R.Assertion, "display", "expected an output port", List(argv[1]));
-
-        port = argv[1];
-    }
-    else
-        port = R.StandardOutput;
-
-    Write(port, argv[0], 1);
-
     return(NoValueObject);
 }
 
 Define("write-shared", WriteSharedPrimitive)(int argc, FObject argv[])
 {
-    FObject port;
-
-    if (argc < 1 || argc > 2)
-        RaiseExceptionC(R.Assertion, "write-shared", "expected one or two arguments",
-                EmptyListObject);
-
-    if (argc == 2)
-    {
-        if (OutputPortP(argv[1]) == 0)
-            RaiseExceptionC(R.Assertion, "write-shared", "expected an output port",
-                    List(argv[1]));
-
-        port = argv[1];
-    }
-    else
-        port = R.StandardOutput;
+    OneOrTwoArgsCheck("write-shared", argc);
+    FObject port = (argc == 2 ? argv[1] : CurrentOutputPort());
+    TextualOutputPortArgCheck("write-shared", port);
 
     WriteShared(port, argv[0], 0);
-
-    return(NoValueObject);
-}
-
-Define("display-shared", DisplaySharedPrimitive)(int argc, FObject argv[])
-{
-    FObject port;
-
-    if (argc < 1 || argc > 2)
-        RaiseExceptionC(R.Assertion, "display-shared", "expected one or two arguments",
-                EmptyListObject);
-
-    if (argc == 2)
-    {
-        if (OutputPortP(argv[1]) == 0)
-            RaiseExceptionC(R.Assertion, "display-shared", "expected an output port",
-                    List(argv[1]));
-
-        port = argv[1];
-    }
-    else
-        port = R.StandardOutput;
-
-    WriteShared(port, argv[0], 1);
-
     return(NoValueObject);
 }
 
 Define("write-simple", WriteSimplePrimitive)(int argc, FObject argv[])
 {
-    FObject port;
-
-    if (argc < 1 || argc > 2)
-        RaiseExceptionC(R.Assertion, "write-simple", "expected one or two arguments",
-                EmptyListObject);
-
-    if (argc == 2)
-    {
-        if (OutputPortP(argv[1]) == 0)
-            RaiseExceptionC(R.Assertion, "write-simple", "expected an output port", List(argv[1]));
-
-        port = argv[1];
-    }
-    else
-        port = R.StandardOutput;
+    OneOrTwoArgsCheck("write-simple", argc);
+    FObject port = (argc == 2 ? argv[1] : CurrentOutputPort());
+    TextualOutputPortArgCheck("write-simple", port);
 
     WriteSimple(port, argv[0], 0);
-
     return(NoValueObject);
 }
 
-Define("display-simple", DisplaySimplePrimitive)(int argc, FObject argv[])
+Define("display", DisplayPrimitive)(int argc, FObject argv[])
 {
-    FObject port;
+    OneOrTwoArgsCheck("display", argc);
+    FObject port = (argc == 2 ? argv[1] : CurrentOutputPort());
+    TextualOutputPortArgCheck("display", port);
 
-    if (argc < 1 || argc > 2)
-        RaiseExceptionC(R.Assertion, "display-simple", "expected one or two arguments",
-                EmptyListObject);
-
-    if (argc == 2)
-    {
-        if (OutputPortP(argv[1]) == 0)
-            RaiseExceptionC(R.Assertion, "display-simple", "expected an output port",
-                    List(argv[1]));
-
-        port = argv[1];
-    }
-    else
-        port = R.StandardOutput;
-
-    WriteSimple(port, argv[0], 1);
-
+    Write(port, argv[0], 1);
     return(NoValueObject);
 }
 
 Define("newline", NewlinePrimitive)(int argc, FObject argv[])
 {
-    FObject port;
-
-    if (argc > 1)
-        RaiseExceptionC(R.Assertion, "newline", "expected zero or one arguments", EmptyListObject);
-
-    if (argc == 1)
-    {
-        if (OutputPortP(argv[0]) == 0)
-            RaiseExceptionC(R.Assertion, "newline", "expected an output port", List(argv[0]));
-
-        port = argv[1];
-    }
-    else
-        port = R.StandardOutput;
+    ZeroOrOneArgsCheck("newline", argc);
+    FObject port = (argc == 1 ? argv[0] : CurrentOutputPort());
+    TextualOutputPortArgCheck("newline", port);
 
     WriteCh(port, '\n');
-
     return(NoValueObject);
 }
 
-Define("write-pretty", WritePrettyPrimitive)(int argc, FObject argv[])
+Define("write-char", WriteCharPrimitive)(int argc, FObject argv[])
 {
-    FObject port;
+    OneOrTwoArgsCheck("write-char", argc);
+    CharacterArgCheck("write-char", argv[0]);
+    FObject port = (argc == 2 ? argv[1] : CurrentOutputPort());
+    TextualOutputPortArgCheck("write-char", port);
 
-    if (argc < 1 || argc > 2)
-        RaiseExceptionC(R.Assertion, "write-pretty", "expected one or two arguments",
-                EmptyListObject);
-
-    if (argc == 2)
-    {
-//        if (OldOutputPortP(argv[1]) == 0)
-//            RaiseExceptionC(R.Assertion, "write-pretty", "expected an output port", List(argv[1]));
-
-        port = argv[1];
-    }
-    else
-        port = R.StandardOutput;
-
-    WritePretty(port, argv[0], 0);
-
+    WriteCh(port, AsCharacter(argv[0]));
     return(NoValueObject);
 }
 
-Define("display-pretty", DisplayPrettyPrimitive)(int argc, FObject argv[])
+Define("write-string", WriteStringPrimitive)(int argc, FObject argv[])
 {
-    FObject port;
+    OneToFourArgsCheck("write-string", argc);
+    StringArgCheck("write-string", argv[0]);
+    FObject port = (argc > 1 ? argv[1] : CurrentOutputPort());
+    TextualOutputPortArgCheck("write-string", port);
 
-    if (argc < 1 || argc > 2)
-        RaiseExceptionC(R.Assertion, "display-pretty", "expected one or two arguments",
-                EmptyListObject);
-
-    if (argc == 2)
+    int strt;
+    int end;
+    if (argc > 2)
     {
-//        if (OldOutputPortP(argv[1]) == 0)
-//            RaiseExceptionC(R.Assertion, "display-pretty", "expected an output port",
-//                    List(argv[1]));
+        IndexArgCheck("write-string", argv[2], StringLength(argv[0]));
 
-        port = argv[1];
+        strt = AsFixnum(argv[2]);
+
+        if (argc > 3)
+        {
+            EndIndexArgCheck("write-string", argv[3], strt, StringLength(argv[0]));
+
+            end = AsFixnum(argv[3]);
+        }
+        else
+            end = (int) StringLength(argv[0]);
     }
     else
-        port = R.StandardOutput;
+    {
+        strt = 0;
+        end = (int) StringLength(argv[0]);
+    }
 
-    WritePretty(port, argv[0], 1);
+    WriteString(port, AsString(argv[0])->String + strt, end - strt);
+    return(NoValueObject);
+}
 
+Define("write-u8", WriteU8Primitive)(int argc, FObject argv[])
+{
+    OneOrTwoArgsCheck("write-u8", argc);
+    ByteArgCheck("write-u8", argv[0]);
+    FObject port = (argc == 2 ? argv[1] : CurrentOutputPort());
+    BinaryOutputPortArgCheck("write-u8", port);
+
+    FByte b = (FByte) AsFixnum(argv[0]);
+    WriteBytes(port, &b, 1);
+    return(NoValueObject);
+}
+
+Define("write-bytevector", WriteBytevectorPrimitive)(int argc, FObject argv[])
+{
+    OneToFourArgsCheck("write-bytevector", argc);
+    BytevectorArgCheck("write-bytevector", argv[0]);
+    FObject port = (argc > 1 ? argv[1] : CurrentOutputPort());
+    BinaryOutputPortArgCheck("write-bytevector", port);
+
+    int strt;
+    int end;
+    if (argc > 2)
+    {
+        IndexArgCheck("write-bytevector", argv[2], BytevectorLength(argv[0]));
+
+        strt = AsFixnum(argv[2]);
+
+        if (argc > 3)
+        {
+            EndIndexArgCheck("write-bytevector", argv[3], strt, BytevectorLength(argv[0]));
+
+            end = AsFixnum(argv[3]);
+        }
+        else
+            end = (int) BytevectorLength(argv[0]);
+    }
+    else
+    {
+        strt = 0;
+        end = (int) BytevectorLength(argv[0]);
+    }
+
+    WriteBytes(port, AsBytevector(argv[0])->Vector + strt, end - strt);
+    return(NoValueObject);
+}
+
+Define("flush-output-port", FlushOutputPortPrimitive)(int argc, FObject argv[])
+{
+    ZeroOrOneArgsCheck("flush-output-port", argc);
+    FObject port = (argc == 1 ? argv[0] : CurrentOutputPort());
+    OutputPortArgCheck("flush-output-port", port);
+
+    FlushOutput(port);
     return(NoValueObject);
 }
 
 static FPrimitive * Primitives[] =
 {
     &WritePrimitive,
-    &DisplayPrimitive,
     &WriteSharedPrimitive,
-    &DisplaySharedPrimitive,
     &WriteSimplePrimitive,
-    &DisplaySimplePrimitive,
+    &DisplayPrimitive,
     &NewlinePrimitive,
-    &WritePrettyPrimitive,
-    &DisplayPrettyPrimitive
+    &WriteCharPrimitive,
+    &WriteStringPrimitive,
+    &WriteU8Primitive,
+    &WriteBytevectorPrimitive,
+    &FlushOutputPortPrimitive
 };
 
 void SetupWrite()

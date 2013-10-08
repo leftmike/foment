@@ -44,7 +44,7 @@
         cdr
 ;        ceiling
         char->integer
-;        char-ready?
+        char-ready?
         char<=?
         char<?
         char=?
@@ -69,8 +69,8 @@
         do
         dynamic-wind
         else
-;        eof-object
-;        eof-object?
+        eof-object
+        eof-object?
         eq?
         equal?
         eqv?
@@ -90,7 +90,7 @@
 ;        floor-quotient
 ;        floor-remainder
 ;        floor/
-;        flush-output-port
+        flush-output-port
         for-each
 ;        gcd
         get-output-bytevector
@@ -153,8 +153,8 @@
         output-port?
         pair?
         parameterize
-;        peek-char
-;        peek-u8
+        peek-char
+        peek-u8
         port?
         positive?
         procedure?
@@ -165,13 +165,13 @@
         raise-continuable
 ;        rational?
 ;        rationalize
-;        read-bytevector
-;        read-bytevector!
-;        read-char
+        read-bytevector
+        read-bytevector!
+        read-char
         read-error?
-;        read-line
-;        read-string
-;        read-u8
+        read-line
+        read-string
+        read-u8
 ;        real?
 ;        remainder
         reverse
@@ -212,7 +212,7 @@
 ;        truncate-quotient
 ;        truncate-remainder
 ;        truncate/
-;        u8-ready?
+        u8-ready?
         unless
         unquote
         unquote-splicing
@@ -233,10 +233,10 @@
         vector?
         when
         with-exception-handler
-;        write-bytevector
-;        write-char
-;        Write-string
-;        write-u8
+        write-bytevector
+        write-char
+        write-string
+        write-u8
         zero?)
     (export ;; (scheme case-lambda)
         case-lambda)
@@ -292,12 +292,14 @@
         sqrt
 ;        tan
     )
-     (export ;; (scheme process-context)
-         command-line
-;         exit
-         get-environment-variable
-         get-environment-variables
-         emergency-exit)
+    (export ;; (scheme process-context)
+        command-line
+;        exit
+        get-environment-variable
+        get-environment-variables
+        emergency-exit)
+    (export ;; (scheme read)
+        read)
     (export ;; (scheme repl)
         interaction-environment)
     (export ;; (scheme time)
@@ -315,9 +317,8 @@
         import
         define-library
         
-        syntax unsyntax eq-hash eqv-hash display-shared display-simple
+        syntax unsyntax eq-hash eqv-hash
         equal-hash error-object-who full-error loaded-libraries library-path
-        write-pretty display-pretty
         with-continuation-mark call-with-continuation-prompt abort-current-continuation
         default-prompt-tag (rename default-prompt-tag default-continuation-prompt-tag)
         default-prompt-handler current-continuation-marks collect make-guardian make-tracker
@@ -753,7 +754,7 @@
                 (lambda (obj)
                     (if (not (and (input-port? obj) (input-port-open? obj)))
                         (full-error 'assertion-violation 'current-input-port
-                                "current-input-port: expected an open textual input port" obj))
+                                "current-input-port: expected an open input port" obj))
                     obj)))
 
         (define current-output-port
@@ -761,7 +762,7 @@
                 (lambda (obj)
                     (if (not (and (output-port? obj) (output-port-open? obj)))
                         (full-error 'assertion-violation 'current-output-port
-                                "current-output-port: expected an open textual output port" obj))
+                                "current-output-port: expected an open output port" obj))
                     obj)))
 
         (define current-error-port
@@ -769,7 +770,7 @@
                 (lambda (obj)
                     (if (not (and (output-port? obj) (output-port-open? obj)))
                         (full-error 'assertion-violation 'current-error-port
-                                "current-error-port: expected an open textual output port" obj))
+                                "current-error-port: expected an open output port" obj))
                     obj)))
 
         (define file-encoding (make-parameter make-latin-1-port))
@@ -854,7 +855,7 @@
         cdr
 ;;        ceiling
         char->integer
-;;        char-ready?
+        char-ready?
         char<=?
         char<?
         char=?
@@ -879,8 +880,8 @@
         do
         dynamic-wind
         else
-;;        eof-object
-;;        eof-object?
+        eof-object
+        eof-object?
         eq?
         equal?
         eqv?
@@ -900,7 +901,7 @@
 ;;        floor-quotient
 ;;        floor-remainder
 ;;        floor/
-;;        flush-output-port
+        flush-output-port
         for-each
 ;;        gcd
         get-output-bytevector
@@ -963,8 +964,8 @@
         output-port?
         pair?
         parameterize
-;;        peek-char
-;;        peek-u8
+        peek-char
+        peek-u8
         port?
         positive?
         procedure?
@@ -975,13 +976,13 @@
         raise-continuable
 ;;        rational?
 ;;        rationalize
-;;        read-bytevector
-;;        read-bytevector!
-;;        read-char
+        read-bytevector
+        read-bytevector!
+        read-char
         read-error?
-;;        read-line
-;;        read-string
-;;        read-u8
+        read-line
+        read-string
+        read-u8
 ;;        real?
 ;;        remainder
         reverse
@@ -1022,7 +1023,7 @@
 ;;        truncate-quotient
 ;;        truncate-remainder
 ;;        truncate/
-;;        u8-ready?
+        u8-ready?
         unless
         unquote
         unquote-splicing
@@ -1043,10 +1044,10 @@
         vector?
         when
         with-exception-handler
-;;        write-bytevector
-;;        write-char
-;;        Write-string
-;;        write-u8
+        write-bytevector
+        write-char
+        write-string
+        write-u8
         zero?))
 
 (define-library (scheme case-lambda)
@@ -1135,7 +1136,10 @@
          get-environment-variables
          emergency-exit))
 
-;; (define-library (scheme read)
+(define-library (scheme read)
+    (import (foment base))
+    (export
+        read))
 
 (define-library (scheme repl)
     (import (foment base))

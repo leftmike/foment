@@ -41,7 +41,9 @@ Future:
 -- strings and srfi-13
 
 Bugs:
--- ConvertToSystem does not protect an object from GC in some cases
+-- ConvertToSystem does not protect an object from GC in some cases if IO allows GC
+-- write-bytevector, write-string, read-bytevector, and read-bytevector! assume GC does
+    not happen during IO
 -- call/cc: unwind only as far as the common tail
 -- gc.cpp: AllocateSection failing is not handled by all callers
 -- ExecuteThunk does not check for CStack or AStack overflow
@@ -524,6 +526,7 @@ int GetLocation(FObject port);
 unsigned int ReadBytes(FObject port, FByte * b, unsigned int bl);
 int PeekByte(FObject port, FByte * b);
 int ByteReadyP(FObject port);
+
 void WriteBytes(FObject port, void * b, unsigned int bl);
 
 // Textual ports
@@ -538,6 +541,8 @@ FObject GetOutputString(FObject port);
 unsigned int ReadCh(FObject port, FCh * ch);
 unsigned int PeekCh(FObject port, FCh * ch);
 int CharReadyP(FObject port);
+FObject ReadLine(FObject port);
+FObject ReadString(FObject port, int cnt);
 
 FObject Read(FObject port, int rif, int fcf);
 
@@ -997,6 +1002,12 @@ inline void OneToThreeArgsCheck(char * who, int argc)
         RaiseExceptionC(R.Assertion, who, "expected one to three arguments", EmptyListObject);
 }
 
+inline void OneToFourArgsCheck(char * who, int argc)
+{
+    if (argc < 1 || argc > 4)
+        RaiseExceptionC(R.Assertion, who, "expected one to four arguments", EmptyListObject);
+}
+
 inline void TwoToFourArgsCheck(char * who, int argc)
 {
     if (argc < 2 || argc > 4)
@@ -1122,6 +1133,30 @@ inline void BytevectorOutputPortArgCheck(char * who, FObject obj)
 {
     if (BytevectorOutputPortP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a bytevector output port", List(obj));
+}
+
+inline void TextualInputPortArgCheck(char * who, FObject obj)
+{
+    if (TextualPortP(obj) == 0 || InputPortOpenP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected an open textual input port", List(obj));
+}
+
+inline void TextualOutputPortArgCheck(char * who, FObject obj)
+{
+    if (TextualPortP(obj) == 0 || OutputPortOpenP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected an open textual output port", List(obj));
+}
+
+inline void BinaryInputPortArgCheck(char * who, FObject obj)
+{
+    if (BinaryPortP(obj) == 0 || InputPortOpenP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected an open binary input port", List(obj));
+}
+
+inline void BinaryOutputPortArgCheck(char * who, FObject obj)
+{
+    if (TextualPortP(obj) == 0 || OutputPortOpenP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected an open binary output port", List(obj));
 }
 
 // ----------------

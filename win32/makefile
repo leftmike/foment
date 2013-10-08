@@ -8,27 +8,20 @@ CLRELEASE = /nologo /MD /W3 /O1sy /Gs /GA /EHsc /Forelease/ /c /DFOMENT_TEST /DF
 
 all: debug release debug\foment.exe release\foment.exe
 
-doc: manual
-    @cd manual
-    makeinfo --force --html --no-split ..\..\doc\foment.texi
-    makeinfo --force ..\..\doc\foment.texi
-    texi2dvi --pdf ..\..\doc\foment.texi
-    @cd ..
-
 clean: debug release manual
     del /Q debug\*
     del /Q release\*
     del /Q manual\*
 
 test: all
-    debug\foment -I ..\test -t ..\test\r7rs.scm ..\test\foment.scm ..\test\eccentric.scm\
-        ..\test\r5rs_pitfall.scm ..\test\unicode.scm
-    release\foment -I ..\test -t ..\test\r7rs.scm ..\test\foment.scm ..\test\eccentric.scm\
-        ..\test\r5rs_pitfall.scm ..\test\unicode.scm
+    cd ..\test
+    ..\win32\debug\foment -t r7rs.scm foment.scm eccentric.scm r5rs_pitfall.scm unicode.scm
+    ..\win32\release\foment -t r7rs.scm foment.scm eccentric.scm r5rs_pitfall.scm unicode.scm
 
 stress: all
-    debug\foment -I ..\test -t ..\test\stress.scm ..\test\r7rs.scm
-    release\foment -I ..\test -t ..\test\stress.scm ..\test\r7rs.scm
+    cd ..\test
+    ..\win32\debug\foment -t stress.scm r7rs.scm
+    ..\win32\release\foment -t stress.scm r7rs.scm
 
 debug:
     -mkdir debug

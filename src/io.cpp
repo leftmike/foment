@@ -336,6 +336,75 @@ int CharReadyP(FObject port)
     return(AsTextualPort(port)->CharReadyPFn(port));
 }
 
+static FObject ListToString(FObject lst)
+{
+    unsigned int sl = ListLength(lst);
+    FObject s = MakeString(0, sl);
+    unsigned int sdx = sl;
+
+    while (sdx > 0)
+    {
+        sdx -= 1;
+        AsString(s)->String[sdx] = AsCharacter(First(lst));
+        lst = Rest(lst);
+    }
+
+    return(s);
+}
+
+FObject ReadLine(FObject port)
+{
+    FObject lst = EmptyListObject;
+    FCh ch;
+
+    while (ReadCh(port, &ch))
+    {
+        if (ch == 0x0A || ch == 0x0D)
+            break;
+
+        lst = MakePair(MakeCharacter(ch), lst);
+    }
+
+    if (ch == 0x0D) // carriage return
+    {
+        while(PeekCh(port, &ch))
+        {
+            if (ch == 0x0A) // linefeed
+            {
+                ReadCh(port, &ch);
+                break;
+            }
+
+            if (ch != 0x0D) // carriage return
+                break;
+
+            ReadCh(port, &ch);
+        }
+    }
+
+    if (lst == EmptyListObject)
+        return(EndOfFileObject);
+
+    return(ListToString(lst));
+}
+
+FObject ReadString(FObject port, int cnt)
+{
+    FObject lst = EmptyListObject;
+    FCh ch;
+
+    while (cnt > 0 && ReadCh(port, &ch))
+    {
+        cnt -= 1;
+        lst = MakePair(MakeCharacter(ch), lst);
+    }
+
+    if (lst == EmptyListObject)
+        return(EndOfFileObject);
+
+    return(ListToString(lst));
+}
+
 void WriteCh(FObject port, FCh ch)
 {
     FAssert(TextualPortP(port) && OutputPortOpenP(port));
