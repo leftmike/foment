@@ -79,14 +79,14 @@ int PeekByte(FObject port, FByte * b)
         FAssert(AsBinaryPort(port)->PeekedByte >= 0 && AsBinaryPort(port)->PeekedByte <= 0xFF);
 
         *b = (FByte) AsBinaryPort(port)->PeekedByte;
-        return(0);
+        return(1);
     }
 
     if (AsBinaryPort(port)->ReadBytesFn(port, b, 1) == 0)
-        return(1);
+        return(0);
 
     AsBinaryPort(port)->PeekedByte = *b;
-    return(0);
+    return(1);
 }
 
 int ByteReadyP(FObject port)
@@ -353,7 +353,7 @@ static FObject ListToString(FObject lst)
 FObject ReadLine(FObject port)
 {
     FObject lst = EmptyListObject;
-    FCh ch;
+    FCh ch = 0;
 
     while (ReadCh(port, &ch))
     {
@@ -380,7 +380,7 @@ FObject ReadLine(FObject port)
         }
     }
 
-    if (lst == EmptyListObject)
+    if (ch == 0 && lst == EmptyListObject)
         return(EndOfFileObject);
 
     return(ListToString(lst));

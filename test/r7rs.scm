@@ -1899,65 +1899,27 @@
 (must-raise (assertion-violation error-object-irritants) (error-object-irritants 1 2))
 
 (must-equal #f (read-error? 'read))
+(must-equal #f
+    (guard (obj
+        ((read-error? obj) #t)
+        (else #f))
+        (+ 'a 'b)))
 
 (must-raise (assertion-violation read-error?) (read-error?))
 (must-raise (assertion-violation read-error?) (read-error? 1 2))
 
 (must-equal #f (file-error? 'file))
+(must-equal #f
+    (guard (obj
+        ((file-error? obj) #t)
+        (else #f))
+        (+ 'a 'b)))
 
 (must-raise (assertion-violation file-error?) (file-error?))
 (must-raise (assertion-violation file-error?) (file-error? 1 2))
 
 ;;
-;; ---- system interface ----
-;;
-
-(must-equal #f (file-exists? "not-a-real-filename"))
-(must-equal #t (file-exists? "..\\test\\r7rs.scm"))
-
-(must-raise (assertion-violation file-exists?) (file-exists?))
-(must-raise (assertion-violation file-exists?) (file-exists? #\a))
-(must-raise (assertion-violation file-exists?) (file-exists? "filename" 2))
-
-(must-raise (assertion-violation delete-file) (delete-file))
-(must-raise (assertion-violation delete-file) (delete-file #\a))
-(must-raise (assertion-violation delete-file) (delete-file "filename" 2))
-
-(must-raise (assertion-violation command-line) (command-line 1))
-
-(must-raise (assertion-violation emergency-exit) (emergency-exit 1 2))
-
-(must-equal #f (get-environment-variable "not the name of an environment variable"))
-(must-equal #t (string? (get-environment-variable "Path")))
-
-(must-raise (assertion-violation get-environment-variable) (get-environment-variable))
-(must-raise (assertion-violation get-environment-variable) (get-environment-variable #\a))
-(must-raise (assertion-violation get-environment-variable) (get-environment-variable "Path" 2))
-
-(must-equal #f (assoc "not the name of an environment variable" (get-environment-variables)))
-(must-equal #t (string? (car (assoc "Path" (get-environment-variables)))))
-
-(must-raise (assertion-violation get-environment-variables) (get-environment-variables 1))
-
-(must-equal #t (> (current-second) 0))
-
-(must-raise (assertion-violation current-second) (current-second 1))
-
-(must-equal #t (> (current-jiffy) 0))
-
-(must-raise (assertion-violation current-jiffy) (current-jiffy 1))
-
-(must-equal #t (> (jiffies-per-second) 0))
-
-(must-raise (assertion-violation jiffies-per-second) (jiffies-per-second 1))
-
-(must-equal #f (memq 'not-a-feature (features)))
-(must-equal #t (pair? (memq 'r7rs (features))))
-
-(must-raise (assertion-violation features) (features 1))
-
-;;
-;; ---- input and output ----
+;; ---- ports ----
 ;;
 
 
@@ -2148,6 +2110,11 @@
     (let* ((p (open-binary-input-file "r7rs.scm")))
         (close-port p)
         (input-port? p)))
+(must-equal #t
+    (guard (obj
+        ((file-error? obj) #t)
+        (else #f))
+        (open-binary-input-file "not-a-directory\\not-a-file.txt")))
 
 (must-raise (assertion-violation open-binary-input-file) (open-binary-input-file))
 (must-raise (assertion-violation open-binary-input-file) (open-binary-input-file 'r7rs.scm))
@@ -2176,6 +2143,11 @@
     (let* ((p (open-binary-output-file "output.txt")))
         (close-port p)
         (output-port? p)))
+(must-equal #t
+    (guard (obj
+        ((file-error? obj) #t)
+        (else #f))
+        (open-binary-output-file "not-a-directory\\not-a-file.txt")))
 
 (must-raise (assertion-violation open-binary-output-file) (open-binary-output-file))
 (must-raise (assertion-violation open-binary-output-file) (open-binary-output-file 'output.txt))
@@ -2257,7 +2229,159 @@
     (let ((p (open-binary-output-file "output2.txt")))
         (get-output-bytevector p)))
 
-;; write
+;;
+;; ---- input ----
+;;
+
+(must-equal (hello world)
+    (parameterize ((current-input-port (open-input-string "(hello world)")))
+        (read)))
+(must-equal (hello world) (read (open-input-string "(hello world)")))
+(must-equal #t
+    (guard (obj
+        ((read-error? obj) #t)
+        (else #f))
+        (read (open-input-string "(hello world"))))
+
+(must-raise (assertion-violation read) (read 'port))
+(must-raise (assertion-violation read) (read (open-input-bytevector #u8(1 2 3))))
+(must-raise (assertion-violation read) (read (current-input-port) 2))
+(must-raise (assertion-violation read) (read (current-output-port)))
+
+(must-equal #\A (read-char (open-input-string "ABCD")))
+(must-equal #\D
+    (parameterize ((current-input-port (open-input-string "ABCDEFG")))
+        (read-char)
+        (read-char)
+        (read-char)
+        (peek-char)
+        (read-char)))
+
+(must-raise (assertion-violation read-char) (read-char 'port))
+(must-raise (assertion-violation read-char) (read-char (open-input-bytevector #u8(1 2 3))))
+(must-raise (assertion-violation read-char) (read-char (current-input-port) 2))
+(must-raise (assertion-violation read-char) (read-char (current-output-port)))
+
+(must-equal #\A (peek-char (open-input-string "ABCD")))
+(must-equal #\D
+    (parameterize ((current-input-port (open-input-string "ABCDEFG")))
+        (read-char)
+        (read-char)
+        (read-char)
+        (peek-char)))
+
+(must-raise (assertion-violation peek-char) (peek-char 'port))
+(must-raise (assertion-violation peek-char) (peek-char (open-input-bytevector #u8(1 2 3))))
+(must-raise (assertion-violation peek-char) (peek-char (current-input-port) 2))
+(must-raise (assertion-violation peek-char) (peek-char (current-output-port)))
+
+(must-equal "abcd" (read-line (open-input-string "abcd\nABCD\n")))
+(must-equal "ABCD"
+    (let ((p (open-input-string "abcd\n\nABCD\n")))
+        (read-line p)
+        (read-line p)
+        (read-line p)))
+
+(must-raise (assertion-violation read-line) (read-line 'port))
+(must-raise (assertion-violation read-line) (read-line (open-input-bytevector #u8(1 2 3))))
+(must-raise (assertion-violation read-line) (read-line (current-input-port) 2))
+(must-raise (assertion-violation read-line) (read-line (current-output-port)))
+
+(must-equal #t (eof-object? (read (open-input-string ""))))
+(must-equal #f (eof-object? 'eof))
+
+(must-raise (assertion-violation eof-object?) (eof-object?))
+(must-raise (assertion-violation eof-object?) (eof-object? 1 2))
+
+(must-equal #t (eof-object? (eof-object)))
+
+(must-raise (assertion-violation eof-object) (eof-object 1))
+
+(must-equal #t (char-ready? (open-input-string "abc")))
+
+(must-raise (assertion-violation char-ready?) (char-ready? 'port))
+(must-raise (assertion-violation char-ready?) (char-ready? (open-input-bytevector #u8(1 2 3))))
+(must-raise (assertion-violation char-ready?) (char-ready? (current-input-port) 2))
+(must-raise (assertion-violation char-ready?) (char-ready? (current-output-port)))
+
+(must-equal "abcd" (read-string 4 (open-input-string "abcdefgh")))
+(must-equal "efg"
+    (let ((p (open-input-string "abcdefg")))
+        (read-string 4 p)
+        (read-string 4 p)))
+
+(must-equal #t
+    (eof-object?
+        (let ((p (open-input-string "abcdefg")))
+            (read-string 4 p)
+            (read-string 4 p)
+            (read-string 4 p))))
+
+(must-raise (assertion-violation read-string) (read-string -1 (current-output-port)))
+(must-raise (assertion-violation read-string) (read-string 1 'port))
+(must-raise (assertion-violation read-string) (read-string 1 (open-input-bytevector #u8(1 2 3))))
+(must-raise (assertion-violation read-string) (read-string 1 (current-input-port) 2))
+(must-raise (assertion-violation read-string) (read-string 1 (current-output-port)))
+
+(must-equal 1 (read-u8 (open-input-bytevector #u8(1 2 3 4 5))))
+
+(must-raise (assertion-violation read-u8) (read-u8 'port))
+(must-raise (assertion-violation read-u8) (read-u8 (open-input-string "1234")))
+(must-raise (assertion-violation read-u8) (read-u8 (open-input-bytevector #u8(1 2 3)) 2))
+(must-raise (assertion-violation read-u8) (read-u8 (current-output-port)))
+
+(must-equal 1 (peek-u8 (open-input-bytevector #u8(1 2 3 4 5))))
+
+(must-raise (assertion-violation peek-u8) (peek-u8 'port))
+(must-raise (assertion-violation peek-u8) (peek-u8 (open-input-string "1234")))
+(must-raise (assertion-violation peek-u8) (peek-u8 (open-input-bytevector #u8(1 2 3)) 2))
+(must-raise (assertion-violation peek-u8) (peek-u8 (current-output-port)))
+
+(must-equal #t (u8-ready? (open-input-bytevector #u8(1 2 3 4 5))))
+
+(must-raise (assertion-violation u8-ready?) (u8-ready? 'port))
+(must-raise (assertion-violation u8-ready?) (u8-ready? (open-input-string "1234")))
+(must-raise (assertion-violation u8-ready?) (u8-ready? (open-input-bytevector #u8(1 2 3)) 2))
+(must-raise (assertion-violation u8-ready?) (u8-ready? (current-output-port)))
+
+(must-equal #u8(1 2 3 4) (read-bytevector 4 (open-input-bytevector #u8(1 2 3 4 5 6 7 8))))
+(must-equal #u8(1 2 3 4) (read-bytevector 8 (open-input-bytevector #u8(1 2 3 4))))
+
+(must-raise (assertion-violation read-bytevector)
+        (read-bytevector -1 (open-input-bytevector #u8(1 2 3))))
+(must-raise (assertion-violation read-bytevector) (read-bytevector 1 'port))
+(must-raise (assertion-violation read-bytevector) (read-bytevector 1 (open-input-string "1234")))
+(must-raise (assertion-violation read-bytevector)
+        (read-bytevector 1 (open-input-bytevector #u8(1 2 3)) 2))
+(must-raise (assertion-violation read-bytevector) (read-bytevector 1 (current-output-port)))
+
+(must-equal #u8(1 2 3 4)
+    (let ((bv (make-bytevector 4 0)))
+        (read-bytevector! bv (open-input-bytevector #u8(1 2 3 4 5 6 7 8)))
+        bv))
+(must-equal #u8(0 1 2 3)
+    (let ((bv (make-bytevector 4 0)))
+        (read-bytevector! bv (open-input-bytevector #u8(1 2 3 4 5 6 7 8)) 1)
+        bv))
+(must-equal #u8(0 1 2 0)
+    (let ((bv (make-bytevector 4 0)))
+        (read-bytevector! bv (open-input-bytevector #u8(1 2 3 4 5 6 7 8)) 1 3)
+        bv))
+
+(define bv (make-bytevector 4 0))
+(must-raise (assertion-violation read-bytevector!) (read-bytevector! #(1 2 3)))
+(must-raise (assertion-violation read-bytevector!) (read-bytevector! bv 'port))
+(must-raise (assertion-violation read-bytevector!) (read-bytevector! bv (current-input-port)))
+(must-raise (assertion-violation read-bytevector!)
+    (read-bytevector! bv (open-input-bytevector #u8()) -1))
+(must-raise (assertion-violation read-bytevector!)
+    (read-bytevector! bv (open-input-bytevector #u8()) 1 0))
+(must-raise (assertion-violation read-bytevector!)
+    (read-bytevector! bv (open-input-bytevector #u8()) 1 5))
+
+;;
+;; ---- output ----
+;;
 
 (must-equal "#0=(a b c . #0#)"
     (let ((p (open-output-string)))
@@ -2279,10 +2403,180 @@
             (write (cons x x) p)
             (get-output-string p))))
 
-;; write-shared
-
 (must-equal "(#0=(a b c) . #0#)"
     (let ((p (open-output-string)))
         (let ((x (list 'a 'b 'c)))
             (write-shared (cons x x) p)
             (get-output-string p))))
+
+(must-equal "#0=(#\\a \"b\" c . #0#)"
+    (let ((p (open-output-string)))
+        (let ((x (list #\a "b" 'c)))
+            (set-cdr! (cddr x) x)
+            (write x p)
+            (get-output-string p))))
+
+(must-equal "#0=(a b c . #0#)"
+    (let ((p (open-output-string)))
+        (let ((x (list #\a "b" 'c)))
+            (set-cdr! (cddr x) x)
+            (display x p)
+            (get-output-string p))))
+
+(must-equal "((a b c) a b c)"
+    (let ((p (open-output-string)))
+        (let ((x (list 'a 'b 'c)))
+            (write-simple (cons x x) p)
+            (get-output-string p))))
+
+(must-raise (assertion-violation write) (write))
+(must-raise (assertion-violation write) (write #f (current-input-port)))
+(must-raise (assertion-violation write) (write #f (current-output-port) 3))
+(must-raise (assertion-violation write) (write #f (open-output-bytevector)))
+
+(must-raise (assertion-violation write-shared) (write-shared))
+(must-raise (assertion-violation write-shared) (write-shared #f (current-input-port)))
+(must-raise (assertion-violation write-shared) (write-shared #f (current-output-port) 3))
+(must-raise (assertion-violation write-shared) (write-shared #f (open-output-bytevector)))
+
+(must-raise (assertion-violation write-simple) (write-simple))
+(must-raise (assertion-violation write-simple) (write-simple #f (current-input-port)))
+(must-raise (assertion-violation write-simple) (write-simple #f (current-output-port) 3))
+(must-raise (assertion-violation write-simple) (write-simple #f (open-output-bytevector)))
+
+(must-raise (assertion-violation display) (display))
+(must-raise (assertion-violation display) (display #f (current-input-port)))
+(must-raise (assertion-violation display) (display #f (current-output-port) 3))
+(must-raise (assertion-violation display) (display #f (open-output-bytevector)))
+
+(must-equal "\n"
+    (let ((p (open-output-string)))
+        (newline p)
+        (get-output-string p)))
+
+(must-raise (assertion-violation newline) (newline (current-input-port)))
+(must-raise (assertion-violation newline) (newline (current-output-port) 2))
+(must-raise (assertion-violation newline) (newline (open-output-bytevector)))
+
+(must-equal "a"
+    (let ((p (open-output-string)))
+        (write-char #\a p)
+        (get-output-string p)))
+
+(must-raise (assertion-violation write-char) (write-char #f))
+(must-raise (assertion-violation write-char) (write-char #\a (current-input-port)))
+(must-raise (assertion-violation write-char) (write-char #\a (current-output-port) 3))
+(must-raise (assertion-violation write-char) (write-char #\a (open-output-bytevector)))
+
+(must-equal "abcd"
+    (let ((p (open-output-string)))
+        (write-string "abcd" p)
+        (get-output-string p)))
+(must-equal "bcd"
+    (let ((p (open-output-string)))
+        (write-string "abcd" p 1)
+        (get-output-string p)))
+(must-equal "bc"
+    (let ((p (open-output-string)))
+        (write-string "abcd" p 1 3)
+        (get-output-string p)))
+
+(must-raise (assertion-violation write-string) (write-string #\a))
+(must-raise (assertion-violation write-string) (write-string "a" (current-input-port)))
+(must-raise (assertion-violation write-string) (write-string "a" (open-output-bytevector)))
+(must-raise (assertion-violation write-string) (write-string "a" (current-output-port) -1))
+(must-raise (assertion-violation write-string) (write-string "a" (current-output-port) 1 0))
+(must-raise (assertion-violation write-string) (write-string "a" (current-output-port) 1 2))
+
+(must-equal #u8(1)
+    (let ((p (open-output-bytevector)))
+        (write-u8 1 p)
+        (get-output-bytevector p)))
+
+(must-raise (assertion-violation write-u8) (write-u8 #f))
+(must-raise (assertion-violation write-u8) (write-u8 1 (current-input-port)))
+(must-raise (assertion-violation write-u8) (write-u8 1 (current-output-port)))
+(must-raise (assertion-violation write-u8) (write-u8 1 (open-output-bytevector) 3))
+
+(must-equal #u8(1 2 3 4)
+    (let ((p (open-output-bytevector)))
+        (write-bytevector #u8(1 2 3 4) p)
+        (get-output-bytevector p)))
+(must-equal #u8(2 3 4)
+    (let ((p (open-output-bytevector)))
+        (write-bytevector #u8(1 2 3 4) p 1)
+        (get-output-bytevector p)))
+(must-equal #u8(2 3)
+    (let ((p (open-output-bytevector)))
+        (write-bytevector #u8(1 2 3 4) p 1 3)
+        (get-output-bytevector p)))
+
+(must-raise (assertion-violation write-bytevector) (write-bytevector #(1 2 3 4)))
+(must-raise (assertion-violation write-bytevector) (write-bytevector #u8() (current-input-port)))
+(must-raise (assertion-violation write-bytevector) (write-bytevector #u8() (current-output-port)))
+(must-raise (assertion-violation write-bytevector)
+    (write-bytevector #u8(1) (open-output-bytevector) -1))
+(must-raise (assertion-violation write-bytevector)
+    (write-bytevector #u8(1) (open-output-bytevector) 1 0))
+(must-raise (assertion-violation write-bytevector)
+    (write-bytevector #u8(1) (open-output-bytevector) 1 2))
+
+(must-equal #t (begin (flush-output-port) #t))
+
+(must-raise (assertion-violation flush-output-port) (flush-output-port (current-input-port)))
+(must-raise (assertion-violation flush-output-port) (flush-output-port (current-output-port) 2))
+
+;;
+;; ---- system interface ----
+;;
+
+(must-equal #f (file-exists? "not-a-real-filename"))
+(must-equal #t (file-exists? "..\\test\\r7rs.scm"))
+
+(must-raise (assertion-violation file-exists?) (file-exists?))
+(must-raise (assertion-violation file-exists?) (file-exists? #\a))
+(must-raise (assertion-violation file-exists?) (file-exists? "filename" 2))
+
+(must-equal #t
+    (guard (obj
+        ((file-error? obj) #t)
+        (else #f))
+        (delete-file "not-a-directory\\not-a-file.txt")))
+
+(must-raise (assertion-violation delete-file) (delete-file))
+(must-raise (assertion-violation delete-file) (delete-file #\a))
+(must-raise (assertion-violation delete-file) (delete-file "filename" 2))
+
+(must-raise (assertion-violation command-line) (command-line 1))
+
+(must-raise (assertion-violation emergency-exit) (emergency-exit 1 2))
+
+(must-equal #f (get-environment-variable "not the name of an environment variable"))
+(must-equal #t (string? (get-environment-variable "Path")))
+
+(must-raise (assertion-violation get-environment-variable) (get-environment-variable))
+(must-raise (assertion-violation get-environment-variable) (get-environment-variable #\a))
+(must-raise (assertion-violation get-environment-variable) (get-environment-variable "Path" 2))
+
+(must-equal #f (assoc "not the name of an environment variable" (get-environment-variables)))
+(must-equal #t (string? (car (assoc "Path" (get-environment-variables)))))
+
+(must-raise (assertion-violation get-environment-variables) (get-environment-variables 1))
+
+(must-equal #t (> (current-second) 0))
+
+(must-raise (assertion-violation current-second) (current-second 1))
+
+(must-equal #t (> (current-jiffy) 0))
+
+(must-raise (assertion-violation current-jiffy) (current-jiffy 1))
+
+(must-equal #t (> (jiffies-per-second) 0))
+
+(must-raise (assertion-violation jiffies-per-second) (jiffies-per-second 1))
+
+(must-equal #f (memq 'not-a-feature (features)))
+(must-equal #t (pair? (memq 'r7rs (features))))
+
+(must-raise (assertion-violation features) (features 1))
+

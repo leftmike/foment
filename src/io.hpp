@@ -21,7 +21,6 @@ Foment
 -- read
 -- write
 
--- test all input and output procedures
 -- document additional io procedures
 
 */

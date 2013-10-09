@@ -41,6 +41,9 @@ Future:
 -- strings and srfi-13
 
 Bugs:
+-- current-second returns an exact integer
+-- list->string needs to type check list
+-- list->vector needs to type check list
 -- ConvertToSystem does not protect an object from GC in some cases if IO allows GC
 -- write-bytevector, write-string, read-bytevector, and read-bytevector! assume GC does
     not happen during IO
@@ -59,18 +62,23 @@ Testing:
 -- 6.4
 -- 6.5 symbols complete
 -- 6.6 characters complete
--- 6.7 strings complete except list->string needs to type check list
--- 6.8 vectors complete except list->vector needs to type check list
+-- 6.7 strings complete
+-- 6.8 vectors complete
 -- 6.9 bytevectors complete
 -- 6.10 control features complete
 -- 6.11 exceptions complete
--- 6.12 environments and evaluation missing environment, scheme-report-environment,
-        and null-environment
--- 6.13.1 port complete
--- 6.13.2
--- 6.13.3
--- 6.14 system interface missing load and exit, otherwise complete except current-second
-    returns an exact integer
+-- 6.12 environments and evaluation complete
+-- 6.13.1 ports complete
+-- 6.13.2 input complete
+-- 6.13.3 output complete
+-- 6.14 system interface complete
+
+Missing:
+-- environment
+-- scheme-report-environment
+-- null-environment
+-- load
+-- exit
 
 */
 

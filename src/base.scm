@@ -467,12 +467,12 @@
                 (for-each proc 0 vectors)))
 
         (define (read-error? obj)
-            (and (error-object? obj) (eq? (error-object-who 'read))))
+            (and (error-object? obj) (eq? (error-object-who obj) 'read)))
 
         (define (file-error? obj)
             (and (error-object? obj)
                 (let ((who (error-object-who obj)))
-                    (or (eq? 'open-binary-input-file) (eq? 'open-binary-output-file)
+                    (or (eq? who 'open-binary-input-file) (eq? who 'open-binary-output-file)
                             (eq? who 'delete-file)))))
 
         (define (eval expr env)

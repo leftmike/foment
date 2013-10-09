@@ -614,7 +614,7 @@ Define("read-bytevector", ReadBytevectorPrimitive)(int argc, FObject argv[])
         return(bv);
 
     FObject nbv = MakeBytevector(rl);
-    memcpy(AsBytevector(nbv)->Vector, AsBytevector(bv), rl);
+    memcpy(AsBytevector(nbv)->Vector, AsBytevector(bv)->Vector, rl);
     return(nbv);
 }
 
