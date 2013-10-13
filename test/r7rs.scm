@@ -12,7 +12,40 @@
 (import (scheme write))
 
 ;;
+;; ---- identifiers ----
+;;
+
+(must-equal "..." (symbol->string '...))
+(must-equal "+" (symbol->string '+))
+(must-equal "+soup+" (symbol->string '+soup+))
+(must-equal "<=?" (symbol->string '<=?))
+(must-equal "->string" (symbol->string '->string))
+(must-equal "a34kTMNs" (symbol->string 'a34kTMNs))
+(must-equal "lambda" (symbol->string 'lambda))
+(must-equal "list->vector" (symbol->string 'list->vector))
+(must-equal "q" (symbol->string 'q))
+(must-equal "V17a" (symbol->string 'V17a))
+(must-equal "two words" (symbol->string '|two words|))
+(must-equal "two words" (symbol->string '|two\x20;words|))
+(must-equal "the-word-recursion-has-many-meanings"
+        (symbol->string 'the-word-recursion-has-many-meanings))
+(must-equal "\x3BB;" (symbol->string '|\x3BB;|))
+(must-equal "" (symbol->string '||))
+;(must-equal ".." (symbol->string '..))
+
+(must-equal "ABC" (symbol->string 'ABC))
+
+#!fold-case
+
+(must-equal "abc" (symbol->string 'ABC))
+
+#!no-fold-case
+
+(must-equal "ABC" (symbol->string 'ABC))
+
+;;
 ;; ---- comments ----
+;;
 
 #;(bad food)
 #;

@@ -3,23 +3,11 @@
 Foment
 
 -- use Win32 console APIs
--- use Win32 file APIs and not stdio
 
 -- MakeUtf8Port(FObject port): for utf8 characters
 -- MakeUtf16Port(FObject port): and utf16 characters
 
--- GetLocation
--- ports optionally return or seek to a location
--- ports describe whether they use char offset, byte offset, or line number for location
-
 -- need a port guardian to make sure ports are closed
-
--- Alive to keep track of which are live objects
-
--- get rid of Pretty or clean it up and call it pp
-
--- read
--- write
 
 -- document additional io procedures
 
@@ -41,6 +29,7 @@ typedef struct
     FByteReadyPFn ByteReadyPFn;
     FWriteBytesFn WriteBytesFn;
     unsigned int PeekedByte;
+    unsigned int Offset;
 } FBinaryPort;
 
 #define AsBinaryPort(obj) ((FBinaryPort *) obj)
@@ -62,6 +51,8 @@ typedef struct
     FCharReadyPFn CharReadyPFn;
     FWriteStringFn WriteStringFn;
     FCh PeekedChar;
+    unsigned int Line;
+    unsigned int Column;
 } FTextualPort;
 
 #define AsTextualPort(obj) ((FTextualPort *) obj)

@@ -6,6 +6,136 @@ Foment
 
 #include "foment.hpp"
 
+int StringToNumber(FCh * s, int sl, FFixnum * np, FFixnum b)
+{
+    FAssert(b == 2 || b == 8 || b == 10 || b == 16);
+
+    FFixnum ns;
+    FFixnum n;
+    int sdx = 0;
+
+    if (sl == 0)
+        return(0);
+
+    if (s[sdx] == '#')
+    {
+        sdx += 1;
+        if (sdx == sl)
+            return(0);
+
+        if (s[sdx] == 'b')
+            b = 2;
+        else if (s[sdx] == 'o')
+            b = 8;
+        else if (s[sdx] == 'd')
+            b = 10;
+        else if (s[sdx] == 'x')
+            b = 16;
+        else
+            return(0);
+
+        sdx += 1;
+        if (sdx == sl)
+            return(0);
+    }
+
+    ns = 1;
+    if (s[sdx] == '-')
+    {
+        ns = -1;
+        sdx += 1;
+        if (sdx == sl)
+            return(0);
+    }
+    else if (s[sdx] == '+')
+    {
+        sdx += 1;
+        if (sdx == sl)
+            return(0);
+    }
+
+    switch (b)
+    {
+    case 2:
+        for (n = 0; sdx < sl; sdx++)
+        {
+            if (s[sdx] >= '0' && s[sdx] <= '1')
+                n = n * 2 + s[sdx] - '0';
+            else
+                return(0);
+        }
+        break;
+
+    case 8:
+        for (n = 0; sdx < sl; sdx++)
+        {
+            if (s[sdx] >= '0' && s[sdx] <= '7')
+                n = n * 8 + s[sdx] - '0';
+            else
+                return(0);
+        }
+        break;
+
+    case 10:
+        for (n = 0; sdx < sl; sdx++)
+        {
+            if (s[sdx] >= '0' && s[sdx] <= '9')
+                n = n * 10 + s[sdx] - '0';
+            else
+                return(0);
+        }
+        break;
+
+    case 16:
+        for (n = 0; sdx < sl; sdx++)
+        {
+            if (s[sdx] >= '0' && s[sdx] <= '9')
+                n = n * 16 + s[sdx] - '0';
+            else if (s[sdx] >= 'a' && s[sdx] <= 'f')
+                n = n * 16 + s[sdx] - 'a' + 10;
+            else if (s[sdx] >= 'A' && s[sdx] <= 'F')
+                n = n * 16 + s[sdx] - 'A' + 10;
+            else
+                return(0);
+        }
+        break;
+
+    default:
+        return(0);
+    }
+
+    *np = n * ns;
+    return(1);
+}
+
+const static char Digits[] = {"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"};
+
+int NumberAsString(FFixnum n, FCh * s, FFixnum b)
+{
+    int sl = 0;
+
+    if (n < 0)
+    {
+        s[sl] = '-';
+        sl += 1;
+        n *= -1;
+    }
+
+    if (n >= b)
+    {
+        sl += NumberAsString(n / b, s + sl, b);
+        s[sl] = Digits[n % b];
+        sl += 1;
+    }
+    else
+    {
+        s[sl] = Digits[n];
+        sl += 1;
+    }
+
+    return(sl);
+}
+
 Define("+", SumPrimitive)(int argc, FObject argv[])
 {
     FFixnum ret = 0;

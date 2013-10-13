@@ -28,21 +28,24 @@ static int TestFile(SCh * fn, FObject env)
         PushRoot(&obj);
         PushRoot(&exp);
 
+        WantIdentifiersPort(port, 1);
+
         for (;;)
         {
-            int ln = GetLocation(port) + 1;
-            obj = Read(port, 1, 0);
+            obj = Read(port);
             if (obj == EndOfFileObject)
                 break;
-            if (PairP(obj) && IdentifierP(First(obj))
+            int ln = GetLineColumn(port, 0);
+            if (PairP(obj) && (IdentifierP(First(obj))
                     && AsIdentifier(First(obj))->Symbol == MustEqualSymbol)
+                    || (SymbolP(First(obj)) && First(obj) == MustEqualSymbol))
             {
                 if (PairP(Rest(obj)) == 0 || PairP(Rest(Rest(obj))) == 0 ||
                         Rest(Rest(Rest(obj))) != EmptyListObject)
                 {
                     WriteStringC(R.StandardOutput,
                             "test: expected (must-equal <expected> <expression>): ");
-                    WritePretty(R.StandardOutput, SyntaxToDatum(obj), 0);
+                    Write(R.StandardOutput, SyntaxToDatum(obj), 0);
                     WriteCh(R.StandardOutput, '\n');
 
                     return(1);
@@ -61,23 +64,24 @@ static int TestFile(SCh * fn, FObject env)
                     WriteString(R.StandardOutput, s, sl);
 
                     WriteStringC(R.StandardOutput, " must-equal: expected: ");
-                    WritePretty(R.StandardOutput, exp, 0);
+                    Write(R.StandardOutput, exp, 0);
                     WriteStringC(R.StandardOutput, " got: ");
-                    WritePretty(R.StandardOutput, ret, 0);
+                    Write(R.StandardOutput, ret, 0);
                     WriteCh(R.StandardOutput, '\n');
 
                     return(1);
                 }
             }
-            else if (PairP(obj) && IdentifierP(First(obj))
+            else if (PairP(obj) && (IdentifierP(First(obj))
                     && AsIdentifier(First(obj))->Symbol == MustRaiseSymbol)
+                    || (SymbolP(First(obj)) && First(obj) == MustRaiseSymbol))
             {
                 if (PairP(Rest(obj)) == 0 || PairP(Rest(Rest(obj))) == 0 ||
                         Rest(Rest(Rest(obj))) != EmptyListObject)
                 {
                     WriteStringC(R.StandardOutput,
                             "test: expected (must-raise <exception> <expression>): ");
-                    WritePretty(R.StandardOutput, SyntaxToDatum(obj), 0);
+                    Write(R.StandardOutput, SyntaxToDatum(obj), 0);
                     WriteCh(R.StandardOutput, '\n');
 
                     return(1);
@@ -88,7 +92,7 @@ static int TestFile(SCh * fn, FObject env)
                 {
                     WriteStringC(R.StandardOutput,
                             "test: expected (<type> [<who>]) for <exception>: ");
-                    WritePretty(R.StandardOutput, exp, 0);
+                    Write(R.StandardOutput, exp, 0);
                     WriteCh(R.StandardOutput, '\n');
 
                     return(1);
@@ -124,9 +128,9 @@ static int TestFile(SCh * fn, FObject env)
                         WriteString(R.StandardOutput, s, sl);
 
                         WriteStringC(R.StandardOutput, " must-raise: expected: ");
-                        WritePretty(R.StandardOutput, exp, 0);
+                        Write(R.StandardOutput, exp, 0);
                         WriteStringC(R.StandardOutput, " got: ");
-                        WritePretty(R.StandardOutput, exc, 0);
+                        Write(R.StandardOutput, exc, 0);
                         WriteCh(R.StandardOutput, '\n');
 
                         return(1);
@@ -141,7 +145,7 @@ static int TestFile(SCh * fn, FObject env)
     {
         if (ExceptionP(obj) == 0)
             WriteStringC(R.StandardOutput, "exception: ");
-        WritePretty(R.StandardOutput, obj, 0);
+        Write(R.StandardOutput, obj, 0);
         WriteCh(R.StandardOutput, '\n');
 
         return(1);

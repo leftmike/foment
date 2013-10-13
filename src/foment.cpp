@@ -1422,21 +1422,24 @@ extern char BaseCode[];
 
 static void SetupScheme()
 {
-    Eval(Read(MakeStringCInputPort(
+    FObject port = MakeStringCInputPort(
         "(define-syntax and"
             "(syntax-rules ()"
                 "((and) #t)"
                 "((and test) test)"
-                "((and test1 test2 ...) (if test1 (and test2 ...) #f))))"), 1, 0), R.Bedrock);
+                "((and test1 test2 ...) (if test1 (and test2 ...) #f))))");
+    WantIdentifiersPort(port, 1);
+    Eval(Read(port), R.Bedrock);
 
     LibraryExport(R.BedrockLibrary, EnvironmentLookup(R.Bedrock, StringCToSymbol("and")));
 
-    FObject port = MakeStringCInputPort(BaseCode);
+    port = MakeStringCInputPort(BaseCode);
+    WantIdentifiersPort(port, 1);
     PushRoot(&port);
 
     for (;;)
     {
-        FObject obj = Read(port, 1, 0);
+        FObject obj = Read(port);
 
         if (obj == EndOfFileObject)
             break;

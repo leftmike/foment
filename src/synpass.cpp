@@ -106,29 +106,6 @@ FObject ResolveIdentifier(FObject se, FObject id)
     FAssert(SyntacticEnvP(se));
 
     return(AsSyntacticEnv(se)->GlobalBindings);
-/*
-    FAssert(IdentifierP(id));
-    FAssert(SyntacticEnvP(se));
-
-    if (SyntacticEnvP(AsIdentifier(id)->SyntacticEnv))
-        se = AsIdentifier(id)->SyntacticEnv;
-
-    FObject lb = AsSyntacticEnv(se)->LocalBindings;
-
-    while (lb != EmptyListObject)
-    {
-        FAssert(PairP(lb));
-        FAssert(BindingP(First(lb)));
-
-//        if (IdentifierEqualP(AsBinding(First(lb))->Identifier, id))
-        if (AsIdentifier(AsBinding(First(lb))->Identifier)->Symbol == AsIdentifier(id)->Symbol)
-            return(First(lb));
-
-        lb = Rest(lb);
-    }
-
-    return(AsSyntacticEnv(se)->GlobalBindings);
-*/
 }
 
 FObject SyntaxToDatum(FObject obj)
@@ -172,29 +149,6 @@ FObject SyntaxToDatum(FObject obj)
     return(obj);
 }
 
-FObject DatumToSyntax(FObject obj)
-{
-    if (SymbolP(obj))
-        return(MakeIdentifier(obj, -1));
-
-    if (PairP(obj))
-        return(MakePair(DatumToSyntax(First(obj)), DatumToSyntax(Rest(obj))));
-
-    if (VectorP(obj))
-    {
-        FObject vec = MakeVector(VectorLength(obj), 0, FalseObject);
-        for (unsigned int idx = 0; idx < VectorLength(vec); idx++)
-        {
-//            AsVector(vec)->Vector[idx] = DatumToSyntax(AsVector(obj)->Vector[idx]);
-            ModifyVector(vec, idx, DatumToSyntax(AsVector(obj)->Vector[idx]));
-        }
-
-        return(vec);
-    }
-
-    return(obj);
-}
-
 static int SyntaxP(FObject obj)
 {
     return(SpecialSyntaxP(obj) || SyntaxRulesP(obj));
@@ -211,7 +165,7 @@ static int SyntaxBindingP(FObject be, FObject var)
     {
         FAssert(EnvironmentP(be));
 
-        if (SyntaxP(EnvironmentGet(be, AsIdentifier(var)->Symbol)))
+        if (SyntaxP(EnvironmentGet(be, var)))
             return(1);
     }
 
@@ -225,6 +179,9 @@ static FObject SPassSequence(FObject se, FObject ss, FObject form, FObject seq);
 
 static FObject AddFormal(FObject se, FObject ss, FObject bs, FObject id, FObject form, FObject ra)
 {
+    if (SymbolP(id))
+        id = MakeIdentifier(id, 0);
+
     if (IdentifierP(id) == 0)
         RaiseException(R.Syntax, SpecialSyntaxToSymbol(ss),
                 SpecialSyntaxMsgC(ss, "expected a symbol or a list of symbols for formals"),
@@ -303,6 +260,9 @@ static void LeaveLetScope(FObject lb)
 
 static FObject AddBinding(FObject se, FObject ss, FObject bs, FObject id, FObject form)
 {
+    if (SymbolP(id))
+        id = MakeIdentifier(id, 0);
+
     if (IdentifierP(id) == 0)
         RaiseException(R.Syntax, SpecialSyntaxToSymbol(ss),
                 SpecialSyntaxMsgC(ss, "expected <variable> for each binding"), List(form, id));
@@ -475,6 +435,9 @@ static FObject SPassLetBindings(FObject se, FObject ss, FObject lb, int rf, int 
 
 static FObject AddLetStarBinding(FObject se, FObject id, FObject form)
 {
+    if (SymbolP(id))
+        id = MakeIdentifier(id, 0);
+
     if (IdentifierP(id) == 0)
         RaiseExceptionC(R.Syntax, "let*", "expected (<variable> <init>) for each binding",
                 List(form, id));
@@ -625,11 +588,21 @@ int MatchReference(FObject ref, FObject se, FObject expr)
 {
     FAssert(ReferenceP(ref));
 
-    if (IdentifierP(expr) == 0)
-        return(0);
+    if (SymbolP(expr))
+    {
+        if (AsIdentifier(AsReference(ref)->Identifier)->Symbol != expr)
+            return(0);
 
-    if (AsIdentifier(AsReference(ref)->Identifier)->Symbol != AsIdentifier(expr)->Symbol)
-        return(0);
+        expr = MakeIdentifier(expr, 0);
+    }
+    else
+    {
+        if (IdentifierP(expr) == 0)
+            return(0);
+
+        if (AsIdentifier(AsReference(ref)->Identifier)->Symbol != AsIdentifier(expr)->Symbol)
+            return(0);
+    }
 
     FObject be = ResolveIdentifier(se, expr);
 
@@ -639,9 +612,8 @@ int MatchReference(FObject ref, FObject se, FObject expr)
     if (EnvironmentP(be) == 0 || EnvironmentP(AsReference(ref)->Binding) == 0)
         return(0);
 
-    return(EnvironmentGet(be, AsIdentifier(expr)->Symbol)
-            == EnvironmentGet(AsReference(ref)->Binding,
-            AsIdentifier(AsReference(ref)->Identifier)->Symbol));
+    return(EnvironmentGet(be, expr) == EnvironmentGet(AsReference(ref)->Binding,
+            AsReference(ref)->Identifier));
 }
 
 static FObject AddCaseDatum(FObject dtm, FObject dtms, FObject cse)
@@ -992,6 +964,8 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
                     List(expr));
 
         FObject var = First(Rest(expr));
+        if (SymbolP(var))
+            var = MakeIdentifier(var, 0);
         if (IdentifierP(var) == 0)
             RaiseExceptionC(R.Syntax, "set!", "variable expected", List(expr, var));
 
@@ -1026,6 +1000,8 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
                     List(expr));
 
         FObject tag = First(Rest(expr));
+        if (SymbolP(tag))
+            tag = MakeIdentifier(tag, 0);
         if (IdentifierP(tag))
             return(SPassNamedLet(se, tag, expr));
 
@@ -1195,6 +1171,8 @@ static FObject SPassOperands(FObject se, FObject opds, FObject form)
 
 static FObject SPassKeyword(FObject se, FObject expr)
 {
+    if (SymbolP(expr))
+        expr = MakeIdentifier(expr, 0);
     if (IdentifierP(expr))
         return(MakeReference(ResolveIdentifier(se, expr), expr));
 
@@ -1203,6 +1181,9 @@ static FObject SPassKeyword(FObject se, FObject expr)
 
 static FObject SPassExpression(FObject se, FObject expr)
 {
+    if (SymbolP(expr))
+        expr = MakeIdentifier(expr, 0);
+
     if (IdentifierP(expr))
     {
         FObject be = ResolveIdentifier(se, expr);
@@ -1227,8 +1208,7 @@ static FObject SPassExpression(FObject se, FObject expr)
         {
             FAssert(EnvironmentP(AsReference(op)->Binding));
 
-            val = EnvironmentGet(AsReference(op)->Binding,
-                    AsIdentifier(AsReference(op)->Identifier)->Symbol);
+            val = EnvironmentGet(AsReference(op)->Binding, AsReference(op)->Identifier);
         }
 
         if (SpecialSyntaxP(val))
@@ -1404,6 +1384,9 @@ static FObject SPassBodyExpression(FObject se, FObject expr)
 
     FObject op = SPassBodyExpression(se, First(expr));
 
+    if (SymbolP(op))
+        op = MakeIdentifier(op, 0);
+
     if (IdentifierP(op))
     {
         FObject be = ResolveIdentifier(se, op);
@@ -1415,7 +1398,7 @@ static FObject SPassBodyExpression(FObject se, FObject expr)
         {
             FAssert(EnvironmentP(be));
 
-            val = EnvironmentGet(be, AsIdentifier(op)->Symbol);
+            val = EnvironmentGet(be, op);
         }
 
         if (SpecialSyntaxP(val))
@@ -1603,13 +1586,16 @@ FObject ExpandExpression(FObject se, FObject expr)
 static int EvaluateFeatureRequirement(FObject se, FObject expr, FObject cls, FObject obj)
 {
     if (IdentifierP(obj))
+        obj = AsIdentifier(obj)->Symbol;
+
+    if (SymbolP(obj))
     {
         FObject lst = R.Features;
         while (PairP(lst))
         {
             FAssert(SymbolP(First(lst)));
 
-            if (First(lst) == AsIdentifier(obj)->Symbol)
+            if (First(lst) == obj)
                 return(1);
 
             lst = Rest(lst);
@@ -1620,7 +1606,7 @@ static int EvaluateFeatureRequirement(FObject se, FObject expr, FObject cls, FOb
         return(0);
     }
 
-    if (PairP(obj) == 0 || IdentifierP(First(obj)) == 0)
+    if (PairP(obj) == 0 || (IdentifierP(First(obj)) == 0 && SymbolP(First(obj)) == 0))
         RaiseExceptionC(R.Syntax, "cond-expand", "invalid feature requirement syntax",
                 List(expr, cls, obj));
 
@@ -1699,7 +1685,8 @@ FObject CondExpand(FObject se, FObject expr, FObject clst)
                     "expected (<feature requirement> <expression> ..) for each clause",
                     List(expr, clst));
 
-        if (IdentifierP(First(cls)) && MatchReference(R.ElseReference, se, First(cls)))
+        if ((IdentifierP(First(cls)) || SymbolP(First(cls)))
+                && MatchReference(R.ElseReference, se, First(cls)))
         {
             if (Rest(clst) != EmptyListObject)
                 RaiseExceptionC(R.Syntax, "cond-expand",
@@ -1743,9 +1730,12 @@ FObject ReadInclude(FObject lst, int cif)
             RaiseExceptionC(R.Assertion, "open-input-file", "can not open file for reading",
                     List(First(lst)));
 
+        FoldcasePort(port, cif);
+        WantIdentifiersPort(port, 1);
+
         for (;;)
         {
-            FObject obj = Read(port, 1, cif);
+            FObject obj = Read(port);
             if (obj == EndOfFileObject)
                 break;
 

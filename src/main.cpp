@@ -24,15 +24,17 @@ static void LoadFile(FObject fn, FObject env)
         PushRoot(&port);
         PushRoot(&env);
 
+        WantIdentifiersPort(port, 1);
+
         for (;;)
         {
-            FObject obj = Read(port, 1, 0);
+            FObject obj = Read(port);
             if (obj == EndOfFileObject)
                 break;
             FObject ret = Eval(obj, env);
             if (ret != NoValueObject)
             {
-                WritePretty(R.StandardOutput, ret, 0);
+                Write(R.StandardOutput, ret, 0);
                 WriteCh(R.StandardOutput, '\n');
             }
         }
@@ -41,7 +43,7 @@ static void LoadFile(FObject fn, FObject env)
     {
         if (ExceptionP(obj) == 0)
             WriteStringC(R.StandardOutput, "exception: ");
-        WritePretty(R.StandardOutput, obj, 0);
+        Write(R.StandardOutput, obj, 0);
         WriteCh(R.StandardOutput, '\n');
     }
 
@@ -51,9 +53,9 @@ static void LoadFile(FObject fn, FObject env)
 
 static int RunRepl(FObject env)
 {
-    int ln = 1;
-
     PushRoot(&env);
+
+    WantIdentifiersPort(R.StandardInput, 1);
 
     for (;;)
     {
@@ -68,17 +70,17 @@ static int RunRepl(FObject env)
             WriteStringC(R.StandardOutput, "} ");
             BytesAllocated = 0;
 
-            sl = NumberAsString(ln, s, 10);
-            WriteString(R.StandardOutput, s, sl);
+//            sl = NumberAsString(GetLineColumn(R.StandardInput, 0), s, 10);
+//            WriteString(R.StandardOutput, s, sl);
             WriteStringC(R.StandardOutput, " =] ");
 
-            FObject obj = Read(R.StandardInput, 1, 0);
+            FObject obj = Read(R.StandardInput);
             if (obj == EndOfFileObject)
                 break;
             FObject ret = Eval(obj, env);
             if (ret != NoValueObject)
             {
-                WritePretty(R.StandardOutput, ret, 0);
+                Write(R.StandardOutput, ret, 0);
                 WriteCh(R.StandardOutput, '\n');
             }
         }
@@ -86,11 +88,9 @@ static int RunRepl(FObject env)
         {
             if (ExceptionP(obj) == 0)
                 WriteStringC(R.StandardOutput, "exception: ");
-            WritePretty(R.StandardOutput, obj, 0);
+            Write(R.StandardOutput, obj, 0);
             WriteCh(R.StandardOutput, '\n');
         }
-
-        ln = GetLocation(R.StandardInput) + 1;
     }
 
     PopRoot();
@@ -177,7 +177,7 @@ int wmain(int argc, wchar_t * argv[])
     catch (FObject obj)
     {
         printf("Unexpected exception: SetupFoment: %x\n", obj);
-        WritePretty(R.StandardOutput, obj, 0);
+        Write(R.StandardOutput, obj, 0);
         return(1);
     }
 
@@ -220,11 +220,11 @@ int wmain(int argc, wchar_t * argv[])
                 case 'e':
                 case 'p':
                 {
-                    FObject ret = Eval(Read(MakeStringInputPort(MakeStringS(argv[adx])), 1, 0),
+                    FObject ret = Eval(Read(MakeStringInputPort(MakeStringS(argv[adx]))),
                             GetInteractionEnv());
                     if (argv[adx - 1][1] == 'p')
                     {
-                        WritePretty(R.StandardOutput, ret, 0);
+                        Write(R.StandardOutput, ret, 0);
                         WriteCh(R.StandardOutput, '\n');
                     }
 
@@ -310,7 +310,7 @@ int wmain(int argc, wchar_t * argv[])
     {
         if (ExceptionP(obj) == 0)
             WriteStringC(R.StandardOutput, "exception: ");
-        WritePretty(R.StandardOutput, obj, 0);
+        Write(R.StandardOutput, obj, 0);
         WriteCh(R.StandardOutput, '\n');
 
         return(1);

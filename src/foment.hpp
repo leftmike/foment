@@ -10,8 +10,6 @@ To Do:
 -- CompileProgram
 -- RunProgram
 
--- #!fold-case and #!no-fold-case
-
 -- use tests from chibi
 
 -- import and define-library should not be part of (scheme base)
@@ -20,6 +18,7 @@ To Do:
 -- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
 -- or use FAlive
 -- use EnterWait and LeaveWait
+-- use Win32 file APIs and not stdio
 
 -- from Gambit:
 Serial Numbers
@@ -466,6 +465,8 @@ FObject U8ListToBytevector(FObject obj);
 #define PORT_FLAG_OUTPUT_OPEN       0x10000000
 #define PORT_FLAG_STRING_OUTPUT     0x08000000
 #define PORT_FLAG_BYTEVECTOR_OUTPUT 0x04000000
+#define PORT_FLAG_FOLDCASE          0x02000000
+#define PORT_FLAG_WANT_IDENTIFIERS  0x01000000
 
 typedef void (*FCloseInputFn)(FObject port);
 typedef void (*FCloseOutputFn)(FObject port);
@@ -524,18 +525,32 @@ inline int BytevectorOutputPortP(FObject obj)
     return(BinaryPortP(obj) && (AsGenericPort(obj)->Flags & PORT_FLAG_BYTEVECTOR_OUTPUT));
 }
 
+inline int FoldcasePortP(FObject port)
+{
+    FAssert(TextualPortP(port) && InputPortP(port));
+
+    return(AsGenericPort(port)->Flags & PORT_FLAG_FOLDCASE);
+}
+
+inline int WantIdentifiersPortP(FObject port)
+{
+    FAssert(TextualPortP(port) && InputPortP(port));
+
+    return(AsGenericPort(port)->Flags & PORT_FLAG_WANT_IDENTIFIERS);
+}
+
 // Binary and textual ports
 
 void CloseInput(FObject port);
 void CloseOutput(FObject port);
 void FlushOutput(FObject port);
-int GetLocation(FObject port);
 
 // Binary ports
 
 unsigned int ReadBytes(FObject port, FByte * b, unsigned int bl);
 int PeekByte(FObject port, FByte * b);
 int ByteReadyP(FObject port);
+unsigned int GetOffset(FObject port);
 
 void WriteBytes(FObject port, void * b, unsigned int bl);
 
@@ -553,8 +568,11 @@ unsigned int PeekCh(FObject port, FCh * ch);
 int CharReadyP(FObject port);
 FObject ReadLine(FObject port);
 FObject ReadString(FObject port, int cnt);
+unsigned int GetLineColumn(FObject port, unsigned * col);
+void FoldcasePort(FObject port, int fcf);
+void WantIdentifiersPort(FObject port, int wif);
 
-FObject Read(FObject port, int rif, int fcf);
+FObject Read(FObject port);
 
 void WriteCh(FObject port, FCh ch);
 void WriteString(FObject port, FCh * s, int sl);
@@ -563,7 +581,6 @@ void WriteStringC(FObject port, char * s);
 void Write(FObject port, FObject obj, int df);
 void WriteShared(FObject port, FObject obj, int df);
 void WriteSimple(FObject port, FObject obj, int df);
-void WritePretty(FObject port, FObject obj, int df);
 
 // ---- Record Types ----
 
@@ -702,10 +719,10 @@ typedef struct
 FObject MakeEnvironment(FObject nam, FObject ctv);
 FObject EnvironmentBind(FObject env, FObject sym);
 FObject EnvironmentLookup(FObject env, FObject sym);
-int EnvironmentDefine(FObject env, FObject sym, FObject val);
+int EnvironmentDefine(FObject env, FObject symid, FObject val);
 FObject EnvironmentSet(FObject env, FObject sym, FObject val);
 FObject EnvironmentSetC(FObject env, char * sym, FObject val);
-FObject EnvironmentGet(FObject env, FObject sym);
+FObject EnvironmentGet(FObject env, FObject symid);
 
 void EnvironmentImportLibrary(FObject env, FObject nam);
 void EnvironmentImport(FObject env, FObject form);
@@ -1186,7 +1203,6 @@ unsigned int EqvHash(FObject obj);
 unsigned int EqualHash(FObject obj);
 
 FObject SyntaxToDatum(FObject obj);
-FObject DatumToSyntax(FObject obj);
 
 FObject ExecuteThunk(FObject op);
 

@@ -54,12 +54,15 @@ FObject EnvironmentLookup(FObject env, FObject sym)
 
 // If the environment is interactive, a global will be defined. Otherwise, a global will be
 // defined only if it is not already defined. One will be returned if the global can't be defined.
-int EnvironmentDefine(FObject env, FObject sym, FObject val)
+int EnvironmentDefine(FObject env, FObject symid, FObject val)
 {
     FAssert(EnvironmentP(env));
-    FAssert(SymbolP(sym));
+    FAssert(SymbolP(symid) || IdentifierP(symid));
 
-    FObject gl = EnvironmentBind(env, sym);
+    if (IdentifierP(symid))
+        symid = AsIdentifier(symid)->Symbol;
+
+    FObject gl = EnvironmentBind(env, symid);
 
     FAssert(GlobalP(gl));
 
@@ -118,9 +121,14 @@ FObject EnvironmentSetC(FObject env, char * sym, FObject val)
     return(EnvironmentSet(env, StringCToSymbol(sym), val));
 }
 
-FObject EnvironmentGet(FObject env, FObject sym)
+FObject EnvironmentGet(FObject env, FObject symid)
 {
-    FObject gl = EqHashtableRef(AsEnvironment(env)->Hashtable, sym, FalseObject);
+    if (IdentifierP(symid))
+        symid = AsIdentifier(symid)->Symbol;
+
+    FAssert(SymbolP(symid));
+
+    FObject gl = EqHashtableRef(AsEnvironment(env)->Hashtable, symid, FalseObject);
     if (GlobalP(gl))
     {
         FAssert(BoxP(AsGlobal(gl)->Box));
@@ -350,15 +358,17 @@ static FObject LoadLibrary(FObject nam)
 
         if (TextualPortP(port))
         {
+            WantIdentifiersPort(port, 1);
+
             for (;;)
             {
-                FObject obj = Read(port, 1, 0);
+                FObject obj = Read(port);
 
                 if (obj == EndOfFileObject)
                     break;
 
-                if (PairP(obj) == 0 || IdentifierP(First(obj)) == 0 || DefineLibrarySyntax !=
-                        EnvironmentGet(R.Bedrock, AsIdentifier(First(obj))->Symbol))
+                if (PairP(obj) == 0 || (IdentifierP(First(obj)) == 0 && SymbolP(First(obj)) == 0)
+                        || DefineLibrarySyntax != EnvironmentGet(R.Bedrock, First(obj)))
                     RaiseExceptionC(R.Syntax, "define-library", "expected a library", List(obj));
 
                 CompileLibrary(obj);
@@ -395,7 +405,7 @@ FObject LibraryName(FObject lst)
 
     while (PairP(lst))
     {
-        if (IdentifierP(First(lst)) == 0 && FixnumP(First(lst)) == 0)
+        if (IdentifierP(First(lst)) == 0 && FixnumP(First(lst)) == 0 && SymbolP(First(lst)) == 0)
             return(NoValueObject);
 
         nlst = MakePair(IdentifierP(First(lst)) ? AsIdentifier(First(lst))->Symbol : First(lst),
@@ -415,10 +425,18 @@ static int CheckForIdentifier(FObject nam, FObject ids)
 
     while (PairP(ids))
     {
-        FAssert(IdentifierP(First(ids)));
+        if (SymbolP(First(ids)))
+        {
+            if (First(ids) == nam)
+                return(1);
+        }
+        else
+        {
+            FAssert(IdentifierP(First(ids)));
 
-        if (AsIdentifier(First(ids))->Symbol == nam)
-            return(1);
+            if (AsIdentifier(First(ids))->Symbol == nam)
+                return(1);
+        }
 
         ids = Rest(ids);
     }
@@ -437,12 +455,23 @@ static FObject CheckForRename(FObject nam, FObject rlst)
         FObject rnm = First(rlst);
 
         FAssert(PairP(rnm));
-        FAssert(IdentifierP(First(rnm)));
         FAssert(PairP(Rest(rnm)));
-        FAssert(IdentifierP(First(Rest(rnm))));
 
-        if (nam == AsIdentifier(First(rnm))->Symbol)
-            return(AsIdentifier(First(Rest(rnm)))->Symbol);
+        if (SymbolP(First(rnm)))
+        {
+            FAssert(SymbolP(First(Rest(rnm))));
+
+            if (nam == First(rnm))
+                return(First(Rest(rnm)));
+        }
+        else
+        {
+            FAssert(IdentifierP(First(rnm)));
+            FAssert(IdentifierP(First(Rest(rnm))));
+
+            if (nam == AsIdentifier(First(rnm))->Symbol)
+                return(AsIdentifier(First(Rest(rnm)))->Symbol);
+        }
 
         rlst = Rest(rlst);
     }
@@ -462,7 +491,7 @@ static FObject DoOnlyOrExcept(FObject env, FObject is, int cfif)
     FObject ids = Rest(Rest(is));
     while (PairP(ids))
     {
-        if (IdentifierP(First(ids)) == 0)
+        if (IdentifierP(First(ids)) == 0 && SymbolP(First(ids)) == 0)
             return(NoValueObject);
 
         ids = Rest(ids);
@@ -495,11 +524,11 @@ static FObject DoImportSet(FObject env, FObject is, FObject form)
     // (prefix <import-set> <identifier>)
     // (rename <import-set> (<identifier1> <identifier2>) ...)
 
-    if (PairP(is) == 0 || IdentifierP(First(is)) == 0)
+    if (PairP(is) == 0 || (IdentifierP(First(is)) == 0 && SymbolP(First(is)) == 0))
         RaiseExceptionC(R.Syntax, "import", "expected a list starting with an identifier",
                 List(form, is));
 
-    FObject op = EnvironmentGet(R.Bedrock, AsIdentifier(First(is))->Symbol);
+    FObject op = EnvironmentGet(R.Bedrock, First(is));
     if (op == OnlySyntax)
     {
         FObject ilst = DoOnlyOrExcept(env, is, 1);
@@ -521,12 +550,16 @@ static FObject DoImportSet(FObject env, FObject is, FObject form)
     else if (op == PrefixSyntax)
     {
         if (PairP(Rest(is)) == 0 || PairP(Rest(Rest(is))) == 0
-                || Rest(Rest(Rest(is))) != EmptyListObject
-                || IdentifierP(First(Rest(Rest(is)))) == 0)
+                || Rest(Rest(Rest(is))) != EmptyListObject ||
+                (IdentifierP(First(Rest(Rest(is)))) == 0 && SymbolP(First(Rest(Rest(is)))) == 0))
             RaiseExceptionC(R.Syntax, "import",
                     "expected (prefix <import-set> <identifier>)", List(form, is));
 
-        FObject prfx = AsSymbol(AsIdentifier(First(Rest(Rest(is))))->Symbol)->String;
+        FObject prfx;
+        if (SymbolP(First(Rest(Rest(is)))))
+            prfx = AsSymbol(First(Rest(Rest(is))))->String;
+        else
+            prfx = AsSymbol(AsIdentifier(First(Rest(Rest(is))))->Symbol)->String;
         FObject ilst = DoImportSet(env, First(Rest(is)), is);
         FObject lst = ilst;
         while (PairP(lst))
@@ -555,7 +588,8 @@ static FObject DoImportSet(FObject env, FObject is, FObject form)
         {
             FObject rnm = First(rlst);
             if (PairP(rnm) == 0 || PairP(Rest(rnm)) == 0 || Rest(Rest(rnm)) != EmptyListObject
-                    || IdentifierP(First(rnm)) == 0 || IdentifierP(First(Rest(rnm))) == 0)
+                    || (IdentifierP(First(rnm)) == 0 && SymbolP(First(rnm)) == 0)
+                    || (IdentifierP(First(Rest(rnm))) == 0 && SymbolP(First(Rest(rnm))) == 0))
                 RaiseExceptionC(R.Syntax, "import",
                         "expected (rename <import-set> (<identifier> <identifier>) ...)",
                         List(form, is));
@@ -656,12 +690,13 @@ static FObject ExpandLibraryDeclarations(FObject env, FObject lst, FObject body)
 {
     while (PairP(lst))
     {
-        if (PairP(First(lst)) == 0 || IdentifierP(First(First(lst))) == 0)
+        if (PairP(First(lst)) == 0 || (IdentifierP(First(First(lst))) == 0
+                && SymbolP(First(First(lst))) == 0))
             RaiseExceptionC(R.Syntax, "define-library",
                     "expected a library declaration", List(First(lst)));
 
         FObject form = First(lst);
-        FObject op = EnvironmentGet(R.Bedrock, AsIdentifier(First(form))->Symbol);
+        FObject op = EnvironmentGet(R.Bedrock, First(form));
 
         if (op == ImportSyntax)
             EnvironmentImport(env, form);
@@ -689,10 +724,10 @@ static FObject ExpandLibraryDeclarations(FObject env, FObject lst, FObject body)
 
 static FObject CompileTransformer(FObject obj, FObject env)
 {
-    if (PairP(obj) == 0 || IdentifierP(First(obj)) == 0)
+    if (PairP(obj) == 0 || (IdentifierP(First(obj)) == 0 && SymbolP(First(obj)) == 0))
         return(NoValueObject);
 
-    FObject op = EnvironmentGet(env, AsIdentifier(First(obj))->Symbol);
+    FObject op = EnvironmentGet(env, First(obj));
     if (op == SyntaxRulesSyntax)
         return(CompileSyntaxRules(MakeSyntacticEnv(env), obj));
 
@@ -720,28 +755,31 @@ static FObject CompileEvalBegin(FObject obj, FObject env, FObject body, FObject 
     return(body);
 }
 
-static FObject ResolvedGet(FObject env, FObject id)
+static FObject ResolvedGet(FObject env, FObject symid)
 {
-    FAssert(IdentifierP(id));
+    FAssert(IdentifierP(symid) || SymbolP(symid));
 
-    while (IdentifierP(AsIdentifier(id)->Wrapped))
+    if (IdentifierP(symid))
     {
-        env = AsSyntacticEnv(AsIdentifier(id)->SyntacticEnv)->GlobalBindings;
-        id = AsIdentifier(id)->Wrapped;
+        while (IdentifierP(AsIdentifier(symid)->Wrapped))
+        {
+            env = AsSyntacticEnv(AsIdentifier(symid)->SyntacticEnv)->GlobalBindings;
+            symid = AsIdentifier(symid)->Wrapped;
+        }
     }
 
     FAssert(EnvironmentP(env));
 
-    return(EnvironmentGet(env, AsIdentifier(id)->Symbol));
+    return(EnvironmentGet(env, symid));
 }
 
 static FObject CompileEvalExpr(FObject obj, FObject env, FObject body)
 {
     if (VectorP(obj))
         return(MakePair(SyntaxToDatum(obj), body));
-    else if (PairP(obj) && IdentifierP(First(obj)))
+    else if (PairP(obj) && (IdentifierP(First(obj)) || SymbolP(First(obj))))
     {
-//        FObject op = EnvironmentGet(env, AsIdentifier(First(obj))->Symbol);
+//        FObject op = EnvironmentGet(env, First(obj));
         FObject op = ResolvedGet(env, First(obj));
 
         if (op == DefineSyntax)
@@ -755,14 +793,13 @@ static FObject CompileEvalExpr(FObject obj, FObject env, FObject body)
                 RaiseExceptionC(R.Syntax, "define",
                         "expected a variable or list beginning with a variable", List(obj));
 
-            if (IdentifierP(First(Rest(obj))))
+            if (IdentifierP(First(Rest(obj))) || SymbolP(First(Rest(obj))))
             {
                 if (Rest(Rest(obj)) == EmptyListObject)
                 {
                     // (define <variable>)
 
-                    if (EnvironmentDefine(env, AsIdentifier(First(Rest(obj)))->Symbol,
-                            NoValueObject))
+                    if (EnvironmentDefine(env, First(Rest(obj)), NoValueObject))
                         RaiseExceptionC(R.Syntax, "define",
                                 "imported variables may not be redefined in libraries",
                                 List(obj, First(Rest(obj))));
@@ -776,7 +813,7 @@ static FObject CompileEvalExpr(FObject obj, FObject env, FObject body)
                     RaiseExceptionC(R.Syntax, "define",
                             "expected (define <variable> <expression>)", List(obj));
 
-                if (EnvironmentDefine(env, AsIdentifier(First(Rest(obj)))->Symbol, NoValueObject))
+                if (EnvironmentDefine(env, First(Rest(obj)), NoValueObject))
                     RaiseExceptionC(R.Syntax, "define",
                             "imported variables may not be redefined in libraries",
                             List(obj, First(Rest(obj))));
@@ -789,11 +826,12 @@ static FObject CompileEvalExpr(FObject obj, FObject env, FObject body)
                 // (define (<variable> <formals>) <body>)
                 // (define (<variable> . <formal>) <body>)
 
-                if (PairP(First(Rest(obj))) == 0 || IdentifierP(First(First(Rest(obj)))) == 0)
+                if (PairP(First(Rest(obj))) == 0 || (IdentifierP(First(First(Rest(obj)))) == 0
+                        && SymbolP(First(First(Rest(obj)))) == 0))
                     RaiseExceptionC(R.Syntax, "define",
                             "expected a list beginning with a variable", List(obj));
 
-                if (EnvironmentDefine(env, AsIdentifier(First(First(Rest(obj))))->Symbol,
+                if (EnvironmentDefine(env, First(First(Rest(obj))),
                         CompileLambda(env, First(First(Rest(obj))), Rest(First(Rest(obj))),
                         Rest(Rest(obj)))))
                     RaiseExceptionC(R.Syntax, "define",
@@ -809,7 +847,7 @@ static FObject CompileEvalExpr(FObject obj, FObject env, FObject body)
 
             if (PairP(Rest(obj)) == 0 || PairP(Rest(Rest(obj))) == 0
                     || Rest(Rest(Rest(obj))) != EmptyListObject
-                    || IdentifierP(First(Rest(obj))) == 0)
+                    || (IdentifierP(First(Rest(obj))) == 0 && SymbolP(First(Rest(obj))) == 0))
                 RaiseExceptionC(R.Syntax, "define-syntax",
                         "expected (define-syntax <keyword> <transformer>)",
                         List(obj));
@@ -819,7 +857,7 @@ static FObject CompileEvalExpr(FObject obj, FObject env, FObject body)
                 RaiseExceptionC(R.Syntax, "define-syntax",
                         "expected a transformer", List(obj, trans));
 
-            if (EnvironmentDefine(env, AsIdentifier(First(Rest(obj)))->Symbol, trans))
+            if (EnvironmentDefine(env, First(Rest(obj)), trans))
                 RaiseExceptionC(R.Syntax, "define",
                         "imported variables may not be redefined in libraries",
                         List(obj, First(Rest(obj))));
@@ -891,10 +929,10 @@ static FObject CompileLibraryCode(FObject env, FObject lst)
     while (PairP(lst))
     {
         FAssert(PairP(First(lst)));
-        FAssert(IdentifierP(First(First(lst))));
+        FAssert(IdentifierP(First(First(lst))) || SymbolP(First(First(lst))));
 
         FObject form = First(lst);
-        FObject op = EnvironmentGet(R.Bedrock, AsIdentifier(First(form))->Symbol);
+        FObject op = EnvironmentGet(R.Bedrock, First(form));
 
         if (op == BeginSyntax || op == IncludeSyntax || op == IncludeCISyntax)
             body = CompileEvalExpr(form, env, body);
@@ -959,10 +997,10 @@ static FObject CompileExports(FObject env, FObject lst)
     while (PairP(lst))
     {
         FAssert(PairP(First(lst)));
-        FAssert(IdentifierP(First(First(lst))));
+        FAssert(IdentifierP(First(First(lst))) || SymbolP(First(First(lst))));
 
         FObject form = First(lst);
-        FObject op = EnvironmentGet(R.Bedrock, AsIdentifier(First(form))->Symbol);
+        FObject op = EnvironmentGet(R.Bedrock, First(form));
 
         if (op == ExportSyntax)
         {
@@ -970,14 +1008,16 @@ static FObject CompileExports(FObject env, FObject lst)
             while (PairP(especs))
             {
                 FObject spec = First(especs);
-                if (IdentifierP(spec) == 0
-                        && (PairP(spec) == 0 || IdentifierP(First(spec)) == 0
-                        || PairP(Rest(spec)) == 0 || IdentifierP(First(Rest(spec))) == 0
+                if (IdentifierP(spec) == 0 && SymbolP(spec) == 0
+                        && (PairP(spec) == 0
+                        || (IdentifierP(First(spec)) == 0 && SymbolP(First(spec)) == 0)
+                        || PairP(Rest(spec)) == 0
+                        || (IdentifierP(First(Rest(spec))) == 0 && SymbolP(First(Rest(spec))) == 0)
                         || PairP(Rest(Rest(spec))) == 0
-                        || IdentifierP(First(Rest(Rest(spec)))) == 0
+                        || (IdentifierP(First(Rest(Rest(spec)))) == 0
+                        && SymbolP(First(Rest(Rest(spec)))) == 0)
                         || Rest(Rest(Rest(spec))) != EmptyListObject
-                        || EnvironmentGet(R.Bedrock, AsIdentifier(First(spec))->Symbol)
-                                != RenameSyntax))
+                        || EnvironmentGet(R.Bedrock, First(spec)) != RenameSyntax))
                     RaiseExceptionC(R.Syntax, "export",
                             "expected an identifier or (rename <id1> <id2>)",
                             List(form, spec));
@@ -991,16 +1031,21 @@ static FObject CompileExports(FObject env, FObject lst)
                     eid = First(Rest(Rest(spec)));
                 }
 
-                FObject gl = EnvironmentLookup(env, AsIdentifier(lid)->Symbol);
+                if (IdentifierP(lid))
+                    lid = AsIdentifier(lid)->Symbol;
+                if (IdentifierP(eid))
+                    eid = AsIdentifier(eid)->Symbol;
+
+                FObject gl = EnvironmentLookup(env, lid);
                 if (GlobalP(gl) == 0)
                     RaiseExceptionC(R.Syntax, "export", "identifier is undefined",
                             List(form, lid));
 
-                if (GlobalP(Assq(AsIdentifier(eid)->Symbol, elst)))
+                if (GlobalP(Assq(eid, elst)))
                     RaiseExceptionC(R.Syntax, "export", "identifier already exported",
                             List(form, eid));
 
-                elst = MakePair(MakePair(AsIdentifier(eid)->Symbol, gl), elst);
+                elst = MakePair(MakePair(eid, gl), elst);
                 especs = Rest(especs);
             }
 

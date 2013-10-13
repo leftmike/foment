@@ -213,7 +213,7 @@ Define("compile-eval", CompileEvalPrimitive)(int argc, FObject argv[])
     if (EnvironmentP(argv[1]) == 0)
         RaiseExceptionC(R.Assertion, "compile-eval", "expected an environment", List(argv[1]));
 
-    return(CompileEval(DatumToSyntax(argv[0]), argv[1]));
+    return(CompileEval(argv[0], argv[1]));
 }
 
 Define("interaction-environment", InteractionEnvironmentPrimitive)(int argc, FObject argv[])
@@ -245,9 +245,8 @@ Define("syntax-pass", SyntaxPassPrimitive)(int argc, FObject argv[])
     FObject se = MakeSyntacticEnv(R.Bedrock);
 
     if (argc == 2)
-        return(SPassLambda(se, NoValueObject, DatumToSyntax(argv[0]), DatumToSyntax(argv[1])));
-    return(SPassLambda(se, DatumToSyntax(argv[0]), DatumToSyntax(argv[1]),
-            DatumToSyntax(argv[2])));
+        return(SPassLambda(se, NoValueObject, argv[0], argv[1]));
+    return(SPassLambda(se, argv[0], argv[1], argv[2]));
 }
 
 Define("middle-pass", MiddlePassPrimitive)(int argc, FObject argv[])
@@ -296,7 +295,7 @@ Define("syntax", SyntaxPrimitive)(int argc, FObject argv[])
     if (argc != 1)
         RaiseExceptionC(R.Assertion, "syntax", "expected one argument", EmptyListObject);
 
-    return(ExpandExpression(MakeSyntacticEnv(GetInteractionEnv()), DatumToSyntax(argv[0])));
+    return(ExpandExpression(MakeSyntacticEnv(GetInteractionEnv()), argv[0]));
 }
 
 Define("unsyntax", UnsyntaxPrimitive)(int argc, FObject argv[])

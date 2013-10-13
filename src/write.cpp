@@ -244,6 +244,66 @@ static void WritePair(FObject port, FObject obj, int df, FWriteFn wfn, void * ct
     }
 }
 
+static void WriteRecord(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx)
+{
+    if (IdentifierP(obj))
+        WriteGeneric(port, AsIdentifier(obj)->Symbol, df, wfn, ctx);
+    else
+    {
+        FObject rt = AsGenericRecord(obj)->Fields[0];
+        FCh s[16];
+        int sl = NumberAsString((FFixnum) obj, s, 16);
+
+        WriteStringC(port, "#<(");
+        wfn(port, RecordTypeName(rt), df, wfn, ctx);
+        WriteStringC(port, ": #x");
+        WriteString(port, s, sl);
+
+        if (LibraryP(obj))
+        {
+            WriteCh(port, ' ');
+            WriteGeneric(port, AsLibrary(obj)->Name, df, wfn, ctx);
+        }
+        else if (GlobalP(obj))
+        {
+            WriteCh(port, ' ');
+            WriteGeneric(port, AsGlobal(obj)->Name, df, wfn, ctx);
+            WriteCh(port, ' ');
+            WriteGeneric(port, AsGlobal(obj)->Module, df, wfn, ctx);
+        }
+        else if (ExceptionP(obj))
+        {
+            WriteCh(port, ' ');
+            WriteGeneric(port, AsException(obj)->Type, df, wfn, ctx);
+
+            if (SymbolP(AsException(obj)->Who))
+            {
+                WriteCh(port, ' ');
+                WriteGeneric(port, AsException(obj)->Who, df, wfn, ctx);
+            }
+
+            WriteCh(port, ' ');
+            WriteGeneric(port, AsException(obj)->Message, df, wfn, ctx);
+
+            WriteStringC(port, " irritants: ");
+            WriteGeneric(port, AsException(obj)->Irritants, df, wfn, ctx);
+        }
+        else
+        {
+            for (unsigned int fdx = 1; fdx < RecordNumFields(obj); fdx++)
+            {
+                WriteCh(port, ' ');
+                wfn(port, AsRecordType(rt)->Fields[fdx], df, wfn, ctx);
+                WriteStringC(port, ": ");
+                wfn(port, AsGenericRecord(obj)->Fields[fdx], df, wfn, ctx);
+            }
+
+        }
+
+        WriteStringC(port, ")>");
+    }
+}
+
 static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx)
 {
     switch (IndirectTag(obj))
@@ -346,6 +406,24 @@ static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn,
                     StringLength(AsGenericPort(obj)->Name));
         }
 
+        if (InputPortP(obj))
+        {
+            if (BinaryPortP(obj))
+            {
+                WriteStringC(port, " offset: ");
+                sl = NumberAsString(GetOffset(obj), s, 16);
+                WriteString(port, s, sl);
+            }
+            else
+            {
+                FAssert(TextualPortP(obj));
+
+                WriteStringC(port, " line: ");
+                sl = NumberAsString(GetLineColumn(obj, 0), s, 16);
+                WriteString(port, s, sl);
+            }
+        }
+
         WriteCh(port, '>');
         break;
     }
@@ -405,27 +483,8 @@ static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn,
     }
 
     case RecordTag:
-    {
-        FObject rt = AsGenericRecord(obj)->Fields[0];
-        FCh s[16];
-        int sl = NumberAsString((FFixnum) obj, s, 16);
-
-        WriteStringC(port, "#<(");
-        wfn(port, RecordTypeName(rt), df, wfn, ctx);
-        WriteStringC(port, ": #x");
-        WriteString(port, s, sl);
-
-        for (unsigned int fdx = 1; fdx < RecordNumFields(obj); fdx++)
-        {
-            WriteCh(port, ' ');
-            wfn(port, AsRecordType(rt)->Fields[fdx], df, wfn, ctx);
-            WriteStringC(port, ": ");
-            wfn(port, AsGenericRecord(obj)->Fields[fdx], df, wfn, ctx);
-        }
-
-        WriteStringC(port, ")>");
+        WriteRecord(port, obj, df, wfn, ctx);
         break;
-    }
 
     case PrimitiveTag:
     {
@@ -548,119 +607,6 @@ void WriteSimple(FObject port, FObject obj, int df)
 //    FAssert(OutputPortP(port) && AsPort(port)->Context != 0);
 
     WriteGeneric(port, obj, df, (FWriteFn) WriteGeneric, 0);
-}
-
-static void WritePrettyObject(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx)
-{
-    if (EnvironmentP(obj))
-    {
-        WriteStringC(port, "#<");
-        WriteGeneric(port, AsEnvironment(obj)->Name, 1, (FWriteFn) WriteGeneric, 0);
-        WriteCh(port, '>');
-    }
-    else if (LibraryP(obj))
-    {
-        WriteStringC(port, "#<library: ");
-        WriteGeneric(port, AsLibrary(obj)->Name, 1, (FWriteFn) WriteGeneric, 0);
-/*        WriteStringC(port, " (");
-
-        FObject lst = AsLibrary(obj)->Exports;
-        while (PairP(lst))
-        {
-            FAssert(PairP(First(lst)));
-            FAssert(SymbolP(First(First(lst))));
-
-            WriteGeneric(port, First(First(lst)), 1, (FWriteFn) WriteGeneric, 0);
-            lst = Rest(lst);
-
-            if (lst != EmptyListObject)
-                WriteCh(port, ' ');
-        }
-
-        WriteStringC(port, ")>");
-*/
-        WriteCh(port, '>');
-    }
-    else if (IdentifierP(obj))
-    {
-        WriteGeneric(port, AsIdentifier(obj)->Symbol, 1, (FWriteFn) WriteGeneric, 0);
-        WriteCh(port, '.');
-        WriteGeneric(port, AsIdentifier(obj)->Magic, 1, (FWriteFn) WriteGeneric, 0);
-        WriteCh(port, '.');
-        WriteGeneric(port, AsIdentifier(obj)->SyntacticEnv, 1, wfn, 0);
-    }
-    else if (ReferenceP(obj))
-    {
-        wfn(port, AsReference(obj)->Identifier, 1, wfn, ctx);
-        WriteCh(port, ':');
-        wfn(port, AsReference(obj)->Binding, 1, wfn, ctx);
-    }
-    else if (BindingP(obj))
-    {
-        FCh s[16];
-        int sl = NumberAsString((FFixnum) obj, s, 16);
-
-        WriteStringC(port, "#<binding: #x");
-        WriteString(port, s, sl);
-        WriteCh(port, ' ');
-
-        obj = AsBinding(obj)->Identifier;
-        WriteGeneric(port, AsIdentifier(obj)->Symbol, 1, (FWriteFn) WriteGeneric, 0);
-        WriteCh(port, '.');
-        WriteGeneric(port, AsIdentifier(obj)->Magic, 1, (FWriteFn) WriteGeneric, 0);
-        WriteCh(port, '>');
-    }
-    else if (LambdaP(obj))
-    {
-        WriteStringC(port, "#<(lambda: ");
-        if (AsLambda(obj)->Name != NoValueObject)
-        {
-            wfn(port, AsLambda(obj)->Name, 1, wfn, ctx);
-            WriteCh(port, ' ');
-        }
-
-        wfn(port, AsLambda(obj)->Bindings, 1, wfn, ctx);
-
-        WriteCh(port, ' ');
-        wfn(port, AsLambda(obj)->Body, 1, wfn, ctx);
-        WriteStringC(port, ")>");
-    }
-    else if (PatternVariableP(obj))
-    {
-        WriteCh(port, '{');
-        wfn(port, AsPatternVariable(obj)->Variable, 1, wfn, ctx);
-        WriteCh(port, '}');
-    }
-    else if (ctx == 0)
-        WriteGeneric(port, obj, df, wfn, 0);
-    else
-        WriteSharedObject(port, obj, df, wfn, ctx);
-}
-
-void WritePretty(FObject port, FObject obj, int df)
-{
-    FObject ht = MakeEqHashtable(23);
-
-    if (SharedObjectP(obj))
-    {
-        if (FindSharedObjects(ht, obj, 0, 1) == 0)
-        {
-            FAssert(HashtableSize(ht) == 0);
-
-            WritePrettyObject(port, obj, df, (FWriteFn) WritePrettyObject, 0);
-        }
-        else
-        {
-            HashtableWalkUpdate(ht, WalkUpdate, NoValueObject);
-
-            FWriteSharedCtx ctx;
-            ctx.Hashtable = ht;
-            ctx.Label = -1;
-            WritePrettyObject(port, obj, df, (FWriteFn) WritePrettyObject, &ctx);
-        }
-    }
-    else
-        WritePrettyObject(port, obj, df, (FWriteFn) WritePrettyObject, 0);
 }
 
 // ---- Primitives ----

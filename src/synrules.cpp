@@ -158,13 +158,14 @@ static FObject TemplateToList(FObject ctpl)
 
 static int LiteralFind(FObject list, FObject obj)
 {
+    FAssert(SymbolP(obj));
+
     while (list != EmptyListObject)
     {
         FAssert(PairP(list));
-        FAssert(IdentifierP(First(list)));
-        FAssert(IdentifierP(obj));
+        FAssert(SymbolP(First(list)));
 
-        if (AsIdentifier(First(list))->Symbol == AsIdentifier(obj)->Symbol)
+        if (First(list) == obj)
             return(1);
 
         list = Rest(list);
@@ -180,12 +181,15 @@ static FObject CopyLiterals(FObject obj, FObject ellip)
 
     while (obj != EmptyListObject)
     {
-        if (PairP(obj) == 0 || IdentifierP(First(obj)) == 0)
+        if (PairP(obj) == 0 || (IdentifierP(First(obj)) == 0 && SymbolP(First(obj)) == 0))
             RaiseExceptionC(R.Syntax, "syntax-rules",
                     "expected list of symbols for literals", List(form, obj));
 
         FObject id = First(obj);
-        if (AsIdentifier(id)->Symbol == ellip || AsIdentifier(id)->Symbol == R.UnderscoreSymbol)
+        if (IdentifierP(id))
+            id = AsIdentifier(id)->Symbol;
+
+        if (id == ellip || id == R.UnderscoreSymbol)
             RaiseExceptionC(R.Syntax, "syntax-rules",
                     "<ellipsis> and _ not allowed as literals", List(form, id));
 
@@ -217,13 +221,24 @@ static FObject PatternVariableFind(FObject list, FObject var)
     return(NoValueObject);
 }
 
+static int MatchSymbol(FObject obj, FObject sym)
+{
+    FAssert(SymbolP(sym));
+
+    if (IdentifierP(obj))
+        return(AsIdentifier(obj)->Symbol == sym);
+    else if (SymbolP(obj))
+        return(obj == sym);
+    return(0);
+}
+
 static FObject CompilePatternVariables(FObject form, FObject lits, FObject pat,
     FObject ellip, FObject pvars, int rd)
 {
     if (VectorP(pat))
         pat = VectorToList(pat);
 
-    if (PairP(pat) && IdentifierP(First(pat)) && AsIdentifier(First(pat))->Symbol == ellip)
+    if (PairP(pat) && MatchSymbol(First(pat), ellip))
         RaiseExceptionC(R.Syntax, "syntax-rules",
                 "<ellipsis> must not start list pattern or vector pattern",
                 List(form, pat));
@@ -231,8 +246,7 @@ static FObject CompilePatternVariables(FObject form, FObject lits, FObject pat,
     int ef = 0;
     while (PairP(pat))
     {
-        if (PairP(Rest(pat)) && IdentifierP(First(Rest(pat)))
-                && AsIdentifier(First(Rest(pat)))->Symbol == ellip)
+        if (PairP(Rest(pat)) && MatchSymbol(First(Rest(pat)), ellip))
         {
             if (ef)
                 RaiseExceptionC(R.Syntax, "syntax-rules",
@@ -252,15 +266,18 @@ static FObject CompilePatternVariables(FObject form, FObject lits, FObject pat,
     }
 
     if (IdentifierP(pat))
+        pat = AsIdentifier(pat)->Symbol;
+
+    if (SymbolP(pat))
     {
-        if (AsIdentifier(pat)->Symbol != ellip && AsIdentifier(pat)->Symbol != R.UnderscoreSymbol)
+        if (pat != ellip && pat != R.UnderscoreSymbol)
         {
-            if (PatternVariableP(PatternVariableFind(pvars, AsIdentifier(pat)->Symbol)))
+            if (PatternVariableP(PatternVariableFind(pvars, pat)))
                 RaiseExceptionC(R.Syntax, "syntax-rules",
                         "duplicate pattern variable", List(form, pat));
 
             if (LiteralFind(lits, pat) == 0)
-                pvars = MakePair(MakePatternVariable(rd, AsIdentifier(pat)->Symbol), pvars);
+                pvars = MakePair(MakePatternVariable(rd, pat), pvars);
         }
     }
 
@@ -306,8 +323,11 @@ static FObject RepeatPatternVariables(FObject pvars, FObject pat, FObject rvars)
     }
 
     if (IdentifierP(pat))
+        pat = AsIdentifier(pat)->Symbol;
+
+    if (SymbolP(pat))
     {
-        FObject var = PatternVariableFind(pvars, AsIdentifier(pat)->Symbol);
+        FObject var = PatternVariableFind(pvars, pat);
         if (PatternVariableP(var))
             return(MakePair(var, rvars));
     }
@@ -319,8 +339,7 @@ static FObject CompilePattern(FObject se, FObject lits, FObject pvars, FObject e
 {
     if (PairP(pat))
     {
-        if (PairP(Rest(pat)) && IdentifierP(First(Rest(pat)))
-                && AsIdentifier(First(Rest(pat)))->Symbol == ellip)
+        if (PairP(Rest(pat)) && MatchSymbol(First(Rest(pat)), ellip))
             return(MakePatternRepeat(CountPatternsAfterRepeat(Rest(Rest(pat))), ellip,
                     RepeatPatternVariables(pvars, First(pat), EmptyListObject),
                     CompilePattern(se, lits, pvars, ellip, First(pat)),
@@ -331,7 +350,10 @@ static FObject CompilePattern(FObject se, FObject lits, FObject pvars, FObject e
     }
     else if (VectorP(pat))
         return(MakeVector(1, 0, CompilePattern(se, lits, pvars, ellip, VectorToList(pat))));
-    else if (IdentifierP(pat))
+    else if (SymbolP(pat))
+        pat = MakeIdentifier(pat, 0);
+
+    if (IdentifierP(pat))
     {
         if (AsIdentifier(pat)->Symbol == R.UnderscoreSymbol)
             return(R.UnderscoreSymbol);
@@ -339,7 +361,7 @@ static FObject CompilePattern(FObject se, FObject lits, FObject pvars, FObject e
         FObject var = PatternVariableFind(pvars, AsIdentifier(pat)->Symbol);
         if (PatternVariableP(var))
             return(var);
-        FAssert(LiteralFind(lits, pat));
+        FAssert(LiteralFind(lits, AsIdentifier(pat)->Symbol));
 
         return(MakeReference(ResolveIdentifier(se, pat), pat));
     }
@@ -399,7 +421,7 @@ static FObject CompileTemplate(FObject form, FObject pvars, FObject ellip, FObje
 {
     if (PairP(tpl))
     {
-        if (qea != 0 && IdentifierP(First(tpl)) && AsIdentifier(First(tpl))->Symbol == ellip)
+        if (qea != 0 && MatchSymbol(First(tpl), ellip))
         {
             if (PairP(Rest(tpl)) == 0 || Rest(Rest(tpl)) != EmptyListObject)
                 RaiseExceptionC(R.Syntax, "syntax-rules",
@@ -410,15 +432,13 @@ static FObject CompileTemplate(FObject form, FObject pvars, FObject ellip, FObje
                     0));
         }
 
-        if (PairP(Rest(tpl)) && IdentifierP(First(Rest(tpl)))
-                && AsIdentifier(First(Rest(tpl)))->Symbol == ellip)
+        if (PairP(Rest(tpl)) && MatchSymbol(First(Rest(tpl)), ellip))
         {
             FObject rpt = First(tpl);
             int rc = 0;
 
             tpl = Rest(tpl);
-            while (PairP(tpl) && IdentifierP(First(tpl))
-                    && AsIdentifier(First(tpl))->Symbol == ellip)
+            while (PairP(tpl) && MatchSymbol(First(tpl), ellip))
             {
                 rc += 1;
                 tpl = Rest(tpl);
@@ -452,7 +472,10 @@ static FObject CompileTemplate(FObject form, FObject pvars, FObject ellip, FObje
     else if (VectorP(tpl))
         return(MakeVector(1, 0, CompileTemplate(form, pvars, ellip, VectorToList(tpl),
                 trs, 0)));
-    else if (IdentifierP(tpl))
+    else if (SymbolP(tpl))
+        tpl = MakeIdentifier(tpl, 0);
+
+    if (IdentifierP(tpl))
     {
         FObject var = PatternVariableFind(pvars, AsIdentifier(tpl)->Symbol);
         if (PatternVariableP(var))
@@ -486,7 +509,7 @@ static FObject CompileRule(FObject se, FObject form, FObject lits, FObject rule,
                 "expected (<pattern> <template>) for syntax rule", List(form, rule));
 
     FObject pat = First(rule);
-    if (PairP(pat) == 0 || IdentifierP(First(pat)) == 0)
+    if (PairP(pat) == 0 || (IdentifierP(First(pat)) == 0 && SymbolP(First(pat)) == 0))
         RaiseExceptionC(R.Syntax, "syntax-rules",
                 "pattern must be list starting with a symbol", List(rule, pat));
 
@@ -517,6 +540,11 @@ FObject CompileSyntaxRules(FObject se, FObject obj)
     if (PairP(Rest(obj)) && IdentifierP(First(Rest(obj))))
     {
         ellip = AsIdentifier(First(Rest(obj)))->Symbol;
+        obj = Rest(obj);
+    }
+    else if (PairP(Rest(obj)) && SymbolP(First(Rest(obj))))
+    {
+        ellip = First(Rest(obj));
         obj = Rest(obj);
     }
     else
@@ -746,6 +774,8 @@ static FObject ExpandTemplateRepeat(FObject tse, FObject use, FObject ctpl, int 
 
 static FObject CopyWrapValue(FObject se, FObject val)
 {
+    FAssert(SymbolP(val) == 0);
+
     if (IdentifierP(val))
         return(WrapIdentifier(val, se));
 
@@ -779,6 +809,8 @@ static FObject ExpandTemplate(FObject tse, FObject use, FObject ctpl, int nv, FO
                 AsFixnum(AsTemplateRepeat(ctpl)->RepeatCount),
                 ExpandTemplate(tse, use, AsTemplateRepeat(ctpl)->Rest, nv, vals, expr), expr));
     }
+
+    FAssert(SymbolP(ctpl) == 0);
 
     if (IdentifierP(ctpl))
         return(WrapIdentifier(ctpl, tse));

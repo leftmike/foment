@@ -10,6 +10,10 @@ Foment
 #include "io.hpp"
 #include "unicode.hpp"
 
+#define MAXIMUM_IDENTIFIER 256
+#define MAXIMUM_NAME 32
+#define MAXIMUM_NUMBER 32
+
 static int NumericP(FCh ch)
 {
     int dv = DigitValue(ch);
@@ -18,18 +22,37 @@ static int NumericP(FCh ch)
     return(1);
 }
 
-static int SymbolCharP(FCh ch)
+static int IdentifierInitialP(FCh ch)
 {
-    return(AlphabeticP(ch) || NumericP(ch) || ch == '!' || ch == '$' || ch == '%' || ch == '&'
-             || ch =='*' || ch == '+' || ch == '-' || ch == '.' || ch == '/' || ch == ':'
-             || ch == '<' || ch == '=' || ch == '>' || ch == '?' || ch == '@' || ch == '^'
-             || ch == '_' || ch == '~');
+    return(AlphabeticP(ch) || ch == '!' || ch == '$' || ch == '%' || ch == '&'
+             || ch =='*' || ch == '/' || ch == ':' || ch == '<' || ch == '=' || ch == '>'
+             || ch == '?'|| ch == '^' || ch == '_' || ch == '~' || ch == '@');
+}
+
+static int IdentifierSubsequentP(FCh ch)
+{
+    return(IdentifierInitialP(ch) || NumericP(ch) || ch == '+' || ch == '-' || ch == '.');
+}
+
+static int DelimiterP(FCh ch)
+{
+    return(WhitespaceP(ch) || ch == '|' || ch == '(' || ch == ')' || ch == '"' || ch == ';');
+}
+
+static int SignSubsequentP(FCh ch)
+{
+    return(IdentifierInitialP(ch) || ch == '-' || ch == '+');
+}
+
+static int DotSubsequentP(FCh ch)
+{
+    return(SignSubsequentP(ch) || ch == '.');
 }
 
 #define DotObject ((FObject) -1)
 #define EolObject ((FObject *) -2)
 
-static FCh DoReadStringHexChar(FObject port)
+static FCh ReadStringHexChar(FObject port)
 {
     FCh s[16];
     int sl = 2;
@@ -65,7 +88,7 @@ static FCh DoReadStringHexChar(FObject port)
     return((FCh) n);
 }
 
-static FObject DoReadString(FObject port, FCh tch)
+static FObject ReadStringLiteral(FObject port, FCh tch)
 {
     FCh s[512];
     int sl = 0;
@@ -122,7 +145,7 @@ Again:
             case '\\': ch = 0x005C; break;
             case '|': ch = 0x007C; break;
             case 'x':
-                ch = DoReadStringHexChar(port);
+                ch = ReadStringHexChar(port);
                 break;
             default:
                 RaiseExceptionC(R.Lexical, "read", "unexpected character following \\",
@@ -143,7 +166,37 @@ UnexpectedEof:
     return(NoValueObject);
 }
 
-static int DoReadToken(FObject port, FCh ch, FCh * s, int msl)
+static FObject ReadNumber(FObject port, FCh * s, int sl, int sdx)
+{
+    FFixnum n;
+    FCh ch;
+
+    FAssert(sl == MAXIMUM_NUMBER);
+
+    for (;;)
+    {
+        if (PeekCh(port, &ch) == 0)
+            break;
+
+        if (IdentifierSubsequentP(ch) == 0)
+            break;
+
+        s[sdx] = ch;
+        sdx += 1;
+        if (sdx == sl)
+            RaiseExceptionC(R.Restriction, "read", "number too long", List(port));
+
+        ReadCh(port, &ch);
+    }
+
+    if (StringToNumber(s, sdx, &n, 10) == 0)
+        RaiseExceptionC(R.Lexical, "read", "expected a valid number",
+                List(port, MakeString(s, sdx)));
+
+    return(MakeFixnum(n));
+}
+
+static int ReadName(FObject port, FCh ch, FCh * s)
 {
     int sl;
 
@@ -152,13 +205,13 @@ static int DoReadToken(FObject port, FCh ch, FCh * s, int msl)
     {
         s[sl] = ch;
         sl += 1;
-        if (sl == msl)
-            RaiseExceptionC(R.Restriction, "read", "symbol or number too long", List(port));
+        if (sl == MAXIMUM_NAME)
+            RaiseExceptionC(R.Restriction, "read", "name too long", List(port));
 
         if (PeekCh(port, &ch) == 0)
             break;
 
-        if (SymbolCharP(ch) == 0)
+        if (IdentifierSubsequentP(ch) == 0)
             break;
 
         ReadCh(port, &ch);
@@ -167,30 +220,42 @@ static int DoReadToken(FObject port, FCh ch, FCh * s, int msl)
     return(sl);
 }
 
-static FObject DoReadSymbolOrNumber(FObject port, int ch, int rif, int fcf)
+static FObject ReadIdentifier(FObject port, FCh * s, int sl, int sdx)
 {
-    FCh s[256];
-    FFixnum n;
     int ln;
+    FCh ch;
 
-    if (rif)
-        ln = GetLocation(port);
+    FAssert(sl == MAXIMUM_IDENTIFIER);
 
-    int sl = DoReadToken(port, ch, s, sizeof(s) / sizeof(FCh));
+    if (WantIdentifiersPortP(port))
+        ln = GetLineColumn(port, 0);
 
-    if (StringToNumber(s, sl, &n, 10))
-        return(MakeFixnum(n));
+    for (;;)
+    {
+        if (PeekCh(port, &ch) == 0)
+            break;
 
-    FObject sym = fcf ? StringToSymbol(FoldcaseString(MakeString(s, sl)))
-            : StringLengthToSymbol(s, sl);
-    if (rif)
+        if (IdentifierSubsequentP(ch) == 0)
+            break;
+
+        s[sdx] = ch;
+        sdx += 1;
+        if (sdx == sl)
+            RaiseExceptionC(R.Restriction, "read", "symbol too long", List(port));
+
+        ReadCh(port, &ch);
+    }
+
+    FObject sym = FoldcasePortP(port) ? StringToSymbol(FoldcaseString(MakeString(s, sdx)))
+            : StringLengthToSymbol(s, sdx);
+    if (WantIdentifiersPortP(port))
         return(MakeIdentifier(sym, ln));
     return(sym);
 }
 
-static FObject DoReadList(FObject port, int rif, int fcf);
-static FObject DoRead(FObject port, int eaf, int rlf, int rif, int fcf);
-static FObject DoReadSharp(FObject port, int eaf, int rlf, int rif, int fcf)
+static FObject ReadList(FObject port);
+static FObject Read(FObject port, int eaf, int rlf);
+static FObject ReadSharp(FObject port, int eaf, int rlf)
 {
     FCh ch;
 
@@ -199,9 +264,9 @@ static FObject DoReadSharp(FObject port, int eaf, int rlf, int rif, int fcf)
 
     if (ch == 't' || ch == 'f')
     {
-        FCh s[16];
+        FCh s[MAXIMUM_NAME];
 
-        int sl = DoReadToken(port, ch, s, sizeof(s) / sizeof(FCh));
+        int sl = ReadName(port, ch, s);
 
         if (StringCEqualP("t", s, sl) || StringCEqualP("true", s, sl))
             return(TrueObject);
@@ -214,15 +279,15 @@ static FObject DoReadSharp(FObject port, int eaf, int rlf, int rif, int fcf)
     }
     else if (ch == '\\')
     {
-        FCh s[32];
+        FCh s[MAXIMUM_NAME];
 
         if (ReadCh(port, &ch) == 0)
             RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading #\\", List(port));
 
-        if (SymbolCharP(ch) == 0)
+        if (IdentifierInitialP(ch) == 0)
             return(MakeCharacter(ch));
 
-        int sl = DoReadToken(port, ch, s, sizeof(s) / sizeof(FCh));
+        int sl = ReadName(port, ch, s);
 
         if (sl == 1)
             return(MakeCharacter(ch));
@@ -272,24 +337,13 @@ static FObject DoReadSharp(FObject port, int eaf, int rlf, int rif, int fcf)
     }
     else if (ch == 'b' || ch == 'o' || ch == 'd' || ch == 'x')
     {
-        FCh s[32];
-        FFixnum n;
-        int b = (ch == 'b' ? 2 : (ch == 'o' ? 8 : (ch == 'd' ? 10 : 16)));
-
-        if (ReadCh(port, &ch) == 0)
-            RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading constant",
-                    List(port));
-
-        int sl = DoReadToken(port, ch, s, sizeof(s) / sizeof(FCh));
-
-        if (StringToNumber(s, sl, &n, b) == 0)
-            RaiseExceptionC(R.Lexical, "read", "expected a numerical constant",
-                    List(port, MakeString(s, sl)));
-
-        return(MakeFixnum(n));
+        FCh s[MAXIMUM_NUMBER];
+        s[0] = '#';
+        s[1] = ch;
+        return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 2));
     }
     else if (ch ==  '(')
-        return(ListToVector(DoReadList(port, rif, fcf)));
+        return(ListToVector(ReadList(port)));
     else if (ch == 'u')
     {
         if (ReadCh(port, &ch) == 0)
@@ -303,13 +357,13 @@ static FObject DoReadSharp(FObject port, int eaf, int rlf, int rif, int fcf)
                     List(port));
         if (ch != '(')
             RaiseExceptionC(R.Lexical, "read", "expected #\u8(", List(port));
-        return(U8ListToBytevector(DoReadList(port, rif, fcf)));
+        return(U8ListToBytevector(ReadList(port)));
     }
     else if (ch == ';')
     {
-        DoRead(port, 0, 0, 0, 0);
+        Read(port, 0, 0);
 
-        return(DoRead(port, eaf, rlf, rif, fcf));
+        return(Read(port, eaf, rlf));
     }
     else if (ch == '|')
     {
@@ -330,7 +384,30 @@ static FObject DoReadSharp(FObject port, int eaf, int rlf, int rif, int fcf)
             pch = ch;
         }
 
-        return(DoRead(port, eaf, rlf, rif, fcf));
+        return(Read(port, eaf, rlf));
+    }
+    else if (ch == '!')
+    {
+        FCh s[MAXIMUM_NAME];
+
+        if (ReadCh(port, &ch) == 0)
+            RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading #!", List(port));
+
+        if (IdentifierInitialP(ch) == 0)
+            RaiseExceptionC(R.Lexical, "read", "unexpected character following #!",
+                    List(port, MakeCharacter(ch)));
+
+        int sl = ReadName(port, ch, s);
+
+        if (StringCEqualP("fold-case", s, sl))
+            FoldcasePort(port, 1);
+        else if (StringCEqualP("no-fold-case", s, sl))
+            FoldcasePort(port, 0);
+        else
+            RaiseExceptionC(R.Lexical, "read", "unknown directive #!<name>",
+                    List(port, MakeString(s, sl)));
+
+        return(Read(port, eaf, rlf));
     }
 
     RaiseExceptionC(R.Lexical, "read", "unexpected character following #",
@@ -339,7 +416,7 @@ static FObject DoReadSharp(FObject port, int eaf, int rlf, int rif, int fcf)
     return(NoValueObject);
 }
 
-static FObject DoRead(FObject port, int eaf, int rlf, int rif, int fcf)
+static FObject Read(FObject port, int eaf, int rlf)
 {
     FCh ch;
 
@@ -362,25 +439,26 @@ static FObject DoRead(FObject port, int eaf, int rlf, int rif, int fcf)
             switch (ch)
             {
             case '#':
-                return(DoReadSharp(port, eaf, rlf, rif, fcf));
+                return(ReadSharp(port, eaf, rlf));
 
             case '"':
-                return(DoReadString(port, '"'));
+                return(ReadStringLiteral(port, '"'));
 
             case '|':
             {
                 int ln;
 
-                if (rif)
-                    ln = GetLocation(port);
+                if (WantIdentifiersPortP(port))
+                    ln = GetLineColumn(port, 0);
 
-                FObject sym = fcf ? StringToSymbol(FoldcaseString(DoReadString(port, '|')))
-                        : StringToSymbol(DoReadString(port, '|'));
-                return(rif ? MakeIdentifier(sym, ln) : sym);
+                FObject sym = FoldcasePortP(port)
+                        ? StringToSymbol(FoldcaseString(ReadStringLiteral(port, '|')))
+                        : StringToSymbol(ReadStringLiteral(port, '|'));
+                return(WantIdentifiersPortP(port) ? MakeIdentifier(sym, ln) : sym);
             }
 
             case '(':
-                return(DoReadList(port, rif, fcf));
+                return(ReadList(port));
 
             case ')':
                 if (rlf)
@@ -392,17 +470,18 @@ static FObject DoRead(FObject port, int eaf, int rlf, int rif, int fcf)
                 if (PeekCh(port, &ch) == 0)
                     RaiseExceptionC(R.Lexical, "read",
                             "unexpected end-of-file reading dotted pair", List(port));
-                if (ch == '.')
-                {
-                    ReadCh(port, &ch);
 
-                    if (ReadCh(port, &ch) == 0)
-                        RaiseExceptionC(R.Lexical, "read",
-                                "unexpected end-of-file reading ...", List(port));
-                        if (ch != '.')
-                            RaiseExceptionC(R.Lexical, "read", "expected ...", List(port));
-                    return(rif ? MakeIdentifier(R.EllipsisSymbol, GetLocation(port))
-                            : R.EllipsisSymbol);
+                if (DotSubsequentP(ch))
+                {
+                    FCh s[MAXIMUM_IDENTIFIER];
+                    s[0] = '.';
+                    return(ReadIdentifier(port, s, sizeof(s) / sizeof(FCh), 1));
+                }
+                else if (DelimiterP(ch) == 0)
+                {
+                    FCh s[MAXIMUM_NUMBER];
+                    s[0] = '.';
+                    return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 1));
                 }
 
                 if (rlf)
@@ -413,17 +492,17 @@ static FObject DoRead(FObject port, int eaf, int rlf, int rif, int fcf)
             case '\'':
             {
                 FObject obj;
-                obj = DoRead(port, 0, 0, rif, fcf);
-                return(MakePair( rif ? MakeIdentifier(R.QuoteSymbol,
-                        GetLocation(port)) : R.QuoteSymbol, MakePair(obj, EmptyListObject)));
+                obj = Read(port, 0, 0);
+                return(MakePair(WantIdentifiersPortP(port) ? MakeIdentifier(R.QuoteSymbol,
+                        GetLineColumn(port, 0)) : R.QuoteSymbol, MakePair(obj, EmptyListObject)));
             }
 
             case '`':
             {
                 FObject obj;
-                obj = DoRead(port, 0, 0, rif, fcf);
-                return(MakePair(
-                        rif ? MakeIdentifier(R.QuasiquoteSymbol, GetLocation(port))
+                obj = Read(port, 0, 0);
+                return(MakePair(WantIdentifiersPortP(port)
+                        ? MakeIdentifier(R.QuasiquoteSymbol, GetLineColumn(port, 0))
                         : R.QuasiquoteSymbol, MakePair(obj, EmptyListObject)));
             }
 
@@ -443,15 +522,75 @@ static FObject DoRead(FObject port, int eaf, int rlf, int rif, int fcf)
                     sym = R.UnquoteSymbol;
 
                 FObject obj;
-                obj = DoRead(port, 0, 0, rif, fcf);
-                return(MakePair(
-                        rif ? MakeIdentifier(sym, GetLocation(port)) : sym,
+                obj = Read(port, 0, 0);
+                return(MakePair(WantIdentifiersPortP(port)
+                        ? MakeIdentifier(sym, GetLineColumn(port, 0)) : sym,
                         MakePair(obj, EmptyListObject)));
             }
 
+            case '-':
+            case '+':
+            {
+                FCh pch;
+
+                if (PeekCh(port, &pch) == 0 || SignSubsequentP(pch) || DelimiterP(pch))
+                {
+                    FCh s[MAXIMUM_IDENTIFIER];
+                    s[0] = ch;
+                    return(ReadIdentifier(port, s, sizeof(s) / sizeof(FCh), 1));
+                }
+
+                if (pch == '.')
+                {
+                    FCh ch2;
+                    ReadCh(port, &ch2);
+
+                    if (PeekCh(port, &pch) == 0)
+                        RaiseExceptionC(R.Lexical, "read",
+                                "unexpected end-of-file reading identifier or number",
+                                List(port));
+
+                    if (DotSubsequentP(pch))
+                    {
+                        FCh s[MAXIMUM_IDENTIFIER];
+                        s[0] = ch;
+                        s[1] = ch2;
+                        return(ReadIdentifier(port, s, sizeof(s) / sizeof(FCh), 2));
+                    }
+                    else
+                    {
+                        FCh s[MAXIMUM_NUMBER];
+                        s[0] = ch;
+                        s[1] = ch2;
+                        return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 2));
+                    }
+                }
+                else
+                {
+                    FCh s[MAXIMUM_NUMBER];
+                    s[0] = ch;
+                    return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 1));
+                }
+            }
+
             default:
-                if (SymbolCharP(ch))
-                    return(DoReadSymbolOrNumber(port, ch, rif, fcf));
+                if (IdentifierInitialP(ch))
+                {
+                    FCh s[MAXIMUM_IDENTIFIER];
+                    s[0] = ch;
+                    return(ReadIdentifier(port, s, sizeof(s) / sizeof(FCh), 1));
+                }
+                else if (NumericP(ch))
+                {
+                    FCh s[MAXIMUM_NUMBER];
+                    s[0] = ch;
+                    return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 1));
+                }
+
+
+                if (WhitespaceP(ch) == 0)
+                    RaiseExceptionC(R.Lexical, "read", "unexpected character",
+                            List(port, MakeCharacter(ch)));
                 break;
             }
         }
@@ -465,32 +604,32 @@ Eof:
     return(EndOfFileObject);
 }
 
-static FObject DoReadList(FObject port, int rif, int fcf)
+static FObject ReadList(FObject port)
 {
     FObject obj;
 
-    obj = DoRead(port, 0, 1, rif, fcf);
+    obj = Read(port, 0, 1);
 
     if (obj == EolObject)
         return(EmptyListObject);
 
     if (obj == DotObject)
     {
-        obj = DoRead(port, 0, 0, rif, fcf);
+        obj = Read(port, 0, 0);
 
-        if (DoRead(port, 0, 1, rif, fcf) != EolObject)
+        if (Read(port, 0, 1) != EolObject)
             RaiseExceptionC(R.Lexical, "read", "bad dotted pair", List(port));
         return(obj);
     }
 
-    return(MakePair(obj, DoReadList(port, rif, fcf)));
+    return(MakePair(obj, ReadList(port)));
 }
 
-FObject Read(FObject port, int rif, int fcf)
+FObject Read(FObject port)
 {
-//    FAssert(OldInputPortP(port) && AsPort(port)->Context != 0);
+    FAssert(InputPortP(port) && InputPortOpenP(port));
 
-    return(DoRead(port, 1, 0, rif, fcf));
+    return(Read(port, 1, 0));
 }
 
 // ---- Input ----
@@ -501,7 +640,7 @@ Define("read", ReadPrimitive)(int argc, FObject argv[])
     FObject port = (argc == 1 ? argv[0] : CurrentInputPort());
     TextualInputPortArgCheck("read", port);
 
-    return(Read(port, 0, 0));
+    return(Read(port));
 }
 
 Define("read-char", ReadCharPrimitive)(int argc, FObject argv[])

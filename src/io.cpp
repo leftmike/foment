@@ -19,6 +19,8 @@ Foment
 #include "unicode.hpp"
 
 #define NOT_PEEKED ((unsigned int) -1)
+#define CR 13
+#define LF 10
 
 // ---- Binary Ports ----
 
@@ -45,6 +47,7 @@ FObject MakeBinaryPort(FObject nam, FObject obj, void * ictx, void * octx, FClos
     port->ByteReadyPFn = brpfn;
     port->WriteBytesFn = wbfn;
     port->PeekedByte = NOT_PEEKED;
+    port->Offset = 0;
 
     return(port);
 }
@@ -97,6 +100,13 @@ int ByteReadyP(FObject port)
         return(1);
 
     return(AsBinaryPort(port)->ByteReadyPFn(port));
+}
+
+unsigned int GetOffset(FObject port)
+{
+    FAssert(BinaryPortP(port) && InputPortP(port));
+
+    return(AsBinaryPort(port)->Offset);
 }
 
 void WriteBytes(FObject port, void * b, unsigned int bl)
@@ -288,6 +298,8 @@ FObject MakeTextualPort(FObject nam, FObject obj, void * ictx, void * octx, FClo
     port->CharReadyPFn = crpfn;
     port->WriteStringFn = wsfn;
     port->PeekedChar = NOT_PEEKED;
+    port->Line = 1;
+    port->Column = 0;
 
     return(port);
 }
@@ -352,6 +364,8 @@ static FObject ListToString(FObject lst)
 
 FObject ReadLine(FObject port)
 {
+    FAssert(TextualPortP(port) && InputPortOpenP(port));
+
     FObject lst = EmptyListObject;
     FCh ch = 0;
 
@@ -388,6 +402,8 @@ FObject ReadLine(FObject port)
 
 FObject ReadString(FObject port, int cnt)
 {
+    FAssert(TextualPortP(port) && InputPortOpenP(port));
+
     FObject lst = EmptyListObject;
     FCh ch;
 
@@ -401,6 +417,35 @@ FObject ReadString(FObject port, int cnt)
         return(EndOfFileObject);
 
     return(ListToString(lst));
+}
+
+unsigned int GetLineColumn(FObject port, unsigned int * col)
+{
+    FAssert(TextualPortP(port) && InputPortP(port));
+
+    if (col)
+        *col = AsTextualPort(port)->Column;
+    return(AsTextualPort(port)->Line);
+}
+
+void FoldcasePort(FObject port, int fcf)
+{
+    FAssert(TextualPortP(port) && InputPortP(port));
+
+    if (fcf)
+        AsGenericPort(port)->Flags |= PORT_FLAG_FOLDCASE;
+    else
+        AsGenericPort(port)->Flags &= ~PORT_FLAG_FOLDCASE;
+}
+
+void WantIdentifiersPort(FObject port, int wif)
+{
+    FAssert(TextualPortP(port) && InputPortP(port));
+
+    if (wif)
+        AsGenericPort(port)->Flags |= PORT_FLAG_WANT_IDENTIFIERS;
+    else
+        AsGenericPort(port)->Flags &= ~PORT_FLAG_WANT_IDENTIFIERS;
 }
 
 void WriteCh(FObject port, FCh ch)
@@ -506,6 +551,20 @@ static unsigned int Latin1ReadCh(FObject port, FCh * ch)
         return(0);
 
     *ch = b;
+    if (b == CR)
+    {
+        if (PeekByte(AsGenericPort(port)->Object, &b) != 0 && b != LF)
+        {
+            AsTextualPort(port)->Line += 1;
+            AsTextualPort(port)->Column = 0;
+        }
+    }
+    else if (b == LF)
+    {
+        AsTextualPort(port)->Line += 1;
+        AsTextualPort(port)->Column = 0;
+    }
+
     return(1);
 }
 
@@ -543,7 +602,7 @@ FObject OpenInputFile(FObject fn)
     SCh * ss;
     ConvertToSystem(fn, ss);
 
-    FILE * fp = _wfopen(ss, L"r");
+    FILE * fp = _wfopen(ss, L"rb");
     if (fp == 0)
         return(NoValueObject);
 
@@ -555,7 +614,7 @@ FObject OpenOutputFile(FObject fn)
     SCh * ss;
     ConvertToSystem(fn, ss);
 
-    FILE * fp = _wfopen(ss, L"w");
+    FILE * fp = _wfopen(ss, L"wb");
     if (fp == 0)
         return(NoValueObject);
 
@@ -687,15 +746,6 @@ FObject MakeStringCInputPort(char * s)
 {
     return(MakeTextualPort(NoValueObject, NoValueObject, s, 0, CinCloseInput, 0, 0, CinReadCh,
             CinCharReadyP, 0));
-}
-
-int GetLocation(FObject port)
-{
-    
-    
-    
-    
-    return(0);
 }
 
 // ---- System interface ----
