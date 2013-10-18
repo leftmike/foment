@@ -4,6 +4,60 @@
 
 (import (foment base))
 
+;; make-latin1-port
+;; make-utf8-port
+;; make-utf16-port
+
+(must-raise (assertion-violation make-latin1-port) (make-latin1-port))
+(must-raise (assertion-violation make-latin1-port) (make-latin1-port (current-input-port)))
+(must-raise (assertion-violation make-latin1-port) (make-latin1-port (current-output-port)))
+(must-raise (assertion-violation make-latin1-port)
+        (make-latin1-port (open-binary-input-file "foment.scm") #t))
+
+(define (test-string m)
+    (let ((s (make-string m)))
+        (define (set-ch n m o)
+            (if (< n m)
+                (begin
+                    (string-set! s n (integer->char (+ n o)))
+                    (set-ch (+ n 1) m o))))
+        (set-ch 0 m (char->integer #\!))
+        s))
+
+(define (test-read-port port)
+    (define (read-port port n)
+        (let ((obj (read-char port)))
+            (if (not (eof-object? obj))
+                (begin
+                    (if (or (not (char? obj)) (not (= n (char->integer obj))))
+                        (error "expected character" (integer->char n) obj))
+                    (read-port port (+ n 1))))))
+    (read-port port (char->integer #\!)))
+
+(call-with-port (make-utf8-port (open-binary-output-file "output.utf8"))
+    (lambda (port)
+        (display (test-string 5000) port)))
+
+(call-with-port (make-utf8-port (open-binary-input-file "output.utf8")) test-read-port)
+
+(must-raise (assertion-violation make-utf8-port) (make-utf8-port))
+(must-raise (assertion-violation make-utf8-port) (make-utf8-port (current-input-port)))
+(must-raise (assertion-violation make-utf8-port) (make-utf8-port (current-output-port)))
+(must-raise (assertion-violation make-utf8-port)
+        (make-utf8-port (open-binary-input-file "foment.scm") #t))
+
+(call-with-port (make-utf16-port (open-binary-output-file "output.utf16"))
+    (lambda (port)
+        (display (test-string 5000) port)))
+
+(call-with-port (make-utf16-port (open-binary-input-file "output.utf16")) test-read-port)
+
+(must-raise (assertion-violation make-utf16-port) (make-utf16-port))
+(must-raise (assertion-violation make-utf16-port) (make-utf16-port (current-input-port)))
+(must-raise (assertion-violation make-utf16-port) (make-utf16-port (current-output-port)))
+(must-raise (assertion-violation make-utf16-port)
+        (make-utf16-port (open-binary-input-file "foment.scm") #t))
+
 ;; with-continuation-mark
 ;; current-continuation-marks
 

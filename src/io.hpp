@@ -2,15 +2,6 @@
 
 Foment
 
--- use Win32 console APIs
-
--- MakeUtf8Port(FObject port): for utf8 characters
--- MakeUtf16Port(FObject port): and utf16 characters
-
--- need a port guardian to make sure ports are closed
-
--- document additional io procedures
-
 */
 
 #ifndef __IO_HPP__

@@ -1358,9 +1358,21 @@ void Collect()
             DeleteExclusive(&AsExclusive(obj)->Exclusive);
         }
 
-        LeaveExclusive(&GCExclusive);
-
         SignalEvent(GCEvent);
+
+        while (TConcEmptyP(R.PortsTConc) == 0)
+        {
+            FObject obj = TConcRemove(R.PortsTConc);
+
+            FAssert(BinaryPortP(obj) || TextualPortP(obj));
+
+            LeaveExclusive(&GCExclusive);
+            CloseInput(obj);
+            CloseOutput(obj);
+            EnterExclusive(&GCExclusive);
+        }
+
+        LeaveExclusive(&GCExclusive);
     }
     else
     {
@@ -1371,6 +1383,8 @@ void Collect()
 
 void InstallGuardian(FObject obj, FObject tconc)
 {
+    EnterExclusive(&GCExclusive);
+
     FAssert(ObjectP(obj));
     FAssert(PairP(tconc));
     FAssert(PairP(First(tconc)));
@@ -1380,6 +1394,8 @@ void InstallGuardian(FObject obj, FObject tconc)
         MatureGuardians = MakePair(MakePair(obj, tconc), MatureGuardians);
     else
         YoungGuardians = MakePair(MakePair(obj, tconc), YoungGuardians);
+
+    LeaveExclusive(&GCExclusive);
 }
 
 void InstallTracker(FObject obj, FObject ret, FObject tconc)

@@ -17,6 +17,7 @@ Foment
 #include "syncthrd.hpp"
 #include "io.hpp"
 #include "unicode.hpp"
+#include "convertutf.h"
 
 #define NOT_PEEKED ((unsigned int) -1)
 #define CR 13
@@ -48,6 +49,8 @@ FObject MakeBinaryPort(FObject nam, FObject obj, void * ictx, void * octx, FClos
     port->WriteBytesFn = wbfn;
     port->PeekedByte = NOT_PEEKED;
     port->Offset = 0;
+
+    InstallGuardian(port, R.PortsTConc);
 
     return(port);
 }
@@ -301,6 +304,8 @@ FObject MakeTextualPort(FObject nam, FObject obj, void * ictx, void * octx, FClo
     port->Line = 1;
     port->Column = 0;
 
+    InstallGuardian(port, R.PortsTConc);
+
     return(port);
 }
 
@@ -533,12 +538,12 @@ static FObject MakeTranslatorPort(FObject port, FReadChFn rcfn, FCharReadyPFn cr
     FAssert(BinaryPortP(port));
 
     return(MakeTextualPort(AsGenericPort(port)->Name, port, 0, 0,
-            (AsGenericPort(port)->Flags & PORT_FLAG_INPUT) ? TranslatorCloseInput : 0,
-            (AsGenericPort(port)->Flags & PORT_FLAG_OUTPUT) ? TranslatorCloseOutput : 0,
-            (AsGenericPort(port)->Flags & PORT_FLAG_OUTPUT) ? TranslatorFlushOutput : 0,
-            (AsGenericPort(port)->Flags & PORT_FLAG_INPUT) ? rcfn : 0,
-            (AsGenericPort(port)->Flags & PORT_FLAG_INPUT) ? crpfn : 0,
-            (AsGenericPort(port)->Flags & PORT_FLAG_OUTPUT) ? wsfn : 0));
+            InputPortP(port) ? TranslatorCloseInput : 0,
+            OutputPortP(port) ? TranslatorCloseOutput : 0,
+            OutputPortP(port) ? TranslatorFlushOutput : 0,
+            InputPortP(port) ? rcfn : 0,
+            InputPortP(port) ? crpfn : 0,
+            OutputPortP(port) ? wsfn : 0));
 }
 
 static unsigned int Latin1ReadCh(FObject port, FCh * ch)
@@ -575,7 +580,7 @@ static int Latin1CharReadyP(FObject port)
     return(ByteReadyP(AsGenericPort(port)->Object));
 }
 
-void Latin1WriteString(FObject port, FCh * s, unsigned int sl)
+static void Latin1WriteString(FObject port, FCh * s, unsigned int sl)
 {
     FAssert(BinaryPortP(AsGenericPort(port)->Object));
 
@@ -592,9 +597,184 @@ void Latin1WriteString(FObject port, FCh * s, unsigned int sl)
     }
 }
 
-FObject MakeLatin1Port(FObject port)
+static FObject MakeLatin1Port(FObject port)
 {
     return(MakeTranslatorPort(port, Latin1ReadCh, Latin1CharReadyP, Latin1WriteString));
+}
+
+static unsigned int Utf8ReadCh(FObject port, FCh * ch)
+{
+    FAssert(BinaryPortP(AsGenericPort(port)->Object));
+
+    unsigned char ub[6];
+
+    if (ReadBytes(AsGenericPort(port)->Object, ub, 1) != 1)
+        return(0);
+
+    unsigned int tb = Utf8TrailingBytes[ub[0]];
+    if (tb == 0)
+    {
+        *ch = ub[0];
+        return(1);
+    }
+
+    if (ReadBytes(AsGenericPort(port)->Object, ub + 1, tb) != tb)
+        return(0);
+
+    const UTF8 * utf8 = ub;
+    UTF32 * utf32 = (UTF32 *) ch;
+    if (ConvertUTF8toUTF32(&utf8, ub + tb + 1, &utf32, utf32 + 1, lenientConversion)
+            != conversionOK)
+        return(0);
+
+    return(1);
+}
+
+static int Utf8CharReadyP(FObject port)
+{
+    FAssert(BinaryPortP(AsGenericPort(port)->Object));
+
+    return(ByteReadyP(AsGenericPort(port)->Object));
+}
+
+static unsigned int ChCountInUtf8(FCh * s, unsigned int sl, unsigned int bl)
+{
+    unsigned int bdx = 0;
+    unsigned int sdx = 0;
+
+    while (sdx < sl)
+    {
+        if (s[sdx] < 0x80UL)
+            bdx += 1;
+        else if (s[sdx] < 0x800UL)
+            bdx += 2;
+        else if (s[sdx] < 0x10000UL)
+            bdx += 3;
+        else if (s[sdx] < 0x200000UL)
+            bdx += 4;
+        else
+            bdx += 2;
+
+        if (bdx > bl)
+            break;
+
+        sdx += 1;
+    }
+
+    return(sdx);
+}
+
+static void Utf8WriteString(FObject port, FCh * s, unsigned int sl)
+{
+    FAssert(BinaryPortP(AsGenericPort(port)->Object));
+
+    UTF8 ub[128];
+
+    unsigned int sdx = 0;
+    while (sdx < sl)
+    {
+        unsigned int dl = ChCountInUtf8(s + sdx, sl - sdx, sizeof(ub));
+        const UTF32 * utf32 = (UTF32 *) s + sdx;
+        UTF8 * utf8 = ub;
+        ConvertUTF32toUTF8(&utf32, utf32 + dl, &utf8, ub + sizeof(ub), lenientConversion);
+
+        WriteBytes(AsGenericPort(port)->Object, ub, utf8 - ub);
+
+        sdx += dl;
+    }
+}
+
+static FObject MakeUtf8Port(FObject port)
+{
+    return(MakeTranslatorPort(port, Utf8ReadCh, Utf8CharReadyP, Utf8WriteString));
+}
+
+static unsigned int Utf16ReadCh(FObject port, FCh * ch)
+{
+    FAssert(BinaryPortP(AsGenericPort(port)->Object));
+
+    UTF16 uch[2];
+
+    if (ReadBytes(AsGenericPort(port)->Object, (FByte *) uch, 2) != 2)
+        return(0);
+
+    if (uch[0] < UNI_SUR_HIGH_START || uch[0] > UNI_SUR_HIGH_END)
+    {
+        *ch = uch[0];
+        return(1);
+    }
+
+    if (ReadBytes(AsGenericPort(port)->Object, (FByte *) (uch + 1), 2) != 2)
+        return(0);
+
+    const UTF16 * utf16 = uch;
+    UTF32 * utf32 = (UTF32 *) ch;
+    if (ConvertUTF16toUTF32(&utf16, uch + 2, &utf32, utf32 + 1, lenientConversion)
+            != conversionOK)
+        return(0);
+
+    return(1);
+}
+
+static int Utf16CharReadyP(FObject port)
+{
+    FAssert(BinaryPortP(AsGenericPort(port)->Object));
+
+    return(ByteReadyP(AsGenericPort(port)->Object));
+}
+
+static unsigned int ChCountInUtf16(FCh * s, unsigned int sl, unsigned int bl)
+{
+    unsigned int bdx = 0;
+    unsigned int sdx = 0;
+
+    while (sdx < sl)
+    {
+        bdx += 1;
+
+        if (s[sdx] > 0xFFFF)
+            bdx += 1;
+
+        if (bdx > bl)
+            break;
+
+        sdx += 1;
+    }
+
+    return(sdx);
+}
+
+static void Utf16WriteString(FObject port, FCh * s, unsigned int sl)
+{
+    FAssert(BinaryPortP(AsGenericPort(port)->Object));
+
+/*    for (unsigned int sdx = 0; sdx < sl; sdx++)
+    {
+        UTF16 utf16 = (UTF16) s[sdx];
+        WriteBytes(AsGenericPort(port)->Object, &utf16, sizeof(utf16));
+    }
+*/
+
+    UTF16 ub[128];
+
+    unsigned int sdx = 0;
+    while (sdx < sl)
+    {
+        unsigned int dl = ChCountInUtf16(s + sdx, sl - sdx, sizeof(ub) / sizeof(UTF16));
+        const UTF32 * utf32 = (UTF32 *) s + sdx;
+        UTF16 * utf16 = ub;
+        ConvertUTF32toUTF16(&utf32, utf32 + dl, &utf16, ub + (sizeof(ub) / sizeof(UTF16)),
+                lenientConversion);
+
+        WriteBytes(AsGenericPort(port)->Object, ub, (utf16 - ub) * sizeof(UTF16));
+
+        sdx += dl;
+    }
+}
+
+static FObject MakeUtf16Port(FObject port)
+{
+    return(MakeTranslatorPort(port, Utf16ReadCh, Utf16CharReadyP, Utf16WriteString));
 }
 
 FObject OpenInputFile(FObject fn)
@@ -748,6 +928,87 @@ FObject MakeStringCInputPort(char * s)
             CinCharReadyP, 0));
 }
 
+static void ConCloseInput(FObject port)
+{
+    FAssert(TextualPortP(port));
+
+    CloseHandle((HANDLE) AsGenericPort(port)->InputContext);
+}
+
+static unsigned int ConReadCh(FObject port, FCh * ch)
+{
+    FAssert(TextualPortP(port) && InputPortOpenP(port));
+
+    wchar_t s;
+    DWORD nc;
+
+    if (ReadConsoleW((HANDLE) AsGenericPort(port)->InputContext, &s, 1, &nc, 0) == 0)
+        return(0);
+
+    if (s == 26) // ctrl-Z
+        return(0);
+
+    if (s < 0xD800 || s > 0xDBFF)
+    {
+        *ch = s;
+        return(1);
+    }
+
+    *ch = 0x010000 + ((s - 0xD800) << 10);
+
+    if (ReadConsoleW((HANDLE) AsGenericPort(port)->InputContext, &s, 1, &nc, 0) == 0)
+        return(0);
+
+    if (s < 0xDC00 || s > 0xDFFF)
+        return(0);
+
+    *ch += (s - 0xDC00);
+    return(1);
+}
+
+static int ConCharReadyP(FObject port)
+{
+    FAssert(TextualPortP(port) && InputPortOpenP(port));
+    
+    
+    return(1);
+}
+
+static FObject MakeConsoleInputPort(FObject nam, HANDLE h)
+{
+    return(MakeTextualPort(nam, NoValueObject, h, 0, ConCloseInput, 0, 0, ConReadCh,
+            ConCharReadyP, 0));
+}
+
+static void ConCloseOutput(FObject port)
+{
+    FAssert(TextualPortP(port));
+
+    CloseHandle((HANDLE) AsGenericPort(port)->OutputContext);
+}
+
+static void ConFlushOutput(FObject port)
+{
+    // Nothing.
+}
+
+static void ConWriteString(FObject port, FCh * s, unsigned int sl)
+{
+    FAssert(TextualPortP(port) && OutputPortOpenP(port));
+
+    SCh ssbuf[256];
+    SCh *ss = ConvertToStringS(s, sl, ssbuf, sizeof(ssbuf) / sizeof(SCh));
+
+    DWORD nc;
+    WriteConsoleW((HANDLE) AsGenericPort(port)->OutputContext, ss, wcslen(ss), &nc, 0);
+}
+
+static FObject MakeConsoleOutputPort(FObject nam, HANDLE h)
+{
+    return(MakeTextualPort(nam, NoValueObject, 0, h, 0, ConCloseOutput,
+            ConFlushOutput, 0, 0, ConWriteString));
+}
+
 // ---- System interface ----
 
 Define("file-exists?", FileExistsPPrimitive)(int argc, FObject argv[])
@@ -836,7 +1097,7 @@ Define("open-binary-input-file", OpenBinaryInputFilePrimitive)(int argc, FObject
     SCh * ss;
     ConvertToSystem(argv[0], ss);
 
-    FILE * fp = _wfopen(ss, L"r");
+    FILE * fp = _wfopen(ss, L"rb");
     if (fp == 0)
         RaiseExceptionC(R.Assertion, "open-binary-input-file",
                 "unable to open file for input", List(argv[0]));
@@ -852,7 +1113,7 @@ Define("open-binary-output-file", OpenBinaryOutputFilePrimitive)(int argc, FObje
     SCh * ss;
     ConvertToSystem(argv[0], ss);
 
-    FILE * fp = _wfopen(ss, L"w");
+    FILE * fp = _wfopen(ss, L"wb");
     if (fp == 0)
         RaiseExceptionC(R.Assertion, "open-binary-output-file",
                 "unable to open file for input", List(argv[0]));
@@ -937,12 +1198,28 @@ Define("get-output-bytevector", GetOutputBytevectorPrimitive)(int argc, FObject 
     return(GetOutputBytevector(argv[0]));
 }
 
-Define("make-latin-1-port", MakeLatin1PortPrimitive)(int argc, FObject argv[])
+Define("make-latin1-port", MakeLatin1PortPrimitive)(int argc, FObject argv[])
 {
-    OneArgCheck("make-latin-1-port", argc);
-    BinaryPortArgCheck("make-latin-1-port", argv[0]);
+    OneArgCheck("make-latin1-port", argc);
+    BinaryPortArgCheck("make-latin1-port", argv[0]);
 
     return(MakeLatin1Port(argv[0]));
+}
+
+Define("make-utf8-port", MakeUtf8PortPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("make-utf8-port", argc);
+    BinaryPortArgCheck("make-utf8-port", argv[0]);
+
+    return(MakeUtf8Port(argv[0]));
+}
+
+Define("make-utf16-port", MakeUtf16PortPrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("make-utf16-port", argc);
+    BinaryPortArgCheck("make-utf16-port", argv[0]);
+
+    return(MakeUtf16Port(argv[0]));
 }
 
 static FPrimitive * Primitives[] =
@@ -967,13 +1244,32 @@ static FPrimitive * Primitives[] =
     &OpenInputBytevectorPrimitive,
     &OpenOutputBytevectorPrimitive,
     &GetOutputBytevectorPrimitive,
-    &MakeLatin1PortPrimitive
+    &MakeLatin1PortPrimitive,
+    &MakeUtf8PortPrimitive,
+    &MakeUtf16PortPrimitive
 };
 
 void SetupIO()
 {
-    R.StandardInput = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-input"), stdin, 0));
-    R.StandardOutput = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-output"), 0, stdout));
+    R.PortsTConc = MakeTConc();
+
+    HANDLE hin = GetStdHandle(STD_INPUT_HANDLE);
+    HANDLE hout = GetStdHandle(STD_OUTPUT_HANDLE);
+    HANDLE herr = GetStdHandle(STD_ERROR_HANDLE);
+    DWORD imd, omd;
+
+    if (hin == INVALID_HANDLE_VALUE || hout == INVALID_HANDLE_VALUE
+            || GetConsoleMode(hin, &imd) == 0 || GetConsoleMode(hout, &omd) == 0)
+    {
+        R.StandardInput = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-input"), stdin, 0));
+        R.StandardOutput = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-output"), 0, stdout));
+    }
+    else
+    {
+        R.StandardInput = MakeConsoleInputPort(MakeStringC("console-input"), hin);
+        R.StandardOutput = MakeConsoleOutputPort(MakeStringC("console-output"), hout);
+    }
+
     R.StandardError = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-error"), 0, stderr));
 
     R.QuoteSymbol = StringCToSymbol("quote");

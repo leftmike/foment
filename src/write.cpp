@@ -555,10 +555,15 @@ void WriteGeneric(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx)
         }
         else
         {
-            FCh s[16];
-            int sl = NumberAsString(AsCharacter(obj), s, 16);
-            WriteStringC(port, "#\\x");
-            WriteString(port, s, sl);
+            if (df)
+                WriteCh(port, AsCharacter(obj));
+            else
+            {
+                FCh s[16];
+                int sl = NumberAsString(AsCharacter(obj), s, 16);
+                WriteStringC(port, "#\\x");
+                WriteString(port, s, sl);
+            }
         }
     }
     else if (SpecialSyntaxP(obj))

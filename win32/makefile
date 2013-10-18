@@ -123,15 +123,16 @@ debug\midpass.obj: ..\src\midpass.cpp ..\src\foment.hpp ..\src\compile.hpp
 debug\genpass.obj: ..\src\genpass.cpp ..\src\foment.hpp ..\src\compile.hpp ..\src\execute.hpp
 debug\pairs.obj: ..\src\pairs.cpp ..\src\foment.hpp
 debug\unicode.obj: ..\src\unicode.cpp ..\src\foment.hpp ..\src\unicode.hpp ..\src\unidata.hpp\
-        ..\src\convertutf.h
+    ..\src\convertutf.h
 debug\chars.obj: ..\src\chars.cpp ..\src\foment.hpp ..\src\unicode.hpp
 debug\strings.obj: ..\src\strings.cpp ..\src\foment.hpp ..\src\unicode.hpp
-debug\vectors.obj: ..\src\vectors.cpp ..\src\foment.hpp ..\src\convertutf.h
+debug\vectors.obj: ..\src\vectors.cpp ..\src\foment.hpp ..\src\unicode.hpp ..\src\convertutf.h
 debug\convertutf.obj: ..\src\convertutf.c ..\src\convertutf.h
 debug\library.obj: ..\src\library.cpp ..\src\foment.hpp ..\src\compile.hpp
 debug\execute.obj: ..\src\execute.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\syncthrd.hpp
 debug\numbers.obj: ..\src\numbers.cpp ..\src\foment.hpp
-debug\io.obj: ..\src\io.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp ..\src\unicode.hpp
+debug\io.obj: ..\src\io.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp ..\src\unicode.hpp\
+    ..\src\convertutf.h
 debug\write.obj: ..\src\write.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
     ..\src\compile.hpp
 debug\read.obj: ..\src\read.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
@@ -153,13 +154,13 @@ release\unicode.obj: ..\src\unicode.cpp ..\src\foment.hpp ..\src\unicode.hpp ..\
         ..\src\convertutf.h
 release\chars.obj: ..\src\chars.cpp ..\src\foment.hpp ..\src\unicode.hpp
 release\strings.obj: ..\src\strings.cpp ..\src\foment.hpp ..\src\unicode.hpp
-release\vectors.obj: ..\src\vectors.cpp ..\src\foment.hpp ..\src\convertutf.h
+release\vectors.obj: ..\src\vectors.cpp ..\src\foment.hpp ..\src\unicode.hpp ..\src\convertutf.h
 release\convertutf.obj: ..\src\convertutf.c ..\src\convertutf.h
 release\library.obj: ..\src\library.cpp ..\src\foment.hpp ..\src\compile.hpp
 release\execute.obj: ..\src\execute.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\syncthrd.hpp
 release\numbers.obj: ..\src\numbers.cpp ..\src\foment.hpp
 release\io.obj: ..\src\io.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
-    ..\src\unicode.hpp
+    ..\src\unicode.hpp ..\src\convertutf.h
 release\write.obj: ..\src\write.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
     ..\src\compile.hpp
 release\read.obj: ..\src\read.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\

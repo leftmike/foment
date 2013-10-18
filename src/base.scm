@@ -294,7 +294,7 @@
     )
     (export ;; (scheme process-context)
         command-line
-;        exit
+        exit
         get-environment-variable
         get-environment-variables
         emergency-exit)
@@ -312,7 +312,9 @@
          write-shared
          write-simple)
     (export
-        make-latin-1-port
+        make-latin1-port
+        make-utf8-port
+        make-utf16-port
         file-encoding
         import
         define-library
@@ -773,7 +775,7 @@
                                 "current-error-port: expected an open output port" obj))
                     obj)))
 
-        (define file-encoding (make-parameter make-latin-1-port))
+        (define file-encoding (make-parameter make-latin1-port))
 
         (define (open-input-file string)
             ((file-encoding) (open-binary-input-file string)))
@@ -1131,7 +1133,7 @@
     (import (foment base))
      (export
          command-line
-;;         exit
+         exit
          get-environment-variable
          get-environment-variables
          emergency-exit))

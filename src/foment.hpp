@@ -10,6 +10,10 @@ To Do:
 -- CompileProgram
 -- RunProgram
 
+-- load
+
+-- ctrl-c handling
+
 -- use tests from chibi
 
 -- import and define-library should not be part of (scheme base)
@@ -40,6 +44,7 @@ Future:
 -- strings and srfi-13
 
 Bugs:
+-- char-ready? always returns #t
 -- current-second returns an exact integer
 -- list->string needs to type check list
 -- list->vector needs to type check list
@@ -419,9 +424,11 @@ unsigned int BytevectorHash(FObject obj);
 
 #define ConvertToSystem(obj, ss)\
     SCh __ssbuf[256];\
-    ss = ConvertToStringS(obj, __ssbuf, sizeof(__ssbuf) / sizeof(SCh))
+    FAssert(StringP(obj));\
+    ss = ConvertToStringS(AsString(obj)->String, StringLength(obj), __ssbuf,\
+            sizeof(__ssbuf) / sizeof(SCh))
 
-SCh * ConvertToStringS(FObject s, SCh * b, unsigned int bl);
+SCh * ConvertToStringS(FCh * s, unsigned int sl, SCh * b, unsigned int bl);
 
 // ---- Vectors ----
 
@@ -963,6 +970,7 @@ typedef struct
     FObject ContinuationRecordType;
 
     FObject ExclusivesTConc;
+    FObject PortsTConc;
 } FRoots;
 
 extern FRoots R;

@@ -10,50 +10,72 @@ Foment
 #include "unidata.hpp"
 #include "convertutf.h"
 
+unsigned char Utf8TrailingBytes[256] =
+{
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    3, 3, 3, 3, 3, 3, 3, 3, 4, 4,
+    4, 4, 5, 5, 5, 5
+};
+
 // ---- System String Conversions ----
 
-static unsigned int Utf16LengthOfString(FObject s)
+static unsigned int Utf16LengthOfString(FCh * s, unsigned int sl)
 {
-    unsigned int sl = 0;
+    unsigned int ssl = 0;
 
-    for (unsigned int idx = 0; idx < StringLength(s); idx++)
+    for (unsigned int idx = 0; idx < sl; idx++)
     {
-        sl += 1;
+        ssl += 1;
 
-        if (AsString(s)->String[idx] > 0xFFFF)
-            sl += 1;
+        if (s[idx] > 0xFFFF)
+            ssl += 1;
     }
 
-    return(sl);
+    return(ssl);
 }
 
-SCh * ConvertToStringS(FObject s, SCh * b, unsigned int bl)
+SCh * ConvertToStringS(FCh * s, unsigned int sl, SCh * b, unsigned int bl)
 {
-    FAssert(StringP(s));
-
-    unsigned int sl = Utf16LengthOfString(s) + 1;
-    if (bl < sl)
+    unsigned int ssl = Utf16LengthOfString(s, sl) + 1;
+    if (bl < ssl)
     {
-        FObject bv = MakeBytevector(sl * sizeof(SCh));
+        FObject bv = MakeBytevector(ssl * sizeof(SCh));
         b = (SCh *) AsBytevector(bv)->Vector;
     }
 
-    const UTF32 * utf32 = (UTF32 *) AsString(s)->String;
+    const UTF32 * utf32 = (UTF32 *) s;
     UTF16 * utf16 = (UTF16 *) b;
-    ConversionResult cr = ConvertUTF32toUTF16(&utf32,
-            (UTF32 *) AsString(s)->String + StringLength(s), &utf16, (UTF16 *) b + sl - 1,
-            lenientConversion);
+    ConversionResult cr = ConvertUTF32toUTF16(&utf32, (UTF32 *) s + sl, &utf16,
+            (UTF16 *) b + ssl - 1, lenientConversion);
 
     FAssert(cr == conversionOK);
 
     *utf16 = 0;
     return(b);
 }
-
-#define UNI_SUR_HIGH_START  (UTF32)0xD800
-#define UNI_SUR_HIGH_END    (UTF32)0xDBFF
-#define UNI_SUR_LOW_START   (UTF32)0xDC00
-#define UNI_SUR_LOW_END     (UTF32)0xDFFF
 
 static unsigned int ChLengthOfUtf16(SCh * ss, unsigned int ssl)
 {

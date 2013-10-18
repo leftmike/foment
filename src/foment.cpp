@@ -495,6 +495,21 @@ Define("command-line", CommandLinePrimitive)(int argc, FObject argv[])
     return(R.CommandLine);
 }
 
+Define("exit", ExitPrimitive)(int argc, FObject argv[])
+{
+    ZeroOrOneArgsCheck("emergency-exit", argc);
+
+    if (argc == 0 || argv[0] == TrueObject)
+        _exit(0);
+
+    if (FixnumP(argv[0]))
+        _exit(AsFixnum(argv[0]));
+
+    _exit(-1);
+
+    return(NoValueObject);
+}
+
 Define("emergency-exit", EmergencyExitPrimitive)(int argc, FObject argv[])
 {
     ZeroOrOneArgsCheck("emergency-exit", argc);
@@ -1388,6 +1403,7 @@ static FPrimitive * Primitives[] =
     
     
     &CommandLinePrimitive,
+    &ExitPrimitive,
     &EmergencyExitPrimitive,
     &GetEnvironmentVariablePrimitive,
     &GetEnvironmentVariablesPrimitive,
