@@ -194,7 +194,7 @@ int wmain(int argc, wchar_t * argv[])
 
             if (argv[adx][1] == 0 || argv[adx][2] != 0)
             {
-                printf("error: unknown switch: %s\n", argv[adx]);
+                printf("error: unknown switch: %S\n", argv[adx]);
                 return(Usage());
             }
 
@@ -211,7 +211,7 @@ int wmain(int argc, wchar_t * argv[])
                 adx += 1;
                 if (adx == argc)
                 {
-                    printf("error: expected an argument following %s\n", argv[adx - 1]);
+                    printf("error: expected an argument following %S\n", argv[adx - 1]);
                     return(Usage());
                 }
 
@@ -258,7 +258,7 @@ int wmain(int argc, wchar_t * argv[])
                     break;
 
                 default:
-                    printf("error: unknown switch: %s\n", argv[adx]);
+                    printf("error: unknown switch: %S\n", argv[adx]);
                     return(Usage());
                 }
             }
@@ -267,11 +267,13 @@ int wmain(int argc, wchar_t * argv[])
         }
 
         FAssert(adx <= argc);
-        R.CommandLine = MakePair(MakeInvocation(adx, argv),
-                MakeCommandLine(argc - adx, argv + adx));
 
         if (mode == ReplMode || adx == argc)
+        {
+            R.CommandLine = MakePair(MakeInvocation(adx, argv),
+                    MakeCommandLine(argc - adx, argv + adx));
             return(RunRepl(GetInteractionEnv()));
+        }
 #ifdef FOMENT_TEST
         else if (mode == TestMode)
         {
@@ -284,27 +286,44 @@ int wmain(int argc, wchar_t * argv[])
 #endif // FOMENT_TEST
 
         FAssert(mode == ProgramMode);
+        FAssert(adx < argc);
 
-        if (adx < argc)
+        SCh * s = argv[adx];
+        SCh * pth = 0;
+
+        while (*s)
         {
-            SCh * s = argv[adx];
-            SCh * pth = 0;
+            if (*s == PathCh)
+                pth = s;
 
-            while (*s)
-            {
-                if (*s == PathCh)
-                    pth = s;
-
-                s += 1;
-            }
-
-            if (pth != 0)
-                R.LibraryPath = MakePair(MakeStringS(argv[adx], pth - argv[adx]), R.LibraryPath);
+            s += 1;
         }
-        
-        
-        
-        return(0);
+
+        if (pth != 0)
+            R.LibraryPath = MakePair(MakeStringS(argv[adx], pth - argv[adx]), R.LibraryPath);
+
+        FObject nam = MakeStringS(argv[adx]);
+
+        adx += 1;
+        R.CommandLine = MakePair(MakeInvocation(adx, argv),
+                MakeCommandLine(argc - adx, argv + adx));
+
+        FObject port = OpenInputFile(nam);
+        if (TextualPortP(port) == 0)
+        {
+            printf("error: unable to open program: %S\n", argv[adx]);
+            return(Usage());
+        }
+
+        FObject proc = CompileProgram(nam, port);
+
+        FObject ret = ExecuteThunk(proc);
+        if (ret == TrueObject)
+            return(0);
+        if (FixnumP(ret))
+            return(AsFixnum(argv[0]));
+
+        return(-1);
     }
     catch (FObject obj)
     {

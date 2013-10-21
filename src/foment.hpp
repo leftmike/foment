@@ -7,9 +7,6 @@ Goals:
 -- simple implementation
 
 To Do:
--- CompileProgram
--- RunProgram
-
 -- ctrl-c handling
 
 -- use tests from chibi
@@ -1207,6 +1204,7 @@ inline void BinaryOutputPortArgCheck(char * who, FObject obj)
 extern unsigned int BytesAllocated;
 extern unsigned int CollectionCount;
 
+FObject CompileProgram(FObject nam, FObject port);
 FObject Eval(FObject obj, FObject env);
 FObject GetInteractionEnv();
 

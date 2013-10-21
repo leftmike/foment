@@ -497,7 +497,7 @@ Define("command-line", CommandLinePrimitive)(int argc, FObject argv[])
 
 Define("exit", ExitPrimitive)(int argc, FObject argv[])
 {
-    ZeroOrOneArgsCheck("emergency-exit", argc);
+    ZeroOrOneArgsCheck("exit", argc);
 
     if (argc == 0 || argv[0] == TrueObject)
         _exit(0);

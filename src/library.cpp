@@ -922,34 +922,8 @@ FObject Eval(FObject obj, FObject env)
     return(ExecuteThunk(proc));
 }
 
-static FObject CompileLibraryCode(FObject env, FObject lst)
+static FObject MoveSetToFront(FObject body)
 {
-    FObject body = EmptyListObject;
-
-    while (PairP(lst))
-    {
-        FAssert(PairP(First(lst)));
-        FAssert(IdentifierP(First(First(lst))) || SymbolP(First(First(lst))));
-
-        FObject form = First(lst);
-        FObject op = EnvironmentGet(R.Bedrock, First(form));
-
-        if (op == BeginSyntax || op == IncludeSyntax || op == IncludeCISyntax)
-            body = CompileEvalExpr(form, env, body);
-        else
-        {
-            FAssert(op == ImportSyntax || op == IncludeLibraryDeclarationsSyntax
-                    || op == CondExpandSyntax || op == ExportSyntax);
-        }
-
-        lst = Rest(lst);
-    }
-
-    FAssert(lst == EmptyListObject);
-
-    if (body == EmptyListObject)
-        return(NoValueObject);
-
     // Move (#<syntax: set!> <var> <expr>) to the front of the body;
     // there is one of these for each (define <var> <expr>) expression.
 
@@ -986,6 +960,39 @@ static FObject CompileLibraryCode(FObject env, FObject lst)
 //        AsPair(slst)->Rest = blst;
         SetRest(slst, blst);
     }
+
+    return(body);
+}
+
+static FObject CompileLibraryCode(FObject env, FObject lst)
+{
+    FObject body = EmptyListObject;
+
+    while (PairP(lst))
+    {
+        FAssert(PairP(First(lst)));
+        FAssert(IdentifierP(First(First(lst))) || SymbolP(First(First(lst))));
+
+        FObject form = First(lst);
+        FObject op = EnvironmentGet(R.Bedrock, First(form));
+
+        if (op == BeginSyntax || op == IncludeSyntax || op == IncludeCISyntax)
+            body = CompileEvalExpr(form, env, body);
+        else
+        {
+            FAssert(op == ImportSyntax || op == IncludeLibraryDeclarationsSyntax
+                    || op == CondExpandSyntax || op == ExportSyntax);
+        }
+
+        lst = Rest(lst);
+    }
+
+    FAssert(lst == EmptyListObject);
+
+    if (body == EmptyListObject)
+        return(NoValueObject);
+
+    body = MoveSetToFront(body);
 
     return(CompileLambda(env, NoValueObject, EmptyListObject, body));
 }
@@ -1069,7 +1076,7 @@ static FObject CompileExports(FObject env, FObject lst)
     return(elst);
 }
 
-static void WalkVisit(FObject key, FObject val, FObject ctx)
+static void WalkVisitLibrary(FObject key, FObject val, FObject ctx)
 {
     FAssert(GlobalP(val));
 
@@ -1096,8 +1103,66 @@ void CompileLibrary(FObject expr)
     FObject proc = CompileLibraryCode(env, body);
     FObject exports = CompileExports(env, body);
 
-    HashtableWalkVisit(AsEnvironment(env)->Hashtable, WalkVisit, expr);
+    HashtableWalkVisit(AsEnvironment(env)->Hashtable, WalkVisitLibrary, expr);
     MakeLibrary(ln, exports, proc);
+}
+
+static void WalkVisitProgram(FObject key, FObject val, FObject ctx)
+{
+    FAssert(GlobalP(val));
+
+    if (AsGlobal(val)->State == GlobalUndefined)
+        RaiseExceptionC(R.Syntax, "program", "identifier used but never defined",
+                List(AsGlobal(val)->Name, ctx));
+}
+
+FObject CompileProgram(FObject nam, FObject port)
+{
+    FAssert(TextualPortP(port) && InputPortOpenP(port));
+
+    WantIdentifiersPort(port, 1);
+
+    FObject env = MakeEnvironment(nam, FalseObject);
+    FObject obj;
+
+    for (;;)
+    {
+        obj = Read(port);
+        if (PairP(obj) == 0 || (IdentifierP(First(obj)) == 0 && SymbolP(First(obj)) == 0)
+                || ImportSyntax != EnvironmentGet(R.Bedrock, First(obj)))
+            break;
+
+        EnvironmentImport(env, obj);
+    }
+
+    FObject body = EmptyListObject;
+
+    try
+    {
+        for (;;)
+        {
+            if (obj == EndOfFileObject)
+                break;
+
+            body = CompileEvalExpr(obj, env, body);
+            obj = Read(port);
+        }
+    }
+    catch (FObject obj)
+    {
+        if (ExceptionP(obj) == 0)
+            WriteStringC(R.StandardOutput, "exception: ");
+        Write(R.StandardOutput, obj, 0);
+        WriteCh(R.StandardOutput, '\n');
+    }
+
+    body = MoveSetToFront(body);
+    FObject proc = CompileLambda(env, NoValueObject, EmptyListObject, body);
+
+    HashtableWalkVisit(AsEnvironment(env)->Hashtable, WalkVisitProgram, nam);
+// need to check for globals used but never defined
+
+    return(proc);
 }
 
 void SetupLibrary()
