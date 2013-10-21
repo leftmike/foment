@@ -394,9 +394,9 @@ void RaiseExceptionC(FObject typ, char * who, char * msg, FObject lst)
 {
     char buf[128];
 
-    FAssert(strlen(who) + strlen(msg) + 2 < sizeof(buf));
+    FAssert(strlen(who) + strlen(msg) + 3 < sizeof(buf));
 
-    if (strlen(who) + strlen(msg) + 2 >= sizeof(buf))
+    if (strlen(who) + strlen(msg) + 3 >= sizeof(buf))
         Raise(MakeException(typ, StringCToSymbol(who), MakeStringC(msg), lst));
     else
     {

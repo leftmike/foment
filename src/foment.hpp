@@ -10,30 +10,18 @@ To Do:
 -- CompileProgram
 -- RunProgram
 
--- load
-
 -- ctrl-c handling
 
 -- use tests from chibi
 
 -- import and define-library should not be part of (scheme base)
+-- figure out why ... needs to be exported
 
 -- IO and GC
 -- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
 -- or use FAlive
 -- use EnterWait and LeaveWait
 -- use Win32 file APIs and not stdio
-
--- from Gambit:
-Serial Numbers
-Serial numbers are used by the printer to identify objects which can’t be read
-Convenient for debugging
-> (let ((n 2)) (lambda (x) (* x n)))
-#<procedure #2>
-> (pp #2)
-(lambda (x) (* x n))
-> (map #2 ’(1 2 3 4 5))
-(2 4 6 8 10)
 
 Future:
 -- some mature segments are compacted during a full collection; ie. mark-compact
@@ -42,12 +30,19 @@ Future:
 -- number tags should require only a single test by sharing part of a tag
 -- composable continuations
 -- strings and srfi-13
+-- from Gambit:
+    Serial numbers are used by the printer to identify objects which can’t be read
+    Convenient for debugging
+    > (let ((n 2)) (lambda (x) (* x n)))
+    #<procedure #2>
+    > (pp #2)
+    (lambda (x) (* x n))
+    > (map #2 ’(1 2 3 4 5))
+    (2 4 6 8 10)
 
 Bugs:
 -- char-ready? always returns #t
 -- current-second returns an exact integer
--- list->string needs to type check list
--- list->vector needs to type check list
 -- ConvertToSystem does not protect an object from GC in some cases if IO allows GC
 -- write-bytevector, write-string, read-bytevector, and read-bytevector! assume GC does
     not happen during IO
@@ -63,7 +58,7 @@ Testing:
 -- 6.1 equivalence predicates complete
 -- 6.2
 -- 6.3 booleans complete
--- 6.4
+-- 6.4 pairs and lists complete
 -- 6.5 symbols complete
 -- 6.6 characters complete
 -- 6.7 strings complete
@@ -338,7 +333,8 @@ void SetFirst(FObject obj, FObject val);
 void SetRest(FObject obj, FObject val);
 
 FObject MakePair(FObject first, FObject rest);
-int ListLength(FObject obj);
+int ListLength(FObject lst);
+int ListLength(char * nam, FObject lst);
 FObject ReverseListModify(FObject list);
 
 FObject List(FObject obj);
@@ -1114,6 +1110,18 @@ inline void StringArgCheck(char * who, FObject obj)
 {
     if (StringP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a string", List(obj));
+}
+
+inline void PairArgCheck(char * who, FObject obj)
+{
+    if (PairP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a pair", List(obj));
+}
+
+inline void ListArgCheck(char * who, FObject obj)
+{
+    if (ListLength(obj) < 0)
+        RaiseExceptionC(R.Assertion, who, "expected a list", List(obj));
 }
 
 inline void VectorArgCheck(char * who, FObject obj)

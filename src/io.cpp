@@ -248,7 +248,7 @@ static FObject GetOutputBytevector(FObject port)
     FAssert(AsGenericPort(port)->Object == EmptyListObject || PairP(AsGenericPort(port)->Object));
 
     FObject lst = AsGenericPort(port)->Object;
-    int bl = ListLength(lst);
+    int bl = ListLength("get-output-bytevector", lst);
     FObject bv = MakeBytevector(bl);
     int bdx = bl;
 
@@ -353,7 +353,7 @@ int CharReadyP(FObject port)
 
 static FObject ListToString(FObject lst)
 {
-    unsigned int sl = ListLength(lst);
+    unsigned int sl = ListLength("read-line", lst);
     FObject s = MakeString(0, sl);
     unsigned int sdx = sl;
 
@@ -869,7 +869,7 @@ FObject GetOutputString(FObject port)
     FAssert(AsGenericPort(port)->Object == EmptyListObject || PairP(AsGenericPort(port)->Object));
 
     FObject lst = AsGenericPort(port)->Object;
-    int sl = ListLength(lst);
+    int sl = ListLength("get-output-string", lst);
     FObject s = MakeString(0, sl);
     int sdx = sl;
 

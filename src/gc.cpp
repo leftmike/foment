@@ -132,9 +132,6 @@ static FScanSection * ScanSections;
 static FObject YoungGuardians;
 static FObject MatureGuardians;
 static FObject YoungTrackers;
-#ifdef FOMENT_DEBUG
-static FObject MatureTrackers;
-#endif // FOMENT_DEBUG
 
 #ifdef FOMENT_WIN32
 unsigned int TlsIndex;
@@ -1069,12 +1066,12 @@ printf("Partial Collection...");
         FreeBackRefSections();
 
         unsigned int sdx = 0;
-        while (sdx <= UsedSections)
+        while (sdx < UsedSections)
         {
             if (SectionTable[sdx] == MatureSectionTag)
             {
                 unsigned int cnt = 1;
-                while (SectionTable[sdx + cnt] == MatureSectionTag && sdx + cnt <= UsedSections)
+                while (sdx + cnt < UsedSections && SectionTable[sdx + cnt] == MatureSectionTag)
                     cnt += 1;
 
                 unsigned char * ms = (unsigned char *) SectionPointer(sdx);
@@ -1164,35 +1161,14 @@ printf("Partial Collection...");
 
         if (ObjectP(MatureGuardians))
             ScanObject(&MatureGuardians, fcf, 0);
-
-#ifdef FOMENT_DEBUG
-        if (ObjectP(MatureTrackers))
-            ScanObject(&MatureTrackers, fcf, 0);
-#endif // FOMENT_DEBUG
     }
 
     CleanScan(fcf);
     CollectGuardians(fcf);
 
-#ifdef FOMENT_DEBUG
-    if (fcf)
-    {
-        FObject yt = YoungTrackers;
-        YoungTrackers = EmptyListObject;
-        FObject mt = MatureTrackers;
-        MatureTrackers = EmptyListObject;
-
-        CollectTrackers(yt, fcf, 0);
-        CollectTrackers(mt, fcf, 1);
-    }
-    else
-#endif // FOMENT_DEBUG
-    {
-        FObject yt = YoungTrackers;
-        YoungTrackers = EmptyListObject;
-
-        CollectTrackers(yt, fcf, 0);
-    }
+    FObject yt = YoungTrackers;
+    YoungTrackers = EmptyListObject;
+    CollectTrackers(yt, fcf, 0);
 
     CleanScan(fcf);
 
@@ -1222,12 +1198,12 @@ printf("Partial Collection...");
         FreeMature = 0;
 
         unsigned int sdx = 0;
-        while (sdx <= UsedSections)
+        while (sdx < UsedSections)
         {
             if (SectionTable[sdx] == MatureSectionTag)
             {
                 unsigned int cnt = 1;
-                while (SectionTable[sdx + cnt] == MatureSectionTag && sdx + cnt <= UsedSections)
+                while (sdx + cnt < UsedSections && SectionTable[sdx + cnt] == MatureSectionTag)
                     cnt += 1;
 
                 unsigned char * ms = (unsigned char *) SectionPointer(sdx);
@@ -1407,10 +1383,6 @@ void InstallTracker(FObject obj, FObject ret, FObject tconc)
 
     if (MatureP(obj) == 0 && MaturePairP(obj) == 0)
         YoungTrackers = MakePair(MakePair(obj, MakePair(ret, tconc)), YoungTrackers);
-#ifdef FOMENT_DEBUG
-    else
-        MatureTrackers = MakePair(MakePair(obj, MakePair(ret, tconc)), MatureTrackers);
-#endif // FOMENT_DEBUG
 }
 
 void EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms)
@@ -1558,9 +1530,6 @@ void SetupCore(FThreadState * ts)
     YoungGuardians = EmptyListObject;
     MatureGuardians = EmptyListObject;
     YoungTrackers = EmptyListObject;
-#ifdef FOMENT_DEBUG
-    MatureTrackers = EmptyListObject;
-#endif // FOMENT_DEBUG
 
     BackRefSections = AllocateBackRefSection(0);
     BackRefSectionCount = 1;

@@ -4,10 +4,13 @@
 
 (import (scheme case-lambda))
 (import (scheme char))
+(import (scheme eval))
 (import (scheme file))
 (import (scheme inexact))
+(import (scheme load))
 (import (scheme process-context))
 (import (scheme read))
+(import (scheme repl))
 (import (scheme time))
 (import (scheme write))
 
@@ -918,14 +921,13 @@
 ;; ---- pairs and lists ----
 ;;
 
-;; pair?
-
 (must-equal #t (pair? '(a . b)))
 (must-equal #t (pair? '(a b c)))
 (must-equal #f (pair? '()))
 (must-equal #f (pair? '#(a b)))
 
-;; cons
+(must-raise (assertion-violation pair?) (pair?))
+(must-raise (assertion-violation pair?) (pair? 1 2))
 
 (must-equal (a) (cons 'a '()))
 (must-equal ((a) b c d) (cons '(a) '(b c d)))
@@ -933,16 +935,74 @@
 (must-equal (a . 3) (cons 'a 3))
 (must-equal ((a b) . c) (cons '(a b) 'c))
 
+(must-raise (assertion-violation cons) (cons 1))
+(must-raise (assertion-violation cons) (cons 1 2 3))
+
 (must-equal a (car '(a b c)))
 (must-equal (a) (car '((a) b c d)))
 (must-equal 1 (car '(1 . 2)))
+
 (must-raise (assertion-violation car) (car '()))
+(must-raise (assertion-violation car) (car))
+(must-raise (assertion-violation car) (car '(a) 2))
 
 (must-equal (b c d) (cdr '((a) b c d)))
 (must-equal 2 (cdr '(1 . 2)))
-(must-raise (assertion-violation cdr) (cdr '()))
 
-;; append
+(must-raise (assertion-violation cdr) (cdr '()))
+(must-raise (assertion-violation cdr) (cdr))
+(must-raise (assertion-violation cdr) (cdr '(a) 2))
+
+(must-equal b (let ((c (cons 'a 'a))) (set-car! c 'b) (car c)))
+
+(must-raise (assertion-violation set-car!) (set-car! (cons 1 2)))
+(must-raise (assertion-violation set-car!) (set-car! 1 2))
+(must-raise (assertion-violation set-car!) (set-car! (cons 1 2) 2 3))
+
+(must-equal b (let ((c (cons 'a 'a))) (set-cdr! c 'b) (cdr c)))
+
+(must-raise (assertion-violation set-cdr!) (set-cdr! (cons 1 2)))
+(must-raise (assertion-violation set-cdr!) (set-cdr! 1 2))
+(must-raise (assertion-violation set-cdr!) (set-cdr! (cons 1 2) 2 3))
+
+(must-equal #t (null? '()))
+(must-equal #f (null? 'nil))
+(must-equal #f (null? #f))
+
+(must-raise (assertion-violation null?) (null?))
+(must-raise (assertion-violation null?) (null? 1 2))
+
+(must-equal #t (list? '(a b c)))
+(must-equal #t (list? '()))
+(must-equal #f (list? '(a . b)))
+(must-equal #f
+    (let ((x (list 'a)))
+        (set-cdr! x x)
+        (list? x)))
+
+(must-raise (assertion-violation list?) (list?))
+(must-raise (assertion-violation list?) (list? 1 2))
+
+(must-equal (3 3) (make-list 2 3))
+
+(must-raise (assertion-violation make-list) (make-list))
+(must-raise (assertion-violation make-list) (make-list -1))
+(must-raise (assertion-violation make-list) (make-list 'ten))
+(must-raise (assertion-violation make-list) (make-list 1 2 3))
+
+(must-equal (a 7 c) (list 'a (+ 3 4) 'c))
+(must-equal () (list))
+
+(must-equal 3 (length '(a b c)))
+(must-equal 3 (length '(a (b) (c d e))))
+(must-equal 0 (length '()))
+
+(must-raise (assertion-violation length) (length))
+(must-raise (assertion-violation length)
+    (let ((x (list 'a)))
+        (set-cdr! x x)
+        (length x)))
+(must-raise (assertion-violation length) (length '() 2))
 
 (must-equal (x y) (append '(x) '(y)))
 (must-equal (a b c d) (append '(a) '(b c d)))
@@ -950,10 +1010,166 @@
 (must-equal (a b c . d) (append '(a b) '(c . d)))
 (must-equal a (append '() 'a))
 
-;; reverse
+(must-raise (assertion-violation append) (append))
+(must-raise (assertion-violation append)
+    (let ((x (list 'a)))
+        (set-cdr! x x)
+        (append x 'a)))
 
 (must-equal (c b a) (reverse '(a b c)))
 (must-equal ((e (f)) d (b c) a) (reverse '(a (b c) d (e (f)))))
+
+(must-raise (assertion-violation reverse) (reverse))
+(must-raise (assertion-violation reverse) (reverse '(a b c) 2))
+(must-raise (assertion-violation reverse)
+    (let ((x (list 'a)))
+        (set-cdr! x x)
+        (reverse x)))
+
+(must-equal (1 2 3) (list-tail '(1 2 3) 0))
+(must-equal (2 3) (list-tail '(1 2 3) 1))
+(must-equal (3) (list-tail '(1 2 3) 2))
+(must-equal () (list-tail '(1 2 3) 3))
+
+(must-raise (assertion-violation list-tail) (list-tail '(1 2 3)))
+(must-raise (assertion-violation list-tail) (list-tail '(1 2 3) 2 3))
+(must-raise (assertion-violation list-tail) (list-tail 'a 1))
+(must-raise (assertion-violation list-tail) (list-tail '(a) -1))
+(must-raise (assertion-violation list-tail) (list-tail '(1 2 3) 4))
+(must-raise (assertion-violation list-tail)
+    (let ((x (list 'a)))
+        (set-cdr! x x)
+        (list-tail x 1)))
+
+(must-equal c (list-ref '(a b c d) 2))
+
+(must-raise (assertion-violation list-ref) (list-ref '(1 2 3)))
+(must-raise (assertion-violation list-ref) (list-ref '(1 2 3) 2 3))
+(must-raise (assertion-violation list-ref) (list-ref '(1 2 3) -1))
+(must-raise (assertion-violation list-ref) (list-ref '(1 2 3) 3))
+(must-raise (assertion-violation list-ref)
+    (let ((x (list 'a)))
+        (set-cdr! x x)
+        (list-ref x 1)))
+
+(must-equal (a b #\c d)
+    (let ((lst (list 'a 'b 'c 'd)))
+        (list-set! lst 2 #\c)
+        lst))
+(must-equal (one two three)
+    (let ((ls (list 'one 'two 'five!)))
+        (list-set! ls 2 'three)
+        ls))
+
+(must-raise (assertion-violation list-set!) (list-set! (list 1 2 3) 1))
+(must-raise (assertion-violation list-set!) (list-set! (list 1 2 3) 2 3 4))
+(must-raise (assertion-violation list-set!) (list-set! (list 1 2 3) -1 3))
+(must-raise (assertion-violation list-set!) (list-set! (list 1 2 3) 3 3))
+(must-raise (assertion-violation list-set!)
+    (let ((x (list 'a)))
+        (set-cdr! x x)
+        (list-set! x 1 #t)))
+
+(must-equal (a b c) (memq 'a '(a b c)))
+(must-equal (b c) (memq 'b '(a b c)))
+(must-equal #f (memq 'a '(b c d)))
+(must-equal #f (memq (list 'a) '(b (a) c)))
+
+(must-raise (assertion-violation memq) (memq 'a))
+(must-raise (assertion-violation memq) (memq 'a '(a b c) 3))
+(must-raise (assertion-violation memq) (memq 'a 'b))
+(must-raise (assertion-violation memq)
+    (let ((x (list 'a)))
+        (set-cdr! x x)
+        (memq 'a x)))
+
+(must-equal (a b c) (memv 'a '(a b c)))
+(must-equal (b c) (memv 'b '(a b c)))
+(must-equal #f (memv 'a '(b c d)))
+(must-equal #f (memv (list 'a) '(b (a) c)))
+(must-equal (101 102) (memv 101 '(100 101 102)))
+
+(must-raise (assertion-violation memv) (memv 'a))
+(must-raise (assertion-violation memv) (memv 'a '(a b c) 3))
+(must-raise (assertion-violation memv) (memv 'a 'b))
+(must-raise (assertion-violation memv)
+    (let ((x (list 'a)))
+        (set-cdr! x x)
+        (memv 'a x)))
+
+(must-equal ((a) c) (member (list 'a) '(b (a) c)))
+(must-equal ("b" "c") (member "B" '("a" "b" "c") string-ci=?))
+
+(must-raise (assertion-violation case-lambda) (member 'a))
+(must-raise (assertion-violation case-lambda) (member 'a '(a b c) 3 4))
+(must-raise (assertion-violation %member) (member 'a 'b))
+(must-raise (assertion-violation %member)
+    (let ((x (list 'a)))
+        (set-cdr! x x)
+        (member 'a x)))
+
+(must-raise (assertion-violation member) (member 'a 'b string=?))
+(must-raise (assertion-violation member)
+    (let ((x (list 'a)))
+        (set-cdr! x x)
+        (member 'a x string=?)))
+
+(define e '((a 1) (b 2) (c 3)))
+(must-equal (a 1) (assq 'a e))
+(must-equal (b 2) (assq 'b e))
+(must-equal #f (assq 'd e))
+(must-equal #f (assq (list 'a) '(((a)) ((b)) ((c)))))
+
+(must-raise (assertion-violation assq) (assq 'a))
+(must-raise (assertion-violation assq) (assq 'a '(a b c) 3))
+(must-raise (assertion-violation assq) (assq 'a 'b))
+(must-raise (assertion-violation assq)
+    (let ((x (list '(a))))
+        (set-cdr! x x)
+        (assq 'a x)))
+
+(must-equal (5 7) (assv 5 '((2 3) (5 7) (11 13))))
+(must-equal (a 1) (assv 'a e))
+(must-equal (b 2) (assv 'b e))
+(must-equal #f (assv 'd e))
+(must-equal #f (assv (list 'a) '(((a)) ((b)) ((c)))))
+
+(must-raise (assertion-violation assv) (assv 'a))
+(must-raise (assertion-violation assv) (assv 'a '(a b c) 3))
+(must-raise (assertion-violation assv) (assv 'a 'b))
+(must-raise (assertion-violation assv)
+    (let ((x (list '(a))))
+        (set-cdr! x x)
+        (assv 'a x)))
+
+(must-equal ((a)) (assoc (list 'a) '(((a)) ((b)) ((c)))))
+(must-equal #f (assoc (list 'd) '(((a)) ((b)) ((c)))))
+;(must-equal (2 4) (assoc 2.0 '((1 1) (2 4) (3 9))))
+(must-equal ("B" . b) (assoc "b" (list '("A" . a) '("B" . b) '("C" . c)) string-ci=?))
+(must-equal #f (assoc "d" (list '("A" . a) '("B" . b) '("C" . c)) string-ci=?))
+
+(must-raise (assertion-violation case-lambda) (assoc 'a))
+(must-raise (assertion-violation case-lambda) (assoc 'a '(a b c) 3 4))
+(must-raise (assertion-violation %assoc) (assoc 'a 'b))
+(must-raise (assertion-violation %assoc)
+    (let ((x (list '(a))))
+        (set-cdr! x x)
+        (assoc 'a x)))
+
+(must-raise (assertion-violation assoc) (assoc 'a 'b string=?))
+(must-raise (assertion-violation assoc)
+    (let ((x (list '(a))))
+        (set-cdr! x x)
+        (assoc 'a x string=?)))
+
+(define a '(1 8 2 8))
+(define b (list-copy a))
+(set-car! b 3)
+(must-equal (3 8 2 8) b)
+(must-equal (1 8 2 8) a)
+(must-equal () (list-copy '()))
+(must-equal 123 (list-copy 123))
+(must-equal (a b c d) (list-copy '(a b c d)))
 
 ;;
 ;; ---- symbols ----
@@ -2562,6 +2778,15 @@
 ;;
 ;; ---- system interface ----
 ;;
+
+(must-equal #t
+    (begin
+        (load "loadtest.scm" (interaction-environment))
+        (eval 'load-test (interaction-environment))))
+
+(must-raise (assertion-violation) (load))
+(must-raise (assertion-violation) (load |filename|))
+(must-raise (assertion-violation) (load "filename" (interaction-environment) 3))
 
 (must-equal #f (file-exists? "not-a-real-filename"))
 (must-equal #t (file-exists? "..\\test\\r7rs.scm"))

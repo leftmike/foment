@@ -18,7 +18,7 @@
         apply
         assoc
         assq
-;        assv
+        assv
         begin
         binary-port?
         boolean=?
@@ -119,11 +119,11 @@
         list
         list->string
         list->vector
-;        list-copy
+        list-copy
         list-ref
-;        list-set!
-;        list-tail
-;        list?
+        list-set!
+        list-tail
+        list?
         make-bytevector
         make-list
         make-parameter
@@ -131,9 +131,9 @@
         make-vector
         map
 ;        max
-;        member
+        member
         memq
-;        memv
+        memv
 ;        min
 ;        modulo
         negative?
@@ -263,6 +263,31 @@
         string-downcase
         string-foldcase
         string-upcase)
+    (export ;; (scheme cxr)
+        caaar
+        cdaar
+        cadar
+        cddar
+        caadr
+        cdadr
+        caddr
+        cdddr
+        caaaar
+        cdaaar
+        cadaar
+        cddaar
+        caadar
+        cdadar
+        caddar
+        cdddar
+        caaadr
+        cdaadr
+        cadadr
+        cddadr
+        caaddr
+        cdaddr
+        cadddr
+        cddddr)
     (export ;; (scheme eval)
 ;        environment
          eval)
@@ -292,6 +317,8 @@
         sqrt
 ;        tan
     )
+    (export ;; (scheme load)
+        load)
     (export ;; (scheme process-context)
         command-line
         exit
@@ -332,6 +359,59 @@
         (define (cadr pair) (car (cdr pair)))
         (define (cdar pair) (cdr (car pair)))
         (define (cddr pair) (cdr (cdr pair)))
+
+        (define (caaar pair) (car (car (car pair))))
+        (define (cdaar pair) (cdr (car (car pair))))
+        (define (cadar pair) (car (cdr (car pair))))
+        (define (cddar pair) (cdr (cdr (car pair))))
+        (define (caadr pair) (car (car (cdr pair))))
+        (define (cdadr pair) (cdr (car (cdr pair))))
+        (define (caddr pair) (car (cdr (cdr pair))))
+        (define (cdddr pair) (cdr (cdr (cdr pair))))
+        (define (caaaar pair) (car (car (car (car pair)))))
+        (define (cdaaar pair) (cdr (car (car (car pair)))))
+        (define (cadaar pair) (car (cdr (car (car pair)))))
+        (define (cddaar pair) (cdr (cdr (car (car pair)))))
+        (define (caadar pair) (car (car (cdr (car pair)))))
+        (define (cdadar pair) (cdr (car (cdr (car pair)))))
+        (define (caddar pair) (car (cdr (cdr (car pair)))))
+        (define (cdddar pair) (cdr (cdr (cdr (car pair)))))
+        (define (caaadr pair) (car (car (car (cdr pair)))))
+        (define (cdaadr pair) (cdr (car (car (cdr pair)))))
+        (define (cadadr pair) (car (cdr (car (cdr pair)))))
+        (define (cddadr pair) (cdr (cdr (car (cdr pair)))))
+        (define (caaddr pair) (car (car (cdr (cdr pair)))))
+        (define (cdaddr pair) (cdr (car (cdr (cdr pair)))))
+        (define (cadddr pair) (car (cdr (cdr (cdr pair)))))
+        (define (cddddr pair) (cdr (cdr (cdr (cdr pair)))))
+
+        (define member
+            (case-lambda
+                ((obj list) (%member obj list))
+                ((obj list compare)
+                    (define (member list)
+                        (if (null? list)
+                            #f
+                            (if (compare obj (car list))
+                                list
+                                (member (cdr list)))))
+                    (if (not (list? list))
+                        (full-error 'assertion-violation 'member "member: expected a list"))
+                    (member list))))
+
+        (define assoc
+            (case-lambda
+                ((obj list) (%assoc obj list))
+                ((obj list compare)
+                    (define (assoc list)
+                        (if (null? list)
+                            #f
+                            (if (compare obj (car (car list)))
+                                (car list)
+                                (assoc (cdr list)))))
+                    (if (not (list? list))
+                        (full-error 'assertion-violation 'assoc "assoc expected a list"))
+                    (assoc list))))
 
         (define (substring string start end) (string-copy string start end))
 
@@ -479,6 +559,20 @@
 
         (define (eval expr env)
             ((compile-eval expr env)))
+
+        (define (%load filename env)
+            (define (read-eval port)
+                (let ((obj (read port)))
+                    (if (not (eof-object? obj))
+                        (begin
+                            (eval obj env)
+                            (read-eval port)))))
+            (call-with-port (open-input-file filename) read-eval))
+
+        (define load
+            (case-lambda
+                ((filename) (%load filename (interaction-environment)))
+                ((filename env) (%load filename env))))
 
         (define (call-with-values producer consumer)
                 (let-values ((args (producer))) (apply consumer args)))
@@ -831,7 +925,7 @@
         apply
         assoc
         assq
-;;        assv
+        assv
         begin
         binary-port?
         boolean=?
@@ -932,11 +1026,11 @@
         list
         list->string
         list->vector
-;;        list-copy
+        list-copy
         list-ref
-;;        list-set!
-;;        list-tail
-;;        list?
+        list-set!
+        list-tail
+        list?
         make-bytevector
         make-list
         make-parameter
@@ -944,9 +1038,9 @@
         make-vector
         map
 ;;        max
-;;        member
+        member
         memq
-;;        memv
+        memv
 ;;        min
 ;;        modulo
         negative?
@@ -1085,7 +1179,33 @@
 
 ;; (define-library (scheme complex)
 
-;; (define-library (scheme cxr)
+(define-library (scheme cxr)
+    (import (foment base))
+    (export
+        caaar
+        cdaar
+        cadar
+        cddar
+        caadr
+        cdadr
+        caddr
+        cdddr
+        caaaar
+        cdaaar
+        cadaar
+        cddaar
+        caadar
+        cdadar
+        caddar
+        cdddar
+        caaadr
+        cdaadr
+        cadadr
+        cddadr
+        caaddr
+        cdaddr
+        cadddr
+        cddddr))
 
 (define-library (scheme eval)
     (import (foment base))
@@ -1127,7 +1247,10 @@
 
 ;; (define-library (scheme lazy)
 
-;; (define-library (scheme load)
+(define-library (scheme load)
+    (import (foment base))
+    (export
+        load))
 
 (define-library (scheme process-context)
     (import (foment base))

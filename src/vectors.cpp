@@ -58,7 +58,7 @@ FObject MakeVector(unsigned int vl, FObject * v, FObject obj)
 FObject ListToVector(FObject obj)
 {
     int mf = 0;
-    unsigned int vl = ListLength(obj);
+    unsigned int vl = ListLength("list->vector", obj);
     FVector * nv = MakeVector(vl, "list->vector", &mf);
 
     if (mf)
@@ -454,7 +454,7 @@ FObject MakeBytevector(unsigned int vl)
 
 FObject U8ListToBytevector(FObject obj)
 {
-    unsigned int vl = ListLength(obj);
+    unsigned int vl = ListLength("list->bytevector", obj);
     FBytevector * nv = MakeBytevector(vl, "list->bytevector");
 
     for (unsigned int idx = 0; idx < vl; idx++)

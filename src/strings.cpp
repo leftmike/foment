@@ -630,7 +630,7 @@ Define("list->string", ListToStringPrimitive)(int argc, FObject argv[])
     OneArgCheck("list->string", argc);
 
     FObject lst = argv[0];
-    int sl = ListLength(lst);
+    int sl = ListLength("list->string", lst);
     FObject s = MakeString(0, sl);
     int sdx = 0;
 
