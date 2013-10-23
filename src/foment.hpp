@@ -9,6 +9,8 @@ Goals:
 To Do:
 -- ctrl-c handling
 
+-- document want-identifiers
+
 -- use tests from chibi
 
 -- import and define-library should not be part of (scheme base)

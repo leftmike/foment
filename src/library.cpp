@@ -1137,6 +1137,11 @@ FObject CompileProgram(FObject nam, FObject port)
     }
 
     FObject body = EmptyListObject;
+    if (R.LibraryStartupList != EmptyListObject)
+    {
+        body = MakePair(MakePair(BeginSyntax, ReverseListModify(R.LibraryStartupList)), body);
+        R.LibraryStartupList = EmptyListObject;
+    }
 
     try
     {
