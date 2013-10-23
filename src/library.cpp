@@ -924,7 +924,8 @@ FObject Eval(FObject obj, FObject env)
 
 static FObject MoveSetToFront(FObject body)
 {
-    // Move (#<syntax: set!> <var> <expr>) to the front of the body;
+    return(ReverseListModify(body));
+/*    // Move (#<syntax: set!> <var> <expr>) to the front of the body;
     // there is one of these for each (define <var> <expr>) expression.
 
     FObject slst = EmptyListObject;
@@ -961,7 +962,7 @@ static FObject MoveSetToFront(FObject body)
         SetRest(slst, blst);
     }
 
-    return(body);
+    return(body);*/
 }
 
 static FObject CompileLibraryCode(FObject env, FObject lst)
@@ -1160,7 +1161,6 @@ FObject CompileProgram(FObject nam, FObject port)
     FObject proc = CompileLambda(env, NoValueObject, EmptyListObject, body);
 
     HashtableWalkVisit(AsEnvironment(env)->Hashtable, WalkVisitProgram, nam);
-// need to check for globals used but never defined
 
     return(proc);
 }

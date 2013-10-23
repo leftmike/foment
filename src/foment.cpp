@@ -444,6 +444,14 @@ Define("error-object?", ErrorObjectPPrimitive)(int argc, FObject argv[])
     return(ExceptionP(argv[0]) ? TrueObject : FalseObject);
 }
 
+Define("error-object-type", ErrorObjectTypePrimitive)(int argc, FObject argv[])
+{
+    OneArgCheck("error-object-type", argc);
+    ExceptionArgCheck("error-object-type", argv[0]);
+
+    return(AsException(argv[0])->Type);
+}
+
 Define("error-object-who", ErrorObjectWhoPrimitive)(int argc, FObject argv[])
 {
     OneArgCheck("error-object-who", argc);
@@ -682,30 +690,6 @@ static unsigned int DoEqualHash(FObject obj, int d)
 unsigned int EqualHash(FObject obj)
 {
     return(DoEqualHash(obj, 0));
-}
-
-Define("eq-hash", EqHashPrimitive)(int argc, FObject argv[])
-{
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "eq-hash", "expected one argument", EmptyListObject);
-
-    return(MakeFixnum(EqHash(argv[0])));
-}
-
-Define("eqv-hash", EqvHashPrimitive)(int argc, FObject argv[])
-{
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "eqv-hash", "expected one argument", EmptyListObject);
-
-    return(MakeFixnum(EqvHash(argv[0])));
-}
-
-Define("equal-hash", EqualHashPrimitive)(int argc, FObject argv[])
-{
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "equal-hash", "expected one argument", EmptyListObject);
-
-    return(MakeFixnum(EqualHash(argv[0])));
 }
 
 static int Primes[] =
@@ -1122,38 +1106,26 @@ void HashtableWalkVisit(FObject ht, FWalkVisitFn wfn, FObject ctx)
 
 Define("make-eq-hashtable", MakeEqHashtablePrimitive)(int argc, FObject argv[])
 {
-    if (argc > 1)
-        RaiseExceptionC(R.Assertion, "make-eq-hashtable", "expected zero or one arguments",
-                EmptyListObject);
+    ZeroOrOneArgsCheck("make-eq-hashtable", argc);
 
-    if (argc == 1 && FixnumP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "make-eq-hashtable", "expected a fixnum", List(argv[0]));
+    if (argc == 1)
+        NonNegativeArgCheck("make-eq-hashtable", argv[0]);
 
     return(MakeEqHashtable(argc == 0 ? 0 : AsFixnum(argv[0])));
 }
 
 Define("eq-hashtable-ref", EqHashtableRefPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 3)
-        RaiseExceptionC(R.Assertion, "eq-hashtable-ref", "expected three arguments",
-                EmptyListObject);
-
-    if (HashtableP(argv[0]) == 0 || PairP(AsHashtable(argv[0])->Tracker) == 0)
-        RaiseExceptionC(R.Assertion, "eq-hashtable-ref", "expected an eq-hashtable",
-                List(argv[0]));
+    ThreeArgsCheck("eq-hashtable-ref", argc);
+    EqHashtableArgCheck("eq-hashtable-ref", argv[0]);
 
     return(EqHashtableRef(argv[0], argv[1], argv[2]));
 }
 
 Define("eq-hashtable-set!", EqHashtableSetPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 3)
-        RaiseExceptionC(R.Assertion, "eq-hashtable-set!", "expected three arguments",
-                EmptyListObject);
-
-    if (HashtableP(argv[0]) == 0 || PairP(AsHashtable(argv[0])->Tracker) == 0)
-        RaiseExceptionC(R.Assertion, "eq-hashtable-set!", "expected an eq-hashtable",
-                List(argv[0]));
+    ThreeArgsCheck("eq-hashtable-set!", argc);
+    EqHashtableArgCheck("eq-hashtable-set!", argv[0]);
 
     EqHashtableSet(argv[0], argv[1], argv[2]);
     return(NoValueObject);
@@ -1161,13 +1133,8 @@ Define("eq-hashtable-set!", EqHashtableSetPrimitive)(int argc, FObject argv[])
 
 Define("eq-hashtable-delete", EqHashtableDeletePrimitive)(int argc, FObject argv[])
 {
-    if (argc != 2)
-        RaiseExceptionC(R.Assertion, "eq-hashtable-delete", "expected two arguments",
-                EmptyListObject);
-
-    if (HashtableP(argv[0]) == 0 || PairP(AsHashtable(argv[0])->Tracker) == 0)
-        RaiseExceptionC(R.Assertion, "eq-hashtable-delete", "expected an eq-hashtable",
-                List(argv[0]));
+    TwoArgsCheck("eq-hashtable-delete", argc);
+    EqHashtableArgCheck("eq-hashtable-delete", argv[0]);
 
     EqHashtableDelete(argv[0], argv[1]);
     return(NoValueObject);
@@ -1212,8 +1179,7 @@ Define("%make-record-type", MakeRecordTypePrimitive)(int argc, FObject argv[])
 
     FMustBe(argc == 2);
 
-    if (SymbolP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "define-record-type", "expected a symbol", List(argv[0]));
+    SymbolArgCheck("define-record-type", argv[0]);
 
     FObject flds = EmptyListObject;
     FObject flst = argv[1];
@@ -1347,27 +1313,22 @@ void DefinePrimitive(FObject env, FObject lib, FPrimitive * prim)
 
 Define("loaded-libraries", LoadedLibrariesPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 0)
-        RaiseExceptionC(R.Assertion, "loaded-libraries", "expected no arguments", EmptyListObject);
+    ZeroArgsCheck("loaded-libraries", argc);
 
     return(R.LoadedLibraries);
 }
 
 Define("library-path", LibraryPathPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 0)
-        RaiseExceptionC(R.Assertion, "library-path", "expected no arguments", EmptyListObject);
+    ZeroArgsCheck("library-path", argc);
 
     return(R.LibraryPath);
 }
 
 Define("random", RandomPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "random", "expected one argument", EmptyListObject);
-
-    if (FixnumP(argv[0]) == 0 || AsFixnum(argv[0]) < 0)
-        RaiseExceptionC(R.Assertion, "random", "expected a non-negative fixnum", List(argv[0]));
+    OneArgCheck("random", argc);
+    NonNegativeArgCheck("random", argv[0]);
 
     return(MakeFixnum(rand() % AsFixnum(argv[0])));
 }
@@ -1396,12 +1357,11 @@ static FPrimitive * Primitives[] =
     &RaisePrimitive,
     &ErrorPrimitive,
     &ErrorObjectPPrimitive,
+    &ErrorObjectTypePrimitive,
     &ErrorObjectWhoPrimitive,
     &ErrorObjectMessagePrimitive,
     &ErrorObjectIrritantsPrimitive,
     &FullErrorPrimitive,
-    
-    
     &CommandLinePrimitive,
     &ExitPrimitive,
     &EmergencyExitPrimitive,
@@ -1411,11 +1371,6 @@ static FPrimitive * Primitives[] =
     &CurrentJiffyPrimitive,
     &JiffiesPerSecondPrimitive,
     &FeaturesPrimitive,
-    
-    
-    &EqHashPrimitive,
-    &EqvHashPrimitive,
-    &EqualHashPrimitive,
     &MakeEqHashtablePrimitive,
     &EqHashtableRefPrimitive,
     &EqHashtableSetPrimitive,

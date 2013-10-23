@@ -809,6 +809,18 @@ FObject MakeProcedure(FObject nam, FObject cv, int ac, unsigned int fl);
 #define PROCEDURE_FLAG_CONTINUATION 0x20000000
 #define PROCEDURE_FLAG_RESTARG      0x10000000
 
+// ---- Threads ----
+
+#define ThreadP(obj) (IndirectTag(obj) == ThreadTag)
+
+// ---- Exclusives ----
+
+#define ExclusiveP(obj) (IndirectTag(obj) == ExclusiveTag)
+
+// ---- Conditions ----
+
+#define ConditionP(obj) (IndirectTag(obj) == ConditionTag)
+
 // ---- Exception ----
 
 typedef struct
@@ -1133,6 +1145,12 @@ inline void BytevectorArgCheck(char * who, FObject obj)
         RaiseExceptionC(R.Assertion, who, "expected a bytevector", List(obj));
 }
 
+inline void EnvironmentArgCheck(char * who, FObject obj)
+{
+    if (EnvironmentP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected an environment", List(obj));
+}
+
 inline void PortArgCheck(char * who, FObject obj)
 {
     if (BinaryPortP(obj) == 0 && TextualPortP(obj) == 0)
@@ -1197,6 +1215,42 @@ inline void BinaryOutputPortArgCheck(char * who, FObject obj)
 {
     if (BinaryPortP(obj) == 0 || OutputPortOpenP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected an open binary output port", List(obj));
+}
+
+inline void ProcedureArgCheck(char * who, FObject obj)
+{
+    if (ProcedureP(obj) == 0 && PrimitiveP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a procedure", List(obj));
+}
+
+inline void ThreadArgCheck(char * who, FObject obj)
+{
+    if (ThreadP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a thread", List(obj));
+}
+
+inline void ExclusiveArgCheck(char * who, FObject obj)
+{
+    if (ExclusiveP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected an exclusive", List(obj));
+}
+
+inline void ConditionArgCheck(char * who, FObject obj)
+{
+    if (ConditionP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a condition", List(obj));
+}
+
+inline void TConcArgCheck(char * who, FObject obj)
+{
+    if (PairP(obj) == 0 || PairP(First(obj)) == 0 || PairP(Rest(obj)) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a tconc", List(obj));
+}
+
+inline void EqHashtableArgCheck(char * who, FObject obj)
+{
+    if (HashtableP(obj) == 0 || PairP(AsHashtable(obj)->Tracker) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected an eq-hashtable", List(obj));
 }
 
 // ----------------

@@ -57,9 +57,12 @@
 
 (p 1)
 (run-thread producer)
+(run-thread producer)
 (parameterize ((p 2)) (run-thread producer))
 (parameterize ((p 3)) (run-thread consumer)
     (parameterize ((p 4)) (run-thread consumer)))
+(run-thread consumer)
+(run-thread consumer)
 (run-thread consumer)
 (run-thread consumer)
 
@@ -85,6 +88,10 @@
 
 (run-thread stress1)
 (run-thread stress1)
+(run-thread stress1)
+(run-thread stress1)
+(run-thread stress2)
+(run-thread stress2)
 (run-thread stress2)
 (run-thread stress2)
 
@@ -94,6 +101,14 @@
 
 (define run #f)
 
+(run-thread (lambda () (define (recur n) (recur (+ n 1))) (recur 0)))
+(run-thread (lambda () (define (recur n) (recur (+ n 1))) (recur 0)))
+(run-thread (lambda () (define (recur n) (recur (+ n 1))) (recur 0)))
+(run-thread (lambda () (define (recur n) (recur (+ n 1))) (recur 0)))
+(run-thread (lambda () (define (recur n) (recur (+ n 1))) (recur 0)))
+(run-thread (lambda () (define (recur n) (recur (+ n 1))) (recur 0)))
+(run-thread (lambda () (define (recur n) (recur (+ n 1))) (recur 0)))
+(run-thread (lambda () (define (recur n) (recur (+ n 1))) (recur 0)))
 (run-thread (lambda () (define (recur n) (recur (+ n 1))) (recur 0)))
 (run-thread (lambda () (define (recur n) (recur (+ n 1))) (recur 0)))
 (run-thread (lambda () (define (recur n) (recur (+ n 1))) (recur 0)))

@@ -205,103 +205,31 @@ FObject GetInteractionEnv()
 
 // ----------------
 
-Define("compile-eval", CompileEvalPrimitive)(int argc, FObject argv[])
+Define("%compile-eval", CompileEvalPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 2)
-        RaiseExceptionC(R.Assertion, "compile-eval", "expected two arguments", EmptyListObject);
-
-    if (EnvironmentP(argv[1]) == 0)
-        RaiseExceptionC(R.Assertion, "compile-eval", "expected an environment", List(argv[1]));
+    TwoArgsCheck("%compile-eval", argc);
+    EnvironmentArgCheck("%compile-eval", argv[1]);
 
     return(CompileEval(argv[0], argv[1]));
 }
 
 Define("interaction-environment", InteractionEnvironmentPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 0)
-        RaiseExceptionC(R.Assertion, "interaction-environment", "expected no arguments",
-                EmptyListObject);
+    ZeroArgsCheck("interaction-environment", argc);
 
     return(GetInteractionEnv());
 }
 
-Define("compile", CompilePrimitive)(int argc, FObject argv[])
-{
-    if (argc < 2 || argc > 3)
-        RaiseExceptionC(R.Assertion, "compile", "expected two or three arguments",
-                EmptyListObject);
-
-    if (argc == 2)
-        return(CompileLambda(R.Bedrock, NoValueObject, argv[0], argv[1]));
-    return(CompileLambda(R.Bedrock, argv[0], argv[1], argv[2]));
-}
-
-Define("syntax-pass", SyntaxPassPrimitive)(int argc, FObject argv[])
-{
-    if (argc < 2 || argc > 3)
-        RaiseExceptionC(R.Assertion, "syntax-pass", "expected two or three arguments",
-                EmptyListObject);
-
-    FObject se = MakeSyntacticEnv(R.Bedrock);
-
-    if (argc == 2)
-        return(SPassLambda(se, NoValueObject, argv[0], argv[1]));
-    return(SPassLambda(se, argv[0], argv[1], argv[2]));
-}
-
-Define("middle-pass", MiddlePassPrimitive)(int argc, FObject argv[])
-{
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "middle-pass", "expected one argument", EmptyListObject);
-
-    if (LambdaP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "middle-pass", "expected a lambda", List(argv[0]));
-
-    MPassLambda(AsLambda(argv[0]));
-    return(argv[0]);
-}
-
-Define("generate-pass", GeneratePassPrimitive)(int argc, FObject argv[])
-{
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "generate-pass", "expected one argument", EmptyListObject);
-
-    if (LambdaP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "generate-pass", "expected a lambda", List(argv[0]));
-
-    return(GPassLambda(AsLambda(argv[0])));
-}
-
-Define("keyword", KeywordPrimitive)(int argc, FObject argv[])
-{
-    FObject env = R.Bedrock;
-
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "keyword", "expected one argument", EmptyListObject);
-
-    if (SymbolP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "keyword", "expected a symbol", List(argv[0]));
-
-    FObject val = EnvironmentGet(env, argv[0]);
-    if (SpecialSyntaxP(val) == 0)
-        RaiseExceptionC(R.Assertion, "keyword", "symbol is not bound to special syntax",
-                List(argv[0]));
-
-    return(val);
-}
-
 Define("syntax", SyntaxPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "syntax", "expected one argument", EmptyListObject);
+    OneArgCheck("syntax", argc);
 
     return(ExpandExpression(MakeSyntacticEnv(GetInteractionEnv()), argv[0]));
 }
 
 Define("unsyntax", UnsyntaxPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "unsyntax", "expected one argument", EmptyListObject);
+    OneArgCheck("unsyntax", argc);
 
     return(SyntaxToDatum(argv[0]));
 }
@@ -310,11 +238,6 @@ static FPrimitive * Primitives[] =
 {
     &CompileEvalPrimitive,
     &InteractionEnvironmentPrimitive,
-    &CompilePrimitive,
-    &SyntaxPassPrimitive,
-    &MiddlePassPrimitive,
-    &GeneratePassPrimitive,
-    &KeywordPrimitive,
     &SyntaxPrimitive,
     &UnsyntaxPrimitive
 };

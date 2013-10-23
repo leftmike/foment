@@ -343,17 +343,51 @@
         make-utf8-port
         make-utf16-port
         file-encoding
+        want-identifiers
         import
         define-library
-        
-        syntax unsyntax eq-hash eqv-hash
-        equal-hash error-object-who full-error loaded-libraries library-path
-        with-continuation-mark call-with-continuation-prompt abort-current-continuation
-        default-prompt-tag (rename default-prompt-tag default-continuation-prompt-tag)
-        default-prompt-handler current-continuation-marks collect make-guardian make-tracker
-        make-exclusive make-condition current-thread run-thread enter-exclusive leave-exclusive
-        condition-wait thread? condition-wake sleep exclusive? try-exclusive condition?
-        condition-wake-all with-exclusive no-value)
+        with-continuation-mark
+        call-with-continuation-prompt
+        abort-current-continuation
+        default-prompt-tag
+        (rename default-prompt-tag default-continuation-prompt-tag)
+        default-prompt-handler
+        current-continuation-marks
+        collect
+        partial-per-full
+        trigger-bytes
+        trigger-objects
+        dump-gc
+        make-guardian
+        make-tracker
+        make-exclusive
+        make-condition
+        current-thread
+        run-thread
+        enter-exclusive
+        leave-exclusive
+        condition-wait
+        thread?
+        condition-wake
+        exclusive?
+        try-exclusive
+        condition?
+        condition-wake-all
+        with-exclusive
+        sleep
+        syntax
+        unsyntax
+        error-object-type
+        error-object-who
+        full-error
+        loaded-libraries
+        library-path
+        make-eq-hashtable
+        eq-hashtable-ref
+        eq-hashtable-set!
+        eq-hashtable-delete
+        random
+        no-value)
     (begin
         (define (caar pair) (car (car pair)))
         (define (cadr pair) (car (cdr pair)))
@@ -558,7 +592,7 @@
                             (eq? who 'delete-file)))))
 
         (define (eval expr env)
-            ((compile-eval expr env)))
+            ((%compile-eval expr env)))
 
         (define (%load filename env)
             (define (read-eval port)
@@ -567,7 +601,8 @@
                         (begin
                             (eval obj env)
                             (read-eval port)))))
-            (call-with-port (open-input-file filename) read-eval))
+            (call-with-port (open-input-file filename)
+                    (lambda (port) (want-identifiers port #t) (read-eval port))))
 
         (define load
             (case-lambda

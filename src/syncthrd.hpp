@@ -99,7 +99,6 @@ inline void DeleteEvent(OSEvent ose)
 
 // ---- Threads ----
 
-#define ThreadP(obj) (IndirectTag(obj) == ThreadTag)
 #define AsThread(obj) ((FThread *) (obj))
 
 typedef struct _FThread
@@ -116,7 +115,6 @@ FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms, FObject idxprms
 
 // ---- Exclusives ----
 
-#define ExclusiveP(obj) (IndirectTag(obj) == ExclusiveTag)
 #define AsExclusive(obj) ((FExclusive *) (obj))
 
 typedef struct
@@ -127,7 +125,6 @@ typedef struct
 
 // ---- Conditions ----
 
-#define ConditionP(obj) (IndirectTag(obj) == ConditionTag)
 #define AsCondition(obj) ((FCondition *) (obj))
 
 typedef struct

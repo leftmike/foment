@@ -1222,6 +1222,15 @@ Define("make-utf16-port", MakeUtf16PortPrimitive)(int argc, FObject argv[])
     return(MakeUtf16Port(argv[0]));
 }
 
+Define("want-identifiers", WantIdentifiersPrimitive)(int argc, FObject argv[])
+{
+    TwoArgsCheck("want-identifiers", argc);
+    TextualInputPortArgCheck("want-identifiers", argv[0]);
+
+    WantIdentifiersPort(argv[0], argv[1] == FalseObject ? 0 : 1);
+    return(NoValueObject);
+}
+
 static FPrimitive * Primitives[] =
 {
     &FileExistsPPrimitive,
@@ -1246,7 +1255,8 @@ static FPrimitive * Primitives[] =
     &GetOutputBytevectorPrimitive,
     &MakeLatin1PortPrimitive,
     &MakeUtf8PortPrimitive,
-    &MakeUtf16PortPrimitive
+    &MakeUtf16PortPrimitive,
+    &WantIdentifiersPrimitive
 };
 
 void SetupIO()

@@ -86,16 +86,14 @@ void WriteCondition(FObject port, FObject obj, int df)
 
 Define("current-thread", CurrentThreadPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 0)
-        RaiseExceptionC(R.Assertion, "current-thread", "expected zero arguments", EmptyListObject);
+    ZeroArgsCheck("current-thread", argc);
 
     return(GetThreadState()->Thread);
 }
 
 Define("thread?", ThreadPPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "thread?", "expected one argument", EmptyListObject);
+    OneArgCheck("thread?", argc);
 
     return(ThreadP(argv[0]) ? TrueObject : FalseObject);
 }
@@ -151,12 +149,8 @@ static DWORD WINAPI FomentThread(FObject obj)
 
 Define("run-thread", RunThreadPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "run-thread", "expected one argument", EmptyListObject);
-
-    if (ProcedureP(argv[0]) == 0 && PrimitiveP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "run-thread", "expected a procedure or a primitive",
-                List(argv[0]));
+    OneArgCheck("run-thread", argc);
+    ProcedureArgCheck("run-thread", argv[0]);
 
     FObject thrd = MakeThread(0, argv[0], CurrentParameters(), CurrentIndexParameters());
 
@@ -181,11 +175,8 @@ Define("run-thread", RunThreadPrimitive)(int argc, FObject argv[])
 
 Define("sleep", SleepPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "sleep", "expected one argument", EmptyListObject);
-
-    if (FixnumP(argv[0]) == 0 || AsFixnum(argv[0]) < 0)
-        RaiseExceptionC(R.Assertion, "sleep", "expected a non-negative integer", List(argv[0]));
+    OneArgCheck("sleep", argc);
+    NonNegativeArgCheck("sleep", argv[0]);
 
     EnterWait();
     Sleep(AsFixnum(argv[0]));
@@ -195,27 +186,22 @@ Define("sleep", SleepPrimitive)(int argc, FObject argv[])
 
 Define("exclusive?", ExclusivePPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "exclusive?", "expected one argument", EmptyListObject);
+    OneArgCheck("exclusive?", argc);
 
     return(ExclusiveP(argv[0]) ? TrueObject : FalseObject);
 }
 
 Define("make-exclusive", MakeExclusivePrimitive)(int argc, FObject argv[])
 {
-    if (argc != 0)
-        RaiseExceptionC(R.Assertion, "make-exclusive", "expected zero arguments", EmptyListObject);
+    ZeroArgsCheck("make-exclusive", argc);
 
     return(MakeExclusive());
 }
 
 Define("enter-exclusive", EnterExclusivePrimitive)(int argc, FObject argv[])
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "enter-exclusive", "expected one argument", EmptyListObject);
-
-    if (ExclusiveP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "enter-exclusive", "expected an exclusive", List(argv[0]));
+    OneArgCheck("enter-exclusive", argc);
+    ExclusiveArgCheck("enter-exclusive", argv[0]);
 
     EnterWait();
     EnterExclusive(&AsExclusive(argv[0])->Exclusive);
@@ -225,11 +211,8 @@ Define("enter-exclusive", EnterExclusivePrimitive)(int argc, FObject argv[])
 
 Define("leave-exclusive", LeaveExclusivePrimitive)(int argc, FObject argv[])
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "leave-exclusive", "expected one argument", EmptyListObject);
-
-    if (ExclusiveP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "leave-exclusive", "expected an exclusive", List(argv[0]));
+    OneArgCheck("leave-exclusive", argc);
+    ExclusiveArgCheck("leave-exclusive", argv[0]);
 
     LeaveExclusive(&AsExclusive(argv[0])->Exclusive);
     return(NoValueObject);
@@ -237,41 +220,31 @@ Define("leave-exclusive", LeaveExclusivePrimitive)(int argc, FObject argv[])
 
 Define("try-exclusive", TryExclusivePrimitive)(int argc, FObject argv[])
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "try-exclusive", "expected one argument", EmptyListObject);
-
-    if (ExclusiveP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "try-exclusive", "expected an exclusive", List(argv[0]));
+    OneArgCheck("try-exclusive", argc);
+    ExclusiveArgCheck("try-exclusive", argv[0]);
 
     return(TryExclusive(&AsExclusive(argv[0])->Exclusive) ? TrueObject : FalseObject);
 }
 
 Define("condition?", ConditionPPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "condition?", "expected one argument", EmptyListObject);
+    OneArgCheck("condition?", argc);
 
     return(ConditionP(argv[0]) ? TrueObject : FalseObject);
 }
 
 Define("make-condition", MakeConditionPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 0)
-        RaiseExceptionC(R.Assertion, "make-condition", "expected zero arguments", EmptyListObject);
+    ZeroArgsCheck("make-condition", argc);
 
     return(MakeCondition());
 }
 
 Define("condition-wait", ConditionWaitPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 2)
-        RaiseExceptionC(R.Assertion, "condition-wait", "expected two arguments", EmptyListObject);
-
-    if (ConditionP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "condition-wait", "expected a condition", List(argv[0]));
-
-    if (ExclusiveP(argv[1]) == 0)
-        RaiseExceptionC(R.Assertion, "condition-wait", "expected an exclusive", List(argv[1]));
+    TwoArgsCheck("condition-wait", argc);
+    ConditionArgCheck("condition-wait", argv[0]);
+    ExclusiveArgCheck("condition-wait", argv[1]);
 
     EnterWait();
     ConditionWait(&AsCondition(argv[0])->Condition, &AsExclusive(argv[1])->Exclusive);
@@ -281,11 +254,8 @@ Define("condition-wait", ConditionWaitPrimitive)(int argc, FObject argv[])
 
 Define("condition-wake", ConditionWakePrimitive)(int argc, FObject argv[])
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "condition-wake", "expected one argument", EmptyListObject);
-
-    if (ConditionP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "condition-wake", "expected a condition", List(argv[0]));
+    OneArgCheck("condition-wake", argc);
+    ConditionArgCheck("condition-wake", argv[0]);
 
     WakeCondition(&AsCondition(argv[0])->Condition);
     return(NoValueObject);
@@ -293,12 +263,8 @@ Define("condition-wake", ConditionWakePrimitive)(int argc, FObject argv[])
 
 Define("condition-wake-all", ConditionWakeAllPrimitive)(int argc, FObject argv[])
 {
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "condition-wake-all", "expected one argument",
-                EmptyListObject);
-
-    if (ConditionP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "condition-wake-all", "expected a condition", List(argv[0]));
+    OneArgCheck("condition-wake-all", argc);
+    ConditionArgCheck("condition-wake-all", argv[0]);
 
     WakeAllCondition(&AsCondition(argv[0])->Condition);
     return(NoValueObject);
