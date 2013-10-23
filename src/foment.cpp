@@ -67,20 +67,10 @@ static char * SpecialSyntaxes[] =
     "define-values",
     "define-syntax",
 
-    "import",
-    "define-library",
-
     "else",
     "=>",
     "unquote",
-    "unquote-splicing",
-
-    "only",
-    "except",
-    "prefix",
-    "rename",
-    "export",
-    "include-library-declarations"
+    "unquote-splicing"
 };
 
 static char * SpecialSyntaxToName(FObject obj)

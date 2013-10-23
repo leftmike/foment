@@ -317,13 +317,8 @@ int wmain(int argc, wchar_t * argv[])
 
         FObject proc = CompileProgram(nam, port);
 
-        FObject ret = ExecuteThunk(proc);
-        if (ret == TrueObject)
-            return(0);
-        if (FixnumP(ret))
-            return(AsFixnum(argv[0]));
-
-        return(-1);
+        ExecuteThunk(proc);
+        return(0);
     }
     catch (FObject obj)
     {
@@ -332,6 +327,6 @@ int wmain(int argc, wchar_t * argv[])
         Write(R.StandardOutput, obj, 0);
         WriteCh(R.StandardOutput, '\n');
 
-        return(1);
+        return(-1);
     }
 }

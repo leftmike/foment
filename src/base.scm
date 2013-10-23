@@ -344,8 +344,6 @@
         make-utf16-port
         file-encoding
         want-identifiers
-        import
-        define-library
         with-continuation-mark
         call-with-continuation-prompt
         abort-current-continuation
@@ -939,10 +937,6 @@
 (define-library (scheme base)
     (import (foment base))
     (export
-        import
-        define-library
-        
-        
         *
         +
         -

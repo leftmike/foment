@@ -23,6 +23,13 @@ stress: all
     ..\win32\debug\foment -t stress.scm r7rs.scm
     ..\win32\release\foment -t stress.scm r7rs.scm
 
+runtest: all
+    cd ..\test
+    ..\win32\debug\foment runtests.scm r7rs.scm foment.scm eccentric.scm r5rs_pitfall.scm\
+            unicode.scm
+    ..\win32\release\foment runtests.scm r7rs.scm foment.scm eccentric.scm r5rs_pitfall.scm\
+            unicode.scm
+
 debug:
     -mkdir debug
 

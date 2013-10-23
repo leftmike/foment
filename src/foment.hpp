@@ -9,11 +9,8 @@ Goals:
 To Do:
 -- ctrl-c handling
 
--- document want-identifiers
-
 -- use tests from chibi
 
--- import and define-library should not be part of (scheme base)
 -- figure out why ... needs to be exported
 
 -- IO and GC
@@ -276,20 +273,10 @@ FObject SpecialSyntaxMsgC(FObject obj, char * msg);
 #define DefineValuesSyntax MakeImmediate(24, SpecialSyntaxTag)
 #define DefineSyntaxSyntax MakeImmediate(25, SpecialSyntaxTag)
 
-#define ImportSyntax MakeImmediate(26, SpecialSyntaxTag)
-#define DefineLibrarySyntax MakeImmediate(27, SpecialSyntaxTag)
-
-#define ElseSyntax MakeImmediate(28, SpecialSyntaxTag)
-#define ArrowSyntax MakeImmediate(29, SpecialSyntaxTag)
-#define UnquoteSyntax MakeImmediate(30, SpecialSyntaxTag)
-#define UnquoteSplicingSyntax MakeImmediate(31, SpecialSyntaxTag)
-
-#define OnlySyntax MakeImmediate(32, SpecialSyntaxTag)
-#define ExceptSyntax MakeImmediate(33, SpecialSyntaxTag)
-#define PrefixSyntax MakeImmediate(34, SpecialSyntaxTag)
-#define RenameSyntax MakeImmediate(35, SpecialSyntaxTag)
-#define ExportSyntax MakeImmediate(36, SpecialSyntaxTag)
-#define IncludeLibraryDeclarationsSyntax MakeImmediate(37, SpecialSyntaxTag)
+#define ElseSyntax MakeImmediate(26, SpecialSyntaxTag)
+#define ArrowSyntax MakeImmediate(27, SpecialSyntaxTag)
+#define UnquoteSyntax MakeImmediate(28, SpecialSyntaxTag)
+#define UnquoteSplicingSyntax MakeImmediate(29, SpecialSyntaxTag)
 
 /*
 #define GuardSyntax MakeImmediate(, SpecialSyntaxTag)
@@ -978,6 +965,20 @@ typedef struct
 
     FObject ExclusivesTConc;
     FObject PortsTConc;
+
+    FObject DefineLibrarySymbol;
+    FObject ImportSymbol;
+    FObject IncludeLibraryDeclarationsSymbol;
+    FObject CondExpandSymbol;
+    FObject ExportSymbol;
+    FObject BeginSymbol;
+    FObject IncludeSymbol;
+    FObject IncludeCISymbol;
+    FObject OnlySymbol;
+    FObject ExceptSymbol;
+    FObject PrefixSymbol;
+    FObject RenameSymbol;
+
 } FRoots;
 
 extern FRoots R;
