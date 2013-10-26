@@ -8,10 +8,6 @@ Foment
 #include <string.h>
 #include "foment.hpp"
 
-#ifdef FOMENT_TEST
-int RunTest(FObject env, int argc, SCh * argv[]);
-#endif // FOMENT_TEST
-
 static void LoadFile(FObject fn, FObject env)
 {
     try
@@ -116,10 +112,15 @@ static int Usage()
         "    -l FILE           load FILE\n"
         "    -A DIR            append a library search directory\n"
         "    -I DIR            prepend a library search directory\n"
-        "    -L                interactive like library\n"
         );
 
-    return(1);
+    return(-1);
+}
+
+static int MissingArgument(wchar_t * arg)
+{
+    printf("error: expected an argument following %S\n", arg);
+    return(Usage());
 }
 
 static FObject MakeInvocation(int argc, wchar_t * argv[])
@@ -151,14 +152,79 @@ static FObject MakeInvocation(int argc, wchar_t * argv[])
     return(s);
 }
 
-typedef enum
+static void UpdateFeatures()
 {
-#ifdef FOMENT_TEST
-    TestMode,
-#endif // FOMENT_TEST
-    ProgramMode,
-    ReplMode
-} FMode;
+    if (ConfigStrictR7RS() == 0)
+    {
+        R.Features = MakePair(StringCToSymbol("foment"), R.Features);
+        R.Features = MakePair(StringCToSymbol("foment-0.1"), R.Features);
+    }
+}
+
+static int ProgramMode(int adx, int argc, wchar_t * argv[])
+{
+    FAssert(adx < argc);
+
+    SCh * s = argv[adx];
+    SCh * pth = 0;
+
+    while (*s)
+    {
+        if (*s == PathCh)
+            pth = s;
+
+        s += 1;
+    }
+
+    if (pth != 0)
+        R.LibraryPath = MakePair(MakeStringS(argv[adx], pth - argv[adx]), R.LibraryPath);
+
+    FObject nam = MakeStringS(argv[adx]);
+
+    adx += 1;
+    R.CommandLine = MakePair(MakeInvocation(adx, argv), MakeCommandLine(argc - adx, argv + adx));
+
+    UpdateFeatures();
+
+    FObject port = OpenInputFile(nam);
+    if (TextualPortP(port) == 0)
+    {
+        printf("error: unable to open program: %S\n", argv[adx]);
+        return(Usage());
+    }
+
+    FObject proc = CompileProgram(nam, port);
+
+    ExecuteThunk(proc);
+    return(0);
+}
+
+static int SetConfig(wchar_t * nam, int val)
+{
+    int idx = 0;
+
+    while (Config[idx].Name)
+    {
+        if (wcscmp(Config[idx].Name, nam) == 0)
+        {
+            Config[idx].Value = val;
+            return(0);
+        }
+
+        idx += 1;
+    }
+
+    printf("error: expected a configuration option:");
+    idx = 0;
+    while (Config[idx].Name)
+    {
+        printf(" %S", Config[idx].Name);
+        idx += 1;
+    }
+    printf("\n");
+
+    return(Usage());
+}
 
 int wmain(int argc, wchar_t * argv[])
 {
@@ -181,144 +247,81 @@ int wmain(int argc, wchar_t * argv[])
         return(1);
     }
 
+    FAssert(argc >= 1);
+
     try
     {
-        FAssert(argc >= 1);
-
-        FMode mode = ProgramMode;
         int adx = 1;
         while (adx < argc)
         {
-            if (argv[adx][0] != '-')
-                break;
-
-            if (argv[adx][1] == 0 || argv[adx][2] != 0)
-            {
-                printf("error: unknown switch: %S\n", argv[adx]);
-                return(Usage());
-            }
-
-            if (argv[adx][1] == 'i')
-                mode = ReplMode;
-            else if (argv[adx][1] == 'L')
-                Config.InteractiveLikeLibrary = 1;
-#ifdef FOMENT_TEST
-            else if (argv[adx][1] == 't')
-                mode = TestMode;
-#endif // FOMENT_TEST
-            else
+            if (wcscmp(argv[adx], L"-A") == 0)
             {
                 adx += 1;
+
                 if (adx == argc)
+                    return(MissingArgument(argv[adx - 1]));
+
+                FObject lp = R.LibraryPath;
+
+                for (;;)
                 {
-                    printf("error: expected an argument following %S\n", argv[adx - 1]);
-                    return(Usage());
+                    FAssert(PairP(lp));
+
+                    if (Rest(lp) == EmptyListObject)
+                        break;
+                    lp = Rest(lp);
                 }
 
-                switch (argv[adx - 1][1])
-                {
-                case 'e':
-                case 'p':
-                {
-                    FObject ret = Eval(Read(MakeStringInputPort(MakeStringS(argv[adx]))),
-                            GetInteractionEnv());
-                    if (argv[adx - 1][1] == 'p')
-                    {
-                        Write(R.StandardOutput, ret, 0);
-                        WriteCh(R.StandardOutput, '\n');
-                    }
+//                AsPair(lp)->Rest = MakePair(MakeStringS(argv[adx]), EmptyListObject);
+                SetRest(lp, MakePair(MakeStringS(argv[adx]), EmptyListObject));
 
-                    break;
-                }
-
-                case 'l':
-                    LoadFile(MakeStringS(argv[adx]), GetInteractionEnv());
-                    break;
-
-                case 'A':
-                {
-                    FObject lp = R.LibraryPath;
-
-                    for (;;)
-                    {
-                        FAssert(PairP(lp));
-
-                        if (Rest(lp) == EmptyListObject)
-                            break;
-                        lp = Rest(lp);
-                    }
-
-//                    AsPair(lp)->Rest = MakePair(MakeStringS(argv[adx]), EmptyListObject);
-                    SetRest(lp, MakePair(MakeStringS(argv[adx]), EmptyListObject));
-                    break;
-                }
-
-                case 'I':
-                    R.LibraryPath = MakePair(MakeStringS(argv[adx]), R.LibraryPath);
-                    break;
-
-                default:
-                    printf("error: unknown switch: %S\n", argv[adx]);
-                    return(Usage());
-                }
+                adx += 1;
             }
+            else if (wcscmp(argv[adx], L"-I") == 0)
+            {
+                adx += 1;
 
-            adx += 1;
+                if (adx == argc)
+                    return(MissingArgument(argv[adx - 1]));
+
+                R.LibraryPath = MakePair(MakeStringS(argv[adx]), R.LibraryPath);
+
+                adx += 1;
+            }
+            else if (wcscmp(argv[adx], L"-ct") == 0)
+            {
+                adx += 1;
+
+                if (adx == argc)
+                    return(MissingArgument(argv[adx - 1]));
+
+                if (SetConfig(argv[adx], 1))
+                    return(-1);
+
+                adx += 1;
+            }
+            else if (wcscmp(argv[adx], L"-cf") == 0)
+            {
+                adx += 1;
+
+                if (adx == argc)
+                    return(MissingArgument(argv[adx - 1]));
+
+                if (SetConfig(argv[adx], -1))
+                    return(-1);
+
+                adx += 1;
+            }
+            else if (argv[adx][0] != '-')
+                return(ProgramMode(adx, argc, argv));
+            else
+                break;
         }
 
-        FAssert(adx <= argc);
-
-        if (mode == ReplMode || adx == argc)
-        {
-            R.CommandLine = MakePair(MakeInvocation(adx, argv),
-                    MakeCommandLine(argc - adx, argv + adx));
-            return(RunRepl(GetInteractionEnv()));
-        }
-#ifdef FOMENT_TEST
-        else if (mode == TestMode)
-        {
-            FObject env = MakeEnvironment(List(StringCToSymbol("test")), TrueObject);
-            EnvironmentImportLibrary(env,
-                    List(StringCToSymbol("scheme"), StringCToSymbol("base")));
-
-            return(RunTest(env, argc - adx, argv + adx));
-        }
-#endif // FOMENT_TEST
-
-        FAssert(mode == ProgramMode);
-        FAssert(adx < argc);
-
-        SCh * s = argv[adx];
-        SCh * pth = 0;
-
-        while (*s)
-        {
-            if (*s == PathCh)
-                pth = s;
-
-            s += 1;
-        }
-
-        if (pth != 0)
-            R.LibraryPath = MakePair(MakeStringS(argv[adx], pth - argv[adx]), R.LibraryPath);
-
-        FObject nam = MakeStringS(argv[adx]);
-
-        adx += 1;
+        UpdateFeatures();
         R.CommandLine = MakePair(MakeInvocation(adx, argv),
                 MakeCommandLine(argc - adx, argv + adx));
-
-        FObject port = OpenInputFile(nam);
-        if (TextualPortP(port) == 0)
-        {
-            printf("error: unable to open program: %S\n", argv[adx]);
-            return(Usage());
-        }
-
-        FObject proc = CompileProgram(nam, port);
-
-        ExecuteThunk(proc);
-        return(0);
+        return(RunRepl(GetInteractionEnv()));
     }
     catch (FObject obj)
     {

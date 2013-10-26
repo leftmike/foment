@@ -10,8 +10,15 @@ To Do:
 -- ctrl-c handling
 
 -- use tests from chibi
+-- make tests work with (chibi test)
 
--- figure out why ... needs to be exported
+-- write repl in scheme and command line argument handling
+-e -p -l
+-- environment variable FOMENT_LIBPATH
+
+-- fix syntax-rules to handle ... as an identifier correctly
+
+-- handle cond-expand in programs
 
 -- IO and GC
 -- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
@@ -834,13 +841,15 @@ void Raise(FObject obj);
 
 typedef struct
 {
-    int InlineProcedures; // Enable inlining of some procedures.
-    int InlinePrimitives; // Enable inlining of some primitives.
-    int InlineImports; // Enable inlining of imports which are constant.
-    int InteractiveLikeLibrary; // Treat interactive environments like libraries.
+    int Value;
+    SCh * Name;
 } FConfig;
 
-extern FConfig Config;
+extern FConfig Config[];
+
+#define ConfigInlineProcedures() Config[0].Value
+#define ConfigInlineImports() Config[1].Value
+#define ConfigStrictR7RS() Config[2].Value
 
 // ---- Thread State ----
 

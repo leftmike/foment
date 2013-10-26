@@ -16,7 +16,15 @@ ULONGLONG StartingTicks = 0;
 
 unsigned int SetupComplete = 0;
 
-FConfig Config = {1, 1, 1, 0};
+FConfig Config[] =
+{
+    {1, L"inline-procedures"},
+    {1, L"inline-imports"},
+    {0, L"strict-r7rs"},
+//    {1, L"inline-primitives"},
+    {0, 0}
+};
+
 FRoots R;
 
 void FAssertFailed(char * fn, int ln, char * expr)
@@ -1419,9 +1427,7 @@ static char * FeaturesC[] =
 #endif // FOMENT_WIN32
     "i386",
     "ilp32",
-    "little-endian",
-    "foment",
-    "foment-0.1"
+    "little-endian"
 };
 
 FObject MakeCommandLine(int argc, SCh * argv[])
@@ -1493,6 +1499,24 @@ void SetupFoment(FThreadState * ts, int argc, SCh * argv[])
         LibraryExport(R.BedrockLibrary, EnvironmentSetC(R.Bedrock, SpecialSyntaxes[n],
                 MakeImmediate(n, SpecialSyntaxTag)));
 
+    SetupPairs();
+    SetupCharacters();
+    SetupStrings();
+    SetupVectors();
+    SetupIO();
+    SetupCompile();
+    SetupExecute();
+    SetupNumbers();
+    SetupThreads();
+    SetupGC();
+
+    LibraryExport(R.BedrockLibrary,
+            EnvironmentSetC(R.Bedrock, "%standard-input", R.StandardInput));
+    LibraryExport(R.BedrockLibrary,
+            EnvironmentSetC(R.Bedrock, "%standard-output", R.StandardOutput));
+    LibraryExport(R.BedrockLibrary,
+            EnvironmentSetC(R.Bedrock, "%standard-error", R.StandardError));
+
     R.Features = EmptyListObject;
 
     for (int idx = 0; idx < sizeof(FeaturesC) / sizeof(char *); idx++)
@@ -1515,24 +1539,6 @@ void SetupFoment(FThreadState * ts, int argc, SCh * argv[])
         if (*s == PathCh)
             R.LibraryPath = MakePair(MakeStringS(argv[0], s - argv[0]), R.LibraryPath);
     }
-
-    SetupPairs();
-    SetupCharacters();
-    SetupStrings();
-    SetupVectors();
-    SetupIO();
-    SetupCompile();
-    SetupExecute();
-    SetupNumbers();
-    SetupThreads();
-    SetupGC();
-
-    LibraryExport(R.BedrockLibrary,
-            EnvironmentSetC(R.Bedrock, "%standard-input", R.StandardInput));
-    LibraryExport(R.BedrockLibrary,
-            EnvironmentSetC(R.Bedrock, "%standard-output", R.StandardOutput));
-    LibraryExport(R.BedrockLibrary,
-            EnvironmentSetC(R.Bedrock, "%standard-error", R.StandardError));
 
     SetupScheme();
 

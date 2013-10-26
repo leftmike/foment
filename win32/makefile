@@ -15,20 +15,15 @@ clean: debug release manual
 
 test: all
     cd ..\test
-    ..\win32\debug\foment -t r7rs.scm foment.scm eccentric.scm r5rs_pitfall.scm unicode.scm
-    ..\win32\release\foment -t r7rs.scm foment.scm eccentric.scm r5rs_pitfall.scm unicode.scm
-
-stress: all
-    cd ..\test
-    ..\win32\debug\foment -t stress.scm r7rs.scm
-    ..\win32\release\foment -t stress.scm r7rs.scm
-
-runtest: all
-    cd ..\test
     ..\win32\debug\foment runtests.scm r7rs.scm foment.scm eccentric.scm r5rs_pitfall.scm\
             unicode.scm
     ..\win32\release\foment runtests.scm r7rs.scm foment.scm eccentric.scm r5rs_pitfall.scm\
             unicode.scm
+
+stress: all
+    cd ..\test
+    ..\win32\debug\foment runtests.scm stress.scm r7rs.scm
+    ..\win32\release\foment runtests.scm stress.scm r7rs.scm
 
 debug:
     -mkdir debug
@@ -93,28 +88,28 @@ debug\foment.exe: debug\foment.obj debug\gc.obj debug\syncthrd.obj debug\compile
         debug\synrules.obj debug\synpass.obj debug\midpass.obj debug\genpass.obj\
         debug\pairs.obj debug\unicode.obj debug\chars.obj debug\strings.obj debug\vectors.obj\
         debug\convertutf.obj debug\library.obj debug\execute.obj debug\numbers.obj\
-        debug\write.obj debug\read.obj debug\main.obj debug\base.obj debug\test.obj
+        debug\write.obj debug\read.obj debug\main.obj debug\base.obj
     link /nologo /subsystem:console /out:debug\foment.exe\
         /debug /pdb:debug\foment.pdb\
         debug\foment.obj debug\gc.obj debug\syncthrd.obj debug\compile.obj debug\io.obj\
         debug\synrules.obj debug\synpass.obj debug\midpass.obj debug\genpass.obj debug\pairs.obj\
         debug\unicode.obj debug\strings.obj debug\chars.obj debug\vectors.obj debug\convertutf.obj\
         debug\library.obj debug\execute.obj debug\numbers.obj debug\write.obj debug\read.obj\
-        debug\main.obj debug\base.obj debug\test.obj
+        debug\main.obj debug\base.obj
 
 release\foment.exe: release\foment.obj release\gc.obj release\syncthrd.obj release\compile.obj\
         release\io.obj release\synrules.obj release\synpass.obj release\midpass.obj\
         release\genpass.obj release\pairs.obj release\unicode.obj release\chars.obj\
         release\strings.obj release\vectors.obj release\convertutf.obj release\library.obj\
         release\execute.obj release\numbers.obj release\write.obj release\read.obj\
-        release\main.obj release\base.obj release\test.obj
+        release\main.obj release\base.obj
     link /nologo /subsystem:console /out:release\foment.exe\
         release\foment.obj release\gc.obj  release\syncthrd.obj release\compile.obj\
         release\io.obj release\synrules.obj release\synpass.obj release\midpass.obj\
         release\genpass.obj release\pairs.obj release\unicode.obj release\chars.obj\
         release\strings.obj release\vectors.obj release\convertutf.obj release\library.obj\
         release\execute.obj release\numbers.obj release\write.obj release\read.obj\
-        release\main.obj release\base.obj release\test.obj
+        release\main.obj release\base.obj
 
 debug\txt2cpp.exe: debug\txt2cpp.obj
     link /nologo /subsystem:console /out:debug\txt2cpp.exe\
@@ -146,7 +141,6 @@ debug\read.obj: ..\src\read.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.
     ..\src\unicode.hpp
 debug\main.obj: ..\src\main.cpp ..\src\foment.hpp
 debug\base.obj: debug\base.cpp
-debug\test.obj: ..\src\test.cpp ..\src\foment.hpp
 
 release\foment.obj: ..\src\foment.cpp ..\src\foment.hpp
 release\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp
@@ -174,7 +168,6 @@ release\read.obj: ..\src\read.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\i
     ..\src\unicode.hpp
 release\main.obj: ..\src\main.cpp ..\src\foment.hpp
 release\base.obj: debug\base.cpp
-release\test.obj: ..\src\test.cpp ..\src\foment.hpp
 
 debug\txt2cpp.obj: ..\src\txt2cpp.cpp
 

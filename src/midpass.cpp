@@ -536,7 +536,7 @@ static FObject CompileInlineTemplate(FObject flst, FObject expr)
 
 static void MTwoLambdaAfter(FLambda * lam, int cf)
 {
-    if (Config.InlineProcedures == 0)
+    if (ConfigInlineProcedures() == 0)
     {
 //        lam->MayInline = FalseObject;
         Modify(FLambda, lam, MayInline, FalseObject);
@@ -588,8 +588,7 @@ static void MTwoReference(FLambda * lam, FObject pair, FReference * ref, int cf)
 
         FAssert(GlobalP(gl));
 
-        if (Config.InlineImports
-                && (AsGlobal(gl)->Interactive == FalseObject || Config.InteractiveLikeLibrary)
+        if (ConfigInlineImports() && AsGlobal(gl)->Interactive == FalseObject
                 && AsGlobal(gl)->State == GlobalImported)
         {
 //            AsPair(pair)->First = Unbox(AsGlobal(gl)->Box);

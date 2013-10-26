@@ -241,7 +241,7 @@
 (must-equal greater (cond ((> 3 2) 'greater) ((< 3 2) 'less)))
 (must-equal equal (cond ((> 3 3) 'greater) ((< 3 3) 'less) (else 'equal)))
 (must-equal 2 (cond ('(1 2 3) => cadr) (else #f)))
-;(must-equal 2 (cond ((assv 'b '((a 1) (b 2))) => cadr) (else #f)))
+(must-equal 2 (cond ((assv 'b '((a 1) (b 2))) => cadr) (else #f)))
 
 ;; case
 
