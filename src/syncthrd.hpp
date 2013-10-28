@@ -7,7 +7,7 @@ Foment
 #ifndef __SYNCTHRD_HPP__
 #define __SYNCTHRD_HPP__
 
-#ifdef FOMENT_WIN32
+#ifdef FOMENT_WINDOWS
 
 // ---- Operating System Thread ----
 
@@ -95,7 +95,7 @@ inline void DeleteEvent(OSEvent ose)
     CloseHandle(ose);
 }
 
-#endif // FOMENT_WIN32
+#endif // FOMENT_WINDOWS
 
 // ---- Threads ----
 
@@ -103,7 +103,7 @@ inline void DeleteEvent(OSEvent ose)
 
 typedef struct _FThread
 {
-    unsigned int Reserved;
+    uint_t Reserved;
     OSThreadHandle Handle;
     FObject Result;
     FObject Thunk;
@@ -119,7 +119,7 @@ FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms, FObject idxprms
 
 typedef struct
 {
-    unsigned int Reserved;
+    uint_t Reserved;
     OSExclusive Exclusive;
 } FExclusive;
 
@@ -129,13 +129,13 @@ typedef struct
 
 typedef struct
 {
-    unsigned int Reserved;
+    uint_t Reserved;
     OSCondition Condition;
 } FCondition;
 
 // ----------------
 
-#ifdef FOMENT_WIN32
+#ifdef FOMENT_WINDOWS
 extern unsigned int TlsIndex;
 
 inline FThreadState * GetThreadState()
@@ -149,16 +149,16 @@ inline void SetThreadState(FThreadState * ts)
 {
     TlsSetValue(TlsIndex, ts);
 }
-#endif // FOMENT_WIN32
+#endif // FOMENT_WINDOWS
 
-extern unsigned int TotalThreads;
-extern unsigned int WaitThreads;
+extern uint_t TotalThreads;
+extern uint_t WaitThreads;
 extern OSExclusive GCExclusive;
 
 void EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms);
 void LeaveThread(FThreadState * ts);
 
-inline FObject IndexParameter(unsigned int idx)
+inline FObject IndexParameter(uint_t idx)
 {
     FAssert(idx < INDEX_PARAMETERS);
 

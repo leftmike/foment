@@ -9,9 +9,9 @@ Foment
 
 // ---- Binary Ports ----
 
-typedef unsigned int (*FReadBytesFn)(FObject port, void * b, unsigned int bl);
-typedef int (*FByteReadyPFn)(FObject port);
-typedef void (*FWriteBytesFn)(FObject port, void * b, unsigned int bl);
+typedef uint_t (*FReadBytesFn)(FObject port, void * b, uint_t bl);
+typedef int_t (*FByteReadyPFn)(FObject port);
+typedef void (*FWriteBytesFn)(FObject port, void * b, uint_t bl);
 
 typedef struct
 {
@@ -19,8 +19,8 @@ typedef struct
     FReadBytesFn ReadBytesFn;
     FByteReadyPFn ByteReadyPFn;
     FWriteBytesFn WriteBytesFn;
-    unsigned int PeekedByte;
-    unsigned int Offset;
+    uint_t PeekedByte;
+    uint_t Offset;
 } FBinaryPort;
 
 #define AsBinaryPort(obj) ((FBinaryPort *) obj)
@@ -31,9 +31,9 @@ FObject MakeBinaryPort(FObject nam, FObject obj, void * ictx, void * octx, FClos
 
 // ---- Textual Ports ----
 
-typedef unsigned int (*FReadChFn)(FObject port, FCh * ch);
-typedef int (*FCharReadyPFn)(FObject port);
-typedef void (*FWriteStringFn)(FObject port, FCh * s, unsigned int sl);
+typedef uint_t (*FReadChFn)(FObject port, FCh * ch);
+typedef int_t (*FCharReadyPFn)(FObject port);
+typedef void (*FWriteStringFn)(FObject port, FCh * s, uint_t sl);
 
 typedef struct
 {
@@ -42,8 +42,8 @@ typedef struct
     FCharReadyPFn CharReadyPFn;
     FWriteStringFn WriteStringFn;
     FCh PeekedChar;
-    unsigned int Line;
-    unsigned int Column;
+    uint_t Line;
+    uint_t Column;
 } FTextualPort;
 
 #define AsTextualPort(obj) ((FTextualPort *) obj)

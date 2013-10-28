@@ -47,7 +47,7 @@ static void LeaveScope(FObject bd)
             Rest(AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings));
 }
 
-static int IdentifierEqualP(FObject id1, FObject id2)
+static int_t IdentifierEqualP(FObject id1, FObject id2)
 {
     FAssert(IdentifierP(id1));
     FAssert(IdentifierP(id2));
@@ -137,7 +137,7 @@ FObject SyntaxToDatum(FObject obj)
     if (VectorP(obj))
     {
         FObject vec = MakeVector(VectorLength(obj), 0, FalseObject);
-        for (unsigned int idx = 0; idx < VectorLength(vec); idx++)
+        for (uint_t idx = 0; idx < VectorLength(vec); idx++)
         {
 //            AsVector(vec)->Vector[idx] = SyntaxToDatum(AsVector(obj)->Vector[idx]);
             ModifyVector(vec, idx, SyntaxToDatum(AsVector(obj)->Vector[idx]));
@@ -149,12 +149,12 @@ FObject SyntaxToDatum(FObject obj)
     return(obj);
 }
 
-static int SyntaxP(FObject obj)
+static int_t SyntaxP(FObject obj)
 {
     return(SpecialSyntaxP(obj) || SyntaxRulesP(obj));
 }
 
-static int SyntaxBindingP(FObject be, FObject var)
+static int_t SyntaxBindingP(FObject be, FObject var)
 {
     if (BindingP(be))
     {
@@ -296,7 +296,7 @@ static FObject AddBinding(FObject se, FObject ss, FObject bs, FObject id, FObjec
     return(bs);
 }
 
-static FObject SPassLetVar(FObject se, FObject ss, FObject lb, FObject bs, FObject vi, int vf)
+static FObject SPassLetVar(FObject se, FObject ss, FObject lb, FObject bs, FObject vi, int_t vf)
 {
     if (vf != 0)
     {
@@ -322,7 +322,7 @@ static FObject SPassLetVar(FObject se, FObject ss, FObject lb, FObject bs, FObje
 }
 
 static FObject SPassLetInit(FObject se, FObject ss, FObject lb, FObject nlb, FObject bd,
-    FObject vi, int vf)
+    FObject vi, int_t vf)
 {
     FObject expr = SPassExpression(se, First(Rest(vi)));
     if (ss == LetSyntaxSyntax || ss == LetrecSyntaxSyntax)
@@ -350,9 +350,9 @@ static FObject SPassLetInit(FObject se, FObject ss, FObject lb, FObject nlb, FOb
     }
 }
 
-static int FormalsCount(FObject formals)
+static int_t FormalsCount(FObject formals)
 {
-    int fc = 0;
+    int_t fc = 0;
 
     while (PairP(formals))
     {
@@ -374,7 +374,7 @@ static FObject GatherLetValuesFormals(FObject bs, FObject lb)
     {
         FAssert(PairP(First(lb)));
 
-        int fc = FormalsCount(First(First(lb)));
+        int_t fc = FormalsCount(First(First(lb)));
         FObject vb = EmptyListObject;
 
         while (fc > 0)
@@ -394,7 +394,7 @@ static FObject GatherLetValuesFormals(FObject bs, FObject lb)
     return(ReverseListModify(nbs));
 }
 
-static FObject SPassLetBindings(FObject se, FObject ss, FObject lb, int rf, int vf)
+static FObject SPassLetBindings(FObject se, FObject ss, FObject lb, int_t rf, int_t vf)
 {
     // ((<variable> <init>) ...)
     // ((<formals> <init>) ...)
@@ -446,7 +446,7 @@ static FObject AddLetStarBinding(FObject se, FObject id, FObject form)
 }
 
 static FObject SPassLetStarVarInit(FObject se, FObject ss, FObject lb, FObject nlb, FObject vi,
-    int vf)
+    int_t vf)
 {
     // (<variable> <init>)
     // (<formals> <init>)
@@ -476,7 +476,7 @@ static FObject SPassLetStarVarInit(FObject se, FObject ss, FObject lb, FObject n
     return(nlb);
 }
 
-static FObject SPassLetStarBindings(FObject se, FObject ss, FObject lb, int vf)
+static FObject SPassLetStarBindings(FObject se, FObject ss, FObject lb, int_t vf)
 {
     // ((<variable> <init>) ...)
     // ((<formals> <init>) ...)
@@ -556,7 +556,7 @@ static FObject SPassNamedLet(FObject se, FObject tag, FObject expr)
     return(ret);
 }
 
-static FObject SPassLet(FObject se, FObject ss, FObject expr, int rf, int sf, int vf)
+static FObject SPassLet(FObject se, FObject ss, FObject expr, int_t rf, int_t sf, int_t vf)
 {
     // rf : rec flag; eg. rf = 1 for letrec
     // sf : star flag; eg. sf = 1 for let*
@@ -584,7 +584,7 @@ static FObject SPassLet(FObject se, FObject ss, FObject expr, int rf, int sf, in
     return(ret);
 }
 
-int MatchReference(FObject ref, FObject se, FObject expr)
+int_t MatchReference(FObject ref, FObject se, FObject expr)
 {
     FAssert(ReferenceP(ref));
 
@@ -841,7 +841,7 @@ static FObject SPassReadInclude(FObject expr, FObject ss)
     return(ret);
 }
 
-static FObject SPassQuasiquote(FObject se, FObject expr, FObject tpl, int dpth)
+static FObject SPassQuasiquote(FObject se, FObject expr, FObject tpl, int_t dpth)
 {
     if (PairP(tpl))
     {
@@ -1268,7 +1268,7 @@ FObject GatherVariablesAndSyntax(FObject se, FObject dlst, FObject bs)
 
             FAssert(PairP(Rest(expr)));
 
-            int fc = FormalsCount(First(Rest(expr)));
+            int_t fc = FormalsCount(First(Rest(expr)));
             FObject vb = EmptyListObject;
 
             while (fc > 0)
@@ -1583,7 +1583,7 @@ FObject ExpandExpression(FObject se, FObject expr)
 
 // ----------------
 
-static int EvaluateFeatureRequirement(FObject se, FObject expr, FObject cls, FObject obj)
+static int_t EvaluateFeatureRequirement(FObject se, FObject expr, FObject cls, FObject obj)
 {
     if (IdentifierP(obj))
         obj = AsIdentifier(obj)->Symbol;
@@ -1713,7 +1713,7 @@ FObject CondExpand(FObject se, FObject expr, FObject clst)
 
 // ----------------
 
-FObject ReadInclude(FObject lst, int cif)
+FObject ReadInclude(FObject lst, int_t cif)
 {
     if (PairP(lst) == 0)
         return(EmptyListObject);

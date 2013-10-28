@@ -12,23 +12,23 @@ Foment
 
 // Write
 
-typedef void (*FWriteFn)(FObject port, FObject obj, int df, void * wfn, void * ctx);
-void WriteGeneric(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx);
+typedef void (*FWriteFn)(FObject port, FObject obj, int_t df, void * wfn, void * ctx);
+void WriteGeneric(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx);
 
 typedef struct
 {
     FObject Hashtable;
-    int Label;
+    int_t Label;
 } FWriteSharedCtx;
 
 #define ToWriteSharedCtx(ctx) ((FWriteSharedCtx *) (ctx))
 
-inline int SharedObjectP(FObject obj)
+inline int_t SharedObjectP(FObject obj)
 {
     return(PairP(obj) || BoxP(obj) || VectorP(obj) || ProcedureP(obj) || GenericRecordP(obj));
 }
 
-unsigned int FindSharedObjects(FObject ht, FObject obj, unsigned int cnt, int cof)
+uint_t FindSharedObjects(FObject ht, FObject obj, uint_t cnt, int_t cof)
 {
     FAssert(HashtableP(ht));
 
@@ -59,7 +59,7 @@ Again:
                 cnt = FindSharedObjects(ht, Unbox(obj), cnt, cof);
             else if (VectorP(obj))
             {
-                for (unsigned int idx = 0; idx < VectorLength(obj); idx++)
+                for (uint_t idx = 0; idx < VectorLength(obj); idx++)
                     cnt = FindSharedObjects(ht, AsVector(obj)->Vector[idx], cnt, cof);
             }
             else if (ProcedureP(obj))
@@ -68,7 +68,7 @@ Again:
             {
                 FAssert(GenericRecordP(obj));
 
-                for (unsigned int fdx = 0; fdx < RecordNumFields(obj); fdx++)
+                for (uint_t fdx = 0; fdx < RecordNumFields(obj); fdx++)
                     cnt = FindSharedObjects(ht, AsGenericRecord(obj)->Fields[fdx], cnt, cof);
             }
 
@@ -89,7 +89,7 @@ Again:
     return(cnt);
 }
 
-void WriteSharedObject(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx)
+void WriteSharedObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx)
 {
     if (SharedObjectP(obj))
     {
@@ -105,7 +105,7 @@ void WriteSharedObject(FObject port, FObject obj, int df, FWriteFn wfn, void * c
 
                 WriteCh(port, '#');
                 FCh s[8];
-                int sl = NumberAsString(ToWriteSharedCtx(ctx)->Label, s, 10);
+                int_t sl = NumberAsString(ToWriteSharedCtx(ctx)->Label, s, 10);
                 WriteString(port, s, sl);
                 WriteCh(port, '=');
             }
@@ -145,7 +145,7 @@ void WriteSharedObject(FObject port, FObject obj, int df, FWriteFn wfn, void * c
 
             WriteCh(port, '#');
             FCh s[8];
-            int sl = NumberAsString(AsFixnum(val), s, 10);
+            int_t sl = NumberAsString(AsFixnum(val), s, 10);
             WriteString(port, s, sl);
             WriteCh(port, '#');
         }
@@ -159,7 +159,7 @@ FObject WalkUpdate(FObject key, FObject val, FObject ctx)
     return(TrueObject);
 }
 
-void Write(FObject port, FObject obj, int df)
+void Write(FObject port, FObject obj, int_t df)
 {
     FObject ht = MakeEqHashtable(23);
 
@@ -185,7 +185,7 @@ void Write(FObject port, FObject obj, int df)
         WriteGeneric(port, obj, df, (FWriteFn) WriteGeneric, 0);
 }
 
-int WalkDelete(FObject key, FObject val, FObject ctx)
+int_t WalkDelete(FObject key, FObject val, FObject ctx)
 {
     FAssert(FixnumP(val));
     FAssert(AsFixnum(val) > 0);
@@ -193,7 +193,7 @@ int WalkDelete(FObject key, FObject val, FObject ctx)
     return(AsFixnum(val) == 1);
 }
 
-void WriteShared(FObject port, FObject obj, int df)
+void WriteShared(FObject port, FObject obj, int_t df)
 {
     FObject ht = MakeEqHashtable(23);
 
@@ -216,7 +216,7 @@ void WriteShared(FObject port, FObject obj, int df)
         WriteGeneric(port, obj, df, (FWriteFn) WriteGeneric, 0);
 }
 
-static void WritePair(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx)
+static void WritePair(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx)
 {
     FAssert(PairP(obj));
 
@@ -244,7 +244,7 @@ static void WritePair(FObject port, FObject obj, int df, FWriteFn wfn, void * ct
     }
 }
 
-static void WriteRecord(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx)
+static void WriteRecord(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx)
 {
     if (IdentifierP(obj))
         WriteGeneric(port, AsIdentifier(obj)->Symbol, df, wfn, ctx);
@@ -252,7 +252,7 @@ static void WriteRecord(FObject port, FObject obj, int df, FWriteFn wfn, void * 
     {
         FObject rt = AsGenericRecord(obj)->Fields[0];
         FCh s[16];
-        int sl = NumberAsString((FFixnum) obj, s, 16);
+        int_t sl = NumberAsString((FFixnum) obj, s, 16);
 
         WriteStringC(port, "#<(");
         wfn(port, RecordTypeName(rt), df, wfn, ctx);
@@ -290,7 +290,7 @@ static void WriteRecord(FObject port, FObject obj, int df, FWriteFn wfn, void * 
         }
         else
         {
-            for (unsigned int fdx = 1; fdx < RecordNumFields(obj); fdx++)
+            for (uint_t fdx = 1; fdx < RecordNumFields(obj); fdx++)
             {
                 WriteCh(port, ' ');
                 wfn(port, AsRecordType(rt)->Fields[fdx], df, wfn, ctx);
@@ -304,14 +304,14 @@ static void WriteRecord(FObject port, FObject obj, int df, FWriteFn wfn, void * 
     }
 }
 
-static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx)
+static void WriteIndirectObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx)
 {
     switch (IndirectTag(obj))
     {
     case BoxTag:
     {
         FCh s[16];
-        int sl = NumberAsString((FFixnum) obj, s, 16);
+        int_t sl = NumberAsString((FFixnum) obj, s, 16);
 
         WriteStringC(port, "#<(box: #x");
         WriteString(port, s, sl);
@@ -328,7 +328,7 @@ static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn,
         {
             WriteCh(port, '"');
 
-            for (unsigned int idx = 0; idx < StringLength(obj); idx++)
+            for (uint_t idx = 0; idx < StringLength(obj); idx++)
             {
                 FCh ch = AsString(obj)->String[idx];
                 if (ch == '\\' || ch == '"')
@@ -343,7 +343,7 @@ static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn,
     case VectorTag:
     {
         WriteStringC(port, "#(");
-        for (unsigned int idx = 0; idx < VectorLength(obj); idx++)
+        for (uint_t idx = 0; idx < VectorLength(obj); idx++)
         {
             if (idx > 0)
                 WriteCh(port, ' ');
@@ -357,10 +357,10 @@ static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn,
     case BytevectorTag:
     {
         FCh s[8];
-        int sl;
+        int_t sl;
 
         WriteStringC(port, "#u8(");
-        for (unsigned int idx = 0; idx < BytevectorLength(obj); idx++)
+        for (uint_t idx = 0; idx < BytevectorLength(obj); idx++)
         {
             if (idx > 0)
                 WriteCh(port, ' ');
@@ -377,7 +377,7 @@ static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn,
     case TextualPortTag:
     {
         FCh s[16];
-        int sl = NumberAsString((FFixnum) obj, s, 16);
+        int_t sl = NumberAsString((FFixnum) obj, s, 16);
 
         WriteStringC(port, "#<");
         if (TextualPortP(obj))
@@ -431,7 +431,7 @@ static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn,
     case ProcedureTag:
     {
         FCh s[16];
-        int sl = NumberAsString((FFixnum) obj, s, 16);
+        int_t sl = NumberAsString((FFixnum) obj, s, 16);
 
         WriteStringC(port, "#<procedure: ");
         WriteString(port, s, sl);
@@ -465,14 +465,14 @@ static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn,
     case RecordTypeTag:
     {
         FCh s[16];
-        int sl = NumberAsString((FFixnum) obj, s, 16);
+        int_t sl = NumberAsString((FFixnum) obj, s, 16);
 
         WriteStringC(port, "#<record-type: #x");
         WriteString(port, s, sl);
         WriteCh(port, ' ');
         wfn(port, RecordTypeName(obj), df, wfn, ctx);
 
-        for (unsigned int fdx = 1; fdx < RecordTypeNumFields(obj); fdx += 1)
+        for (uint_t fdx = 1; fdx < RecordTypeNumFields(obj); fdx += 1)
         {
             WriteCh(port, ' ');
             wfn(port, AsRecordType(obj)->Fields[fdx], df, wfn, ctx);
@@ -505,7 +505,7 @@ static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn,
         WriteStringC(port, fn);
         WriteCh(port, '@');
         FCh s[16];
-        int sl = NumberAsString(AsPrimitive(obj)->LineNumber, s, 10);
+        int_t sl = NumberAsString(AsPrimitive(obj)->LineNumber, s, 10);
         WriteString(port, s, sl);
         WriteCh(port, '>');
         break;
@@ -526,7 +526,7 @@ static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn,
     default:
     {
         FCh s[16];
-        int sl = NumberAsString((FFixnum) obj, s, 16);
+        int_t sl = NumberAsString((FFixnum) obj, s, 16);
 
         WriteStringC(port, "#<unknown: ");
         WriteString(port, s, sl);
@@ -537,12 +537,12 @@ static void WriteIndirectObject(FObject port, FObject obj, int df, FWriteFn wfn,
     }
 }
 
-void WriteGeneric(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx)
+void WriteGeneric(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx)
 {
     if (FixnumP(obj))
     {
         FCh s[16];
-        int sl = NumberAsString(AsFixnum(obj), s, 10);
+        int_t sl = NumberAsString(AsFixnum(obj), s, 10);
         WriteString(port, s, sl);
     }
     else if (CharacterP(obj))
@@ -560,7 +560,7 @@ void WriteGeneric(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx)
             else
             {
                 FCh s[16];
-                int sl = NumberAsString(AsCharacter(obj), s, 16);
+                int_t sl = NumberAsString(AsCharacter(obj), s, 16);
                 WriteStringC(port, "#\\x");
                 WriteString(port, s, sl);
             }
@@ -575,7 +575,7 @@ void WriteGeneric(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx)
         WriteStringC(port, "#<values-count: ");
 
         FCh s[16];
-        int sl = NumberAsString(AsValuesCount(obj), s, 10);
+        int_t sl = NumberAsString(AsValuesCount(obj), s, 10);
         WriteString(port, s, sl);
 
         WriteCh(port, '>');
@@ -599,7 +599,7 @@ void WriteGeneric(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx)
     else
     {
         FCh s[16];
-        int sl = NumberAsString((FFixnum) obj, s, 16);
+        int_t sl = NumberAsString((FFixnum) obj, s, 16);
 
         WriteStringC(port, "#<unknown: ");
         WriteString(port, s, sl);
@@ -607,7 +607,7 @@ void WriteGeneric(FObject port, FObject obj, int df, FWriteFn wfn, void * ctx)
     }
 }
 
-void WriteSimple(FObject port, FObject obj, int df)
+void WriteSimple(FObject port, FObject obj, int_t df)
 {
 //    FAssert(OutputPortP(port) && AsPort(port)->Context != 0);
 
@@ -616,7 +616,7 @@ void WriteSimple(FObject port, FObject obj, int df)
 
 // ---- Primitives ----
 
-Define("write", WritePrimitive)(int argc, FObject argv[])
+Define("write", WritePrimitive)(int_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("write", argc);
     FObject port = (argc == 2 ? argv[1] : CurrentOutputPort());
@@ -626,7 +626,7 @@ Define("write", WritePrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("write-shared", WriteSharedPrimitive)(int argc, FObject argv[])
+Define("write-shared", WriteSharedPrimitive)(int_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("write-shared", argc);
     FObject port = (argc == 2 ? argv[1] : CurrentOutputPort());
@@ -636,7 +636,7 @@ Define("write-shared", WriteSharedPrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("write-simple", WriteSimplePrimitive)(int argc, FObject argv[])
+Define("write-simple", WriteSimplePrimitive)(int_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("write-simple", argc);
     FObject port = (argc == 2 ? argv[1] : CurrentOutputPort());
@@ -646,7 +646,7 @@ Define("write-simple", WriteSimplePrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("display", DisplayPrimitive)(int argc, FObject argv[])
+Define("display", DisplayPrimitive)(int_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("display", argc);
     FObject port = (argc == 2 ? argv[1] : CurrentOutputPort());
@@ -656,7 +656,7 @@ Define("display", DisplayPrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("newline", NewlinePrimitive)(int argc, FObject argv[])
+Define("newline", NewlinePrimitive)(int_t argc, FObject argv[])
 {
     ZeroOrOneArgsCheck("newline", argc);
     FObject port = (argc == 1 ? argv[0] : CurrentOutputPort());
@@ -666,7 +666,7 @@ Define("newline", NewlinePrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("write-char", WriteCharPrimitive)(int argc, FObject argv[])
+Define("write-char", WriteCharPrimitive)(int_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("write-char", argc);
     CharacterArgCheck("write-char", argv[0]);
@@ -677,15 +677,15 @@ Define("write-char", WriteCharPrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("write-string", WriteStringPrimitive)(int argc, FObject argv[])
+Define("write-string", WriteStringPrimitive)(int_t argc, FObject argv[])
 {
     OneToFourArgsCheck("write-string", argc);
     StringArgCheck("write-string", argv[0]);
     FObject port = (argc > 1 ? argv[1] : CurrentOutputPort());
     TextualOutputPortArgCheck("write-string", port);
 
-    int strt;
-    int end;
+    int_t strt;
+    int_t end;
     if (argc > 2)
     {
         IndexArgCheck("write-string", argv[2], StringLength(argv[0]));
@@ -699,19 +699,19 @@ Define("write-string", WriteStringPrimitive)(int argc, FObject argv[])
             end = AsFixnum(argv[3]);
         }
         else
-            end = (int) StringLength(argv[0]);
+            end = (int_t) StringLength(argv[0]);
     }
     else
     {
         strt = 0;
-        end = (int) StringLength(argv[0]);
+        end = (int_t) StringLength(argv[0]);
     }
 
     WriteString(port, AsString(argv[0])->String + strt, end - strt);
     return(NoValueObject);
 }
 
-Define("write-u8", WriteU8Primitive)(int argc, FObject argv[])
+Define("write-u8", WriteU8Primitive)(int_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("write-u8", argc);
     ByteArgCheck("write-u8", argv[0]);
@@ -723,15 +723,15 @@ Define("write-u8", WriteU8Primitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("write-bytevector", WriteBytevectorPrimitive)(int argc, FObject argv[])
+Define("write-bytevector", WriteBytevectorPrimitive)(int_t argc, FObject argv[])
 {
     OneToFourArgsCheck("write-bytevector", argc);
     BytevectorArgCheck("write-bytevector", argv[0]);
     FObject port = (argc > 1 ? argv[1] : CurrentOutputPort());
     BinaryOutputPortArgCheck("write-bytevector", port);
 
-    int strt;
-    int end;
+    int_t strt;
+    int_t end;
     if (argc > 2)
     {
         IndexArgCheck("write-bytevector", argv[2], BytevectorLength(argv[0]));
@@ -745,19 +745,19 @@ Define("write-bytevector", WriteBytevectorPrimitive)(int argc, FObject argv[])
             end = AsFixnum(argv[3]);
         }
         else
-            end = (int) BytevectorLength(argv[0]);
+            end = (int_t) BytevectorLength(argv[0]);
     }
     else
     {
         strt = 0;
-        end = (int) BytevectorLength(argv[0]);
+        end = (int_t) BytevectorLength(argv[0]);
     }
 
     WriteBytes(port, AsBytevector(argv[0])->Vector + strt, end - strt);
     return(NoValueObject);
 }
 
-Define("flush-output-port", FlushOutputPortPrimitive)(int argc, FObject argv[])
+Define("flush-output-port", FlushOutputPortPrimitive)(int_t argc, FObject argv[])
 {
     ZeroOrOneArgsCheck("flush-output-port", argc);
     FObject port = (argc == 1 ? argv[0] : CurrentOutputPort());
@@ -783,6 +783,6 @@ static FPrimitive * Primitives[] =
 
 void SetupWrite()
 {
-    for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (int_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

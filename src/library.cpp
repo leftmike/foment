@@ -54,7 +54,7 @@ FObject EnvironmentLookup(FObject env, FObject sym)
 
 // If the environment is interactive, a global will be defined. Otherwise, a global will be
 // defined only if it is not already defined. One will be returned if the global can't be defined.
-int EnvironmentDefine(FObject env, FObject symid, FObject val)
+int_t EnvironmentDefine(FObject env, FObject symid, FObject val)
 {
     FAssert(EnvironmentP(env));
     FAssert(SymbolP(symid) || IdentifierP(symid));
@@ -139,7 +139,7 @@ FObject EnvironmentGet(FObject env, FObject symid)
     return(NoValueObject);
 }
 
-static int EnvironmentImportGlobal(FObject env, FObject gl)
+static int_t EnvironmentImportGlobal(FObject env, FObject gl)
 {
     FAssert(EnvironmentP(env));
     FAssert(GlobalP(gl));
@@ -179,7 +179,7 @@ void EnvironmentImportLibrary(FObject env, FObject nam)
         FAssert(SymbolP(First(First(elst))));
         FAssert(GlobalP(Rest(First(elst))));
 
-        int ret = EnvironmentImportGlobal(env,
+        int_t ret = EnvironmentImportGlobal(env,
                 ImportGlobal(env, First(First(elst)), Rest(First(elst))));
         FAssert(ret == 0);
 
@@ -344,7 +344,7 @@ static FObject LibraryNameDeep(FObject dir, FObject nam)
     return(GetOutputString(out));
 }
 
-static int EqualToSymbol(FObject obj, FObject sym)
+static int_t EqualToSymbol(FObject obj, FObject sym)
 {
     FAssert(SymbolP(sym));
 
@@ -428,7 +428,7 @@ FObject LibraryName(FObject lst)
     return(ReverseListModify(nlst));
 }
 
-static int CheckForIdentifier(FObject nam, FObject ids)
+static int_t CheckForIdentifier(FObject nam, FObject ids)
 {
     FAssert(SymbolP(nam));
 
@@ -491,7 +491,7 @@ static FObject CheckForRename(FObject nam, FObject rlst)
 }
 
 static FObject DoImportSet(FObject env, FObject is, FObject form);
-static FObject DoOnlyOrExcept(FObject env, FObject is, int cfif)
+static FObject DoOnlyOrExcept(FObject env, FObject is, int_t cfif)
 {
     if (PairP(Rest(is)) == 0)
         return(NoValueObject);

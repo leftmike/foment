@@ -14,7 +14,7 @@ Foment
 
 ULONGLONG StartingTicks = 0;
 
-unsigned int SetupComplete = 0;
+uint_t SetupComplete = 0;
 
 FConfig Config[] =
 {
@@ -27,7 +27,7 @@ FConfig Config[] =
 
 FRoots R;
 
-void FAssertFailed(char * fn, int ln, char * expr)
+void FAssertFailed(char * fn, int_t ln, char * expr)
 {
     printf("FAssert: %s (%d)%s\n", expr, ln, fn);
 
@@ -35,7 +35,7 @@ void FAssertFailed(char * fn, int ln, char * expr)
     _exit(1);
 }
 
-void FMustBeFailed(char * fn, int ln, char * expr)
+void FMustBeFailed(char * fn, int_t ln, char * expr)
 {
     printf("FMustBe: %s (%d)%s\n", expr, ln, fn);
 
@@ -85,7 +85,7 @@ static char * SpecialSyntaxToName(FObject obj)
 {
     FAssert(SpecialSyntaxP(obj));
 
-    int n = AsValue(obj);
+    int_t n = AsValue(obj);
     FAssert(n >= 0);
     FAssert(n < sizeof(SpecialSyntaxes) / sizeof(char *));
 
@@ -117,7 +117,7 @@ FObject SpecialSyntaxMsgC(FObject obj, char * msg)
     return(MakeStringC(buf));
 }
 
-void WriteSpecialSyntax(FObject port, FObject obj, int df)
+void WriteSpecialSyntax(FObject port, FObject obj, int_t df)
 {
     char * n = SpecialSyntaxToName(obj);
 
@@ -128,7 +128,7 @@ void WriteSpecialSyntax(FObject port, FObject obj, int df)
 
 // ---- Equivalence predicates ----
 
-int EqvP(FObject obj1, FObject obj2)
+int_t EqvP(FObject obj1, FObject obj2)
 {
     if (obj1 == obj2)
         return(1);
@@ -136,7 +136,7 @@ int EqvP(FObject obj1, FObject obj2)
     return(0);
 }
 
-int EqP(FObject obj1, FObject obj2)
+int_t EqP(FObject obj1, FObject obj2)
 {
     if (obj1 == obj2)
         return(1);
@@ -144,7 +144,7 @@ int EqP(FObject obj1, FObject obj2)
     return(0);
 }
 
-int EqualP(FObject obj1, FObject obj2)
+int_t EqualP(FObject obj1, FObject obj2)
 {
     if (EqvP(obj1, obj2))
         return(1);
@@ -184,7 +184,7 @@ int EqualP(FObject obj1, FObject obj2)
         if (VectorLength(obj1) != VectorLength(obj2))
             return(0);
 
-        for (unsigned int idx = 0; idx < VectorLength(obj1); idx++)
+        for (uint_t idx = 0; idx < VectorLength(obj1); idx++)
             if (EqualP(AsVector(obj1)->Vector[idx], AsVector(obj2)->Vector[idx]) == 0)
                 return(0);
         return(1);
@@ -198,7 +198,7 @@ int EqualP(FObject obj1, FObject obj2)
         if (BytevectorLength(obj1) != BytevectorLength(obj2))
             return(0);
 
-        for (unsigned int idx = 0; idx < BytevectorLength(obj1); idx++)
+        for (uint_t idx = 0; idx < BytevectorLength(obj1); idx++)
             if (AsBytevector(obj1)->Vector[idx] != AsBytevector(obj2)->Vector[idx])
                 return(0);
         return(1);
@@ -207,21 +207,21 @@ int EqualP(FObject obj1, FObject obj2)
     return(0);
 }
 
-Define("eqv?", EqvPPrimitive)(int argc, FObject argv[])
+Define("eqv?", EqvPPrimitive)(int_t argc, FObject argv[])
 {
     TwoArgsCheck("eqv?", argc);
 
     return(EqvP(argv[0], argv[1]) ? TrueObject : FalseObject);
 }
 
-Define("eq?", EqPPrimitive)(int argc, FObject argv[])
+Define("eq?", EqPPrimitive)(int_t argc, FObject argv[])
 {
     TwoArgsCheck("eq?", argc);
 
     return(EqP(argv[0], argv[1]) ? TrueObject : FalseObject);
 }
 
-Define("equal?", EqualPPrimitive)(int argc, FObject argv[])
+Define("equal?", EqualPPrimitive)(int_t argc, FObject argv[])
 {
     TwoArgsCheck("equal?", argc);
 
@@ -230,26 +230,26 @@ Define("equal?", EqualPPrimitive)(int argc, FObject argv[])
 
 // ---- Booleans ----
 
-Define("not", NotPrimitive)(int argc, FObject argv[])
+Define("not", NotPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("not", argc);
 
     return(argv[0] == FalseObject ? TrueObject : FalseObject);
 }
 
-Define("boolean?", BooleanPPrimitive)(int argc, FObject argv[])
+Define("boolean?", BooleanPPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("boolean?", argc);
 
     return(BooleanP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("boolean=?", BooleanEqualPPrimitive)(int argc, FObject argv[])
+Define("boolean=?", BooleanEqualPPrimitive)(int_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("boolean=?", argc);
     BooleanArgCheck("boolean=?", argv[0]);
 
-    for (int adx = 1; adx < argc; adx++)
+    for (int_t adx = 1; adx < argc; adx++)
     {
         BooleanArgCheck("boolean=?", argv[adx]);
 
@@ -262,7 +262,7 @@ Define("boolean=?", BooleanEqualPPrimitive)(int argc, FObject argv[])
 
 // ---- Symbols ----
 
-static unsigned int NextSymbolHash = 0;
+static uint_t NextSymbolHash = 0;
 
 FObject StringToSymbol(FObject str)
 {
@@ -291,7 +291,7 @@ FObject StringCToSymbol(char * s)
     return(StringToSymbol(MakeStringC(s)));
 }
 
-FObject StringLengthToSymbol(FCh * s, int sl)
+FObject StringLengthToSymbol(FCh * s, int_t sl)
 {
     FObject obj = HashtableStringRef(R.SymbolHashtable, s, sl, FalseObject);
     if (obj == FalseObject)
@@ -317,29 +317,29 @@ FObject PrefixSymbol(FObject str, FObject sym)
     FAssert(SymbolP(sym));
 
     FObject nstr = MakeStringCh(StringLength(str) + StringLength(AsSymbol(sym)->String), 0);
-    unsigned int sdx;
+    uint_t sdx;
     for (sdx = 0; sdx < StringLength(str); sdx++)
         AsString(nstr)->String[sdx] = AsString(str)->String[sdx];
 
-    for (unsigned int idx = 0; idx < StringLength(AsSymbol(sym)->String); idx++)
+    for (uint_t idx = 0; idx < StringLength(AsSymbol(sym)->String); idx++)
         AsString(nstr)->String[sdx + idx] = AsString(AsSymbol(sym)->String)->String[idx];
 
     return(StringToSymbol(nstr));
 }
 
-Define("symbol?", SymbolPPrimitive)(int argc, FObject argv[])
+Define("symbol?", SymbolPPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("symbol?", argc);
 
     return(SymbolP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("symbol=?", SymbolEqualPPrimitive)(int argc, FObject argv[])
+Define("symbol=?", SymbolEqualPPrimitive)(int_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("symbol=?", argc);
     SymbolArgCheck("symbol=?", argv[0]);
 
-    for (int adx = 1; adx < argc; adx++)
+    for (int_t adx = 1; adx < argc; adx++)
     {
         SymbolArgCheck("symbol=?", argv[adx]);
 
@@ -350,7 +350,7 @@ Define("symbol=?", SymbolEqualPPrimitive)(int argc, FObject argv[])
     return(TrueObject);
 }
 
-Define("symbol->string", SymbolToStringPrimitive)(int argc, FObject argv[])
+Define("symbol->string", SymbolToStringPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("symbol->string", argc);
     SymbolArgCheck("symbol->string", argv[0]);
@@ -358,7 +358,7 @@ Define("symbol->string", SymbolToStringPrimitive)(int argc, FObject argv[])
     return(AsSymbol(argv[0])->String);
 }
 
-Define("string->symbol", StringToSymbolPrimitive)(int argc, FObject argv[])
+Define("string->symbol", StringToSymbolPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("string->symbol", argc);
     StringArgCheck("string->symbol", argv[0]);
@@ -411,7 +411,7 @@ void Raise(FObject obj)
     throw obj;
 }
 
-Define("raise", RaisePrimitive)(int argc, FObject argv[])
+Define("raise", RaisePrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("raise", argc);
 
@@ -419,7 +419,7 @@ Define("raise", RaisePrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("error", ErrorPrimitive)(int argc, FObject argv[])
+Define("error", ErrorPrimitive)(int_t argc, FObject argv[])
 {
     AtLeastOneArgCheck("error", argc);
     StringArgCheck("error", argv[0]);
@@ -435,14 +435,14 @@ Define("error", ErrorPrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("error-object?", ErrorObjectPPrimitive)(int argc, FObject argv[])
+Define("error-object?", ErrorObjectPPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("error-object?", argc);
 
     return(ExceptionP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("error-object-type", ErrorObjectTypePrimitive)(int argc, FObject argv[])
+Define("error-object-type", ErrorObjectTypePrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("error-object-type", argc);
     ExceptionArgCheck("error-object-type", argv[0]);
@@ -450,7 +450,7 @@ Define("error-object-type", ErrorObjectTypePrimitive)(int argc, FObject argv[])
     return(AsException(argv[0])->Type);
 }
 
-Define("error-object-who", ErrorObjectWhoPrimitive)(int argc, FObject argv[])
+Define("error-object-who", ErrorObjectWhoPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("error-object-who", argc);
     ExceptionArgCheck("error-object-who", argv[0]);
@@ -458,7 +458,7 @@ Define("error-object-who", ErrorObjectWhoPrimitive)(int argc, FObject argv[])
     return(AsException(argv[0])->Who);
 }
 
-Define("error-object-message", ErrorObjectMessagePrimitive)(int argc, FObject argv[])
+Define("error-object-message", ErrorObjectMessagePrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("error-object-message", argc);
     ExceptionArgCheck("error-object-message", argv[0]);
@@ -466,7 +466,7 @@ Define("error-object-message", ErrorObjectMessagePrimitive)(int argc, FObject ar
     return(AsException(argv[0])->Message);
 }
 
-Define("error-object-irritants", ErrorObjectIrritantsPrimitive)(int argc, FObject argv[])
+Define("error-object-irritants", ErrorObjectIrritantsPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("error-object-irritants", argc);
     ExceptionArgCheck("error-object-irritants", argv[0]);
@@ -474,7 +474,7 @@ Define("error-object-irritants", ErrorObjectIrritantsPrimitive)(int argc, FObjec
     return(AsException(argv[0])->Irritants);
 }
 
-Define("full-error", FullErrorPrimitive)(int argc, FObject argv[])
+Define("full-error", FullErrorPrimitive)(int_t argc, FObject argv[])
 {
     AtLeastThreeArgsCheck("full-error", argc);
     SymbolArgCheck("full-error", argv[0]);
@@ -494,14 +494,14 @@ Define("full-error", FullErrorPrimitive)(int argc, FObject argv[])
 
 // ---- System interface ----
 
-Define("command-line", CommandLinePrimitive)(int argc, FObject argv[])
+Define("command-line", CommandLinePrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("command-line", argc);
 
     return(R.CommandLine);
 }
 
-Define("exit", ExitPrimitive)(int argc, FObject argv[])
+Define("exit", ExitPrimitive)(int_t argc, FObject argv[])
 {
     ZeroOrOneArgsCheck("exit", argc);
 
@@ -509,14 +509,14 @@ Define("exit", ExitPrimitive)(int argc, FObject argv[])
         _exit(0);
 
     if (FixnumP(argv[0]))
-        _exit(AsFixnum(argv[0]));
+        _exit((int) AsFixnum(argv[0]));
 
     _exit(-1);
 
     return(NoValueObject);
 }
 
-Define("emergency-exit", EmergencyExitPrimitive)(int argc, FObject argv[])
+Define("emergency-exit", EmergencyExitPrimitive)(int_t argc, FObject argv[])
 {
     ZeroOrOneArgsCheck("emergency-exit", argc);
 
@@ -524,7 +524,7 @@ Define("emergency-exit", EmergencyExitPrimitive)(int argc, FObject argv[])
         _exit(0);
 
     if (FixnumP(argv[0]))
-        _exit(AsFixnum(argv[0]));
+        _exit((int) AsFixnum(argv[0]));
 
     _exit(-1);
 
@@ -557,35 +557,29 @@ static void GetEnvironmentVariables()
     R.EnvironmentVariables = lst;
 }
 
-Define("get-environment-variable", GetEnvironmentVariablePrimitive)(int argc, FObject argv[])
+Define("get-environment-variable", GetEnvironmentVariablePrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("get-environment-variable", argc);
     StringArgCheck("get-environment-variable", argv[0]);
 
-    if (PairP(R.EnvironmentVariables) == 0)
-        GetEnvironmentVariables();
+    FAssert(PairP(R.EnvironmentVariables));
 
     FObject ret = Assoc(argv[0], R.EnvironmentVariables);
     if (PairP(ret))
-        return(First(ret));
+        return(Rest(ret));
     return(ret);
 }
 
-Define("get-environment-variables", GetEnvironmentVariablesPrimitive)(int argc, FObject argv[])
+Define("get-environment-variables", GetEnvironmentVariablesPrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("get-environment-variables", argc);
-
-    if (PairP(R.EnvironmentVariables))
-        return(R.EnvironmentVariables);
-
-    GetEnvironmentVariables();
 
     FAssert(PairP(R.EnvironmentVariables));
 
     return(R.EnvironmentVariables);
 }
 
-Define("current-second", CurrentSecondPrimitive)(int argc, FObject argv[])
+Define("current-second", CurrentSecondPrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("current-second", argc);
 
@@ -594,7 +588,7 @@ Define("current-second", CurrentSecondPrimitive)(int argc, FObject argv[])
     return(MakeFixnum(t));
 }
 
-Define("current-jiffy", CurrentJiffyPrimitive)(int argc, FObject argv[])
+Define("current-jiffy", CurrentJiffyPrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("current-jiffy", argc);
 
@@ -602,14 +596,14 @@ Define("current-jiffy", CurrentJiffyPrimitive)(int argc, FObject argv[])
     return(MakeFixnum(tc));
 }
 
-Define("jiffies-per-second", JiffiesPerSecondPrimitive)(int argc, FObject argv[])
+Define("jiffies-per-second", JiffiesPerSecondPrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("jiffies-per-second", argc);
 
     return(MakeFixnum(100));
 }
 
-Define("features", FeaturesPrimitive)(int argc, FObject argv[])
+Define("features", FeaturesPrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("features", argc);
 
@@ -629,21 +623,21 @@ FObject MakeBox(FObject val)
 
 // ---- Hashtables ----
 
-unsigned int EqHash(FObject obj)
+uint_t EqHash(FObject obj)
 {
-    return((unsigned int) obj);
+    return((uint_t) obj);
 }
 
-unsigned int EqvHash(FObject obj)
+uint_t EqvHash(FObject obj)
 {
     return(EqHash(obj));
 }
 
 #define MaxHashDepth 128
 
-static unsigned int DoEqualHash(FObject obj, int d)
+static uint_t DoEqualHash(FObject obj, int_t d)
 {
-    unsigned int h;
+    uint_t h;
 
     if (d >= MaxHashDepth)
         return(1);
@@ -651,7 +645,7 @@ static unsigned int DoEqualHash(FObject obj, int d)
     if (PairP(obj))
     {
         h = 0;
-        for (int n = 0; n < MaxHashDepth; n++)
+        for (int_t n = 0; n < MaxHashDepth; n++)
         {
             h += (h << 3);
             h += DoEqualHash(First(obj), d + 1);
@@ -675,7 +669,7 @@ static unsigned int DoEqualHash(FObject obj, int d)
             return(1);
 
         h = 0;
-        for (unsigned int idx = 0; idx < VectorLength(obj) && idx < MaxHashDepth; idx++)
+        for (uint_t idx = 0; idx < VectorLength(obj) && idx < MaxHashDepth; idx++)
             h += (h << 5) + DoEqualHash(AsVector(obj)->Vector[idx], d + 1);
         return(h);
     }
@@ -685,12 +679,12 @@ static unsigned int DoEqualHash(FObject obj, int d)
     return(EqHash(obj));
 }
 
-unsigned int EqualHash(FObject obj)
+uint_t EqualHash(FObject obj)
 {
     return(DoEqualHash(obj, 0));
 }
 
-static int Primes[] =
+static int_t Primes[] =
 {
     23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107,
     109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197,
@@ -706,17 +700,17 @@ static int Primes[] =
 
 static char * HashtableFieldsC[] = {"buckets", "size", "tracker"};
 
-static FObject MakeHashtable(int nb, FObject trkr)
+static FObject MakeHashtable(int_t nb, FObject trkr)
 {
     FAssert(sizeof(FHashtable) == sizeof(HashtableFieldsC) + sizeof(FRecord));
 
     if (nb <= Primes[0])
         nb = Primes[0];
-    else if (nb >= Primes[sizeof(Primes) / sizeof(int) - 1])
-        nb = Primes[sizeof(Primes) / sizeof(int) - 1];
+    else if (nb >= Primes[sizeof(Primes) / sizeof(int_t) - 1])
+        nb = Primes[sizeof(Primes) / sizeof(int_t) - 1];
     else
     {
-        for (int idx = sizeof(Primes) / sizeof(int) - 2; idx >= 0; idx--)
+        for (int_t idx = sizeof(Primes) / sizeof(int_t) - 2; idx >= 0; idx--)
             if (nb > Primes[idx])
             {
                 nb = Primes[idx + 1];
@@ -726,7 +720,7 @@ static FObject MakeHashtable(int nb, FObject trkr)
 
     FHashtable * ht = (FHashtable *) MakeRecord(R.HashtableRecordType);
     ht->Buckets = MakeVector(nb, 0, NoValueObject);
-    for (int idx = 0; idx < nb; idx++)
+    for (int_t idx = 0; idx < nb; idx++)
         ModifyVector(ht->Buckets, idx, MakeFixnum(idx));
     ht->Size = MakeFixnum(0);
     ht->Tracker = trkr;
@@ -734,7 +728,7 @@ static FObject MakeHashtable(int nb, FObject trkr)
     return(ht);
 }
 
-FObject MakeHashtable(int nb)
+FObject MakeHashtable(int_t nb)
 {
     return(MakeHashtable(nb, NoValueObject));
 }
@@ -743,7 +737,7 @@ static FObject DoHashtableRef(FObject ht, FObject key, FEquivFn efn, FHashFn hfn
 {
     FAssert(HashtableP(ht));
 
-    unsigned int idx = hfn(key) % (unsigned int) VectorLength(AsHashtable(ht)->Buckets);
+    uint_t idx = hfn(key) % (uint_t) VectorLength(AsHashtable(ht)->Buckets);
 
     FObject node = AsVector(AsHashtable(ht)->Buckets)->Vector[idx];
 
@@ -770,12 +764,12 @@ FObject HashtableRef(FObject ht, FObject key, FObject def, FEquivFn efn, FHashFn
     return(def);
 }
 
-FObject HashtableStringRef(FObject ht, FCh * s, int sl, FObject def)
+FObject HashtableStringRef(FObject ht, FCh * s, int_t sl, FObject def)
 {
     FAssert(HashtableP(ht));
 
-    unsigned int idx = StringLengthHash(s, sl)
-            % (unsigned int) VectorLength(AsHashtable(ht)->Buckets);
+    uint_t idx = StringLengthHash(s, sl)
+            % (uint_t) VectorLength(AsHashtable(ht)->Buckets);
     FObject node = AsVector(AsHashtable(ht)->Buckets)->Vector[idx];
 
     while (PairP(node))
@@ -803,7 +797,7 @@ void HashtableSet(FObject ht, FObject key, FObject val, FEquivFn efn, FHashFn hf
     }
     else
     {
-        unsigned int idx = hfn(key) % (unsigned int) VectorLength(AsHashtable(ht)->Buckets);
+        uint_t idx = hfn(key) % (uint_t) VectorLength(AsHashtable(ht)->Buckets);
 
 //        AsVector(AsHashtable(ht)->Buckets)->Vector[idx] =
 //                MakePair(MakePair(key, val),
@@ -825,7 +819,7 @@ void HashtableDelete(FObject ht, FObject key, FEquivFn efn, FHashFn hfn)
 {
     FAssert(HashtableP(ht));
 
-    unsigned int idx = hfn(key) % (unsigned int) VectorLength(AsHashtable(ht)->Buckets);
+    uint_t idx = hfn(key) % (uint_t) VectorLength(AsHashtable(ht)->Buckets);
 
     FObject node = AsVector(AsHashtable(ht)->Buckets)->Vector[idx];
     FObject prev = NoValueObject;
@@ -859,7 +853,7 @@ void HashtableDelete(FObject ht, FObject key, FEquivFn efn, FHashFn hfn)
     }
 }
 
-int HashtableContainsP(FObject ht, FObject key, FEquivFn efn, FHashFn hfn)
+int_t HashtableContainsP(FObject ht, FObject key, FEquivFn efn, FHashFn hfn)
 {
     FAssert(HashtableP(ht));
 
@@ -869,12 +863,12 @@ int HashtableContainsP(FObject ht, FObject key, FEquivFn efn, FHashFn hfn)
     return(0);
 }
 
-FObject MakeEqHashtable(int nb)
+FObject MakeEqHashtable(int_t nb)
 {
     return(MakeHashtable(nb, MakeTConc()));
 }
 
-static unsigned int RehashFindBucket(FObject kvn)
+static uint_t RehashFindBucket(FObject kvn)
 {
     while (PairP(kvn))
         kvn = Rest(kvn);
@@ -884,7 +878,7 @@ static unsigned int RehashFindBucket(FObject kvn)
     return(AsFixnum(kvn));
 }
 
-static void RehashRemoveBucket(FObject ht, FObject kvn, unsigned int idx)
+static void RehashRemoveBucket(FObject ht, FObject kvn, uint_t idx)
 {
     FObject node = AsVector(AsHashtable(ht)->Buckets)->Vector[idx];
     FObject prev = NoValueObject;
@@ -913,9 +907,9 @@ static void CheckEqHashtable(FObject ht)
 {
     FAssert(HashtableP(ht));
     FAssert(VectorP(AsHashtable(ht)->Buckets));
-    unsigned int len = VectorLength(AsHashtable(ht)->Buckets);
+    uint_t len = VectorLength(AsHashtable(ht)->Buckets);
 
-    for (unsigned int idx = 0; idx < len; idx++)
+    for (uint_t idx = 0; idx < len; idx++)
     {
         FObject node = AsVector(AsHashtable(ht)->Buckets)->Vector[idx];
 
@@ -945,8 +939,8 @@ static void EqHashtableRehash(FObject ht, FObject tconc)
         FAssert(PairP(First(kvn)));
 
         FObject key = First(First(kvn));
-        unsigned int odx = RehashFindBucket(kvn);
-        unsigned int idx = EqHash(key) % (unsigned int) VectorLength(AsHashtable(ht)->Buckets);
+        uint_t odx = RehashFindBucket(kvn);
+        uint_t idx = EqHash(key) % (uint_t) VectorLength(AsHashtable(ht)->Buckets);
 
         if (idx != odx)
         {
@@ -996,7 +990,7 @@ void EqHashtableDelete(FObject ht, FObject key)
     HashtableDelete(ht, key, EqP, EqHash);
 }
 
-int EqHashtableContainsP(FObject ht, FObject key)
+int_t EqHashtableContainsP(FObject ht, FObject key)
 {
     FAssert(HashtableP(ht));
     FAssert(PairP(AsHashtable(ht)->Tracker));
@@ -1007,7 +1001,7 @@ int EqHashtableContainsP(FObject ht, FObject key)
     return(HashtableContainsP(ht, key, EqP, EqHash));
 }
 
-unsigned int HashtableSize(FObject ht)
+uint_t HashtableSize(FObject ht)
 {
     FAssert(HashtableP(ht));
     FAssert(FixnumP(AsHashtable(ht)->Size));
@@ -1023,9 +1017,9 @@ void HashtableWalkUpdate(FObject ht, FWalkUpdateFn wfn, FObject ctx)
     FAssert(HashtableP(ht));
 
     FObject bkts = AsHashtable(ht)->Buckets;
-    int len = VectorLength(bkts);
+    int_t len = VectorLength(bkts);
 
-    for (int idx = 0; idx < len; idx++)
+    for (int_t idx = 0; idx < len; idx++)
     {
         FObject lst = AsVector(bkts)->Vector[idx];
 
@@ -1050,9 +1044,9 @@ void HashtableWalkDelete(FObject ht, FWalkDeleteFn wfn, FObject ctx)
     FAssert(HashtableP(ht));
 
     FObject bkts = AsHashtable(ht)->Buckets;
-    int len = VectorLength(bkts);
+    int_t len = VectorLength(bkts);
 
-    for (int idx = 0; idx < len; idx++)
+    for (int_t idx = 0; idx < len; idx++)
     {
         FObject lst = AsVector(bkts)->Vector[idx];
         FObject prev = NoValueObject;
@@ -1086,9 +1080,9 @@ void HashtableWalkVisit(FObject ht, FWalkVisitFn wfn, FObject ctx)
     FAssert(HashtableP(ht));
 
     FObject bkts = AsHashtable(ht)->Buckets;
-    int len = VectorLength(bkts);
+    int_t len = VectorLength(bkts);
 
-    for (int idx = 0; idx < len; idx++)
+    for (int_t idx = 0; idx < len; idx++)
     {
         FObject lst = AsVector(bkts)->Vector[idx];
 
@@ -1102,7 +1096,7 @@ void HashtableWalkVisit(FObject ht, FWalkVisitFn wfn, FObject ctx)
     }
 }
 
-Define("make-eq-hashtable", MakeEqHashtablePrimitive)(int argc, FObject argv[])
+Define("make-eq-hashtable", MakeEqHashtablePrimitive)(int_t argc, FObject argv[])
 {
     ZeroOrOneArgsCheck("make-eq-hashtable", argc);
 
@@ -1112,7 +1106,7 @@ Define("make-eq-hashtable", MakeEqHashtablePrimitive)(int argc, FObject argv[])
     return(MakeEqHashtable(argc == 0 ? 0 : AsFixnum(argv[0])));
 }
 
-Define("eq-hashtable-ref", EqHashtableRefPrimitive)(int argc, FObject argv[])
+Define("eq-hashtable-ref", EqHashtableRefPrimitive)(int_t argc, FObject argv[])
 {
     ThreeArgsCheck("eq-hashtable-ref", argc);
     EqHashtableArgCheck("eq-hashtable-ref", argv[0]);
@@ -1120,7 +1114,7 @@ Define("eq-hashtable-ref", EqHashtableRefPrimitive)(int argc, FObject argv[])
     return(EqHashtableRef(argv[0], argv[1], argv[2]));
 }
 
-Define("eq-hashtable-set!", EqHashtableSetPrimitive)(int argc, FObject argv[])
+Define("eq-hashtable-set!", EqHashtableSetPrimitive)(int_t argc, FObject argv[])
 {
     ThreeArgsCheck("eq-hashtable-set!", argc);
     EqHashtableArgCheck("eq-hashtable-set!", argv[0]);
@@ -1129,7 +1123,7 @@ Define("eq-hashtable-set!", EqHashtableSetPrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("eq-hashtable-delete", EqHashtableDeletePrimitive)(int argc, FObject argv[])
+Define("eq-hashtable-delete", EqHashtableDeletePrimitive)(int_t argc, FObject argv[])
 {
     TwoArgsCheck("eq-hashtable-delete", argc);
     EqHashtableArgCheck("eq-hashtable-delete", argv[0]);
@@ -1140,7 +1134,7 @@ Define("eq-hashtable-delete", EqHashtableDeletePrimitive)(int argc, FObject argv
 
 // ---- Record Types ----
 
-FObject MakeRecordType(FObject nam, unsigned int nf, FObject flds[])
+FObject MakeRecordType(FObject nam, uint_t nf, FObject flds[])
 {
     FAssert(SymbolP(nam));
 
@@ -1149,7 +1143,7 @@ FObject MakeRecordType(FObject nam, unsigned int nf, FObject flds[])
     rt->NumFields = MakeLength(nf + 1, RecordTypeTag);
     rt->Fields[0] = nam;
 
-    for (unsigned int fdx = 1; fdx <= nf; fdx++)
+    for (uint_t fdx = 1; fdx <= nf; fdx++)
     {
         FAssert(SymbolP(flds[fdx - 1]));
 
@@ -1159,19 +1153,19 @@ FObject MakeRecordType(FObject nam, unsigned int nf, FObject flds[])
     return(rt);
 }
 
-FObject MakeRecordTypeC(char * nam, unsigned int nf, char * flds[])
+FObject MakeRecordTypeC(char * nam, uint_t nf, char * flds[])
 {
     FObject oflds[32];
 
     FAssert(nf <= sizeof(oflds) / sizeof(FObject));
 
-    for (unsigned int fdx = 0; fdx < nf; fdx++)
+    for (uint_t fdx = 0; fdx < nf; fdx++)
         oflds[fdx] = StringCToSymbol(flds[fdx]);
 
     return(MakeRecordType(StringCToSymbol(nam), nf, oflds));
 }
 
-Define("%make-record-type", MakeRecordTypePrimitive)(int argc, FObject argv[])
+Define("%make-record-type", MakeRecordTypePrimitive)(int_t argc, FObject argv[])
 {
     // (%make-record-type <record-type-name> (<field> ...))
 
@@ -1201,7 +1195,7 @@ Define("%make-record-type", MakeRecordTypePrimitive)(int argc, FObject argv[])
     return(MakeRecordType(argv[0], VectorLength(flds), AsVector(flds)->Vector));
 }
 
-Define("%make-record", MakeRecordPrimitive)(int argc, FObject argv[])
+Define("%make-record", MakeRecordPrimitive)(int_t argc, FObject argv[])
 {
     // (%make-record <record-type>)
 
@@ -1211,7 +1205,7 @@ Define("%make-record", MakeRecordPrimitive)(int argc, FObject argv[])
     return(MakeRecord(argv[0]));
 }
 
-Define("%record-predicate", RecordPredicatePrimitive)(int argc, FObject argv[])
+Define("%record-predicate", RecordPredicatePrimitive)(int_t argc, FObject argv[])
 {
     // (%record-predicate <record-type> <obj>)
 
@@ -1221,14 +1215,14 @@ Define("%record-predicate", RecordPredicatePrimitive)(int argc, FObject argv[])
     return(RecordP(argv[1], argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("%record-index", RecordIndexPrimitive)(int argc, FObject argv[])
+Define("%record-index", RecordIndexPrimitive)(int_t argc, FObject argv[])
 {
     // (%record-index <record-type> <field-name>)
 
     FMustBe(argc == 2);
     FMustBe(RecordTypeP(argv[0]));
 
-    for (unsigned int rdx = 1; rdx < RecordTypeNumFields(argv[0]); rdx++)
+    for (uint_t rdx = 1; rdx < RecordTypeNumFields(argv[0]); rdx++)
         if (EqP(argv[1], AsRecordType(argv[0])->Fields[rdx]))
             return(MakeFixnum(rdx));
 
@@ -1238,7 +1232,7 @@ Define("%record-index", RecordIndexPrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("%record-ref", RecordRefPrimitive)(int argc, FObject argv[])
+Define("%record-ref", RecordRefPrimitive)(int_t argc, FObject argv[])
 {
     // (%record-ref <record-type> <obj> <index>)
 
@@ -1250,12 +1244,12 @@ Define("%record-ref", RecordRefPrimitive)(int argc, FObject argv[])
                 List(argv[1], argv[0]));
 
     FMustBe(FixnumP(argv[2]));
-    FMustBe(AsFixnum(argv[2]) > 0 && AsFixnum(argv[2]) < (int) RecordNumFields(argv[1]));
+    FMustBe(AsFixnum(argv[2]) > 0 && AsFixnum(argv[2]) < (int_t) RecordNumFields(argv[1]));
 
     return(AsGenericRecord(argv[1])->Fields[AsFixnum(argv[2])]);
 }
 
-Define("%record-set!", RecordSetPrimitive)(int argc, FObject argv[])
+Define("%record-set!", RecordSetPrimitive)(int_t argc, FObject argv[])
 {
     // (%record-set! <record-type> <obj> <index> <value>)
 
@@ -1267,7 +1261,7 @@ Define("%record-set!", RecordSetPrimitive)(int argc, FObject argv[])
                 List(argv[1], argv[0]));
 
     FMustBe(FixnumP(argv[2]));
-    FMustBe(AsFixnum(argv[2]) > 0 && AsFixnum(argv[2]) < (int) RecordNumFields(argv[1]));
+    FMustBe(AsFixnum(argv[2]) > 0 && AsFixnum(argv[2]) < (int_t) RecordNumFields(argv[1]));
 
     AsGenericRecord(argv[1])->Fields[AsFixnum(argv[2])] = argv[3];
     return(NoValueObject);
@@ -1279,14 +1273,14 @@ FObject MakeRecord(FObject rt)
 {
     FAssert(RecordTypeP(rt));
 
-    unsigned int nf = RecordTypeNumFields(rt);
+    uint_t nf = RecordTypeNumFields(rt);
 
     FGenericRecord * r = (FGenericRecord *) MakeObject(
             sizeof(FGenericRecord) + sizeof(FObject) * (nf - 1), RecordTag);
     r->NumFields = MakeLength(nf, RecordTag);
     r->Fields[0] = rt;
 
-    for (unsigned int fdx = 1; fdx < nf; fdx++)
+    for (uint_t fdx = 1; fdx < nf; fdx++)
         r->Fields[fdx] = NoValueObject;
 
     return(r);
@@ -1309,21 +1303,21 @@ void DefinePrimitive(FObject env, FObject lib, FPrimitive * prim)
 
 // Foment specific
 
-Define("loaded-libraries", LoadedLibrariesPrimitive)(int argc, FObject argv[])
+Define("loaded-libraries", LoadedLibrariesPrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("loaded-libraries", argc);
 
     return(R.LoadedLibraries);
 }
 
-Define("library-path", LibraryPathPrimitive)(int argc, FObject argv[])
+Define("library-path", LibraryPathPrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("library-path", argc);
 
     return(R.LibraryPath);
 }
 
-Define("random", RandomPrimitive)(int argc, FObject argv[])
+Define("random", RandomPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("random", argc);
     NonNegativeArgCheck("random", argv[0]);
@@ -1331,7 +1325,7 @@ Define("random", RandomPrimitive)(int argc, FObject argv[])
     return(MakeFixnum(rand() % AsFixnum(argv[0])));
 }
 
-Define("no-value", NoValuePrimitive)(int argc, FObject argv[])
+Define("no-value", NoValuePrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("no-value", argc);
 
@@ -1422,15 +1416,15 @@ static char * FeaturesC[] =
 {
     "r7rs",
     "full-unicode",
-#ifdef FOMENT_WIN32
+#ifdef FOMENT_WINDOWS
     "windows",
-#endif // FOMENT_WIN32
+#endif // FOMENT_WINDOWS
     "i386",
     "ilp32",
     "little-endian"
 };
 
-FObject MakeCommandLine(int argc, SCh * argv[])
+FObject MakeCommandLine(int_t argc, SCh * argv[])
 {
     FObject cl = EmptyListObject;
 
@@ -1449,7 +1443,7 @@ void SetupFoment(FThreadState * ts, int argc, SCh * argv[])
     srand((unsigned int) time(0));
 
     FObject * rv = (FObject *) &R;
-    for (int rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
+    for (int_t rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
         rv[rdx] = NoValueObject;
 
     SetupCore(ts);
@@ -1490,12 +1484,12 @@ void SetupFoment(FThreadState * ts, int argc, SCh * argv[])
     R.LoadedLibraries = EmptyListObject;
     R.BedrockLibrary = MakeLibrary(nam);
 
-    for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (int_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 
     R.NoValuePrimitiveObject = MakePrimitive(&NoValuePrimitive);
 
-    for (int n = 0; n < sizeof(SpecialSyntaxes) / sizeof(char *); n++)
+    for (int_t n = 0; n < sizeof(SpecialSyntaxes) / sizeof(char *); n++)
         LibraryExport(R.BedrockLibrary, EnvironmentSetC(R.Bedrock, SpecialSyntaxes[n],
                 MakeImmediate(n, SpecialSyntaxTag)));
 
@@ -1519,11 +1513,41 @@ void SetupFoment(FThreadState * ts, int argc, SCh * argv[])
 
     R.Features = EmptyListObject;
 
-    for (int idx = 0; idx < sizeof(FeaturesC) / sizeof(char *); idx++)
+    for (int_t idx = 0; idx < sizeof(FeaturesC) / sizeof(char *); idx++)
         R.Features = MakePair(StringCToSymbol(FeaturesC[idx]), R.Features);
 
     R.CommandLine = MakeCommandLine(argc, argv);
-    R.LibraryPath = MakePair(MakeStringC("."), EmptyListObject);
+    R.LibraryPath = EmptyListObject;
+
+    GetEnvironmentVariables();
+    FObject lp = Assoc(MakeStringC("FOMENT_LIBPATH"), R.EnvironmentVariables);
+    if (PairP(lp))
+    {
+        FAssert(StringP(First(lp)));
+
+        lp = Rest(lp);
+
+        uint_t strt = 0;
+        uint_t idx = 0;
+        while (idx < StringLength(lp))
+        {
+            if (AsString(lp)->String[idx] == PathSep)
+            {
+                if (idx > strt)
+                    R.LibraryPath = MakePair(
+                            MakeString(AsString(lp)->String + strt, idx - strt), R.LibraryPath);
+
+                idx += 1;
+                strt = idx;
+            }
+
+            idx += 1;
+        }
+
+        if (idx > strt)
+            R.LibraryPath = MakePair(
+                    MakeString(AsString(lp)->String + strt, idx - strt), R.LibraryPath);
+    }
 
     if (argc > 0)
     {
@@ -1539,6 +1563,8 @@ void SetupFoment(FThreadState * ts, int argc, SCh * argv[])
         if (*s == PathCh)
             R.LibraryPath = MakePair(MakeStringS(argv[0], s - argv[0]), R.LibraryPath);
     }
+
+    R.LibraryPath = ReverseListModify(MakePair(MakeStringC("."), R.LibraryPath));
 
     SetupScheme();
 

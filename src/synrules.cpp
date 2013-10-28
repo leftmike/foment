@@ -38,7 +38,7 @@ static FObject MakeSyntaxRules(FObject lits, FObject rules, FObject se)
 
 static char * PatternVariableFieldsC[] = {"repeat-depth", "index", "variable"};
 
-static FObject MakePatternVariable(int rd, FObject var)
+static FObject MakePatternVariable(int_t rd, FObject var)
 {
     FAssert(sizeof(FPatternVariable) == sizeof(PatternVariableFieldsC) + sizeof(FRecord));
     FAssert(SymbolP(var));
@@ -55,7 +55,7 @@ static FObject MakePatternVariable(int rd, FObject var)
 
 static char * PatternRepeatFieldsC[] = {"leave-count", "ellipsis", "variables", "pattern", "rest"};
 
-static FObject MakePatternRepeat(int lc, FObject ellip, FObject vars, FObject pat,
+static FObject MakePatternRepeat(int_t lc, FObject ellip, FObject vars, FObject pat,
     FObject rest)
 {
     FAssert(sizeof(FPatternRepeat) == sizeof(PatternRepeatFieldsC) + sizeof(FRecord));
@@ -75,7 +75,7 @@ static FObject MakePatternRepeat(int lc, FObject ellip, FObject vars, FObject pa
 static char * TemplateRepeatFieldsC[] = {"ellipsis", "repeat-count", "variables", "template",
     "rest"};
 
-static FObject MakeTemplateRepeat(FObject ellip, int rc)
+static FObject MakeTemplateRepeat(FObject ellip, int_t rc)
 {
     FAssert(sizeof(FTemplateRepeat) == sizeof(TemplateRepeatFieldsC) + sizeof(FRecord));
 
@@ -105,7 +105,7 @@ typedef struct
 
 static char * SyntaxRuleFieldsC[] = {"num-variables", "variables", "pattern", "template"};
 
-static FObject MakeSyntaxRule(int nv, FObject vars, FObject pat, FObject tpl)
+static FObject MakeSyntaxRule(int_t nv, FObject vars, FObject pat, FObject tpl)
 {
     FAssert(sizeof(FSyntaxRule) == sizeof(SyntaxRuleFieldsC) + sizeof(FRecord));
 
@@ -145,7 +145,7 @@ static FObject TemplateToList(FObject ctpl)
     if (TemplateRepeatP(ctpl))
     {
         FObject obj = TemplateToList(AsTemplateRepeat(ctpl)->Rest);
-        for (int rc = 0; rc < AsFixnum(AsTemplateRepeat(ctpl)->RepeatCount); rc++)
+        for (int_t rc = 0; rc < AsFixnum(AsTemplateRepeat(ctpl)->RepeatCount); rc++)
             obj = MakePair(AsTemplateRepeat(ctpl)->Ellipsis, obj);
 
         return(MakePair(TemplateToList(AsTemplateRepeat(ctpl)->Template), obj));
@@ -156,7 +156,7 @@ static FObject TemplateToList(FObject ctpl)
 
 // ----------------
 
-static int LiteralFind(FObject list, FObject obj)
+static int_t LiteralFind(FObject list, FObject obj)
 {
     FAssert(SymbolP(obj));
 
@@ -221,7 +221,7 @@ static FObject PatternVariableFind(FObject list, FObject var)
     return(NoValueObject);
 }
 
-static int MatchSymbol(FObject obj, FObject sym)
+static int_t MatchSymbol(FObject obj, FObject sym)
 {
     FAssert(SymbolP(sym));
 
@@ -233,7 +233,7 @@ static int MatchSymbol(FObject obj, FObject sym)
 }
 
 static FObject CompilePatternVariables(FObject form, FObject lits, FObject pat,
-    FObject ellip, FObject pvars, int rd)
+    FObject ellip, FObject pvars, int_t rd)
 {
     if (VectorP(pat))
         pat = VectorToList(pat);
@@ -243,7 +243,7 @@ static FObject CompilePatternVariables(FObject form, FObject lits, FObject pat,
                 "<ellipsis> must not start list pattern or vector pattern",
                 List(form, pat));
 
-    int ef = 0;
+    int_t ef = 0;
     while (PairP(pat))
     {
         if (PairP(Rest(pat)) && MatchSymbol(First(Rest(pat)), ellip))
@@ -284,7 +284,7 @@ static FObject CompilePatternVariables(FObject form, FObject lits, FObject pat,
     return(pvars);
 }
 
-static void AssignVariableIndexes(FObject pvars, int idx)
+static void AssignVariableIndexes(FObject pvars, int_t idx)
 {
     while (pvars != EmptyListObject)
     {
@@ -298,9 +298,9 @@ static void AssignVariableIndexes(FObject pvars, int idx)
     }
 }
 
-static int CountPatternsAfterRepeat(FObject pat)
+static int_t CountPatternsAfterRepeat(FObject pat)
 {
-    int n = 0;
+    int_t n = 0;
 
     while (PairP(pat))
     {
@@ -369,7 +369,7 @@ static FObject CompilePattern(FObject se, FObject lits, FObject pvars, FObject e
     return(pat);
 }
 
-static int ListFind(FObject list, FObject obj)
+static int_t ListFind(FObject list, FObject obj)
 {
     while (list != EmptyListObject)
     {
@@ -383,16 +383,16 @@ static int ListFind(FObject list, FObject obj)
     return(0);
 }
 
-static int AddVarToTemplateRepeat(FObject var, FObject trs)
+static int_t AddVarToTemplateRepeat(FObject var, FObject trs)
 {
-    int rd = AsFixnum(AsPatternVariable(var)->RepeatDepth);
+    int_t rd = AsFixnum(AsPatternVariable(var)->RepeatDepth);
 
     while (PairP(trs))
     {
         FObject tr = First(trs);
         FAssert(TemplateRepeatP(tr));
 
-        for (int rc = 0; rc < AsFixnum(AsTemplateRepeat(tr)->RepeatCount); rc++)
+        for (int_t rc = 0; rc < AsFixnum(AsTemplateRepeat(tr)->RepeatCount); rc++)
         {
             if (ListFind(AsVector(AsTemplateRepeat(tr)->Variables)->Vector[rc], var)
                     == 0)
@@ -417,7 +417,7 @@ static int AddVarToTemplateRepeat(FObject var, FObject trs)
 }
 
 static FObject CompileTemplate(FObject form, FObject pvars, FObject ellip, FObject tpl,
-    FObject trs, int qea)
+    FObject trs, int_t qea)
 {
     if (PairP(tpl))
     {
@@ -435,7 +435,7 @@ static FObject CompileTemplate(FObject form, FObject pvars, FObject ellip, FObje
         if (PairP(Rest(tpl)) && MatchSymbol(First(Rest(tpl)), ellip))
         {
             FObject rpt = First(tpl);
-            int rc = 0;
+            int_t rc = 0;
 
             tpl = Rest(tpl);
             while (PairP(tpl) && MatchSymbol(First(tpl), ellip))
@@ -452,7 +452,7 @@ static FObject CompileTemplate(FObject form, FObject pvars, FObject ellip, FObje
             Modify(FTemplateRepeat, tr, Template, CompileTemplate(form, pvars, ellip, rpt,
                     MakePair(tr, trs), 1));
 
-            for (int rc = 0; rc < AsFixnum(AsTemplateRepeat(tr)->RepeatCount); rc++)
+            for (int_t rc = 0; rc < AsFixnum(AsTemplateRepeat(tr)->RepeatCount); rc++)
                 if (AsVector(AsTemplateRepeat(tr)->Variables)->Vector[rc]
                         == EmptyListObject)
                     RaiseExceptionC(R.Syntax, "syntax-rules",
@@ -584,7 +584,7 @@ static void InitRepeatVariables(FObject vars, FObject vals[], FObject rvals[])
     {
         FAssert(PatternVariableP(First(vars)));
 
-        int idx = AsFixnum(AsPatternVariable(First(vars))->Index);
+        int_t idx = AsFixnum(AsPatternVariable(First(vars))->Index);
         FAssert(idx >= 0 && idx < MaxPatternVars);
 
         vals[idx] = EmptyListObject;
@@ -602,7 +602,7 @@ static void GatherRepeatVariables(FObject vars, FObject vals[], FObject rvals[])
     {
         FAssert(PatternVariableP(First(vars)));
 
-        int idx = AsFixnum(AsPatternVariable(First(vars))->Index);
+        int_t idx = AsFixnum(AsPatternVariable(First(vars))->Index);
         FAssert(idx >= 0 && idx < MaxPatternVars);
 
         if (rvals[idx] != NoValueObject)
@@ -617,7 +617,7 @@ static void GatherRepeatVariables(FObject vars, FObject vals[], FObject rvals[])
     FAssert(vars == EmptyListObject);
 }
 
-static int MatchPattern(FObject se, FObject cpat, FObject vals[], FObject expr)
+static int_t MatchPattern(FObject se, FObject cpat, FObject vals[], FObject expr)
 {
     for (;;)
     {
@@ -654,7 +654,7 @@ static int MatchPattern(FObject se, FObject cpat, FObject vals[], FObject expr)
         }
         else if (PatternRepeatP(cpat))
         {
-            int lc = AsFixnum(AsPatternRepeat(cpat)->LeaveCount);
+            int_t lc = AsFixnum(AsPatternRepeat(cpat)->LeaveCount);
             FObject obj = expr;
             while (lc > 0)
             {
@@ -691,13 +691,13 @@ static int MatchPattern(FObject se, FObject cpat, FObject vals[], FObject expr)
     return(0);
 }
 
-static int CheckRepeatVariables(FObject vars, FObject vals[], FObject expr)
+static int_t CheckRepeatVariables(FObject vars, FObject vals[], FObject expr)
 {
     while (PairP(vars))
     {
         FAssert(PatternVariableP(First(vars)));
 
-        int idx = AsFixnum(AsPatternVariable(First(vars))->Index);
+        int_t idx = AsFixnum(AsPatternVariable(First(vars))->Index);
         FAssert(idx >= 0 && idx < MaxPatternVars);
 
         if (vals[idx] == EmptyListObject)
@@ -716,7 +716,7 @@ static void SetRepeatVariables(FObject vars, FObject vals[], FObject rvals[])
     {
         FAssert(PatternVariableP(First(vars)));
 
-        int idx = AsFixnum(AsPatternVariable(First(vars))->Index);
+        int_t idx = AsFixnum(AsPatternVariable(First(vars))->Index);
         FAssert(idx >= 0 && idx < MaxPatternVars);
 
         FAssert(PairP(vals[idx]));
@@ -729,16 +729,16 @@ static void SetRepeatVariables(FObject vars, FObject vals[], FObject rvals[])
     FAssert(vars == EmptyListObject);
 }
 
-static FObject ExpandTemplate(FObject tse, FObject use, FObject ctpl, int nv, FObject vals[],
+static FObject ExpandTemplate(FObject tse, FObject use, FObject ctpl, int_t nv, FObject vals[],
     FObject expr);
-static FObject ExpandTemplateRepeat(FObject tse, FObject use, FObject ctpl, int nv, FObject vals[],
-    int rc, FObject ret, FObject expr)
+static FObject ExpandTemplateRepeat(FObject tse, FObject use, FObject ctpl, int_t nv, FObject vals[],
+    int_t rc, FObject ret, FObject expr)
 {
     FAssert(TemplateRepeatP(ctpl));
     FAssert(rc > 0);
 
     FObject rvals[MaxPatternVars];
-    for (int vdx = 0; vdx < nv; vdx++)
+    for (int_t vdx = 0; vdx < nv; vdx++)
         rvals[vdx] = vals[vdx];
 
     rc -= 1;
@@ -758,7 +758,7 @@ static FObject ExpandTemplateRepeat(FObject tse, FObject use, FObject ctpl, int 
     {
         FAssert(PatternVariableP(First(vars)));
 
-        int idx = AsFixnum(AsPatternVariable(First(vars))->Index);
+        int_t idx = AsFixnum(AsPatternVariable(First(vars))->Index);
         FAssert(idx >= 0 && idx < MaxPatternVars);
 
         if (vals[idx] != EmptyListObject)
@@ -785,7 +785,7 @@ static FObject CopyWrapValue(FObject se, FObject val)
     return(val);
 }
 
-static FObject ExpandTemplate(FObject tse, FObject use, FObject ctpl, int nv, FObject vals[],
+static FObject ExpandTemplate(FObject tse, FObject use, FObject ctpl, int_t nv, FObject vals[],
     FObject expr)
 {
     if (PairP(ctpl))
@@ -802,7 +802,7 @@ static FObject ExpandTemplate(FObject tse, FObject use, FObject ctpl, int nv, FO
     if (TemplateRepeatP(ctpl))
     {
         FObject rvals[MaxPatternVars];
-        for (int vdx = 0; vdx < nv; vdx++)
+        for (int_t vdx = 0; vdx < nv; vdx++)
             rvals[vdx] = vals[vdx];
 
         return(ExpandTemplateRepeat(tse, use, ctpl, nv, rvals,
@@ -830,7 +830,7 @@ FObject ExpandSyntaxRules(FObject se, FObject sr, FObject expr)
         FAssert(AsFixnum(AsSyntaxRule(rule)->NumVariables) <= MaxPatternVars);
 
         FObject vals[MaxPatternVars];
-        for (int vdx = 0; vdx < AsFixnum(AsSyntaxRule(rule)->NumVariables); vdx++)
+        for (int_t vdx = 0; vdx < AsFixnum(AsSyntaxRule(rule)->NumVariables); vdx++)
             vals[vdx] = NoValueObject;
 
         if (MatchPattern(se, AsSyntaxRule(rule)->Pattern, vals, expr))

@@ -116,7 +116,7 @@ typedef struct
 #define AsInlineVariable(obj) ((FInlineVariable *) (obj))
 #define InlineVariableP(obj) RecordP(obj, R.InlineVariableRecordType)
 
-FObject MakeInlineVariable(int idx);
+FObject MakeInlineVariable(int_t idx);
 
 // ---- Pattern Variable ----
 
@@ -170,10 +170,10 @@ FObject CompileLambda(FObject env, FObject name, FObject formals, FObject body);
 FObject CompileSyntaxRules(FObject se, FObject obj);
 FObject ExpandSyntaxRules(FObject se, FObject sr, FObject expr);
 
-int MatchReference(FObject ref, FObject se, FObject expr);
+int_t MatchReference(FObject ref, FObject se, FObject expr);
 FObject ExpandExpression(FObject se, FObject expr);
 FObject CondExpand(FObject se, FObject expr, FObject clst);
-FObject ReadInclude(FObject lst, int cif);
+FObject ReadInclude(FObject lst, int_t cif);
 FObject SPassLambda(FObject se, FObject name, FObject formals, FObject body);
 void MPassLambda(FLambda * lam);
 

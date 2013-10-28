@@ -42,11 +42,11 @@ unsigned char Utf8TrailingBytes[256] =
 
 // ---- System String Conversions ----
 
-static unsigned int Utf16LengthOfString(FCh * s, unsigned int sl)
+static uint_t Utf16LengthOfString(FCh * s, uint_t sl)
 {
-    unsigned int ssl = 0;
+    uint_t ssl = 0;
 
-    for (unsigned int idx = 0; idx < sl; idx++)
+    for (uint_t idx = 0; idx < sl; idx++)
     {
         ssl += 1;
 
@@ -57,9 +57,9 @@ static unsigned int Utf16LengthOfString(FCh * s, unsigned int sl)
     return(ssl);
 }
 
-SCh * ConvertToStringS(FCh * s, unsigned int sl, SCh * b, unsigned int bl)
+SCh * ConvertToStringS(FCh * s, uint_t sl, SCh * b, uint_t bl)
 {
-    unsigned int ssl = Utf16LengthOfString(s, sl) + 1;
+    uint_t ssl = Utf16LengthOfString(s, sl) + 1;
     if (bl < ssl)
     {
         FObject bv = MakeBytevector(ssl * sizeof(SCh));
@@ -77,9 +77,9 @@ SCh * ConvertToStringS(FCh * s, unsigned int sl, SCh * b, unsigned int bl)
     return(b);
 }
 
-static unsigned int ChLengthOfUtf16(SCh * ss, unsigned int ssl)
+static uint_t ChLengthOfUtf16(SCh * ss, uint_t ssl)
 {
-    unsigned int sl = 0;
+    uint_t sl = 0;
 
     while (ssl > 0)
     {
@@ -98,9 +98,9 @@ FObject MakeStringS(SCh * ss)
     return(MakeStringS(ss, wcslen(ss)));
 }
 
-FObject MakeStringS(SCh * ss, unsigned int ssl)
+FObject MakeStringS(SCh * ss, uint_t ssl)
 {
-    unsigned int sl = ChLengthOfUtf16(ss, ssl);
+    uint_t sl = ChLengthOfUtf16(ss, ssl);
     FObject s = MakeString(0, sl);
 
     const UTF16 * utf16 = (UTF16 *) ss;

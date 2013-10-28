@@ -58,12 +58,12 @@ static int RunRepl(FObject env)
         try
         {
             FCh s[16];
-            int sl;
+            int_t sl;
 
             WriteCh(R.StandardOutput, '{');
             sl = NumberAsString(BytesAllocated, s, 10);
             WriteString(R.StandardOutput, s, sl);
-            WriteStringC(R.StandardOutput, "} ");
+            WriteStringC(R.StandardOutput, "}");
             BytesAllocated = 0;
 
 //            sl = NumberAsString(GetLineColumn(R.StandardInput, 0), s, 10);
@@ -97,21 +97,16 @@ static int RunRepl(FObject env)
 static int Usage()
 {
     printf(
-//        "run a program:\n"
-//        "    foment [OPTION]... PROGRAM [ARG]...\n"
-        "compile and run a program:\n"
+        "compile and run the program in FILE:\n"
         "    foment [OPTION]... FILE [ARG]...\n"
-//        "compile a program:\n"
-//        "    foment -c [OPTION]... FILE\n"
+        "    -A DIR            append a library search directory\n"
+        "    -I DIR            prepend a library search directory\n"
         "interactive session (repl):\n"
-        "    foment -i [OPTION]... [ARG]...\n\n"
-//        "    -o PROGRAM        PROGRAM to output when compiling\n"
-//        "    -d                debug: break on startup\n"
+        "    foment [OPTION]... [FLAG]... [ARG]...\n\n"
+        "    -i                interactive session\n"
         "    -e EXPR           evaluate an expression\n"
         "    -p EXPR           evaluate and print an expression\n"
         "    -l FILE           load FILE\n"
-        "    -A DIR            append a library search directory\n"
-        "    -I DIR            prepend a library search directory\n"
         );
 
     return(-1);
@@ -125,18 +120,18 @@ static int MissingArgument(wchar_t * arg)
 
 static FObject MakeInvocation(int argc, wchar_t * argv[])
 {
-    int sl = -1;
+    uint_t sl = -1;
 
     for (int adx = 0; adx < argc; adx++)
         sl += wcslen(argv[adx]) + 1;
 
     FObject s = MakeString(0, sl);
-    int sdx = 0;
+    uint_t sdx = 0;
 
     for (int adx = 0; adx < argc; adx++)
     {
         sl = wcslen(argv[adx]);
-        for (int idx = 0; idx < sl; idx++)
+        for (uint_t idx = 0; idx < sl; idx++)
         {
             AsString(s)->String[sdx] = argv[adx][idx];
             sdx += 1;
@@ -242,7 +237,7 @@ int wmain(int argc, wchar_t * argv[])
     }
     catch (FObject obj)
     {
-        printf("Unexpected exception: SetupFoment: %x\n", obj);
+        printf("Unexpected exception: SetupFoment: %p\n", obj);
         Write(R.StandardOutput, obj, 0);
         return(1);
     }
@@ -321,6 +316,7 @@ int wmain(int argc, wchar_t * argv[])
         UpdateFeatures();
         R.CommandLine = MakePair(MakeInvocation(adx, argv),
                 MakeCommandLine(argc - adx, argv + adx));
+
         return(RunRepl(GetInteractionEnv()));
     }
     catch (FObject obj)

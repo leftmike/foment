@@ -61,11 +61,11 @@ FObject MakeBinding(FObject se, FObject id, FObject ra)
 
 // ---- Identifier ----
 
-static int IdentifierMagic = 0;
+static int_t IdentifierMagic = 0;
 
 static char * IdentifierFieldsC[] = {"symbol", "line-number", "magic", "syntactic-env", "wrapped"};
 
-FObject MakeIdentifier(FObject sym, int ln)
+FObject MakeIdentifier(FObject sym, int_t ln)
 {
     FAssert(sizeof(FIdentifier) == sizeof(IdentifierFieldsC) + sizeof(FRecord));
     FAssert(SymbolP(sym));
@@ -151,7 +151,7 @@ FObject MakeCaseLambda(FObject cases)
 
 static char * InlineVariableFieldsC[] = {"index"};
 
-FObject MakeInlineVariable(int idx)
+FObject MakeInlineVariable(int_t idx)
 {
     FAssert(sizeof(FInlineVariable) == sizeof(InlineVariableFieldsC) + sizeof(FRecord));
 
@@ -205,7 +205,7 @@ FObject GetInteractionEnv()
 
 // ----------------
 
-Define("%compile-eval", CompileEvalPrimitive)(int argc, FObject argv[])
+Define("%compile-eval", CompileEvalPrimitive)(int_t argc, FObject argv[])
 {
     TwoArgsCheck("%compile-eval", argc);
     EnvironmentArgCheck("%compile-eval", argv[1]);
@@ -213,21 +213,21 @@ Define("%compile-eval", CompileEvalPrimitive)(int argc, FObject argv[])
     return(CompileEval(argv[0], argv[1]));
 }
 
-Define("interaction-environment", InteractionEnvironmentPrimitive)(int argc, FObject argv[])
+Define("interaction-environment", InteractionEnvironmentPrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("interaction-environment", argc);
 
     return(GetInteractionEnv());
 }
 
-Define("syntax", SyntaxPrimitive)(int argc, FObject argv[])
+Define("syntax", SyntaxPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("syntax", argc);
 
     return(ExpandExpression(MakeSyntacticEnv(GetInteractionEnv()), argv[0]));
 }
 
-Define("unsyntax", UnsyntaxPrimitive)(int argc, FObject argv[])
+Define("unsyntax", UnsyntaxPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("unsyntax", argc);
 
@@ -284,6 +284,6 @@ void SetupCompile()
 
     SetupSyntaxRules();
 
-    for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (int_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

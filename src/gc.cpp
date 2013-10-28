@@ -12,7 +12,7 @@ Foment
 #include "io.hpp"
 
 typedef void * FRaw;
-#define AsRaw(obj) ((FRaw) (((unsigned int) (obj)) & ~0x3))
+#define AsRaw(obj) ((FRaw) (((uint_t) (obj)) & ~0x3))
 
 typedef enum
 {
@@ -29,13 +29,13 @@ typedef enum
 } FSectionTag;
 
 static unsigned char * SectionTable;
-static unsigned int UsedSections;
+static uint_t UsedSections;
 
 #define SECTION_SIZE (1024 * 16)
-#define SectionIndex(ptr) ((((unsigned int) (ptr)) - ((unsigned int) SectionTable)) >> 14)
-#define SectionPointer(sdx) ((unsigned char *) (((sdx) << 14) + ((unsigned int) SectionTable)))
-#define SectionOffset(ptr) (((unsigned int) (ptr)) & 0x3FFF)
-#define SectionBase(ptr) ((unsigned char *) (((unsigned int) (ptr)) & ~0x3FFF))
+#define SectionIndex(ptr) ((((uint_t) (ptr)) - ((uint_t) SectionTable)) >> 14)
+#define SectionPointer(sdx) ((unsigned char *) (((sdx) << 14) + ((uint_t) SectionTable)))
+#define SectionOffset(ptr) (((uint_t) (ptr)) & 0x3FFF)
+#define SectionBase(ptr) ((unsigned char *) (((uint_t) (ptr)) & ~0x3FFF))
 
 #define MatureP(obj) (SectionTable[SectionIndex(obj)] == MatureSectionTag)
 #define MaturePairP(obj) (SectionTable[SectionIndex(obj)] == PairSectionTag)
@@ -47,7 +47,7 @@ static FYoungSection * GenerationOne;
 
 typedef struct _FFreeObject
 {
-    unsigned int Length;
+    uint_t Length;
     struct _FFreeObject * Next;
 } FFreeObject;
 
@@ -57,43 +57,43 @@ static FPair * FreePairs = 0;
 #define PAIR_MB_SIZE 256
 #define PAIR_MB_OFFSET (SECTION_SIZE - PAIR_MB_SIZE)
 
-static inline unsigned int PairMarkP(FRaw raw)
+static inline uint_t PairMarkP(FRaw raw)
 {
-    unsigned int idx = SectionOffset(raw) / sizeof(FPair);
+    uint_t idx = SectionOffset(raw) / sizeof(FPair);
 
     return((SectionBase(raw) + PAIR_MB_OFFSET)[idx / 8] & (1 << (idx % 8)));
 }
 
 static inline void SetPairMark(FRaw raw)
 {
-    unsigned int idx = SectionOffset(raw) / sizeof(FPair);
+    uint_t idx = SectionOffset(raw) / sizeof(FPair);
 
     (SectionBase(raw) + PAIR_MB_OFFSET)[idx / 8] |= (1 << (idx % 8));
 }
 
-unsigned int BytesAllocated = 0;
-unsigned int BytesSinceLast = 0;
-unsigned int ObjectsSinceLast = 0;
-unsigned int CollectionCount = 0;
-unsigned int PartialCount = 0;
-unsigned int PartialPerFull = 4;
-unsigned int TriggerBytes = SECTION_SIZE * 8;
-unsigned int TriggerObjects = TriggerBytes / (sizeof(FPair) * 8);
-unsigned int MaximumBackRefFraction = 128;
+uint_t BytesAllocated = 0;
+uint_t BytesSinceLast = 0;
+uint_t ObjectsSinceLast = 0;
+uint_t CollectionCount = 0;
+uint_t PartialCount = 0;
+uint_t PartialPerFull = 4;
+uint_t TriggerBytes = SECTION_SIZE * 8;
+uint_t TriggerObjects = TriggerBytes / (sizeof(FPair) * 8);
+uint_t MaximumBackRefFraction = 128;
 
-int GCRequired;
-static int GCPending;
-static int FullGCRequired;
+int_t GCRequired;
+static int_t GCPending;
+static int_t FullGCRequired;
 
 #define GCTagP(obj) ImmediateP(obj, GCTagTag)
 
 #define Forward(obj) (*(((FObject *) (obj)) - 1))
 
-#define MarkP(obj) (*((unsigned int *) (obj)) & RESERVED_MARK_BIT)
-#define SetMark(obj) *((unsigned int *) (obj)) |= RESERVED_MARK_BIT
-#define ClearMark(obj) *((unsigned int *) (obj)) &= ~RESERVED_MARK_BIT
+#define MarkP(obj) (*((uint_t *) (obj)) & RESERVED_MARK_BIT)
+#define SetMark(obj) *((uint_t *) (obj)) |= RESERVED_MARK_BIT
+#define ClearMark(obj) *((uint_t *) (obj)) &= ~RESERVED_MARK_BIT
 
-static inline int AliveP(FObject obj)
+static inline int_t AliveP(FObject obj)
 {
     obj = AsRaw(obj);
 
@@ -113,17 +113,17 @@ typedef struct
 typedef struct _BackRefSection
 {
     struct _BackRefSection * Next;
-    int Used;
+    int_t Used;
     FBackRef BackRef[1];
 } FBackRefSection;
 
 static FBackRefSection * BackRefSections;
-static int BackRefSectionCount;
+static int_t BackRefSectionCount;
 
 typedef struct _ScanSection
 {
     struct _ScanSection * Next;
-    int Used;
+    int_t Used;
     FObject Scan[1];
 } FScanSection;
 
@@ -133,24 +133,24 @@ static FObject YoungGuardians;
 static FObject MatureGuardians;
 static FObject YoungTrackers;
 
-#ifdef FOMENT_WIN32
+#ifdef FOMENT_WINDOWS
 unsigned int TlsIndex;
-#endif // FOMENT_WIN32
+#endif // FOMENT_WINDOWS
 
 OSExclusive GCExclusive;
 OSCondition GCCondition;
 static OSEvent GCEvent;
 
-unsigned int TotalThreads;
-unsigned int WaitThreads;
+uint_t TotalThreads;
+uint_t WaitThreads;
 static FThreadState * Threads;
 
-static unsigned int Sizes[1024 * 8];
+static uint_t Sizes[1024 * 8];
 
-static void * AllocateSection(unsigned int cnt, FSectionTag tag)
+static void * AllocateSection(uint_t cnt, FSectionTag tag)
 {
-    unsigned int sdx;
-    unsigned int fcnt = 0;
+    uint_t sdx;
+    uint_t fcnt = 0;
 
     FAssert(cnt > 0);
 
@@ -180,9 +180,9 @@ static void * AllocateSection(unsigned int cnt, FSectionTag tag)
     UsedSections += cnt;
 
     void * sec = SectionPointer(sdx);
-#ifdef FOMENT_WIN32
+#ifdef FOMENT_WINDOWS
     VirtualAlloc(sec, SECTION_SIZE * cnt, MEM_COMMIT, PAGE_READWRITE);
-#endif // FOMENT_WIN32
+#endif // FOMENT_WINDOWS
 
     while (cnt > 0)
     {
@@ -195,7 +195,7 @@ static void * AllocateSection(unsigned int cnt, FSectionTag tag)
 
 static void FreeSection(void * sec)
 {
-    unsigned int sdx = SectionIndex(sec);
+    uint_t sdx = SectionIndex(sec);
 
     FAssert(sdx < UsedSections);
 
@@ -211,9 +211,15 @@ static FYoungSection * AllocateYoung(FYoungSection * nxt, FSectionTag tag)
     return(ns);
 }
 
-const static unsigned int Align4[4] = {0, 3, 2, 1};
+#ifdef FOMENT_32BIT
+const static uint_t Align[4] = {0, 3, 2, 1};
+#endif // FOMENT_32BIT
 
-static unsigned int ObjectSize(FObject obj, unsigned int tag)
+#ifdef FOMENT_64BIT
+const static uint_t Align[8] = {0, 7, 6, 5, 4, 3, 2, 1};
+#endif // FOMENT_64BIT
+
+static uint_t ObjectSize(FObject obj, uint_t tag)
 {
     switch (tag)
     {
@@ -232,8 +238,8 @@ static unsigned int ObjectSize(FObject obj, unsigned int tag)
     {
         FAssert(StringP(obj));
 
-        int len = sizeof(FString) + sizeof(FCh) * StringLength(obj);
-        len += Align4[len % 4];
+        int_t len = sizeof(FString) + sizeof(FCh) * StringLength(obj);
+        len += Align[len % sizeof(FObject)];
         return(len);
     }
 
@@ -247,8 +253,8 @@ static unsigned int ObjectSize(FObject obj, unsigned int tag)
     {
         FAssert(BytevectorP(obj));
 
-        int len = sizeof(FBytevector) + sizeof(FByte) * (BytevectorLength(obj) - 1);
-        len += Align4[len % 4];
+        int_t len = sizeof(FBytevector) + sizeof(FByte) * (BytevectorLength(obj) - 1);
+        len += Align[len % sizeof(FObject)];
         return(len);
     }
 
@@ -313,16 +319,16 @@ static unsigned int ObjectSize(FObject obj, unsigned int tag)
 }
 
 // Allocate a new object in GenerationZero.
-FObject MakeObject(unsigned int sz, unsigned int tag)
+FObject MakeObject(uint_t sz, uint_t tag)
 {
-    unsigned int len = sz;
-    len += Align4[len % 4];
+    uint_t len = sz;
+    len += Align[len % sizeof(FObject)];
 
     FAssert(len >= sz);
-    FAssert(len % 4 == 0);
+    FAssert(len % sizeof(FObject) == 0);
     FAssert(len >= sizeof(FObject));
 
-    if (len < sizeof(Sizes) / sizeof(unsigned int))
+    if (len < sizeof(Sizes) / sizeof(uint_t))
         Sizes[len] += 1;
 
     if (len > MAXIMUM_YOUNG_LENGTH)
@@ -373,9 +379,9 @@ FObject MakeObject(unsigned int sz, unsigned int tag)
 }
 
 // Copy an object from GenerationZero to GenerationOne.
-static FObject CopyObject(unsigned int len, unsigned int tag)
+static FObject CopyObject(uint_t len, uint_t tag)
 {
-    FAssert(len % 4 == 0);
+    FAssert(len % sizeof(FObject) == 0);
     FAssert(len >= sizeof(FObject));
     FAssert(len <= MAXIMUM_OBJECT_LENGTH);
 
@@ -395,9 +401,9 @@ static FObject CopyObject(unsigned int len, unsigned int tag)
     return(obj);
 }
 
-static FObject MakeMature(unsigned int len)
+static FObject MakeMature(uint_t len)
 {
-    FAssert(len % 4 == 0);
+    FAssert(len % sizeof(FObject) == 0);
     FAssert(len <= MAXIMUM_OBJECT_LENGTH);
 
     FFreeObject ** pfo = &FreeMature;
@@ -421,7 +427,7 @@ static FObject MakeMature(unsigned int len)
         fo = fo->Next;
     }
 
-    unsigned int cnt = 4;
+    uint_t cnt = 4;
     if (len > SECTION_SIZE * cnt / 2)
     {
         cnt = len / SECTION_SIZE;
@@ -442,7 +448,7 @@ static FObject MakeMature(unsigned int len)
     return(((char *) FreeMature) + ByteLength(fo));
 }
 
-FObject MakeMatureObject(unsigned int len, char * who)
+FObject MakeMatureObject(uint_t len, char * who)
 {
     if (len > MAXIMUM_OBJECT_LENGTH)
         RaiseExceptionC(R.Restriction, who, "length greater than maximum object length",
@@ -458,7 +464,7 @@ FObject MakeMatureObject(unsigned int len, char * who)
     return(obj);
 }
 
-FObject MakePinnedObject(unsigned int len, char * who)
+FObject MakePinnedObject(uint_t len, char * who)
 {
     return(MakeMatureObject(len, who));
 }
@@ -468,7 +474,7 @@ static FObject MakeMaturePair()
     if (FreePairs == 0)
     {
         FPair * pr = (FPair *) AllocateSection(1, PairSectionTag);
-        for (unsigned int idx = 0; idx < PAIR_MB_OFFSET / sizeof(FPair); idx++)
+        for (uint_t idx = 0; idx < PAIR_MB_OFFSET / sizeof(FPair); idx++)
         {
             pr->First = FreePairs;
             FreePairs = pr;
@@ -568,7 +574,7 @@ static void RecordBackRef(FObject * ref, FObject val)
     }
 }
 
-void ModifyVector(FObject obj, unsigned int idx, FObject val)
+void ModifyVector(FObject obj, uint_t idx, FObject val)
 {
     FAssert(VectorP(obj));
     FAssert(idx < VectorLength(obj));
@@ -583,7 +589,7 @@ void ModifyVector(FObject obj, unsigned int idx, FObject val)
     }
 }
 
-void ModifyObject(FObject obj, int off, FObject val)
+void ModifyObject(FObject obj, uint_t off, FObject val)
 {
     FAssert(IndirectP(obj));
     FAssert(off % sizeof(FObject) == 0);
@@ -636,12 +642,12 @@ static void AddToScan(FObject obj)
     ScanSections->Used += 1;
 }
 
-static void ScanObject(FObject * pobj, int fcf, int mf)
+static void ScanObject(FObject * pobj, int_t fcf, int_t mf)
 {
     FAssert(ObjectP(*pobj));
 
     FObject raw = AsRaw(*pobj);
-    unsigned int sdx = SectionIndex(raw);
+    uint_t sdx = SectionIndex(raw);
 
     FAssert(sdx < UsedSections);
 
@@ -665,8 +671,8 @@ static void ScanObject(FObject * pobj, int fcf, int mf)
     {
         if (GCTagP(Forward(raw)))
         {
-            unsigned int tag = AsValue(Forward(raw));
-            unsigned int len = ObjectSize(raw, tag);
+            uint_t tag = AsValue(Forward(raw));
+            uint_t len = ObjectSize(raw, tag);
             FObject nobj = CopyObject(len, tag);
             memcpy(nobj, raw, len);
 
@@ -695,8 +701,8 @@ static void ScanObject(FObject * pobj, int fcf, int mf)
 
         if (GCTagP(Forward(raw)))
         {
-            unsigned int tag = AsValue(Forward(raw));
-            unsigned int len = ObjectSize(raw, tag);
+            uint_t tag = AsValue(Forward(raw));
+            uint_t len = ObjectSize(raw, tag);
 
             FObject nobj;
             if (tag == PairTag)
@@ -726,10 +732,10 @@ static void ScanObject(FObject * pobj, int fcf, int mf)
     }
 }
 
-static void CleanScan(int fcf);
-static void ScanChildren(FRaw raw, unsigned int tag, int fcf)
+static void CleanScan(int_t fcf);
+static void ScanChildren(FRaw raw, uint_t tag, int_t fcf)
 {
-    int mf = MatureP(raw) || MaturePairP(raw);
+    int_t mf = MatureP(raw) || MaturePairP(raw);
 
     switch (tag)
     {
@@ -753,7 +759,7 @@ static void ScanChildren(FRaw raw, unsigned int tag, int fcf)
         break;
 
     case VectorTag:
-        for (unsigned int vdx = 0; vdx < VectorLength(raw); vdx++)
+        for (uint_t vdx = 0; vdx < VectorLength(raw); vdx++)
         {
             if (ObjectP(AsVector(raw)->Vector[vdx]))
                 ScanObject(AsVector(raw)->Vector + vdx, fcf, mf);
@@ -787,13 +793,13 @@ static void ScanChildren(FRaw raw, unsigned int tag, int fcf)
         break;
 
     case RecordTypeTag:
-        for (unsigned int fdx = 0; fdx < RecordTypeNumFields(raw); fdx++)
+        for (uint_t fdx = 0; fdx < RecordTypeNumFields(raw); fdx++)
             if (ObjectP(AsRecordType(raw)->Fields[fdx]))
                 ScanObject(AsRecordType(raw)->Fields + fdx, fcf, mf);
         break;
 
     case RecordTag:
-        for (unsigned int fdx = 0; fdx < RecordNumFields(raw); fdx++)
+        for (uint_t fdx = 0; fdx < RecordNumFields(raw); fdx++)
             if (ObjectP(AsGenericRecord(raw)->Fields[fdx]))
                 ScanObject(AsGenericRecord(raw)->Fields + fdx, fcf, mf);
         break;
@@ -823,7 +829,7 @@ static void ScanChildren(FRaw raw, unsigned int tag, int fcf)
     }
 }
 
-static void CleanScan(int fcf)
+static void CleanScan(int_t fcf)
 {
     for (;;)
     {
@@ -868,7 +874,7 @@ static void CleanScan(int fcf)
                 FAssert(SectionTable[SectionIndex(pobj)] == OneSectionTag);
                 FAssert(GCTagP(*pobj));
 
-                unsigned int tag = AsValue(*pobj);
+                uint_t tag = AsValue(*pobj);
                 FObject obj = (FObject) (pobj + 1);
 
                 ScanChildren(obj, tag, fcf);
@@ -883,7 +889,7 @@ static void CleanScan(int fcf)
     }
 }
 
-static void CollectGuardians(int fcf)
+static void CollectGuardians(int_t fcf)
 {
     FObject mbhold = EmptyListObject;
     FObject mbfinal = EmptyListObject;
@@ -985,7 +991,7 @@ static void CollectGuardians(int fcf)
     }
 }
 
-static void CollectTrackers(FObject trkrs, int fcf, int mtf)
+static void CollectTrackers(FObject trkrs, int_t fcf, int_t mtf)
 {
     while (trkrs != EmptyListObject)
     {
@@ -1021,7 +1027,7 @@ static void CollectTrackers(FObject trkrs, int fcf, int mtf)
     }
 }
 
-static void Collect(int fcf)
+static void Collect(int_t fcf)
 {
 /*
     if (fcf)
@@ -1065,12 +1071,12 @@ printf("Partial Collection...");
 
         FreeBackRefSections();
 
-        unsigned int sdx = 0;
+        uint_t sdx = 0;
         while (sdx < UsedSections)
         {
             if (SectionTable[sdx] == MatureSectionTag)
             {
-                unsigned int cnt = 1;
+                uint_t cnt = 1;
                 while (sdx + cnt < UsedSections && SectionTable[sdx + cnt] == MatureSectionTag)
                     cnt += 1;
 
@@ -1089,7 +1095,7 @@ printf("Partial Collection...");
             {
                 unsigned char * ps = (unsigned char *) SectionPointer(sdx);
 
-                for (unsigned int idx = 0; idx < PAIR_MB_SIZE; idx++)
+                for (uint_t idx = 0; idx < PAIR_MB_SIZE; idx++)
                     (ps + PAIR_MB_OFFSET)[idx] = 0;
 
                 sdx += 1;
@@ -1100,7 +1106,7 @@ printf("Partial Collection...");
     }
 
     FObject * rv = (FObject *) &R;
-    for (int rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
+    for (int_t rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
         if (ObjectP(rv[rdx]))
             ScanObject(rv + rdx, fcf, 0);
 
@@ -1110,15 +1116,15 @@ printf("Partial Collection...");
         FAssert(ObjectP(ts->Thread));
         ScanObject(&(ts->Thread), fcf, 0);
 
-        for (int rdx = 0; rdx < ts->UsedRoots; rdx++)
+        for (int_t rdx = 0; rdx < ts->UsedRoots; rdx++)
             if (ObjectP(*ts->Roots[rdx]))
                 ScanObject(ts->Roots[rdx], fcf, 0);
 
-        for (int adx = 0; adx < ts->AStackPtr; adx++)
+        for (int_t adx = 0; adx < ts->AStackPtr; adx++)
             if (ObjectP(ts->AStack[adx]))
                 ScanObject(ts->AStack + adx, fcf, 0);
 
-        for (int cdx = 0; cdx < ts->CStackPtr; cdx++)
+        for (int_t cdx = 0; cdx < ts->CStackPtr; cdx++)
             if (ObjectP(ts->CStack[- cdx]))
                 ScanObject(ts->CStack - cdx, fcf, 0);
 
@@ -1131,7 +1137,7 @@ printf("Partial Collection...");
         if (ObjectP(ts->Parameters))
             ScanObject(&ts->Parameters, fcf, 0);
 
-        for (int idx = 0; idx < INDEX_PARAMETERS; idx++)
+        for (int_t idx = 0; idx < INDEX_PARAMETERS; idx++)
             if (ObjectP(ts->IndexParameters[idx]))
                 ScanObject(ts->IndexParameters + idx, fcf, 0);
 
@@ -1143,7 +1149,7 @@ printf("Partial Collection...");
         FBackRefSection * brs = BackRefSections;
         while (brs != 0)
         {
-            for (int idx = 0; idx < brs->Used; idx++)
+            for (int_t idx = 0; idx < brs->Used; idx++)
             {
                 if (*brs->BackRef[idx].Ref == brs->BackRef[idx].Value)
                 {
@@ -1197,12 +1203,12 @@ printf("Partial Collection...");
         FreePairs = 0;
         FreeMature = 0;
 
-        unsigned int sdx = 0;
+        uint_t sdx = 0;
         while (sdx < UsedSections)
         {
             if (SectionTable[sdx] == MatureSectionTag)
             {
-                unsigned int cnt = 1;
+                uint_t cnt = 1;
                 while (sdx + cnt < UsedSections && SectionTable[sdx + cnt] == MatureSectionTag)
                     cnt += 1;
 
@@ -1238,11 +1244,11 @@ printf("Partial Collection...");
             {
                 unsigned char * ps = (unsigned char *) SectionPointer(sdx);
 
-                for (unsigned int idx = 0; idx < PAIR_MB_OFFSET / (sizeof(FPair) * 8); idx++)
+                for (uint_t idx = 0; idx < PAIR_MB_OFFSET / (sizeof(FPair) * 8); idx++)
                     if ((ps + PAIR_MB_OFFSET)[idx] != 0xFF)
                     {
                         FPair * pr = (FPair *) (ps + sizeof(FPair) * idx * 8);
-                        for (unsigned int bdx = 0; bdx < 8; bdx++)
+                        for (uint_t bdx = 0; bdx < 8; bdx++)
                         {
                             if (PairMarkP(pr) == 0)
                             {
@@ -1387,9 +1393,9 @@ void InstallTracker(FObject obj, FObject ret, FObject tconc)
 
 void EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms)
 {
-#ifdef FOMENT_WIN32
+#ifdef FOMENT_WINDOWS
     FAssert(TlsGetValue(TlsIndex) == 0);
-#endif // FOMENT_WIN32
+#endif // FOMENT_WINDOWS
 
     SetThreadState(ts);
 
@@ -1428,11 +1434,11 @@ void EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms)
     {
         FAssert(VectorLength(idxprms) == INDEX_PARAMETERS);
 
-        for (int idx = 0; idx < INDEX_PARAMETERS; idx++)
+        for (int_t idx = 0; idx < INDEX_PARAMETERS; idx++)
             ts->IndexParameters[idx] = AsVector(idxprms)->Vector[idx];
     }
     else
-        for (int idx = 0; idx < INDEX_PARAMETERS; idx++)
+        for (int_t idx = 0; idx < INDEX_PARAMETERS; idx++)
             ts->IndexParameters[idx] = NoValueObject;
 }
 
@@ -1443,13 +1449,13 @@ void LeaveThread(FThreadState * ts)
 
     FAssert(ThreadP(ts->Thread));
 
-#ifdef FOMENT_WIN32
+#ifdef FOMENT_WINDOWS
     if (AsThread(ts->Thread)->Handle != 0)
     {
         CloseHandle(AsThread(ts->Thread)->Handle);
         AsThread(ts->Thread)->Handle = 0;
     }
-#endif // FOMENT_WIN32
+#endif // FOMENT_WINDOWS
 
     EnterExclusive(&GCExclusive);
     FAssert(TotalThreads > 0);
@@ -1482,8 +1488,8 @@ void LeaveThread(FThreadState * ts)
     FAssert(ts->AStack != 0);
     FAssert((ts->StackSize * sizeof(FObject)) % SECTION_SIZE == 0);
 
-    int cnt = (ts->StackSize * sizeof(FObject)) / SECTION_SIZE;
-    for (int sdx = 0; sdx < cnt; sdx++)
+    int_t cnt = (ts->StackSize * sizeof(FObject)) / SECTION_SIZE;
+    for (int_t sdx = 0; sdx < cnt; sdx++)
         FreeSection(ts->AStack + sdx * (SECTION_SIZE / sizeof(FObject)));
 
     ts->AStack = 0;
@@ -1493,13 +1499,15 @@ void LeaveThread(FThreadState * ts)
 
 void SetupCore(FThreadState * ts)
 {
+    FAssert(sizeof(FObject) == sizeof(int_t));
+    FAssert(sizeof(FObject) == sizeof(uint_t));
     FAssert(sizeof(FObject) == sizeof(FImmediate));
     FAssert(sizeof(FObject) == sizeof(char *));
     FAssert(sizeof(FFixnum) <= sizeof(FImmediate));
     FAssert(sizeof(FCh) <= sizeof(FImmediate));
 
 #ifdef FOMENT_DEBUG
-    unsigned int len = MakeLength(MAXIMUM_OBJECT_LENGTH, GCFreeTag);
+    uint_t len = MakeLength(MAXIMUM_OBJECT_LENGTH, GCFreeTag);
     FAssert(ByteLength(&len) == MAXIMUM_OBJECT_LENGTH);
 #endif // FOMENT_DEBUG
 
@@ -1507,7 +1515,7 @@ void SetupCore(FThreadState * ts)
     FAssert(PAIR_MB_OFFSET / (sizeof(FPair) * 8) <= PAIR_MB_SIZE);
     FAssert(MAXIMUM_YOUNG_LENGTH <= SECTION_SIZE / 2);
 
-#ifdef FOMENT_WIN32
+#ifdef FOMENT_WINDOWS
     SectionTable = (unsigned char *) VirtualAlloc(0, SECTION_SIZE * SECTION_SIZE, MEM_RESERVE,
             PAGE_READWRITE);
     FAssert(SectionTable != 0);
@@ -1516,9 +1524,9 @@ void SetupCore(FThreadState * ts)
 
     TlsIndex = TlsAlloc();
     FAssert(TlsIndex != TLS_OUT_OF_INDEXES);
-#endif // FOMENT_WIN32
+#endif // FOMENT_WINDOWS
 
-    for (unsigned int sdx = 0; sdx < SECTION_SIZE; sdx++)
+    for (uint_t sdx = 0; sdx < SECTION_SIZE; sdx++)
         SectionTable[sdx] = HoleSectionTag;
 
     FAssert(SectionIndex(SectionTable) == 0);
@@ -1547,18 +1555,18 @@ void SetupCore(FThreadState * ts)
     GCPending = 0;
     FullGCRequired = 0;
 
-#ifdef FOMENT_WIN32
+#ifdef FOMENT_WINDOWS
     HANDLE h = OpenThread(STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x3FF, 0,
             GetCurrentThreadId());
-#endif // FOMENT_WIN32
+#endif // FOMENT_WINDOWS
     EnterThread(ts, NoValueObject, NoValueObject, NoValueObject);
     ts->Thread = MakeThread(h, NoValueObject, NoValueObject, NoValueObject);
 
-    for (unsigned int idx = 0; idx < sizeof(Sizes) / sizeof(unsigned int); idx++)
+    for (uint_t idx = 0; idx < sizeof(Sizes) / sizeof(uint_t); idx++)
         Sizes[idx] = 0;
 }
 
-Define("install-guardian", InstallGuardianPrimitive)(int argc, FObject argv[])
+Define("install-guardian", InstallGuardianPrimitive)(int_t argc, FObject argv[])
 {
     // (install-guardian <obj> <tconc>)
 
@@ -1571,7 +1579,7 @@ Define("install-guardian", InstallGuardianPrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("install-tracker", InstallTrackerPrimitive)(int argc, FObject argv[])
+Define("install-tracker", InstallTrackerPrimitive)(int_t argc, FObject argv[])
 {
     // (install-tracker <obj> <ret> <tconc>)
 
@@ -1584,7 +1592,7 @@ Define("install-tracker", InstallTrackerPrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("collect", CollectPrimitive)(int argc, FObject argv[])
+Define("collect", CollectPrimitive)(int_t argc, FObject argv[])
 {
     // (collect [<full>])
 
@@ -1600,7 +1608,7 @@ Define("collect", CollectPrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("partial-per-full", PartialPerFullPrimitive)(int argc, FObject argv[])
+Define("partial-per-full", PartialPerFullPrimitive)(int_t argc, FObject argv[])
 {
     // (partial-per-full [<val>])
 
@@ -1616,7 +1624,7 @@ Define("partial-per-full", PartialPerFullPrimitive)(int argc, FObject argv[])
     return(MakeFixnum(PartialPerFull));
 }
 
-Define("trigger-bytes", TriggerBytesPrimitive)(int argc, FObject argv[])
+Define("trigger-bytes", TriggerBytesPrimitive)(int_t argc, FObject argv[])
 {
     // (trigger-bytes [<val>])
 
@@ -1632,7 +1640,7 @@ Define("trigger-bytes", TriggerBytesPrimitive)(int argc, FObject argv[])
     return(MakeFixnum(TriggerBytes));
 }
 
-Define("trigger-objects", TriggerObjectsPrimitive)(int argc, FObject argv[])
+Define("trigger-objects", TriggerObjectsPrimitive)(int_t argc, FObject argv[])
 {
     // (trigger-objects [<val>])
 
@@ -1648,15 +1656,15 @@ Define("trigger-objects", TriggerObjectsPrimitive)(int argc, FObject argv[])
     return(MakeFixnum(TriggerObjects));
 }
 
-Define("dump-gc", DumpGCPrimitive)(int argc, FObject argv[])
+Define("dump-gc", DumpGCPrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("dump-gc", argc);
 
-    for (unsigned int idx = 0; idx < sizeof(Sizes) / sizeof(unsigned int); idx++)
+    for (uint_t idx = 0; idx < sizeof(Sizes) / sizeof(uint_t); idx++)
         if (Sizes[idx] > 0)
             printf("%d: %d (%d)\n", idx, Sizes[idx], idx * Sizes[idx]);
 
-    for (unsigned int sdx = 0; sdx < UsedSections; sdx++)
+    for (uint_t sdx = 0; sdx < UsedSections; sdx++)
     {
         switch (SectionTable[sdx])
         {
@@ -1699,6 +1707,6 @@ static FPrimitive * Primitives[] =
 
 void SetupGC()
 {
-    for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (int_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

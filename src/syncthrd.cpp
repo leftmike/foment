@@ -24,14 +24,14 @@ FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms, FObject idxprms
     return(thrd);
 }
 
-void WriteThread(FObject port, FObject obj, int df)
+void WriteThread(FObject port, FObject obj, int_t df)
 {
     FAssert(ThreadP(obj));
 
     WriteStringC(port, "#<thread: ");
 
     FCh s[16];
-    int sl = NumberAsString((FFixnum) AsThread(obj)->Handle, s, 16);
+    int_t sl = NumberAsString((FFixnum) AsThread(obj)->Handle, s, 16);
     WriteString(port, s, sl);
     WriteCh(port, '>');
 }
@@ -49,14 +49,14 @@ static FObject MakeExclusive()
     return(e);
 }
 
-void WriteExclusive(FObject port, FObject obj, int df)
+void WriteExclusive(FObject port, FObject obj, int_t df)
 {
     FAssert(ExclusiveP(obj));
 
     WriteStringC(port, "#<exclusive: ");
 
     FCh s[16];
-    int sl = NumberAsString((FFixnum) &AsExclusive(obj)->Exclusive, s, 16);
+    int_t sl = NumberAsString((FFixnum) &AsExclusive(obj)->Exclusive, s, 16);
     WriteString(port, s, sl);
     WriteCh(port, '>');
 }
@@ -72,26 +72,26 @@ static FObject MakeCondition()
     return(c);
 }
 
-void WriteCondition(FObject port, FObject obj, int df)
+void WriteCondition(FObject port, FObject obj, int_t df)
 {
     FAssert(ConditionP(obj));
 
     WriteStringC(port, "#<condition: ");
 
     FCh s[16];
-    int sl = NumberAsString((FFixnum) &AsCondition(obj)->Condition, s, 16);
+    int_t sl = NumberAsString((FFixnum) &AsCondition(obj)->Condition, s, 16);
     WriteString(port, s, sl);
     WriteCh(port, '>');
 }
 
-Define("current-thread", CurrentThreadPrimitive)(int argc, FObject argv[])
+Define("current-thread", CurrentThreadPrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("current-thread", argc);
 
     return(GetThreadState()->Thread);
 }
 
-Define("thread?", ThreadPPrimitive)(int argc, FObject argv[])
+Define("thread?", ThreadPPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("thread?", argc);
 
@@ -102,7 +102,7 @@ static FObject CurrentIndexParameters()
 {
     FObject v = MakeVector(INDEX_PARAMETERS, 0, NoValueObject);
 
-    for (int idx = 0; idx < INDEX_PARAMETERS; idx++)
+    for (int_t idx = 0; idx < INDEX_PARAMETERS; idx++)
     {
         FAssert(PairP(GetThreadState()->IndexParameters[idx]));
 
@@ -113,7 +113,7 @@ static FObject CurrentIndexParameters()
     return(v);
 }
 
-#ifdef FOMENT_WIN32
+#ifdef FOMENT_WINDOWS
 static DWORD WINAPI FomentThread(FObject obj)
 {
     FThreadState ts;
@@ -145,16 +145,16 @@ static DWORD WINAPI FomentThread(FObject obj)
     LeaveThread(&ts);
     return(0);
 }
-#endif // FOMENT_WIN32
+#endif // FOMENT_WINDOWS
 
-Define("run-thread", RunThreadPrimitive)(int argc, FObject argv[])
+Define("run-thread", RunThreadPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("run-thread", argc);
     ProcedureArgCheck("run-thread", argv[0]);
 
     FObject thrd = MakeThread(0, argv[0], CurrentParameters(), CurrentIndexParameters());
 
-#ifdef FOMENT_WIN32
+#ifdef FOMENT_WINDOWS
     HANDLE h = CreateThread(0, 0, FomentThread, thrd, CREATE_SUSPENDED, 0);
     if (h == 0)
     {
@@ -168,37 +168,37 @@ Define("run-thread", RunThreadPrimitive)(int argc, FObject argv[])
 
     AsThread(thrd)->Handle = h;
     ResumeThread(h);
-#endif // FOMENT_WIN32
+#endif // FOMENT_WINDOWS
 
     return(thrd);
 }
 
-Define("sleep", SleepPrimitive)(int argc, FObject argv[])
+Define("sleep", SleepPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("sleep", argc);
     NonNegativeArgCheck("sleep", argv[0]);
 
     EnterWait();
-    Sleep(AsFixnum(argv[0]));
+    Sleep((DWORD) AsFixnum(argv[0]));
     LeaveWait();
     return(NoValueObject);
 }
 
-Define("exclusive?", ExclusivePPrimitive)(int argc, FObject argv[])
+Define("exclusive?", ExclusivePPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("exclusive?", argc);
 
     return(ExclusiveP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("make-exclusive", MakeExclusivePrimitive)(int argc, FObject argv[])
+Define("make-exclusive", MakeExclusivePrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("make-exclusive", argc);
 
     return(MakeExclusive());
 }
 
-Define("enter-exclusive", EnterExclusivePrimitive)(int argc, FObject argv[])
+Define("enter-exclusive", EnterExclusivePrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("enter-exclusive", argc);
     ExclusiveArgCheck("enter-exclusive", argv[0]);
@@ -209,7 +209,7 @@ Define("enter-exclusive", EnterExclusivePrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("leave-exclusive", LeaveExclusivePrimitive)(int argc, FObject argv[])
+Define("leave-exclusive", LeaveExclusivePrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("leave-exclusive", argc);
     ExclusiveArgCheck("leave-exclusive", argv[0]);
@@ -218,7 +218,7 @@ Define("leave-exclusive", LeaveExclusivePrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("try-exclusive", TryExclusivePrimitive)(int argc, FObject argv[])
+Define("try-exclusive", TryExclusivePrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("try-exclusive", argc);
     ExclusiveArgCheck("try-exclusive", argv[0]);
@@ -226,21 +226,21 @@ Define("try-exclusive", TryExclusivePrimitive)(int argc, FObject argv[])
     return(TryExclusive(&AsExclusive(argv[0])->Exclusive) ? TrueObject : FalseObject);
 }
 
-Define("condition?", ConditionPPrimitive)(int argc, FObject argv[])
+Define("condition?", ConditionPPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("condition?", argc);
 
     return(ConditionP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("make-condition", MakeConditionPrimitive)(int argc, FObject argv[])
+Define("make-condition", MakeConditionPrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("make-condition", argc);
 
     return(MakeCondition());
 }
 
-Define("condition-wait", ConditionWaitPrimitive)(int argc, FObject argv[])
+Define("condition-wait", ConditionWaitPrimitive)(int_t argc, FObject argv[])
 {
     TwoArgsCheck("condition-wait", argc);
     ConditionArgCheck("condition-wait", argv[0]);
@@ -252,7 +252,7 @@ Define("condition-wait", ConditionWaitPrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("condition-wake", ConditionWakePrimitive)(int argc, FObject argv[])
+Define("condition-wake", ConditionWakePrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("condition-wake", argc);
     ConditionArgCheck("condition-wake", argv[0]);
@@ -261,7 +261,7 @@ Define("condition-wake", ConditionWakePrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("condition-wake-all", ConditionWakeAllPrimitive)(int argc, FObject argv[])
+Define("condition-wake-all", ConditionWakeAllPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("condition-wake-all", argc);
     ConditionArgCheck("condition-wake-all", argv[0]);
@@ -292,7 +292,7 @@ void SetupThreads()
 {
     R.ExclusivesTConc = MakeTConc();
 
-    for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (int_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }
 

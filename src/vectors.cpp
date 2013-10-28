@@ -11,7 +11,7 @@ Foment
 
 // ---- Vectors ----
 
-static FVector * MakeVector(unsigned int vl, char * who, int * mf)
+static FVector * MakeVector(uint_t vl, char * who, int_t * mf)
 {
     FVector * nv = (FVector *) MakeObject(sizeof(FVector) + (vl - 1) * sizeof(FObject), VectorTag);
     if (nv == 0)
@@ -26,12 +26,12 @@ static FVector * MakeVector(unsigned int vl, char * who, int * mf)
     return(nv);
 }
 
-FObject MakeVector(unsigned int vl, FObject * v, FObject obj)
+FObject MakeVector(uint_t vl, FObject * v, FObject obj)
 {
-    int mf = 0;
+    int_t mf = 0;
     FVector * nv = MakeVector(vl, "make-vector", &mf);
 
-    unsigned int idx;
+    uint_t idx;
     if (v == 0)
     {
         if (mf && ObjectP(obj))
@@ -57,18 +57,18 @@ FObject MakeVector(unsigned int vl, FObject * v, FObject obj)
 
 FObject ListToVector(FObject obj)
 {
-    int mf = 0;
-    unsigned int vl = ListLength("list->vector", obj);
+    int_t mf = 0;
+    uint_t vl = ListLength("list->vector", obj);
     FVector * nv = MakeVector(vl, "list->vector", &mf);
 
     if (mf)
-        for (unsigned int idx = 0; idx < vl; idx++)
+        for (uint_t idx = 0; idx < vl; idx++)
         {
             ModifyVector(nv, idx, First(obj));
             obj = Rest(obj);
         }
     else
-        for (unsigned int idx = 0; idx < vl; idx++)
+        for (uint_t idx = 0; idx < vl; idx++)
         {
             nv->Vector[idx] = First(obj);
             obj = Rest(obj);
@@ -83,20 +83,20 @@ FObject VectorToList(FObject vec)
     FAssert(VectorP(vec));
 
     FObject lst = EmptyListObject;
-    for (int idx = (int) VectorLength(vec) - 1; idx >= 0; idx--)
+    for (int_t idx = (int_t) VectorLength(vec) - 1; idx >= 0; idx--)
         lst = MakePair(AsVector(vec)->Vector[idx], lst);
 
     return(lst);
 }
 
-Define("vector?", VectorPPrimitive)(int argc, FObject argv[])
+Define("vector?", VectorPPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("vector?", argc);
 
     return(VectorP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("make-vector", MakeVectorPrimitive)(int argc, FObject argv[])
+Define("make-vector", MakeVectorPrimitive)(int_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("make-vector", argc);
     NonNegativeArgCheck("make-vector", argv[0]);
@@ -104,26 +104,26 @@ Define("make-vector", MakeVectorPrimitive)(int argc, FObject argv[])
     return(MakeVector(AsFixnum(argv[0]), 0, argc == 2 ? argv[1] : NoValueObject));
 }
 
-Define("vector", VectorPrimitive)(int argc, FObject argv[])
+Define("vector", VectorPrimitive)(int_t argc, FObject argv[])
 {
-    int mf = 0;
+    int_t mf = 0;
     FObject v = MakeVector(argc, "vector", &mf);
 
     if (mf)
     {
-        for (int adx = 0; adx < argc; adx++)
+        for (int_t adx = 0; adx < argc; adx++)
             ModifyVector(v, adx, argv[adx]);
     }
     else
     {
-        for (int adx = 0; adx < argc; adx++)
+        for (int_t adx = 0; adx < argc; adx++)
             AsVector(v)->Vector[adx] = argv[adx];
     }
 
     return(v);
 }
 
-Define("vector-length", VectorLengthPrimitive)(int argc, FObject argv[])
+Define("vector-length", VectorLengthPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("vector-length", argc);
     VectorArgCheck("vector-length", argv[0]);
@@ -131,7 +131,7 @@ Define("vector-length", VectorLengthPrimitive)(int argc, FObject argv[])
     return(MakeFixnum(VectorLength(argv[0])));
 }
 
-Define("vector-ref", VectorRefPrimitive)(int argc, FObject argv[])
+Define("vector-ref", VectorRefPrimitive)(int_t argc, FObject argv[])
 {
     TwoArgsCheck("vector-ref", argc);
     VectorArgCheck("vector-ref", argv[0]);
@@ -140,7 +140,7 @@ Define("vector-ref", VectorRefPrimitive)(int argc, FObject argv[])
     return(AsVector(argv[0])->Vector[AsFixnum(argv[1])]);
 }
 
-Define("vector-set!", VectorSetPrimitive)(int argc, FObject argv[])
+Define("vector-set!", VectorSetPrimitive)(int_t argc, FObject argv[])
 {
     ThreeArgsCheck("vector-set!", argc);
     VectorArgCheck("vector-set!", argv[0]);
@@ -151,7 +151,7 @@ Define("vector-set!", VectorSetPrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("vector->list", VectorToListPrimitive)(int argc, FObject argv[])
+Define("vector->list", VectorToListPrimitive)(int_t argc, FObject argv[])
 {
     FFixnum strt;
     FFixnum end;
@@ -190,14 +190,14 @@ Define("vector->list", VectorToListPrimitive)(int argc, FObject argv[])
     return(lst);
 }
 
-Define("list->vector", ListToVectorPrimitive)(int argc, FObject argv[])
+Define("list->vector", ListToVectorPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("list->vector", argc);
 
     return(ListToVector(argv[0]));
 }
 
-Define("vector->string", VectorToStringPrimitive)(int argc, FObject argv[])
+Define("vector->string", VectorToStringPrimitive)(int_t argc, FObject argv[])
 {
     FFixnum strt;
     FFixnum end;
@@ -240,7 +240,7 @@ Define("vector->string", VectorToStringPrimitive)(int argc, FObject argv[])
     return(s);
 }
 
-Define("string->vector", StringToVectorPrimitive)(int argc, FObject argv[])
+Define("string->vector", StringToVectorPrimitive)(int_t argc, FObject argv[])
 {
     FFixnum strt;
     FFixnum end;
@@ -271,7 +271,7 @@ Define("string->vector", StringToVectorPrimitive)(int argc, FObject argv[])
 
     FAssert(end >= strt);
 
-    int mf = 0;
+    int_t mf = 0;
     FObject v = MakeVector(end - strt, "string->vector", &mf);
 
     for (FFixnum idx = 0; idx < end - strt; idx ++)
@@ -280,7 +280,7 @@ Define("string->vector", StringToVectorPrimitive)(int argc, FObject argv[])
     return(v);
 }
 
-Define("vector-copy", VectorCopyPrimitive)(int argc, FObject argv[])
+Define("vector-copy", VectorCopyPrimitive)(int_t argc, FObject argv[])
 {
     FFixnum strt;
     FFixnum end;
@@ -314,7 +314,7 @@ Define("vector-copy", VectorCopyPrimitive)(int argc, FObject argv[])
     return(MakeVector(end - strt, AsVector(argv[0])->Vector + strt, NoValueObject));
 }
 
-Define("vector-copy!", VectorCopyModifyPrimitive)(int argc, FObject argv[])
+Define("vector-copy!", VectorCopyModifyPrimitive)(int_t argc, FObject argv[])
 {
     FFixnum strt;
     FFixnum end;
@@ -366,24 +366,24 @@ Define("vector-copy!", VectorCopyModifyPrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("vector-append", VectorAppendPrimitive)(int argc, FObject argv[])
+Define("vector-append", VectorAppendPrimitive)(int_t argc, FObject argv[])
 {
-    int len = 0;
+    int_t len = 0;
 
-    for (int adx = 0; adx < argc; adx++)
+    for (int_t adx = 0; adx < argc; adx++)
     {
         VectorArgCheck("vector-append", argv[adx]);
 
         len += VectorLength(argv[adx]);
     }
 
-    int mf = 0;
+    int_t mf = 0;
     FObject v = MakeVector(len, "vector-append", &mf);
-    int idx = 0;
+    int_t idx = 0;
 
-    for (int adx = 0; adx < argc; adx++)
+    for (int_t adx = 0; adx < argc; adx++)
     {
-        for (int vdx = 0; vdx < (int) VectorLength(argv[adx]); vdx++)
+        for (int_t vdx = 0; vdx < (int_t) VectorLength(argv[adx]); vdx++)
             AsVector(v)->Vector[idx + vdx] = AsVector(argv[adx])->Vector[vdx];
 
         idx += VectorLength(argv[adx]);
@@ -392,7 +392,7 @@ Define("vector-append", VectorAppendPrimitive)(int argc, FObject argv[])
     return(v);
 }
 
-Define("vector-fill!", VectorFillPrimitive)(int argc, FObject argv[])
+Define("vector-fill!", VectorFillPrimitive)(int_t argc, FObject argv[])
 {
     FFixnum strt;
     FFixnum end;
@@ -431,7 +431,7 @@ Define("vector-fill!", VectorFillPrimitive)(int argc, FObject argv[])
 
 // ---- Bytevectors ----
 
-static FBytevector * MakeBytevector(unsigned int vl, char * who)
+static FBytevector * MakeBytevector(uint_t vl, char * who)
 {
     FBytevector * nv = (FBytevector *) MakeObject(sizeof(FBytevector) + (vl - 1) * sizeof(FByte),
             BytevectorTag);
@@ -447,17 +447,17 @@ static FBytevector * MakeBytevector(unsigned int vl, char * who)
     return(nv);
 }
 
-FObject MakeBytevector(unsigned int vl)
+FObject MakeBytevector(uint_t vl)
 {
     return(MakeBytevector(vl, "make-bytevector"));
 }
 
 FObject U8ListToBytevector(FObject obj)
 {
-    unsigned int vl = ListLength("list->bytevector", obj);
+    uint_t vl = ListLength("list->bytevector", obj);
     FBytevector * nv = MakeBytevector(vl, "list->bytevector");
 
-    for (unsigned int idx = 0; idx < vl; idx++)
+    for (uint_t idx = 0; idx < vl; idx++)
     {
         if (FixnumP(First(obj)) == 0 || AsFixnum(First(obj)) > 0xFF
                 || AsFixnum(First(obj)) < 0)
@@ -470,14 +470,14 @@ FObject U8ListToBytevector(FObject obj)
     return(nv);
 }
 
-unsigned int BytevectorHash(FObject obj)
+uint_t BytevectorHash(FObject obj)
 {
     FAssert(BytevectorP(obj));
 
-    int vl = BytevectorLength(obj);
+    int_t vl = BytevectorLength(obj);
     FByte * v = AsBytevector(obj)->Vector;
     const char * p;
-    unsigned int h = 0;
+    uint_t h = 0;
 
     vl *= sizeof(FByte);
     for (p = (const char *) v; vl > 0; p++, vl--)
@@ -486,14 +486,14 @@ unsigned int BytevectorHash(FObject obj)
     return(h);
 }
 
-Define("bytevector?", BytevectorPPrimitive)(int argc, FObject argv[])
+Define("bytevector?", BytevectorPPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("bytevector?", argc);
 
     return(BytevectorP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("make-bytevector", MakeBytevectorPrimitive)(int argc, FObject argv[])
+Define("make-bytevector", MakeBytevectorPrimitive)(int_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("make-bytevector", argc);
     NonNegativeArgCheck("make-bytevector", argv[0]);
@@ -504,17 +504,17 @@ Define("make-bytevector", MakeBytevectorPrimitive)(int argc, FObject argv[])
     FObject bv = MakeBytevector(AsFixnum(argv[0]));
 
     if (argc == 2)
-        for (int bdx = 0; bdx < AsFixnum(argv[0]); bdx++)
+        for (int_t bdx = 0; bdx < AsFixnum(argv[0]); bdx++)
             AsBytevector(bv)->Vector[bdx] = (FByte) AsFixnum(argv[1]);
 
     return(bv);
 }
 
-Define("bytevector", BytevectorPrimitive)(int argc, FObject argv[])
+Define("bytevector", BytevectorPrimitive)(int_t argc, FObject argv[])
 {
     FObject bv = MakeBytevector(argc);
 
-    for (int adx = 0; adx < argc; adx++)
+    for (int_t adx = 0; adx < argc; adx++)
     {
         ByteArgCheck("bytevector", argv[adx]);
 
@@ -524,7 +524,7 @@ Define("bytevector", BytevectorPrimitive)(int argc, FObject argv[])
     return(bv);
 }
 
-Define("bytevector-length", BytevectorLengthPrimitive)(int argc, FObject argv[])
+Define("bytevector-length", BytevectorLengthPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("bytevector-length", argc);
     BytevectorArgCheck("bytevector-length",argv[0]);
@@ -532,7 +532,7 @@ Define("bytevector-length", BytevectorLengthPrimitive)(int argc, FObject argv[])
     return(MakeFixnum(BytevectorLength(argv[0])));
 }
 
-Define("bytevector-u8-ref", BytevectorU8RefPrimitive)(int argc, FObject argv[])
+Define("bytevector-u8-ref", BytevectorU8RefPrimitive)(int_t argc, FObject argv[])
 {
     TwoArgsCheck("bytevector-u8-ref", argc);
     BytevectorArgCheck("bytevector-u8-ref", argv[0]);
@@ -541,7 +541,7 @@ Define("bytevector-u8-ref", BytevectorU8RefPrimitive)(int argc, FObject argv[])
     return(MakeFixnum(AsBytevector(argv[0])->Vector[AsFixnum(argv[1])]));
 }
 
-Define("bytevector-u8-set!", BytevectorU8SetPrimitive)(int argc, FObject argv[])
+Define("bytevector-u8-set!", BytevectorU8SetPrimitive)(int_t argc, FObject argv[])
 {
     ThreeArgsCheck("bytevector-u8-set!", argc);
     BytevectorArgCheck("bytevector-u8-set!", argv[0]);
@@ -552,7 +552,7 @@ Define("bytevector-u8-set!", BytevectorU8SetPrimitive)(int argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("bytevector-copy", BytevectorCopyPrimitive)(int argc, FObject argv[])
+Define("bytevector-copy", BytevectorCopyPrimitive)(int_t argc, FObject argv[])
 {
     FFixnum strt;
     FFixnum end;
@@ -589,7 +589,7 @@ Define("bytevector-copy", BytevectorCopyPrimitive)(int argc, FObject argv[])
     return(bv);
 }
 
-Define("bytevector-copy!", BytevectorCopyModifyPrimitive)(int argc, FObject argv[])
+Define("bytevector-copy!", BytevectorCopyModifyPrimitive)(int_t argc, FObject argv[])
 {
     FFixnum strt;
     FFixnum end;
@@ -631,11 +631,11 @@ Define("bytevector-copy!", BytevectorCopyModifyPrimitive)(int argc, FObject argv
     return(NoValueObject);
 }
 
-Define("bytevector-append", BytevectorAppendPrimitive)(int argc, FObject argv[])
+Define("bytevector-append", BytevectorAppendPrimitive)(int_t argc, FObject argv[])
 {
-    int len = 0;
+    int_t len = 0;
 
-    for (int adx = 0; adx < argc; adx++)
+    for (int_t adx = 0; adx < argc; adx++)
     {
         BytevectorArgCheck("bytevector-append", argv[adx]);
 
@@ -643,9 +643,9 @@ Define("bytevector-append", BytevectorAppendPrimitive)(int argc, FObject argv[])
     }
 
     FObject bv = MakeBytevector(len);
-    int idx = 0;
+    int_t idx = 0;
 
-    for (int adx = 0; adx < argc; adx++)
+    for (int_t adx = 0; adx < argc; adx++)
     {
         memcpy(AsBytevector(bv)->Vector + idx, AsBytevector(argv[adx])->Vector,
                 BytevectorLength(argv[adx]));
@@ -655,21 +655,21 @@ Define("bytevector-append", BytevectorAppendPrimitive)(int argc, FObject argv[])
     return(bv);
 }
 
-static int ChLengthOfUtf8(FByte * bv, int bvl)
+static int_t ChLengthOfUtf8(FByte * bv, int_t bvl)
 {
-    int sl = 0;
+    int_t sl = 0;
 
-    for (int bdx = 0; bdx < bvl; sl++)
+    for (int_t bdx = 0; bdx < bvl; sl++)
         bdx += Utf8TrailingBytes[bv[bdx]] + 1;
 
     return(sl);
 }
 
-static int Utf8LengthOfCh(FCh * s, int sl)
+static int_t Utf8LengthOfCh(FCh * s, int_t sl)
 {
-    int bvl = 0;
+    int_t bvl = 0;
 
-    for (int sdx = 0; sdx < sl; sdx++)
+    for (int_t sdx = 0; sdx < sl; sdx++)
     {
         if (s[sdx] < 0x80UL)
             bvl += 1;
@@ -686,10 +686,10 @@ static int Utf8LengthOfCh(FCh * s, int sl)
     return(bvl);
 }
 
-Define("utf8->string", Utf8ToStringPrimitive)(int argc, FObject argv[])
+Define("utf8->string", Utf8ToStringPrimitive)(int_t argc, FObject argv[])
 {
-    int strt;
-    int end;
+    int_t strt;
+    int_t end;
 
     OneToThreeArgsCheck("utf8->string", argc);
     BytevectorArgCheck("utf8->string", argv[0]);
@@ -717,7 +717,7 @@ Define("utf8->string", Utf8ToStringPrimitive)(int argc, FObject argv[])
 
     FAssert(end >= strt);
 
-    int sl = ChLengthOfUtf8(AsBytevector(argv[0])->Vector + strt, end - strt);
+    int_t sl = ChLengthOfUtf8(AsBytevector(argv[0])->Vector + strt, end - strt);
     FObject s = MakeString(0, sl);
 
     const UTF8 * utf8 = AsBytevector(argv[0])->Vector + strt;
@@ -729,10 +729,10 @@ Define("utf8->string", Utf8ToStringPrimitive)(int argc, FObject argv[])
     return(s);
 }
 
-Define("string->utf8", StringToUtf8Primitive)(int argc, FObject argv[])
+Define("string->utf8", StringToUtf8Primitive)(int_t argc, FObject argv[])
 {
-    int strt;
-    int end;
+    int_t strt;
+    int_t end;
 
     OneToThreeArgsCheck("string->utf8", argc);
     StringArgCheck("string->utf8", argv[0]);
@@ -760,7 +760,7 @@ Define("string->utf8", StringToUtf8Primitive)(int argc, FObject argv[])
 
     FAssert(end >= strt);
 
-    int bvl = Utf8LengthOfCh(AsString(argv[0])->String + strt, end - strt);
+    int_t bvl = Utf8LengthOfCh(AsString(argv[0])->String + strt, end - strt);
     FObject bv = MakeBytevector(bvl);
 
     const UTF32 * utf32 = (UTF32 *) AsString(argv[0])->String + strt;
@@ -804,6 +804,6 @@ static FPrimitive * Primitives[] =
 
 void SetupVectors()
 {
-    for (int idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (int_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

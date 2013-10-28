@@ -9,16 +9,21 @@ Goals:
 To Do:
 -- ctrl-c handling
 
+-- serialize loading libraries
+-- serialize symbol table
+
 -- use tests from chibi
 -- make tests work with (chibi test)
 
+-- strict-r7rs: disable eval recognizing define-library
+-- strict-r7rs: disable multiple libraries in a single file
+
 -- write repl in scheme and command line argument handling
 -e -p -l
--- environment variable FOMENT_LIBPATH
 
 -- fix syntax-rules to handle ... as an identifier correctly
 
--- handle cond-expand in programs
+-- handle cond-expand in programs (disable for strict-r7rs)
 
 -- IO and GC
 -- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
@@ -87,23 +92,57 @@ Missing:
 #ifndef __FOMENT_HPP__
 #define __FOMENT_HPP__
 
+#include <stdint.h>
+
+#ifdef FOMENT_WINDOWS
+typedef wchar_t SCh;
+
+#ifdef _M_AMD64
+#define FOMENT_64BIT
+#else // _M_AMD64
+#define FOMENT_32BIT
+#endif // _M_AMD64
+#endif // FOMENT_WINDOWS
+
+#ifdef UNIX
+typedef char * SCh;
+
+#ifdef __LP64__
+// or _LP64 in gcc
+#define FOMENT_64BIT
+#else // __LP64__
+#define FOMENT_32BIT
+#endif // __LP64__
+#endif // UNIX
+
+typedef void * FObject;
+typedef uint32_t FCh;
+
+#ifdef FOMENT_32BIT
+typedef int32_t FFixnum;
+typedef uint32_t FImmediate;
+typedef int32_t int_t;
+typedef uint32_t uint_t;
+#endif // FOMENT_32BIT
+
+#ifdef FOMENT_64BIT
+typedef int64_t FFixnum;
+typedef uint64_t FImmediate;
+typedef int64_t int_t;
+typedef uint64_t uint_t;
+#endif // FOMENT_64BIT
+
 #ifdef FOMENT_DEBUG
-void FAssertFailed(char * fn, int ln, char * expr);
+void FAssertFailed(char * fn, int_t ln, char * expr);
 #define FAssert(expr)\
     if (! (expr)) FAssertFailed(__FILE__, __LINE__, #expr)
 #else // FOMENT_DEBUG
 #define FAssert(expr)
 #endif // FOMENT_DEBUG
 
-void FMustBeFailed(char * fn, int ln, char * expr);
+void FMustBeFailed(char * fn, int_t ln, char * expr);
 #define FMustBe(expr)\
     if (! (expr)) FMustBeFailed(__FILE__, __LINE__, #expr)
-
-typedef void * FObject;
-typedef unsigned int FCh;
-typedef wchar_t SCh;
-typedef int FFixnum;
-typedef unsigned int FImmediate;
 
 typedef enum
 {
@@ -163,31 +202,38 @@ typedef enum
 
 // ---- Memory Management ----
 
-FObject MakeObject(unsigned int sz, unsigned int tag);
-FObject MakeMatureObject(unsigned int len, char * who);
-FObject MakePinnedObject(unsigned int len, char * who);
+FObject MakeObject(uint_t sz, uint_t tag);
+FObject MakeMatureObject(uint_t len, char * who);
+FObject MakePinnedObject(uint_t len, char * who);
 
 #define RESERVED_BITS 6
 #define RESERVED_TAGMASK 0x1F
 #define RESERVED_MARK_BIT 0x20
-#define MAXIMUM_OBJECT_LENGTH 0x3FFFFFF
 
-#define ByteLength(obj) ((*((unsigned int *) (obj))) >> RESERVED_BITS)
-#define ObjectLength(obj) ((*((unsigned int *) (obj))) >> RESERVED_BITS)
+#ifdef FOMENT_32BIT
+#define MAXIMUM_OBJECT_LENGTH 0x3FFFFFF
+#endif // FOMENT_32BIT
+
+#ifdef FOMENT_64BIT
+#define MAXIMUM_OBJECT_LENGTH 0x3FFFFFFFFFFFFFF
+#endif // FOMENT_64BIT
+
+#define ByteLength(obj) ((*((uint_t *) (obj))) >> RESERVED_BITS)
+#define ObjectLength(obj) ((*((uint_t *) (obj))) >> RESERVED_BITS)
 #define MakeLength(len, tag) (((len) << RESERVED_BITS) | (tag))
 #define MakeMatureLength(len, tag) (((len) << RESERVED_BITS) | (tag) | RESERVED_MARK_BIT)
 #define MakePinnedLength(len, tag) MakeMatureLength((len), (tag))
 
 inline FIndirectTag IndirectTag(FObject obj)
 {
-    return((FIndirectTag) (IndirectP(obj) ? *((unsigned int *) (obj)) & RESERVED_TAGMASK : 0));
+    return((FIndirectTag) (IndirectP(obj) ? *((uint_t *) (obj)) & RESERVED_TAGMASK : 0));
 }
 
 void PushRoot(FObject * rt);
 void PopRoot();
 void ClearRoots();
 
-extern int GCRequired;
+extern int_t GCRequired;
 
 void EnterWait();
 void LeaveWait();
@@ -195,17 +241,17 @@ void LeaveWait();
 void Collect();
 #define CheckForGC() if (GCRequired) Collect()
 
-void ModifyVector(FObject obj, unsigned int idx, FObject val);
+void ModifyVector(FObject obj, uint_t idx, FObject val);
 
 /*
 //    AsBox(argv[0])->Value = argv[1];
     Modify(FBox, argv[0], Value, argv[1]);
 */
 #define Modify(type, obj, slot, val)\
-    ModifyObject(obj, (int) &(((type *) 0)->slot), val)
+    ModifyObject(obj, (uint_t) &(((type *) 0)->slot), val)
 
 // Do not directly call ModifyObject; use Modify instead.
-void ModifyObject(FObject obj, int off, FObject val);
+void ModifyObject(FObject obj, uint_t off, FObject val);
 
 void InstallGuardian(FObject obj, FObject tconc);
 void InstallTracker(FObject obj, FObject ret, FObject tconc);
@@ -244,7 +290,7 @@ void InstallTracker(FObject obj, FObject ret, FObject tconc);
 
 #define ValuesCountP(obj) ImmediateP(obj, ValuesCountTag)
 #define MakeValuesCount(cnt) MakeImmediate(cnt, ValuesCountTag)
-#define AsValuesCount(obj) ((int) (AsValue(obj)))
+#define AsValuesCount(obj) (AsValue(obj))
 
 // ---- Special Syntax ----
 
@@ -326,8 +372,8 @@ void SetFirst(FObject obj, FObject val);
 void SetRest(FObject obj, FObject val);
 
 FObject MakePair(FObject first, FObject rest);
-int ListLength(FObject lst);
-int ListLength(char * nam, FObject lst);
+int_t ListLength(FObject lst);
+int_t ListLength(char * nam, FObject lst);
 FObject ReverseListModify(FObject list);
 
 FObject List(FObject obj);
@@ -340,7 +386,7 @@ FObject Assq(FObject obj, FObject alst);
 FObject Assoc(FObject obj, FObject alst);
 
 FObject MakeTConc();
-int TConcEmptyP(FObject tconc);
+int_t TConcEmptyP(FObject tconc);
 void TConcAdd(FObject tconc, FObject obj);
 FObject TConcRemove(FObject tconc);
 
@@ -362,7 +408,7 @@ typedef struct
 
 typedef struct
 {
-    unsigned int Reserved;
+    uint_t Reserved;
     FObject Value;
 } FBox;
 
@@ -381,35 +427,35 @@ inline FObject Unbox(FObject bx)
 
 typedef struct
 {
-    unsigned int Length;
+    uint_t Length;
     FCh String[1];
 } FString;
 
-FObject MakeString(FCh * s, unsigned int sl);
-FObject MakeStringCh(unsigned int sl, FCh ch);
+FObject MakeString(FCh * s, uint_t sl);
+FObject MakeStringCh(uint_t sl, FCh ch);
 FObject MakeStringC(char * s);
 FObject MakeStringS(SCh * ss);
-FObject MakeStringS(SCh * ss, unsigned int ssl);
+FObject MakeStringS(SCh * ss, uint_t ssl);
 
-inline unsigned int StringLength(FObject obj)
+inline uint_t StringLength(FObject obj)
 {
-    unsigned int bl = ByteLength(obj);
+    uint_t bl = ByteLength(obj);
     FAssert(bl % sizeof(FCh) == 0);
 
     return(bl / sizeof(FCh));
 }
 
-void StringToC(FObject s, char * b, int bl);
-int StringToNumber(FCh * s, int sl, FFixnum * np, FFixnum b);
-int NumberAsString(FFixnum n, FCh * s, FFixnum b);
+void StringToC(FObject s, char * b, int_t bl);
+int_t StringToNumber(FCh * s, int_t sl, FFixnum * np, FFixnum b);
+int_t NumberAsString(FFixnum n, FCh * s, FFixnum b);
 FObject FoldcaseString(FObject s);
-unsigned int ByteLengthHash(char * b, int bl);
-unsigned int StringLengthHash(FCh * s, int sl);
-unsigned int StringHash(FObject obj);
-int StringEqualP(FObject obj1, FObject obj2);
-int StringLengthEqualP(FCh * s, int sl, FObject obj);
-int StringCEqualP(char * s1, FCh * s2, int sl2);
-unsigned int BytevectorHash(FObject obj);
+uint_t ByteLengthHash(char * b, uint_t bl);
+uint_t StringLengthHash(FCh * s, uint_t sl);
+uint_t StringHash(FObject obj);
+int_t StringEqualP(FObject obj1, FObject obj2);
+int_t StringLengthEqualP(FCh * s, int_t sl, FObject obj);
+int_t StringCEqualP(char * s1, FCh * s2, int_t sl2);
+uint_t BytevectorHash(FObject obj);
 
 #define ConvertToSystem(obj, ss)\
     SCh __ssbuf[256];\
@@ -417,7 +463,7 @@ unsigned int BytevectorHash(FObject obj);
     ss = ConvertToStringS(AsString(obj)->String, StringLength(obj), __ssbuf,\
             sizeof(__ssbuf) / sizeof(SCh))
 
-SCh * ConvertToStringS(FCh * s, unsigned int sl, SCh * b, unsigned int bl);
+SCh * ConvertToStringS(FCh * s, uint_t sl, SCh * b, uint_t bl);
 
 // ---- Vectors ----
 
@@ -426,11 +472,11 @@ SCh * ConvertToStringS(FCh * s, unsigned int sl, SCh * b, unsigned int bl);
 
 typedef struct
 {
-    unsigned int Length;
+    uint_t Length;
     FObject Vector[1];
 } FVector;
 
-FObject MakeVector(unsigned int vl, FObject * v, FObject obj);
+FObject MakeVector(uint_t vl, FObject * v, FObject obj);
 FObject ListToVector(FObject obj);
 FObject VectorToList(FObject vec);
 
@@ -444,11 +490,11 @@ FObject VectorToList(FObject vec);
 typedef unsigned char FByte;
 typedef struct
 {
-    unsigned int Length;
+    uint_t Length;
     FByte Vector[1];
 } FBytevector;
 
-FObject MakeBytevector(unsigned int vl);
+FObject MakeBytevector(uint_t vl);
 FObject U8ListToBytevector(FObject obj);
 
 #define BytevectorLength(obj) ByteLength(obj)
@@ -470,7 +516,7 @@ typedef void (*FFlushOutputFn)(FObject port);
 
 typedef struct
 {
-    unsigned int Flags;
+    uint_t Flags;
     FObject Name;
     FObject Object;
     void * InputContext;
@@ -485,50 +531,50 @@ typedef struct
 #define TextualPortP(obj) (IndirectTag(obj) == TextualPortTag)
 #define BinaryPortP(obj) (IndirectTag(obj) == BinaryPortTag)
 
-inline int InputPortP(FObject obj)
+inline int_t InputPortP(FObject obj)
 {
     return((BinaryPortP(obj) || TextualPortP(obj))
             && (AsGenericPort(obj)->Flags & PORT_FLAG_INPUT));
 }
 
-inline int OutputPortP(FObject obj)
+inline int_t OutputPortP(FObject obj)
 {
     return((BinaryPortP(obj) || TextualPortP(obj))
             && (AsGenericPort(obj)->Flags & PORT_FLAG_OUTPUT));
 }
 
-inline int InputPortOpenP(FObject obj)
+inline int_t InputPortOpenP(FObject obj)
 {
     FAssert(BinaryPortP(obj) || TextualPortP(obj));
 
     return(AsGenericPort(obj)->Flags & PORT_FLAG_INPUT_OPEN);
 }
 
-inline int OutputPortOpenP(FObject obj)
+inline int_t OutputPortOpenP(FObject obj)
 {
     FAssert(BinaryPortP(obj) || TextualPortP(obj));
 
     return(AsGenericPort(obj)->Flags & PORT_FLAG_OUTPUT_OPEN);
 }
 
-inline int StringOutputPortP(FObject obj)
+inline int_t StringOutputPortP(FObject obj)
 {
     return(TextualPortP(obj) && (AsGenericPort(obj)->Flags & PORT_FLAG_STRING_OUTPUT));
 }
 
-inline int BytevectorOutputPortP(FObject obj)
+inline int_t BytevectorOutputPortP(FObject obj)
 {
     return(BinaryPortP(obj) && (AsGenericPort(obj)->Flags & PORT_FLAG_BYTEVECTOR_OUTPUT));
 }
 
-inline int FoldcasePortP(FObject port)
+inline int_t FoldcasePortP(FObject port)
 {
     FAssert(TextualPortP(port) && InputPortP(port));
 
     return(AsGenericPort(port)->Flags & PORT_FLAG_FOLDCASE);
 }
 
-inline int WantIdentifiersPortP(FObject port)
+inline int_t WantIdentifiersPortP(FObject port)
 {
     FAssert(TextualPortP(port) && InputPortP(port));
 
@@ -543,12 +589,12 @@ void FlushOutput(FObject port);
 
 // Binary ports
 
-unsigned int ReadBytes(FObject port, FByte * b, unsigned int bl);
-int PeekByte(FObject port, FByte * b);
-int ByteReadyP(FObject port);
-unsigned int GetOffset(FObject port);
+uint_t ReadBytes(FObject port, FByte * b, uint_t bl);
+int_t PeekByte(FObject port, FByte * b);
+int_t ByteReadyP(FObject port);
+uint_t GetOffset(FObject port);
 
-void WriteBytes(FObject port, void * b, unsigned int bl);
+void WriteBytes(FObject port, void * b, uint_t bl);
 
 // Textual ports
 
@@ -559,24 +605,24 @@ FObject MakeStringCInputPort(char * s);
 FObject MakeStringOutputPort();
 FObject GetOutputString(FObject port);
 
-unsigned int ReadCh(FObject port, FCh * ch);
-unsigned int PeekCh(FObject port, FCh * ch);
-int CharReadyP(FObject port);
+uint_t ReadCh(FObject port, FCh * ch);
+uint_t PeekCh(FObject port, FCh * ch);
+int_t CharReadyP(FObject port);
 FObject ReadLine(FObject port);
-FObject ReadString(FObject port, int cnt);
-unsigned int GetLineColumn(FObject port, unsigned * col);
-void FoldcasePort(FObject port, int fcf);
-void WantIdentifiersPort(FObject port, int wif);
+FObject ReadString(FObject port, uint_t cnt);
+uint_t GetLineColumn(FObject port, uint_t * col);
+void FoldcasePort(FObject port, int_t fcf);
+void WantIdentifiersPort(FObject port, int_t wif);
 
 FObject Read(FObject port);
 
 void WriteCh(FObject port, FCh ch);
-void WriteString(FObject port, FCh * s, int sl);
+void WriteString(FObject port, FCh * s, uint_t sl);
 void WriteStringC(FObject port, char * s);
 
-void Write(FObject port, FObject obj, int df);
-void WriteShared(FObject port, FObject obj, int df);
-void WriteSimple(FObject port, FObject obj, int df);
+void Write(FObject port, FObject obj, int_t df);
+void WriteShared(FObject port, FObject obj, int_t df);
+void WriteSimple(FObject port, FObject obj, int_t df);
 
 // ---- Record Types ----
 
@@ -585,12 +631,12 @@ void WriteSimple(FObject port, FObject obj, int df);
 
 typedef struct
 {
-    unsigned int NumFields;
+    uint_t NumFields;
     FObject Fields[1];
 } FRecordType;
 
-FObject MakeRecordType(FObject nam, unsigned int nf, FObject flds[]);
-FObject MakeRecordTypeC(char * nam, unsigned int nf, char * flds[]);
+FObject MakeRecordType(FObject nam, uint_t nf, FObject flds[]);
+FObject MakeRecordTypeC(char * nam, uint_t nf, char * flds[]);
 
 #define RecordTypeName(obj) AsRecordType(obj)->Fields[0]
 #define RecordTypeNumFields(obj) ObjectLength(obj)
@@ -602,19 +648,19 @@ FObject MakeRecordTypeC(char * nam, unsigned int nf, char * flds[]);
 
 typedef struct
 {
-    unsigned int NumFields; // RecordType is include in the number of fields.
+    uint_t NumFields; // RecordType is include in the number of fields.
     FObject RecordType;
 } FRecord;
 
 typedef struct
 {
-    unsigned int NumFields;
+    uint_t NumFields;
     FObject Fields[1];
 } FGenericRecord;
 
 FObject MakeRecord(FObject rt);
 
-inline int RecordP(FObject obj, FObject rt)
+inline int_t RecordP(FObject obj, FObject rt)
 {
     return(GenericRecordP(obj) && AsGenericRecord(obj)->Fields[0] == rt);
 }
@@ -626,10 +672,10 @@ inline int RecordP(FObject obj, FObject rt)
 #define HashtableP(obj) RecordP(obj, R.HashtableRecordType)
 #define AsHashtable(obj) ((FHashtable *) (obj))
 
-typedef int (*FEquivFn)(FObject obj1, FObject obj2);
-typedef unsigned int (*FHashFn)(FObject obj);
+typedef int_t (*FEquivFn)(FObject obj1, FObject obj2);
+typedef uint_t (*FHashFn)(FObject obj);
 typedef FObject (*FWalkUpdateFn)(FObject key, FObject val, FObject ctx);
-typedef int (*FWalkDeleteFn)(FObject key, FObject val, FObject ctx);
+typedef int_t (*FWalkDeleteFn)(FObject key, FObject val, FObject ctx);
 typedef void (*FWalkVisitFn)(FObject key, FObject val, FObject ctx);
 
 typedef struct
@@ -640,20 +686,20 @@ typedef struct
     FObject Tracker; // TConc used by EqHashtables to track movement of keys.
 } FHashtable;
 
-FObject MakeHashtable(int nb);
+FObject MakeHashtable(int_t nb);
 FObject HashtableRef(FObject ht, FObject key, FObject def, FEquivFn efn, FHashFn hfn);
-FObject HashtableStringRef(FObject ht, FCh * s, int sl, FObject def);
+FObject HashtableStringRef(FObject ht, FCh * s, int_t sl, FObject def);
 void HashtableSet(FObject ht, FObject key, FObject val, FEquivFn efn, FHashFn hfn);
 void HashtableDelete(FObject ht, FObject key, FEquivFn efn, FHashFn hfn);
-int HashtableContainsP(FObject ht, FObject key, FEquivFn efn, FHashFn hfn);
+int_t HashtableContainsP(FObject ht, FObject key, FEquivFn efn, FHashFn hfn);
 
-FObject MakeEqHashtable(int nb);
+FObject MakeEqHashtable(int_t nb);
 FObject EqHashtableRef(FObject ht, FObject key, FObject def);
 void EqHashtableSet(FObject ht, FObject key, FObject val);
 void EqHashtableDelete(FObject ht, FObject key);
-int EqHashtableContainsP(FObject ht, FObject key);
+int_t EqHashtableContainsP(FObject ht, FObject key);
 
-unsigned int HashtableSize(FObject ht);
+uint_t HashtableSize(FObject ht);
 void HashtableWalkUpdate(FObject ht, FWalkUpdateFn wfn, FObject ctx);
 void HashtableWalkDelete(FObject ht, FWalkDeleteFn wfn, FObject ctx);
 void HashtableWalkVisit(FObject ht, FWalkVisitFn wfn, FObject ctx);
@@ -665,13 +711,13 @@ void HashtableWalkVisit(FObject ht, FWalkVisitFn wfn, FObject ctx);
 
 typedef struct
 {
-    unsigned int Reserved;
+    uint_t Reserved;
     FObject String;
 } FSymbol;
 
 FObject StringToSymbol(FObject str);
 FObject StringCToSymbol(char * s);
-FObject StringLengthToSymbol(FCh * s, int sl);
+FObject StringLengthToSymbol(FCh * s, int_t sl);
 FObject PrefixSymbol(FObject str, FObject sym);
 
 #define SymbolHash(obj) ByteLength(obj)
@@ -681,18 +727,18 @@ FObject PrefixSymbol(FObject str, FObject sym);
 #define PrimitiveP(obj) (IndirectTag(obj) == PrimitiveTag)
 #define AsPrimitive(obj) ((FPrimitive *) (obj))
 
-typedef FObject (*FPrimitiveFn)(int argc, FObject argv[]);
+typedef FObject (*FPrimitiveFn)(int_t argc, FObject argv[]);
 typedef struct
 {
-    unsigned int Reserved;
+    uint_t Reserved;
     FPrimitiveFn PrimitiveFn;
     char * Name;
     char * Filename;
-    int LineNumber;
+    int_t LineNumber;
 } FPrimitive;
 
 #define Define(name, fn)\
-    static FObject fn ## Fn(int argc, FObject argv[]);\
+    static FObject fn ## Fn(int_t argc, FObject argv[]);\
     static FPrimitive fn = {PrimitiveTag, fn ## Fn, name, __FILE__, __LINE__};\
     static FObject fn ## Fn
 
@@ -715,7 +761,7 @@ typedef struct
 FObject MakeEnvironment(FObject nam, FObject ctv);
 FObject EnvironmentBind(FObject env, FObject sym);
 FObject EnvironmentLookup(FObject env, FObject sym);
-int EnvironmentDefine(FObject env, FObject symid, FObject val);
+int_t EnvironmentDefine(FObject env, FObject symid, FObject val);
 FObject EnvironmentSet(FObject env, FObject sym, FObject val);
 FObject EnvironmentSetC(FObject env, char * sym, FObject val);
 FObject EnvironmentGet(FObject env, FObject symid);
@@ -779,14 +825,14 @@ typedef struct
 #define AsIdentifier(obj) ((FIdentifier *) (obj))
 #define IdentifierP(obj) RecordP(obj, R.IdentifierRecordType)
 
-FObject MakeIdentifier(FObject sym, int ln);
+FObject MakeIdentifier(FObject sym, int_t ln);
 FObject WrapIdentifier(FObject id, FObject se);
 
 // ---- Procedures ----
 
 typedef struct
 {
-    unsigned int Reserved;
+    uint_t Reserved;
     FObject Name;
     FObject Code;
 } FProcedure;
@@ -794,11 +840,11 @@ typedef struct
 #define AsProcedure(obj) ((FProcedure *) (obj))
 #define ProcedureP(obj) (IndirectTag(obj) == ProcedureTag)
 
-FObject MakeProcedure(FObject nam, FObject cv, int ac, unsigned int fl);
+FObject MakeProcedure(FObject nam, FObject cv, int_t ac, uint_t fl);
 
 #define MAXIMUM_ARG_COUNT 0xFFFF
 #define ProcedureArgCount(obj)\
-    ((int) ((AsProcedure(obj)->Reserved >> RESERVED_BITS) & MAXIMUM_ARG_COUNT))
+    ((int_t) ((AsProcedure(obj)->Reserved >> RESERVED_BITS) & MAXIMUM_ARG_COUNT))
 
 #define PROCEDURE_FLAG_CLOSURE      0x80000000
 #define PROCEDURE_FLAG_PARAMETER    0x40000000
@@ -841,7 +887,7 @@ void Raise(FObject obj);
 
 typedef struct
 {
-    int Value;
+    int_t Value;
     SCh * Name;
 } FConfig;
 
@@ -856,8 +902,8 @@ extern FConfig Config[];
 typedef struct _FYoungSection
 {
     struct _FYoungSection * Next;
-    unsigned int Used;
-    unsigned int Scan;
+    uint_t Used;
+    uint_t Scan;
 } FYoungSection;
 
 #define INDEX_PARAMETERS 3
@@ -870,21 +916,21 @@ typedef struct _FThreadState
     FObject Thread;
 
     FYoungSection * ActiveZero;
-    unsigned int ObjectsSinceLast;
+    uint_t ObjectsSinceLast;
 
-    int UsedRoots;
+    int_t UsedRoots;
     FObject * Roots[12];
 
-    int StackSize;
-    int AStackPtr;
+    int_t StackSize;
+    int_t AStackPtr;
     FObject * AStack;
-    int CStackPtr;
+    int_t CStackPtr;
     FObject * CStack;
 
     FObject Proc;
     FObject Frame;
-    int IP;
-    int ArgCount;
+    int_t IP;
+    int_t ArgCount;
 
     FObject DynamicStack;
     FObject Parameters;
@@ -994,79 +1040,79 @@ extern FRoots R;
 
 // ---- Argument Checking ----
 
-inline void ZeroArgsCheck(char * who, int argc)
+inline void ZeroArgsCheck(char * who, int_t argc)
 {
     if (argc != 0)
         RaiseExceptionC(R.Assertion, who, "expected no arguments", EmptyListObject);
 }
 
-inline void OneArgCheck(char * who, int argc)
+inline void OneArgCheck(char * who, int_t argc)
 {
     if (argc != 1)
         RaiseExceptionC(R.Assertion, who, "expected one argument", EmptyListObject);
 }
 
-inline void TwoArgsCheck(char * who, int argc)
+inline void TwoArgsCheck(char * who, int_t argc)
 {
     if (argc != 2)
         RaiseExceptionC(R.Assertion, who, "expected two arguments", EmptyListObject);
 }
 
-inline void ThreeArgsCheck(char * who, int argc)
+inline void ThreeArgsCheck(char * who, int_t argc)
 {
     if (argc != 3)
         RaiseExceptionC(R.Assertion, who, "expected three arguments", EmptyListObject);
 }
 
-inline void AtLeastOneArgCheck(char * who, int argc)
+inline void AtLeastOneArgCheck(char * who, int_t argc)
 {
     if (argc < 1)
         RaiseExceptionC(R.Assertion, who, "expected at least one argument", EmptyListObject);
 }
 
-inline void AtLeastTwoArgsCheck(char * who, int argc)
+inline void AtLeastTwoArgsCheck(char * who, int_t argc)
 {
     if (argc < 2)
         RaiseExceptionC(R.Assertion, who, "expected at least two arguments", EmptyListObject);
 }
 
-inline void AtLeastThreeArgsCheck(char * who, int argc)
+inline void AtLeastThreeArgsCheck(char * who, int_t argc)
 {
     if (argc < 3)
         RaiseExceptionC(R.Assertion, who, "expected at least three arguments", EmptyListObject);
 }
 
-inline void ZeroOrOneArgsCheck(char * who, int argc)
+inline void ZeroOrOneArgsCheck(char * who, int_t argc)
 {
     if (argc > 1)
         RaiseExceptionC(R.Assertion, who, "expected zero or one arguments", EmptyListObject);
 }
 
-inline void OneOrTwoArgsCheck(char * who, int argc)
+inline void OneOrTwoArgsCheck(char * who, int_t argc)
 {
     if (argc < 1 || argc > 2)
         RaiseExceptionC(R.Assertion, who, "expected one or two arguments", EmptyListObject);
 }
 
-inline void OneToThreeArgsCheck(char * who, int argc)
+inline void OneToThreeArgsCheck(char * who, int_t argc)
 {
     if (argc < 1 || argc > 3)
         RaiseExceptionC(R.Assertion, who, "expected one to three arguments", EmptyListObject);
 }
 
-inline void OneToFourArgsCheck(char * who, int argc)
+inline void OneToFourArgsCheck(char * who, int_t argc)
 {
     if (argc < 1 || argc > 4)
         RaiseExceptionC(R.Assertion, who, "expected one to four arguments", EmptyListObject);
 }
 
-inline void TwoToFourArgsCheck(char * who, int argc)
+inline void TwoToFourArgsCheck(char * who, int_t argc)
 {
     if (argc < 2 || argc > 4)
         RaiseExceptionC(R.Assertion, who, "expected two to four arguments", EmptyListObject);
 }
 
-inline void ThreeToFiveArgsCheck(char * who, int argc)
+inline void ThreeToFiveArgsCheck(char * who, int_t argc)
 {
     if (argc < 3 || argc > 5)
         RaiseExceptionC(R.Assertion, who, "expected three to five arguments", EmptyListObject);
@@ -1267,28 +1313,28 @@ inline void EqHashtableArgCheck(char * who, FObject obj)
 
 // ----------------
 
-extern unsigned int BytesAllocated;
-extern unsigned int CollectionCount;
+extern uint_t BytesAllocated;
+extern uint_t CollectionCount;
 
 FObject CompileProgram(FObject nam, FObject port);
 FObject Eval(FObject obj, FObject env);
 FObject GetInteractionEnv();
 
-int EqP(FObject obj1, FObject obj2);
-int EqvP(FObject obj1, FObject obj2);
-int EqualP(FObject obj1, FObject obj2);
+int_t EqP(FObject obj1, FObject obj2);
+int_t EqvP(FObject obj1, FObject obj2);
+int_t EqualP(FObject obj1, FObject obj2);
 
-unsigned int EqHash(FObject obj);
-unsigned int EqvHash(FObject obj);
-unsigned int EqualHash(FObject obj);
+uint_t EqHash(FObject obj);
+uint_t EqvHash(FObject obj);
+uint_t EqualHash(FObject obj);
 
 FObject SyntaxToDatum(FObject obj);
 
 FObject ExecuteThunk(FObject op);
 
-FObject MakeCommandLine(int argc, SCh * argv[]);
+FObject MakeCommandLine(int_t argc, SCh * argv[]);
 void SetupFoment(FThreadState * ts, int argc, SCh * argv[]);
-extern unsigned int SetupComplete;
+extern uint_t SetupComplete;
 
 // ---- Do Not Call Directly ----
 
@@ -1305,16 +1351,18 @@ void SetupNumbers();
 void SetupThreads();
 void SetupGC();
 
-void WriteSpecialSyntax(FObject port, FObject obj, int df);
-void WriteInstruction(FObject port, FObject obj, int df);
-void WriteThread(FObject port, FObject obj, int df);
-void WriteExclusive(FObject port, FObject obj, int df);
-void WriteCondition(FObject port, FObject obj, int df);
+void WriteSpecialSyntax(FObject port, FObject obj, int_t df);
+void WriteInstruction(FObject port, FObject obj, int_t df);
+void WriteThread(FObject port, FObject obj, int_t df);
+void WriteExclusive(FObject port, FObject obj, int_t df);
+void WriteCondition(FObject port, FObject obj, int_t df);
 
-#ifdef FOMENT_WIN32
+#ifdef FOMENT_WINDOWS
 #define PathCh '\\'
-#else // FOMENT_WIN32
+#define PathSep ';'
+#else // FOMENT_WINDOWS
 #define PathCh '/'
-#endif // FOMENT_WIN32
+#define PathSep ':'
+#endif // FOMENT_WINDOWS
 
 #endif // __FOMENT_HPP__

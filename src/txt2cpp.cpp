@@ -6,9 +6,9 @@ txt2cpp <input> <output> <name>
 
 */
 
-#ifdef FOMENT_WIN32
+#ifdef FOMENT_WINDOWS
 #define _CRT_SECURE_NO_WARNINGS
-#endif // FOMENT_WIN32
+#endif // FOMENT_WINDOWS
 
 #include <stdio.h>
 

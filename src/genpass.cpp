@@ -48,7 +48,7 @@ static FObject GPassReturnValue(FLambda * lam, FObject cdl, FContFlag cf)
 
 static FObject GPassExpression(FLambda * lam, FObject cdl, FObject expr, FContFlag cf);
 static FObject GPassSequence(FLambda * lam, FObject cdl, FObject seq, FContFlag cf);
-static FObject GPassMakeCall(FLambda * lam, FObject cdl, FObject op, int argc, FObject expr,
+static FObject GPassMakeCall(FLambda * lam, FObject cdl, FObject op, int_t argc, FObject expr,
     FContFlag cf);
 
 static FObject GPassLetFormal(FLambda * lam, FObject cdl, FObject bd)
@@ -62,7 +62,7 @@ static FObject GPassLetFormal(FLambda * lam, FObject cdl, FObject bd)
     return(cdl);
 }
 
-static FObject GPassLetFormals(FLambda * lam, FObject cdl, FObject flst, int cnt)
+static FObject GPassLetFormals(FLambda * lam, FObject cdl, FObject flst, int_t cnt)
 {
     FAssert(PairP(flst));
 
@@ -156,7 +156,7 @@ static FObject GPassLetrecBindings(FLambda * lam, FObject cdl, FObject lrb)
 
 static void SetJump(FObject tgt, FObject src, FOpcode op)
 {
-    int cnt = 0;
+    int_t cnt = 0;
     while (tgt != src)
     {
         FAssert(PairP(tgt));
@@ -433,7 +433,7 @@ static FObject GPassSpecialSyntax(FLambda * lam, FObject cdl, FObject expr, FCon
                 FAssert(AsFixnum(bd->Slot) > 0);
                 FAssert(AsFixnum(bd->Level) < AsFixnum(lam->Level));
 
-                int cnt = AsFixnum(lam->Level) - AsFixnum(bd->Level);
+                int_t cnt = AsFixnum(lam->Level) - AsFixnum(bd->Level);
 
                 if (lam->UseStack == TrueObject)
                     cdl = MakePair(MakeInstruction(GetCStackOpcode, AsFixnum(lam->SlotCount)),
@@ -566,7 +566,7 @@ FObject GPassLambdaFrame(FLambda * lam, FObject cdl, FLambda * op)
         else
             cdl = MakePair(MakeInstruction(GetCStackOpcode, AsFixnum(lam->SlotCount)), cdl);
 
-        int cnt = AsFixnum(lam->Level) - AsFixnum(op->Level);
+        int_t cnt = AsFixnum(lam->Level) - AsFixnum(op->Level);
         while (cnt > 0)
         {
             cdl = MakePair(MakeInstruction(GetVectorOpcode, 0), cdl);
@@ -580,7 +580,7 @@ FObject GPassLambdaFrame(FLambda * lam, FObject cdl, FLambda * op)
 static FObject GPassProcedureCall(FLambda * lam, FObject cdl, FObject expr, FContFlag cf)
 {
     FObject op = First(expr);
-    int argc = 0;
+    int_t argc = 0;
 
     FObject alst = Rest(expr);
     while (PairP(alst))
@@ -615,7 +615,7 @@ static FObject GPassSelfTailCall(FLambda * lam, FObject cdl, FObject blst)
     return(cdl);
 }
 
-static FObject GPassMakeCall(FLambda * lam, FObject cdl, FObject op, int argc, FObject expr,
+static FObject GPassMakeCall(FLambda * lam, FObject cdl, FObject op, int_t argc, FObject expr,
     FContFlag cf)
 {
     if (CaseLambdaP(op))
@@ -773,7 +773,7 @@ static FObject GPassExpression(FLambda * lam, FObject cdl, FObject expr, FContFl
                 FAssert(AsFixnum(bd->Slot) > 0);
                 FAssert(AsFixnum(bd->Level) < AsFixnum(lam->Level));
 
-                int cnt = AsFixnum(lam->Level) - AsFixnum(bd->Level);
+                int_t cnt = AsFixnum(lam->Level) - AsFixnum(bd->Level);
 
                 if (lam->UseStack == TrueObject)
                     cdl = MakePair(MakeInstruction(GetCStackOpcode, AsFixnum(lam->SlotCount)),
@@ -906,7 +906,7 @@ FObject GPassLambda(FLambda * lam)
 
     if (lam->UseStack == FalseObject)
     {
-        for (int adx = 0; adx < AsFixnum(lam->ArgCount); adx++)
+        for (int_t adx = 0; adx < AsFixnum(lam->ArgCount); adx++)
             cdl = MakePair(MakeInstruction(SetFrameOpcode, adx + 1), cdl);
     }
     else

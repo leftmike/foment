@@ -2,9 +2,8 @@
 # Foment
 #
 
-CLDEBUG = /nologo /MD /W3 /Gm /EHsc /Zi /Od /c /Fodebug/ /DFOMENT_DEBUG /DFOMENT_TEST\
-        /DFOMENT_GCCHK /DFOMENT_WIN32
-CLRELEASE = /nologo /MD /W3 /O1sy /Gs /GA /EHsc /Forelease/ /c /DFOMENT_TEST /DFOMENT_WIN32
+CLDEBUG = /nologo /MD /W3 /Gm /EHsc /Zi /Od /c /Fodebug/ /DFOMENT_DEBUG /DFOMENT_WINDOWS
+CLRELEASE = /nologo /MD /W3 /O1sy /Gs /GA /EHsc /Forelease/ /c /DFOMENT_WINDOWS
 
 all: debug release debug\foment.exe release\foment.exe
 
