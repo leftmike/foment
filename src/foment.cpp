@@ -4,15 +4,24 @@ Foment
 
 */
 
+#ifdef FOMENT_WINDOWS
 #define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
+#define exit(n) _exit(n)
+#define environ _wenviron
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+#include <unistd.h>
+#endif // FOMENT_UNIX
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
 #include "foment.hpp"
 
+#ifdef FOMENT_WINDOWS
 ULONGLONG StartingTicks = 0;
+#endif // FOMENT_WINDOWS
 
 uint_t SetupComplete = 0;
 
@@ -21,25 +30,25 @@ uint_t InlineImports = 1;
 
 FRoots R;
 
-void FAssertFailed(char * fn, int_t ln, char * expr)
+void FAssertFailed(const char * fn, int_t ln, const char * expr)
 {
-    printf("FAssert: %s (%d)%s\n", expr, ln, fn);
+    printf("FAssert: %s (%d)%s\n", expr, (int) ln, fn);
 
 //    *((char *) 0) = 0;
-    _exit(1);
+    exit(1);
 }
 
-void FMustBeFailed(char * fn, int_t ln, char * expr)
+void FMustBeFailed(const char * fn, int_t ln, const char * expr)
 {
-    printf("FMustBe: %s (%d)%s\n", expr, ln, fn);
+    printf("FMustBe: %s (%d)%s\n", expr, (int) ln, fn);
 
 //    *((char *) 0) = 0;
-    _exit(1);
+    exit(1);
 }
 
 // ---- Immediates ----
 
-static char * SpecialSyntaxes[] =
+static const char * SpecialSyntaxes[] =
 {
     "quote",
     "lambda",
@@ -75,13 +84,13 @@ static char * SpecialSyntaxes[] =
     "unquote-splicing"
 };
 
-static char * SpecialSyntaxToName(FObject obj)
+static const char * SpecialSyntaxToName(FObject obj)
 {
     FAssert(SpecialSyntaxP(obj));
 
     int_t n = AsValue(obj);
     FAssert(n >= 0);
-    FAssert(n < sizeof(SpecialSyntaxes) / sizeof(char *));
+    FAssert(n < (int_t) (sizeof(SpecialSyntaxes) / sizeof(char *)));
 
     return(SpecialSyntaxes[n]);
 }
@@ -95,7 +104,7 @@ FObject SpecialSyntaxMsgC(FObject obj, char * msg)
 {
     char buf[128];
     char * s = buf;
-    char * n = SpecialSyntaxToName(obj);
+    const char * n = SpecialSyntaxToName(obj);
 
     while (*n)
         *s++ = *n++;
@@ -113,7 +122,7 @@ FObject SpecialSyntaxMsgC(FObject obj, char * msg)
 
 void WriteSpecialSyntax(FObject port, FObject obj, int_t df)
 {
-    char * n = SpecialSyntaxToName(obj);
+    const char * n = SpecialSyntaxToName(obj);
 
     WriteStringC(port, "#<syntax: ");
     WriteStringC(port, n);
@@ -280,7 +289,7 @@ FObject StringToSymbol(FObject str)
     return(obj);
 }
 
-FObject StringCToSymbol(char * s)
+FObject StringCToSymbol(const char * s)
 {
     return(StringToSymbol(MakeStringC(s)));
 }
@@ -362,7 +371,7 @@ Define("string->symbol", StringToSymbolPrimitive)(int_t argc, FObject argv[])
 
 // ---- Exceptions ----
 
-static char * ExceptionFieldsC[] = {"type", "who", "message", "irritants"};
+static const char * ExceptionFieldsC[] = {"type", "who", "message", "irritants"};
 
 FObject MakeException(FObject typ, FObject who, FObject msg, FObject lst)
 {
@@ -382,7 +391,7 @@ void RaiseException(FObject typ, FObject who, FObject msg, FObject lst)
     Raise(MakeException(typ, who, msg, lst));
 }
 
-void RaiseExceptionC(FObject typ, char * who, char * msg, FObject lst)
+void RaiseExceptionC(FObject typ, const char * who, const char * msg, FObject lst)
 {
     char buf[128];
 
@@ -500,12 +509,12 @@ Define("exit", ExitPrimitive)(int_t argc, FObject argv[])
     ZeroOrOneArgsCheck("exit", argc);
 
     if (argc == 0 || argv[0] == TrueObject)
-        _exit(0);
+        exit(0);
 
     if (FixnumP(argv[0]))
-        _exit((int) AsFixnum(argv[0]));
+        exit((int) AsFixnum(argv[0]));
 
-    _exit(-1);
+    exit(-1);
 
     return(NoValueObject);
 }
@@ -515,19 +524,19 @@ Define("emergency-exit", EmergencyExitPrimitive)(int_t argc, FObject argv[])
     ZeroOrOneArgsCheck("emergency-exit", argc);
 
     if (argc == 0 || argv[0] == TrueObject)
-        _exit(0);
+        exit(0);
 
     if (FixnumP(argv[0]))
-        _exit((int) AsFixnum(argv[0]));
+        exit((int) AsFixnum(argv[0]));
 
-    _exit(-1);
+    exit(-1);
 
     return(NoValueObject);
 }
 
 static void GetEnvironmentVariables()
 {
-    SCh ** envp = _wenviron;
+    SCh ** envp = environ;
     FObject lst = EmptyListObject;
 
     while (*envp)
@@ -535,7 +544,7 @@ static void GetEnvironmentVariables()
         SCh * s = *envp;
         while (*s)
         {
-            if (*s == '=')
+            if (*s == (SCh) '=')
                 break;
             s += 1;
         }
@@ -586,8 +595,14 @@ Define("current-jiffy", CurrentJiffyPrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("current-jiffy", argc);
 
+#ifdef FOMENT_WINDOWS
     ULONGLONG tc = (GetTickCount64() - StartingTicks) / 10;
     return(MakeFixnum(tc));
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+// FIXFIX
+    return(MakeFixnum(0));
+#endif // FOMENT_UNIX
 }
 
 Define("jiffies-per-second", JiffiesPerSecondPrimitive)(int_t argc, FObject argv[])
@@ -692,7 +707,7 @@ static int_t Primes[] =
     977, 983, 991, 997
 };
 
-static char * HashtableFieldsC[] = {"buckets", "size", "tracker"};
+static const char * HashtableFieldsC[] = {"buckets", "size", "tracker"};
 
 static FObject MakeHashtable(int_t nb, FObject trkr)
 {
@@ -916,7 +931,7 @@ static void CheckEqHashtable(FObject ht)
         }
 
         FAssert(FixnumP(node));
-        FAssert(AsFixnum(node) == idx);
+        FAssert(AsFixnum(node) == (int_t) idx);
     }
 }
 #endif // FOMENT_DEBUG
@@ -1147,7 +1162,7 @@ FObject MakeRecordType(FObject nam, uint_t nf, FObject flds[])
     return(rt);
 }
 
-FObject MakeRecordTypeC(char * nam, uint_t nf, char * flds[])
+FObject MakeRecordTypeC(const char * nam, uint_t nf, const char * flds[])
 {
     FObject oflds[32];
 
@@ -1406,7 +1421,7 @@ static void SetupScheme()
     PopRoot();
 }
 
-static char * FeaturesC[] =
+static const char * FeaturesC[] =
 {
     "r7rs",
     "full-unicode",
@@ -1435,11 +1450,13 @@ FObject MakeCommandLine(int_t argc, SCh * argv[])
 
 void SetupFoment(FThreadState * ts, int argc, SCh * argv[])
 {
+#ifdef FOMENT_WINDOWS
     StartingTicks = GetTickCount64();
+#endif // FOMENT_WINDOWS
     srand((unsigned int) time(0));
 
     FObject * rv = (FObject *) &R;
-    for (int_t rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
+    for (uint_t rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
         rv[rdx] = NoValueObject;
 
     SetupCore(ts);
@@ -1480,12 +1497,12 @@ void SetupFoment(FThreadState * ts, int argc, SCh * argv[])
     R.LoadedLibraries = EmptyListObject;
     R.BedrockLibrary = MakeLibrary(nam);
 
-    for (int_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 
     R.NoValuePrimitiveObject = MakePrimitive(&NoValuePrimitive);
 
-    for (int_t n = 0; n < sizeof(SpecialSyntaxes) / sizeof(char *); n++)
+    for (uint_t n = 0; n < sizeof(SpecialSyntaxes) / sizeof(char *); n++)
         LibraryExport(R.BedrockLibrary, EnvironmentSetC(R.Bedrock, SpecialSyntaxes[n],
                 MakeImmediate(n, SpecialSyntaxTag)));
 
@@ -1509,7 +1526,7 @@ void SetupFoment(FThreadState * ts, int argc, SCh * argv[])
 
     R.Features = EmptyListObject;
 
-    for (int_t idx = 0; idx < sizeof(FeaturesC) / sizeof(char *); idx++)
+    for (uint_t idx = 0; idx < sizeof(FeaturesC) / sizeof(char *); idx++)
         R.Features = MakePair(StringCToSymbol(FeaturesC[idx]), R.Features);
 
     R.CommandLine = MakeCommandLine(argc, argv);

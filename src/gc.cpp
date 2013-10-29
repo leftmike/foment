@@ -4,7 +4,9 @@ Foment
 
 */
 
+#ifdef FOMENT_WINDOWS
 #include <windows.h>
+#endif // FOMENT_WINDOWS
 #include <stdio.h>
 #include <string.h>
 #include "foment.hpp"

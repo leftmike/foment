@@ -95,8 +95,8 @@ typedef wchar_t SCh;
 #endif // _M_AMD64
 #endif // FOMENT_WINDOWS
 
-#ifdef UNIX
-typedef char * SCh;
+#ifdef FOMENT_UNIX
+typedef char SCh;
 
 #ifdef __LP64__
 // or _LP64 in gcc
@@ -104,7 +104,7 @@ typedef char * SCh;
 #else // __LP64__
 #define FOMENT_32BIT
 #endif // __LP64__
-#endif // UNIX
+#endif // FOMENT_UNIX
 
 typedef void * FObject;
 typedef uint32_t FCh;
@@ -124,14 +124,14 @@ typedef uint64_t uint_t;
 #endif // FOMENT_64BIT
 
 #ifdef FOMENT_DEBUG
-void FAssertFailed(char * fn, int_t ln, char * expr);
+void FAssertFailed(const char * fn, int_t ln, const char * expr);
 #define FAssert(expr)\
-    if (! (expr)) FAssertFailed(__FILE__, __LINE__, #expr)
+    if (! (expr)) FAssertFailed( __FILE__, __LINE__, #expr)
 #else // FOMENT_DEBUG
 #define FAssert(expr)
 #endif // FOMENT_DEBUG
 
-void FMustBeFailed(char * fn, int_t ln, char * expr);
+void FMustBeFailed(const char * fn, int_t ln, const char * expr);
 #define FMustBe(expr)\
     if (! (expr)) FMustBeFailed(__FILE__, __LINE__, #expr)
 
@@ -424,7 +424,7 @@ typedef struct
 
 FObject MakeString(FCh * s, uint_t sl);
 FObject MakeStringCh(uint_t sl, FCh ch);
-FObject MakeStringC(char * s);
+FObject MakeStringC(const char * s);
 FObject MakeStringS(SCh * ss);
 FObject MakeStringS(SCh * ss, uint_t ssl);
 
@@ -445,7 +445,7 @@ uint_t StringLengthHash(FCh * s, uint_t sl);
 uint_t StringHash(FObject obj);
 int_t StringEqualP(FObject obj1, FObject obj2);
 int_t StringLengthEqualP(FCh * s, int_t sl, FObject obj);
-int_t StringCEqualP(char * s1, FCh * s2, int_t sl2);
+int_t StringCEqualP(const char * s1, FCh * s2, int_t sl2);
 uint_t BytevectorHash(FObject obj);
 
 #define ConvertToSystem(obj, ss)\
@@ -592,7 +592,7 @@ void WriteBytes(FObject port, void * b, uint_t bl);
 FObject OpenInputFile(FObject fn);
 FObject OpenOutputFile(FObject fn);
 FObject MakeStringInputPort(FObject str);
-FObject MakeStringCInputPort(char * s);
+FObject MakeStringCInputPort(const char * s);
 FObject MakeStringOutputPort();
 FObject GetOutputString(FObject port);
 
@@ -609,7 +609,7 @@ FObject Read(FObject port);
 
 void WriteCh(FObject port, FCh ch);
 void WriteString(FObject port, FCh * s, uint_t sl);
-void WriteStringC(FObject port, char * s);
+void WriteStringC(FObject port, const char * s);
 
 void Write(FObject port, FObject obj, int_t df);
 void WriteShared(FObject port, FObject obj, int_t df);
@@ -627,7 +627,7 @@ typedef struct
 } FRecordType;
 
 FObject MakeRecordType(FObject nam, uint_t nf, FObject flds[]);
-FObject MakeRecordTypeC(char * nam, uint_t nf, char * flds[]);
+FObject MakeRecordTypeC(const char * nam, uint_t nf, const char * flds[]);
 
 #define RecordTypeName(obj) AsRecordType(obj)->Fields[0]
 #define RecordTypeNumFields(obj) ObjectLength(obj)
@@ -707,7 +707,7 @@ typedef struct
 } FSymbol;
 
 FObject StringToSymbol(FObject str);
-FObject StringCToSymbol(char * s);
+FObject StringCToSymbol(const char * s);
 FObject StringLengthToSymbol(FCh * s, int_t sl);
 FObject PrefixSymbol(FObject str, FObject sym);
 
@@ -723,8 +723,8 @@ typedef struct
 {
     uint_t Reserved;
     FPrimitiveFn PrimitiveFn;
-    char * Name;
-    char * Filename;
+    const char * Name;
+    const char * Filename;
     int_t LineNumber;
 } FPrimitive;
 
@@ -755,7 +755,7 @@ FObject EnvironmentBind(FObject env, FObject sym);
 FObject EnvironmentLookup(FObject env, FObject sym);
 int_t EnvironmentDefine(FObject env, FObject symid, FObject val);
 FObject EnvironmentSet(FObject env, FObject sym, FObject val);
-FObject EnvironmentSetC(FObject env, char * sym, FObject val);
+FObject EnvironmentSetC(FObject env, const char * sym, FObject val);
 FObject EnvironmentGet(FObject env, FObject symid);
 
 void EnvironmentImportLibrary(FObject env, FObject nam);
@@ -873,7 +873,7 @@ typedef struct
 
 FObject MakeException(FObject typ, FObject who, FObject msg, FObject lst);
 void RaiseException(FObject typ, FObject who, FObject msg, FObject lst);
-void RaiseExceptionC(FObject typ, char * who, char * msg, FObject lst);
+void RaiseExceptionC(FObject typ, const char * who, const char * msg, FObject lst);
 void Raise(FObject obj);
 
 // ---- Thread State ----
@@ -1020,272 +1020,272 @@ extern FRoots R;
 
 // ---- Argument Checking ----
 
-inline void ZeroArgsCheck(char * who, int_t argc)
+inline void ZeroArgsCheck(const char * who, int_t argc)
 {
     if (argc != 0)
         RaiseExceptionC(R.Assertion, who, "expected no arguments", EmptyListObject);
 }
 
-inline void OneArgCheck(char * who, int_t argc)
+inline void OneArgCheck(const char * who, int_t argc)
 {
     if (argc != 1)
         RaiseExceptionC(R.Assertion, who, "expected one argument", EmptyListObject);
 }
 
-inline void TwoArgsCheck(char * who, int_t argc)
+inline void TwoArgsCheck(const char * who, int_t argc)
 {
     if (argc != 2)
         RaiseExceptionC(R.Assertion, who, "expected two arguments", EmptyListObject);
 }
 
-inline void ThreeArgsCheck(char * who, int_t argc)
+inline void ThreeArgsCheck(const char * who, int_t argc)
 {
     if (argc != 3)
         RaiseExceptionC(R.Assertion, who, "expected three arguments", EmptyListObject);
 }
 
-inline void AtLeastOneArgCheck(char * who, int_t argc)
+inline void AtLeastOneArgCheck(const char * who, int_t argc)
 {
     if (argc < 1)
         RaiseExceptionC(R.Assertion, who, "expected at least one argument", EmptyListObject);
 }
 
-inline void AtLeastTwoArgsCheck(char * who, int_t argc)
+inline void AtLeastTwoArgsCheck(const char * who, int_t argc)
 {
     if (argc < 2)
         RaiseExceptionC(R.Assertion, who, "expected at least two arguments", EmptyListObject);
 }
 
-inline void AtLeastThreeArgsCheck(char * who, int_t argc)
+inline void AtLeastThreeArgsCheck(const char * who, int_t argc)
 {
     if (argc < 3)
         RaiseExceptionC(R.Assertion, who, "expected at least three arguments", EmptyListObject);
 }
 
-inline void ZeroOrOneArgsCheck(char * who, int_t argc)
+inline void ZeroOrOneArgsCheck(const char * who, int_t argc)
 {
     if (argc > 1)
         RaiseExceptionC(R.Assertion, who, "expected zero or one arguments", EmptyListObject);
 }
 
-inline void OneOrTwoArgsCheck(char * who, int_t argc)
+inline void OneOrTwoArgsCheck(const char * who, int_t argc)
 {
     if (argc < 1 || argc > 2)
         RaiseExceptionC(R.Assertion, who, "expected one or two arguments", EmptyListObject);
 }
 
-inline void OneToThreeArgsCheck(char * who, int_t argc)
+inline void OneToThreeArgsCheck(const char * who, int_t argc)
 {
     if (argc < 1 || argc > 3)
         RaiseExceptionC(R.Assertion, who, "expected one to three arguments", EmptyListObject);
 }
 
-inline void OneToFourArgsCheck(char * who, int_t argc)
+inline void OneToFourArgsCheck(const char * who, int_t argc)
 {
     if (argc < 1 || argc > 4)
         RaiseExceptionC(R.Assertion, who, "expected one to four arguments", EmptyListObject);
 }
 
-inline void TwoToFourArgsCheck(char * who, int_t argc)
+inline void TwoToFourArgsCheck(const char * who, int_t argc)
 {
     if (argc < 2 || argc > 4)
         RaiseExceptionC(R.Assertion, who, "expected two to four arguments", EmptyListObject);
 }
 
-inline void ThreeToFiveArgsCheck(char * who, int_t argc)
+inline void ThreeToFiveArgsCheck(const char * who, int_t argc)
 {
     if (argc < 3 || argc > 5)
         RaiseExceptionC(R.Assertion, who, "expected three to five arguments", EmptyListObject);
 }
 
-inline void NonNegativeArgCheck(char * who, FObject arg)
+inline void NonNegativeArgCheck(const char * who, FObject arg)
 {
     if (FixnumP(arg) == 0 || AsFixnum(arg) < 0)
         RaiseExceptionC(R.Assertion, who, "expected an exact non-negative integer", List(arg));
 }
 
-inline void IndexArgCheck(char * who, FObject arg, FFixnum len)
+inline void IndexArgCheck(const char * who, FObject arg, FFixnum len)
 {
     if (FixnumP(arg) == 0 || AsFixnum(arg) < 0 || AsFixnum(arg) >= len)
         RaiseExceptionC(R.Assertion, who, "expected a valid index", List(arg));
 }
 
-inline void EndIndexArgCheck(char * who, FObject arg, FFixnum strt, FFixnum len)
+inline void EndIndexArgCheck(const char * who, FObject arg, FFixnum strt, FFixnum len)
 {
     if (FixnumP(arg) == 0 || AsFixnum(arg) < strt || AsFixnum(arg) > len)
         RaiseExceptionC(R.Assertion, who, "expected a valid index", List(arg));
 }
 
-inline void ByteArgCheck(char * who, FObject obj)
+inline void ByteArgCheck(const char * who, FObject obj)
 {
     if (FixnumP(obj) == 0 || AsFixnum(obj) < 0 || AsFixnum(obj) > 0xFF)
         RaiseExceptionC(R.Assertion, who, "expected a byte: an exact integer between 0 and 255",
                 List(obj));
 }
 
-inline void FixnumArgCheck(char * who, FObject obj)
+inline void FixnumArgCheck(const char * who, FObject obj)
 {
     if (FixnumP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a fixnum", List(obj));
 }
 
-inline void CharacterArgCheck(char * who, FObject obj)
+inline void CharacterArgCheck(const char * who, FObject obj)
 {
     if (CharacterP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a character", List(obj));
 }
 
-inline void BooleanArgCheck(char * who, FObject obj)
+inline void BooleanArgCheck(const char * who, FObject obj)
 {
     if (BooleanP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a boolean", List(obj));
 }
 
-inline void SymbolArgCheck(char * who, FObject obj)
+inline void SymbolArgCheck(const char * who, FObject obj)
 {
     if (SymbolP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a symbol", List(obj));
 }
 
-inline void ExceptionArgCheck(char * who, FObject obj)
+inline void ExceptionArgCheck(const char * who, FObject obj)
 {
     if (ExceptionP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected an error-object", List(obj));
 }
 
-inline void StringArgCheck(char * who, FObject obj)
+inline void StringArgCheck(const char * who, FObject obj)
 {
     if (StringP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a string", List(obj));
 }
 
-inline void PairArgCheck(char * who, FObject obj)
+inline void PairArgCheck(const char * who, FObject obj)
 {
     if (PairP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a pair", List(obj));
 }
 
-inline void ListArgCheck(char * who, FObject obj)
+inline void ListArgCheck(const char * who, FObject obj)
 {
     if (ListLength(obj) < 0)
         RaiseExceptionC(R.Assertion, who, "expected a list", List(obj));
 }
 
-inline void VectorArgCheck(char * who, FObject obj)
+inline void VectorArgCheck(const char * who, FObject obj)
 {
     if (VectorP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a vector", List(obj));
 }
 
-inline void BytevectorArgCheck(char * who, FObject obj)
+inline void BytevectorArgCheck(const char * who, FObject obj)
 {
     if (BytevectorP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a bytevector", List(obj));
 }
 
-inline void EnvironmentArgCheck(char * who, FObject obj)
+inline void EnvironmentArgCheck(const char * who, FObject obj)
 {
     if (EnvironmentP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected an environment", List(obj));
 }
 
-inline void PortArgCheck(char * who, FObject obj)
+inline void PortArgCheck(const char * who, FObject obj)
 {
     if (BinaryPortP(obj) == 0 && TextualPortP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a port", List(obj));
 }
 
-inline void InputPortArgCheck(char * who, FObject obj)
+inline void InputPortArgCheck(const char * who, FObject obj)
 {
     if ((BinaryPortP(obj) == 0 && TextualPortP(obj) == 0) || InputPortP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected an input port", List(obj));
 }
 
-inline void OutputPortArgCheck(char * who, FObject obj)
+inline void OutputPortArgCheck(const char * who, FObject obj)
 {
     if ((BinaryPortP(obj) == 0 && TextualPortP(obj) == 0) || OutputPortP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected an output port", List(obj));
 }
 
-inline void BinaryPortArgCheck(char * who, FObject obj)
+inline void BinaryPortArgCheck(const char * who, FObject obj)
 {
     if (BinaryPortP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a binary port", List(obj));
 }
 
-inline void TextualPortArgCheck(char * who, FObject obj)
+inline void TextualPortArgCheck(const char * who, FObject obj)
 {
     if (TextualPortP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a textual port", List(obj));
 }
 
-inline void StringOutputPortArgCheck(char * who, FObject obj)
+inline void StringOutputPortArgCheck(const char * who, FObject obj)
 {
     if (StringOutputPortP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a string output port", List(obj));
 }
 
-inline void BytevectorOutputPortArgCheck(char * who, FObject obj)
+inline void BytevectorOutputPortArgCheck(const char * who, FObject obj)
 {
     if (BytevectorOutputPortP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a bytevector output port", List(obj));
 }
 
-inline void TextualInputPortArgCheck(char * who, FObject obj)
+inline void TextualInputPortArgCheck(const char * who, FObject obj)
 {
     if (TextualPortP(obj) == 0 || InputPortOpenP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected an open textual input port", List(obj));
 }
 
-inline void TextualOutputPortArgCheck(char * who, FObject obj)
+inline void TextualOutputPortArgCheck(const char * who, FObject obj)
 {
     if (TextualPortP(obj) == 0 || OutputPortOpenP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected an open textual output port", List(obj));
 }
 
-inline void BinaryInputPortArgCheck(char * who, FObject obj)
+inline void BinaryInputPortArgCheck(const char * who, FObject obj)
 {
     if (BinaryPortP(obj) == 0 || InputPortOpenP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected an open binary input port", List(obj));
 }
 
-inline void BinaryOutputPortArgCheck(char * who, FObject obj)
+inline void BinaryOutputPortArgCheck(const char * who, FObject obj)
 {
     if (BinaryPortP(obj) == 0 || OutputPortOpenP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected an open binary output port", List(obj));
 }
 
-inline void ProcedureArgCheck(char * who, FObject obj)
+inline void ProcedureArgCheck(const char * who, FObject obj)
 {
     if (ProcedureP(obj) == 0 && PrimitiveP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a procedure", List(obj));
 }
 
-inline void ThreadArgCheck(char * who, FObject obj)
+inline void ThreadArgCheck(const char * who, FObject obj)
 {
     if (ThreadP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a thread", List(obj));
 }
 
-inline void ExclusiveArgCheck(char * who, FObject obj)
+inline void ExclusiveArgCheck(const char * who, FObject obj)
 {
     if (ExclusiveP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected an exclusive", List(obj));
 }
 
-inline void ConditionArgCheck(char * who, FObject obj)
+inline void ConditionArgCheck(const char * who, FObject obj)
 {
     if (ConditionP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a condition", List(obj));
 }
 
-inline void TConcArgCheck(char * who, FObject obj)
+inline void TConcArgCheck(const char * who, FObject obj)
 {
     if (PairP(obj) == 0 || PairP(First(obj)) == 0 || PairP(Rest(obj)) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a tconc", List(obj));
 }
 
-inline void EqHashtableArgCheck(char * who, FObject obj)
+inline void EqHashtableArgCheck(const char * who, FObject obj)
 {
     if (HashtableP(obj) == 0 || PairP(AsHashtable(obj)->Tracker) == 0)
         RaiseExceptionC(R.Assertion, who, "expected an eq-hashtable", List(obj));
