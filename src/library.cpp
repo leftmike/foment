@@ -9,7 +9,7 @@ Foment
 
 // ---- Environments ----
 
-static char * EnvironmentFieldsC[] = {"name", "hashtable", "interactive"};
+static char * EnvironmentFieldsC[] = {"name", "hashtable", "interactive", "immutable"};
 
 FObject MakeEnvironment(FObject nam, FObject ctv)
 {
@@ -20,8 +20,15 @@ FObject MakeEnvironment(FObject nam, FObject ctv)
     env->Hashtable = MakeEqHashtable(67);
     env->Name = nam;
     env->Interactive = ctv;
-
+    env->Immutable = FalseObject;
     return(env);
+}
+
+void EnvironmentImmutable(FObject env)
+{
+    FAssert(EnvironmentP(env));
+
+    AsEnvironment(env)->Immutable = TrueObject;
 }
 
 static FObject MakeGlobal(FObject nam, FObject mod, FObject ctv);
@@ -658,10 +665,8 @@ static FObject DoImportSet(FObject env, FObject is, FObject form)
     return(ilst);
 }
 
-static void DoImport(FObject env, FObject is, FObject form)
+void EnvironmentImportSet(FObject env, FObject is, FObject form)
 {
-    // (import <import-set> ...)
-
     FObject ilst = DoImportSet(env, is, form);
 
     while (PairP(ilst))
@@ -678,14 +683,16 @@ static void DoImport(FObject env, FObject is, FObject form)
     FAssert(ilst == EmptyListObject);
 }
 
-void EnvironmentImport(FObject env, FObject form)
+static void EnvironmentImport(FObject env, FObject form)
 {
+    // (import <import-set> ...)
+
     FAssert(PairP(form));
 
     FObject islst = Rest(form);
     while (PairP(islst))
     {
-        DoImport(env, First(islst), form);
+        EnvironmentImportSet(env, First(islst), form);
         islst = Rest(islst);
     }
 
@@ -811,6 +818,12 @@ static FObject CompileEvalExpr(FObject obj, FObject env, FObject body)
             // (define (<variable> <formals>) <body>)
             // (define (<variable> . <formal>) <body>)
 
+            FAssert(EnvironmentP(env));
+
+            if (AsEnvironment(env)->Immutable == TrueObject)
+                RaiseExceptionC(R.Assertion, "define",
+                        "environment is immutable", List(env, obj));
+
             if (PairP(Rest(obj)) == 0)
                 RaiseExceptionC(R.Syntax, "define",
                         "expected a variable or list beginning with a variable", List(obj));
@@ -866,6 +879,12 @@ static FObject CompileEvalExpr(FObject obj, FObject env, FObject body)
         else if (op == DefineSyntaxSyntax)
         {
             // (define-syntax <keyword> <expression>)
+
+            FAssert(EnvironmentP(env));
+
+            if (AsEnvironment(env)->Immutable == TrueObject)
+                RaiseExceptionC(R.Assertion, "define",
+                        "environment is immutable", List(env, obj));
 
             if (PairP(Rest(obj)) == 0 || PairP(Rest(Rest(obj))) == 0
                     || Rest(Rest(Rest(obj))) != EmptyListObject
@@ -1085,6 +1104,26 @@ static void WalkVisitProgram(FObject key, FObject val, FObject ctx)
                 List(AsGlobal(val)->Name, ctx));
 }
 
+static FObject CondExpandProgram(FObject lst, FObject prog)
+{
+    while (lst != EmptyListObject)
+    {
+        FAssert(PairP(lst));
+
+        FObject obj = First(lst);
+
+        if (PairP(obj) && EqualToSymbol(First(obj), R.CondExpandSymbol))
+            prog = CondExpandProgram(CondExpand(MakeSyntacticEnv(R.Bedrock), obj, Rest(obj)),
+                    prog);
+        else
+            prog = MakePair(obj, prog);
+
+        lst = Rest(lst);
+    }
+
+    return(prog);
+}
+
 FObject CompileProgram(FObject nam, FObject port)
 {
     FAssert(TextualPortP(port) && InputPortOpenP(port));
@@ -1092,33 +1131,57 @@ FObject CompileProgram(FObject nam, FObject port)
     WantIdentifiersPort(port, 1);
 
     FObject env = MakeEnvironment(nam, FalseObject);
-    FObject obj;
-
-    for (;;)
-    {
-        obj = Read(port);
-        if (PairP(obj) == 0 || EqualToSymbol(First(obj), R.ImportSymbol) == 0)
-            break;
-
-        EnvironmentImport(env, obj);
-    }
-
+    FObject prog = EmptyListObject;
     FObject body = EmptyListObject;
-    if (R.LibraryStartupList != EmptyListObject)
-    {
-        body = MakePair(MakePair(BeginSyntax, ReverseListModify(R.LibraryStartupList)), body);
-        R.LibraryStartupList = EmptyListObject;
-    }
 
     try
     {
         for (;;)
         {
+            FObject obj = Read(port);
             if (obj == EndOfFileObject)
                 break;
 
-            body = CompileEvalExpr(obj, env, body);
-            obj = Read(port);
+            if (PairP(obj) && EqualToSymbol(First(obj), R.CondExpandSymbol))
+                prog = CondExpandProgram(CondExpand(MakeSyntacticEnv(R.Bedrock), obj, Rest(obj)),
+                        prog);
+            else
+                prog = MakePair(obj, prog);
+        }
+
+        prog = ReverseListModify(prog);
+
+        while (prog != EmptyListObject)
+        {
+            FAssert(PairP(prog));
+
+            FObject obj = First(prog);
+            if (PairP(obj) == 0)
+                break;
+
+            if (EqualToSymbol(First(obj), R.ImportSymbol))
+                EnvironmentImport(env, obj);
+            else if (EqualToSymbol(First(obj), R.DefineLibrarySymbol))
+                CompileLibrary(obj);
+            else
+                break;
+
+
+            prog = Rest(prog);
+        }
+
+        if (R.LibraryStartupList != EmptyListObject)
+        {
+            body = MakePair(MakePair(BeginSyntax, ReverseListModify(R.LibraryStartupList)), body);
+            R.LibraryStartupList = EmptyListObject;
+        }
+
+        while (prog != EmptyListObject)
+        {
+            FAssert(PairP(prog));
+
+            body = CompileEvalExpr(First(prog), env, body);
+            prog = Rest(prog);
         }
     }
     catch (FObject obj)

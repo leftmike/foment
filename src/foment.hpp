@@ -9,21 +9,10 @@ Goals:
 To Do:
 -- ctrl-c handling
 
--- serialize loading libraries
--- serialize symbol table
-
 -- use tests from chibi
 -- make tests work with (chibi test)
 
--- strict-r7rs: disable eval recognizing define-library
--- strict-r7rs: disable multiple libraries in a single file
-
--- write repl in scheme and command line argument handling
--e -p -l
-
 -- fix syntax-rules to handle ... as an identifier correctly
-
--- handle cond-expand in programs (disable for strict-r7rs)
 
 -- IO and GC
 -- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
@@ -49,6 +38,8 @@ Future:
     (2 4 6 8 10)
 
 Bugs:
+-- serialize loading libraries
+-- serialize symbol table
 -- char-ready? always returns #t
 -- current-second returns an exact integer
 -- ConvertToSystem does not protect an object from GC in some cases if IO allows GC
@@ -756,6 +747,7 @@ typedef struct
     FObject Name;
     FObject Hashtable;
     FObject Interactive;
+    FObject Immutable;
 } FEnvironment;
 
 FObject MakeEnvironment(FObject nam, FObject ctv);
@@ -767,7 +759,8 @@ FObject EnvironmentSetC(FObject env, char * sym, FObject val);
 FObject EnvironmentGet(FObject env, FObject symid);
 
 void EnvironmentImportLibrary(FObject env, FObject nam);
-void EnvironmentImport(FObject env, FObject form);
+void EnvironmentImportSet(FObject env, FObject is, FObject form);
+void EnvironmentImmutable(FObject env);
 
 // ---- Globals ----
 
@@ -882,20 +875,6 @@ FObject MakeException(FObject typ, FObject who, FObject msg, FObject lst);
 void RaiseException(FObject typ, FObject who, FObject msg, FObject lst);
 void RaiseExceptionC(FObject typ, char * who, char * msg, FObject lst);
 void Raise(FObject obj);
-
-// ---- Config ----
-
-typedef struct
-{
-    int_t Value;
-    SCh * Name;
-} FConfig;
-
-extern FConfig Config[];
-
-#define ConfigInlineProcedures() Config[0].Value
-#define ConfigInlineImports() Config[1].Value
-#define ConfigStrictR7RS() Config[2].Value
 
 // ---- Thread State ----
 
@@ -1013,6 +992,7 @@ typedef struct
     FObject UndefinedMessage;
     FObject ExecuteThunk;
     FObject RaiseHandler;
+    FObject InteractiveThunk;
     FObject ExceptionHandlerSymbol;
 
     FObject DynamicRecordType;
@@ -1312,6 +1292,9 @@ inline void EqHashtableArgCheck(char * who, FObject obj)
 }
 
 // ----------------
+
+extern uint_t InlineProcedures;
+extern uint_t InlineImports;
 
 extern uint_t BytesAllocated;
 extern uint_t CollectionCount;

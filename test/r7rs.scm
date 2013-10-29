@@ -2068,6 +2068,7 @@
 
 ;;
 ;; ---- exceptions ----
+;;
 
 ;; with-exception-handler
 
@@ -2166,6 +2167,14 @@
 
 (must-raise (assertion-violation file-error?) (file-error?))
 (must-raise (assertion-violation file-error?) (file-error? 1 2))
+
+;;
+;; ---- environments and evaluation ----
+;;
+
+(must-raise (assertion-violation environment) (environment '|scheme base|))
+(must-equal 10 (eval '(+ 1 2 3 4) (environment '(scheme base))))
+(must-raise (assertion-violation define) (eval '(define x 10) (environment '(scheme base))))
 
 ;;
 ;; ---- ports ----

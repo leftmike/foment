@@ -16,14 +16,8 @@ ULONGLONG StartingTicks = 0;
 
 uint_t SetupComplete = 0;
 
-FConfig Config[] =
-{
-    {1, L"inline-procedures"},
-    {1, L"inline-imports"},
-    {0, L"strict-r7rs"},
-//    {1, L"inline-primitives"},
-    {0, 0}
-};
+uint_t InlineProcedures = 1;
+uint_t InlineImports = 1;
 
 FRoots R;
 
@@ -1421,7 +1415,9 @@ static char * FeaturesC[] =
 #endif // FOMENT_WINDOWS
     "i386",
     "ilp32",
-    "little-endian"
+    "little-endian",
+    "foment",
+    "foment-0.1"
 };
 
 FObject MakeCommandLine(int_t argc, SCh * argv[])

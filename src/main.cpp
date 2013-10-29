@@ -8,6 +8,7 @@ Foment
 #include <string.h>
 #include "foment.hpp"
 
+#if 0
 static void LoadFile(FObject fn, FObject env)
 {
     try
@@ -93,6 +94,7 @@ static int RunRepl(FObject env)
 
     return(0);
 }
+#endif // 0
 
 static int Usage()
 {
@@ -147,15 +149,6 @@ static FObject MakeInvocation(int argc, wchar_t * argv[])
     return(s);
 }
 
-static void UpdateFeatures()
-{
-    if (ConfigStrictR7RS() == 0)
-    {
-        R.Features = MakePair(StringCToSymbol("foment"), R.Features);
-        R.Features = MakePair(StringCToSymbol("foment-0.1"), R.Features);
-    }
-}
-
 static int ProgramMode(int adx, int argc, wchar_t * argv[])
 {
     FAssert(adx < argc);
@@ -179,8 +172,6 @@ static int ProgramMode(int adx, int argc, wchar_t * argv[])
     adx += 1;
     R.CommandLine = MakePair(MakeInvocation(adx, argv), MakeCommandLine(argc - adx, argv + adx));
 
-    UpdateFeatures();
-
     FObject port = OpenInputFile(nam);
     if (TextualPortP(port) == 0)
     {
@@ -194,33 +185,6 @@ static int ProgramMode(int adx, int argc, wchar_t * argv[])
     return(0);
 }
 
-static int SetConfig(wchar_t * nam, int val)
-{
-    int idx = 0;
-
-    while (Config[idx].Name)
-    {
-        if (wcscmp(Config[idx].Name, nam) == 0)
-        {
-            Config[idx].Value = val;
-            return(0);
-        }
-
-        idx += 1;
-    }
-
-    printf("error: expected a configuration option:");
-    idx = 0;
-    while (Config[idx].Name)
-    {
-        printf(" %S", Config[idx].Name);
-        idx += 1;
-    }
-    printf("\n");
-
-    return(Usage());
-}
-
 int wmain(int argc, wchar_t * argv[])
 {
 #ifdef FOMENT_DEBUG
@@ -228,6 +192,17 @@ int wmain(int argc, wchar_t * argv[])
 #else // FOMENT_DEBUG
     printf("Foment Scheme 0.1\n");
 #endif // FOMENT_DEBUG
+
+    int adx = 1;
+    while (adx < argc)
+    {
+        if (wcscmp(argv[adx], L"-no-inline-procedures") == 0)
+            InlineProcedures = 0;
+        else if (wcscmp(argv[adx], L"-no-inline-imports") == 0)
+            InlineImports = 0;
+
+        adx += 1;
+    }
 
     FThreadState ts;
 
@@ -283,41 +258,21 @@ int wmain(int argc, wchar_t * argv[])
 
                 adx += 1;
             }
-            else if (wcscmp(argv[adx], L"-ct") == 0)
-            {
+            else if (wcscmp(argv[adx], L"-no-inline-procedures") == 0
+                    || wcscmp(argv[adx], L"-no-inline-imports") == 0)
                 adx += 1;
-
-                if (adx == argc)
-                    return(MissingArgument(argv[adx - 1]));
-
-                if (SetConfig(argv[adx], 1))
-                    return(-1);
-
-                adx += 1;
-            }
-            else if (wcscmp(argv[adx], L"-cf") == 0)
-            {
-                adx += 1;
-
-                if (adx == argc)
-                    return(MissingArgument(argv[adx - 1]));
-
-                if (SetConfig(argv[adx], -1))
-                    return(-1);
-
-                adx += 1;
-            }
             else if (argv[adx][0] != '-')
                 return(ProgramMode(adx, argc, argv));
             else
                 break;
         }
 
-        UpdateFeatures();
         R.CommandLine = MakePair(MakeInvocation(adx, argv),
                 MakeCommandLine(argc - adx, argv + adx));
 
-        return(RunRepl(GetInteractionEnv()));
+        ExecuteThunk(R.InteractiveThunk);
+        return(0);
+//        return(RunRepl(GetInteractionEnv()));
     }
     catch (FObject obj)
     {

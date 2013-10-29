@@ -195,9 +195,9 @@ FObject GetInteractionEnv()
 {
     if (EnvironmentP(R.InteractionEnv) == 0)
     {
-        R.InteractionEnv = MakeEnvironment(List(StringCToSymbol("interaction")), TrueObject);
+        R.InteractionEnv = MakeEnvironment(StringCToSymbol("interaction"), TrueObject);
         EnvironmentImportLibrary(R.InteractionEnv,
-                List(StringCToSymbol("scheme"), StringCToSymbol("base")));
+                List(StringCToSymbol("foment"), StringCToSymbol("base")));
     }
 
     return(R.InteractionEnv);
@@ -207,17 +207,46 @@ FObject GetInteractionEnv()
 
 Define("%compile-eval", CompileEvalPrimitive)(int_t argc, FObject argv[])
 {
-    TwoArgsCheck("%compile-eval", argc);
-    EnvironmentArgCheck("%compile-eval", argv[1]);
+    FMustBe(argc == 2);
+    EnvironmentArgCheck("eval", argv[1]);
 
     return(CompileEval(argv[0], argv[1]));
 }
 
 Define("interaction-environment", InteractionEnvironmentPrimitive)(int_t argc, FObject argv[])
 {
-    ZeroArgsCheck("interaction-environment", argc);
+    if (argc == 0)
+    {
+        ZeroArgsCheck("interaction-environment", argc);
 
-    return(GetInteractionEnv());
+        return(GetInteractionEnv());
+    }
+
+    FObject env = MakeEnvironment(StringCToSymbol("interaction"), TrueObject);
+
+    for (int_t adx = 0; adx < argc; adx++)
+    {
+        ListArgCheck("environment", argv[adx]);
+
+        EnvironmentImportSet(env, argv[adx], argv[adx]);
+    }
+
+    return(env);
+}
+
+Define("environment", EnvironmentPrimitive)(int_t argc, FObject argv[])
+{
+    FObject env = MakeEnvironment(EmptyListObject, FalseObject);
+
+    for (int_t adx = 0; adx < argc; adx++)
+    {
+        ListArgCheck("environment", argv[adx]);
+
+        EnvironmentImportSet(env, argv[adx], argv[adx]);
+    }
+
+    EnvironmentImmutable(env);
+    return(env);
 }
 
 Define("syntax", SyntaxPrimitive)(int_t argc, FObject argv[])
@@ -238,6 +267,7 @@ static FPrimitive * Primitives[] =
 {
     &CompileEvalPrimitive,
     &InteractionEnvironmentPrimitive,
+    &EnvironmentPrimitive,
     &SyntaxPrimitive,
     &UnsyntaxPrimitive
 };

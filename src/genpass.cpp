@@ -685,7 +685,7 @@ static FObject GPassMakeCall(FLambda * lam, FObject cdl, FObject op, int_t argc,
     }
 /*    else if (PrimitiveP(op))
     {
-        if (ConfigInlinePrimitives())
+        if (InlinePrimitives)
         {
             
             // inline primitives here

@@ -17,7 +17,7 @@
         (display ": ")
         (write ret)
         (newline))
-    (let ((env (interaction-environment)))
+    (let ((env (interaction-environment '(scheme base))))
         (define (test-must-equal obj)
             (let ((ret (eval (caddr obj) env)))
                 (if (equal? (unsyntax (cadr obj)) ret)

@@ -289,8 +289,8 @@
         cadddr
         cddddr)
     (export ;; (scheme eval)
-;        environment
-         eval)
+        environment
+        eval)
     (export ;; (scheme file)
         call-with-input-file
         call-with-output-file
@@ -589,24 +589,6 @@
                     (or (eq? who 'open-binary-input-file) (eq? who 'open-binary-output-file)
                             (eq? who 'delete-file)))))
 
-        (define (eval expr env)
-            ((%compile-eval expr env)))
-
-        (define (%load filename env)
-            (define (read-eval port)
-                (let ((obj (read port)))
-                    (if (not (eof-object? obj))
-                        (begin
-                            (eval obj env)
-                            (read-eval port)))))
-            (call-with-port (open-input-file filename)
-                    (lambda (port) (want-identifiers port #t) (read-eval port))))
-
-        (define load
-            (case-lambda
-                ((filename) (%load filename (interaction-environment)))
-                ((filename env) (%load filename env))))
-
         (define (call-with-values producer consumer)
                 (let-values ((args (producer))) (apply consumer args)))
 
@@ -776,12 +758,6 @@
                 (unwind dyn)
                 (%abort-dynamic dyn (lambda () (apply handler vals)))))
 
-        (define (execute-thunk thunk)
-            (%return (call-with-continuation-prompt thunk (default-prompt-tag)
-                    default-prompt-handler)))
-
-        (%execute-thunk execute-thunk)
-
         (define (call-with-current-continuation proc)
             (define (unwind ds)
                 (if (pair? ds)
@@ -932,6 +908,67 @@
                 (let-values ((results (parameterize ((current-output-port port)) (thunk))))
                     (close-output-port port)
                     (apply values results))))
+
+        (define (execute-thunk thunk)
+            (%return (call-with-continuation-prompt thunk (default-prompt-tag)
+                    default-prompt-handler)))
+
+        (%execute-thunk execute-thunk)
+
+        (define (eval expr env)
+            ((%compile-eval expr env)))
+
+        (define (%load filename env)
+            (define (read-eval port)
+                (let ((obj (read port)))
+                    (if (not (eof-object? obj))
+                        (begin
+                            (eval obj env)
+                            (read-eval port)))))
+            (call-with-port (open-input-file filename)
+                    (lambda (port) (want-identifiers port #t) (read-eval port))))
+
+        (define load
+            (case-lambda
+                ((filename) (%load filename (interaction-environment)))
+                ((filename env) (%load filename env))))
+
+        (define (repl env exit)
+            (display "{") (write (%bytes-allocated)) (display "} =] ")
+            (guard (exc
+                ((error-object? exc) (write exc) (newline))
+                (else (display "unexpected exception object: ") (write exc) (newline)))
+                (let ((obj (read)))
+                    (if (eof-object? obj)
+                        (exit obj)
+                        (let ((ret (eval obj env)))
+                            (if (not (eq? ret (no-value)))
+                                (begin
+                                    (write ret) (newline)))))))
+            (repl env exit))
+
+        (define (handle-command-line lst env)
+            (if (not (null? lst))
+                (cond
+                    ((and (string=? "-p" (car lst)) (not (null? (cdr lst))))
+                            (write (eval (read (open-input-string (cadr lst))) env))
+                            (newline)
+                            (handle-command-line (cddr lst) env))
+                    ((and (string=? "-e" (car lst)) (not (null? (cdr lst))))
+                            (eval (read (open-input-string (cadr lst))) env)
+                            (handle-command-line (cddr lst) env))
+                    ((and (string=? "-l" (car lst)) (not (null? (cdr lst))))
+                            (load (cadr lst) env)
+                            (handle-command-line (cddr lst) env))
+                    (else
+                        (handle-command-line (cdr lst) env)))))
+
+        (define (interactive-thunk)
+            (let ((env (interaction-environment)))
+                (handle-command-line (cdr (command-line)) env)
+                (call-with-current-continuation (lambda (exit) (repl env exit)))))
+
+        (%interactive-thunk interactive-thunk)
     ))
 
 (define-library (scheme base)
@@ -1239,8 +1276,8 @@
 (define-library (scheme eval)
     (import (foment base))
     (export
-;;        environment
-         eval))
+        environment
+        eval))
 
  (define-library (scheme file)
     (import (foment base))

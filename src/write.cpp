@@ -248,6 +248,17 @@ static void WriteRecord(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
 {
     if (IdentifierP(obj))
         WriteGeneric(port, AsIdentifier(obj)->Symbol, df, wfn, ctx);
+    else if (EnvironmentP(obj))
+    {
+        FCh s[16];
+        int_t sl = NumberAsString((FFixnum) obj, s, 16);
+
+        WriteStringC(port, "#<(environment: #x");
+        WriteString(port, s, sl);
+        WriteCh(port, ' ');
+        wfn(port, AsEnvironment(obj)->Name, df, wfn, ctx);
+        WriteStringC(port, ">");
+    }
     else
     {
         FObject rt = AsGenericRecord(obj)->Fields[0];
