@@ -9,7 +9,7 @@ Foment
 
 // ---- SyntacticEnv ----
 
-static char * SyntacticEnvFieldsC[] = {"global-bindings", "local-bindings"};
+static const char * SyntacticEnvFieldsC[] = {"global-bindings", "local-bindings"};
 
 FObject MakeSyntacticEnv(FObject obj)
 {
@@ -33,8 +33,8 @@ FObject MakeSyntacticEnv(FObject obj)
 
 // ---- Binding ----
 
-static char * BindingFieldsC[] = {"identifier", "syntax", "syntactic-env", "rest-arg", "use-count",
-    "set-count", "escapes", "level", "slot", "constant"};
+static const char * BindingFieldsC[] = {"identifier", "syntax", "syntactic-env", "rest-arg",
+    "use-count", "set-count", "escapes", "level", "slot", "constant"};
 
 FObject MakeBinding(FObject se, FObject id, FObject ra)
 {
@@ -63,7 +63,8 @@ FObject MakeBinding(FObject se, FObject id, FObject ra)
 
 static int_t IdentifierMagic = 0;
 
-static char * IdentifierFieldsC[] = {"symbol", "line-number", "magic", "syntactic-env", "wrapped"};
+static const char * IdentifierFieldsC[] = {"symbol", "line-number", "magic", "syntactic-env",
+    "wrapped"};
 
 FObject MakeIdentifier(FObject sym, int_t ln)
 {
@@ -102,7 +103,7 @@ FObject WrapIdentifier(FObject id, FObject se)
 
 // ---- Lambda ----
 
-static char * LambdaFieldsC[] = {"name", "bindings", "body", "rest-arg", "arg-count",
+static const char * LambdaFieldsC[] = {"name", "bindings", "body", "rest-arg", "arg-count",
     "escapes", "use-stack", "level", "slot-count", "middle-pass", "procedure", "body-index",
     "may-inline"};
 
@@ -133,7 +134,7 @@ FObject MakeLambda(FObject nam, FObject bs, FObject body)
 
 // ---- CaseLambda ----
 
-static char * CaseLambdaFieldsC[] = {"cases", "name", "escapes"};
+static const char * CaseLambdaFieldsC[] = {"cases", "name", "escapes"};
 
 FObject MakeCaseLambda(FObject cases)
 {
@@ -149,7 +150,7 @@ FObject MakeCaseLambda(FObject cases)
 
 // ---- InlineVariable ----
 
-static char * InlineVariableFieldsC[] = {"index"};
+static const char * InlineVariableFieldsC[] = {"index"};
 
 FObject MakeInlineVariable(int_t idx)
 {
@@ -165,7 +166,7 @@ FObject MakeInlineVariable(int_t idx)
 
 // ---- Reference ----
 
-static char * ReferenceFieldsC[] = {"binding", "identifier"};
+static const char * ReferenceFieldsC[] = {"binding", "identifier"};
 
 FObject MakeReference(FObject be, FObject id)
 {

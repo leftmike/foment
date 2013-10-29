@@ -20,7 +20,7 @@ typedef struct
 
 #define AsSyntaxRules(obj) ((FSyntaxRules *) (obj))
 
-static char * SyntaxRulesFieldsC[] = {"literals", "rules", "syntactic-env"};
+static const char * SyntaxRulesFieldsC[] = {"literals", "rules", "syntactic-env"};
 
 static FObject MakeSyntaxRules(FObject lits, FObject rules, FObject se)
 {
@@ -36,7 +36,7 @@ static FObject MakeSyntaxRules(FObject lits, FObject rules, FObject se)
 
 // ---- Pattern Variable ----
 
-static char * PatternVariableFieldsC[] = {"repeat-depth", "index", "variable"};
+static const char * PatternVariableFieldsC[] = {"repeat-depth", "index", "variable"};
 
 static FObject MakePatternVariable(int_t rd, FObject var)
 {
@@ -53,7 +53,8 @@ static FObject MakePatternVariable(int_t rd, FObject var)
 
 // ---- Pattern Repeat ----
 
-static char * PatternRepeatFieldsC[] = {"leave-count", "ellipsis", "variables", "pattern", "rest"};
+static const char * PatternRepeatFieldsC[] = {"leave-count", "ellipsis", "variables", "pattern",
+    "rest"};
 
 static FObject MakePatternRepeat(int_t lc, FObject ellip, FObject vars, FObject pat,
     FObject rest)
@@ -72,7 +73,7 @@ static FObject MakePatternRepeat(int_t lc, FObject ellip, FObject vars, FObject 
 
 // ---- Template Repeat ----
 
-static char * TemplateRepeatFieldsC[] = {"ellipsis", "repeat-count", "variables", "template",
+static const char * TemplateRepeatFieldsC[] = {"ellipsis", "repeat-count", "variables", "template",
     "rest"};
 
 static FObject MakeTemplateRepeat(FObject ellip, int_t rc)
@@ -103,7 +104,7 @@ typedef struct
 #define AsSyntaxRule(obj) ((FSyntaxRule *) (obj))
 #define SyntaxRuleP(obj) RecordP(obj, R.SyntaxRuleRecordType)
 
-static char * SyntaxRuleFieldsC[] = {"num-variables", "variables", "pattern", "template"};
+static const char * SyntaxRuleFieldsC[] = {"num-variables", "variables", "pattern", "template"};
 
 static FObject MakeSyntaxRule(int_t nv, FObject vars, FObject pat, FObject tpl)
 {

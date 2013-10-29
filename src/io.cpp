@@ -467,7 +467,7 @@ void WriteString(FObject port, FCh * s, uint_t sl)
     AsTextualPort(port)->WriteStringFn(port, s, sl);
 }
 
-void WriteStringC(FObject port, char * s)
+void WriteStringC(FObject port, const char * s)
 {
     FAssert(TextualPortP(port) && OutputPortOpenP(port));
 
@@ -922,10 +922,10 @@ static int_t CinCharReadyP(FObject port)
     return(1);
 }
 
-FObject MakeStringCInputPort(char * s)
+FObject MakeStringCInputPort(const char * s)
 {
-    return(MakeTextualPort(NoValueObject, NoValueObject, s, 0, CinCloseInput, 0, 0, CinReadCh,
-            CinCharReadyP, 0));
+    return(MakeTextualPort(NoValueObject, NoValueObject, (void *) s, 0, CinCloseInput, 0, 0,
+            CinReadCh, CinCharReadyP, 0));
 }
 
 static void ConCloseInput(FObject port)

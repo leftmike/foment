@@ -503,8 +503,8 @@ static void WriteIndirectObject(FObject port, FObject obj, int_t df, FWriteFn wf
         WriteStringC(port, AsPrimitive(obj)->Name);
         WriteCh(port, ' ');
 
-        char * fn = AsPrimitive(obj)->Filename;
-        char * p = fn;
+        const char * fn = AsPrimitive(obj)->Filename;
+        const char * p = fn;
         while (*p != 0)
         {
             if (*p == '/' || *p == '\\')

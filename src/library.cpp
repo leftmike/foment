@@ -9,7 +9,7 @@ Foment
 
 // ---- Environments ----
 
-static char * EnvironmentFieldsC[] = {"name", "hashtable", "interactive", "immutable"};
+static const char * EnvironmentFieldsC[] = {"name", "hashtable", "interactive", "immutable"};
 
 FObject MakeEnvironment(FObject nam, FObject ctv)
 {
@@ -123,7 +123,7 @@ FObject EnvironmentSet(FObject env, FObject sym, FObject val)
     return(gl);
 }
 
-FObject EnvironmentSetC(FObject env, char * sym, FObject val)
+FObject EnvironmentSetC(FObject env, const char * sym, FObject val)
 {
     return(EnvironmentSet(env, StringCToSymbol(sym), val));
 }
@@ -198,7 +198,7 @@ void EnvironmentImportLibrary(FObject env, FObject nam)
 
 // ---- Globals ----
 
-static char * GlobalFieldsC[] = {"box", "name", "module", "state", "interactive"};
+static const char * GlobalFieldsC[] = {"box", "name", "module", "state", "interactive"};
 
 static FObject MakeGlobal(FObject nam, FObject mod, FObject ctv)
 {
@@ -241,7 +241,7 @@ static FObject ImportGlobal(FObject env, FObject nam, FObject gl)
 
 // ---- Libraries ----
 
-static char * LibraryFieldsC[] = {"name", "exports"};
+static const char * LibraryFieldsC[] = {"name", "exports"};
 
 static FObject MakeLibrary(FObject nam, FObject exports, FObject proc)
 {

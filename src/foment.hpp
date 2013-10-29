@@ -287,7 +287,7 @@ void InstallTracker(FObject obj, FObject ret, FObject tconc);
 
 #define SpecialSyntaxP(obj) ImmediateP((obj), SpecialSyntaxTag)
 FObject SpecialSyntaxToSymbol(FObject obj);
-FObject SpecialSyntaxMsgC(FObject obj, char * msg);
+FObject SpecialSyntaxMsgC(FObject obj, const char * msg);
 
 #define QuoteSyntax MakeImmediate(0, SpecialSyntaxTag)
 #define LambdaSyntax MakeImmediate(1, SpecialSyntaxTag)

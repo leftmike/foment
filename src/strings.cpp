@@ -51,7 +51,7 @@ FObject MakeStringF(FString * s)
     return(ns);
 }
 
-FObject MakeStringC(char * s)
+FObject MakeStringC(const char * s)
 {
     int_t sl = strlen(s);
     FString * ns = AsString(MakeString(0, sl));
@@ -301,7 +301,7 @@ int_t StringLengthEqualP(FCh * s, int_t sl, FObject obj)
     return(1);
 }
 
-int_t StringCEqualP(char * s1, FCh * s2, int_t sl2)
+int_t StringCEqualP(const char * s1, FCh * s2, int_t sl2)
 {
     int_t sl1 = strlen(s1);
     if (sl1 != sl2)

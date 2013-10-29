@@ -36,7 +36,7 @@ typedef struct
 #define AsDynamic(obj) ((FDynamic *) (obj))
 #define DynamicP(obj) RecordP(obj, R.DynamicRecordType)
 
-static char * DynamicFieldsC[] = {"cstack-ptr", "astack-ptr", "marks"};
+static const char * DynamicFieldsC[] = {"cstack-ptr", "astack-ptr", "marks"};
 
 static FObject MakeDynamic(FObject cdx, FObject adx, FObject ml)
 {
@@ -73,7 +73,7 @@ typedef struct
 #define AsContinuation(obj) ((FContinuation *) (obj))
 #define ContinuationP(obj) RecordP(obj, R.ContinuationRecordType)
 
-static char * ContinuationFieldsC[] = {"cstack-ptr", "cstack", "astack-ptr", "astack"};
+static const char * ContinuationFieldsC[] = {"cstack-ptr", "cstack", "astack-ptr", "astack"};
 
 static FObject MakeContinuation(FObject cdx, FObject cv, FObject adx, FObject av)
 {

@@ -8,7 +8,6 @@ Foment
 #define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
 #define exit(n) _exit(n)
-#define environ _wenviron
 #endif // FOMENT_WINDOWS
 #ifdef FOMENT_UNIX
 #include <unistd.h>
@@ -100,7 +99,7 @@ FObject SpecialSyntaxToSymbol(FObject obj)
     return(StringCToSymbol(SpecialSyntaxToName(obj)));
 }
 
-FObject SpecialSyntaxMsgC(FObject obj, char * msg)
+FObject SpecialSyntaxMsgC(FObject obj, const char * msg)
 {
     char buf[128];
     char * s = buf;
@@ -536,7 +535,12 @@ Define("emergency-exit", EmergencyExitPrimitive)(int_t argc, FObject argv[])
 
 static void GetEnvironmentVariables()
 {
+#ifdef FOMENT_WINDOWS
+    SCh ** envp = _wenviron;
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
     SCh ** envp = environ;
+#endif // FOMENT_UNIX
     FObject lst = EmptyListObject;
 
     while (*envp)
