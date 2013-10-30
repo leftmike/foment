@@ -7,6 +7,9 @@ Foment
 #ifdef FOMENT_WINDOWS
 #include <windows.h>
 #endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+#include <pthread.h>
+#endif // FOMENT_UNIX
 #include <stdio.h>
 #include <string.h>
 #include "foment.hpp"

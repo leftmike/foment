@@ -97,6 +97,99 @@ inline void DeleteEvent(OSEvent ose)
 
 #endif // FOMENT_WINDOWS
 
+#ifdef FOMENT_UNIX
+
+// ---- Operating System Thread ----
+
+typedef pthread_t OSThreadHandle;
+
+// ---- Operating System Exclusive ----
+
+typedef pthread_mutex_t OSExclusive;
+
+void InitializeExclusive(OSExclusive * ose);
+
+inline void EnterExclusive(OSExclusive * ose)
+{
+    pthread_mutex_lock(ose);
+}
+
+inline void LeaveExclusive(OSExclusive * ose)
+{
+    pthread_mutex_unlock(ose);
+}
+
+inline int TryExclusive(OSExclusive * ose)
+{
+    return(pthread_mutex_trylock(ose) == 0);
+}
+
+inline void DeleteExclusive(OSExclusive * ose)
+{
+    pthread_mutex_destroy(ose);
+}
+
+// ---- Operating System Condition ----
+
+typedef pthread_cond_t OSCondition;
+
+inline void InitializeCondition(OSCondition * osc)
+{
+    pthread_cond_init(osc, 0);
+}
+
+inline void ConditionWait(OSCondition * osc, OSExclusive * ose)
+{
+    pthread_cond_wait(osc, ose);
+}
+
+inline void WakeCondition(OSCondition * osc)
+{
+    pthread_cond_signal(osc);
+}
+
+inline void WakeAllCondition(OSCondition * osc)
+{
+    pthread_cond_broadcast(osc);
+}
+
+/*
+// FIXFIX
+pthread_cond_destroy
+On Unix at lease, conditions need to be destroyed.
+*/
+
+// ---- Operating System Event ----
+
+typedef HANDLE OSEvent;
+
+inline OSEvent CreateEvent()
+{
+    return(CreateEvent(0, TRUE, 0, 0));
+}
+
+inline void SignalEvent(OSEvent ose)
+{
+    SetEvent(ose);
+}
+
+inline void ClearEvent(OSEvent ose)
+{
+    ResetEvent(ose);
+}
+
+inline void WaitEvent(OSEvent ose)
+{
+    WaitForSingleObject(ose, INFINITE);
+}
+
+inline void DeleteEvent(OSEvent ose)
+{
+    CloseHandle(ose);
+}
+
+#endif // FOMENT_WINDOWS
+
 // ---- Threads ----
 
 #define AsThread(obj) ((FThread *) (obj))

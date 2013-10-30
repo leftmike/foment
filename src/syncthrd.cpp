@@ -38,6 +38,17 @@ void WriteThread(FObject port, FObject obj, int_t df)
 
 // ---- Exclusives ----
 
+#ifdef FOMENT_UNIX
+void InitializeExclusive(OSExclusive * ose)
+{
+    pthread_mutexattr_t mta;
+
+    pthread_mutexattr_init(&mta);
+    pthread_mutexattr_settype(&mta, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(ose, &mta);
+}
+#endif // FOMENT_UNIX
+
 static FObject MakeExclusive()
 {
     FExclusive * e = (FExclusive *) MakePinnedObject(sizeof(FExclusive), "make-exclusive");
