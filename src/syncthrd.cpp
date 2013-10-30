@@ -56,7 +56,7 @@ static FObject MakeExclusive()
 
     InitializeExclusive(&e->Exclusive);
 
-    InstallGuardian(e, R.ExclusivesTConc);
+    InstallGuardian(e, R.CleanupTConc);
     return(e);
 }
 
@@ -301,15 +301,6 @@ static FPrimitive * Primitives[] =
 
 void SetupThreads()
 {
-    R.ExclusivesTConc = MakeTConc();
-
     for (int_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }
-
-/*
-Unix Support:
-
-http://en.wikipedia.org/wiki/Critical_section
-http://thompsonng.blogspot.com/2011/06/critical-section-windows-vs-linux-in-c.html
-*/

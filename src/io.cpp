@@ -50,7 +50,7 @@ FObject MakeBinaryPort(FObject nam, FObject obj, void * ictx, void * octx, FClos
     port->PeekedByte = NOT_PEEKED;
     port->Offset = 0;
 
-    InstallGuardian(port, R.PortsTConc);
+    InstallGuardian(port, R.CleanupTConc);
 
     return(port);
 }
@@ -304,7 +304,7 @@ FObject MakeTextualPort(FObject nam, FObject obj, void * ictx, void * octx, FClo
     port->Line = 1;
     port->Column = 0;
 
-    InstallGuardian(port, R.PortsTConc);
+    InstallGuardian(port, R.CleanupTConc);
 
     return(port);
 }
@@ -1261,8 +1261,6 @@ static FPrimitive * Primitives[] =
 
 void SetupIO()
 {
-    R.PortsTConc = MakeTConc();
-
     HANDLE hin = GetStdHandle(STD_INPUT_HANDLE);
     HANDLE hout = GetStdHandle(STD_OUTPUT_HANDLE);
     HANDLE herr = GetStdHandle(STD_ERROR_HANDLE);

@@ -87,7 +87,6 @@ uint_t TriggerObjects = TriggerBytes / (sizeof(FPair) * 8);
 uint_t MaximumBackRefFraction = 128;
 
 int_t GCRequired;
-static int_t GCPending;
 static int_t FullGCRequired;
 
 #define GCTagP(obj) ImmediateP(obj, GCTagTag)
@@ -143,11 +142,13 @@ unsigned int TlsIndex;
 #endif // FOMENT_WINDOWS
 
 OSExclusive GCExclusive;
-OSCondition GCCondition;
-static OSEvent GCEvent;
+static OSCondition ReadyCondition;
+static OSCondition DoneCondition;
 
+static int_t GCHappening;
 uint_t TotalThreads;
-uint_t WaitThreads;
+static uint_t WaitThreads;
+static uint_t CollectThreads;
 static FThreadState * Threads;
 
 static uint_t Sizes[1024 * 8];
@@ -1279,31 +1280,22 @@ void EnterWait()
 {
     EnterExclusive(&GCExclusive);
     WaitThreads += 1;
-    if (GCPending)
-        WakeCondition(&GCCondition);
-    LeaveExclusive(&GCExclusive);
-}
-
-static void LeaveCollect()
-{
-    while (GCPending)
-    {
-        LeaveExclusive(&GCExclusive);
-        WakeCondition(&GCCondition);
-
-        WaitEvent(GCEvent);
-
-        EnterExclusive(&GCExclusive);
-    }
-
-    WaitThreads -= 1;
+    if (GCHappening && TotalThreads == WaitThreads + CollectThreads)
+        WakeCondition(&ReadyCondition);
     LeaveExclusive(&GCExclusive);
 }
 
 void LeaveWait()
 {
     EnterExclusive(&GCExclusive);
-    LeaveCollect();
+    WaitThreads -= 1;
+
+    if (GCHappening)
+    {
+        CollectThreads += 1;
+        ConditionWait(&DoneCondition, &GCExclusive);
+    }
+    LeaveExclusive(&GCExclusive);
 }
 
 void Collect()
@@ -1311,16 +1303,20 @@ void Collect()
     EnterExclusive(&GCExclusive);
     FAssert(GCRequired);
 
-    if (GCPending == 0)
+    if (GCHappening == 0)
     {
         FAssert(PartialPerFull >= 0);
 
-        WaitThreads += 1;
-        GCPending = 1;
-        ClearEvent(GCEvent);
+        CollectThreads += 1;
+        GCHappening = 1;
 
-        while (WaitThreads < TotalThreads)
-            ConditionWait(&GCCondition, &GCExclusive);
+        while (WaitThreads + CollectThreads != TotalThreads)
+        {
+            FAssert(WaitThreads + CollectThreads < TotalThreads);
+
+            ConditionWait(&ReadyCondition, &GCExclusive);
+        }
+        LeaveExclusive(&GCExclusive);
 
         if (FullGCRequired || PartialCount >= PartialPerFull)
         {
@@ -1333,38 +1329,40 @@ void Collect()
             Collect(0);
         }
 
-        WaitThreads -= 1;
-        GCPending = 0;
-
-        while (TConcEmptyP(R.ExclusivesTConc) == 0)
-        {
-            FObject obj = TConcRemove(R.ExclusivesTConc);
-
-            FAssert(ExclusiveP(obj));
-
-            DeleteExclusive(&AsExclusive(obj)->Exclusive);
-        }
-
-        SignalEvent(GCEvent);
-
-        while (TConcEmptyP(R.PortsTConc) == 0)
-        {
-            FObject obj = TConcRemove(R.PortsTConc);
-
-            FAssert(BinaryPortP(obj) || TextualPortP(obj));
-
-            LeaveExclusive(&GCExclusive);
-            CloseInput(obj);
-            CloseOutput(obj);
-            EnterExclusive(&GCExclusive);
-        }
-
+        EnterExclusive(&GCExclusive);
+        CollectThreads = 0;
+        GCHappening = 0;
         LeaveExclusive(&GCExclusive);
+
+        WakeAllCondition(&DoneCondition);
+
+        while (TConcEmptyP(R.CleanupTConc) == 0)
+        {
+            FObject obj = TConcRemove(R.CleanupTConc);
+
+            if (ExclusiveP(obj))
+                DeleteExclusive(&AsExclusive(obj)->Exclusive);
+            else if (ConditionP(obj))
+                DeleteCondition(&AsCondition(obj)->Condition);
+            else if (BinaryPortP(obj) || TextualPortP(obj))
+            {
+                CloseInput(obj);
+                CloseOutput(obj);
+            }
+            else
+            {
+                FAssert(0);
+            }
+        }
     }
     else
     {
-        WaitThreads += 1;
-        LeaveCollect();
+        CollectThreads += 1;
+        if (TotalThreads == WaitThreads + CollectThreads)
+            WakeCondition(&ReadyCondition);
+
+        ConditionWait(&DoneCondition, &GCExclusive);
+        LeaveExclusive(&GCExclusive);
     }
 }
 
@@ -1488,7 +1486,7 @@ void LeaveThread(FThreadState * ts)
     }
 
     LeaveExclusive(&GCExclusive);
-    WakeCondition(&GCCondition); // Just in case a collection is pending.
+    WakeCondition(&ReadyCondition); // Just in case a collection is pending.
 
     FAssert(ts->AStack != 0);
     FAssert((ts->StackSize * sizeof(FObject)) % SECTION_SIZE == 0);
@@ -1550,14 +1548,14 @@ void SetupCore(FThreadState * ts)
     ScanSections = AllocateScanSection(0);
 
     InitializeExclusive(&GCExclusive);
-    InitializeCondition(&GCCondition);
-    GCEvent = CreateEvent();
+    InitializeCondition(&ReadyCondition);
+    InitializeCondition(&DoneCondition);
 
     TotalThreads = 1;
     WaitThreads = 0;
     Threads = 0;
     GCRequired = 1;
-    GCPending = 0;
+    GCHappening = 0;
     FullGCRequired = 0;
 
 #ifdef FOMENT_WINDOWS
@@ -1569,6 +1567,8 @@ void SetupCore(FThreadState * ts)
 
     for (uint_t idx = 0; idx < sizeof(Sizes) / sizeof(uint_t); idx++)
         Sizes[idx] = 0;
+
+    R.CleanupTConc = MakeTConc();
 }
 
 Define("install-guardian", InstallGuardianPrimitive)(int_t argc, FObject argv[])

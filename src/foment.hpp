@@ -998,8 +998,7 @@ typedef struct
     FObject DynamicRecordType;
     FObject ContinuationRecordType;
 
-    FObject ExclusivesTConc;
-    FObject PortsTConc;
+    FObject CleanupTConc;
 
     FObject DefineLibrarySymbol;
     FObject ImportSymbol;

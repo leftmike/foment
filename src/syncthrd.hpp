@@ -66,33 +66,9 @@ inline void WakeAllCondition(OSCondition * osc)
     WakeAllConditionVariable(osc);
 }
 
-// ---- Operating System Event ----
-
-typedef HANDLE OSEvent;
-
-inline OSEvent CreateEvent()
+inline void DeleteCondition(OSCondition * osc)
 {
-    return(CreateEvent(0, TRUE, 0, 0));
-}
-
-inline void SignalEvent(OSEvent ose)
-{
-    SetEvent(ose);
-}
-
-inline void ClearEvent(OSEvent ose)
-{
-    ResetEvent(ose);
-}
-
-inline void WaitEvent(OSEvent ose)
-{
-    WaitForSingleObject(ose, INFINITE);
-}
-
-inline void DeleteEvent(OSEvent ose)
-{
-    CloseHandle(ose);
+    // Nothing.
 }
 
 #endif // FOMENT_WINDOWS
@@ -153,42 +129,12 @@ inline void WakeAllCondition(OSCondition * osc)
     pthread_cond_broadcast(osc);
 }
 
-/*
-// FIXFIX
-pthread_cond_destroy
-On Unix at lease, conditions need to be destroyed.
-*/
-
-// ---- Operating System Event ----
-
-typedef HANDLE OSEvent;
-
-inline OSEvent CreateEvent()
+inline void DeleteCondition(OSCondition * osc)
 {
-    return(CreateEvent(0, TRUE, 0, 0));
+    pthread_cond_destroy(osc);
 }
 
-inline void SignalEvent(OSEvent ose)
-{
-    SetEvent(ose);
-}
-
-inline void ClearEvent(OSEvent ose)
-{
-    ResetEvent(ose);
-}
-
-inline void WaitEvent(OSEvent ose)
-{
-    WaitForSingleObject(ose, INFINITE);
-}
-
-inline void DeleteEvent(OSEvent ose)
-{
-    CloseHandle(ose);
-}
-
-#endif // FOMENT_WINDOWS
+#endif // FOMENT_UNIX
 
 // ---- Threads ----
 
@@ -245,7 +191,6 @@ inline void SetThreadState(FThreadState * ts)
 #endif // FOMENT_WINDOWS
 
 extern uint_t TotalThreads;
-extern uint_t WaitThreads;
 extern OSExclusive GCExclusive;
 
 void EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms);
