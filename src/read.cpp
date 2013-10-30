@@ -4,7 +4,13 @@ Foment
 
 */
 
+#ifdef FOMENT_WINDOWS
 #include <windows.h>
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+#include <pthread.h>
+#endif // FOMENT_UNIX
+#include <string.h>
 #include "foment.hpp"
 #include "syncthrd.hpp"
 #include "io.hpp"
@@ -350,13 +356,13 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf)
             RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading bytevector",
                     List(port));
         if (ch != '8')
-            RaiseExceptionC(R.Lexical, "read", "expected #\u8(", List(port));
+            RaiseExceptionC(R.Lexical, "read", "expected #\\u8(", List(port));
 
         if (ReadCh(port, &ch) == 0)
             RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading bytevector",
                     List(port));
         if (ch != '(')
-            RaiseExceptionC(R.Lexical, "read", "expected #\u8(", List(port));
+            RaiseExceptionC(R.Lexical, "read", "expected #\\u8(", List(port));
         return(U8ListToBytevector(ReadList(port)));
     }
     else if (ch == ';')
@@ -812,6 +818,6 @@ static FPrimitive * Primitives[] =
 
 void SetupRead()
 {
-    for (int_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

@@ -56,7 +56,7 @@ int_t ListLength(FObject lst)
     return(ll);
 }
 
-int_t ListLength(char * nam, FObject lst)
+int_t ListLength(const char * nam, FObject lst)
 {
     int_t ll = ListLength(lst);
     if (ll < 0)
@@ -208,7 +208,7 @@ Define("length", LengthPrimitive)(int_t argc, FObject argv[])
     return(MakeFixnum(ListLength("length", argv[0])));
 }
 
-static FObject ReverseList(char * nam, FObject list)
+static FObject ReverseList(const char * nam, FObject list)
 {
     FObject rlst = EmptyListObject;
     FObject lst = list;
@@ -578,6 +578,6 @@ static FPrimitive * Primitives[] =
 
 void SetupPairs()
 {
-    for (int_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

@@ -6,20 +6,25 @@ Foment
 
 #ifdef FOMENT_WINDOWS
 #define _CRT_SECURE_NO_WARNINGS
+#include <windows.h>
 #endif // FOMENT_WINDOWS
 
-#include <windows.h>
+#ifdef FOMENT_UNIX
+#include <pthread.h>
+#include <unistd.h>
+#endif // FOMENT_UNIX
+
 #include <stdio.h>
 #include <malloc.h>
 #include <string.h>
-#include <io.h>
+//#include <io.h>
 #include "foment.hpp"
 #include "syncthrd.hpp"
 #include "io.hpp"
 #include "unicode.hpp"
 #include "convertutf.h"
 
-#define NOT_PEEKED (-1)
+#define NOT_PEEKED ((uint_t) (-1))
 #define CR 13
 #define LF 10
 
@@ -782,7 +787,12 @@ FObject OpenInputFile(FObject fn)
     SCh * ss;
     ConvertToSystem(fn, ss);
 
+#ifdef FOMENT_WINDOWS
     FILE * fp = _wfopen(ss, L"rb");
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+    FILE * fp = fopen(ss, "rb");
+#endif // FOMENT_UNIX
     if (fp == 0)
         return(NoValueObject);
 
@@ -794,7 +804,12 @@ FObject OpenOutputFile(FObject fn)
     SCh * ss;
     ConvertToSystem(fn, ss);
 
+#ifdef FOMENT_WINDOWS
     FILE * fp = _wfopen(ss, L"wb");
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+    FILE * fp = fopen(ss, "wb");
+#endif // FOMENT_UNIX
     if (fp == 0)
         return(NoValueObject);
 
@@ -928,6 +943,7 @@ FObject MakeStringCInputPort(const char * s)
             CinReadCh, CinCharReadyP, 0));
 }
 
+#ifdef FOMENT_WINDOWS
 static void ConCloseInput(FObject port)
 {
     FAssert(TextualPortP(port));
@@ -1008,6 +1024,7 @@ static FObject MakeConsoleOutputPort(FObject nam, HANDLE h)
     return(MakeTextualPort(nam, NoValueObject, 0, h, 0, ConCloseOutput,
             ConFlushOutput, 0, 0, ConWriteString));
 }
+#endif // FOMENT_WINDOWS
 
 // ---- System interface ----
 
@@ -1019,7 +1036,12 @@ Define("file-exists?", FileExistsPPrimitive)(int_t argc, FObject argv[])
     SCh * ss;
     ConvertToSystem(argv[0], ss);
 
+#ifdef FOMENT_WINDOWS
     return(_waccess(ss, 0) == 0 ? TrueObject : FalseObject);
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+    return(access(ss, 0) == 0 ? TrueObject : FalseObject);
+#endif // FOMENT_UNIX
 }
 
 Define("delete-file", DeleteFilePrimitive)(int_t argc, FObject argv[])
@@ -1030,7 +1052,12 @@ Define("delete-file", DeleteFilePrimitive)(int_t argc, FObject argv[])
     SCh * ss;
     ConvertToSystem(argv[0], ss);
 
+#ifdef FOMENT_WINDOWS
     if (_wremove(ss) != 0)
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+    if (remove(ss) != 0)
+#endif // FOMENT_UNIX
         RaiseExceptionC(R.Assertion, "delete-file", "unable to delete file", List(argv[0]));
 
     return(NoValueObject);
@@ -1097,7 +1124,12 @@ Define("open-binary-input-file", OpenBinaryInputFilePrimitive)(int_t argc, FObje
     SCh * ss;
     ConvertToSystem(argv[0], ss);
 
+#ifdef FOMENT_WINDOWS
     FILE * fp = _wfopen(ss, L"rb");
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+    FILE * fp = fopen(ss, "rb");
+#endif // FOMENT_UNIX
     if (fp == 0)
         RaiseExceptionC(R.Assertion, "open-binary-input-file",
                 "unable to open file for input", List(argv[0]));
@@ -1113,7 +1145,12 @@ Define("open-binary-output-file", OpenBinaryOutputFilePrimitive)(int_t argc, FOb
     SCh * ss;
     ConvertToSystem(argv[0], ss);
 
+#ifdef FOMENT_WINDOWS
     FILE * fp = _wfopen(ss, L"wb");
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+    FILE * fp = fopen(ss, "wb");
+#endif // FOMENT_UNIX
     if (fp == 0)
         RaiseExceptionC(R.Assertion, "open-binary-output-file",
                 "unable to open file for output", List(argv[0]));
@@ -1261,21 +1298,23 @@ static FPrimitive * Primitives[] =
 
 void SetupIO()
 {
+#ifdef FOMENT_WINDOWS
     HANDLE hin = GetStdHandle(STD_INPUT_HANDLE);
     HANDLE hout = GetStdHandle(STD_OUTPUT_HANDLE);
     HANDLE herr = GetStdHandle(STD_ERROR_HANDLE);
     DWORD imd, omd;
 
-    if (hin == INVALID_HANDLE_VALUE || hout == INVALID_HANDLE_VALUE
-            || GetConsoleMode(hin, &imd) == 0 || GetConsoleMode(hout, &omd) == 0)
-    {
-        R.StandardInput = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-input"), stdin, 0));
-        R.StandardOutput = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-output"), 0, stdout));
-    }
-    else
+    if (hin != INVALID_HANDLE_VALUE && hout != INVALID_HANDLE_VALUE
+            && GetConsoleMode(hin, &imd) != 0 && GetConsoleMode(hout, &omd) != 0)
     {
         R.StandardInput = MakeConsoleInputPort(MakeStringC("console-input"), hin);
         R.StandardOutput = MakeConsoleOutputPort(MakeStringC("console-output"), hout);
+    }
+    else
+#endif // FOMENT_WINDOWS
+    {
+        R.StandardInput = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-input"), stdin, 0));
+        R.StandardOutput = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-output"), 0, stdout));
     }
 
     R.StandardError = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-error"), 0, stderr));
@@ -1285,7 +1324,7 @@ void SetupIO()
     R.UnquoteSymbol = StringCToSymbol("unquote");
     R.UnquoteSplicingSymbol = StringCToSymbol("unquote-splicing");
 
-    for (int_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 
     SetupWrite();

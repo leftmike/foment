@@ -194,8 +194,8 @@ typedef enum
 // ---- Memory Management ----
 
 FObject MakeObject(uint_t sz, uint_t tag);
-FObject MakeMatureObject(uint_t len, char * who);
-FObject MakePinnedObject(uint_t len, char * who);
+FObject MakeMatureObject(uint_t len, const char * who);
+FObject MakePinnedObject(uint_t len, const char * who);
 
 #define RESERVED_BITS 6
 #define RESERVED_TAGMASK 0x1F
@@ -281,7 +281,7 @@ void InstallTracker(FObject obj, FObject ret, FObject tconc);
 
 #define ValuesCountP(obj) ImmediateP(obj, ValuesCountTag)
 #define MakeValuesCount(cnt) MakeImmediate(cnt, ValuesCountTag)
-#define AsValuesCount(obj) (AsValue(obj))
+#define AsValuesCount(obj) ((FFixnum) (AsValue(obj)))
 
 // ---- Special Syntax ----
 
@@ -364,7 +364,7 @@ void SetRest(FObject obj, FObject val);
 
 FObject MakePair(FObject first, FObject rest);
 int_t ListLength(FObject lst);
-int_t ListLength(char * nam, FObject lst);
+int_t ListLength(const char * nam, FObject lst);
 FObject ReverseListModify(FObject list);
 
 FObject List(FObject obj);
@@ -897,7 +897,7 @@ typedef struct _FThreadState
     FYoungSection * ActiveZero;
     uint_t ObjectsSinceLast;
 
-    int_t UsedRoots;
+    uint_t UsedRoots;
     FObject * Roots[12];
 
     int_t StackSize;

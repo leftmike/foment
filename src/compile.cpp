@@ -315,6 +315,6 @@ void SetupCompile()
 
     SetupSyntaxRules();
 
-    for (int_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

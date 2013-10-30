@@ -291,7 +291,7 @@ int_t StringLengthEqualP(FCh * s, int_t sl, FObject obj)
     FAssert(StringP(obj));
     int_t sdx;
 
-    if (sl !=  StringLength(obj))
+    if (sl !=  (int_t) StringLength(obj))
         return(0);
 
     for (sdx = 0; sdx < sl; sdx++)
@@ -308,7 +308,7 @@ int_t StringCEqualP(const char * s1, FCh * s2, int_t sl2)
         return(0);
 
     for (int_t sdx = 0; sdx < sl1; sdx++)
-        if (s1[sdx] != s2[sdx])
+        if (s1[sdx] != (char) s2[sdx])
             return(0);
 
     return(1);
@@ -795,6 +795,6 @@ static FPrimitive * Primitives[] =
 
 void SetupStrings()
 {
-    for (int_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

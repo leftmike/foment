@@ -39,7 +39,7 @@
 ------------------------------------------------------------------------ */
 
 
-#include "ConvertUTF.h"
+#include "convertutf.h"
 #ifdef CVTUTF_DEBUG
 #include <stdio.h>
 #endif

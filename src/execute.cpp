@@ -4,7 +4,12 @@ Foment
 
 */
 
+#ifdef FOMENT_WINDOWS
 #include <windows.h>
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+#include <pthread.h>
+#endif // FOMENT_UNIX
 #include <stdio.h>
 #include <malloc.h>
 #include "foment.hpp"
@@ -94,7 +99,7 @@ static FObject MakeContinuation(FObject cdx, FObject cv, FObject adx, FObject av
 
 // ---- Instruction ----
 
-static char * Opcodes[] =
+static const char * Opcodes[] =
 {
     "check-count",
     "rest-arg",
@@ -442,7 +447,7 @@ static FObject Execute(FThreadState * ts)
                 }
 
 //                AsBox(AsGlobal(ts->AStack[ts->AStackPtr - 1])->Box)->Value =
-                        ts->AStack[ts->AStackPtr - 2];
+//                        ts->AStack[ts->AStackPtr - 2];
                 Modify(FBox, AsGlobal(ts->AStack[ts->AStackPtr - 1])->Box, Value,
                         ts->AStack[ts->AStackPtr - 2]);
                 ts->AStackPtr -= 2;
@@ -1105,7 +1110,7 @@ Define("%map-strings", MapStringsPrimitive)(int_t argc, FObject argv[])
     {
         StringArgCheck("string-map", First(lst));
 
-        if (idx == StringLength(First(lst)))
+        if (idx == (int_t) StringLength(First(lst)))
             return(EmptyListObject);
 
         ret = MakePair(MakeCharacter(AsString(First(lst))->String[idx]), ret);
@@ -1131,7 +1136,7 @@ Define("%map-vectors", MapVectorsPrimitive)(int_t argc, FObject argv[])
     {
         VectorArgCheck("vector-map", First(lst));
 
-        if (idx == VectorLength(First(lst)))
+        if (idx == (int_t) VectorLength(First(lst)))
             return(EmptyListObject);
 
         ret = MakePair(AsVector(First(lst))->Vector[idx], ret);
@@ -1332,7 +1337,7 @@ void SetupExecute()
     R.ContinuationRecordType = MakeRecordTypeC("continuation",
             sizeof(ContinuationFieldsC) / sizeof(char *), ContinuationFieldsC);
 
-    for (int_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 
     v[0] = MakeInstruction(ValuesOpcode, 0);

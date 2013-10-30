@@ -42,6 +42,7 @@ unsigned char Utf8TrailingBytes[256] =
 
 // ---- System String Conversions ----
 
+#ifdef FOMENT_WINDOWS
 static uint_t Utf16LengthOfString(FCh * s, uint_t sl)
 {
     uint_t ssl = 0;
@@ -113,6 +114,23 @@ FObject MakeStringS(SCh * ss, uint_t ssl)
 
     return(s);
 }
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+
+FObject MakeStringS(SCh * ss)
+{
+// FIXFIX
+
+    return(0);
+}
+
+FObject MakeStringS(SCh * ss, uint_t ssl)
+{
+// FIXFIX
+
+    return(0);
+}
+#endif // FOMENT_UNIX
 
 // ---- Unicode ----
 

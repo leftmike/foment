@@ -4,7 +4,12 @@ Foment
 
 */
 
+#ifdef FOMENT_WINDOWS
 #include <windows.h>
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+#include <pthread.h>
+#endif // FOMENT_UNIX
 #include "foment.hpp"
 #include "execute.hpp"
 #include "syncthrd.hpp"
@@ -124,8 +129,7 @@ static FObject CurrentIndexParameters()
     return(v);
 }
 
-#ifdef FOMENT_WINDOWS
-static DWORD WINAPI FomentThread(FObject obj)
+static void FomentThread(FObject obj)
 {
     FThreadState ts;
 
@@ -154,9 +158,26 @@ static DWORD WINAPI FomentThread(FObject obj)
     }
 
     LeaveThread(&ts);
+}
+
+#ifdef FOMENT_WINDOWS
+static DWORD WINAPI StartupThread(FObject obj)
+{
+    FomentThread(obj);
     return(0);
 }
 #endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+static void * StartThread(FObject obj)
+{
+    FAssert(ThreadP(obj));
+    AsThread(obj)->Handle = pthread_self();
+
+    FomentThread(obj);
+    return(0);
+}
+#endif // FOMENT_UNIX
 
 Define("run-thread", RunThreadPrimitive)(int_t argc, FObject argv[])
 {
@@ -166,7 +187,7 @@ Define("run-thread", RunThreadPrimitive)(int_t argc, FObject argv[])
     FObject thrd = MakeThread(0, argv[0], CurrentParameters(), CurrentIndexParameters());
 
 #ifdef FOMENT_WINDOWS
-    HANDLE h = CreateThread(0, 0, FomentThread, thrd, CREATE_SUSPENDED, 0);
+    HANDLE h = CreateThread(0, 0, StartThread, thrd, CREATE_SUSPENDED, 0);
     if (h == 0)
     {
         unsigned int ec = GetLastError();
@@ -181,6 +202,23 @@ Define("run-thread", RunThreadPrimitive)(int_t argc, FObject argv[])
     ResumeThread(h);
 #endif // FOMENT_WINDOWS
 
+#ifdef FOMENT_UNIX
+    EnterExclusive(&GCExclusive);
+    TotalThreads += 1;
+    LeaveExclusive(&GCExclusive);
+
+    pthread_t pt;
+    int ret = pthread_create(&pt, 0, StartThread, thrd);
+    if (ret != 0)
+    {
+        EnterExclusive(&GCExclusive);
+        TotalThreads -= 1;
+        LeaveExclusive(&GCExclusive);
+
+        RaiseExceptionC(R.Assertion, "run-thread", "pthread_create failed", List(MakeFixnum(ret)));
+    }
+#endif // FOMENT_UNIX
+
     return(thrd);
 }
 
@@ -189,9 +227,17 @@ Define("sleep", SleepPrimitive)(int_t argc, FObject argv[])
     OneArgCheck("sleep", argc);
     NonNegativeArgCheck("sleep", argv[0]);
 
+#ifdef FOMENT_WINDOWS
     EnterWait();
     Sleep((DWORD) AsFixnum(argv[0]));
     LeaveWait();
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    // FIXFIX
+
+#endif // FOMENT_UNIX
+
     return(NoValueObject);
 }
 
@@ -301,6 +347,6 @@ static FPrimitive * Primitives[] =
 
 void SetupThreads()
 {
-    for (int_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

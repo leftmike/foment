@@ -11,7 +11,7 @@ Foment
 
 // ---- Vectors ----
 
-static FVector * MakeVector(uint_t vl, char * who, int_t * mf)
+static FVector * MakeVector(uint_t vl, const char * who, int_t * mf)
 {
     FVector * nv = (FVector *) MakeObject(sizeof(FVector) + (vl - 1) * sizeof(FObject), VectorTag);
     if (nv == 0)
@@ -431,7 +431,7 @@ Define("vector-fill!", VectorFillPrimitive)(int_t argc, FObject argv[])
 
 // ---- Bytevectors ----
 
-static FBytevector * MakeBytevector(uint_t vl, char * who)
+static FBytevector * MakeBytevector(uint_t vl, const char * who)
 {
     FBytevector * nv = (FBytevector *) MakeObject(sizeof(FBytevector) + (vl - 1) * sizeof(FByte),
             BytevectorTag);
@@ -804,6 +804,6 @@ static FPrimitive * Primitives[] =
 
 void SetupVectors()
 {
-    for (int_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

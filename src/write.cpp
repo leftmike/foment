@@ -4,7 +4,12 @@ Foment
 
 */
 
+#ifdef FOMENT_WINDOWS
 #include <windows.h>
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+#include <pthread.h>
+#endif // FOMENT_UNIX
 #include "foment.hpp"
 #include "syncthrd.hpp"
 #include "io.hpp"
@@ -115,7 +120,7 @@ void WriteSharedObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void *
                 WriteCh(port, '(');
                 for (;;)
                 {
-                    wfn(port, First(obj), df, wfn, ctx);
+                    wfn(port, First(obj), df, (void *) wfn, ctx);
                     if (PairP(Rest(obj)) && EqHashtableRef(ToWriteSharedCtx(ctx)->Hashtable,
                             Rest(obj), FalseObject) == FalseObject)
                     {
@@ -130,7 +135,7 @@ void WriteSharedObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void *
                     else
                     {
                         WriteStringC(port, " . ");
-                        wfn(port, Rest(obj), df, wfn, ctx);
+                        wfn(port, Rest(obj), df, (void *) wfn, ctx);
                         WriteCh(port, ')');
                         break;
                     }
@@ -223,7 +228,7 @@ static void WritePair(FObject port, FObject obj, int_t df, FWriteFn wfn, void * 
     WriteCh(port, '(');
     for (;;)
     {
-        wfn(port, First(obj), df, wfn, ctx);
+        wfn(port, First(obj), df, (void *) wfn, ctx);
         if (PairP(Rest(obj)))
         {
             WriteCh(port, ' ');
@@ -237,7 +242,7 @@ static void WritePair(FObject port, FObject obj, int_t df, FWriteFn wfn, void * 
         else
         {
             WriteStringC(port, " . ");
-            wfn(port, Rest(obj), df, wfn, ctx);
+            wfn(port, Rest(obj), df, (void *) wfn, ctx);
             WriteCh(port, ')');
             break;
         }
@@ -256,7 +261,7 @@ static void WriteRecord(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
         WriteStringC(port, "#<(environment: #x");
         WriteString(port, s, sl);
         WriteCh(port, ' ');
-        wfn(port, AsEnvironment(obj)->Name, df, wfn, ctx);
+        wfn(port, AsEnvironment(obj)->Name, df, (void *) wfn, ctx);
         WriteStringC(port, ">");
     }
     else
@@ -266,7 +271,7 @@ static void WriteRecord(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
         int_t sl = NumberAsString((FFixnum) obj, s, 16);
 
         WriteStringC(port, "#<(");
-        wfn(port, RecordTypeName(rt), df, wfn, ctx);
+        wfn(port, RecordTypeName(rt), df, (void *) wfn, ctx);
         WriteStringC(port, ": #x");
         WriteString(port, s, sl);
 
@@ -304,9 +309,9 @@ static void WriteRecord(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
             for (uint_t fdx = 1; fdx < RecordNumFields(obj); fdx++)
             {
                 WriteCh(port, ' ');
-                wfn(port, AsRecordType(rt)->Fields[fdx], df, wfn, ctx);
+                wfn(port, AsRecordType(rt)->Fields[fdx], df, (void *) wfn, ctx);
                 WriteStringC(port, ": ");
-                wfn(port, AsGenericRecord(obj)->Fields[fdx], df, wfn, ctx);
+                wfn(port, AsGenericRecord(obj)->Fields[fdx], df, (void *) wfn, ctx);
             }
 
         }
@@ -327,7 +332,7 @@ static void WriteIndirectObject(FObject port, FObject obj, int_t df, FWriteFn wf
         WriteStringC(port, "#<(box: #x");
         WriteString(port, s, sl);
         WriteCh(port, ' ');
-        wfn(port, Unbox(obj), df, wfn, ctx);
+        wfn(port, Unbox(obj), df, (void *) wfn, ctx);
         WriteStringC(port, ")>");
         break;
     }
@@ -358,7 +363,7 @@ static void WriteIndirectObject(FObject port, FObject obj, int_t df, FWriteFn wf
         {
             if (idx > 0)
                 WriteCh(port, ' ');
-            wfn(port, AsVector(obj)->Vector[idx], df, wfn, ctx);
+            wfn(port, AsVector(obj)->Vector[idx], df, (void *) wfn, ctx);
         }
 
         WriteCh(port, ')');
@@ -450,7 +455,7 @@ static void WriteIndirectObject(FObject port, FObject obj, int_t df, FWriteFn wf
         if (AsProcedure(obj)->Name != NoValueObject)
         {
             WriteCh(port, ' ');
-            wfn(port, AsProcedure(obj)->Name, df, wfn, ctx);
+            wfn(port, AsProcedure(obj)->Name, df, (void *) wfn, ctx);
         }
 
         if (AsProcedure(obj)->Reserved & PROCEDURE_FLAG_CLOSURE)
@@ -481,12 +486,12 @@ static void WriteIndirectObject(FObject port, FObject obj, int_t df, FWriteFn wf
         WriteStringC(port, "#<record-type: #x");
         WriteString(port, s, sl);
         WriteCh(port, ' ');
-        wfn(port, RecordTypeName(obj), df, wfn, ctx);
+        wfn(port, RecordTypeName(obj), df, (void *) wfn, ctx);
 
         for (uint_t fdx = 1; fdx < RecordTypeNumFields(obj); fdx += 1)
         {
             WriteCh(port, ' ');
-            wfn(port, AsRecordType(obj)->Fields[fdx], df, wfn, ctx);
+            wfn(port, AsRecordType(obj)->Fields[fdx], df, (void *) wfn, ctx);
         }
 
         WriteStringC(port, ">");
@@ -794,6 +799,6 @@ static FPrimitive * Primitives[] =
 
 void SetupWrite()
 {
-    for (int_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

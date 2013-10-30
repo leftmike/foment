@@ -9,6 +9,7 @@ Foment
 #endif // FOMENT_WINDOWS
 #ifdef FOMENT_UNIX
 #include <pthread.h>
+#include <sys/mman.h>
 #endif // FOMENT_UNIX
 #include <stdio.h>
 #include <string.h>
@@ -117,7 +118,7 @@ typedef struct
 typedef struct _BackRefSection
 {
     struct _BackRefSection * Next;
-    int_t Used;
+    uint_t Used;
     FBackRef BackRef[1];
 } FBackRefSection;
 
@@ -127,7 +128,7 @@ static int_t BackRefSectionCount;
 typedef struct _ScanSection
 {
     struct _ScanSection * Next;
-    int_t Used;
+    uint_t Used;
     FObject Scan[1];
 } FScanSection;
 
@@ -140,6 +141,10 @@ static FObject YoungTrackers;
 #ifdef FOMENT_WINDOWS
 unsigned int TlsIndex;
 #endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+pthread_key_t ThreadKey;
+#endif // FOMENT_UNIX
 
 OSExclusive GCExclusive;
 static OSCondition ReadyCondition;
@@ -189,6 +194,10 @@ static void * AllocateSection(uint_t cnt, FSectionTag tag)
 #ifdef FOMENT_WINDOWS
     VirtualAlloc(sec, SECTION_SIZE * cnt, MEM_COMMIT, PAGE_READWRITE);
 #endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    mprotect(sec, SECTION_SIZE * cnt, PROT_READ | PROT_WRITE);
+#endif // FOMENT_UNIX
 
     while (cnt > 0)
     {
@@ -454,7 +463,7 @@ static FObject MakeMature(uint_t len)
     return(((char *) FreeMature) + ByteLength(fo));
 }
 
-FObject MakeMatureObject(uint_t len, char * who)
+FObject MakeMatureObject(uint_t len, const char * who)
 {
     if (len > MAXIMUM_OBJECT_LENGTH)
         RaiseExceptionC(R.Restriction, who, "length greater than maximum object length",
@@ -470,7 +479,7 @@ FObject MakeMatureObject(uint_t len, char * who)
     return(obj);
 }
 
-FObject MakePinnedObject(uint_t len, char * who)
+FObject MakePinnedObject(uint_t len, const char * who)
 {
     return(MakeMatureObject(len, who));
 }
@@ -1112,7 +1121,7 @@ printf("Partial Collection...");
     }
 
     FObject * rv = (FObject *) &R;
-    for (int_t rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
+    for (uint_t rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
         if (ObjectP(rv[rdx]))
             ScanObject(rv + rdx, fcf, 0);
 
@@ -1122,7 +1131,7 @@ printf("Partial Collection...");
         FAssert(ObjectP(ts->Thread));
         ScanObject(&(ts->Thread), fcf, 0);
 
-        for (int_t rdx = 0; rdx < ts->UsedRoots; rdx++)
+        for (uint_t rdx = 0; rdx < ts->UsedRoots; rdx++)
             if (ObjectP(*ts->Roots[rdx]))
                 ScanObject(ts->Roots[rdx], fcf, 0);
 
@@ -1155,7 +1164,7 @@ printf("Partial Collection...");
         FBackRefSection * brs = BackRefSections;
         while (brs != 0)
         {
-            for (int_t idx = 0; idx < brs->Used; idx++)
+            for (uint_t idx = 0; idx < brs->Used; idx++)
             {
                 if (*brs->BackRef[idx].Ref == brs->BackRef[idx].Value)
                 {
@@ -1400,6 +1409,10 @@ void EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms)
     FAssert(TlsGetValue(TlsIndex) == 0);
 #endif // FOMENT_WINDOWS
 
+#ifdef FOMENT_UNIX
+    FAssert(pthread_getspecific(ThreadKey) == 0);
+#endif // FOMENT_UNIX
+
     SetThreadState(ts);
 
     EnterExclusive(&GCExclusive);
@@ -1452,13 +1465,13 @@ void LeaveThread(FThreadState * ts)
 
     FAssert(ThreadP(ts->Thread));
 
-#ifdef FOMENT_WINDOWS
     if (AsThread(ts->Thread)->Handle != 0)
     {
+#ifdef FOMENT_WINDOWS
         CloseHandle(AsThread(ts->Thread)->Handle);
+#endif // FOMENT_WINDOWS
         AsThread(ts->Thread)->Handle = 0;
     }
-#endif // FOMENT_WINDOWS
 
     EnterExclusive(&GCExclusive);
     FAssert(TotalThreads > 0);
@@ -1529,6 +1542,16 @@ void SetupCore(FThreadState * ts)
     FAssert(TlsIndex != TLS_OUT_OF_INDEXES);
 #endif // FOMENT_WINDOWS
 
+#ifdef FOMENT_UNIX
+    SectionTable = (unsigned char *) mmap(0, SECTION_SIZE * SECTION_SIZE, PROT_NONE,
+					  MAP_PRIVATE | MAP_ANONYMOUS, -1 ,0);
+    FAssert(SectionTable != 0);
+
+    mprotect(SectionTable, SECTION_SIZE, PROT_READ | PROT_WRITE);    
+
+    pthread_key_create(&ThreadKey, 0);
+#endif // FOMENT_UNIX
+
     for (uint_t sdx = 0; sdx < SECTION_SIZE; sdx++)
         SectionTable[sdx] = HoleSectionTag;
 
@@ -1562,6 +1585,11 @@ void SetupCore(FThreadState * ts)
     HANDLE h = OpenThread(STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x3FF, 0,
             GetCurrentThreadId());
 #endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    pthread_t h = pthread_self();
+#endif // FOMENT_UNIX
+
     EnterThread(ts, NoValueObject, NoValueObject, NoValueObject);
     ts->Thread = MakeThread(h, NoValueObject, NoValueObject, NoValueObject);
 
@@ -1667,7 +1695,7 @@ Define("dump-gc", DumpGCPrimitive)(int_t argc, FObject argv[])
 
     for (uint_t idx = 0; idx < sizeof(Sizes) / sizeof(uint_t); idx++)
         if (Sizes[idx] > 0)
-            printf("%d: %d (%d)\n", idx, Sizes[idx], idx * Sizes[idx]);
+	  printf("%d: %d (%d)\n", (int) idx, (int) Sizes[idx], (int) (idx * Sizes[idx]));
 
     for (uint_t sdx = 0; sdx < UsedSections; sdx++)
     {
@@ -1690,7 +1718,7 @@ Define("dump-gc", DumpGCPrimitive)(int_t argc, FObject argv[])
     FFreeObject * fo = (FFreeObject *) FreeMature;
     while (fo != 0)
     {
-        printf("%d ", fo->Length);
+        printf("%d ", (int) fo->Length);
         fo = fo->Next;
     }
 
@@ -1712,6 +1740,6 @@ static FPrimitive * Primitives[] =
 
 void SetupGC()
 {
-    for (int_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

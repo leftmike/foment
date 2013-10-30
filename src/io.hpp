@@ -41,7 +41,7 @@ typedef struct
     FReadChFn ReadChFn;
     FCharReadyPFn CharReadyPFn;
     FWriteStringFn WriteStringFn;
-    FCh PeekedChar;
+    uint_t PeekedChar;
     uint_t Line;
     uint_t Column;
 } FTextualPort;

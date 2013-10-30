@@ -190,6 +190,22 @@ inline void SetThreadState(FThreadState * ts)
 }
 #endif // FOMENT_WINDOWS
 
+#ifdef FOMENT_UNIX
+extern pthread_key_t ThreadKey;
+
+inline FThreadState * GetThreadState()
+{
+    FAssert(pthread_getspecific(ThreadKey) != 0);
+
+    return((FThreadState *) pthread_getspecific(ThreadKey));
+}
+
+inline void SetThreadState(FThreadState * ts)
+{
+    pthread_setspecific(ThreadKey, ts);
+}
+#endif // FOMENT_UNIX
+
 extern uint_t TotalThreads;
 extern OSExclusive GCExclusive;
 
