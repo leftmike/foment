@@ -37,14 +37,14 @@ debug/foment: debug/foment.o debug/gc.o debug/syncthrd.o debug/compile.o debug/i
 		debug/pairs.o debug/unicode.o debug/chars.o debug/strings.o debug/vectors.o\
 		debug/convertutf.o debug/library.o debug/execute.o debug/numbers.o\
 		debug/write.o debug/read.o debug/main.o debug/base.o
-	g++ -o debug/foment $^
+	g++ -lpthread -o debug/foment $^
 
 release/foment: release/foment.o release/gc.o release/syncthrd.o release/compile.o release/io.o\
 		release/synrules.o release/synpass.o release/midpass.o release/genpass.o\
 		release/pairs.o release/unicode.o release/chars.o release/strings.o\
 		release/vectors.o release/convertutf.o release/library.o release/execute.o\
 		release/numbers.o release/write.o release/read.o release/main.o release/base.o
-	g++ -o release/foment $^
+	g++ -lpthread -o release/foment $^
 
 release/foment.o: ../src/foment.cpp ../src/foment.hpp
 release/gc.o: ../src/gc.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp

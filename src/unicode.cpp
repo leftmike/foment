@@ -4,6 +4,7 @@ Foment
 
 */
 
+#include <stdio.h>
 #include <string.h>
 #include "foment.hpp"
 #include "unicode.hpp"
@@ -40,10 +41,41 @@ unsigned char Utf8TrailingBytes[256] =
     4, 4, 5, 5, 5, 5
 };
 
+int_t ChLengthOfUtf8(FByte * bv, int_t bvl)
+{
+    int_t sl = 0;
+
+    for (int_t bdx = 0; bdx < bvl; sl++)
+        bdx += Utf8TrailingBytes[bv[bdx]] + 1;
+
+    return(sl);
+}
+
+int_t Utf8LengthOfCh(FCh * s, int_t sl)
+{
+    int_t bvl = 0;
+
+    for (int_t sdx = 0; sdx < sl; sdx++)
+    {
+        if (s[sdx] < 0x80UL)
+            bvl += 1;
+        else if (s[sdx] < 0x800UL)
+            bvl += 2;
+        else if (s[sdx] < 0x10000UL)
+            bvl += 3;
+        else if (s[sdx] < 0x200000UL)
+            bvl += 4;
+        else
+            bvl += 2;
+    }
+
+    return(bvl);
+}
+
 // ---- System String Conversions ----
 
 #ifdef FOMENT_WINDOWS
-static uint_t Utf16LengthOfString(FCh * s, uint_t sl)
+static uint_t Utf16LengthOfCh(FCh * s, uint_t sl)
 {
     uint_t ssl = 0;
 
@@ -60,7 +92,7 @@ static uint_t Utf16LengthOfString(FCh * s, uint_t sl)
 
 SCh * ConvertToStringS(FCh * s, uint_t sl, SCh * b, uint_t bl)
 {
-    uint_t ssl = Utf16LengthOfString(s, sl) + 1;
+    uint_t ssl = Utf16LengthOfCh(s, sl) + 1;
     if (bl < ssl)
     {
         FObject bv = MakeBytevector(ssl * sizeof(SCh));
@@ -115,20 +147,48 @@ FObject MakeStringS(SCh * ss, uint_t ssl)
     return(s);
 }
 #endif // FOMENT_WINDOWS
+
 #ifdef FOMENT_UNIX
+SCh * ConvertToStringS(FCh * s, uint_t sl, SCh * b, uint_t bl)
+{
+    uint_t ssl = Utf8LengthOfCh(s, sl) + 1;
+    if (bl < ssl)
+    {
+        FObject bv = MakeBytevector(ssl * sizeof(SCh));
+        b = (SCh *) AsBytevector(bv)->Vector;
+    }
+
+    const UTF32 * utf32 = (UTF32 *) s;
+    UTF8 * utf8 = (UTF8 *) b;
+    ConversionResult cr = ConvertUTF32toUTF8(&utf32, (UTF32 *) s + sl, &utf8,
+            (UTF8 *) b + ssl - 1, lenientConversion);
+
+    FAssert(cr == conversionOK);
+
+    *utf8 = 0;
+    return(b);
+}
 
 FObject MakeStringS(SCh * ss)
 {
-// FIXFIX
-
-    return(0);
+    return(MakeStringS(ss, strlen(ss)));
 }
 
 FObject MakeStringS(SCh * ss, uint_t ssl)
 {
-// FIXFIX
+    uint_t sl = ChLengthOfUtf8((FByte *) ss, ssl);
+    FObject s = MakeString(0, sl);
 
-    return(0);
+    const UTF8 * utf8 = (UTF8 *) ss;
+    UTF32 * utf32 = (UTF32 *) AsString(s)->String;
+    ConversionResult cr = ConvertUTF8toUTF32(&utf8, utf8 + ssl, &utf32, utf32 + sl,
+            lenientConversion);
+
+    FAssert(cr == conversionOK);
+    FAssert(utf32 == (UTF32 *) AsString(s)->String + sl);
+
+    return(s);
+
 }
 #endif // FOMENT_UNIX
 

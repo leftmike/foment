@@ -14,6 +14,9 @@ Foment
 
 extern unsigned char Utf8TrailingBytes[256];
 
+int_t ChLengthOfUtf8(FByte * bv, int_t bvl);
+int_t Utf8LengthOfCh(FCh * s, int_t sl);
+
 int WhitespaceP(FCh ch);
 int DigitValue(FCh ch);
 unsigned int AlphabeticP(FCh ch);

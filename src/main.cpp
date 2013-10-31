@@ -8,6 +8,16 @@ Foment
 #include <string.h>
 #include "foment.hpp"
 
+#ifdef FOMENT_WINDOWS
+#define StringLengthS(s) wcslen(s)
+#define StringCompareS(s1, s2) wcscmp(s1, L ## s2)
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+#define StringLengthS(s) strlen(s)
+#define StringCompareS(s1, s2) strcmp(s1, s2)
+#endif // FOMENT_UNIX
+
 #if 0
 static void LoadFile(FObject fn, FObject env)
 {
@@ -114,25 +124,30 @@ static int Usage()
     return(-1);
 }
 
-static int MissingArgument(wchar_t * arg)
+static int MissingArgument(SCh * arg)
 {
+#ifdef FOMENT_WINDOWS
     printf("error: expected an argument following %S\n", arg);
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+    printf("error: expected an argument following %s\n", arg);
+#endif // FOMENT_UNIX
     return(Usage());
 }
 
-static FObject MakeInvocation(int argc, wchar_t * argv[])
+static FObject MakeInvocation(int argc, SCh * argv[])
 {
     uint_t sl = -1;
 
     for (int adx = 0; adx < argc; adx++)
-        sl += wcslen(argv[adx]) + 1;
+        sl += StringLengthS(argv[adx]) + 1;
 
     FObject s = MakeString(0, sl);
     uint_t sdx = 0;
 
     for (int adx = 0; adx < argc; adx++)
     {
-        sl = wcslen(argv[adx]);
+        sl = StringLengthS(argv[adx]);
         for (uint_t idx = 0; idx < sl; idx++)
         {
             AsString(s)->String[sdx] = argv[adx][idx];
@@ -149,7 +164,7 @@ static FObject MakeInvocation(int argc, wchar_t * argv[])
     return(s);
 }
 
-static int ProgramMode(int adx, int argc, wchar_t * argv[])
+static int ProgramMode(int adx, int argc, SCh * argv[])
 {
     FAssert(adx < argc);
 
@@ -175,7 +190,12 @@ static int ProgramMode(int adx, int argc, wchar_t * argv[])
     FObject port = OpenInputFile(nam);
     if (TextualPortP(port) == 0)
     {
+#ifdef FOMENT_WINDOWS
         printf("error: unable to open program: %S\n", argv[adx]);
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+        printf("error: unable to open program: %s\n", argv[adx]);
+#endif // FOMENT_UNIX
         return(Usage());
     }
 
@@ -185,7 +205,12 @@ static int ProgramMode(int adx, int argc, wchar_t * argv[])
     return(0);
 }
 
-int wmain(int argc, wchar_t * argv[])
+#ifdef FOMENT_WINDOWS
+int wmain(int argc, SCh * argv[])
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+int main(int argc, char * argv[])
+#endif // FOMENT_UNIX
 {
 #ifdef FOMENT_DEBUG
     printf("Foment (Debug) Scheme 0.1\n");
@@ -196,9 +221,9 @@ int wmain(int argc, wchar_t * argv[])
     int adx = 1;
     while (adx < argc)
     {
-        if (wcscmp(argv[adx], L"-no-inline-procedures") == 0)
+        if (StringCompareS(argv[adx], "-no-inline-procedures") == 0)
             InlineProcedures = 0;
-        else if (wcscmp(argv[adx], L"-no-inline-imports") == 0)
+        else if (StringCompareS(argv[adx], "-no-inline-imports") == 0)
             InlineImports = 0;
 
         adx += 1;
@@ -224,7 +249,7 @@ int wmain(int argc, wchar_t * argv[])
         int adx = 1;
         while (adx < argc)
         {
-            if (wcscmp(argv[adx], L"-A") == 0)
+            if (StringCompareS(argv[adx], "-A") == 0)
             {
                 adx += 1;
 
@@ -247,7 +272,7 @@ int wmain(int argc, wchar_t * argv[])
 
                 adx += 1;
             }
-            else if (wcscmp(argv[adx], L"-I") == 0)
+            else if (StringCompareS(argv[adx], "-I") == 0)
             {
                 adx += 1;
 
@@ -258,8 +283,8 @@ int wmain(int argc, wchar_t * argv[])
 
                 adx += 1;
             }
-            else if (wcscmp(argv[adx], L"-no-inline-procedures") == 0
-                    || wcscmp(argv[adx], L"-no-inline-imports") == 0)
+            else if (StringCompareS(argv[adx], "-no-inline-procedures") == 0
+                    || StringCompareS(argv[adx], "-no-inline-imports") == 0)
                 adx += 1;
             else if (argv[adx][0] != '-')
                 return(ProgramMode(adx, argc, argv));

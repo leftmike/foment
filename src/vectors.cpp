@@ -655,37 +655,6 @@ Define("bytevector-append", BytevectorAppendPrimitive)(int_t argc, FObject argv[
     return(bv);
 }
 
-static int_t ChLengthOfUtf8(FByte * bv, int_t bvl)
-{
-    int_t sl = 0;
-
-    for (int_t bdx = 0; bdx < bvl; sl++)
-        bdx += Utf8TrailingBytes[bv[bdx]] + 1;
-
-    return(sl);
-}
-
-static int_t Utf8LengthOfCh(FCh * s, int_t sl)
-{
-    int_t bvl = 0;
-
-    for (int_t sdx = 0; sdx < sl; sdx++)
-    {
-        if (s[sdx] < 0x80UL)
-            bvl += 1;
-        else if (s[sdx] < 0x800UL)
-            bvl += 2;
-        else if (s[sdx] < 0x10000UL)
-            bvl += 3;
-        else if (s[sdx] < 0x200000UL)
-            bvl += 4;
-        else
-            bvl += 2;
-    }
-
-    return(bvl);
-}
-
 Define("utf8->string", Utf8ToStringPrimitive)(int_t argc, FObject argv[])
 {
     int_t strt;
