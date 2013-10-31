@@ -9,6 +9,10 @@ Goals:
 To Do:
 -- ctrl-c handling
 
+-- GC broken on UNIX
+-- not working on UNIX in r7rs.scm: t7, guard w/ open-binary-*-file, delete-file,
+get-environment-variable Path
+
 -- use tests from chibi
 -- make tests work with (chibi test)
 
@@ -230,7 +234,12 @@ void EnterWait();
 void LeaveWait();
 
 void Collect();
+#ifdef FOMENT_WINDOWS
 #define CheckForGC() if (GCRequired) Collect()
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+#define CheckForGC()
+#endif // FOMENT_UNIX
 
 void ModifyVector(FObject obj, uint_t idx, FObject val);
 

@@ -191,10 +191,10 @@ static int ProgramMode(int adx, int argc, SCh * argv[])
     if (TextualPortP(port) == 0)
     {
 #ifdef FOMENT_WINDOWS
-        printf("error: unable to open program: %S\n", argv[adx]);
+        printf("error: unable to open program: %S\n", argv[adx - 1]);
 #endif // FOMENT_WINDOWS
 #ifdef FOMENT_UNIX
-        printf("error: unable to open program: %s\n", argv[adx]);
+        printf("error: unable to open program: %s\n", argv[adx - 1]);
 #endif // FOMENT_UNIX
         return(Usage());
     }
