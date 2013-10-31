@@ -7,6 +7,7 @@ Foment
 #ifdef FOMENT_WINDOWS
 #define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
+#include <io.h>
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
@@ -17,7 +18,6 @@ Foment
 #include <stdio.h>
 #include <malloc.h>
 #include <string.h>
-//#include <io.h>
 #include "foment.hpp"
 #include "syncthrd.hpp"
 #include "io.hpp"

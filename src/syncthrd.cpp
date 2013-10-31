@@ -161,7 +161,7 @@ static void FomentThread(FObject obj)
 }
 
 #ifdef FOMENT_WINDOWS
-static DWORD WINAPI StartupThread(FObject obj)
+static DWORD WINAPI StartThread(FObject obj)
 {
     FomentThread(obj);
     return(0);
