@@ -10,8 +10,6 @@ To Do:
 -- ctrl-c handling
 
 -- GC broken on UNIX
--- not working on UNIX in r7rs.scm: t7, guard w/ open-binary-*-file, delete-file,
-get-environment-variable Path
 
 -- use tests from chibi
 -- make tests work with (chibi test)

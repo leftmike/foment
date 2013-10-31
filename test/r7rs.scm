@@ -34,7 +34,7 @@
         (symbol->string 'the-word-recursion-has-many-meanings))
 (must-equal "\x3BB;" (symbol->string '|\x3BB;|))
 (must-equal "" (symbol->string '||))
-;(must-equal ".." (symbol->string '..))
+(must-equal ".." (symbol->string '..))
 
 (must-equal "ABC" (symbol->string 'ABC))
 
@@ -1954,10 +1954,10 @@
 
 ;; vector-for-each
 
-;(must-equal (0 1 4 9 16)
-;    (let ((v (make-list 5)))
-;        (vector-for-each (lambda (i) (list-set! v i (* i i))) '#(0 1 2 3 4))
-;        v))
+(must-equal (0 1 4 9 16)
+    (let ((v (make-list 5)))
+        (vector-for-each (lambda (i) (list-set! v i (* i i))) '#(0 1 2 3 4))
+        v))
 
 (must-raise (assertion-violation vector-for-each) (vector-for-each +))
 (must-raise (assertion-violation apply) (vector-for-each 12 #(1 2 3 4)))
@@ -2368,11 +2368,14 @@
     (let* ((p (open-binary-input-file "r7rs.scm")))
         (close-port p)
         (input-port? p)))
-;(must-equal #t
-;    (guard (obj
-;        ((file-error? obj) #t)
-;        (else #f))
-;        (open-binary-input-file "not-a-directory\\not-a-file.txt")))
+(must-equal #t
+    (guard (obj
+        ((file-error? obj) #t)
+        (else #f))
+        (open-binary-input-file
+            (cond-expand
+                (windows "not-a-directory\\not-a-file.txt")
+                (else "not-a-directory/not-a-file.txt")))))
 
 (must-raise (assertion-violation open-binary-input-file) (open-binary-input-file))
 (must-raise (assertion-violation open-binary-input-file) (open-binary-input-file 'r7rs.scm))
@@ -2401,11 +2404,14 @@
     (let* ((p (open-binary-output-file "output.txt")))
         (close-port p)
         (output-port? p)))
-;(must-equal #t
-;    (guard (obj
-;        ((file-error? obj) #t)
-;        (else #f))
-;        (open-binary-output-file "not-a-directory\\not-a-file.txt")))
+(must-equal #t
+    (guard (obj
+        ((file-error? obj) #t)
+        (else #f))
+        (open-binary-output-file
+            (cond-expand
+                (windows "not-a-directory\\not-a-file.txt")
+                (else "not-a-directory/not-a-file.txt")))))
 
 (must-raise (assertion-violation open-binary-output-file) (open-binary-output-file))
 (must-raise (assertion-violation open-binary-output-file) (open-binary-output-file 'output.txt))
@@ -2804,11 +2810,14 @@
 (must-raise (assertion-violation file-exists?) (file-exists? #\a))
 (must-raise (assertion-violation file-exists?) (file-exists? "filename" 2))
 
-;(must-equal #t
-;    (guard (obj
-;        ((file-error? obj) #t)
-;        (else #f))
-;        (delete-file "not-a-directory\\not-a-file.txt")))
+(must-equal #t
+    (guard (obj
+        ((file-error? obj) #t)
+        (else #f))
+        (delete-file
+            (cond-expand
+                (windows "not-a-directory\\not-a-file.txt")
+                (else "not-a-directory/not-a-file.txt")))))
 
 (must-raise (assertion-violation delete-file) (delete-file))
 (must-raise (assertion-violation delete-file) (delete-file #\a))
@@ -2818,15 +2827,16 @@
 
 (must-raise (assertion-violation emergency-exit) (emergency-exit 1 2))
 
-;(must-equal #f (get-environment-variable "not the name of an environment variable"))
-;(must-equal #t (string? (get-environment-variable "Path")))
+(must-equal #f (get-environment-variable "not the name of an environment variable"))
+(must-equal #t (string? (get-environment-variable (cond-expand (windows "Path") (else "PATH")))))
 
 (must-raise (assertion-violation get-environment-variable) (get-environment-variable))
 (must-raise (assertion-violation get-environment-variable) (get-environment-variable #\a))
 (must-raise (assertion-violation get-environment-variable) (get-environment-variable "Path" 2))
 
 (must-equal #f (assoc "not the name of an environment variable" (get-environment-variables)))
-;(must-equal #t (string? (car (assoc "Path" (get-environment-variables)))))
+(must-equal #t (string?
+    (car (assoc (cond-expand (windows "Path") (else "PATH"))(get-environment-variables)))))
 
 (must-raise (assertion-violation get-environment-variables) (get-environment-variables 1))
 
