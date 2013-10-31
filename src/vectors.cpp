@@ -773,6 +773,10 @@ static FPrimitive * Primitives[] =
 
 void SetupVectors()
 {
+    FAssert(sizeof(UTF32) == 4);
+    FAssert(sizeof(UTF16) == 2);
+    FAssert(sizeof(UTF8) == 1);
+
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }
