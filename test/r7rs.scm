@@ -220,19 +220,19 @@
 
 ;; include
 
-(must-equal (10 20) (begin (include "..\\test\\include.scm") (list INCLUDE-A include-b)))
-(must-raise (assertion-violation) (begin (include "..\\test\\include3.scm") include-c))
+(must-equal (10 20) (begin (include "include.scm") (list INCLUDE-A include-b)))
+(must-raise (assertion-violation) (begin (include "include3.scm") include-c))
 
-(must-equal 10 (let ((a 0) (B 0)) (set! a 1) (set! B 1) (include "..\\test\\include2.scm") a))
-(must-equal 20 (let ((a 0) (B 0)) (set! a 1) (set! B 1) (include "..\\test\\include2.scm") B))
+(must-equal 10 (let ((a 0) (B 0)) (set! a 1) (set! B 1) (include "include2.scm") a))
+(must-equal 20 (let ((a 0) (B 0)) (set! a 1) (set! B 1) (include "include2.scm") B))
 
 ;; include-ci
 
-(must-raise (assertion-violation) (begin (include-ci "..\\test\\include4.scm") INCLUDE-E))
-(must-equal (10 20) (begin (include-ci "..\\test\\include5.scm") (list include-g include-h)))
+(must-raise (assertion-violation) (begin (include-ci "include4.scm") INCLUDE-E))
+(must-equal (10 20) (begin (include-ci "include5.scm") (list include-g include-h)))
 
-(must-equal 10 (let ((a 0) (b 0)) (set! a 1) (set! b 1) (include-ci "..\\test\\include2.scm") a))
-(must-equal 20 (let ((a 0) (b 0)) (set! a 1) (set! b 1) (include-ci "..\\test\\include2.scm") b))
+(must-equal 10 (let ((a 0) (b 0)) (set! a 1) (set! b 1) (include-ci "include2.scm") a))
+(must-equal 20 (let ((a 0) (b 0)) (set! a 1) (set! b 1) (include-ci "include2.scm") b))
 
 ;; cond
 
@@ -2798,7 +2798,7 @@
 (must-raise (assertion-violation) (load "filename" (interaction-environment) 3))
 
 (must-equal #f (file-exists? "not-a-real-filename"))
-(must-equal #t (file-exists? "..\\test\\r7rs.scm"))
+(must-equal #t (file-exists? "r7rs.scm"))
 
 (must-raise (assertion-violation file-exists?) (file-exists?))
 (must-raise (assertion-violation file-exists?) (file-exists? #\a))

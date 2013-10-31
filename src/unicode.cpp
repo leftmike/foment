@@ -151,6 +151,19 @@ FObject MakeStringS(SCh * ss, uint_t ssl)
 #ifdef FOMENT_UNIX
 SCh * ConvertToStringS(FCh * s, uint_t sl, SCh * b, uint_t bl)
 {
+    uint_t ssl = sl + 1;
+    if (bl < ssl)
+    {
+        FObject bv = MakeBytevector(ssl * sizeof(SCh));
+        b = (SCh *) AsBytevector(bv)->Vector;
+    }
+
+    for (uint_t sdx = 0; sdx < sl; sdx++)
+        b[sdx] = (SCh) s[sdx];
+
+    b[sl] = 0;
+    return(b);
+/*
     uint_t ssl = Utf8LengthOfCh(s, sl) + 1;
     if (bl < ssl)
     {
@@ -167,6 +180,7 @@ SCh * ConvertToStringS(FCh * s, uint_t sl, SCh * b, uint_t bl)
 
     *utf8 = 0;
     return(b);
+*/
 }
 
 FObject MakeStringS(SCh * ss)
@@ -176,6 +190,13 @@ FObject MakeStringS(SCh * ss)
 
 FObject MakeStringS(SCh * ss, uint_t ssl)
 {
+    FObject s = MakeString(0, ssl);
+
+    for (uint_t sdx = 0; sdx < ssl; sdx++)
+        AsString(s)->String[sdx] = ss[sdx];
+
+    return(s);
+/*
     uint_t sl = ChLengthOfUtf8((FByte *) ss, ssl);
     FObject s = MakeString(0, sl);
 
@@ -188,7 +209,7 @@ FObject MakeStringS(SCh * ss, uint_t ssl)
     FAssert(utf32 == (UTF32 *) AsString(s)->String + sl);
 
     return(s);
-
+*/
 }
 #endif // FOMENT_UNIX
 
