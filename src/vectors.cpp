@@ -686,16 +686,7 @@ Define("utf8->string", Utf8ToStringPrimitive)(int_t argc, FObject argv[])
 
     FAssert(end >= strt);
 
-    int_t sl = ChLengthOfUtf8(AsBytevector(argv[0])->Vector + strt, end - strt);
-    FObject s = MakeString(0, sl);
-
-    const UTF8 * utf8 = AsBytevector(argv[0])->Vector + strt;
-    UTF32 * utf32 = (UTF32 *) AsString(s)->String;
-    if (ConvertUTF8toUTF32(&utf8, AsBytevector(argv[0])->Vector + end, &utf32, utf32 + sl,
-            strictConversion) != conversionOK)
-        RaiseExceptionC(R.Assertion, "utf8->string", "illegal utf8", argv[0]);
-
-    return(s);
+    return(ConvertUtf8ToString(AsBytevector(argv[0])->Vector + strt, end - strt));
 }
 
 Define("string->utf8", StringToUtf8Primitive)(int_t argc, FObject argv[])
@@ -729,17 +720,7 @@ Define("string->utf8", StringToUtf8Primitive)(int_t argc, FObject argv[])
 
     FAssert(end >= strt);
 
-    int_t bvl = Utf8LengthOfCh(AsString(argv[0])->String + strt, end - strt);
-    FObject bv = MakeBytevector(bvl);
-
-    const UTF32 * utf32 = (UTF32 *) AsString(argv[0])->String + strt;
-    UTF8 * utf8 = AsBytevector(bv)->Vector;
-    ConversionResult cr = ConvertUTF32toUTF8(&utf32, (UTF32 *) AsString(argv[0])->String + end,
-            &utf8, AsBytevector(bv)->Vector + bvl, lenientConversion);
-
-    FAssert(cr == conversionOK);
-
-    return(bv);
+    return(ConvertStringToUtf8(AsString(argv[0])->String + strt, end - strt));
 }
 
 static FPrimitive * Primitives[] =
@@ -773,10 +754,6 @@ static FPrimitive * Primitives[] =
 
 void SetupVectors()
 {
-    FAssert(sizeof(UTF32) == 4);
-    FAssert(sizeof(UTF16) == 2);
-    FAssert(sizeof(UTF8) == 1);
-
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

@@ -7,15 +7,26 @@ Foment
 #ifndef __UNICODE_HPP__
 #define __UNICODE_HPP__
 
-#define UNI_SUR_HIGH_START  (UTF32)0xD800
-#define UNI_SUR_HIGH_END    (UTF32)0xDBFF
-#define UNI_SUR_LOW_START   (UTF32)0xDC00
-#define UNI_SUR_LOW_END     (UTF32)0xDFFF
-
 extern unsigned char Utf8TrailingBytes[256];
 
-int_t ChLengthOfUtf8(FByte * bv, int_t bvl);
-int_t Utf8LengthOfCh(FCh * s, int_t sl);
+#define ConvertToSystem(obj, ss)\
+    SCh __ssbuf[256];\
+    FAssert(StringP(obj));\
+    ss = ConvertToStringS(AsString(obj)->String, StringLength(obj), __ssbuf,\
+            sizeof(__ssbuf) / sizeof(SCh))
+
+SCh * ConvertToStringS(FCh * s, uint_t sl, SCh * b, uint_t bl);
+
+FCh ConvertUtf8ToCh(FByte * b, uint_t bl);
+FObject ConvertUtf8ToString(FByte * b, uint_t bl);
+FObject ConvertStringToUtf8(FCh * s, uint_t sl);
+
+#ifdef FOMENT_WINDOWS
+FCh ConvertUtf16ToCh(FCh16 * s, uint_t sl);
+#endif // FOMENT_WINDOWS
+
+FObject ConvertUtf16ToString(FCh16 * b, uint_t bl);
+FObject ConvertStringToUtf16(FCh * s, uint_t sl);
 
 int WhitespaceP(FCh ch);
 int DigitValue(FCh ch);
@@ -32,7 +43,7 @@ FCh * CharFullup(FCh ch);
 unsigned int CharFulldownLength(FCh ch);
 FCh * CharFulldown(FCh ch);
 
-// Generate code in unicode.hpp.
+// Generated code in unicode.hpp.
 
 FCh CharFoldcase(FCh ch);
 FCh CharUpcase(FCh ch);

@@ -41,40 +41,47 @@ unsigned char Utf8TrailingBytes[256] =
     4, 4, 5, 5, 5, 5
 };
 
-int_t ChLengthOfUtf8(FByte * bv, int_t bvl)
+static const FCh Utf8Offsets[6] =
 {
-    int_t sl = 0;
+    0x00000000,
+    0x00003080,
+    0x000E2080,
+    0x03C82080,
+    0xFA082080,
+    0x82082080
+};
 
-    for (int_t bdx = 0; bdx < bvl; sl++)
-        bdx += Utf8TrailingBytes[bv[bdx]] + 1;
+static uint_t ChLengthOfUtf8(FByte * b, uint_t bl)
+{
+    uint_t sl = 0;
+
+    for (uint_t bdx = 0; bdx < bl; sl++)
+        bdx += Utf8TrailingBytes[b[bdx]] + 1;
 
     return(sl);
 }
 
-int_t Utf8LengthOfCh(FCh * s, int_t sl)
+static uint_t Utf8LengthOfCh(FCh * s, uint_t sl)
 {
-    int_t bvl = 0;
+    uint_t bl = 0;
 
-    for (int_t sdx = 0; sdx < sl; sdx++)
+    for (uint_t sdx = 0; sdx < sl; sdx++)
     {
         if (s[sdx] < 0x80UL)
-            bvl += 1;
+            bl += 1;
         else if (s[sdx] < 0x800UL)
-            bvl += 2;
+            bl += 2;
         else if (s[sdx] < 0x10000UL)
-            bvl += 3;
-        else if (s[sdx] < 0x200000UL)
-            bvl += 4;
+            bl += 3;
+        else if (s[sdx] <= 0x0010FFFF) // Maximum Legal Unicode Character
+            bl += 4;
         else
-            bvl += 2;
+            bl += 3; // ch = 0xFFFD; // Unicode Replacement Character
     }
 
-    return(bvl);
+    return(bl);
 }
 
-// ---- System String Conversions ----
-
-#ifdef FOMENT_WINDOWS
 static uint_t Utf16LengthOfCh(FCh * s, uint_t sl)
 {
     uint_t ssl = 0;
@@ -83,13 +90,246 @@ static uint_t Utf16LengthOfCh(FCh * s, uint_t sl)
     {
         ssl += 1;
 
-        if (s[idx] > 0xFFFF)
+        if (s[idx] > 0xFFFF && s[idx] <= 0x10FFFF)
             ssl += 1;
     }
 
     return(ssl);
 }
 
+#define Utf16HighSurrogateStart 0xD800
+#define Utf16HighSurrogateEnd 0xDBFF
+#define Utf16LowSurrogateStart 0xDC00
+#define Utf16LowSurrogateEnd 0xDFFF
+
+static uint_t ChLengthOfUtf16(FCh16 * ss, uint_t ssl)
+{
+    uint_t sl = 0;
+
+    while (ssl > 0)
+    {
+        if (*ss < Utf16HighSurrogateStart || *ss > Utf16HighSurrogateEnd)
+            sl += 1;
+
+        ss += 1;
+        ssl -= 1;
+    }
+
+    return(sl);
+}
+
+FCh ConvertUtf8ToCh(FByte * b, uint_t bl)
+{
+    FCh ch = 0;
+    uint_t bdx = 0;
+    uint_t eb = Utf8TrailingBytes[b[bdx]];
+
+    FAssert(bdx + eb < bl);
+
+    switch(eb)
+    {
+        case 5: ch += b[bdx]; bdx += 1; ch <<= 6;
+        case 4: ch += b[bdx]; bdx += 1; ch <<= 6;
+        case 3: ch += b[bdx]; bdx += 1; ch <<= 6;
+        case 2: ch += b[bdx]; bdx += 1; ch <<= 6;
+        case 1: ch += b[bdx]; bdx += 1; ch <<= 6;
+        case 0: ch += b[bdx]; bdx += 1;
+    }
+
+    ch -= Utf8Offsets[eb];
+
+    // (ch > Maximum Legal Unicode Character
+    //         || (ch >= Surrogate High Start && ch <= Surrogate Low End))
+    if (ch > 0x0010FFFF || (ch >= 0xD800 && ch <= 0xDFFF))
+        ch = 0xFFFD; // Unicode Replacement Character
+
+    return(ch);
+}
+
+FObject ConvertUtf8ToString(FByte * b, uint_t bl)
+{
+    uint_t sl = ChLengthOfUtf8(b, bl);
+    FObject s = MakeString(0, sl);
+    uint_t bdx = 0;
+
+    for (uint_t sdx = 0; sdx < sl; sdx++)
+    {
+        FCh ch = 0;
+        uint_t eb = Utf8TrailingBytes[b[bdx]];
+
+        FAssert(bdx + eb < bl);
+
+        switch(eb)
+        {
+            case 5: ch += b[bdx]; bdx += 1; ch <<= 6;
+            case 4: ch += b[bdx]; bdx += 1; ch <<= 6;
+            case 3: ch += b[bdx]; bdx += 1; ch <<= 6;
+            case 2: ch += b[bdx]; bdx += 1; ch <<= 6;
+            case 1: ch += b[bdx]; bdx += 1; ch <<= 6;
+            case 0: ch += b[bdx]; bdx += 1;
+        }
+
+        ch -= Utf8Offsets[eb];
+
+        // (ch > Maximum Legal Unicode Character
+        //         || (ch >= Surrogate High Start && ch <= Surrogate Low End))
+        if (ch > 0x0010FFFF || (ch >= 0xD800 && ch <= 0xDFFF))
+            ch = 0xFFFD; // Unicode Replacement Character
+
+        AsString(s)->String[sdx] = ch;
+    }
+
+    return(s);
+}
+
+static const FByte Utf8FirstByteMark[7] = {0x00, 0x00, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC};
+#define Utf8ByteMask 0xBF
+#define Utf8ByteMark 0x80
+
+FObject ConvertStringToUtf8(FCh * s, uint_t sl)
+{
+    uint_t bl = Utf8LengthOfCh(s, sl);
+    FObject b = MakeBytevector(bl);
+    uint_t bdx = 0;
+
+    for (uint_t sdx = 0; sdx < sl; sdx++)
+    {
+        FCh ch = s[sdx];
+        uint_t bw;
+
+        if (ch < 0x80UL)
+            bw = 1;
+        else if (ch < 0x800UL)
+            bw = 2;
+        else if (ch < 0x10000UL)
+            bw = 3;
+        else if (ch <= 0x0010FFFF) // Maximum Legal Unicode Character
+            bw = 4;
+        else
+        {
+            ch = 0xFFFD; // Unicode Replacement Character
+            bw = 3;
+        }
+
+        FAssert(bdx + bw <= bl);
+
+        bdx += bw;
+        switch (bw)
+        {
+            case 4:
+                bdx -= 1;
+                AsBytevector(b)->Vector[bdx] = (FByte) ((ch | Utf8ByteMark) & Utf8ByteMask);
+                ch >>= 6;
+
+            case 3:
+                bdx -= 1;
+                AsBytevector(b)->Vector[bdx] = (FByte) ((ch | Utf8ByteMark) & Utf8ByteMask);
+                ch >>= 6;
+
+            case 2:
+                bdx -= 1;
+                AsBytevector(b)->Vector[bdx] = (FByte) ((ch | Utf8ByteMark) & Utf8ByteMask);
+                ch >>= 6;
+
+            case 1:
+                bdx -= 1;
+                AsBytevector(b)->Vector[bdx] = (FByte) (ch | Utf8FirstByteMark[bw]);
+        }
+        bdx += bw;
+    }
+
+    return(b);
+}
+
+#ifdef FOMENT_WINDOWS
+FCh ConvertUtf16ToCh(FCh16 * s, uint_t sl)
+{
+    
+    
+    return(0);
+}
+#endif // FOMENT_WINDOWS
+
+#define Utf16HalfShift 10
+#define Utf16HalfBase 0x0010000
+#define Utf16HalfMask 0x3FF
+
+FObject ConvertUtf16ToString(FCh16 * b, uint_t bl)
+{
+    uint_t sl = ChLengthOfUtf16(b, bl);
+    FObject s = MakeString(0, sl);
+    uint_t bdx = 0;
+
+    for (uint_t sdx = 0; sdx < sl; sdx++)
+    {
+        FAssert(bdx < bl);
+
+        FCh ch = b[bdx];
+
+        if (ch >= Utf16HighSurrogateStart && ch <= Utf16HighSurrogateEnd)
+        {
+            bdx += 1;
+
+            FAssert(bdx < bl);
+
+            if (b[bdx] >= Utf16LowSurrogateStart && b[bdx] <= Utf16LowSurrogateEnd)
+                ch = ((ch - Utf16HighSurrogateStart) << Utf16HalfShift)
+                        + (((FCh) b[bdx]) - Utf16LowSurrogateStart) + Utf16HalfBase;
+            else
+                ch = 0xFFFD; // Unicode Replacement Character
+        }
+        else if (ch >= Utf16LowSurrogateStart && ch <= Utf16LowSurrogateEnd)
+            ch = 0xFFFD; // Unicode Replacement Character
+
+        AsString(s)->String[sdx] = ch;
+
+        bdx += 1;
+    }
+
+    return(s);
+}
+
+FObject ConvertStringToUtf16(FCh * s, uint_t sl)
+{
+    uint_t ul = Utf16LengthOfCh(s, sl);
+    FObject b = MakeBytevector(ul * sizeof(FCh16));
+    FCh16 * u = (FCh16 *) AsBytevector(b)->Vector;
+    uint_t udx = 0;
+
+    for (uint_t sdx = 0; sdx < sl; sdx++)
+    {
+        FAssert(udx < ul);
+
+        FCh ch = s[sdx];
+
+        if (ch <= 0xFFFF)
+        {
+            if (ch >= Utf16HighSurrogateStart && ch <= Utf16LowSurrogateEnd)
+                ch = 0xFFFD; // Unicode Replacement Character
+
+            u[udx] = (FCh16) ch;
+        }
+        else if (ch > 0x0010FFFF) // Maximum Legal Unicode Character
+            u[udx] = 0xFFFD; // Unicode Replacement Character
+        else
+        {
+            FAssert(udx + 1 < ul);
+
+            ch -= Utf16HalfBase;
+            u[udx] = (FCh16) ((ch >> Utf16HalfShift) + Utf16HighSurrogateStart);
+            udx += 1;
+            u[udx] = (FCh16) ((ch & Utf16HalfMask) + Utf16LowSurrogateStart);
+        }
+
+        udx += 1;
+    }
+
+    return(b);
+}
+
+// ---- System String Conversions ----
+
+#ifdef FOMENT_WINDOWS
 SCh * ConvertToStringS(FCh * s, uint_t sl, SCh * b, uint_t bl)
 {
     uint_t ssl = Utf16LengthOfCh(s, sl) + 1;
@@ -108,22 +348,6 @@ SCh * ConvertToStringS(FCh * s, uint_t sl, SCh * b, uint_t bl)
 
     *utf16 = 0;
     return(b);
-}
-
-static uint_t ChLengthOfUtf16(SCh * ss, uint_t ssl)
-{
-    uint_t sl = 0;
-
-    while (ssl > 0)
-    {
-        if (*ss < UNI_SUR_HIGH_START || *ss > UNI_SUR_HIGH_END)
-            sl += 1;
-
-        ss += 1;
-        ssl -= 1;
-    }
-
-    return(sl);
 }
 
 FObject MakeStringS(SCh * ss)

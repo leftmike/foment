@@ -60,7 +60,8 @@ typedef struct _FFreeObject
 static FFreeObject * FreeMature = 0;
 static FPair * FreePairs = 0;
 
-#define PAIR_MB_SIZE 256
+#define PAIRS_PER_SECTION (SECTION_SIZE * 8 / (sizeof(FPair) * 8 + 1))
+#define PAIR_MB_SIZE (PAIRS_PER_SECTION / 8)
 #define PAIR_MB_OFFSET (SECTION_SIZE - PAIR_MB_SIZE)
 
 static inline uint_t PairMarkP(FRaw raw)
@@ -463,11 +464,18 @@ static FObject MakeMature(uint_t len)
     return(((char *) FreeMature) + ByteLength(fo));
 }
 
-FObject MakeMatureObject(uint_t len, const char * who)
+FObject MakeMatureObject(uint_t sz, const char * who)
 {
-    if (len > MAXIMUM_OBJECT_LENGTH)
+    if (sz > MAXIMUM_OBJECT_LENGTH)
         RaiseExceptionC(R.Restriction, who, "length greater than maximum object length",
                 EmptyListObject);
+
+    uint_t len = sz;
+    len += Align[len % sizeof(FObject)];
+
+    FAssert(len >= sz);
+    FAssert(len % sizeof(FObject) == 0);
+    FAssert(len >= sizeof(FObject));
 
     EnterExclusive(&GCExclusive);
     FObject obj = MakeMature(len);
@@ -1531,6 +1539,7 @@ void SetupCore(FThreadState * ts)
 
     FAssert(SECTION_SIZE == 1024 * 16);
     FAssert(PAIR_MB_OFFSET / (sizeof(FPair) * 8) <= PAIR_MB_SIZE);
+    FAssert(PAIRS_PER_SECTION % 8 == 0);
     FAssert(MAXIMUM_YOUNG_LENGTH <= SECTION_SIZE / 2);
 
 #ifdef FOMENT_WINDOWS

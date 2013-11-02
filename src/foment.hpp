@@ -9,9 +9,11 @@ Goals:
 To Do:
 -- ctrl-c handling
 
--- number of mature pairs per section is wrong on 64 bits
+-- fix figuring out SectionBase on Unix; don't use a loop
 
 -- fix character conversion routines
+-- get rid of SCh
+-- add utf16->string and string->utf16
 
 -- use tests from chibi
 -- make tests work with (chibi test)
@@ -90,7 +92,8 @@ Missing:
 #include <stdint.h>
 
 #ifdef FOMENT_WINDOWS
-typedef wchar_t SCh;
+typedef wchar_t FCh16;
+typedef FCh16 SCh;
 
 #ifdef _M_AMD64
 #define FOMENT_64BIT
@@ -100,6 +103,7 @@ typedef wchar_t SCh;
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
+typedef uint16_t FCh16;
 typedef char SCh;
 
 #ifdef __LP64__
@@ -451,14 +455,6 @@ int_t StringEqualP(FObject obj1, FObject obj2);
 int_t StringLengthEqualP(FCh * s, int_t sl, FObject obj);
 int_t StringCEqualP(const char * s1, FCh * s2, int_t sl2);
 uint_t BytevectorHash(FObject obj);
-
-#define ConvertToSystem(obj, ss)\
-    SCh __ssbuf[256];\
-    FAssert(StringP(obj));\
-    ss = ConvertToStringS(AsString(obj)->String, StringLength(obj), __ssbuf,\
-            sizeof(__ssbuf) / sizeof(SCh))
-
-SCh * ConvertToStringS(FCh * s, uint_t sl, SCh * b, uint_t bl);
 
 // ---- Vectors ----
 

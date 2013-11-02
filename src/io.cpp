@@ -320,7 +320,7 @@ uint_t ReadCh(FObject port, FCh * ch)
 
     if (AsTextualPort(port)->PeekedChar != NOT_PEEKED)
     {
-        *ch = AsTextualPort(port)->PeekedChar;
+        *ch = (FCh) AsTextualPort(port)->PeekedChar;
         AsTextualPort(port)->PeekedChar = NOT_PEEKED;
 
         return(1);
@@ -335,7 +335,7 @@ uint_t PeekCh(FObject port, FCh * ch)
 
     if (AsTextualPort(port)->PeekedChar != NOT_PEEKED)
     {
-        *ch = AsTextualPort(port)->PeekedChar;
+        *ch = (FCh) AsTextualPort(port)->PeekedChar;
         return(1);
     }
 
@@ -626,12 +626,7 @@ static uint_t Utf8ReadCh(FObject port, FCh * ch)
     if (ReadBytes(AsGenericPort(port)->Object, ub + 1, tb) != tb)
         return(0);
 
-    const UTF8 * utf8 = ub;
-    UTF32 * utf32 = (UTF32 *) ch;
-    if (ConvertUTF8toUTF32(&utf8, ub + tb + 1, &utf32, utf32 + 1, lenientConversion)
-            != conversionOK)
-        return(0);
-
+    *ch = ConvertUtf8ToCh(ub, tb + 1);
     return(1);
 }
 
@@ -673,20 +668,11 @@ static void Utf8WriteString(FObject port, FCh * s, uint_t sl)
 {
     FAssert(BinaryPortP(AsGenericPort(port)->Object));
 
-    UTF8 ub[128];
+    FObject bv = ConvertStringToUtf8(s, sl);
 
-    uint_t sdx = 0;
-    while (sdx < sl)
-    {
-        uint_t dl = ChCountInUtf8(s + sdx, sl - sdx, sizeof(ub));
-        const UTF32 * utf32 = (UTF32 *) s + sdx;
-        UTF8 * utf8 = ub;
-        ConvertUTF32toUTF8(&utf32, utf32 + dl, &utf8, ub + sizeof(ub), lenientConversion);
+    FAssert(BytevectorP(bv));
 
-        WriteBytes(AsGenericPort(port)->Object, ub, utf8 - ub);
-
-        sdx += dl;
-    }
+    WriteBytes(AsGenericPort(port)->Object, AsBytevector(bv)->Vector, BytevectorLength(bv));
 }
 
 static FObject MakeUtf8Port(FObject port)
@@ -703,7 +689,7 @@ static uint_t Utf16ReadCh(FObject port, FCh * ch)
     if (ReadBytes(AsGenericPort(port)->Object, (FByte *) uch, 2) != 2)
         return(0);
 
-    if (uch[0] < UNI_SUR_HIGH_START || uch[0] > UNI_SUR_HIGH_END)
+    if (uch[0] < 0xD800 || uch[0] > 0xDBFF)
     {
         *ch = uch[0];
         return(1);
@@ -752,13 +738,6 @@ static uint_t ChCountInUtf16(FCh * s, uint_t sl, uint_t bl)
 static void Utf16WriteString(FObject port, FCh * s, uint_t sl)
 {
     FAssert(BinaryPortP(AsGenericPort(port)->Object));
-
-/*    for (uint_t sdx = 0; sdx < sl; sdx++)
-    {
-        UTF16 utf16 = (UTF16) s[sdx];
-        WriteBytes(AsGenericPort(port)->Object, &utf16, sizeof(utf16));
-    }
-*/
 
     UTF16 ub[128];
 
