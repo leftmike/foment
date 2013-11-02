@@ -620,7 +620,7 @@ Define("current-jiffy", CurrentJiffyPrimitive)(int_t argc, FObject argv[])
     ZeroArgsCheck("current-jiffy", argc);
 
 #ifdef FOMENT_WINDOWS
-    ULONGLONG tc = (GetTickCount64() - StartingTicks) / 10;
+    ULONGLONG tc = (GetTickCount64() - StartingTicks);
     return(MakeFixnum(tc));
 #endif // FOMENT_WINDOWS
 #ifdef FOMENT_UNIX
@@ -632,7 +632,7 @@ Define("jiffies-per-second", JiffiesPerSecondPrimitive)(int_t argc, FObject argv
 {
     ZeroArgsCheck("jiffies-per-second", argc);
 
-    return(MakeFixnum(100)); // 1000 on Linux
+    return(MakeFixnum(1000));
 }
 
 Define("features", FeaturesPrimitive)(int_t argc, FObject argv[])

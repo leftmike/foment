@@ -9,8 +9,6 @@ Goals:
 To Do:
 -- ctrl-c handling
 
--- use millisecond ticks on Windows
-
 -- use tests from chibi
 -- make tests work with (chibi test)
 
