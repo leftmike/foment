@@ -186,10 +186,10 @@ static const FByte Utf8FirstByteMark[7] = {0x00, 0x00, 0xC0, 0xE0, 0xF0, 0xF8, 0
 #define Utf8ByteMask 0xBF
 #define Utf8ByteMark 0x80
 
-FObject ConvertStringToUtf8(FCh * s, uint_t sl)
+FObject ConvertStringToUtf8(FCh * s, uint_t sl, int_t ztf)
 {
     uint_t bl = Utf8LengthOfCh(s, sl);
-    FObject b = MakeBytevector(bl);
+    FObject b = MakeBytevector(bl + (ztf ? 1 : 0));
     uint_t bdx = 0;
 
     for (uint_t sdx = 0; sdx < sl; sdx++)
@@ -238,17 +238,17 @@ FObject ConvertStringToUtf8(FCh * s, uint_t sl)
         bdx += bw;
     }
 
+    if (ztf)
+        AsBytevector(b)->Vector[bl] = 0;
     return(b);
 }
 
-#ifdef FOMENT_WINDOWS
 FCh ConvertUtf16ToCh(FCh16 * s, uint_t sl)
 {
     
     
     return(0);
 }
-#endif // FOMENT_WINDOWS
 
 #define Utf16HalfShift 10
 #define Utf16HalfBase 0x0010000
@@ -289,10 +289,10 @@ FObject ConvertUtf16ToString(FCh16 * b, uint_t bl)
     return(s);
 }
 
-FObject ConvertStringToUtf16(FCh * s, uint_t sl)
+FObject ConvertStringToUtf16(FCh * s, uint_t sl, int_t ztf)
 {
     uint_t ul = Utf16LengthOfCh(s, sl);
-    FObject b = MakeBytevector(ul * sizeof(FCh16));
+    FObject b = MakeBytevector((ul + (ztf ? 1 : 0)) * sizeof(FCh16));
     FCh16 * u = (FCh16 *) AsBytevector(b)->Vector;
     uint_t udx = 0;
 
@@ -324,6 +324,8 @@ FObject ConvertStringToUtf16(FCh * s, uint_t sl)
         udx += 1;
     }
 
+    if (ztf)
+        u[ul] = 0;
     return(b);
 }
 

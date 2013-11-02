@@ -720,7 +720,7 @@ Define("string->utf8", StringToUtf8Primitive)(int_t argc, FObject argv[])
 
     FAssert(end >= strt);
 
-    return(ConvertStringToUtf8(AsString(argv[0])->String + strt, end - strt));
+    return(ConvertStringToUtf8(AsString(argv[0])->String + strt, end - strt, 0));
 }
 
 static FPrimitive * Primitives[] =

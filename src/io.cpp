@@ -637,38 +637,11 @@ static int_t Utf8CharReadyP(FObject port)
     return(ByteReadyP(AsGenericPort(port)->Object));
 }
 
-static uint_t ChCountInUtf8(FCh * s, uint_t sl, uint_t bl)
-{
-    uint_t bdx = 0;
-    uint_t sdx = 0;
-
-    while (sdx < sl)
-    {
-        if (s[sdx] < 0x80UL)
-            bdx += 1;
-        else if (s[sdx] < 0x800UL)
-            bdx += 2;
-        else if (s[sdx] < 0x10000UL)
-            bdx += 3;
-        else if (s[sdx] < 0x200000UL)
-            bdx += 4;
-        else
-            bdx += 2;
-
-        if (bdx > bl)
-            break;
-
-        sdx += 1;
-    }
-
-    return(sdx);
-}
-
 static void Utf8WriteString(FObject port, FCh * s, uint_t sl)
 {
     FAssert(BinaryPortP(AsGenericPort(port)->Object));
 
-    FObject bv = ConvertStringToUtf8(s, sl);
+    FObject bv = ConvertStringToUtf8(s, sl, 0);
 
     FAssert(BytevectorP(bv));
 
@@ -714,46 +687,15 @@ static int_t Utf16CharReadyP(FObject port)
     return(ByteReadyP(AsGenericPort(port)->Object));
 }
 
-static uint_t ChCountInUtf16(FCh * s, uint_t sl, uint_t bl)
-{
-    uint_t bdx = 0;
-    uint_t sdx = 0;
-
-    while (sdx < sl)
-    {
-        bdx += 1;
-
-        if (s[sdx] > 0xFFFF)
-            bdx += 1;
-
-        if (bdx > bl)
-            break;
-
-        sdx += 1;
-    }
-
-    return(sdx);
-}
-
 static void Utf16WriteString(FObject port, FCh * s, uint_t sl)
 {
     FAssert(BinaryPortP(AsGenericPort(port)->Object));
 
-    UTF16 ub[128];
+    FObject bv = ConvertStringToUtf16(s, sl, 0);
 
-    uint_t sdx = 0;
-    while (sdx < sl)
-    {
-        uint_t dl = ChCountInUtf16(s + sdx, sl - sdx, sizeof(ub) / sizeof(UTF16));
-        const UTF32 * utf32 = (UTF32 *) s + sdx;
-        UTF16 * utf16 = ub;
-        ConvertUTF32toUTF16(&utf32, utf32 + dl, &utf16, ub + (sizeof(ub) / sizeof(UTF16)),
-                lenientConversion);
+    FAssert(BytevectorP(bv));
 
-        WriteBytes(AsGenericPort(port)->Object, ub, (utf16 - ub) * sizeof(UTF16));
-
-        sdx += dl;
-    }
+    WriteBytes(AsGenericPort(port)->Object, AsBytevector(bv)->Vector, BytevectorLength(bv));
 }
 
 static FObject MakeUtf16Port(FObject port)
@@ -763,13 +705,17 @@ static FObject MakeUtf16Port(FObject port)
 
 FObject OpenInputFile(FObject fn)
 {
+#ifdef FOMENT_WINDOWS
+    FObject bv = ConvertStringToUtf16(fn);
+
+    FAssert(BytevectorP(bv));
+
+    FILE * fp = _wfopen((FCh16 *) AsBytevector(bv)->Vector, L"rb");
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
     SCh * ss;
     ConvertToSystem(fn, ss);
 
-#ifdef FOMENT_WINDOWS
-    FILE * fp = _wfopen(ss, L"rb");
-#endif // FOMENT_WINDOWS
-#ifdef FOMENT_UNIX
     FILE * fp = fopen(ss, "rb");
 #endif // FOMENT_UNIX
     if (fp == 0)
@@ -780,13 +726,17 @@ FObject OpenInputFile(FObject fn)
 
 FObject OpenOutputFile(FObject fn)
 {
+#ifdef FOMENT_WINDOWS
+    FObject bv = ConvertStringToUtf16(fn);
+
+    FAssert(BytevectorP(bv));
+
+    FILE * fp = _wfopen((FCh16 *) AsBytevector(bv)->Vector, L"wb");
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
     SCh * ss;
     ConvertToSystem(fn, ss);
 
-#ifdef FOMENT_WINDOWS
-    FILE * fp = _wfopen(ss, L"wb");
-#endif // FOMENT_WINDOWS
-#ifdef FOMENT_UNIX
     FILE * fp = fopen(ss, "wb");
 #endif // FOMENT_UNIX
     if (fp == 0)
@@ -1012,13 +962,17 @@ Define("file-exists?", FileExistsPPrimitive)(int_t argc, FObject argv[])
     OneArgCheck("file-exists?", argc);
     StringArgCheck("file-exists?", argv[0]);
 
+#ifdef FOMENT_WINDOWS
+    FObject bv = ConvertStringToUtf16(argv[0]);
+
+    FAssert(BytevectorP(bv));
+
+    return(_waccess((FCh16 *) AsBytevector(bv)->Vector, 0) == 0 ? TrueObject : FalseObject);
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
     SCh * ss;
     ConvertToSystem(argv[0], ss);
 
-#ifdef FOMENT_WINDOWS
-    return(_waccess(ss, 0) == 0 ? TrueObject : FalseObject);
-#endif // FOMENT_WINDOWS
-#ifdef FOMENT_UNIX
     return(access(ss, 0) == 0 ? TrueObject : FalseObject);
 #endif // FOMENT_UNIX
 }
@@ -1028,13 +982,17 @@ Define("delete-file", DeleteFilePrimitive)(int_t argc, FObject argv[])
     OneArgCheck("delete-file", argc);
     StringArgCheck("delete-file", argv[0]);
 
+#ifdef FOMENT_WINDOWS
+    FObject bv = ConvertStringToUtf16(argv[0]);
+
+    FAssert(BytevectorP(bv));
+
+    if (_wremove((FCh16 *) AsBytevector(bv)->Vector) != 0)
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
     SCh * ss;
     ConvertToSystem(argv[0], ss);
 
-#ifdef FOMENT_WINDOWS
-    if (_wremove(ss) != 0)
-#endif // FOMENT_WINDOWS
-#ifdef FOMENT_UNIX
     if (remove(ss) != 0)
 #endif // FOMENT_UNIX
         RaiseExceptionC(R.Assertion, "delete-file", "unable to delete file", List(argv[0]));
@@ -1100,13 +1058,17 @@ Define("open-binary-input-file", OpenBinaryInputFilePrimitive)(int_t argc, FObje
     OneArgCheck("open-binary-input-file", argc);
     StringArgCheck("open-binary-input-file", argv[0]);
 
+#ifdef FOMENT_WINDOWS
+    FObject bv = ConvertStringToUtf16(argv[0]);
+
+    FAssert(BytevectorP(bv));
+
+    FILE * fp = _wfopen((FCh16 *) AsBytevector(bv)->Vector, L"rb");
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
     SCh * ss;
     ConvertToSystem(argv[0], ss);
 
-#ifdef FOMENT_WINDOWS
-    FILE * fp = _wfopen(ss, L"rb");
-#endif // FOMENT_WINDOWS
-#ifdef FOMENT_UNIX
     FILE * fp = fopen(ss, "rb");
 #endif // FOMENT_UNIX
     if (fp == 0)
@@ -1121,13 +1083,17 @@ Define("open-binary-output-file", OpenBinaryOutputFilePrimitive)(int_t argc, FOb
     OneArgCheck("open-binary-output-file", argc);
     StringArgCheck("open-binary-output-file", argv[0]);
 
+#ifdef FOMENT_WINDOWS
+    FObject bv = ConvertStringToUtf16(argv[0]);
+
+    FAssert(BytevectorP(bv));
+
+    FILE * fp = _wfopen((FCh16 *) AsBytevector(bv)->Vector, L"wb");
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
     SCh * ss;
     ConvertToSystem(argv[0], ss);
 
-#ifdef FOMENT_WINDOWS
-    FILE * fp = _wfopen(ss, L"wb");
-#endif // FOMENT_WINDOWS
-#ifdef FOMENT_UNIX
     FILE * fp = fopen(ss, "wb");
 #endif // FOMENT_UNIX
     if (fp == 0)

@@ -19,14 +19,24 @@ SCh * ConvertToStringS(FCh * s, uint_t sl, SCh * b, uint_t bl);
 
 FCh ConvertUtf8ToCh(FByte * b, uint_t bl);
 FObject ConvertUtf8ToString(FByte * b, uint_t bl);
-FObject ConvertStringToUtf8(FCh * s, uint_t sl);
-
-#ifdef FOMENT_WINDOWS
+FObject ConvertStringToUtf8(FCh * s, uint_t sl, int_t ztf);
 FCh ConvertUtf16ToCh(FCh16 * s, uint_t sl);
-#endif // FOMENT_WINDOWS
-
 FObject ConvertUtf16ToString(FCh16 * b, uint_t bl);
-FObject ConvertStringToUtf16(FCh * s, uint_t sl);
+FObject ConvertStringToUtf16(FCh * s, uint_t sl, int_t ztf);
+
+inline FObject ConvertStringToUtf8(FObject s)
+{
+    FAssert(StringP(s));
+
+    return(ConvertStringToUtf8(AsString(s)->String, StringLength(s), 1));
+}
+
+inline FObject ConvertStringToUtf16(FObject s)
+{
+    FAssert(StringP(s));
+
+    return(ConvertStringToUtf16(AsString(s)->String, StringLength(s), 1));
+}
 
 int WhitespaceP(FCh ch);
 int DigitValue(FCh ch);
