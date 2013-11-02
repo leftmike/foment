@@ -48,7 +48,6 @@ Bugs:
 -- serialize symbol table
 -- char-ready? always returns #t
 -- current-second returns an exact integer
--- ConvertToSystem does not protect an object from GC in some cases if IO allows GC
 -- write-bytevector, write-string, read-bytevector, and read-bytevector! assume GC does
     not happen during IO
 -- call/cc: unwind only as far as the common tail

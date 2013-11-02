@@ -713,10 +713,11 @@ FObject OpenInputFile(FObject fn)
     FILE * fp = _wfopen((FCh16 *) AsBytevector(bv)->Vector, L"rb");
 #endif // FOMENT_WINDOWS
 #ifdef FOMENT_UNIX
-    SCh * ss;
-    ConvertToSystem(fn, ss);
+    FObject bv = ConvertStringToUtf8(fn);
 
-    FILE * fp = fopen(ss, "rb");
+    FAssert(BytevectorP(bv));
+
+    FILE * fp = fopen((const char *) AsBytevector(bv)->Vector, "rb");
 #endif // FOMENT_UNIX
     if (fp == 0)
         return(NoValueObject);
@@ -734,10 +735,11 @@ FObject OpenOutputFile(FObject fn)
     FILE * fp = _wfopen((FCh16 *) AsBytevector(bv)->Vector, L"wb");
 #endif // FOMENT_WINDOWS
 #ifdef FOMENT_UNIX
-    SCh * ss;
-    ConvertToSystem(fn, ss);
+    FObject bv = ConvertStringToUtf8(fn);
 
-    FILE * fp = fopen(ss, "wb");
+    FAssert(BytevectorP(bv));
+
+    FILE * fp = fopen((const char *) AsBytevector(bv)->Vector, "wb");
 #endif // FOMENT_UNIX
     if (fp == 0)
         return(NoValueObject);
@@ -970,10 +972,11 @@ Define("file-exists?", FileExistsPPrimitive)(int_t argc, FObject argv[])
     return(_waccess((FCh16 *) AsBytevector(bv)->Vector, 0) == 0 ? TrueObject : FalseObject);
 #endif // FOMENT_WINDOWS
 #ifdef FOMENT_UNIX
-    SCh * ss;
-    ConvertToSystem(argv[0], ss);
+    FObject bv = ConvertStringToUtf8(argv[0]);
 
-    return(access(ss, 0) == 0 ? TrueObject : FalseObject);
+    FAssert(BytevectorP(bv));
+
+    return(access((const char *) AsBytevector(bv)->Vector, 0) == 0 ? TrueObject : FalseObject);
 #endif // FOMENT_UNIX
 }
 
@@ -990,10 +993,11 @@ Define("delete-file", DeleteFilePrimitive)(int_t argc, FObject argv[])
     if (_wremove((FCh16 *) AsBytevector(bv)->Vector) != 0)
 #endif // FOMENT_WINDOWS
 #ifdef FOMENT_UNIX
-    SCh * ss;
-    ConvertToSystem(argv[0], ss);
+    FObject bv = ConvertStringToUtf8(argv[0]);
 
-    if (remove(ss) != 0)
+    FAssert(BytevectorP(bv));
+
+    if (remove((const char *) AsBytevector(bv)->Vector) != 0)
 #endif // FOMENT_UNIX
         RaiseExceptionC(R.Assertion, "delete-file", "unable to delete file", List(argv[0]));
 
@@ -1066,10 +1070,11 @@ Define("open-binary-input-file", OpenBinaryInputFilePrimitive)(int_t argc, FObje
     FILE * fp = _wfopen((FCh16 *) AsBytevector(bv)->Vector, L"rb");
 #endif // FOMENT_WINDOWS
 #ifdef FOMENT_UNIX
-    SCh * ss;
-    ConvertToSystem(argv[0], ss);
+    FObject bv = ConvertStringToUtf8(argv[0]);
 
-    FILE * fp = fopen(ss, "rb");
+    FAssert(BytevectorP(bv));
+
+    FILE * fp = fopen((const char *) AsBytevector(bv)->Vector, "rb");
 #endif // FOMENT_UNIX
     if (fp == 0)
         RaiseExceptionC(R.Assertion, "open-binary-input-file",
@@ -1091,10 +1096,11 @@ Define("open-binary-output-file", OpenBinaryOutputFilePrimitive)(int_t argc, FOb
     FILE * fp = _wfopen((FCh16 *) AsBytevector(bv)->Vector, L"wb");
 #endif // FOMENT_WINDOWS
 #ifdef FOMENT_UNIX
-    SCh * ss;
-    ConvertToSystem(argv[0], ss);
+    FObject bv = ConvertStringToUtf8(argv[0]);
 
-    FILE * fp = fopen(ss, "wb");
+    FAssert(BytevectorP(bv));
+
+    FILE * fp = fopen((const char *) AsBytevector(bv)->Vector, "wb");
 #endif // FOMENT_UNIX
     if (fp == 0)
         RaiseExceptionC(R.Assertion, "open-binary-output-file",

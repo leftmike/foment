@@ -7,15 +7,9 @@ Foment
 #ifndef __UNICODE_HPP__
 #define __UNICODE_HPP__
 
-extern unsigned char Utf8TrailingBytes[256];
-
-#define ConvertToSystem(obj, ss)\
-    SCh __ssbuf[256];\
-    FAssert(StringP(obj));\
-    ss = ConvertToStringS(AsString(obj)->String, StringLength(obj), __ssbuf,\
-            sizeof(__ssbuf) / sizeof(SCh))
-
 SCh * ConvertToStringS(FCh * s, uint_t sl, SCh * b, uint_t bl);
+
+extern unsigned char Utf8TrailingBytes[256];
 
 FCh ConvertUtf8ToCh(FByte * b, uint_t bl);
 FObject ConvertUtf8ToString(FByte * b, uint_t bl);
