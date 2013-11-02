@@ -12,6 +12,7 @@ Foment
 #ifdef FOMENT_UNIX
 #include <unistd.h>
 #include <sys/time.h>
+#include <sys/utsname.h>
 #endif // FOMENT_UNIX
 #include <stdlib.h>
 #include <stdio.h>
@@ -24,6 +25,7 @@ static ULONGLONG StartingTicks = 0;
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
+static struct utsname utsname;
 static time_t StartingSecond = 0;
 
 static uint64_t GetMillisecondCount64()
@@ -1503,6 +1505,8 @@ void SetupFoment(FThreadState * ts, int argc, FChS * argv[])
 
     gettimeofday(&tv, &tz);
     StartingSecond = tv.tv_sec;
+
+    uname(&utsname);
 #endif // FOMENT_UNIX
 
     srand((unsigned int) time(0));
