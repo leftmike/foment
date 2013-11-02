@@ -9,7 +9,9 @@ Goals:
 To Do:
 -- ctrl-c handling
 
--- GC broken on UNIX
+-- number of mature pairs per section is wrong on 64 bits
+
+-- fix character conversion routines
 
 -- use tests from chibi
 -- make tests work with (chibi test)

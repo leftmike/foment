@@ -489,6 +489,7 @@ static FObject MakeMaturePair()
     if (FreePairs == 0)
     {
         FPair * pr = (FPair *) AllocateSection(1, PairSectionTag);
+
         for (uint_t idx = 0; idx < PAIR_MB_OFFSET / sizeof(FPair); idx++)
         {
             pr->First = FreePairs;
@@ -1521,6 +1522,7 @@ void SetupCore(FThreadState * ts)
     FAssert(sizeof(FObject) == sizeof(char *));
     FAssert(sizeof(FFixnum) <= sizeof(FImmediate));
     FAssert(sizeof(FCh) <= sizeof(FImmediate));
+    FAssert(sizeof(FPair) == sizeof(FObject) * 2);
 
 #ifdef FOMENT_DEBUG
     uint_t len = MakeLength(MAXIMUM_OBJECT_LENGTH, GCFreeTag);
@@ -1543,14 +1545,19 @@ void SetupCore(FThreadState * ts)
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-    SectionTable = (unsigned char *) mmap(0, SECTION_SIZE * SECTION_SIZE, PROT_NONE,
+    SectionTable = (unsigned char *) mmap(0, (SECTION_SIZE + 1) * SECTION_SIZE, PROT_NONE,
 					  MAP_PRIVATE | MAP_ANONYMOUS, -1 ,0);
     FAssert(SectionTable != 0);
+
+    while (SectionTable != SectionBase(SectionTable))
+        SectionTable += 1;
 
     mprotect(SectionTable, SECTION_SIZE, PROT_READ | PROT_WRITE);    
 
     pthread_key_create(&ThreadKey, 0);
 #endif // FOMENT_UNIX
+
+    FAssert(SectionTable == SectionBase(SectionTable));
 
     for (uint_t sdx = 0; sdx < SECTION_SIZE; sdx++)
         SectionTable[sdx] = HoleSectionTag;
