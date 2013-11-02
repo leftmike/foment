@@ -325,12 +325,12 @@ FObject MakeStringS(FChS * ss, uint_t ssl)
 #ifdef FOMENT_UNIX
 FObject MakeStringS(FChS * ss)
 {
-    return(ConvertUtf8ToString(ss, strlen(ss)));
+    return(ConvertUtf8ToString((FByte *) ss, strlen(ss)));
 }
 
 FObject MakeStringS(FChS * ss, uint_t ssl)
 {
-    return(ConvertUtf8ToString(ss, ssl));
+    return(ConvertUtf8ToString((FByte *) ss, ssl));
 }
 #endif // FOMENT_UNIX
 

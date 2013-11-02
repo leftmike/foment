@@ -1558,8 +1558,8 @@ void SetupCore(FThreadState * ts)
 					  MAP_PRIVATE | MAP_ANONYMOUS, -1 ,0);
     FAssert(SectionTable != 0);
 
-    while (SectionTable != SectionBase(SectionTable))
-        SectionTable += 1;
+    if (SectionTable != SectionBase(SectionTable))
+      SectionTable += (SECTION_SIZE - SectionOffset(SectionTable));
 
     mprotect(SectionTable, SECTION_SIZE, PROT_READ | PROT_WRITE);    
 

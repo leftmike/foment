@@ -9,6 +9,7 @@ Foment
 #endif // FOMENT_WINDOWS
 #ifdef FOMENT_UNIX
 #include <pthread.h>
+#include <unistd.h>
 #endif // FOMENT_UNIX
 #include "foment.hpp"
 #include "execute.hpp"
@@ -234,8 +235,10 @@ Define("sleep", SleepPrimitive)(int_t argc, FObject argv[])
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-    // FIXFIX
-
+    EnterWait();
+    useconds_t us = AsFixnum(argv[0]);
+    usleep(us * 1000);
+    LeaveWait();
 #endif // FOMENT_UNIX
 
     return(NoValueObject);

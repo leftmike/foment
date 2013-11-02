@@ -11,6 +11,7 @@ Foment
 #endif // FOMENT_WINDOWS
 #ifdef FOMENT_UNIX
 #include <unistd.h>
+#include <sys/time.h>
 #endif // FOMENT_UNIX
 #include <stdlib.h>
 #include <stdio.h>
@@ -19,8 +20,27 @@ Foment
 #include "foment.hpp"
 
 #ifdef FOMENT_WINDOWS
-ULONGLONG StartingTicks = 0;
+static ULONGLONG StartingTicks = 0;
 #endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+static time_t StartingSecond = 0;
+
+static uint64_t GetMillisecondCount64()
+{
+    struct timeval tv;
+    struct timezone tz;
+
+    gettimeofday(&tv, &tz);
+
+    FAssert(tv.tv_sec >= StartingSecond);
+
+    uint64_t mc = (tv.tv_sec - StartingSecond) * 1000;
+    mc += (tv.tv_usec / 1000);
+
+    return(mc);
+}
+#endif // FOMENT_UNIX
 
 uint_t SetupComplete = 0;
 
@@ -604,8 +624,7 @@ Define("current-jiffy", CurrentJiffyPrimitive)(int_t argc, FObject argv[])
     return(MakeFixnum(tc));
 #endif // FOMENT_WINDOWS
 #ifdef FOMENT_UNIX
-// FIXFIX
-    return(MakeFixnum(0));
+    return(MakeFixnum(GetMillisecondCount64()));
 #endif // FOMENT_UNIX
 }
 
@@ -613,7 +632,7 @@ Define("jiffies-per-second", JiffiesPerSecondPrimitive)(int_t argc, FObject argv
 {
     ZeroArgsCheck("jiffies-per-second", argc);
 
-    return(MakeFixnum(100));
+    return(MakeFixnum(100)); // 1000 on Linux
 }
 
 Define("features", FeaturesPrimitive)(int_t argc, FObject argv[])
@@ -1457,6 +1476,14 @@ void SetupFoment(FThreadState * ts, int argc, FChS * argv[])
 #ifdef FOMENT_WINDOWS
     StartingTicks = GetTickCount64();
 #endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+    struct timeval tv;
+    struct timezone tz;
+
+    gettimeofday(&tv, &tz);
+    StartingSecond = tv.tv_sec;
+#endif // FOMENT_UNIX
+
     srand((unsigned int) time(0));
 
     FObject * rv = (FObject *) &R;

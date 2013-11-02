@@ -9,7 +9,7 @@ Goals:
 To Do:
 -- ctrl-c handling
 
--- fix figuring out SectionBase on Unix; don't use a loop
+-- use millisecond ticks on Windows
 
 -- use tests from chibi
 -- make tests work with (chibi test)
