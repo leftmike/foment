@@ -1266,13 +1266,19 @@ void SetupIO()
         R.StandardOutput = MakeConsoleOutputPort(MakeStringC("console-output"), hout);
     }
     else
-#endif // FOMENT_WINDOWS
     {
         R.StandardInput = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-input"), stdin, 0));
         R.StandardOutput = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-output"), 0, stdout));
     }
 
     R.StandardError = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-error"), 0, stderr));
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    R.StandardInput = MakeUtf8Port(MakeStdioPort(MakeStringC("standard-input"), stdin, 0));
+    R.StandardOutput = MakeUtf8Port(MakeStdioPort(MakeStringC("standard-output"), 0, stdout));
+    R.StandardError = MakeUtf8Port(MakeStdioPort(MakeStringC("standard-error"), 0, stderr));
+#endif // FOMENT_UNIX
 
     R.QuoteSymbol = StringCToSymbol("quote");
     R.QuasiquoteSymbol = StringCToSymbol("quasiquote");

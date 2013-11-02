@@ -878,7 +878,8 @@
                                 "current-error-port: expected an open output port" obj))
                     obj)))
 
-        (define file-encoding (make-parameter make-latin1-port))
+        (define file-encoding
+            (make-parameter (cond-expand (unix make-utf8-port) (else make-latin1-port))))
 
         (define (open-input-file string)
             ((file-encoding) (open-binary-input-file string)))

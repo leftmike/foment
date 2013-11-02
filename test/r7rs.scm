@@ -328,16 +328,16 @@
 ;; cond-expand
 
 (must-equal 1
-    (cond-expand (no-features 0) (r7rs 1) (i386 2)))
+    (cond-expand (no-features 0) (r7rs 1) (full-unicode 2)))
 (must-equal 2
-    (cond-expand (no-features 0) (no-r7rs 1) (i386 2)))
+    (cond-expand (no-features 0) (no-r7rs 1) (full-unicode 2)))
 (must-equal 0
-    (cond-expand ((not no-features) 0) (no-r7rs 1) (i386 2)))
+    (cond-expand ((not no-features) 0) (no-r7rs 1) (full-unicode 2)))
 
 (must-equal 1
-    (cond-expand ((and r7rs no-features) 0) ((and r7rs i386) 1) (r7rs 2)))
+    (cond-expand ((and r7rs no-features) 0) ((and r7rs full-unicode) 1) (r7rs 2)))
 (must-equal 0
-    (cond-expand ((or no-features r7rs) 0) ((and r7rs i386) 1) (r7rs 2)))
+    (cond-expand ((or no-features r7rs) 0) ((and r7rs full-unicode) 1) (r7rs 2)))
 
 (must-equal 1
     (cond-expand ((and r7rs no-features) 0) (else 1)))
@@ -350,17 +350,17 @@
 (must-equal 1 (cond-expand ((library (lib ce1)) 1) (else 2)))
 
 (must-equal 1
-    (let ((x 0) (y 1) (z 2)) (cond-expand (no-features x) (r7rs y) (i386 z))))
+    (let ((x 0) (y 1) (z 2)) (cond-expand (no-features x) (r7rs y) (full-unicode z))))
 (must-equal 2
-    (let ((x 0) (y 1) (z 2)) (cond-expand (no-features x) (no-r7rs y) (i386 z))))
+    (let ((x 0) (y 1) (z 2)) (cond-expand (no-features x) (no-r7rs y) (full-unicode z))))
 (must-equal 0
-    (let ((x 0) (y 1) (z 2)) (cond-expand ((not no-features) x) (no-r7rs y) (i386 z))))
+    (let ((x 0) (y 1) (z 2)) (cond-expand ((not no-features) x) (no-r7rs y) (full-unicode z))))
 
 (must-equal 1
     (let ((x 0) (y 1) (z 2))
-        (cond-expand ((and r7rs no-features) x) ((and r7rs i386) y) (r7rs z))))
+        (cond-expand ((and r7rs no-features) x) ((and r7rs full-unicode) y) (r7rs z))))
 (must-equal 0
-    (let ((x 0) (y 1) (z 2)) (cond-expand ((or no-features r7rs) x) ((and r7rs i386) y) (r7rs z))))
+    (let ((x 0) (y 1) (z 2)) (cond-expand ((or no-features r7rs) x) ((and r7rs full-unicode) y) (r7rs z))))
 
 (must-equal 1
     (let ((x 0) (y 1)) (cond-expand ((and r7rs no-features) 0) (else 1))))

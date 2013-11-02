@@ -1448,12 +1448,33 @@ static const char * FeaturesC[] =
 {
     "r7rs",
     "full-unicode",
+
 #ifdef FOMENT_WINDOWS
     "windows",
-#endif // FOMENT_WINDOWS
+    "little-endian",
+#ifdef FOMENT_32BIT
     "i386",
     "ilp32",
+#endif // FOMENT_32BIT
+#ifdef FOMENT_64BIT
+    "x86-64",
+    "llp64",
+#endif // FOMENT_64BIT
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    "unix",
     "little-endian",
+#ifdef FOMENT_32BIT
+    "i386",
+    "ilp32",
+#endif // FOMENT_32BIT
+#ifdef FOMENT_64BIT
+    "x86-64",
+    "lp64",
+#endif // FOMENT_64BIT
+#endif // FOMENT_UNIX
+
     "foment",
     "foment-0.1"
 };
