@@ -22,7 +22,6 @@ Foment
 #include "syncthrd.hpp"
 #include "io.hpp"
 #include "unicode.hpp"
-#include "convertutf.h"
 
 #define NOT_PEEKED ((uint_t) (-1))
 #define CR 13
@@ -653,30 +652,32 @@ static FObject MakeUtf8Port(FObject port)
     return(MakeTranslatorPort(port, Utf8ReadCh, Utf8CharReadyP, Utf8WriteString));
 }
 
-static uint_t Utf16ReadCh(FObject port, FCh * ch)
+static uint_t Utf16ReadCh(FObject port, FCh * pch)
 {
     FAssert(BinaryPortP(AsGenericPort(port)->Object));
 
-    UTF16 uch[2];
+    FCh16 ch16;
 
-    if (ReadBytes(AsGenericPort(port)->Object, (FByte *) uch, 2) != 2)
+    if (ReadBytes(AsGenericPort(port)->Object, (FByte *) &ch16, 2) != 2)
         return(0);
 
-    if (uch[0] < 0xD800 || uch[0] > 0xDBFF)
+    FCh ch = ch16;
+
+    if (ch >= Utf16HighSurrogateStart && ch <= Utf16HighSurrogateEnd)
     {
-        *ch = uch[0];
-        return(1);
+        if (ReadBytes(AsGenericPort(port)->Object, (FByte *) &ch16, 2) != 2)
+            return(0);
+
+        if (ch16 >= Utf16LowSurrogateStart && ch16 <= Utf16LowSurrogateEnd)
+            ch = ((ch - Utf16HighSurrogateStart) << Utf16HalfShift)
+                    + (((FCh) ch16) - Utf16LowSurrogateStart) + Utf16HalfBase;
+        else
+            ch = UnicodeReplacementCharacter;
     }
+    else if (ch >= Utf16LowSurrogateStart && ch <= Utf16LowSurrogateEnd)
+        ch = UnicodeReplacementCharacter;
 
-    if (ReadBytes(AsGenericPort(port)->Object, (FByte *) (uch + 1), 2) != 2)
-        return(0);
-
-    const UTF16 * utf16 = uch;
-    UTF32 * utf32 = (UTF32 *) ch;
-    if (ConvertUTF16toUTF32(&utf16, uch + 2, &utf32, utf32 + 1, lenientConversion)
-            != conversionOK)
-        return(0);
-
+    *pch = ch;
     return(1);
 }
 
@@ -943,11 +944,14 @@ static void ConWriteString(FObject port, FCh * s, uint_t sl)
 {
     FAssert(TextualPortP(port) && OutputPortOpenP(port));
 
-    SCh ssbuf[256];
-    SCh *ss = ConvertToStringS(s, sl, ssbuf, sizeof(ssbuf) / sizeof(SCh));
-
+    FObject bv = ConvertStringToUtf16(s, sl, 0);
     DWORD nc;
-    WriteConsoleW((HANDLE) AsGenericPort(port)->OutputContext, ss, (DWORD) wcslen(ss), &nc, 0);
+
+    FAssert(BytevectorP(bv));
+
+    WriteConsoleW((HANDLE) AsGenericPort(port)->OutputContext,
+            (FCh16 *) AsBytevector(bv)->Vector, (DWORD) BytevectorLength(bv) / sizeof(FCh16),
+            &nc, 0);
 }
 
 static FObject MakeConsoleOutputPort(FObject nam, HANDLE h)

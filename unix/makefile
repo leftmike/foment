@@ -31,15 +31,15 @@ debug/base.cpp: debug/txt2cpp ../src/base.scm makefile
 debug/foment: debug/foment.o debug/gc.o debug/syncthrd.o debug/compile.o debug/io.o\
 		debug/synrules.o debug/synpass.o debug/midpass.o debug/genpass.o\
 		debug/pairs.o debug/unicode.o debug/chars.o debug/strings.o debug/vectors.o\
-		debug/convertutf.o debug/library.o debug/execute.o debug/numbers.o\
-		debug/write.o debug/read.o debug/main.o debug/base.o
+		debug/library.o debug/execute.o debug/numbers.o	debug/write.o debug/read.o\
+		debug/main.o debug/base.o
 	g++ -lpthread -o debug/foment $^
 
 release/foment: release/foment.o release/gc.o release/syncthrd.o release/compile.o release/io.o\
 		release/synrules.o release/synpass.o release/midpass.o release/genpass.o\
 		release/pairs.o release/unicode.o release/chars.o release/strings.o\
-		release/vectors.o release/convertutf.o release/library.o release/execute.o\
-		release/numbers.o release/write.o release/read.o release/main.o release/base.o
+		release/vectors.o release/library.o release/execute.o release/numbers.o\
+		release/write.o release/read.o release/main.o release/base.o
 	g++ -lpthread -o release/foment $^
 
 debug/foment.o: ../src/foment.cpp ../src/foment.hpp
@@ -51,17 +51,15 @@ debug/synpass.o: ../src/synpass.cpp ../src/foment.hpp ../src/compile.hpp
 debug/midpass.o: ../src/midpass.cpp ../src/foment.hpp ../src/compile.hpp
 debug/genpass.o: ../src/genpass.cpp ../src/foment.hpp ../src/compile.hpp ../src/execute.hpp
 debug/pairs.o: ../src/pairs.cpp ../src/foment.hpp
-debug/unicode.o: ../src/unicode.cpp ../src/foment.hpp ../src/unicode.hpp ../src/unidata.hpp\
-	../src/convertutf.h
+debug/unicode.o: ../src/unicode.cpp ../src/foment.hpp ../src/unicode.hpp ../src/unidata.hpp
 debug/chars.o: ../src/chars.cpp ../src/foment.hpp ../src/unicode.hpp
 debug/strings.o: ../src/strings.cpp ../src/foment.hpp ../src/unicode.hpp
-debug/vectors.o: ../src/vectors.cpp ../src/foment.hpp ../src/unicode.hpp ../src/convertutf.h
-debug/convertutf.o: ../src/convertutf.c ../src/convertutf.h
+debug/vectors.o: ../src/vectors.cpp ../src/foment.hpp ../src/unicode.hpp
 debug/library.o: ../src/library.cpp ../src/foment.hpp ../src/compile.hpp
 debug/execute.o: ../src/execute.cpp ../src/foment.hpp ../src/execute.hpp ../src/syncthrd.hpp
 debug/numbers.o: ../src/numbers.cpp ../src/foment.hpp
 debug/io.o: ../src/io.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
-	../src/unicode.hpp ../src/convertutf.h
+	../src/unicode.hpp
 debug/write.o: ../src/write.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
 	../src/compile.hpp
 debug/read.o: ../src/read.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
@@ -78,17 +76,15 @@ release/synpass.o: ../src/synpass.cpp ../src/foment.hpp ../src/compile.hpp
 release/midpass.o: ../src/midpass.cpp ../src/foment.hpp ../src/compile.hpp
 release/genpass.o: ../src/genpass.cpp ../src/foment.hpp ../src/compile.hpp ../src/execute.hpp
 release/pairs.o: ../src/pairs.cpp ../src/foment.hpp
-release/unicode.o: ../src/unicode.cpp ../src/foment.hpp ../src/unicode.hpp ../src/unidata.hpp\
-	../src/convertutf.h
+release/unicode.o: ../src/unicode.cpp ../src/foment.hpp ../src/unicode.hpp ../src/unidata.hpp
 release/chars.o: ../src/chars.cpp ../src/foment.hpp ../src/unicode.hpp
 release/strings.o: ../src/strings.cpp ../src/foment.hpp ../src/unicode.hpp
-release/vectors.o: ../src/vectors.cpp ../src/foment.hpp ../src/unicode.hpp ../src/convertutf.h
-release/convertutf.o: ../src/convertutf.c ../src/convertutf.h
+release/vectors.o: ../src/vectors.cpp ../src/foment.hpp ../src/unicode.hpp
 release/library.o: ../src/library.cpp ../src/foment.hpp ../src/compile.hpp
 release/execute.o: ../src/execute.cpp ../src/foment.hpp ../src/execute.hpp ../src/syncthrd.hpp
 release/numbers.o: ../src/numbers.cpp ../src/foment.hpp
 release/io.o: ../src/io.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
-	../src/unicode.hpp ../src/convertutf.h
+	../src/unicode.hpp
 release/write.o: ../src/write.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
 	../src/compile.hpp
 release/read.o: ../src/read.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\

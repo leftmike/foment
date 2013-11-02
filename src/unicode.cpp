@@ -9,7 +9,6 @@ Foment
 #include "foment.hpp"
 #include "unicode.hpp"
 #include "unidata.hpp"
-#include "convertutf.h"
 
 unsigned char Utf8TrailingBytes[256] =
 {
@@ -40,6 +39,10 @@ unsigned char Utf8TrailingBytes[256] =
     3, 3, 3, 3, 3, 3, 3, 3, 4, 4,
     4, 4, 5, 5, 5, 5
 };
+
+static const FByte Utf8FirstByteMark[7] = {0x00, 0x00, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC};
+#define Utf8ByteMask 0xBF
+#define Utf8ByteMark 0x80
 
 static const FCh Utf8Offsets[6] =
 {
@@ -73,49 +76,13 @@ static uint_t Utf8LengthOfCh(FCh * s, uint_t sl)
             bl += 2;
         else if (s[sdx] < 0x10000UL)
             bl += 3;
-        else if (s[sdx] <= 0x0010FFFF) // Maximum Legal Unicode Character
+        else if (s[sdx] <= MaximumUnicodeCharacter)
             bl += 4;
         else
-            bl += 3; // ch = 0xFFFD; // Unicode Replacement Character
+            bl += 3; // ch = UnicodeReplacementCharacter;
     }
 
     return(bl);
-}
-
-static uint_t Utf16LengthOfCh(FCh * s, uint_t sl)
-{
-    uint_t ssl = 0;
-
-    for (uint_t idx = 0; idx < sl; idx++)
-    {
-        ssl += 1;
-
-        if (s[idx] > 0xFFFF && s[idx] <= 0x10FFFF)
-            ssl += 1;
-    }
-
-    return(ssl);
-}
-
-#define Utf16HighSurrogateStart 0xD800
-#define Utf16HighSurrogateEnd 0xDBFF
-#define Utf16LowSurrogateStart 0xDC00
-#define Utf16LowSurrogateEnd 0xDFFF
-
-static uint_t ChLengthOfUtf16(FCh16 * ss, uint_t ssl)
-{
-    uint_t sl = 0;
-
-    while (ssl > 0)
-    {
-        if (*ss < Utf16HighSurrogateStart || *ss > Utf16HighSurrogateEnd)
-            sl += 1;
-
-        ss += 1;
-        ssl -= 1;
-    }
-
-    return(sl);
 }
 
 FCh ConvertUtf8ToCh(FByte * b, uint_t bl)
@@ -138,10 +105,9 @@ FCh ConvertUtf8ToCh(FByte * b, uint_t bl)
 
     ch -= Utf8Offsets[eb];
 
-    // (ch > Maximum Legal Unicode Character
-    //         || (ch >= Surrogate High Start && ch <= Surrogate Low End))
-    if (ch > 0x0010FFFF || (ch >= 0xD800 && ch <= 0xDFFF))
-        ch = 0xFFFD; // Unicode Replacement Character
+    if (ch > MaximumUnicodeCharacter
+            || (ch >= Utf16HighSurrogateStart && ch <= Utf16LowSurrogateEnd))
+        ch = UnicodeReplacementCharacter;
 
     return(ch);
 }
@@ -171,20 +137,15 @@ FObject ConvertUtf8ToString(FByte * b, uint_t bl)
 
         ch -= Utf8Offsets[eb];
 
-        // (ch > Maximum Legal Unicode Character
-        //         || (ch >= Surrogate High Start && ch <= Surrogate Low End))
-        if (ch > 0x0010FFFF || (ch >= 0xD800 && ch <= 0xDFFF))
-            ch = 0xFFFD; // Unicode Replacement Character
+        if (ch > MaximumUnicodeCharacter
+                || (ch >= Utf16HighSurrogateStart && ch <= Utf16LowSurrogateEnd))
+            ch = UnicodeReplacementCharacter;
 
         AsString(s)->String[sdx] = ch;
     }
 
     return(s);
 }
-
-static const FByte Utf8FirstByteMark[7] = {0x00, 0x00, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC};
-#define Utf8ByteMask 0xBF
-#define Utf8ByteMark 0x80
 
 FObject ConvertStringToUtf8(FCh * s, uint_t sl, int_t ztf)
 {
@@ -203,11 +164,11 @@ FObject ConvertStringToUtf8(FCh * s, uint_t sl, int_t ztf)
             bw = 2;
         else if (ch < 0x10000UL)
             bw = 3;
-        else if (ch <= 0x0010FFFF) // Maximum Legal Unicode Character
+        else if (ch <= MaximumUnicodeCharacter)
             bw = 4;
         else
         {
-            ch = 0xFFFD; // Unicode Replacement Character
+            ch = UnicodeReplacementCharacter;
             bw = 3;
         }
 
@@ -243,16 +204,36 @@ FObject ConvertStringToUtf8(FCh * s, uint_t sl, int_t ztf)
     return(b);
 }
 
-FCh ConvertUtf16ToCh(FCh16 * s, uint_t sl)
+static uint_t Utf16LengthOfCh(FCh * s, uint_t sl)
 {
-    
-    
-    return(0);
+    uint_t ssl = 0;
+
+    for (uint_t idx = 0; idx < sl; idx++)
+    {
+        ssl += 1;
+
+        if (s[idx] > 0xFFFF && s[idx] <= 0x10FFFF)
+            ssl += 1;
+    }
+
+    return(ssl);
 }
 
-#define Utf16HalfShift 10
-#define Utf16HalfBase 0x0010000
-#define Utf16HalfMask 0x3FF
+static uint_t ChLengthOfUtf16(FCh16 * ss, uint_t ssl)
+{
+    uint_t sl = 0;
+
+    while (ssl > 0)
+    {
+        if (*ss < Utf16HighSurrogateStart || *ss > Utf16HighSurrogateEnd)
+            sl += 1;
+
+        ss += 1;
+        ssl -= 1;
+    }
+
+    return(sl);
+}
 
 FObject ConvertUtf16ToString(FCh16 * b, uint_t bl)
 {
@@ -276,10 +257,10 @@ FObject ConvertUtf16ToString(FCh16 * b, uint_t bl)
                 ch = ((ch - Utf16HighSurrogateStart) << Utf16HalfShift)
                         + (((FCh) b[bdx]) - Utf16LowSurrogateStart) + Utf16HalfBase;
             else
-                ch = 0xFFFD; // Unicode Replacement Character
+                ch = UnicodeReplacementCharacter;
         }
         else if (ch >= Utf16LowSurrogateStart && ch <= Utf16LowSurrogateEnd)
-            ch = 0xFFFD; // Unicode Replacement Character
+            ch = UnicodeReplacementCharacter;
 
         AsString(s)->String[sdx] = ch;
 
@@ -305,12 +286,12 @@ FObject ConvertStringToUtf16(FCh * s, uint_t sl, int_t ztf)
         if (ch <= 0xFFFF)
         {
             if (ch >= Utf16HighSurrogateStart && ch <= Utf16LowSurrogateEnd)
-                ch = 0xFFFD; // Unicode Replacement Character
+                ch = UnicodeReplacementCharacter;
 
             u[udx] = (FCh16) ch;
         }
-        else if (ch > 0x0010FFFF) // Maximum Legal Unicode Character
-            u[udx] = 0xFFFD; // Unicode Replacement Character
+        else if (ch > MaximumUnicodeCharacter)
+            u[udx] = UnicodeReplacementCharacter;
         else
         {
             FAssert(udx + 1 < ul);
@@ -329,117 +310,29 @@ FObject ConvertStringToUtf16(FCh * s, uint_t sl, int_t ztf)
     return(b);
 }
 
-// ---- System String Conversions ----
-
 #ifdef FOMENT_WINDOWS
-SCh * ConvertToStringS(FCh * s, uint_t sl, SCh * b, uint_t bl)
+FObject MakeStringS(FChS * ss)
 {
-    uint_t ssl = Utf16LengthOfCh(s, sl) + 1;
-    if (bl < ssl)
-    {
-        FObject bv = MakeBytevector(ssl * sizeof(SCh));
-        b = (SCh *) AsBytevector(bv)->Vector;
-    }
-
-    const UTF32 * utf32 = (UTF32 *) s;
-    UTF16 * utf16 = (UTF16 *) b;
-    ConversionResult cr = ConvertUTF32toUTF16(&utf32, (UTF32 *) s + sl, &utf16,
-            (UTF16 *) b + ssl - 1, lenientConversion);
-
-    FAssert(cr == conversionOK);
-
-    *utf16 = 0;
-    return(b);
+    return(ConvertUtf16ToString(ss, wcslen(ss)));
 }
 
-FObject MakeStringS(SCh * ss)
+FObject MakeStringS(FChS * ss, uint_t ssl)
 {
-    return(MakeStringS(ss, wcslen(ss)));
-}
-
-FObject MakeStringS(SCh * ss, uint_t ssl)
-{
-    uint_t sl = ChLengthOfUtf16(ss, ssl);
-    FObject s = MakeString(0, sl);
-
-    const UTF16 * utf16 = (UTF16 *) ss;
-    UTF32 * utf32 = (UTF32 *) AsString(s)->String;
-    ConversionResult cr = ConvertUTF16toUTF32(&utf16, utf16 + ssl, &utf32, utf32 + sl,
-            lenientConversion);
-
-    FAssert(cr == conversionOK);
-    FAssert(utf32 == (UTF32 *) AsString(s)->String + sl);
-
-    return(s);
+    return(ConvertUtf16ToString(ss, ssl));
 }
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-SCh * ConvertToStringS(FCh * s, uint_t sl, SCh * b, uint_t bl)
+FObject MakeStringS(FChS * ss)
 {
-    uint_t ssl = sl + 1;
-    if (bl < ssl)
-    {
-        FObject bv = MakeBytevector(ssl * sizeof(SCh));
-        b = (SCh *) AsBytevector(bv)->Vector;
-    }
-
-    for (uint_t sdx = 0; sdx < sl; sdx++)
-        b[sdx] = (SCh) s[sdx];
-
-    b[sl] = 0;
-    return(b);
-/*
-    uint_t ssl = Utf8LengthOfCh(s, sl) + 1;
-    if (bl < ssl)
-    {
-        FObject bv = MakeBytevector(ssl * sizeof(SCh));
-        b = (SCh *) AsBytevector(bv)->Vector;
-    }
-
-    const UTF32 * utf32 = (UTF32 *) s;
-    UTF8 * utf8 = (UTF8 *) b;
-    ConversionResult cr = ConvertUTF32toUTF8(&utf32, (UTF32 *) s + sl, &utf8,
-            (UTF8 *) b + ssl - 1, lenientConversion);
-
-    FAssert(cr == conversionOK);
-
-    *utf8 = 0;
-    return(b);
-*/
+    return(ConvertUtf8ToString(ss, strlen(ss)));
 }
 
-FObject MakeStringS(SCh * ss)
+FObject MakeStringS(FChS * ss, uint_t ssl)
 {
-    return(MakeStringS(ss, strlen(ss)));
-}
-
-FObject MakeStringS(SCh * ss, uint_t ssl)
-{
-    FObject s = MakeString(0, ssl);
-
-    for (uint_t sdx = 0; sdx < ssl; sdx++)
-        AsString(s)->String[sdx] = ss[sdx];
-
-    return(s);
-/*
-    uint_t sl = ChLengthOfUtf8((FByte *) ss, ssl);
-    FObject s = MakeString(0, sl);
-
-    const UTF8 * utf8 = (UTF8 *) ss;
-    UTF32 * utf32 = (UTF32 *) AsString(s)->String;
-    ConversionResult cr = ConvertUTF8toUTF32(&utf8, utf8 + ssl, &utf32, utf32 + sl,
-            lenientConversion);
-
-    FAssert(cr == conversionOK);
-    FAssert(utf32 == (UTF32 *) AsString(s)->String + sl);
-
-    return(s);
-*/
+    return(ConvertUtf8ToString(ss, ssl));
 }
 #endif // FOMENT_UNIX
-
-// ---- Unicode ----
 
 int WhitespaceP(FCh ch)
 {

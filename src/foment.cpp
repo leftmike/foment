@@ -536,19 +536,19 @@ Define("emergency-exit", EmergencyExitPrimitive)(int_t argc, FObject argv[])
 static void GetEnvironmentVariables()
 {
 #ifdef FOMENT_WINDOWS
-    SCh ** envp = _wenviron;
+    FChS ** envp = _wenviron;
 #endif // FOMENT_WINDOWS
 #ifdef FOMENT_UNIX
-    SCh ** envp = environ;
+    FChS ** envp = environ;
 #endif // FOMENT_UNIX
     FObject lst = EmptyListObject;
 
     while (*envp)
     {
-        SCh * s = *envp;
+        FChS * s = *envp;
         while (*s)
         {
-            if (*s == (SCh) '=')
+            if (*s == (FChS) '=')
                 break;
             s += 1;
         }
@@ -1439,7 +1439,7 @@ static const char * FeaturesC[] =
     "foment-0.1"
 };
 
-FObject MakeCommandLine(int_t argc, SCh * argv[])
+FObject MakeCommandLine(int_t argc, FChS * argv[])
 {
     FObject cl = EmptyListObject;
 
@@ -1452,7 +1452,7 @@ FObject MakeCommandLine(int_t argc, SCh * argv[])
     return(cl);
 }
 
-void SetupFoment(FThreadState * ts, int argc, SCh * argv[])
+void SetupFoment(FThreadState * ts, int argc, FChS * argv[])
 {
 #ifdef FOMENT_WINDOWS
     StartingTicks = GetTickCount64();
@@ -1568,7 +1568,7 @@ void SetupFoment(FThreadState * ts, int argc, SCh * argv[])
 
     if (argc > 0)
     {
-        SCh * s = argv[0];
+        FChS * s = argv[0];
         while (*s)
         {
             if (*s == PathCh)

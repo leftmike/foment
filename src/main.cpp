@@ -124,7 +124,7 @@ static int Usage()
     return(-1);
 }
 
-static int MissingArgument(SCh * arg)
+static int MissingArgument(FChS * arg)
 {
 #ifdef FOMENT_WINDOWS
     printf("error: expected an argument following %S\n", arg);
@@ -135,7 +135,7 @@ static int MissingArgument(SCh * arg)
     return(Usage());
 }
 
-static FObject MakeInvocation(int argc, SCh * argv[])
+static FObject MakeInvocation(int argc, FChS * argv[])
 {
     uint_t sl = -1;
 
@@ -164,12 +164,12 @@ static FObject MakeInvocation(int argc, SCh * argv[])
     return(s);
 }
 
-static int ProgramMode(int adx, int argc, SCh * argv[])
+static int ProgramMode(int adx, int argc, FChS * argv[])
 {
     FAssert(adx < argc);
 
-    SCh * s = argv[adx];
-    SCh * pth = 0;
+    FChS * s = argv[adx];
+    FChS * pth = 0;
 
     while (*s)
     {
@@ -206,7 +206,7 @@ static int ProgramMode(int adx, int argc, SCh * argv[])
 }
 
 #ifdef FOMENT_WINDOWS
-int wmain(int argc, SCh * argv[])
+int wmain(int argc, FChS * argv[])
 #endif // FOMENT_WINDOWS
 #ifdef FOMENT_UNIX
 int main(int argc, char * argv[])

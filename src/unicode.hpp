@@ -7,14 +7,22 @@ Foment
 #ifndef __UNICODE_HPP__
 #define __UNICODE_HPP__
 
-SCh * ConvertToStringS(FCh * s, uint_t sl, SCh * b, uint_t bl);
+#define MaximumUnicodeCharacter 0x0010FFFF
+#define UnicodeReplacementCharacter 0xFFFD
+
+#define Utf16HighSurrogateStart 0xD800
+#define Utf16HighSurrogateEnd 0xDBFF
+#define Utf16LowSurrogateStart 0xDC00
+#define Utf16LowSurrogateEnd 0xDFFF
+#define Utf16HalfShift 10
+#define Utf16HalfBase 0x0010000
+#define Utf16HalfMask 0x3FF
 
 extern unsigned char Utf8TrailingBytes[256];
 
 FCh ConvertUtf8ToCh(FByte * b, uint_t bl);
 FObject ConvertUtf8ToString(FByte * b, uint_t bl);
 FObject ConvertStringToUtf8(FCh * s, uint_t sl, int_t ztf);
-FCh ConvertUtf16ToCh(FCh16 * s, uint_t sl);
 FObject ConvertUtf16ToString(FCh16 * b, uint_t bl);
 FObject ConvertStringToUtf16(FCh * s, uint_t sl, int_t ztf);
 

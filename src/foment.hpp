@@ -11,10 +11,6 @@ To Do:
 
 -- fix figuring out SectionBase on Unix; don't use a loop
 
--- fix character conversion routines
--- get rid of SCh
--- add utf16->string and string->utf16
-
 -- use tests from chibi
 -- make tests work with (chibi test)
 
@@ -92,7 +88,7 @@ Missing:
 
 #ifdef FOMENT_WINDOWS
 typedef wchar_t FCh16;
-typedef FCh16 SCh;
+typedef FCh16 FChS;
 
 #ifdef _M_AMD64
 #define FOMENT_64BIT
@@ -103,7 +99,7 @@ typedef FCh16 SCh;
 
 #ifdef FOMENT_UNIX
 typedef uint16_t FCh16;
-typedef char SCh;
+typedef char FChS;
 
 #ifdef __LP64__
 // or _LP64 in gcc
@@ -432,8 +428,8 @@ typedef struct
 FObject MakeString(FCh * s, uint_t sl);
 FObject MakeStringCh(uint_t sl, FCh ch);
 FObject MakeStringC(const char * s);
-FObject MakeStringS(SCh * ss);
-FObject MakeStringS(SCh * ss, uint_t ssl);
+FObject MakeStringS(FChS * ss);
+FObject MakeStringS(FChS * ss, uint_t ssl);
 
 inline uint_t StringLength(FObject obj)
 {
@@ -1313,8 +1309,8 @@ FObject SyntaxToDatum(FObject obj);
 
 FObject ExecuteThunk(FObject op);
 
-FObject MakeCommandLine(int_t argc, SCh * argv[]);
-void SetupFoment(FThreadState * ts, int argc, SCh * argv[]);
+FObject MakeCommandLine(int_t argc, FChS * argv[]);
+void SetupFoment(FThreadState * ts, int argc, FChS * argv[]);
 extern uint_t SetupComplete;
 
 // ---- Do Not Call Directly ----

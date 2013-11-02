@@ -7,7 +7,6 @@ Foment
 #include <string.h>
 #include "foment.hpp"
 #include "unicode.hpp"
-#include "convertutf.h"
 
 // ---- Vectors ----
 
