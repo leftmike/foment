@@ -234,12 +234,7 @@ void EnterWait();
 void LeaveWait();
 
 void Collect();
-#ifdef FOMENT_WINDOWS
 #define CheckForGC() if (GCRequired) Collect()
-#endif // FOMENT_WINDOWS
-#ifdef FOMENT_UNIX
-#define CheckForGC() if (GCRequired) Collect()
-#endif // FOMENT_UNIX
 
 void ModifyVector(FObject obj, uint_t idx, FObject val);
 
