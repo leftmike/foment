@@ -1403,7 +1403,7 @@ static const char * CPUArchitecture()
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-    return(MakeStringC(utsname.machine));
+    return(utsname.machine);
 #endif // FOMENT_UNIX
 }
 
