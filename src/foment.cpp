@@ -13,6 +13,7 @@ Foment
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/utsname.h>
+#include <ctype.h>
 #endif // FOMENT_UNIX
 #include <stdlib.h>
 #include <stdio.h>
@@ -1652,6 +1653,21 @@ static int LittleEndianP()
     return(*((char *) &nd) == 1);
 }
 
+#ifdef FOMENT_UNIX
+static void FixupUName(char * s)
+{
+    while (*s != 0)
+    {
+        if (*s == ' ' || *s == '_')
+            *s = '-';
+        else
+            *s = tolower(*s);
+
+        s += 1;
+    }
+}
+#endif // FOMENT_UNIX
+
 void SetupFoment(FThreadState * ts, int argc, FChS * argv[])
 {
 #ifdef FOMENT_WINDOWS
@@ -1665,6 +1681,8 @@ void SetupFoment(FThreadState * ts, int argc, FChS * argv[])
     StartingSecond = tv.tv_sec;
 
     uname(&utsname);
+    FixupUName(utsname.machine);
+    FixupUName(utsname.sysname);
 #endif // FOMENT_UNIX
 
     srand((unsigned int) time(0));
