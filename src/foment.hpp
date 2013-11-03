@@ -14,6 +14,8 @@ To Do:
 
 -- fix syntax-rules to handle ... as an identifier correctly
 
+-- fix read to work with circular data structures
+
 -- IO and GC
 -- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
 -- or use FAlive
@@ -81,6 +83,8 @@ Missing:
 
 #ifndef __FOMENT_HPP__
 #define __FOMENT_HPP__
+
+#define FOMENT_VERSION "0.1"
 
 #include <stdint.h>
 

@@ -213,9 +213,9 @@ int main(int argc, char * argv[])
 #endif // FOMENT_UNIX
 {
 #ifdef FOMENT_DEBUG
-    printf("Foment (Debug) Scheme 0.1\n");
+    printf("Foment (Debug) Scheme %s\n", FOMENT_VERSION);
 #else // FOMENT_DEBUG
-    printf("Foment Scheme 0.1\n");
+    printf("Foment Scheme %s\n", FOMENT_VERSION);
 #endif // FOMENT_DEBUG
 
     int adx = 1;

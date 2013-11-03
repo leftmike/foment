@@ -42,7 +42,7 @@ release/foment: release/foment.o release/gc.o release/syncthrd.o release/compile
 		release/write.o release/read.o release/main.o release/base.o
 	g++ -lpthread -o release/foment $^
 
-debug/foment.o: ../src/foment.cpp ../src/foment.hpp
+debug/foment.o: ../src/foment.cpp ../src/foment.hpp ../src/unicode.hpp
 debug/gc.o: ../src/gc.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp
 debug/syncthrd.o: ../src/syncthrd.cpp ../src/foment.hpp ../src/execute.hpp ../src/syncthrd.hpp
 debug/compile.o: ../src/compile.cpp ../src/foment.hpp ../src/compile.hpp
@@ -67,7 +67,7 @@ debug/read.o: ../src/read.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hp
 debug/main.o: ../src/main.cpp ../src/foment.hpp
 debug/base.o: debug/base.cpp
 
-release/foment.o: ../src/foment.cpp ../src/foment.hpp
+release/foment.o: ../src/foment.cpp ../src/foment.hpp ../src/unicode.hpp
 release/gc.o: ../src/gc.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp
 release/syncthrd.o: ../src/syncthrd.cpp ../src/foment.hpp ../src/execute.hpp ../src/syncthrd.hpp
 release/compile.o: ../src/compile.cpp ../src/foment.hpp ../src/compile.hpp

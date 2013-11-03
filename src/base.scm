@@ -338,6 +338,13 @@
          write
          write-shared
          write-simple)
+    (export ;; (scheme inquiry) and (srfi 112)
+        implementation-name
+        implementation-version
+        cpu-architecture
+        machine-name
+        os-name
+        os-version)
     (export
         make-latin1-port
         make-utf8-port
@@ -1352,3 +1359,23 @@
          write
          write-shared
          write-simple))
+
+(define-library (scheme inquiry)
+    (import (foment base))
+    (export
+        implementation-name
+        implementation-version
+        cpu-architecture
+        machine-name
+        os-name
+        os-version))
+
+(define-library (srfi 112)
+    (import (foment base))
+    (export
+        implementation-name
+        implementation-version
+        cpu-architecture
+        machine-name
+        os-name
+        os-version))

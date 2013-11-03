@@ -19,6 +19,7 @@ Foment
 #include <string.h>
 #include <time.h>
 #include "foment.hpp"
+#include "unicode.hpp"
 
 #ifdef FOMENT_WINDOWS
 static ULONGLONG StartingTicks = 0;
@@ -642,6 +643,14 @@ Define("features", FeaturesPrimitive)(int_t argc, FObject argv[])
     ZeroArgsCheck("features", argc);
 
     return(R.Features);
+}
+
+Define("%set-features!", SetFeaturesPrimitive)(int_t argc, FObject argv[])
+{
+    FMustBe(argc == 1);
+
+    R.Features = argv[0];
+    return(NoValueObject);
 }
 
 // ---- Boxes ----
@@ -1366,6 +1375,149 @@ Define("no-value", NoValuePrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
+// ---- SRFI 112: Environment Inquiry ----
+
+Define("implementation-name", ImplementationNamePrimitive)(int_t argc, FObject argv[])
+{
+    ZeroArgsCheck("implementation-name", argc);
+
+    return(MakeStringC("foment"));
+}
+
+Define("implementation-version", ImplementationVersionPrimitive)(int_t argc, FObject argv[])
+{
+    ZeroArgsCheck("implementation-version", argc);
+
+    return(MakeStringC(FOMENT_VERSION));
+}
+
+static const char * CPUArchitecture()
+{
+#ifdef FOMENT_WINDOWS
+#ifdef FOMENT_32BIT
+    return("i386");
+#endif // FOMENT_32BIT
+#ifdef FOMENT_64BIT
+    return("x86-64");
+#endif // FOMENT_64BIT
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    return(MakeStringC(utsname.machine));
+#endif // FOMENT_UNIX
+}
+
+Define("cpu-architecture", CPUArchitecturePrimitive)(int_t argc, FObject argv[])
+{
+    ZeroArgsCheck("cpu-architecture", argc);
+
+    return(MakeStringC(CPUArchitecture()));
+}
+
+Define("machine-name", MachineNamePrimitive)(int_t argc, FObject argv[])
+{
+    ZeroArgsCheck("machine-name", argc);
+
+#ifdef FOMENT_WINDOWS
+    DWORD sz = 0;
+    GetComputerNameExW(ComputerNameDnsHostname, NULL, &sz);
+
+    FAssert(sz > 0);
+
+    FObject b = MakeBytevector(sz * sizeof(FCh16));
+    GetComputerNameExW(ComputerNameDnsHostname, (FCh16 *) AsBytevector(b)->Vector, &sz);
+
+    return(ConvertUtf16ToString((FCh16 *) AsBytevector(b)->Vector, sz));
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    return(MakeStringC(utsname.nodename));
+#endif // FOMENT_UNIX
+}
+
+static const char * OSName()
+{
+#ifdef FOMENT_WINDOWS
+    return("windows");
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    return(utsname.sysname);
+#endif // FOMENT_UNIX
+}
+
+Define("os-name", OSNamePrimitive)(int_t argc, FObject argv[])
+{
+    ZeroArgsCheck("os-name", argc);
+
+    return(MakeStringC(OSName()));
+}
+
+Define("os-version", OSVersionPrimitive)(int_t argc, FObject argv[])
+{
+    ZeroArgsCheck("os-version", argc);
+
+#ifdef FOMENT_WINDOWS
+    OSVERSIONINFOEXA ovi;
+    ovi.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXA);
+    GetVersionExA((LPOSVERSIONINFOA) &ovi);
+
+    if (ovi.dwMajorVersion == 5)
+    {
+        if (ovi.dwMinorVersion == 0)
+            return(MakeStringC("2000"));
+        else if (ovi.dwMinorVersion == 1)
+        {
+            if (ovi.wServicePackMajor > 0)
+            {
+                char buf[128];
+                sprintf(buf, "xp service pack %d", ovi.wServicePackMajor);
+                return(MakeStringC(buf));
+            }
+
+            return(MakeStringC("xp"));
+        }
+        else if (ovi.dwMinorVersion == 2)
+            return(MakeStringC("server 2003"));
+    }
+    else if (ovi.dwMajorVersion == 6)
+    {
+        if (ovi.dwMinorVersion == 0)
+        {
+            if (ovi.wServicePackMajor > 0)
+            {
+                char buf[128];
+                sprintf(buf, "vista service pack %d", ovi.wServicePackMajor);
+                return(MakeStringC(buf));
+            }
+
+            return(MakeStringC("vista"));
+        }
+        else if (ovi.dwMinorVersion == 1)
+        {
+            if (ovi.wServicePackMajor > 0)
+            {
+                char buf[128];
+                sprintf(buf, "7 service pack %d", ovi.wServicePackMajor);
+                return(MakeStringC(buf));
+            }
+
+            return(MakeStringC("7"));
+        }
+        else if (ovi.dwMinorVersion == 2)
+            return(MakeStringC("8"));
+        else if (ovi.dwMinorVersion == 3)
+            return(MakeStringC("8.1"));
+    }
+
+    return(FalseObject);
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    return(MakeStringC(utsname.release));
+#endif // FOMENT_UNIX
+}
+
 // ---- Primitives ----
 
 static FPrimitive * Primitives[] =
@@ -1397,6 +1549,7 @@ static FPrimitive * Primitives[] =
     &CurrentJiffyPrimitive,
     &JiffiesPerSecondPrimitive,
     &FeaturesPrimitive,
+    &SetFeaturesPrimitive,
     &MakeEqHashtablePrimitive,
     &EqHashtableRefPrimitive,
     &EqHashtableSetPrimitive,
@@ -1410,7 +1563,13 @@ static FPrimitive * Primitives[] =
     &LoadedLibrariesPrimitive,
     &LibraryPathPrimitive,
     &RandomPrimitive,
-    &NoValuePrimitive
+    &NoValuePrimitive,
+    &ImplementationNamePrimitive,
+    &ImplementationVersionPrimitive,
+    &CPUArchitecturePrimitive,
+    &MachineNamePrimitive,
+    &OSNamePrimitive,
+    &OSVersionPrimitive
 };
 
 // ----------------
@@ -1448,37 +1607,29 @@ static void SetupScheme()
 
 static const char * FeaturesC[] =
 {
-    "r7rs",
-    "full-unicode",
-
 #ifdef FOMENT_WINDOWS
-    "windows",
-    "little-endian",
 #ifdef FOMENT_32BIT
-    "i386",
     "ilp32",
 #endif // FOMENT_32BIT
 #ifdef FOMENT_64BIT
-    "x86-64",
     "llp64",
 #endif // FOMENT_64BIT
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
     "unix",
-    "little-endian",
 #ifdef FOMENT_32BIT
-    "i386",
     "ilp32",
 #endif // FOMENT_32BIT
 #ifdef FOMENT_64BIT
-    "x86-64",
     "lp64",
 #endif // FOMENT_64BIT
 #endif // FOMENT_UNIX
 
+    "r7rs",
+    "full-unicode",
     "foment",
-    "foment-0.1"
+    "foment-" FOMENT_VERSION
 };
 
 FObject MakeCommandLine(int_t argc, FChS * argv[])
@@ -1492,6 +1643,13 @@ FObject MakeCommandLine(int_t argc, FChS * argv[])
     }
 
     return(cl);
+}
+
+static int LittleEndianP()
+{
+    uint_t nd = 1;
+
+    return(*((char *) &nd) == 1);
 }
 
 void SetupFoment(FThreadState * ts, int argc, FChS * argv[])
@@ -1584,6 +1742,11 @@ void SetupFoment(FThreadState * ts, int argc, FChS * argv[])
 
     for (uint_t idx = 0; idx < sizeof(FeaturesC) / sizeof(char *); idx++)
         R.Features = MakePair(StringCToSymbol(FeaturesC[idx]), R.Features);
+
+    R.Features = MakePair(StringCToSymbol(CPUArchitecture()), R.Features);
+    R.Features = MakePair(StringCToSymbol(OSName()), R.Features);
+    R.Features = MakePair(StringCToSymbol(LittleEndianP() ? "little-endian" : "big-endian"),
+            R.Features);
 
     R.CommandLine = MakeCommandLine(argc, argv);
     R.LibraryPath = EmptyListObject;
