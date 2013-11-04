@@ -94,8 +94,10 @@ typedef FCh16 FChS;
 
 #ifdef _M_AMD64
 #define FOMENT_64BIT
+#define FOMENT_MEMORYMODEL "llp64"
 #else // _M_AMD64
 #define FOMENT_32BIT
+#define FOMENT_MEMORYMODEL "ilp32"
 #endif // _M_AMD64
 #endif // FOMENT_WINDOWS
 
@@ -104,10 +106,11 @@ typedef uint16_t FCh16;
 typedef char FChS;
 
 #ifdef __LP64__
-// or _LP64 in gcc
 #define FOMENT_64BIT
+#define FOMENT_MEMORYMODEL "lp64"
 #else // __LP64__
 #define FOMENT_32BIT
+#define FOMENT_MEMORYMODEL "ilp32"
 #endif // __LP64__
 #endif // FOMENT_UNIX
 

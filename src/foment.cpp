@@ -1608,25 +1608,11 @@ static void SetupScheme()
 
 static const char * FeaturesC[] =
 {
-#ifdef FOMENT_WINDOWS
-#ifdef FOMENT_32BIT
-    "ilp32",
-#endif // FOMENT_32BIT
-#ifdef FOMENT_64BIT
-    "llp64",
-#endif // FOMENT_64BIT
-#endif // FOMENT_WINDOWS
-
 #ifdef FOMENT_UNIX
     "unix",
-#ifdef FOMENT_32BIT
-    "ilp32",
-#endif // FOMENT_32BIT
-#ifdef FOMENT_64BIT
-    "lp64",
-#endif // FOMENT_64BIT
 #endif // FOMENT_UNIX
 
+    FOMENT_MEMORYMODEL,
     "r7rs",
     "full-unicode",
     "foment",

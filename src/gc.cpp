@@ -1535,6 +1535,28 @@ void SetupCore(FThreadState * ts)
 #ifdef FOMENT_DEBUG
     uint_t len = MakeLength(MAXIMUM_OBJECT_LENGTH, GCFreeTag);
     FAssert(ByteLength(&len) == MAXIMUM_OBJECT_LENGTH);
+
+    if (strcmp(FOMENT_MEMORYMODEL, "ilp32") == 0)
+    {
+        FAssert(sizeof(int) == 4);
+        FAssert(sizeof(long) == 4);
+        FAssert(sizeof(void *) == 4);
+    }
+    else if (strcmp(FOMENT_MEMORYMODEL, "lp64") == 0)
+    {
+        FAssert(sizeof(int) == 4);
+        FAssert(sizeof(long) == 8);
+        FAssert(sizeof(void *) == 8);
+    }
+    else if (strcmp(FOMENT_MEMORYMODEL, "llp64") == 0)
+    {
+        FAssert(sizeof(int) == 4);
+        FAssert(sizeof(long) == 4);
+//#ifdef FOMENT_WINDOWS
+        FAssert(sizeof(long long) == 8);
+//#endif // FOMENT_WINDOWS
+        FAssert(sizeof(void *) == 8);
+    }
 #endif // FOMENT_DEBUG
 
     FAssert(SECTION_SIZE == 1024 * 16);
