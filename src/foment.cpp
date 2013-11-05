@@ -1658,7 +1658,7 @@ static void FixupUName(char * s)
 {
     while (*s != 0)
     {
-        if (*s == ' ' || *s == '_')
+        if (*s == '/' || *s == '_')
             *s = '-';
         else
             *s = tolower(*s);
