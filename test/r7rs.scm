@@ -7,6 +7,7 @@
 (import (scheme eval))
 (import (scheme file))
 (import (scheme inexact))
+(import (scheme lazy))
 (import (scheme load))
 (import (scheme process-context))
 (import (scheme read))
@@ -551,6 +552,63 @@
         (do ((x x (cdr x))
             (sum 0 (+ sum (car x))))
             ((null? x) sum))))
+
+;; delay
+
+(must-equal 3 (force (delay (+ 1 2))))
+(must-equal (3 3) (let ((p (delay (+ 1 2))))
+    (list (force p) (force p))))
+
+(define integers
+    (letrec ((next (lambda (n) (delay (cons n (next (+ n 1)))))))
+        (next 0)))
+(define (head stream) (car (force stream)))
+(define (tail stream) (cdr (force stream)))
+(must-equal 2 (head (tail (tail integers))))
+
+(define (stream-filter p? s)
+    (delay-force
+        (if (null? (force s))
+            (delay '())
+            (let ((h (car (force s)))
+                    (t (cdr (force s))))
+                (if (p? h)
+                    (delay (cons h (stream-filter p? t)))
+                    (stream-filter p? t))))))
+(must-equal 5 (head (tail (tail (stream-filter odd? integers)))))
+
+(define count 0)
+(define p
+    (delay
+        (begin
+            (set! count (+ count 1))
+            (if (> count x)
+                count
+                (force p)))))
+(define x 5)
+(must-equal 6 (force p))
+(set! x 10)
+(must-equal 6 (force p))
+
+(must-equal 10 (force (delay (+ 1 2 3 4))))
+(must-equal 10 (force (+ 1 2 3 4)))
+
+(must-raise (assertion-violation force) (force))
+(must-raise (assertion-violation force) (force 1 2))
+
+(must-equal #t (promise? (delay (+ 1 2 3 4))))
+(must-equal #f (promise? (+ 1 2 3 4)))
+
+(must-raise (assertion-violation promise?) (promise?))
+(must-raise (assertion-violation promise?) (promise? 1 2))
+
+(must-equal #t (promise? (make-promise 10)))
+
+(define p (delay (+ 1 2 3 4)))
+(must-equal #t (eq? p (make-promise p)))
+
+(must-raise (assertion-violation make-promise) (make-promise))
+(must-raise (assertion-violation make-promise) (make-promise 1 2))
 
 ;; named let
 

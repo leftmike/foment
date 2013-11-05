@@ -14,11 +14,6 @@ To Do:
 
 -- fix syntax-rules to handle ... as an identifier correctly
 
--- document new library: srfi 112
-
--- add srfi 111
--- add (scheme lazy)
-
 -- fix read to work with circular data structures
 
 -- IO and GC
@@ -89,7 +84,7 @@ Missing:
 #ifndef __FOMENT_HPP__
 #define __FOMENT_HPP__
 
-#define FOMENT_VERSION "0.1"
+#define FOMENT_VERSION "0.2"
 
 #include <stdint.h>
 
@@ -1173,6 +1168,12 @@ inline void ListArgCheck(const char * who, FObject obj)
 {
     if (ListLength(obj) < 0)
         RaiseExceptionC(R.Assertion, who, "expected a list", List(obj));
+}
+
+inline void BoxArgCheck(const char * who, FObject obj)
+{
+    if (BoxP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a box", List(obj));
 }
 
 inline void VectorArgCheck(const char * who, FObject obj)

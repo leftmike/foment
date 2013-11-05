@@ -1533,6 +1533,41 @@ Define("os-version", OSVersionPrimitive)(int_t argc, FObject argv[])
 #endif // FOMENT_UNIX
 }
 
+// ---- SRFI 111: Boxes ----
+
+Define("box", BoxPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("box", argc);
+
+    return(MakeBox(argv[0]));
+}
+
+Define("box?", BoxPPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("box?", argc);
+
+    return(BoxP(argv[0]) ? TrueObject : FalseObject);
+}
+
+Define("unbox", UnboxPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("unbox", argc);
+    BoxArgCheck("unbox", argv[0]);
+
+    return(Unbox(argv[0]));
+}
+
+Define("set-box!", SetBoxPrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("set-box!", argc);
+    BoxArgCheck("set-box!", argv[0]);
+
+//    AsBox(argv[0])->Value = argv[1];
+    Modify(FBox, argv[0], Value, argv[1]);
+
+    return(NoValueObject);
+}
+
 // ---- Primitives ----
 
 static FPrimitive * Primitives[] =
@@ -1584,7 +1619,11 @@ static FPrimitive * Primitives[] =
     &CPUArchitecturePrimitive,
     &MachineNamePrimitive,
     &OSNamePrimitive,
-    &OSVersionPrimitive
+    &OSVersionPrimitive,
+    &BoxPrimitive,
+    &BoxPPrimitive,
+    &UnboxPrimitive,
+    &SetBoxPrimitive
 };
 
 // ----------------

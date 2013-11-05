@@ -317,6 +317,12 @@
         sqrt
 ;        tan
     )
+    (export ;; (scheme lazy)
+        delay
+        delay-force
+        force
+        make-promise
+        promise?)
     (export ;; (scheme load)
         load)
     (export ;; (scheme process-context)
@@ -345,6 +351,11 @@
         machine-name
         os-name
         os-version)
+    (export ;; (scheme boxes) and (srfi 111)
+        box
+        box?
+        unbox
+        set-box!)
     (export
         make-latin1-port
         make-utf8-port
@@ -595,6 +606,40 @@
                 (let ((who (error-object-who obj)))
                     (or (eq? who 'open-binary-input-file) (eq? who 'open-binary-output-file)
                             (eq? who 'delete-file)))))
+
+        (define-record-type promise
+            (%make-promise state)
+            promise?
+            (state promise-state set-promise-state!))
+
+        (define-syntax delay-force
+            (syntax-rules ()
+                ((delay-force expression) (%make-promise (cons #f (lambda () expression))))))
+
+        (define-syntax delay
+            (syntax-rules ()
+                ((delay expression) (delay-force (%make-promise (cons #t expression))))))
+
+        (define (make-promise obj)
+            (if (promise? obj)
+                obj
+                (%make-promise (cons #t obj))))
+
+        (define (force promise)
+            (if (promise? promise)
+                (if (promise-done? promise)
+                    (promise-value promise)
+                    (let ((promise* ((promise-value promise))))
+                        (unless (promise-done? promise) (promise-update! promise* promise))
+                        (force promise)))
+                promise))
+
+        (define (promise-done? x) (car (promise-state x)))
+        (define (promise-value x) (cdr (promise-state x)))
+        (define (promise-update! new old)
+            (set-car! (promise-state old) (promise-done? new))
+            (set-cdr! (promise-state old) (promise-value new))
+            (set-promise-state! new (promise-state old)))
 
         (define (call-with-values producer consumer)
                 (let-values ((args (producer))) (apply consumer args)))
@@ -1319,7 +1364,14 @@
 ;;        tan
     ))
 
-;; (define-library (scheme lazy)
+(define-library (scheme lazy)
+    (import (foment base))
+    (export
+        delay
+        delay-force
+        force
+        make-promise
+        promise?))
 
 (define-library (scheme load)
     (import (foment base))
@@ -1379,3 +1431,19 @@
         machine-name
         os-name
         os-version))
+
+(define-library (scheme boxes)
+    (import (foment base))
+    (export
+        box
+        box?
+        unbox
+        set-box!))
+
+(define-library (srfi 111)
+    (import (foment base))
+    (export
+        box
+        box?
+        unbox
+        set-box!))

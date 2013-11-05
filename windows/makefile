@@ -15,9 +15,9 @@ clean: debug release manual
 test: all
     cd ..\test
     ..\windows\debug\foment runtests.scm r7rs.scm foment.scm eccentric.scm r5rs_pitfall.scm\
-            unicode.scm
+            unicode.scm srfi.scm
     ..\windows\release\foment runtests.scm r7rs.scm foment.scm eccentric.scm r5rs_pitfall.scm\
-            unicode.scm
+            unicode.scm srfi.scm
 
 stress: all
     cd ..\test
