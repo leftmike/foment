@@ -14,6 +14,11 @@ To Do:
 
 -- fix syntax-rules to handle ... as an identifier correctly
 
+-- document new library: srfi 112
+
+-- add srfi 111
+-- add (scheme lazy)
+
 -- fix read to work with circular data structures
 
 -- IO and GC

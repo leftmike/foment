@@ -1395,12 +1395,26 @@ Define("implementation-version", ImplementationVersionPrimitive)(int_t argc, FOb
 static const char * CPUArchitecture()
 {
 #ifdef FOMENT_WINDOWS
+    SYSTEM_INFO si;
+
+    GetSystemInfo(&si);
+
+    if (si.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64)
+        return("x86-64");
+    else if (si.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_ARM)
+        return("arm");
+    else if (si.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_INTEL)
+        return("i686");
+
+    return("unknown-cpu");
+/*
 #ifdef FOMENT_32BIT
     return("i386");
 #endif // FOMENT_32BIT
 #ifdef FOMENT_64BIT
     return("x86-64");
 #endif // FOMENT_64BIT
+*/
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
