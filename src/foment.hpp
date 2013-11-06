@@ -12,8 +12,6 @@ To Do:
 -- use tests from chibi
 -- make tests work with (chibi test)
 
--- fix syntax-rules to handle ... as an identifier correctly
-
 -- fix read to work with circular data structures
 
 -- IO and GC
@@ -287,6 +285,9 @@ void InstallTracker(FObject obj, FObject ret, FObject tconc);
 #define NotFoundObject MakeImmediate(6, MiscellaneousTag)
 #define NotFoundObjectP(obj) ((obj) == NotFoundObject)
 
+#define MatchAnyObject MakeImmediate(7, MiscellaneousTag)
+#define MatchAnyObjectP(obj) ((obj) == MatchAnyObject)
+
 #define ValuesCountP(obj) ImmediateP(obj, ValuesCountTag)
 #define MakeValuesCount(cnt) MakeImmediate(cnt, ValuesCountTag)
 #define AsValuesCount(obj) ((FFixnum) (AsValue(obj)))
@@ -329,11 +330,8 @@ FObject SpecialSyntaxMsgC(FObject obj, const char * msg);
 #define ArrowSyntax MakeImmediate(27, SpecialSyntaxTag)
 #define UnquoteSyntax MakeImmediate(28, SpecialSyntaxTag)
 #define UnquoteSplicingSyntax MakeImmediate(29, SpecialSyntaxTag)
-
-/*
-#define GuardSyntax MakeImmediate(, SpecialSyntaxTag)
-#define DefineRecordTypeSyntax MakeImmediate(, SpecialSyntaxTag)
-*/
+#define EllipsisSyntax MakeImmediate(30, SpecialSyntaxTag)
+#define UnderscoreSyntax MakeImmediate(31, SpecialSyntaxTag)
 
 // ---- Instruction ----
 
@@ -922,7 +920,6 @@ typedef struct
 {
     FObject Bedrock;
     FObject BedrockLibrary;
-    FObject EllipsisSymbol;
     FObject Features;
     FObject CommandLine;
     FObject LibraryPath;
@@ -940,9 +937,6 @@ typedef struct
     FObject Error;
 
     FObject LoadedLibraries;
-
-    FObject UnderscoreSymbol;
-    FObject TagSymbol;
 
     FObject SyntacticEnvRecordType;
     FObject BindingRecordType;
@@ -964,6 +958,10 @@ typedef struct
     FObject ConsReference;
     FObject AppendReference;
     FObject ListToVectorReference;
+    FObject EllipsisReference;
+    FObject UnderscoreReference;
+
+    FObject TagSymbol;
     FObject InteractionEnv;
 
     FObject StandardInput;

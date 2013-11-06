@@ -308,8 +308,9 @@ void SetupCompile()
             MakeIdentifier(StringCToSymbol("append"), 0));
     R.ListToVectorReference = MakeReference(R.Bedrock,
             MakeIdentifier(StringCToSymbol("list->vector"), 0));
+    R.EllipsisReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("..."), 0));
+    R.UnderscoreReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("_"), 0));
 
-    R.UnderscoreSymbol = StringCToSymbol("_");
     R.TagSymbol = StringCToSymbol("tag");
     R.InteractionEnv = NoValueObject;
 

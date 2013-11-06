@@ -104,7 +104,9 @@ static const char * SpecialSyntaxes[] =
     "else",
     "=>",
     "unquote",
-    "unquote-splicing"
+    "unquote-splicing",
+    "...",
+    "_"
 };
 
 static const char * SpecialSyntaxToName(FObject obj)
@@ -1756,7 +1758,6 @@ void SetupFoment(FThreadState * ts, int argc, FChS * argv[])
     SetupLibrary();
     R.ExceptionRecordType = MakeRecordTypeC("exception",
             sizeof(ExceptionFieldsC) / sizeof(char *), ExceptionFieldsC);
-    R.EllipsisSymbol = StringCToSymbol("...");
     R.Assertion = StringCToSymbol("assertion-violation");
     R.Restriction = StringCToSymbol("implementation-restriction");
     R.Lexical = StringCToSymbol("lexical-violation");

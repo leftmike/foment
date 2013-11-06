@@ -612,6 +612,10 @@ void WriteGeneric(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx)
         WriteStringC(port, "#<no-value>");
     else if (obj == WantValuesObject)
         WriteStringC(port, "#<want-values>");
+    else if (obj == NotFoundObject)
+        WriteStringC(port, "#<not-found>");
+    else if (obj == MatchAnyObject)
+        WriteStringC(port, "#<match-any>");
     else
     {
         FCh s[16];

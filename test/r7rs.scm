@@ -760,6 +760,18 @@
 
 (must-equal ok (let ((=> #f)) (cond (#t => 'ok))))
 
+(define-syntax test-sr-1
+    (syntax-rules ()
+        ((_ _ _ expr) expr)))
+
+(must-equal 10 (test-sr-1 ignore both (+ 1 2 3 4)))
+
+(define-syntax test-sr-2
+    (syntax-rules (_)
+        ((_ _ expr) expr)))
+
+(must-equal 10 (test-sr-2 _ (+ 1 2 3 4)))
+
 ;; let-syntax
 
 (must-equal now (let-syntax
