@@ -11,8 +11,12 @@ Foment
 #include <pthread.h>
 #endif // FOMENT_UNIX
 #include <stdio.h>
-#include <malloc.h>
 #include "foment.hpp"
+#ifdef FOMENT_BSD
+#include <stdlib.h>
+#else // FOMENT_BSD
+#include <malloc.h>
+#endif // FOMENT_BSD
 #include "execute.hpp"
 #include "syncthrd.hpp"
 

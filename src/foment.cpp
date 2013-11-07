@@ -22,6 +22,10 @@ Foment
 #include "foment.hpp"
 #include "unicode.hpp"
 
+#ifdef FOMENT_BSD
+extern char ** environ;
+#endif // FOMENT_BSD
+
 #ifdef FOMENT_WINDOWS
 static ULONGLONG StartingTicks = 0;
 #endif // FOMENT_WINDOWS

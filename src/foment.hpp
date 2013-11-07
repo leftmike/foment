@@ -100,6 +100,7 @@ typedef FCh16 FChS;
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
+#include <sys/param.h>
 typedef uint16_t FCh16;
 typedef char FChS;
 
@@ -110,6 +111,10 @@ typedef char FChS;
 #define FOMENT_32BIT
 #define FOMENT_MEMORYMODEL "ilp32"
 #endif // __LP64__
+
+#ifdef BSD
+#define FOMENT_BSD
+#endif // BSD
 #endif // FOMENT_UNIX
 
 typedef void * FObject;
