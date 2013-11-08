@@ -1108,7 +1108,7 @@ inline void NonNegativeArgCheck(const char * who, FObject arg)
 
 inline void IndexArgCheck(const char * who, FObject arg, FFixnum len)
 {
-    if (FixnumP(arg) == 0 || AsFixnum(arg) < 0 || AsFixnum(arg) >= len)
+    if (FixnumP(arg) == 0 || AsFixnum(arg) < 0 || AsFixnum(arg) > len)
         RaiseExceptionC(R.Assertion, who, "expected a valid index", List(arg));
 }
 

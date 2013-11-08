@@ -249,6 +249,27 @@ static void WritePair(FObject port, FObject obj, int_t df, FWriteFn wfn, void * 
     }
 }
 
+static void WriteLocation(FObject port, FObject obj)
+{
+    if (PairP(obj))
+    {
+        if (IdentifierP(First(obj)))
+            obj = First(obj);
+        else if (PairP(First(obj)) && IdentifierP(First(First(obj))))
+            obj = First(First(obj));
+    }
+
+    if (IdentifierP(obj) && FixnumP(AsIdentifier(obj)->LineNumber)
+            && AsFixnum(AsIdentifier(obj)->LineNumber) > 0)
+    {
+        FCh s[16];
+        int_t sl = NumberAsString(AsFixnum(AsIdentifier(obj)->LineNumber), s, 10);
+
+        WriteStringC(port, " line: ");
+        WriteString(port, s, sl);
+    }
+}
+
 static void WriteRecord(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx)
 {
     if (IdentifierP(obj))
@@ -303,6 +324,8 @@ static void WriteRecord(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
 
             WriteStringC(port, " irritants: ");
             WriteGeneric(port, AsException(obj)->Irritants, df, wfn, ctx);
+
+            WriteLocation(port, AsException(obj)->Irritants);
         }
         else
         {

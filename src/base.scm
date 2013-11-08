@@ -873,9 +873,9 @@
 
         (define-syntax guard
             (syntax-rules (else)
-                ((guard (var clause1 clause2 ... (else result1 result2 ...)) body1 body2 ...)
+                ((guard (var clause ... (else result1 result2 ...)) body1 body2 ...)
                     (with-guard
-                        (lambda (var hds) (cond clause1 clause2 ... (else result1 result2 ...)))
+                        (lambda (var hds) (cond clause ... (else result1 result2 ...)))
                         (lambda () body1 body2 ...)))
                 ((guard (var clause1 clause2 ...) body1 body2 ...)
                     (with-guard

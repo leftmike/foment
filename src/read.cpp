@@ -753,7 +753,7 @@ Define("read-bytevector", ReadBytevectorPrimitive)(int_t argc, FObject argv[])
     FObject bv = MakeBytevector(bvl);
     int_t rl = ReadBytes(port, AsBytevector(bv)->Vector, bvl);
     if (rl == 0)
-        return(EmptyListObject);
+        return(EndOfFileObject);
 
     if (rl == bvl)
         return(bv);
@@ -795,7 +795,7 @@ Define("read-bytevector!", ReadBytevectorModifyPrimitive)(int_t argc, FObject ar
 
     int_t rl = ReadBytes(port, AsBytevector(argv[0])->Vector + strt, end - strt);
     if (rl == 0)
-        return(EmptyListObject);
+        return(EndOfFileObject);
     return(MakeFixnum(rl));
 }
 

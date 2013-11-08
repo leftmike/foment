@@ -1539,7 +1539,6 @@ static FObject SPassBody(FObject se, FObject ss, FObject body)
         return(SPassSequence(se, ss, body, body));
 
     dlst = ReverseListModify(dlst);
-    FAssert(bs != EmptyListObject);
 
     // Pass 2: evaluate and assign transformers to all keywords specified by define-syntax;
     // collect bindings together for the same define or define-values ready to be paired with

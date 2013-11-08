@@ -2,6 +2,7 @@
 ;;; R7RS
 ;;;
 
+(import (scheme base))
 (import (scheme case-lambda))
 (import (scheme char))
 (import (scheme eval))
@@ -14,6 +15,17 @@
 (import (scheme repl))
 (import (scheme time))
 (import (scheme write))
+
+(cond-expand ((library (chibi test)) (import (chibi test))) (else 'nothing))
+
+(define-syntax check-equal
+    (syntax-rules () ((check-equal expect expr) (test-propagate-info #f 'expect expr ()))))
+
+(define-syntax check-syntax
+    (syntax-rules () ((check-syntax error expr) (test-error (eval '(lambda () expr))))))
+
+(define-syntax check-error
+    (syntax-rules () ((check-error error expr) (test-error expr))))
 
 ;;
 ;; ---- identifiers ----
@@ -1515,7 +1527,7 @@
 
 (check-error (assertion-violation string-ref) (string-ref ""))
 (check-error (assertion-violation string-ref) (string-ref "" 2 2))
-(check-error (assertion-violation string-ref) (string-ref "123" 3))
+(check-error (assertion-violation string-ref) (string-ref "123" 4))
 (check-error (assertion-violation string-ref) (string-ref "123" -1))
 (check-error (assertion-violation string-ref) (string-ref #(1 2 3) 1))
 
@@ -1672,7 +1684,7 @@
 (check-error (assertion-violation string-copy) (string-copy #\a))
 (check-error (assertion-violation string-copy) (string-copy "abc" -1))
 (check-error (assertion-violation string-copy) (string-copy "abc" #t))
-(check-error (assertion-violation string-copy) (string-copy "abc" 3))
+(check-error (assertion-violation string-copy) (string-copy "abc" 4))
 (check-error (assertion-violation string-copy) (string-copy "abc" 1 0))
 (check-error (assertion-violation string-copy) (string-copy "abc" 1 4))
 (check-error (assertion-violation string-copy) (string-copy "abc" 1 2 3))
@@ -1717,7 +1729,7 @@
 (check-error (assertion-violation vector-ref) (vector-ref))
 (check-error (assertion-violation vector-ref) (vector-ref #(1 2 3)))
 (check-error (assertion-violation vector-ref) (vector-ref #(1 2 3) -1))
-(check-error (assertion-violation vector-ref) (vector-ref #(1 2 3) 3))
+(check-error (assertion-violation vector-ref) (vector-ref #(1 2 3) 4))
 (check-error (assertion-violation vector-ref) (vector-ref #(1 2 3) 1 1))
 (check-error (assertion-violation vector-ref) (vector-ref 1 1))
 
@@ -1743,7 +1755,7 @@
 (check-error (assertion-violation vector->list) (vector->list '()))
 (check-error (assertion-violation vector->list) (vector->list #(1 2 3 4) #f))
 (check-error (assertion-violation vector->list) (vector->list #(1 2 3 4) -1))
-(check-error (assertion-violation vector->list) (vector->list #(1 2 3 4) 4))
+(check-error (assertion-violation vector->list) (vector->list #(1 2 3 4) 5))
 (check-error (assertion-violation vector->list) (vector->list #(1 2 3 4) 1 0))
 (check-error (assertion-violation vector->list) (vector->list #(1 2 3 4) 1 5))
 (check-error (assertion-violation vector->list) (vector->list #(1 2 3 4) 1 2 3))
@@ -1879,7 +1891,7 @@
 (check-error (assertion-violation bytevector-u8-set!) (bytevector-u8-set! bv 1))
 (check-error (assertion-violation bytevector-u8-set!) (bytevector-u8-set! bv 1 1 1))
 (check-error (assertion-violation bytevector-u8-set!) (bytevector-u8-set! bv -1 1))
-(check-error (assertion-violation bytevector-u8-set!) (bytevector-u8-set! bv 4 1))
+(check-error (assertion-violation bytevector-u8-set!) (bytevector-u8-set! bv 5 1))
 (check-error (assertion-violation bytevector-u8-set!) (bytevector-u8-set! bv 1 -1))
 (check-error (assertion-violation bytevector-u8-set!) (bytevector-u8-set! bv 1 256))
 
@@ -1920,7 +1932,7 @@
 (check-error (assertion-violation utf8->string) (utf8->string 1))
 (check-error (assertion-violation utf8->string) (utf8->string #u8(65 66 67) 1 2 2))
 (check-error (assertion-violation utf8->string) (utf8->string #u8(65 66 67) -1))
-(check-error (assertion-violation utf8->string) (utf8->string #u8(65 66 67) 3))
+(check-error (assertion-violation utf8->string) (utf8->string #u8(65 66 67) 4))
 (check-error (assertion-violation utf8->string) (utf8->string #u8(65 66 67) 2 1))
 (check-error (assertion-violation utf8->string) (utf8->string #u8(65 66 67) 0 4))
 
@@ -1929,7 +1941,7 @@
 (check-error (assertion-violation string->utf8) (string->utf8 1))
 (check-error (assertion-violation string->utf8) (string->utf8 "ABC" 1 2 2))
 (check-error (assertion-violation string->utf8) (string->utf8 "ABC" -1))
-(check-error (assertion-violation string->utf8) (string->utf8 "ABC" 3))
+(check-error (assertion-violation string->utf8) (string->utf8 "ABC" 4))
 (check-error (assertion-violation string->utf8) (string->utf8 "ABC" 2 1))
 (check-error (assertion-violation string->utf8) (string->utf8 "ABC" 0 4))
 
@@ -2250,7 +2262,6 @@
 ;; ---- ports ----
 ;;
 
-
 (check-equal #t
     (let ((p (open-input-file "r7rs.scm")))
         (call-with-port p (lambda (p) (input-port? p)))))
@@ -2261,7 +2272,7 @@
     (let ((p (open-input-file "r7rs.scm")))
         (call-with-port p (lambda (p) (read p)))
         (input-port-open? p)))
-(check-equal (import (scheme case-lambda))
+(check-equal (import (scheme base))
     (let ((p (open-input-file "r7rs.scm")))
         (call-with-port p (lambda (p) (read p)))))
 
@@ -2270,7 +2281,7 @@
 
 (check-equal #t (call-with-input-file "r7rs.scm" (lambda (p) (input-port? p))))
 (check-equal #t (call-with-input-file "r7rs.scm" (lambda (p) (input-port-open? p))))
-(check-equal (import (scheme case-lambda)) (call-with-input-file "r7rs.scm" (lambda (p) (read p))))
+(check-equal (import (scheme base)) (call-with-input-file "r7rs.scm" (lambda (p) (read p))))
 
 (check-error (assertion-violation call-with-input-file) (call-with-input-file "r7rs.scm"))
 (check-error (assertion-violation open-binary-input-file)
