@@ -10,19 +10,19 @@
        (lambda all-values
          (list-ref all-values n))))))
 
-(must-equal 5 (nth-value 4 (values 1 2 3 4 5 6 7 8)))
+(check-equal 5 (nth-value 4 (values 1 2 3 4 5 6 7 8)))
 
 (define-syntax please
   (syntax-rules ()
     ((please . forms) forms)))
 
-(must-equal 20 (please + 9 11))
+(check-equal 20 (please + 9 11))
 
 (define-syntax please
   (syntax-rules ()
     ((please function . arguments) (function . arguments))))
 
-(must-equal 20 (please + 9 11))
+(check-equal 20 (please + 9 11))
 
 (define-syntax prohibit-one-arg
   (syntax-rules ()
@@ -33,8 +33,8 @@
     ((prohibit-one-arg function . arguments)
      (function . arguments))))
 
-(must-raise (syntax-violation syntax-error) (prohibit-one-arg display 3))
-(must-equal 5 (prohibit-one-arg + 2 3))
+(check-syntax (syntax-violation syntax-error) (prohibit-one-arg display 3))
+(check-equal 5 (prohibit-one-arg + 2 3))
 
 (define-syntax bind-variables
   (syntax-rules ()
@@ -56,7 +56,7 @@
     ((bind-variables bindings form . forms)
      (syntax-error "Bindings must be a list." bindings))))
 
-(must-equal (1 #f #f 4)
+(check-equal (1 #f #f 4)
     (bind-variables ((a 1)        ;; a will be 1
                      (b)          ;; b will be #F
                      c            ;; so will c
@@ -83,7 +83,7 @@
     ((bind-variables1 bindings form . forms)
      (syntax-error "Bindings must be a list." bindings))))
 
-(must-equal (1 #f #f 4)
+(check-equal (1 #f #f 4)
     (bind-variables1 ((d (+ a 3)) ;; a is visible in this scope.
                       c            ;; c will be bound to #f
                       (b)          ;; so will b
@@ -138,7 +138,7 @@
        ((set! variable temp) . assignments)
        values-form))))
 
-(must-equal (1 2 3)
+(check-equal (1 2 3)
     (let ((a 0) (b 0) (c 0)) (multiple-value-set! (a b c) (values 1 2 3)) (list a b c)))
 
 (define-syntax multiple-value-set!
@@ -171,7 +171,7 @@
      (call-with-values (lambda () values-form)
        (lambda temps . assignments)))))
 
-(must-equal (1 2 3)
+(check-equal (1 2 3)
     (let ((a 0) (b 0) (c 0)) (multiple-value-set! (a b c) (values 1 2 3)) (list a b c)))
 
 (define-syntax multiple-value-set!
@@ -197,13 +197,13 @@
      (call-with-values (lambda () values-form)
        (lambda temps . sets)))))
 
-(must-equal (1 2 3)
+(check-equal (1 2 3)
     (let ((a 0) (b 0) (c 0)) (multiple-value-set! (a b c) (values 1 2 3)) (list a b c)))
 
 (define d 0)
 (define e 0)
 (define f 0)
-(must-equal (1 2 3) (begin (multiple-value-set! (d e f) (values 1 2 3)) (list d e f)))
+(check-equal (1 2 3) (begin (multiple-value-set! (d e f) (values 1 2 3)) (list d e f)))
 
 (define-syntax sreverse
    (syntax-rules (halt)
@@ -239,7 +239,7 @@
      ((sreverse "done" value)
       'value)))
 
-(must-equal
+(check-equal
   (sreverse "top" (halt)
     ("after-head" ()
       ("after-tail2" 4

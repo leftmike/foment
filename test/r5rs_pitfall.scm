@@ -5,16 +5,6 @@
 ;; Code was collected from public forums, and is hereby placed in the public domain.
 ;;
 ;;
-(define-syntax should-be
-  (syntax-rules ()
-    ((_ test-id value expression)
-     (let ((return-value expression))
-         (if (not (equal? return-value value))
-           (for-each (lambda (v) (display v))
-                     `("Failure: " test-id ", expected '"
-                     value "', got '" ,return-value "'." #\newline))
-           (for-each (lambda (v) (display v))
-                     '("Passed: " test-id #\newline)))))))
 
 ;; Section 1: Proper letrec implementation
 
@@ -22,7 +12,7 @@
 ;; In thread:
 ;; defines in letrec body 
 ;; http://groups.google.com/groups?selm=87bsoq0wfk.fsf%40app.dial.idiom.com
-(must-equal 0
+(check-equal 0
  (let ((cont #f))
    (letrec ((x (call-with-current-continuation (lambda (c) (set! cont c) 0)))
             (y (call-with-current-continuation (lambda (c) (set! cont c) 0))))
@@ -39,7 +29,7 @@
 ;; Widespread bug (arguably) in letrec when an initializer returns twice
 ;; http://groups.google.com/groups?selm=87d793aacz.fsf_-_%40app.dial.idiom.com
 
-(must-equal #t
+(check-equal #t
   (letrec ((x (call/cc list)) (y (call/cc list)))
     (cond ((procedure? x) (x (pair? y)))
 	  ((procedure? y) (y (pair? x))))
@@ -50,7 +40,7 @@
 ;; In thread:
 ;; LETREC + CALL/CC = SET! even in a limited setting 
 ;; http://groups.google.com/groups?selm=19890302162742.4.ALAN%40PIGPEN.AI.MIT.EDU
-(must-equal #t
+(check-equal #t
   (letrec ((x (call-with-current-continuation
 		  (lambda (c)
 		    (list #t c)))))
@@ -64,7 +54,7 @@
 ;; In thread:
 ;; Widespread bug in handling (call/cc (lambda (c) (0 (c 1)))) => 1 
 ;; http://groups.google.com/groups?selm=87g00y4b6l.fsf%40radish.petrofsky.org
-(must-equal 1
+(check-equal 1
  (call/cc (lambda (c) (0 (c 1)))))
 
 ;; Section 3: Hygienic macros
@@ -73,7 +63,7 @@
 ;; In thread:
 ;; R5RS macros...
 ;; http://groups.google.com/groups?selm=skitsdqjq3.fsf%40tulare.cs.cornell.edu
-(must-equal 4
+(check-equal 4
   (let-syntax ((foo
                 (syntax-rules ()
                   ((_ expr) (+ expr 1)))))
@@ -84,7 +74,7 @@
 ;; In thread:
 ;; Buggy use of begin in r5rs cond and case macros. 
 ;; http://groups.google.com/groups?selm=87bse3bznr.fsf%40radish.petrofsky.org
-(must-equal 2
+(check-equal 2
  (let-syntax ((foo (syntax-rules ()
                        ((_ var) (define var 1)))))
      (let ((x 2))
@@ -97,7 +87,7 @@
 ;; An Advanced syntax-rules Primer for the Mildly Insane
 ;; http://groups.google.com/groups?selm=87it8db0um.fsf@radish.petrofsky.org
 
-(must-equal 1
+(check-equal 1
   (let ((x 1))
     (let-syntax
         ((foo (syntax-rules ()
@@ -107,7 +97,7 @@
                          (bar))))))
       (foo x))))
 
-(must-equal (1 2 3 a)
+(check-equal (1 2 3 a)
  (let ((a 1))
      (letrec-syntax
          ((foo (syntax-rules ()
@@ -120,7 +110,7 @@
        (let ((a 2))
          (foo a)))))
 
-(must-equal 2
+(check-equal 2
  (let ((x 1))
     (let-syntax
         ((foo (syntax-rules ()
@@ -132,7 +122,7 @@
 
 ;; Al Petrofsky
 ;; Contributed directly
-(must-equal 1
+(check-equal 1
   (let-syntax ((x (syntax-rules ()))) 1))
 
 ;; Setion 4: No identifiers are reserved
@@ -141,22 +131,22 @@
 ;; In thread:
 ;; shadowing syntatic keywords, bug in MIT Scheme?
 ;; http://groups.google.com/groups?selm=6e6n88%248qf%241%40news.cc.ukans.edu
-(must-equal (x)
+(check-equal (x)
  ((lambda lambda lambda) 'x))
 
-(must-equal (1 2 3)
+(check-equal (1 2 3)
  ((lambda (begin) (begin 1 2 3)) (lambda lambda lambda)))
 
-(must-equal #f
+(check-equal #f
  (let ((quote -)) (eqv? '1 1)))
 ;; Section 5: #f/() distinctness
 
 ;; Scott Miller
-(must-equal #f
+(check-equal #f
   (eq? #f '()))
-(must-equal #f
+(check-equal #f
   (eqv? #f '()))
-(must-equal #f
+(check-equal #f
   (equal? #f '()))
 
 ;; Section 6: string->symbol case sensitivity
@@ -165,7 +155,7 @@
 ;; In thread:
 ;; Symbols in DrScheme - bug? 
 ;; http://groups.google.com/groups?selm=3be55b4f%240%24358%24edfadb0f%40dspool01.news.tele.dk
-(must-equal #f
+(check-equal #f
   (eq? (string->symbol "f") (string->symbol "F")))
 
 ;; Section 7: First class continuations
@@ -183,7 +173,7 @@
 (define b #f)
 (define c #f)
 (define i 0)
-(must-equal 28
+(check-equal 28
   (let () 
     (set! r (+ 1 (+ 2 (+ 3 (call/cc (lambda (k) (set! a k) 4))))
                (+ 5 (+ 6 (call/cc (lambda (k) (set! b k) 7))))))
@@ -203,7 +193,7 @@
 (define b #f)
 (define c #f)
 (define i 0)
-(must-equal 28
+(check-equal 28
   (let () 
     (set! r (+ 1 (+ 2 (+ 3 (call/cc (lambda (k) (set! a k) 4))))
                (+ 5 (+ 6 (call/cc (lambda (k) (set! b k) 7))))))
@@ -219,7 +209,7 @@
 
 ;; Credits to Matthias Radestock
 ;; Another test case used to test SISC's lazy CallFrame routines.
-(must-equal ((-1 4 5 3)
+(check-equal ((-1 4 5 3)
                  (4 -1 5 3)
                  (-1 5 4 3)
                  (5 -1 4 3)
@@ -257,7 +247,7 @@
 
 ;; Modification of the yin-yang puzzle so that it terminates and produces
 ;; a value as a result. (Scott G. Miller)
-;(must-equal (10 9 8 7 6 5 4 3 2 1 0)
+;(check-equal (10 9 8 7 6 5 4 3 2 1 0)
 ;  (let ((x '())
 ;        (y 0))
 ;    (call/cc 
@@ -282,10 +272,10 @@
 ;; In thread:
 ;; R5RS Implementors Pitfalls
 ;; http://groups.google.com/groups?selm=871zemtmd4.fsf@app.dial.idiom.com
-(must-equal -1
+(check-equal -1
   (let - ((n (- 1))) n))
 
-(must-equal (1 2 3 4 1 2 3 4 5)
+(check-equal (1 2 3 4 1 2 3 4 5)
   (let ((ls (list 1 2 3 4)))
     (append ls ls '(5))))
 
@@ -318,7 +308,7 @@
 ;;
 ;; Credits to Matthias Radestock and thanks to R. Kent Dybvig for the
 ;; explanation and background
-(must-equal 1
+(check-equal 1
   (let ((x 1))
     (let-syntax ((foo (syntax-rules () ((_) 2))))
       (define x (foo))

@@ -427,7 +427,7 @@ static void WriteIndirectObject(FObject port, FObject obj, int_t df, FWriteFn wf
             if (BinaryPortP(obj))
             {
                 WriteStringC(port, " offset: ");
-                sl = NumberAsString(GetOffset(obj), s, 16);
+                sl = NumberAsString(GetOffset(obj), s, 10);
                 WriteString(port, s, sl);
             }
             else
@@ -435,7 +435,7 @@ static void WriteIndirectObject(FObject port, FObject obj, int_t df, FWriteFn wf
                 FAssert(TextualPortP(obj));
 
                 WriteStringC(port, " line: ");
-                sl = NumberAsString(GetLineColumn(obj, 0), s, 16);
+                sl = NumberAsString(GetLineColumn(obj, 0), s, 10);
                 WriteString(port, s, sl);
             }
         }
