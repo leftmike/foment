@@ -1674,6 +1674,7 @@ static const char * FeaturesC[] =
     FOMENT_MEMORYMODEL,
     "r7rs",
     "full-unicode",
+    "threads",
     "foment",
     "foment-" FOMENT_VERSION
 };

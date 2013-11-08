@@ -14,15 +14,22 @@ clean: debug release manual
 
 test: all
     cd ..\test
-    ..\windows\debug\foment runtests.scm r7rs.scm foment.scm eccentric.scm r5rs_pitfall.scm\
-            unicode.scm srfi.scm
-    ..\windows\release\foment runtests.scm r7rs.scm foment.scm eccentric.scm r5rs_pitfall.scm\
-            unicode.scm srfi.scm
+    ..\windows\debug\foment runtests.scm r7rs.scm r7rs-eval.scm foment.scm eccentric.scm\
+            r5rs_pitfall.scm unicode.scm srfi.scm
+    ..\windows\debug\foment r7rs.scm
+    ..\windows\release\foment runtests.scm r7rs.scm r7rs-eval.scm foment.scm eccentric.scm\
+            r5rs_pitfall.scm unicode.scm srfi.scm
+    ..\windows\release\foment r7rs.scm
 
 stress: all
     cd ..\test
     ..\windows\debug\foment runtests.scm stress.scm r7rs.scm
     ..\windows\release\foment runtests.scm stress.scm r7rs.scm
+
+chibi: all
+    cd ..\test
+    ..\windows\debug\foment r7rs-tests.scm
+    ..\windows\release\foment r7rs-tests.scm
 
 debug:
     -mkdir debug

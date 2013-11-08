@@ -1067,13 +1067,14 @@ static FObject CompileExports(FObject env, FObject lst)
     return(elst);
 }
 
-static void WalkVisitLibrary(FObject key, FObject val, FObject ctx)
+static FObject UndefinedList;
+
+static void WalkVisit(FObject key, FObject val, FObject ctx)
 {
     FAssert(GlobalP(val));
 
     if (AsGlobal(val)->State == GlobalUndefined)
-        RaiseExceptionC(R.Syntax, "define-library", "identifier used but never defined",
-                List(AsGlobal(val)->Name, ctx));
+        UndefinedList = MakePair(AsGlobal(val)->Name, UndefinedList);
 }
 
 void CompileLibrary(FObject expr)
@@ -1094,17 +1095,13 @@ void CompileLibrary(FObject expr)
     FObject proc = CompileLibraryCode(env, body);
     FObject exports = CompileExports(env, body);
 
-    HashtableWalkVisit(AsEnvironment(env)->Hashtable, WalkVisitLibrary, expr);
+    UndefinedList = EmptyListObject;
+    HashtableWalkVisit(AsEnvironment(env)->Hashtable, WalkVisit, NoValueObject);
+    if (UndefinedList != EmptyListObject)
+        RaiseExceptionC(R.Syntax, "define-library", "identifier(s) used but never defined",
+                List(UndefinedList, expr));
+
     MakeLibrary(ln, exports, proc);
-}
-
-static void WalkVisitProgram(FObject key, FObject val, FObject ctx)
-{
-    FAssert(GlobalP(val));
-
-    if (AsGlobal(val)->State == GlobalUndefined)
-        RaiseExceptionC(R.Syntax, "program", "identifier used but never defined",
-                List(AsGlobal(val)->Name, ctx));
 }
 
 static FObject CondExpandProgram(FObject lst, FObject prog)
@@ -1197,7 +1194,11 @@ FObject CompileProgram(FObject nam, FObject port)
 
     FObject proc = CompileLambda(env, NoValueObject, EmptyListObject, ReverseListModify(body));
 
-    HashtableWalkVisit(AsEnvironment(env)->Hashtable, WalkVisitProgram, nam);
+    UndefinedList = EmptyListObject;
+    HashtableWalkVisit(AsEnvironment(env)->Hashtable, WalkVisit, NoValueObject);
+    if (UndefinedList != EmptyListObject)
+        RaiseExceptionC(R.Syntax, "program", "identifier(s) used but never defined",
+                List(UndefinedList, nam));
 
     return(proc);
 }

@@ -11,6 +11,7 @@ To Do:
 
 -- use tests from chibi
 -- make tests work with (chibi test)
+-- r7rs-tests.scm: make commented out tests work
 
 -- fix read to work with circular data structures
 
@@ -47,7 +48,6 @@ Bugs:
 -- call/cc: unwind only as far as the common tail
 -- gc.cpp: AllocateSection failing is not handled by all callers
 -- ExecuteThunk does not check for CStack or AStack overflow
--- update FeaturesC as more code gets written
 -- remove Hash from FSymbol (part of Reserved)
 -- r5rs_pitfall.scm: yin-yang does not terminate
 -- exhaustively test unicode: char-alphabetic?, char-upcase, etc

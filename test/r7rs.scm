@@ -18,8 +18,14 @@
 
 (cond-expand ((library (chibi test)) (import (chibi test))) (else 'nothing))
 
-(define-syntax check-equal
-    (syntax-rules () ((check-equal expect expr) (test-propagate-info #f 'expect expr ()))))
+(cond-expand
+    (chibi
+        (define-syntax check-equal
+            (syntax-rules () ((check-equal expect expr)
+                    (test-propagate-info #f 'expect expr ())))))
+    (else
+        (define-syntax check-equal
+            (syntax-rules () ((check-equal expect expr) (test 'expect expr))))))
 
 (define-syntax check-syntax
     (syntax-rules () ((check-syntax error expr) (test-error (eval '(lambda () expr))))))
@@ -161,7 +167,7 @@
     (a 0))
 (check-equal 11110 (q 10000))
 
-(define (q u)
+(define (q2 u)
     (define (a v)
         (define (b w)
             (define (c x)
@@ -174,7 +180,7 @@
         (b v))
     (define (f t) (* t 2))
     (a u))
-(check-equal 4 (q 2))
+(check-equal 4 (q2 2))
 
 (define (l x y) x)
 (check-error (assertion-violation l) (l 3))
@@ -208,48 +214,44 @@
 (set! x 4)
 (check-equal 5 (+ x 1))
 
-(define (make-counter n)
+(define (make-counter2 n)
     (lambda () (set! n (+ n 1)) n))
-(define c1 (make-counter 0))
+(define c1 (make-counter2 0))
 (check-equal 1 (c1))
 (check-equal 2 (c1))
 (check-equal 3 (c1))
-(define c2 (make-counter 100))
+(define c2 (make-counter2 100))
 (check-equal 101 (c2))
 (check-equal 102 (c2))
 (check-equal 103 (c2))
 (check-equal 4 (c1))
 
-(define (q x)
+(define (q3 x)
     (set! x 10) x)
-(check-equal 10 (q 123))
+(check-equal 10 (q3 123))
 
-(define (q x)
+(define (q4 x)
     (define (r y)
         (set! x y))
     (r 10)
     x)
-(check-equal 10 (q 123))
+(check-equal 10 (q4 123))
 
 ;; include
 
-(check-equal (10 20) (begin (include "include.scm") (list INCLUDE-A include-b)))
-(check-error (assertion-violation) (begin (include "include3.scm") include-c))
+(check-equal (10 20) (let () (include "include.scm") (list INCLUDE-A include-b)))
 
 (check-equal 10 (let ((a 0) (B 0)) (set! a 1) (set! B 1) (include "include2.scm") a))
 (check-equal 20 (let ((a 0) (B 0)) (set! a 1) (set! B 1) (include "include2.scm") B))
 
 ;; include-ci
 
-(check-error (assertion-violation) (begin (include-ci "include4.scm") INCLUDE-E))
-(check-equal (10 20) (begin (include-ci "include5.scm") (list include-g include-h)))
+(check-equal (10 20) (let () (include-ci "include5.scm") (list include-g include-h)))
 
 (check-equal 10 (let ((a 0) (b 0)) (set! a 1) (set! b 1) (include-ci "include2.scm") a))
 (check-equal 20 (let ((a 0) (b 0)) (set! a 1) (set! b 1) (include-ci "include2.scm") b))
 
 ;; cond
-
-(define (cadr obj) (car (cdr obj)))
 
 (check-equal greater (cond ((> 3 2) 'greater) ((< 3 2) 'less)))
 (check-equal equal (cond ((> 3 3) 'greater) ((< 3 3) 'less) (else 'equal)))
@@ -594,12 +596,12 @@
     (delay
         (begin
             (set! count (+ count 1))
-            (if (> count x)
+            (if (> count fx)
                 count
                 (force p)))))
-(define x 5)
+(define fx 5)
 (check-equal 6 (force p))
-(set! x 10)
+(set! fx 10)
 (check-equal 6 (force p))
 
 (check-equal 10 (force (delay (+ 1 2 3 4))))
@@ -616,8 +618,8 @@
 
 (check-equal #t (promise? (make-promise 10)))
 
-(define p (delay (+ 1 2 3 4)))
-(check-equal #t (eq? p (make-promise p)))
+(define p2 (delay (+ 1 2 3 4)))
+(check-equal #t (eq? p2 (make-promise p2)))
 
 (check-error (assertion-violation make-promise) (make-promise))
 (check-error (assertion-violation make-promise) (make-promise 1 2))
@@ -636,16 +638,16 @@
 
 ;; case-lambda
 
-(define range
+(define range2
     (case-lambda
-        ((e) (range 0 e))
+        ((e) (range2 0 e))
         ((b e) (do ((r '() (cons e r))
                     (e (- e 1) (- e 1)))
                     ((< e b) r)))))
 
-(check-equal (0 1 2) (range 3))
-(check-equal (3 4) (range 3 5))
-(check-error (assertion-violation case-lambda) (range 1 2 3))
+(check-equal (0 1 2) (range2 3))
+(check-equal (3 4) (range2 3 5))
+(check-error (assertion-violation case-lambda) (range2 1 2 3))
 
 (define cl-tst
     (case-lambda
@@ -670,7 +672,7 @@
 (check-equal rest (cl-tst2 0 0 0 0))
 
 (check-error (assertion-violation case-lambda)
-    (let ((cl (case-lambda ((a) 'one) ((b c) 'two) ((d e f . g) 'rest)))) (cl)))
+    (let ((cl (case-lambda ((a) 'one) ((b c) 'two) ((d e f . g) 'rest)))) (eq? cl cl) (cl)))
 (check-equal one
     (let ((cl (case-lambda ((a) 'one) ((b c) 'two) ((d e f . g) 'rest)))) (cl 0)))
 (check-equal two
@@ -849,64 +851,6 @@
         (let ((k (kons 1 2)))
             (set-kar! k 3)
             (kar k)))))
-
-;; define-library
-
-(check-equal 100 (begin (import (lib a b c)) lib-a-b-c))
-(check-equal 10 (begin (import (lib t1)) lib-t1-a))
-(check-error (assertion-violation) lib-t1-b)
-(check-equal 20 b-lib-t1)
-(check-error (assertion-violation) lib-t1-c)
-
-(check-equal 10 (begin (import (lib t2)) (lib-t2-a)))
-(check-equal 20 (lib-t2-b))
-(check-syntax (syntax-violation) (import (lib t3)))
-(check-syntax (syntax-violation) (import (lib t4)))
-
-(check-equal 1000 (begin (import (lib t5)) (lib-t5-b)))
-(check-equal 1000 lib-t5-a)
-
-(check-equal 1000 (begin (import (lib t6)) (lib-t6-b)))
-(check-equal 1000 (lib-t6-a))
-
-;(check-equal 1000 (begin (import (lib t7)) (lib-t7-b)))
-;(check-equal 1000 lib-t7-a)
-
-(check-equal 1 (begin (import (only (lib t8) lib-t8-a lib-t8-c)) lib-t8-a))
-(check-error (assertion-violation) lib-t8-b)
-(check-equal 3 lib-t8-c)
-(check-error (assertion-violation) lib-t8-d)
-
-(check-equal 1 (begin (import (except (lib t9) lib-t9-b lib-t9-d)) lib-t9-a))
-(check-error (assertion-violation) lib-t9-b)
-(check-equal 3 lib-t9-c)
-(check-error (assertion-violation) lib-t9-d)
-
-(check-equal 1 (begin (import (prefix (lib t10) x)) xlib-t10-a))
-(check-error (assertion-violation) lib-t10-b)
-(check-equal 3 xlib-t10-c)
-(check-error (assertion-violation) lib-t10-d)
-
-(check-equal 1 (begin (import (rename (lib t11) (lib-t11-b b-lib-t11) (lib-t11-d d-lib-t11)))
-    lib-t11-a))
-(check-error (assertion-violation) lib-t11-b)
-(check-equal 2 b-lib-t11)
-(check-equal 3 lib-t11-c)
-(check-error (assertion-violation) lib-t11-d)
-(check-equal 4 d-lib-t11)
-
-(check-syntax (syntax-violation) (import bad "bad library" name))
-(check-syntax (syntax-violation)
-    (define-library (no ("good") "library") (import (scheme base)) (export +)))
-
-(check-syntax (syntax-violation) (import (lib t12)))
-(check-syntax (syntax-violation) (import (lib t13)))
-
-(check-equal 10 (begin (import (lib t14)) (lib-t14-a 10 20)))
-(check-equal 10 (lib-t14-b 10 20))
-
-(check-equal 10 (begin (import (lib t15)) (lib-t15-a 10 20)))
-(check-equal 10 (lib-t15-b 10 20))
 
 ;;
 ;; ---- equivalence predicates ----
@@ -1689,10 +1633,10 @@
 (check-error (assertion-violation string-copy) (string-copy "abc" 1 4))
 (check-error (assertion-violation string-copy) (string-copy "abc" 1 2 3))
 
-(define a "12345")
-(define b (string-copy "abcde"))
-(string-copy! b 1 a 0 2)
-(check-equal "a12de" b)
+(define aa "12345")
+(define bb (string-copy "abcde"))
+(string-copy! bb 1 aa 0 2)
+(check-equal "a12de" bb)
 (check-equal "abcde" (let ((s (make-string 5))) (string-copy! s 0 "abcde") s))
 (check-equal "0abc0" (let ((s (make-string 5 #\0))) (string-copy! s 1 "abc") s))
 
@@ -1738,14 +1682,14 @@
         (vector-set! vec 1 '("Sue" "Sue"))
         vec))
 
-(define v (vector 1 2 3))
+(define v2 (vector 1 2 3))
 (check-error (assertion-violation vector-set!) (vector-set!))
-(check-error (assertion-violation vector-set!) (vector-set! v))
-(check-error (assertion-violation vector-set!) (vector-set! v 1))
-(check-error (assertion-violation vector-set!) (vector-set! v 1 1 1))
+(check-error (assertion-violation vector-set!) (vector-set! v2))
+(check-error (assertion-violation vector-set!) (vector-set! v2 1))
+(check-error (assertion-violation vector-set!) (vector-set! v2 1 1 1))
 (check-error (assertion-violation vector-set!) (vector-set! 1 1 1))
-(check-error (assertion-violation vector-set!) (vector-set! v -1 1 1))
-(check-error (assertion-violation vector-set!) (vector-set! v 3 1 1))
+(check-error (assertion-violation vector-set!) (vector-set! v2 -1 1 1))
+(check-error (assertion-violation vector-set!) (vector-set! v2 3 1 1))
 
 (check-equal (dah dah didah) (vector->list '#(dah dah didah)))
 (check-equal (dah) (vector->list '#(dah dah didah) 1 2))
@@ -1786,60 +1730,60 @@
 (check-error (assertion-violation string->vector) (string->vector "abc" 0 4))
 (check-error (assertion-violation string->vector) (string->vector "abc" 1 2 3))
 
-(define a #(1 8 2 8))
-(define b (vector-copy a))
-(check-equal #(1 8 2 8) b)
-(vector-set! b 0 3)
-(check-equal #(3 8 2 8) b)
-(define c (vector-copy b 1 3))
+(define a2 #(1 8 2 8))
+(define b2 (vector-copy a2))
+(check-equal #(1 8 2 8) b2)
+(vector-set! b2 0 3)
+(check-equal #(3 8 2 8) b2)
+(define c (vector-copy b2 1 3))
 (check-equal #(8 2) c)
 
-(define v (vector 1 2 3 4))
+(define v3 (vector 1 2 3 4))
 (check-error (assertion-violation vector-copy) (vector-copy))
 (check-error (assertion-violation vector-copy) (vector-copy 1))
-(check-error (assertion-violation vector-copy) (vector-copy v 1 2 1))
-(check-error (assertion-violation vector-copy) (vector-copy v -1 2))
-(check-error (assertion-violation vector-copy) (vector-copy v 3 2))
-(check-error (assertion-violation vector-copy) (vector-copy v 1 5))
+(check-error (assertion-violation vector-copy) (vector-copy v3 1 2 1))
+(check-error (assertion-violation vector-copy) (vector-copy v3 -1 2))
+(check-error (assertion-violation vector-copy) (vector-copy v3 3 2))
+(check-error (assertion-violation vector-copy) (vector-copy v3 1 5))
 
-(define a (vector 1 2 3 4 5))
-(define b (vector 10 20 30 40 50))
-(vector-copy! b 1 a 0 2)
-(check-equal #(10 1 2 40 50) b)
+(define a3 (vector 1 2 3 4 5))
+(define b3 (vector 10 20 30 40 50))
+(vector-copy! b3 1 a3 0 2)
+(check-equal #(10 1 2 40 50) b3)
 
-(define x (vector 'a 'b 'c 'd 'e 'f 'g))
-(vector-copy! x 1 x 0 3)
-(check-equal #(a a b c e f g) x)
+(define x2 (vector 'a 'b 'c 'd 'e 'f 'g))
+(vector-copy! x2 1 x2 0 3)
+(check-equal #(a a b c e f g) x2)
 
-(define x (vector 'a 'b 'c 'd 'e 'f 'g))
-(vector-copy! x 1 x 3 6)
-(check-equal #(a d e f e f g) x)
+(define x3 (vector 'a 'b 'c 'd 'e 'f 'g))
+(vector-copy! x3 1 x3 3 6)
+(check-equal #(a d e f e f g) x3)
 
-(check-error (assertion-violation vector-copy!) (vector-copy! a 0))
-(check-error (assertion-violation vector-copy!) (vector-copy! a 0 b 1 1 1))
+(check-error (assertion-violation vector-copy!) (vector-copy! a3 0))
+(check-error (assertion-violation vector-copy!) (vector-copy! a3 0 b3 1 1 1))
 (check-error (assertion-violation vector-copy!) (vector-copy! 1 0 b))
-(check-error (assertion-violation vector-copy!) (vector-copy! a 0 1))
-(check-error (assertion-violation vector-copy!) (vector-copy! a -1 b))
-(check-error (assertion-violation vector-copy!) (vector-copy! a 3 b))
-(check-error (assertion-violation vector-copy!) (vector-copy! a 0 b -1))
-(check-error (assertion-violation vector-copy!) (vector-copy! a 0 b 1 0))
-(check-error (assertion-violation vector-copy!) (vector-copy! a 0 b 1 6))
+(check-error (assertion-violation vector-copy!) (vector-copy! a3 0 1))
+(check-error (assertion-violation vector-copy!) (vector-copy! a3 -1 b3))
+(check-error (assertion-violation vector-copy!) (vector-copy! a3 3 b3))
+(check-error (assertion-violation vector-copy!) (vector-copy! a3 0 b3 -1))
+(check-error (assertion-violation vector-copy!) (vector-copy! a3 0 b3 1 0))
+(check-error (assertion-violation vector-copy!) (vector-copy! a3 0 b3 1 6))
 
 (check-equal #(a b c d e f) (vector-append #(a b c) #(d e f)))
 (check-error (assertion-violation vector-append) (vector-append 1))
 (check-error (assertion-violation vector-append) (vector-append #(1 2) 1))
 
-(define a (vector 1 2 3 4 5))
-(vector-fill! a 'smash 2 4)
-(check-equal #(1 2 smash smash 5) a)
+(define a4 (vector 1 2 3 4 5))
+(vector-fill! a4 'smash 2 4)
+(check-equal #(1 2 smash smash 5) a4)
 
-(define v (vector 1 2 3 4))
+(define v4 (vector 1 2 3 4))
 (check-error (assertion-violation vector-fill!) (vector-fill! 1))
 (check-error (assertion-violation vector-fill!) (vector-fill! 1 #f))
-(check-error (assertion-violation vector-fill!) (vector-fill! v #f 1 2 1))
-(check-error (assertion-violation vector-fill!) (vector-fill! v #f -1 2))
-(check-error (assertion-violation vector-fill!) (vector-fill! v #f 3 2))
-(check-error (assertion-violation vector-fill!) (vector-fill! v #f 1 5))
+(check-error (assertion-violation vector-fill!) (vector-fill! v4 #f 1 2 1))
+(check-error (assertion-violation vector-fill!) (vector-fill! v4 #f -1 2))
+(check-error (assertion-violation vector-fill!) (vector-fill! v4 #f 3 2))
+(check-error (assertion-violation vector-fill!) (vector-fill! v4 #f 1 5))
 
 ;;
 ;; ---- bytevectors ----
@@ -1895,31 +1839,31 @@
 (check-error (assertion-violation bytevector-u8-set!) (bytevector-u8-set! bv 1 -1))
 (check-error (assertion-violation bytevector-u8-set!) (bytevector-u8-set! bv 1 256))
 
-(define a #u8(1 2 3 4 5))
-(check-equal #u8(3 4) (bytevector-copy a 2 4))
+(define a5 #u8(1 2 3 4 5))
+(check-equal #u8(3 4) (bytevector-copy a5 2 4))
 
-(define bv (bytevector 1 2 3 4))
+(define bv2 (bytevector 1 2 3 4))
 (check-error (assertion-violation bytevector-copy) (bytevector-copy))
 (check-error (assertion-violation bytevector-copy) (bytevector-copy 1))
-(check-error (assertion-violation bytevector-copy) (bytevector-copy bv 1 2 1))
-(check-error (assertion-violation bytevector-copy) (bytevector-copy bv -1 2))
-(check-error (assertion-violation bytevector-copy) (bytevector-copy bv 3 2))
-(check-error (assertion-violation bytevector-copy) (bytevector-copy bv 1 5))
+(check-error (assertion-violation bytevector-copy) (bytevector-copy bv2 1 2 1))
+(check-error (assertion-violation bytevector-copy) (bytevector-copy bv2 -1 2))
+(check-error (assertion-violation bytevector-copy) (bytevector-copy bv2 3 2))
+(check-error (assertion-violation bytevector-copy) (bytevector-copy bv2 1 5))
 
-(define a (bytevector 1 2 3 4 5))
-(define b (bytevector 10 20 30 40 50))
-(bytevector-copy! b 1 a 0 2)
-(check-equal #u8(10 1 2 40 50) b)
+(define a6 (bytevector 1 2 3 4 5))
+(define b4 (bytevector 10 20 30 40 50))
+(bytevector-copy! b4 1 a6 0 2)
+(check-equal #u8(10 1 2 40 50) b4)
 
-(check-error (assertion-violation bytevector-copy!) (bytevector-copy! a 0))
-(check-error (assertion-violation bytevector-copy!) (bytevector-copy! a 0 b 1 1 1))
-(check-error (assertion-violation bytevector-copy!) (bytevector-copy! 1 0 b))
-(check-error (assertion-violation bytevector-copy!) (bytevector-copy! a 0 1))
-(check-error (assertion-violation bytevector-copy!) (bytevector-copy! a -1 b))
-(check-error (assertion-violation bytevector-copy!) (bytevector-copy! a 3 b))
-(check-error (assertion-violation bytevector-copy!) (bytevector-copy! a 0 b -1))
-(check-error (assertion-violation bytevector-copy!) (bytevector-copy! a 0 b 1 0))
-(check-error (assertion-violation bytevector-copy!) (bytevector-copy! a 0 b 1 6))
+(check-error (assertion-violation bytevector-copy!) (bytevector-copy! a6 0))
+(check-error (assertion-violation bytevector-copy!) (bytevector-copy! a6 0 b4 1 1 1))
+(check-error (assertion-violation bytevector-copy!) (bytevector-copy! 1 0 b4))
+(check-error (assertion-violation bytevector-copy!) (bytevector-copy! a6 0 1))
+(check-error (assertion-violation bytevector-copy!) (bytevector-copy! a6 -1 b4))
+(check-error (assertion-violation bytevector-copy!) (bytevector-copy! a6 3 b4))
+(check-error (assertion-violation bytevector-copy!) (bytevector-copy! a6 0 b4 -1))
+(check-error (assertion-violation bytevector-copy!) (bytevector-copy! a6 0 b4 1 0))
+(check-error (assertion-violation bytevector-copy!) (bytevector-copy! a6 0 b4 1 6))
 
 (check-equal #u8(0 1 2 3 4 5) (bytevector-append #u8(0 1 2) #u8(3 4 5)))
 (check-error (assertion-violation bytevector-append) (bytevector-append 1))
@@ -2081,27 +2025,27 @@
 (check-equal (1 2 3 4) (let-values (((a b) (cc-values 1 2))
                                     ((c d) (cc-values 3 4)))
                                 (list a b c d)))
-(define (v)
+(define (v5)
     (define (v1) (v3) (v2) (v2))
     (define (v2) (v3) (v3))
     (define (v3) (cc-values 1 2 3 4))
     (v1))
-(check-equal (4 3 2 1) (let-values (((w x y z) (v))) (list z y x w)))
+(check-equal (4 3 2 1) (let-values (((w x y z) (v5))) (list z y x w)))
 
 (check-equal 5 (call-with-values (lambda () (cc-values 4 5)) (lambda (a b) b)))
 
 ;; values
 
-(define (v0) (values))
-(define (v1) (values 1))
-(define (v2) (values 1 2))
+(define (val0) (values))
+(define (val1) (values 1))
+(define (val2) (values 1 2))
 
-(check-equal 1 (+ (v1) 0))
-(check-error (assertion-violation values) (+ (v0) 0))
-(check-error (assertion-violation values) (+ (v2) 0))
-(check-equal 1 (begin (v0) 1))
-(check-equal 1 (begin (v1) 1))
-(check-equal 1 (begin (v2) 1))
+(check-equal 1 (+ (val1) 0))
+(check-error (assertion-violation values) (+ (val0) 0))
+(check-error (assertion-violation values) (+ (val2) 0))
+(check-equal 1 (begin (val0) 1))
+(check-equal 1 (begin (val1) 1))
+(check-equal 1 (begin (val2) 1))
 
 ;; call-with-values
 
@@ -2154,21 +2098,21 @@
 
 ;; with-exception-handler
 
-(define e #f)
+(define e2 #f)
 (check-equal exception (call-with-current-continuation
     (lambda (k)
         (with-exception-handler
-            (lambda (x) (set! e x) (k 'exception))
+            (lambda (x) (set! e2 x) (k 'exception))
             (lambda () (+ 1 (raise 'an-error)))))))
-(check-equal an-error e)
+(check-equal an-error e2)
 
 (check-equal (another-error)
     (guard (o ((eq? o 10) 10) (else (list o)))
         (with-exception-handler
-            (lambda (x) (set! e x))
+            (lambda (x) (set! e2 x))
             (lambda ()
                 (+ 1 (raise 'another-error))))))
-(check-equal another-error e)
+(check-equal another-error e2)
 
 (check-equal 65
     (with-exception-handler
@@ -2713,16 +2657,16 @@
         (read-bytevector! bv (open-input-bytevector #u8(1 2 3 4 5 6 7 8)) 1 3)
         bv))
 
-(define bv (make-bytevector 4 0))
+(define bv3 (make-bytevector 4 0))
 (check-error (assertion-violation read-bytevector!) (read-bytevector! #(1 2 3)))
-(check-error (assertion-violation read-bytevector!) (read-bytevector! bv 'port))
-(check-error (assertion-violation read-bytevector!) (read-bytevector! bv (current-input-port)))
+(check-error (assertion-violation read-bytevector!) (read-bytevector! bv3 'port))
+(check-error (assertion-violation read-bytevector!) (read-bytevector! bv3 (current-input-port)))
 (check-error (assertion-violation read-bytevector!)
-    (read-bytevector! bv (open-input-bytevector #u8()) -1))
+    (read-bytevector! bv3 (open-input-bytevector #u8()) -1))
 (check-error (assertion-violation read-bytevector!)
-    (read-bytevector! bv (open-input-bytevector #u8()) 1 0))
+    (read-bytevector! bv3 (open-input-bytevector #u8()) 1 0))
 (check-error (assertion-violation read-bytevector!)
-    (read-bytevector! bv (open-input-bytevector #u8()) 1 5))
+    (read-bytevector! bv3 (open-input-bytevector #u8()) 1 5))
 
 ;;
 ;; ---- output ----
@@ -2881,7 +2825,7 @@
         (eval 'load-test (interaction-environment))))
 
 (check-error (assertion-violation) (load))
-(check-error (assertion-violation) (load |filename|))
+(check-error (assertion-violation) (load '|filename|))
 (check-error (assertion-violation) (load "filename" (interaction-environment) 3))
 
 (check-equal #f (file-exists? "not-a-real-filename"))
