@@ -98,7 +98,12 @@ static FObject GPassLetBindings(FLambda * lam, FObject cdl, FObject lb)
     {
         FObject vi = First(lb);
 
-        if (Rest(First(vi)) != EmptyListObject
+        if (First(vi) == EmptyListObject)
+        {
+            cdl = GPassExpression(lam, cdl, First(Rest(vi)), MultipleValuesFlag);
+            cdl = MakePair(MakeInstruction(CheckValuesOpcode, 0), cdl);
+        }
+        else if (Rest(First(vi)) != EmptyListObject
                 || AsBinding(First(First(vi)))->RestArg == TrueObject)
         {
             cdl = GPassExpression(lam, cdl, First(Rest(vi)), MultipleValuesFlag);
@@ -350,6 +355,84 @@ static FObject GPassCaseClauses(FLambda * lam, FObject cdl, FObject clst, FObjec
     return(cdl);
 }
 
+static FObject GPassSetBang(FLambda * lam, FObject cdl, FReference * ref)
+{
+    if (BindingP(ref->Binding))
+    {
+        FBinding * bd = AsBinding(ref->Binding);
+
+        FAssert(bd->Constant == NoValueObject);
+
+        if (AsFixnum(bd->Level) == AsFixnum(lam->Level))
+        {
+            FAssert(AsFixnum(bd->Slot) > 0);
+
+            if (lam->UseStack == TrueObject)
+                cdl = MakePair(MakeInstruction(SetCStackOpcode,
+                        AsFixnum(lam->SlotCount) - AsFixnum(bd->Slot)), cdl);
+            else
+                cdl = MakePair(MakeInstruction(SetFrameOpcode, AsFixnum(bd->Slot)), cdl);
+        }
+        else
+        {
+            FAssert(AsFixnum(bd->Slot) > 0);
+            FAssert(AsFixnum(bd->Level) < AsFixnum(lam->Level));
+
+            int_t cnt = AsFixnum(lam->Level) - AsFixnum(bd->Level);
+
+            if (lam->UseStack == TrueObject)
+                cdl = MakePair(MakeInstruction(GetCStackOpcode, AsFixnum(lam->SlotCount)),
+                        cdl);
+            else
+                cdl = MakePair(MakeInstruction(GetFrameOpcode, 0), cdl);
+
+            while (cnt > 1)
+            {
+                cdl = MakePair(MakeInstruction(GetVectorOpcode, 0), cdl);
+                cnt -= 1;
+            }
+
+            cdl = MakePair(MakeInstruction(SetVectorOpcode, AsFixnum(bd->Slot)), cdl);
+        }
+    }
+    else
+    {
+        FAssert(EnvironmentP(ref->Binding));
+
+        FObject gl = EnvironmentBind(ref->Binding,
+                AsIdentifier(ref->Identifier)->Symbol);
+
+        FAssert(GlobalP(gl));
+
+        if (AsGlobal(gl)->Interactive == TrueObject)
+        {
+            cdl = MakePair(gl, cdl);
+            cdl = MakePair(MakeInstruction(SetGlobalOpcode, 0), cdl);
+        }
+        else
+        {
+            cdl = MakePair(AsGlobal(gl)->Box, cdl);
+            cdl = MakePair(MakeInstruction(SetBoxOpcode, 0), cdl);
+        }
+    }
+
+    return(cdl);
+}
+
+static FObject GPassSetBangValues(FLambda * lam, FObject cdl, FObject lst)
+{
+    if (lst == EmptyListObject)
+        return(cdl);
+
+    FAssert(PairP(lst));
+    FAssert(ReferenceP(First(lst)));
+
+    cdl = GPassSetBangValues(lam, cdl, Rest(lst));
+    cdl = GPassSetBang(lam, cdl, AsReference(First(lst)));
+
+    return(cdl);
+}
+
 static FObject GPassSpecialSyntax(FLambda * lam, FObject cdl, FObject expr, FContFlag cf)
 {
     FObject ss = First(expr);
@@ -411,65 +494,21 @@ static FObject GPassSpecialSyntax(FLambda * lam, FObject cdl, FObject expr, FCon
         // (set! <variable> <expression>)
 
         cdl = GPassExpression(lam, cdl, First(Rest(Rest(expr))), SingleValueFlag);
+        cdl = GPassSetBang(lam, cdl, AsReference(First(Rest(expr))));
 
-        if (BindingP(AsReference(First(Rest(expr)))->Binding))
-        {
-            FBinding * bd = AsBinding(AsReference(First(Rest(expr)))->Binding);
+        if (cf == DiscardValuesFlag)
+            return(cdl);
 
-            FAssert(bd->Constant == NoValueObject);
+        cdl = MakePair(NoValueObject, cdl);
+        return(GPassReturnValue(lam, cdl, cf));
+    }
+    else if (ss == SetBangValuesSyntax)
+    {
+        // (set!-values (<variable> ...) <expression>)
 
-            if (AsFixnum(bd->Level) == AsFixnum(lam->Level))
-            {
-                FAssert(AsFixnum(bd->Slot) > 0);
-
-                if (lam->UseStack == TrueObject)
-                    cdl = MakePair(MakeInstruction(SetCStackOpcode,
-                            AsFixnum(lam->SlotCount) - AsFixnum(bd->Slot)), cdl);
-                else
-                    cdl = MakePair(MakeInstruction(SetFrameOpcode, AsFixnum(bd->Slot)), cdl);
-            }
-            else
-            {
-                FAssert(AsFixnum(bd->Slot) > 0);
-                FAssert(AsFixnum(bd->Level) < AsFixnum(lam->Level));
-
-                int_t cnt = AsFixnum(lam->Level) - AsFixnum(bd->Level);
-
-                if (lam->UseStack == TrueObject)
-                    cdl = MakePair(MakeInstruction(GetCStackOpcode, AsFixnum(lam->SlotCount)),
-                            cdl);
-                else
-                    cdl = MakePair(MakeInstruction(GetFrameOpcode, 0), cdl);
-
-                while (cnt > 1)
-                {
-                    cdl = MakePair(MakeInstruction(GetVectorOpcode, 0), cdl);
-                    cnt -= 1;
-                }
-
-                cdl = MakePair(MakeInstruction(SetVectorOpcode, AsFixnum(bd->Slot)), cdl);
-            }
-        }
-        else
-        {
-            FAssert(EnvironmentP(AsReference(First(Rest(expr)))->Binding));
-
-            FObject gl = EnvironmentBind(AsReference(First(Rest(expr)))->Binding,
-                    AsIdentifier(AsReference(First(Rest(expr)))->Identifier)->Symbol);
-
-            FAssert(GlobalP(gl));
-
-            if (AsGlobal(gl)->Interactive == TrueObject)
-            {
-                cdl = MakePair(gl, cdl);
-                cdl = MakePair(MakeInstruction(SetGlobalOpcode, 0), cdl);
-            }
-            else
-            {
-                cdl = MakePair(AsGlobal(gl)->Box, cdl);
-                cdl = MakePair(MakeInstruction(SetBoxOpcode, 0), cdl);
-            }
-        }
+        cdl = GPassExpression(lam, cdl, First(Rest(Rest(expr))), MultipleValuesFlag);
+        cdl = MakePair(MakeInstruction(CheckValuesOpcode, ListLength(First(Rest(expr)))), cdl);
+        cdl = GPassSetBangValues(lam, cdl, First(Rest(expr)));
 
         if (cf == DiscardValuesFlag)
             return(cdl);

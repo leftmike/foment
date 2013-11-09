@@ -110,7 +110,9 @@ static const char * SpecialSyntaxes[] =
     "unquote",
     "unquote-splicing",
     "...",
-    "_"
+    "_",
+
+    "set!-values"
 };
 
 static const char * SpecialSyntaxToName(FObject obj)

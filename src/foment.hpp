@@ -9,9 +9,9 @@ Goals:
 To Do:
 -- ctrl-c handling
 
--- use tests from chibi
--- make tests work with (chibi test)
--- r7rs-tests.scm: make commented out tests work
+-- r7rs.scm and r7rs-tests.scm: commented out tests
+
+-- specifying file format for programs and libraries
 
 -- fix read to work with circular data structures
 
@@ -337,6 +337,7 @@ FObject SpecialSyntaxMsgC(FObject obj, const char * msg);
 #define UnquoteSplicingSyntax MakeImmediate(29, SpecialSyntaxTag)
 #define EllipsisSyntax MakeImmediate(30, SpecialSyntaxTag)
 #define UnderscoreSyntax MakeImmediate(31, SpecialSyntaxTag)
+#define SetBangValuesSyntax MakeImmediate(32, SpecialSyntaxTag)
 
 // ---- Instruction ----
 

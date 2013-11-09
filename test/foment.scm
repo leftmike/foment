@@ -4,6 +4,23 @@
 
 (import (foment base))
 
+;; set!-values
+
+(define sv1 1)
+(define sv2 2)
+
+(check-equal (a b c)
+    (let ((sv3 3)) (set!-values (sv1 sv2 sv3) (values 'a 'b 'c)) (list sv1 sv2 sv3)))
+
+(set!-values (sv1 sv2) (values 10 20))
+(check-equal (10 20) (list sv1 sv2))
+
+(set!-values () (values))
+
+(check-equal #f (let () (set!-values () (values)) #f))
+
+(check-error (assertion-violation) (let () (set!-values () (values 1))))
+
 ;; make-latin1-port
 ;; make-utf8-port
 ;; make-utf16-port

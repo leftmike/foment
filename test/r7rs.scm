@@ -754,7 +754,14 @@
 
 ;; define-syntax
 
-;; defines-values
+;; define-values
+
+(define-values (dv1 dv2 dv3) (values 1 2 3))
+(check-equal (1 2 3) (list dv1 dv2 dv3))
+
+(define-values () (values))
+
+(check-equal (a b c) (let () (define-values (x y z) (values 'a 'b 'c)) (list x y z)))
 
 ;;
 ;; ---- macros ----

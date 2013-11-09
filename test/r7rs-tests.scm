@@ -402,10 +402,10 @@
   (define bar (lambda (a b) (+ (* a b) a)))
   (foo (+ x 3))))
 
-;(test 'ok
-;    (let ()
-;      (define-values () (values))
-;      'ok))
+(test 'ok
+    (let ()
+      (define-values () (values))
+      'ok))
 (test 1
     (let ()
       (define-values (x) (values 1))

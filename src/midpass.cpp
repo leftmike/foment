@@ -95,7 +95,6 @@ static void MPassLetFormals(FMiddlePass * mp, FLambda * lam, FObject lb)
         FObject vi = First(lb);
 
         FAssert(PairP(vi));
-        FAssert(PairP(First(vi)));
         FAssert(PairP(Rest(vi)));
         FAssert(Rest(Rest(vi)) == EmptyListObject);
 
@@ -128,22 +127,24 @@ static FObject MPassLetFormalsInits(FMiddlePass * mp, FLambda * lam, FObject lb)
         FObject vi = First(lb);
 
         FAssert(PairP(vi));
-        FAssert(PairP(First(vi)));
         FAssert(PairP(Rest(vi)));
         FAssert(Rest(Rest(vi)) == EmptyListObject);
 
-        if (mp->LetFormalsInitFn(lam, First(vi), First(Rest(vi))) == 0)
+        if (PairP(First(vi)))
         {
-            if (PairP(plb))
+            if (mp->LetFormalsInitFn(lam, First(vi), First(Rest(vi))) == 0)
             {
-//                AsPair(plb)->Rest = Rest(lb);
-                SetRest(plb, Rest(lb));
+                if (PairP(plb))
+                {
+//                    AsPair(plb)->Rest = Rest(lb);
+                    SetRest(plb, Rest(lb));
+                }
+                else
+                    ret = Rest(lb);
             }
             else
-                ret = Rest(lb);
+                plb = lb;
         }
-        else
-            plb = lb;
 
         lb = Rest(lb);
     }
@@ -160,7 +161,6 @@ static void MPassLetInits(FMiddlePass * mp, FLambda * lam, FObject lb)
         FObject vi = First(lb);
 
         FAssert(PairP(vi));
-        FAssert(PairP(First(vi)));
         FAssert(PairP(Rest(vi)));
         FAssert(Rest(Rest(vi)) == EmptyListObject);
 
@@ -195,7 +195,8 @@ static void MPassSpecialSyntax(FMiddlePass * mp, FLambda * lam, FObject expr, in
 
     FAssert(ss == QuoteSyntax || ss == IfSyntax || ss == SetBangSyntax
             || ss == LetStarValuesSyntax || ss == LetrecSyntax
-            || ss == CaseSyntax || ss == OrSyntax || ss == BeginSyntax);
+            || ss == CaseSyntax || ss == OrSyntax || ss == BeginSyntax
+            || ss == SetBangValuesSyntax);
 
     if (ss == IfSyntax)
     {
@@ -230,6 +231,30 @@ static void MPassSpecialSyntax(FMiddlePass * mp, FLambda * lam, FObject expr, in
 
         if (mp->SetReferenceFn != 0)
             mp->SetReferenceFn(lam, AsReference(First(Rest(expr))));
+        MPassExpression(mp, lam, Rest(Rest(expr)), 0);
+    }
+    else if (ss == SetBangValuesSyntax)
+    {
+        // (set!-values (<variable> ...) <expression>)
+
+        FAssert(PairP(Rest(expr)));
+        FAssert(PairP(Rest(Rest(expr))));
+        FAssert(Rest(Rest(Rest(expr))) == EmptyListObject);
+
+        if (mp->SetReferenceFn != 0)
+        {
+            FObject lst = First(Rest(expr));
+            while (lst != EmptyListObject)
+            {
+                FAssert(PairP(lst));
+                FAssert(ReferenceP(First(lst)));
+
+                mp->SetReferenceFn(lam, AsReference(First(lst)));
+
+                lst = Rest(lst);
+            }
+        }
+
         MPassExpression(mp, lam, Rest(Rest(expr)), 0);
     }
     else if (ss == LetStarValuesSyntax || ss == LetrecSyntax)

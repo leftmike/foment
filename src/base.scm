@@ -404,7 +404,8 @@
         eq-hashtable-set!
         eq-hashtable-delete
         random
-        no-value)
+        no-value
+        set!-values)
     (begin
         (define (caar pair) (car (car pair)))
         (define (cadr pair) (car (cdr pair)))

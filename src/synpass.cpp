@@ -990,6 +990,51 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
         return(MakePair(SetBangSyntax, MakePair(MakeReference(be, var),
                 MakePair(SPassExpression(se, First(Rest(Rest(expr)))), EmptyListObject))));
     }
+    else if (ss == SetBangValuesSyntax)
+    {
+        // (set!-values (<variable> ...) <expression>)
+
+        if (PairP(Rest(expr)) == 0 || PairP(Rest(Rest(expr))) == 0
+                || Rest(Rest(Rest(expr))) != EmptyListObject)
+            RaiseExceptionC(R.Syntax, "set!-values",
+                    "expected (set!-values (<variable> ...) <expression>)", List(expr));
+
+        FObject lst = First(Rest(expr));
+        FObject blst = EmptyListObject;
+        while (PairP(lst))
+        {
+            FObject var = First(lst);
+
+            if (SymbolP(var))
+                var = MakeIdentifier(var, 0);
+            if (IdentifierP(var) == 0)
+                RaiseExceptionC(R.Syntax, "set!-values", "variable expected", List(expr, var));
+
+            FObject be = ResolveIdentifier(se, var);
+            if (SyntaxBindingP(be, var))
+                RaiseExceptionC(R.Syntax, "set!-values", "variable already bound to syntax",
+                        List(expr, var));
+
+            if (EnvironmentP(be) && AsEnvironment(be)->Interactive == FalseObject)
+            {
+                FObject gl = EnvironmentBind(be, AsIdentifier(var)->Symbol);
+
+                FAssert(GlobalP(gl));
+
+                if (AsGlobal(gl)->State == GlobalImported
+                        || AsGlobal(gl)->State == GlobalImportedModified)
+                    RaiseExceptionC(R.Syntax, "set!-values",
+                            "imported variables may not be modified in libraries",
+                            List(expr, var));
+            }
+
+            blst = MakePair(MakeReference(be, var), blst);
+            lst = Rest(lst);
+        }
+
+        return(MakePair(SetBangValuesSyntax, MakePair(ReverseListModify(blst),
+                MakePair(SPassExpression(se, First(Rest(Rest(expr)))), EmptyListObject))));
+    }
     else if (ss == LetSyntax)
     {
         // (let ((<variable> <init>) ...) <body>)

@@ -879,6 +879,45 @@ static FObject CompileEvalExpr(FObject obj, FObject env, FObject body)
                 return(body);
             }
         }
+        else if (op == DefineValuesSyntax)
+        {
+            // (define-values (<variable> ...) <expression>)
+
+            FAssert(EnvironmentP(env));
+
+            if (AsEnvironment(env)->Immutable == TrueObject)
+                RaiseExceptionC(R.Assertion, "define-values",
+                        "environment is immutable", List(env, obj));
+
+            if (PairP(Rest(obj)) == 0
+                    || (PairP(First(Rest(obj))) == 0 && First(Rest(obj)) != EmptyListObject)
+                    || PairP(Rest(Rest(obj))) == 0 || Rest(Rest(Rest(obj))) != EmptyListObject)
+                RaiseExceptionC(R.Syntax, "define-values",
+                        "expected (define-values (<variable> ...) <expression>)", List(obj));
+
+            FObject lst = First(Rest(obj));
+            while (PairP(lst))
+            {
+                if (IdentifierP(First(lst)) == 0 && SymbolP(First(lst)) == 0)
+                    RaiseExceptionC(R.Syntax, "define-values",
+                            "expected (define-values (<variable> ...) <expression>)",
+                            List(obj, First(lst)));
+
+                if (EnvironmentDefine(env, First(lst), NoValueObject))
+                    RaiseExceptionC(R.Syntax, "define-values",
+                            "imported variables may not be redefined in libraries",
+                            List(obj, First(lst)));
+
+                lst = Rest(lst);
+            }
+
+            if (lst != EmptyListObject)
+                RaiseExceptionC(R.Syntax, "define-values", "expected a list of variables",
+                        List(obj));
+
+            return(MakePair(List(SetBangValuesSyntax, First(Rest(obj)), First(Rest(Rest(obj)))),
+                    body));
+        }
         else if (op == DefineSyntaxSyntax)
         {
             // (define-syntax <keyword> <expression>)
