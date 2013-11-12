@@ -626,7 +626,6 @@ void ModifyObject(FObject obj, uint_t off, FObject val)
         RecordBackRef(((FObject *) obj) + (off / sizeof(FObject)), val);
         LeaveExclusive(&GCExclusive);
     }
-
 }
 
 void SetFirst(FObject obj, FObject val)
@@ -653,6 +652,20 @@ void SetRest(FObject obj, FObject val)
     {
         EnterExclusive(&GCExclusive);
         RecordBackRef(&(AsPair(obj)->Rest), val);
+        LeaveExclusive(&GCExclusive);
+    }
+}
+
+void SetBox(FObject bx, FObject val)
+{
+    FAssert(BoxP(bx));
+
+    AsBox(bx)->Value = val;
+
+    if (MatureP(bx) && ObjectP(val) && MatureP(val) == 0 && MaturePairP(val) == 0)
+    {
+        EnterExclusive(&GCExclusive);
+        RecordBackRef(&(AsBox(bx)->Value), val);
         LeaveExclusive(&GCExclusive);
     }
 }

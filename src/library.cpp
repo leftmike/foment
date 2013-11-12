@@ -89,8 +89,7 @@ int_t EnvironmentDefine(FObject env, FObject symid, FObject val)
 
     FAssert(BoxP(AsGlobal(gl)->Box));
 
-//    AsBox(AsGlobal(gl)->Box)->Value = val;
-    Modify(FBox, AsGlobal(gl)->Box, Value, val);
+    SetBox(AsGlobal(gl)->Box, val);
 //    AsGlobal(gl)->State = GlobalDefined;
     Modify(FGlobal, gl, State, GlobalDefined);
 
@@ -105,8 +104,7 @@ FObject EnvironmentSet(FObject env, FObject sym, FObject val)
     FAssert(GlobalP(gl));
     FAssert(BoxP(AsGlobal(gl)->Box));
 
-//    AsBox(AsGlobal(gl)->Box)->Value = val;
-    Modify(FBox, AsGlobal(gl)->Box, Value, val);
+    SetBox(AsGlobal(gl)->Box, val);
     if (AsGlobal(gl)->State == GlobalUndefined)
     {
 //        AsGlobal(gl)->State = GlobalDefined;

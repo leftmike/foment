@@ -108,7 +108,7 @@ FObject ResolveIdentifier(FObject se, FObject id)
     return(AsSyntacticEnv(se)->GlobalBindings);
 }
 
-FObject SyntaxToDatum(FObject obj)
+static FObject SyntaxToDatum(FObject obj, FObject ht)
 {
     if (IdentifierP(obj))
         return(AsIdentifier(obj)->Symbol);
@@ -128,25 +128,57 @@ FObject SyntaxToDatum(FObject obj)
     }
 
     if (LambdaP(obj))
-        return(MakePair(LambdaSyntax, MakePair(SyntaxToDatum(AsLambda(obj)->Bindings),
-                SyntaxToDatum(AsLambda(obj)->Body))));
+    {
+        FObject val = EqHashtableRef(ht, obj, FalseObject);
+        if (PairP(val))
+            return(val);
+
+        val = MakePair(LambdaSyntax, NoValueObject);
+        EqHashtableSet(ht, obj, val);
+        SetRest(val, MakePair(SyntaxToDatum(AsLambda(obj)->Bindings, ht),
+                SyntaxToDatum(AsLambda(obj)->Body, ht)));
+
+        return(val);
+    }
 
     if (PairP(obj))
-        return(MakePair(SyntaxToDatum(First(obj)), SyntaxToDatum(Rest(obj))));
+    {
+        FObject val = EqHashtableRef(ht, obj, FalseObject);
+        if (PairP(val))
+            return(val);
+
+        val = MakePair(NoValueObject, NoValueObject);
+        EqHashtableSet(ht, obj, val);
+        SetFirst(val, SyntaxToDatum(First(obj), ht));
+        SetRest(val, SyntaxToDatum(Rest(obj), ht));
+
+        return(val);
+    }
 
     if (VectorP(obj))
     {
-        FObject vec = MakeVector(VectorLength(obj), 0, FalseObject);
+        FObject vec = EqHashtableRef(ht, obj, FalseObject);
+        if (VectorP(vec))
+            return(vec);
+
+        vec = MakeVector(VectorLength(obj), 0, FalseObject);
+        EqHashtableSet(ht, obj, vec);
+
         for (uint_t idx = 0; idx < VectorLength(vec); idx++)
         {
-//            AsVector(vec)->Vector[idx] = SyntaxToDatum(AsVector(obj)->Vector[idx]);
-            ModifyVector(vec, idx, SyntaxToDatum(AsVector(obj)->Vector[idx]));
+//            AsVector(vec)->Vector[idx] = SyntaxToDatum(AsVector(obj)->Vector[idx], ht);
+            ModifyVector(vec, idx, SyntaxToDatum(AsVector(obj)->Vector[idx], ht));
         }
 
         return(vec);
     }
 
     return(obj);
+}
+
+FObject SyntaxToDatum(FObject obj)
+{
+    return(SyntaxToDatum(obj, MakeEqHashtable(31)));
 }
 
 static int_t SyntaxP(FObject obj)

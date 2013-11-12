@@ -450,9 +450,7 @@ static FObject Execute(FThreadState * ts)
                     Modify(FGlobal, ts->AStack[ts->AStackPtr - 1], State, GlobalDefined);
                 }
 
-//                AsBox(AsGlobal(ts->AStack[ts->AStackPtr - 1])->Box)->Value =
-//                        ts->AStack[ts->AStackPtr - 2];
-                Modify(FBox, AsGlobal(ts->AStack[ts->AStackPtr - 1])->Box, Value,
+                SetBox(AsGlobal(ts->AStack[ts->AStackPtr - 1])->Box,
                         ts->AStack[ts->AStackPtr - 2]);
                 ts->AStackPtr -= 2;
                 break;
@@ -468,8 +466,7 @@ static FObject Execute(FThreadState * ts)
                 FAssert(ts->AStackPtr > 1);
                 FAssert(BoxP(ts->AStack[ts->AStackPtr - 1]));
 
-//                AsBox(ts->AStack[ts->AStackPtr - 1])->Value = ts->AStack[ts->AStackPtr - 2];
-                Modify(FBox, ts->AStack[ts->AStackPtr - 1], Value, ts->AStack[ts->AStackPtr - 2]);
+                SetBox(ts->AStack[ts->AStackPtr - 1], ts->AStack[ts->AStackPtr - 2]);
                 ts->AStackPtr -= 2;
                 break;
 

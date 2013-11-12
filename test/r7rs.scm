@@ -912,10 +912,62 @@
 (check-equal #t (equal? "abc" "abc"))
 (check-equal #t (equal? 2 2))
 (check-equal #t (equal? (make-vector 5 'a) (make-vector 5 'a)))
-;(check-equal #t (equal? '#1=(a b . #1#) '#2=(a b a b . #2#)))
+(check-equal #t (equal? '#1=(a b . #1#) '#2=(a b a b . #2#)))
 
 (check-error (assertion-violation equal?) (equal? 1))
 (check-error (assertion-violation equal?) (equal? 1 2 3))
+
+;; The next three tests are from:
+;; http://srfi.schemers.org/srfi-85/post-mail-archive/msg00001.html
+
+(check-equal #t
+ (let ()
+   (define x
+     (let ((x1 (vector 'h))
+           (x2 (let ((x (list #f))) (set-car! x x) x)))
+       (vector x1 (vector 'h) x1 (vector 'h) x1 x2)))
+   (define y
+     (let ((y1 (vector 'h))
+           (y2 (vector 'h))
+           (y3 (let ((x (list #f))) (set-car! x x) x)))
+       (vector (vector 'h) y1 y1 y2 y2 y3)))
+   (equal? x y)))
+
+(check-equal #t
+ (let ()
+   (define x
+     (let ((x (cons (cons #f 'a) 'a)))
+       (set-car! (car x) x)
+       x))
+   (define y
+     (let ((y (cons (cons #f 'a) 'a)))
+       (set-car! (car y) (car y))
+       y))
+   (equal? x y)))
+
+(check-equal #t
+  (let ((k 100))
+    (define x
+      (let ((x1 (cons 
+                (let f ((n k))
+                  (if (= n 0)
+                      (let ((x0 (cons #f #f)))
+                        (set-car! x0 x0)
+                        (set-cdr! x0 x0)
+                        x0)
+                      (let ((xi (cons #f (f (- n 1)))))
+                        (set-car! xi xi)
+                        xi)))
+                #f)))
+      (set-cdr! x1 x1)
+      x1))
+  (define y
+    (let* ((y2 (cons #f #f)) (y1 (cons y2 y2)))
+      (set-car! y2 y1)
+      (set-cdr! y2 y1)
+      y1))
+  (equal? x y)))
+
 
 ;;
 ;; ---- booleans ----

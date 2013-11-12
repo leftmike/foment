@@ -20,6 +20,32 @@ Foment
 #define MAXIMUM_NAME 32
 #define MAXIMUM_NUMBER 32
 
+// ---- Datum Reference ----
+
+typedef struct
+{
+    FRecord Record;
+    FObject Label;
+} FDatumReference;
+
+#define AsDatumReference(obj) ((FDatumReference *) (obj))
+#define DatumReferenceP(obj) RecordP(obj, R.DatumReferenceRecordType)
+
+static const char * DatumReferenceFieldsC[] = {"label"};
+
+static FObject MakeDatumReference(FObject lbl)
+{
+    FAssert(sizeof(FDatumReference) == sizeof(DatumReferenceFieldsC) + sizeof(FRecord));
+    FAssert(FixnumP(lbl));
+
+    FDatumReference * dref = (FDatumReference *) MakeRecord(R.DatumReferenceRecordType);
+    dref->Label = lbl;
+
+    return(dref);
+}
+
+// ----------------
+
 static int_t NumericP(FCh ch)
 {
     int_t dv = DigitValue(ch);
@@ -172,7 +198,7 @@ UnexpectedEof:
     return(NoValueObject);
 }
 
-static FObject ReadNumber(FObject port, FCh * s, int_t sl, int_t sdx)
+static FObject ReadNumber(FObject port, FCh * s, int_t sl, int_t sdx, int_t df)
 {
     FFixnum n;
     FCh ch;
@@ -184,7 +210,12 @@ static FObject ReadNumber(FObject port, FCh * s, int_t sl, int_t sdx)
         if (PeekCh(port, &ch) == 0)
             break;
 
-        if (IdentifierSubsequentP(ch) == 0)
+        if (df)
+        {
+            if (NumericP(ch) == 0)
+                break;
+        }
+        else if (IdentifierSubsequentP(ch) == 0)
             break;
 
         s[sdx] = ch;
@@ -259,9 +290,9 @@ static FObject ReadIdentifier(FObject port, FCh * s, int_t sl, int_t sdx)
     return(sym);
 }
 
-static FObject ReadList(FObject port);
-static FObject Read(FObject port, int_t eaf, int_t rlf);
-static FObject ReadSharp(FObject port, int_t eaf, int_t rlf)
+static FObject ReadList(FObject port, FObject * pdlht);
+static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlht);
+static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlht)
 {
     FCh ch;
 
@@ -346,10 +377,10 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf)
         FCh s[MAXIMUM_NUMBER];
         s[0] = '#';
         s[1] = ch;
-        return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 2));
+        return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 2, 0));
     }
     else if (ch ==  '(')
-        return(ListToVector(ReadList(port)));
+        return(ListToVector(ReadList(port, pdlht)));
     else if (ch == 'u')
     {
         if (ReadCh(port, &ch) == 0)
@@ -363,13 +394,13 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf)
                     List(port));
         if (ch != '(')
             RaiseExceptionC(R.Lexical, "read", "expected #\\u8(", List(port));
-        return(U8ListToBytevector(ReadList(port)));
+        return(U8ListToBytevector(ReadList(port, pdlht)));
     }
     else if (ch == ';')
     {
-        Read(port, 0, 0);
+        Read(port, 0, 0, pdlht);
 
-        return(Read(port, eaf, rlf));
+        return(Read(port, eaf, rlf, pdlht));
     }
     else if (ch == '|')
     {
@@ -390,7 +421,7 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf)
             pch = ch;
         }
 
-        return(Read(port, eaf, rlf));
+        return(Read(port, eaf, rlf, pdlht));
     }
     else if (ch == '!')
     {
@@ -413,7 +444,40 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf)
             RaiseExceptionC(R.Lexical, "read", "unknown directive #!<name>",
                     List(port, MakeString(s, sl)));
 
-        return(Read(port, eaf, rlf));
+        return(Read(port, eaf, rlf, pdlht));
+    }
+    else if (NumericP(ch))
+    {
+        FCh s[MAXIMUM_NUMBER];
+        s[0] = ch;
+        FObject n = ReadNumber(port, s, sizeof(s) / sizeof(FCh), 1, 1);
+
+        if (FixnumP(n) == 0)
+            RaiseExceptionC(R.Lexical, "read", "expected an integer for <n>: #<n>= and #<n>#",
+                    List(port));
+
+        if (ReadCh(port, &ch) == 0)
+            RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading #<n>= or #<n>#",
+                    List(port));
+
+        if (ch == '=')
+        {
+            FObject obj = Read(port, 0, 0, pdlht);
+
+            if (HashtableP(*pdlht) == 0)
+                *pdlht = MakeHashtable(31);
+
+            if (HashtableContainsP(*pdlht, n, EqP, EqHash))
+                RaiseExceptionC(R.Lexical, "read", "duplicate datum label", List(port, n));
+
+            HashtableSet(*pdlht, n, obj, EqP, EqHash);
+            return(obj);
+        }
+        else if (ch == '#')
+            return(MakeDatumReference(n));
+
+        RaiseExceptionC(R.Lexical, "read", "expected #<n>= or #<n>#", List(port,
+                MakeCharacter(ch)));
     }
 
     RaiseExceptionC(R.Lexical, "read", "unexpected character following #",
@@ -422,7 +486,7 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf)
     return(NoValueObject);
 }
 
-static FObject Read(FObject port, int_t eaf, int_t rlf)
+static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlht)
 {
     FCh ch;
 
@@ -445,7 +509,7 @@ static FObject Read(FObject port, int_t eaf, int_t rlf)
             switch (ch)
             {
             case '#':
-                return(ReadSharp(port, eaf, rlf));
+                return(ReadSharp(port, eaf, rlf, pdlht));
 
             case '"':
                 return(ReadStringLiteral(port, '"'));
@@ -464,7 +528,7 @@ static FObject Read(FObject port, int_t eaf, int_t rlf)
             }
 
             case '(':
-                return(ReadList(port));
+                return(ReadList(port, pdlht));
 
             case ')':
                 if (rlf)
@@ -487,7 +551,7 @@ static FObject Read(FObject port, int_t eaf, int_t rlf)
                 {
                     FCh s[MAXIMUM_NUMBER];
                     s[0] = '.';
-                    return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 1));
+                    return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 1, 0));
                 }
 
                 if (rlf)
@@ -497,16 +561,14 @@ static FObject Read(FObject port, int_t eaf, int_t rlf)
 
             case '\'':
             {
-                FObject obj;
-                obj = Read(port, 0, 0);
+                FObject obj = Read(port, 0, 0, pdlht);
                 return(MakePair(WantIdentifiersPortP(port) ? MakeIdentifier(R.QuoteSymbol,
                         GetLineColumn(port, 0)) : R.QuoteSymbol, MakePair(obj, EmptyListObject)));
             }
 
             case '`':
             {
-                FObject obj;
-                obj = Read(port, 0, 0);
+                FObject obj = Read(port, 0, 0, pdlht);
                 return(MakePair(WantIdentifiersPortP(port)
                         ? MakeIdentifier(R.QuasiquoteSymbol, GetLineColumn(port, 0))
                         : R.QuasiquoteSymbol, MakePair(obj, EmptyListObject)));
@@ -528,7 +590,7 @@ static FObject Read(FObject port, int_t eaf, int_t rlf)
                     sym = R.UnquoteSymbol;
 
                 FObject obj;
-                obj = Read(port, 0, 0);
+                obj = Read(port, 0, 0, pdlht);
                 return(MakePair(WantIdentifiersPortP(port)
                         ? MakeIdentifier(sym, GetLineColumn(port, 0)) : sym,
                         MakePair(obj, EmptyListObject)));
@@ -568,14 +630,14 @@ static FObject Read(FObject port, int_t eaf, int_t rlf)
                         FCh s[MAXIMUM_NUMBER];
                         s[0] = ch;
                         s[1] = ch2;
-                        return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 2));
+                        return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 2, 0));
                     }
                 }
                 else
                 {
                     FCh s[MAXIMUM_NUMBER];
                     s[0] = ch;
-                    return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 1));
+                    return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 1, 0));
                 }
             }
 
@@ -590,9 +652,8 @@ static FObject Read(FObject port, int_t eaf, int_t rlf)
                 {
                     FCh s[MAXIMUM_NUMBER];
                     s[0] = ch;
-                    return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 1));
+                    return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 1, 0));
                 }
-
 
                 if (WhitespaceP(ch) == 0)
                     RaiseExceptionC(R.Lexical, "read", "unexpected character",
@@ -610,32 +671,81 @@ Eof:
     return(EndOfFileObject);
 }
 
-static FObject ReadList(FObject port)
+static FObject ReadList(FObject port, FObject * pdlht)
 {
     FObject obj;
 
-    obj = Read(port, 0, 1);
+    obj = Read(port, 0, 1, pdlht);
 
     if (obj == EolObject)
         return(EmptyListObject);
 
     if (obj == DotObject)
     {
-        obj = Read(port, 0, 0);
+        obj = Read(port, 0, 0, pdlht);
 
-        if (Read(port, 0, 1) != EolObject)
+        if (Read(port, 0, 1, pdlht) != EolObject)
             RaiseExceptionC(R.Lexical, "read", "bad dotted pair", List(port));
         return(obj);
     }
 
-    return(MakePair(obj, ReadList(port)));
+    return(MakePair(obj, ReadList(port, pdlht)));
+}
+
+static FObject ResolveReference(FObject port, FObject ref, FObject dlht)
+{
+    FAssert(DatumReferenceP(ref));
+    FAssert(FixnumP(AsDatumReference(ref)->Label));
+
+    FObject obj = HashtableRef(dlht, AsDatumReference(ref)->Label, NotFoundObject, EqP, EqHash);
+    if (obj == NotFoundObject)
+        RaiseExceptionC(R.Lexical, "read", "datum reference to unknown label",
+                List(port, AsDatumReference(ref)->Label));
+
+    return(obj);
+}
+
+static void ResolveDatumReferences(FObject port, FObject obj, FObject dlht)
+{
+    while (PairP(obj))
+    {
+        if (DatumReferenceP(First(obj)))
+            SetFirst(obj, ResolveReference(port, First(obj), dlht));
+        else if (PairP(First(obj)) || VectorP(First(obj)))
+            ResolveDatumReferences(port, First(obj), dlht);
+
+        if (DatumReferenceP(Rest(obj)))
+        {
+            SetRest(obj, ResolveReference(port, Rest(obj), dlht));
+            break;
+        }
+
+        obj = Rest(obj);
+    }
+
+    if (VectorP(obj))
+    {
+        for (uint_t idx = 0; idx < VectorLength(obj); idx++)
+        {
+            FObject val = AsVector(obj)->Vector[idx];
+            if (DatumReferenceP(val))
+                ModifyVector(obj, idx, ResolveReference(port, val, dlht));
+            else if (PairP(val) || VectorP(val))
+                ResolveDatumReferences(port, val, dlht);
+        }
+    }
 }
 
 FObject Read(FObject port)
 {
     FAssert(InputPortP(port) && InputPortOpenP(port));
 
-    return(Read(port, 1, 0));
+    FObject dlht = NoValueObject;
+    FObject obj = Read(port, 1, 0, &dlht);
+    if (HashtableP(dlht))
+        ResolveDatumReferences(port, obj, dlht);
+
+    return(obj);
 }
 
 // ---- Input ----
@@ -818,6 +928,9 @@ static FPrimitive * Primitives[] =
 
 void SetupRead()
 {
+    R.DatumReferenceRecordType = MakeRecordTypeC("datum-reference",
+            sizeof(DatumReferenceFieldsC) / sizeof(char *), DatumReferenceFieldsC);
+
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

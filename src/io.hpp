@@ -74,6 +74,8 @@ inline FObject CurrentOutputPort()
     return(port);
 }
 
+// ----------------
+
 void SetupWrite();
 void SetupRead();
 

@@ -13,8 +13,6 @@ To Do:
 
 -- specifying file format for programs and libraries
 
--- fix read to work with circular data structures
-
 -- IO and GC
 -- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
 -- or use FAlive
@@ -246,8 +244,8 @@ void Collect();
 void ModifyVector(FObject obj, uint_t idx, FObject val);
 
 /*
-//    AsBox(argv[0])->Value = argv[1];
-    Modify(FBox, argv[0], Value, argv[1]);
+//    AsProcedure(proc)->Name = nam;
+    Modify(FProcedure, proc, Name, nam);
 */
 #define Modify(type, obj, slot, val)\
     ModifyObject(obj, (uint_t) &(((type *) 0)->slot), val)
@@ -422,6 +420,8 @@ inline FObject Unbox(FObject bx)
 
     return(AsBox(bx)->Value);
 }
+
+void SetBox(FObject bx, FObject val);
 
 // ---- Strings ----
 
@@ -1017,6 +1017,7 @@ typedef struct
     FObject PrefixSymbol;
     FObject RenameSymbol;
 
+    FObject DatumReferenceRecordType;
 } FRoots;
 
 extern FRoots R;
