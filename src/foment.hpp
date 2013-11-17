@@ -84,6 +84,8 @@ Missing:
 
 #include <stdint.h>
 
+typedef double double_t;
+
 #ifdef FOMENT_WINDOWS
 typedef wchar_t FCh16;
 typedef FCh16 FChS;
@@ -149,7 +151,7 @@ typedef enum
     // Direct Types
 
     PairTag = 0x01,          // 0bxxxxxx01
-    FlonumTag = 0x02,        // 0bxxxxxx10
+//    FlonumTag = 0x02,        // 0bxxxxxx10
     FixnumTag = 0x07,        // 0bxxx00111
     CharacterTag = 0x0B,     // 0bxxx01011
     MiscellaneousTag = 0x0F, // 0bxxx01111
@@ -181,6 +183,8 @@ typedef enum
     ThreadTag,
     ExclusiveTag,
     ConditionTag,
+    BignumTag,
+    FlonumTag,
 
     // Invalid Tag
 
@@ -391,17 +395,6 @@ int_t TConcEmptyP(FObject tconc);
 void TConcAdd(FObject tconc, FObject obj);
 FObject TConcRemove(FObject tconc);
 
-// ---- Flonums ----
-
-#define FlonumP(obj) ((((FImmediate) (obj)) & 0x3) == FlonumTag)
-#define AsFlonum(obj) ((FFlonum *) (((char *) (obj)) - FlonumTag))
-#define FlonumObject(fl) ((FObject) (((char *) (fl)) + FlonumTag))
-
-typedef struct
-{
-    double Flonum;
-} FFlonum;
-
 // ---- Boxes ----
 
 #define BoxP(obj) (IndirectTag(obj) == BoxTag)
@@ -442,6 +435,7 @@ FObject MakeStringS(FChS * ss, uint_t ssl);
 
 inline uint_t StringLength(FObject obj)
 {
+    FAssert(StringP(obj));
     uint_t bl = ByteLength(obj);
     FAssert(bl % sizeof(FCh) == 0);
 
@@ -449,8 +443,8 @@ inline uint_t StringLength(FObject obj)
 }
 
 void StringToC(FObject s, char * b, int_t bl);
-int_t StringToNumber(FCh * s, int_t sl, FFixnum * np, FFixnum b);
-int_t NumberAsString(FFixnum n, FCh * s, FFixnum b);
+FObject StringToNumber(FCh * s, int_t sl, FFixnum rdx);
+int_t NumberAsString(FFixnum n, FCh * s, FFixnum rdx);
 FObject FoldcaseString(FObject s);
 uint_t ByteLengthHash(char * b, uint_t bl);
 uint_t StringLengthHash(FCh * s, uint_t sl);
@@ -740,6 +734,72 @@ typedef struct
 FObject MakePrimitive(FPrimitive * prim);
 void DefinePrimitive(FObject env, FObject lib, FPrimitive * prim);
 
+// ---- Flonums ----
+
+#define FlonumP(obj) (IndirectTag(obj) == FlonumTag)
+#define AsFlonum(obj) ((FFlonum *) (obj))
+
+typedef struct
+{
+    uint_t Reserved;
+    double_t Double;
+} FFlonum;
+
+// ---- Bignums ----
+
+#ifdef FOMENT_32BIT
+typedef uint16_t FBigDigit;
+typedef int16_t FBigSign;
+#endif // FOMENT_32BIT
+
+#ifdef FOMENT_64BIT
+typedef uint32_t FBigDigit;
+typedef int32_t FBigSign;
+#endif // FOMENT_64BIT
+
+#define BignumP(obj) (IndirectTag(obj) == BignumTag)
+#define AsBignum(obj) ((FBignum *) (obj))
+
+typedef struct
+{
+    uint_t Length;
+    FBigSign Sign;
+    FBigDigit Digits[1];
+} FBignum;
+
+inline uint_t BignumLength(FObject obj)
+{
+    FAssert(BignumP(obj));
+    uint_t bl = ByteLength(obj);
+    FAssert(bl % sizeof(FBigDigit));
+
+    return((bl / sizeof(FBigDigit)) - 1);
+}
+
+// ---- Ratnums ----
+
+#define RatnumP(obj) RecordP(obj, R.RatnumRecordType)
+#define AsRatnum(obj) ((FRatnum *) (obj))
+
+typedef struct
+{
+    FRecord Record;
+    FObject Numerator;
+    FObject Denominator;
+} FRatnum;
+
+// ---- Complex ----
+
+#define ComplexP(obj) RecordP(obj, R.ComplexRecordType)
+#define AsComplex(obj) ((FComplex *) (obj))
+
+typedef struct
+{
+    FRecord Record;
+    FObject Real;
+    FObject Imaginary;
+} FComplex;
+
 // ---- Environments ----
 
 #define EnvironmentP(obj) RecordP(obj, R.EnvironmentRecordType)
@@ -941,6 +1001,9 @@ typedef struct
     FObject Lexical;
     FObject Syntax;
     FObject Error;
+
+    FObject RatnumRecordType;
+    FObject ComplexRecordType;
 
     FObject LoadedLibraries;
 

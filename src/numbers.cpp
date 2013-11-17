@@ -2,59 +2,113 @@
 
 Foment
 
+-- gc and FFlonums
+-- StringToNumber: need another routine for string->number which checks for radix and exactness
+    prefixes
+-- reading numbers: add conversions to exact and inexact
+-- reading numbers: some tokens beginning with - or + are not actually identifiers
+-- ParseReal: return inf.0 and nan.0 correctly
+
 */
 
 #include "foment.hpp"
+#include "unicode.hpp"
 
-int_t StringToNumber(FCh * s, int_t sl, FFixnum * np, FFixnum b)
+static FObject MakeFlonum(double_t dbl)
 {
-    FAssert(b == 2 || b == 8 || b == 10 || b == 16);
+    FFlonum * flo = (FFlonum *) MakeObject(sizeof(FFlonum), FlonumTag);
+    flo->Reserved = FlonumTag;
+    flo->Double = dbl;
 
-    FFixnum ns;
+    return(flo);
+}
+
+static FObject MakeBignum(FBigSign bs, FBigDigit * bdv, uint_t bdc)
+{
+    
+    
+    
+    return(NoValueObject);
+}
+
+static const char * RatnumFieldsC[] = {"numerator", "denominator"};
+
+static FObject MakeRatnum(FObject nmr, FObject dnm)
+{
+    FAssert(sizeof(FRatnum) == sizeof(RatnumFieldsC) + sizeof(FRecord));
+    FAssert(FixnumP(nmr) || BignumP(nmr));
+    FAssert(FixnumP(dnm) || BignumP(dnm));
+
+    FRatnum * rat = (FRatnum *) MakeRecord(R.RatnumRecordType);
+    rat->Numerator = nmr;
+    rat->Denominator = dnm;
+
+    return(rat);
+}
+
+static const char * ComplexFieldsC[] = {"real", "imaginary"};
+
+static FObject MakeComplex(FObject rl, FObject img)
+{
+    FAssert(sizeof(FComplex) == sizeof(ComplexFieldsC) + sizeof(FRecord));
+    FAssert(FixnumP(rl) || BignumP(rl) || FlonumP(rl) || RatnumP(rl));
+    FAssert(FixnumP(img) || BignumP(img) || FlonumP(img) || RatnumP(img));
+
+    FComplex * cx = (FComplex *) MakeRecord(R.ComplexRecordType);
+    cx->Real = rl;
+    cx->Imaginary = img;
+
+    return(cx);
+}
+
+/*
+<num> : <prefix> <complex>
+<complex> : <real>
+          | <real> @ <real>
+          | <real> + <ureal> i
+          | <real> - <ureal> i
+          | <real> + i
+          | <real> - i
+          | <real> <infnan> i
+          | <real> i
+          | + i
+          | - i
+<real> : <ureal>
+       | + <ureal>
+       | - <ureal>
+       | <infnan>
+<ureal> : <uinteger>
+        | <uinteger> / <uinteger>
+        | <decimal10>
+<uinteger> : <digit> <digit> ...
+<decimal10> : <digit> <digit> ... <suffix>
+            | . <digit> <digit> ... <suffix>
+            | <digit> <digit> ... . <digit> ... <suffix>
+<infnan> : +inf.0 | -inf.0 | +nan.0 | -nan.0
+<suffix> : <empty>
+         | e <digit> <digit> ...
+         | e + <digit> <digit> ...
+         | e - <digit> <digit> ...
+
+*/
+
+static int_t ParseUInteger(FCh * s, int_t sl, int_t sdx, FFixnum rdx, FObject * punt)
+{
+    FAssert(sdx < sl);
+
+    
+    
+    return(sdx);
+}
+
+static int_t ParseUReal(FCh * s, int_t sl, int_t sdx, FFixnum rdx, FObject * purl)
+{
+    FAssert(sdx < sl);
+
     FFixnum n;
-    int_t sdx = 0;
+    int_t odx = sdx;
 
-    if (sl == 0)
-        return(0);
-
-    if (s[sdx] == '#')
-    {
-        sdx += 1;
-        if (sdx == sl)
-            return(0);
-
-        if (s[sdx] == 'b')
-            b = 2;
-        else if (s[sdx] == 'o')
-            b = 8;
-        else if (s[sdx] == 'd')
-            b = 10;
-        else if (s[sdx] == 'x')
-            b = 16;
-        else
-            return(0);
-
-        sdx += 1;
-        if (sdx == sl)
-            return(0);
-    }
-
-    ns = 1;
-    if (s[sdx] == '-')
-    {
-        ns = -1;
-        sdx += 1;
-        if (sdx == sl)
-            return(0);
-    }
-    else if (s[sdx] == '+')
-    {
-        sdx += 1;
-        if (sdx == sl)
-            return(0);
-    }
-
-    switch (b)
+    switch (rdx)
     {
     case 2:
         for (n = 0; sdx < sl; sdx++)
@@ -62,7 +116,7 @@ int_t StringToNumber(FCh * s, int_t sl, FFixnum * np, FFixnum b)
             if (s[sdx] >= '0' && s[sdx] <= '1')
                 n = n * 2 + s[sdx] - '0';
             else
-                return(0);
+                break;
         }
         break;
 
@@ -72,7 +126,7 @@ int_t StringToNumber(FCh * s, int_t sl, FFixnum * np, FFixnum b)
             if (s[sdx] >= '0' && s[sdx] <= '7')
                 n = n * 8 + s[sdx] - '0';
             else
-                return(0);
+                break;
         }
         break;
 
@@ -82,7 +136,7 @@ int_t StringToNumber(FCh * s, int_t sl, FFixnum * np, FFixnum b)
             if (s[sdx] >= '0' && s[sdx] <= '9')
                 n = n * 10 + s[sdx] - '0';
             else
-                return(0);
+                break;
         }
         break;
 
@@ -96,21 +150,178 @@ int_t StringToNumber(FCh * s, int_t sl, FFixnum * np, FFixnum b)
             else if (s[sdx] >= 'A' && s[sdx] <= 'F')
                 n = n * 16 + s[sdx] - 'A' + 10;
             else
-                return(0);
+                break;
         }
         break;
 
     default:
-        return(0);
+        FAssert(0);
+
+        return(-1);
     }
 
-    *np = n * ns;
-    return(1);
+    if (sdx == odx)
+        return(-1);
+
+    *purl = MakeFixnum(n);
+    
+    
+    return(sdx);
+}
+
+static int_t ParseReal(FCh * s, int_t sl, int_t sdx, FFixnum rdx, FObject * prl)
+{
+    FAssert(sdx < sl);
+
+    if (sdx + 6 <= sl && (s[sdx] == '-' || s[sdx] == '+'))
+    {
+        if (CharDowncase(s[sdx + 1]) == 'i' && CharDowncase(s[sdx + 2]) == 'n'
+                && CharDowncase(s[sdx + 3]) == 'f' && s[sdx + 4] == '.' && s[sdx + 5] == '0')
+        {
+            
+            
+            *prl = MakeFixnum(s[sdx] == '-' ? -1 : 1);
+            
+            
+            sdx += 6;
+            return(sdx);
+        }
+        else if (CharDowncase(s[sdx + 1]) == 'n' && CharDowncase(s[sdx + 2]) == 'a'
+                && CharDowncase(s[sdx + 3]) == 'n' && s[sdx + 4] == '.' && s[sdx + 5] == '0')
+        {
+            
+            
+            *prl = MakeFixnum(s[sdx] == '-' ? -1 : 1);
+            
+            
+            sdx += 6;
+            return(sdx);
+        }
+    }
+
+    FFixnum sgn = 1;
+
+    if (s[sdx] == '-')
+    {
+        sgn = -1;
+        sdx += 1;
+    }
+    else if (s[sdx] == '+')
+    {
+        FAssert(sgn == 1);
+
+        sdx += 1;
+    }
+
+    if (sdx == sl)
+        return(-1);
+
+    FObject url;
+
+    sdx = ParseUReal(s, sl, sdx, rdx, &url);
+    if (sdx < 0)
+        return(-1);
+    
+    
+    if (sgn == -1)
+        *prl = MakeFixnum(AsFixnum(url) * -1);
+    else
+        *prl = url;
+    
+    
+    return(sdx);
+}
+
+FObject StringToNumber(FCh * s, int_t sl, FFixnum rdx)
+{
+    FAssert(rdx == 2 || rdx == 8 || rdx == 10 || rdx == 16);
+
+    if (sl == 0)
+        return(FalseObject);
+
+    FObject n;
+
+    if (ParseReal(s, sl, 0, rdx, &n) < 0)
+        return(FalseObject);
+
+    return(n);
+/*
+    FFixnum ns;
+    FFixnum n;
+    int_t sdx = 0;
+
+    ns = 1;
+    if (s[sdx] == '-')
+    {
+        ns = -1;
+        sdx += 1;
+        if (sdx == sl)
+            return(FalseObject);
+    }
+    else if (s[sdx] == '+')
+    {
+        sdx += 1;
+        if (sdx == sl)
+            return(FalseObject);
+    }
+
+    switch (rdx)
+    {
+    case 2:
+        for (n = 0; sdx < sl; sdx++)
+        {
+            if (s[sdx] >= '0' && s[sdx] <= '1')
+                n = n * 2 + s[sdx] - '0';
+            else
+                return(FalseObject);
+        }
+        break;
+
+    case 8:
+        for (n = 0; sdx < sl; sdx++)
+        {
+            if (s[sdx] >= '0' && s[sdx] <= '7')
+                n = n * 8 + s[sdx] - '0';
+            else
+                return(FalseObject);
+        }
+        break;
+
+    case 10:
+        for (n = 0; sdx < sl; sdx++)
+        {
+            if (s[sdx] >= '0' && s[sdx] <= '9')
+                n = n * 10 + s[sdx] - '0';
+            else
+                return(FalseObject);
+        }
+        break;
+
+    case 16:
+        for (n = 0; sdx < sl; sdx++)
+        {
+            if (s[sdx] >= '0' && s[sdx] <= '9')
+                n = n * 16 + s[sdx] - '0';
+            else if (s[sdx] >= 'a' && s[sdx] <= 'f')
+                n = n * 16 + s[sdx] - 'a' + 10;
+            else if (s[sdx] >= 'A' && s[sdx] <= 'F')
+                n = n * 16 + s[sdx] - 'A' + 10;
+            else
+                return(FalseObject);
+        }
+        break;
+
+    default:
+        return(FalseObject);
+    }
+
+    return(MakeFixnum(n * ns));
+*/
 }
 
 const static char Digits[] = {"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"};
 
-int_t NumberAsString(FFixnum n, FCh * s, FFixnum b)
+int_t NumberAsString(FFixnum n, FCh * s, FFixnum rdx)
 {
     int_t sl = 0;
 
@@ -121,10 +332,10 @@ int_t NumberAsString(FFixnum n, FCh * s, FFixnum b)
         n *= -1;
     }
 
-    if (n >= b)
+    if (n >= rdx)
     {
-        sl += NumberAsString(n / b, s + sl, b);
-        s[sl] = Digits[n % b];
+        sl += NumberAsString(n / rdx, s + sl, rdx);
+        s[sl] = Digits[n % rdx];
         sl += 1;
     }
     else
@@ -477,6 +688,13 @@ static FPrimitive * Primitives[] =
 
 void SetupNumbers()
 {
+    FAssert(sizeof(FBigSign) == sizeof(FBigDigit));
+
+    R.RatnumRecordType = MakeRecordTypeC("ratnum",
+            sizeof(RatnumFieldsC) / sizeof(char *), RatnumFieldsC);
+    R.ComplexRecordType = MakeRecordTypeC("complex",
+            sizeof(ComplexFieldsC) / sizeof(char *), ComplexFieldsC);
+
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

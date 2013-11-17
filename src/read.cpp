@@ -17,8 +17,8 @@ Foment
 #include "unicode.hpp"
 
 #define MAXIMUM_IDENTIFIER 256
+#define MAXIMUM_NUMBER 256
 #define MAXIMUM_NAME 32
-#define MAXIMUM_NUMBER 32
 
 // ---- Datum Reference ----
 
@@ -106,9 +106,9 @@ static FCh ReadStringHexChar(FObject port)
                     "missing ; to terminate \\x<hex-value> in string", List(port));
     }
 
-    FFixnum n;
+    FObject n = StringToNumber(s + 2, sl - 2, 16);
 
-    if (StringToNumber(s + 2, sl - 2, &n, 16) == 0)
+    if (FixnumP(n) == 0)
     {
         s[0] = '\\';
         s[1] = 'x';
@@ -117,7 +117,7 @@ static FCh ReadStringHexChar(FObject port)
                 List(port, MakeString(s, sl)));
     }
 
-    return((FCh) n);
+    return((FCh) AsFixnum(n));
 }
 
 static FObject ReadStringLiteral(FObject port, FCh tch)
@@ -198,12 +198,9 @@ UnexpectedEof:
     return(NoValueObject);
 }
 
-static FObject ReadNumber(FObject port, FCh * s, int_t sl, int_t sdx, int_t df)
+static FObject ReadNumber(FObject port, FCh * s, int_t sdx, FFixnum rdx, int_t df)
 {
-    FFixnum n;
     FCh ch;
-
-    FAssert(sl == MAXIMUM_NUMBER);
 
     for (;;)
     {
@@ -220,17 +217,94 @@ static FObject ReadNumber(FObject port, FCh * s, int_t sl, int_t sdx, int_t df)
 
         s[sdx] = ch;
         sdx += 1;
-        if (sdx == sl)
+        if (sdx == MAXIMUM_NUMBER)
             RaiseExceptionC(R.Restriction, "read", "number too long", List(port));
 
         ReadCh(port, &ch);
     }
 
-    if (StringToNumber(s, sdx, &n, 10) == 0)
+    FObject n = StringToNumber(s, sdx, rdx);
+    if (n == FalseObject)
         RaiseExceptionC(R.Lexical, "read", "expected a valid number",
                 List(port, MakeString(s, sdx)));
 
-    return(MakeFixnum(n));
+    return(n);
+}
+
+static FObject ReadRadixPrefix(FObject port)
+{
+    FCh ch;
+    FCh s[MAXIMUM_NUMBER];
+
+    if (PeekCh(port, &ch) == 0)
+        RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading number", List(port));
+
+    if (ch == '#')
+    {
+        ReadCh(port, &ch);
+
+        if (ReadCh(port, &ch) == 0)
+            RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading number",
+                    List(port));
+
+        if (ch == 'b' || ch == 'B')
+            return(ReadNumber(port, s, 0, 2, 0));
+        else if (ch == 'o' || ch == 'O')
+            return(ReadNumber(port, s, 0, 8, 0));
+        else if (ch == 'd' || ch == 'D')
+            return(ReadNumber(port, s, 0, 10, 0));
+        else if (ch == 'x' || ch == 'X')
+            return(ReadNumber(port, s, 0, 16, 0));
+        else
+            RaiseExceptionC(R.Lexical, "read", "expected radix prefix to follow exactness prefix",
+                    List(port, MakeCharacter(ch)));
+    }
+
+    return(ReadNumber(port, s, 0, 10, 0));
+}
+
+static FObject ReadExactnessPrefix(FObject port, FFixnum rdx)
+{
+    FCh ch;
+    FCh s[MAXIMUM_NUMBER];
+
+    if (PeekCh(port, &ch) == 0)
+        RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading number", List(port));
+
+    if (ch == '#')
+    {
+        ReadCh(port, &ch);
+
+        if (ReadCh(port, &ch) == 0)
+            RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading number",
+                    List(port));
+
+        if (ch == 'i' || ch == 'I')
+        {
+            FObject num = ReadNumber(port, s, 0, rdx, 0);
+            
+            
+            // convert num to inexact
+            
+            
+            return(num);
+        }
+        else if (ch == 'e' || ch == 'E')
+        {
+            FObject num = ReadNumber(port, s, 0, rdx, 0);
+            
+            
+            // convert num to exact
+            
+            
+            return(num);
+        }
+        else
+            RaiseExceptionC(R.Lexical, "read", "expected exactness prefix to follow radix prefix",
+                    List(port, MakeCharacter(ch)));
+    }
+
+    return(ReadNumber(port, s, 0, rdx, 0));
 }
 
 static int_t ReadName(FObject port, FCh ch, FCh * s)
@@ -257,12 +331,10 @@ static int_t ReadName(FObject port, FCh ch, FCh * s)
     return(sl);
 }
 
-static FObject ReadIdentifier(FObject port, FCh * s, int_t sl, int_t sdx)
+static FObject ReadIdentifier(FObject port, FCh * s, int_t sdx, int_t mbnf)
 {
     int_t ln;
     FCh ch;
-
-    FAssert(sl == MAXIMUM_IDENTIFIER);
 
     if (WantIdentifiersPortP(port))
         ln = GetLineColumn(port, 0);
@@ -277,10 +349,17 @@ static FObject ReadIdentifier(FObject port, FCh * s, int_t sl, int_t sdx)
 
         s[sdx] = ch;
         sdx += 1;
-        if (sdx == sl)
+        if (sdx == MAXIMUM_IDENTIFIER)
             RaiseExceptionC(R.Restriction, "read", "symbol too long", List(port));
 
         ReadCh(port, &ch);
+    }
+
+    if (mbnf)
+    {
+        FObject n = StringToNumber(s, sdx, 10);
+        if (n != FalseObject)
+            return(n);
     }
 
     FObject sym = FoldcasePortP(port) ? StringToSymbol(FoldcaseString(MakeString(s, sdx)))
@@ -333,13 +412,12 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlht)
         {
             FAssert(sl > 1);
 
-            FFixnum n;
-
-            if (StringToNumber(s + 1, sl - 1, &n, 16) == 0 || n < 0)
+            FObject n = StringToNumber(s + 1, sl - 1, 16);
+            if (FixnumP(n) == 0 || AsFixnum(n) < 0)
                 RaiseExceptionC(R.Lexical, "read", "expected #\\x<hex value>",
                         List(port, MakeString(s, sl)));
 
-            return(MakeCharacter(n));
+            return(MakeCharacter(AsFixnum(n)));
         }
 
         if (StringCEqualP("alarm", s, sl))
@@ -372,12 +450,33 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlht)
         RaiseExceptionC(R.Lexical, "read", "unexpected character name",
                 List(port, MakeString(s, sl)));
     }
-    else if (ch == 'b' || ch == 'o' || ch == 'd' || ch == 'x')
+    else if (ch == 'b' || ch == 'B')
+        return(ReadExactnessPrefix(port, 2));
+    else if (ch == 'o' || ch == 'O')
+        return(ReadExactnessPrefix(port, 8));
+    else if (ch == 'd' || ch == 'D')
+        return(ReadExactnessPrefix(port, 10));
+    else if (ch == 'x' || ch == 'X')
+        return(ReadExactnessPrefix(port, 16));
+    else if (ch =='i' || ch == 'I')
     {
-        FCh s[MAXIMUM_NUMBER];
-        s[0] = '#';
-        s[1] = ch;
-        return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 2, 0));
+        FObject num = ReadRadixPrefix(port);
+        
+        
+        // convert num to inexact
+        
+        
+        return(num);
+    }
+    else if (ch == 'e' || ch == 'E')
+    {
+        FObject num = ReadRadixPrefix(port);
+        
+        
+        // convert num to exact
+        
+        
+        return(num);
     }
     else if (ch ==  '(')
         return(ListToVector(ReadList(port, pdlht)));
@@ -450,7 +549,7 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlht)
     {
         FCh s[MAXIMUM_NUMBER];
         s[0] = ch;
-        FObject n = ReadNumber(port, s, sizeof(s) / sizeof(FCh), 1, 1);
+        FObject n = ReadNumber(port, s, 1, 10, 1);
 
         if (FixnumP(n) == 0)
             RaiseExceptionC(R.Lexical, "read", "expected an integer for <n>: #<n>= and #<n>#",
@@ -545,13 +644,13 @@ static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlht)
                 {
                     FCh s[MAXIMUM_IDENTIFIER];
                     s[0] = '.';
-                    return(ReadIdentifier(port, s, sizeof(s) / sizeof(FCh), 1));
+                    return(ReadIdentifier(port, s, 1, 0));
                 }
                 else if (DelimiterP(ch) == 0)
                 {
                     FCh s[MAXIMUM_NUMBER];
                     s[0] = '.';
-                    return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 1, 0));
+                    return(ReadNumber(port, s, 1, 10, 0));
                 }
 
                 if (rlf)
@@ -599,46 +698,54 @@ static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlht)
             case '-':
             case '+':
             {
-                FCh pch;
-
-                if (PeekCh(port, &pch) == 0 || SignSubsequentP(pch) || DelimiterP(pch))
-                {
-                    FCh s[MAXIMUM_IDENTIFIER];
-                    s[0] = ch;
-                    return(ReadIdentifier(port, s, sizeof(s) / sizeof(FCh), 1));
-                }
-
-                if (pch == '.')
-                {
-                    FCh ch2;
-                    ReadCh(port, &ch2);
-
-                    if (PeekCh(port, &pch) == 0)
-                        RaiseExceptionC(R.Lexical, "read",
-                                "unexpected end-of-file reading identifier or number",
-                                List(port));
-
-                    if (DotSubsequentP(pch))
-                    {
-                        FCh s[MAXIMUM_IDENTIFIER];
-                        s[0] = ch;
-                        s[1] = ch2;
-                        return(ReadIdentifier(port, s, sizeof(s) / sizeof(FCh), 2));
-                    }
-                    else
-                    {
-                        FCh s[MAXIMUM_NUMBER];
-                        s[0] = ch;
-                        s[1] = ch2;
-                        return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 2, 0));
-                    }
-                }
-                else
-                {
-                    FCh s[MAXIMUM_NUMBER];
-                    s[0] = ch;
-                    return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 1, 0));
-                }
+/*
+-                FCh pch;
+-
+-                if (PeekCh(port, &pch) == 0 || SignSubsequentP(pch) || DelimiterP(pch))
+-                {
+-                    FCh s[MAXIMUM_IDENTIFIER];
+-                    s[0] = ch;
+-                    return(ReadIdentifier(port, s, sizeof(s) / sizeof(FCh), 1));
+-                }
+-
+-                if (pch == '.')
+-                {
+-                    FCh ch2;
+-                    ReadCh(port, &ch2);
+-
+-                    if (PeekCh(port, &pch) == 0)
+-                        RaiseExceptionC(R.Lexical, "read",
+-                                "unexpected end-of-file reading identifier or number",
+-                                List(port));
+-
+-                    if (DotSubsequentP(pch))
+-                    {
+-                        FCh s[MAXIMUM_IDENTIFIER];
+-                        s[0] = ch;
+-                        s[1] = ch2;
+-                        return(ReadIdentifier(port, s, sizeof(s) / sizeof(FCh), 2));
+-                    }
+-                    else
+-                    {
+-                        FCh s[MAXIMUM_NUMBER];
+-                        s[0] = ch;
+-                        s[1] = ch2;
+-                        return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 2, 0));
+-                    }
+-                }
+-                else
+-                {
+-                    FCh s[MAXIMUM_NUMBER];
+-                    s[0] = ch;
+-                    return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 1, 0));
+-                }
++                FCh s[MAXIMUM_IDENTIFIER];
++                s[0] = ch;
++                return(ReadIdentifier(port, s, 1, 1));
+*/
+                FCh s[MAXIMUM_IDENTIFIER];
+                s[0] = ch;
+                return(ReadIdentifier(port, s, 1, 1));
             }
 
             default:
@@ -646,13 +753,13 @@ static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlht)
                 {
                     FCh s[MAXIMUM_IDENTIFIER];
                     s[0] = ch;
-                    return(ReadIdentifier(port, s, sizeof(s) / sizeof(FCh), 1));
+                    return(ReadIdentifier(port, s, 1, 0));
                 }
                 else if (NumericP(ch))
                 {
                     FCh s[MAXIMUM_NUMBER];
                     s[0] = ch;
-                    return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 1, 0));
+                    return(ReadNumber(port, s, 1, 10, 0));
                 }
 
                 if (WhitespaceP(ch) == 0)
@@ -928,6 +1035,8 @@ static FPrimitive * Primitives[] =
 
 void SetupRead()
 {
+    FAssert(MAXIMUM_NUMBER == MAXIMUM_IDENTIFIER);
+
     R.DatumReferenceRecordType = MakeRecordTypeC("datum-reference",
             sizeof(DatumReferenceFieldsC) / sizeof(char *), DatumReferenceFieldsC);
 

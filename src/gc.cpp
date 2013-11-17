@@ -324,6 +324,15 @@ static uint_t ObjectSize(FObject obj, uint_t tag)
 
         return(sizeof(FCondition));
 
+    case BignumTag:
+    {
+        FAssert(BignumP(obj));
+
+        int_t len = sizeof(FBignum) + sizeof(FBigDigit) * (BignumLength(obj) - 1);
+        len += Align[len % sizeof(FObject)];
+        return(len);
+    }
+
     case GCFreeTag:
         return(ByteLength(obj));
 
@@ -715,8 +724,6 @@ static void ScanObject(FObject * pobj, int_t fcf, int_t mf)
 
             if (tag == PairTag)
                 nobj = PairObject(nobj);
-            else if (tag == FlonumTag)
-                nobj = FlonumObject(nobj);
 
             Forward(raw) = nobj;
             *pobj = nobj;
@@ -754,8 +761,6 @@ static void ScanObject(FObject * pobj, int_t fcf, int_t mf)
 
             if (tag == PairTag)
                 nobj = PairObject(nobj);
-//            else if (tag == FlonumTag)
-//                nobj = FlonumObject(nobj);
             else
                 SetMark(nobj);
 
@@ -861,6 +866,9 @@ static void ScanChildren(FRaw raw, uint_t tag, int_t fcf)
     case ConditionTag:
         break;
 
+    case BignumTag:
+        break;
+
     default:
         FAssert(0);
     }
@@ -891,8 +899,6 @@ static void CleanScan(int_t fcf)
 
             if (PairP(obj))
                 ScanChildren(AsRaw(obj), PairTag, fcf);
-            else if (FlonumP(obj))
-                ScanChildren(AsRaw(obj), FlonumTag, fcf);
             else
             {
                 FAssert(IndirectP(obj));

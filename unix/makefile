@@ -63,7 +63,7 @@ debug/strings.o: ../src/strings.cpp ../src/foment.hpp ../src/unicode.hpp
 debug/vectors.o: ../src/vectors.cpp ../src/foment.hpp ../src/unicode.hpp
 debug/library.o: ../src/library.cpp ../src/foment.hpp ../src/compile.hpp
 debug/execute.o: ../src/execute.cpp ../src/foment.hpp ../src/execute.hpp ../src/syncthrd.hpp
-debug/numbers.o: ../src/numbers.cpp ../src/foment.hpp
+debug/numbers.o: ../src/numbers.cpp ../src/foment.hpp ../src/unicode.hpp
 debug/io.o: ../src/io.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
 	../src/unicode.hpp
 debug/write.o: ../src/write.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
@@ -88,7 +88,7 @@ release/strings.o: ../src/strings.cpp ../src/foment.hpp ../src/unicode.hpp
 release/vectors.o: ../src/vectors.cpp ../src/foment.hpp ../src/unicode.hpp
 release/library.o: ../src/library.cpp ../src/foment.hpp ../src/compile.hpp
 release/execute.o: ../src/execute.cpp ../src/foment.hpp ../src/execute.hpp ../src/syncthrd.hpp
-release/numbers.o: ../src/numbers.cpp ../src/foment.hpp
+release/numbers.o: ../src/numbers.cpp ../src/foment.hpp ../src/unicode.hpp
 release/io.o: ../src/io.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
 	../src/unicode.hpp
 release/write.o: ../src/write.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
