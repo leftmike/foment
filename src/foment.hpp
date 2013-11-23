@@ -69,10 +69,8 @@ Testing:
 -- 6.14 system interface complete
 
 Missing:
--- environment
 -- scheme-report-environment
 -- null-environment
--- load
 -- exit
 
 */
@@ -150,26 +148,33 @@ typedef enum
 {
     // Direct Types
 
-    PairTag = 0x01,          // 0bxxxxxx01
-//    FlonumTag = 0x02,        // 0bxxxxxx10
-    FixnumTag = 0x07,        // 0bxxx00111
-    CharacterTag = 0x0B,     // 0bxxx01011
-    MiscellaneousTag = 0x0F, // 0bxxx01111
-    SpecialSyntaxTag = 0x13, // 0bxxx10011
-    InstructionTag = 0x17,   // 0bxxx10111
-    ValuesCountTag = 0x1B,   // 0bxxx11011
-    UnusedTag = 0x1F,        // 0bxxx11111
+    PairTag = 0x01,          // 0bxxxxx001
+    RatnumTag = 0x02,        // 0bxxxxx010
+    ComplexTag = 0x03,       // 0bxxxxx011
+    FlonumTag = 0x04,        // 0bxxxxx100
+    UnusedTag = 0x05,        // 0bxxxxx101
+    UnusedTag2 = 0x06,       // 0bxxxxx110
+
+    FixnumTag = 0x07,        // 0bxxxx0111
+
+    CharacterTag = 0x0F,     // 0bx0001111
+    MiscellaneousTag = 0x1F, // 0bx0011111
+    SpecialSyntaxTag = 0x2F, // 0bx0101111
+    InstructionTag = 0x3F,   // 0bx0111111
+    ValuesCountTag = 0x4F,   // 0bx1001111
+    UnusedTag3 = 0x5F,       // 0bx1011111
+    UnusedTag4 = 0x6F,       // 0bx1101111
 
     // Used by garbage collector.
 
-    GCTagTag = 0x0B
+    GCTagTag = 0x7F,         // 0bx1111111
 } FDirectTag;
 
 typedef enum
 {
     // Indirect Types
 
-    BoxTag = 3,
+    BoxTag = 0x07,
     StringTag,
     VectorTag,
     BytevectorTag,
@@ -184,7 +189,6 @@ typedef enum
     ExclusiveTag,
     ConditionTag,
     BignumTag,
-    FlonumTag,
 
     // Invalid Tag
 
@@ -195,14 +199,19 @@ typedef enum
     GCFreeTag = 0x1F
 } FIndirectTag;
 
-#define IndirectP(obj) ((((FImmediate) (obj)) & 0x3) == 0x0)
-#define ObjectP(obj) ((((FImmediate) (obj)) & 0x3) != 0x3)
+#define IndirectP(obj) ((((FImmediate) (obj)) & 0x7) == 0x0)
+#define ObjectP(obj) ((((FImmediate) (obj)) & 0x7) != 0x7)
 
-#define ImmediateTag(obj) (((FImmediate) (obj)) & 0x1F)
+#define ImmediateTag(obj) (((FImmediate) (obj)) & 0x7F)
 #define ImmediateP(obj, it) (ImmediateTag((obj)) == it)
 #define MakeImmediate(val, it)\
-    ((FObject *) ((((FImmediate) (val)) << 5) | (it & 0x1F)))
-#define AsValue(obj) (((FImmediate) (obj)) >> 5)
+    ((FObject *) ((((FImmediate) (val)) << 7) | (it & 0x7F)))
+#define AsValue(obj) (((FImmediate) (obj)) >> 7)
+
+#define FixnumP(obj) ((((FImmediate) (obj)) & 0xF) == FixnumTag)
+#define MakeFixnum(n)\
+    ((FObject *) ((((FFixnum) (n)) << 4) | (FixnumTag & 0xF)))
+#define AsFixnum(obj) (((FFixnum) (obj)) >> 4)
 
 // ---- Memory Management ----
 
@@ -263,11 +272,6 @@ void InstallTracker(FObject obj, FObject ret, FObject tconc);
 //
 // ---- Immediate Types ----
 //
-
-#define FixnumP(obj) ImmediateP((obj), FixnumTag)
-#define MakeFixnum(n)\
-    ((FObject *) ((((FFixnum) (n)) << 5) | (FixnumTag & 0x1F)))
-#define AsFixnum(obj) (((FFixnum) (obj)) >> 5)
 
 #define CharacterP(obj) ImmediateP(obj, CharacterTag)
 #define MakeCharacter(ch) MakeImmediate(ch, CharacterTag)
@@ -351,7 +355,7 @@ FObject SpecialSyntaxMsgC(FObject obj, const char * msg);
 
 // ---- Pairs ----
 
-#define PairP(obj) ((((FImmediate) (obj)) & 0x3) == PairTag)
+#define PairP(obj) ((((FImmediate) (obj)) & 0x7) == PairTag)
 #define AsPair(obj) ((FPair *) (((char *) (obj)) - PairTag))
 #define PairObject(pair) ((FObject) (((char *) (pair)) + PairTag))
 
@@ -734,14 +738,116 @@ typedef struct
 FObject MakePrimitive(FPrimitive * prim);
 void DefinePrimitive(FObject env, FObject lib, FPrimitive * prim);
 
-// ---- Flonums ----
-
-#define FlonumP(obj) (IndirectTag(obj) == FlonumTag)
-#define AsFlonum(obj) ((FFlonum *) (obj))
+// ---- Roots ----
 
 typedef struct
 {
-    uint_t Reserved;
+    FObject Bedrock;
+    FObject BedrockLibrary;
+    FObject Features;
+    FObject CommandLine;
+    FObject LibraryPath;
+    FObject EnvironmentVariables;
+
+    FObject SymbolHashtable;
+
+    FObject HashtableRecordType;
+    FObject ExceptionRecordType;
+
+    FObject Assertion;
+    FObject Restriction;
+    FObject Lexical;
+    FObject Syntax;
+    FObject Error;
+
+    FObject LoadedLibraries;
+
+    FObject SyntacticEnvRecordType;
+    FObject BindingRecordType;
+    FObject IdentifierRecordType;
+    FObject LambdaRecordType;
+    FObject CaseLambdaRecordType;
+    FObject InlineVariableRecordType;
+    FObject ReferenceRecordType;
+
+    FObject ElseReference;
+    FObject ArrowReference;
+    FObject LibraryReference;
+    FObject AndReference;
+    FObject OrReference;
+    FObject NotReference;
+    FObject QuasiquoteReference;
+    FObject UnquoteReference;
+    FObject UnquoteSplicingReference;
+    FObject ConsReference;
+    FObject AppendReference;
+    FObject ListToVectorReference;
+    FObject EllipsisReference;
+    FObject UnderscoreReference;
+
+    FObject TagSymbol;
+    FObject InteractionEnv;
+
+    FObject StandardInput;
+    FObject StandardOutput;
+    FObject StandardError;
+    FObject QuoteSymbol;
+    FObject QuasiquoteSymbol;
+    FObject UnquoteSymbol;
+    FObject UnquoteSplicingSymbol;
+
+    FObject SyntaxRulesRecordType;
+    FObject PatternVariableRecordType;
+    FObject PatternRepeatRecordType;
+    FObject TemplateRepeatRecordType;
+    FObject SyntaxRuleRecordType;
+
+    FObject EnvironmentRecordType;
+    FObject GlobalRecordType;
+    FObject LibraryRecordType;
+    FObject NoValuePrimitiveObject;
+    FObject LibraryStartupList;
+
+    FObject WrongNumberOfArguments;
+    FObject NotCallable;
+    FObject UnexpectedNumberOfValues;
+    FObject UndefinedMessage;
+    FObject ExecuteThunk;
+    FObject RaiseHandler;
+    FObject InteractiveThunk;
+    FObject ExceptionHandlerSymbol;
+
+    FObject DynamicRecordType;
+    FObject ContinuationRecordType;
+
+    FObject CleanupTConc;
+
+    FObject DefineLibrarySymbol;
+    FObject ImportSymbol;
+    FObject IncludeLibraryDeclarationsSymbol;
+    FObject CondExpandSymbol;
+    FObject ExportSymbol;
+    FObject BeginSymbol;
+    FObject IncludeSymbol;
+    FObject IncludeCISymbol;
+    FObject OnlySymbol;
+    FObject ExceptSymbol;
+    FObject PrefixSymbol;
+    FObject RenameSymbol;
+
+    FObject DatumReferenceRecordType;
+} FRoots;
+
+extern FRoots R;
+
+// ---- Flonums ----
+
+#define FlonumP(obj) ((((FImmediate) (obj)) & 0x7) == FlonumTag)
+#define AsFlonum(obj) ((FFlonum *) (((char *) (obj)) - FlonumTag))->Double
+#define FlonumObject(flo) ((FObject) (((char *) (flo)) + FlonumTag))
+
+typedef struct
+{
     double_t Double;
 } FFlonum;
 
@@ -778,27 +884,46 @@ inline uint_t BignumLength(FObject obj)
 
 // ---- Ratnums ----
 
-#define RatnumP(obj) RecordP(obj, R.RatnumRecordType)
-#define AsRatnum(obj) ((FRatnum *) (obj))
+#define RatnumP(obj) ((((FImmediate) (obj)) & 0x7) == RatnumTag)
+#define AsRatnum(obj) ((FRatnum *) (((char *) (obj)) - RatnumTag))
+#define RatnumObject(rat) ((FObject) (((char *) (rat)) + RatnumTag))
 
 typedef struct
 {
-    FRecord Record;
     FObject Numerator;
     FObject Denominator;
 } FRatnum;
 
 // ---- Complex ----
 
-#define ComplexP(obj) RecordP(obj, R.ComplexRecordType)
-#define AsComplex(obj) ((FComplex *) (obj))
+#define ComplexP(obj) ((((FImmediate) (obj)) & 0x7) == ComplexTag)
+#define AsComplex(obj) ((FComplex *) (((char *) (obj)) - ComplexTag))
+#define ComplexObject(cmplx) ((FObject) (((char *) (cmplx)) + ComplexTag))
 
 typedef struct
 {
-    FRecord Record;
     FObject Real;
     FObject Imaginary;
 } FComplex;
+
+// ---- Numbers ----
+
+inline int_t NumberP(FObject obj)
+{
+    return(FixnumP(obj) || BignumP(obj) || RatnumP(obj) || FlonumP(obj) || ComplexP(obj));
+}
+
+inline int_t RealP(FObject obj)
+{
+    return(FixnumP(obj) || BignumP(obj) || RatnumP(obj) || FlonumP(obj));
+}
+
+#define POSITIVE_INFINITY (DBL_MAX * DBL_MAX)
+#define NEGATIVE_INFINITY -POSITIVE_INFINITY
+#define NAN log((double) -2)
+
+FObject ToInexact(FObject n);
+FObject ToExact(FObject n);
 
 // ---- Environments ----
 
@@ -947,6 +1072,9 @@ typedef struct _FYoungSection
     struct _FYoungSection * Next;
     uint_t Used;
     uint_t Scan;
+#ifdef FOMENT_32BIT
+    uint_t Pad;
+#endif // FOMENT_32BIT
 } FYoungSection;
 
 #define INDEX_PARAMETERS 3
@@ -979,111 +1107,6 @@ typedef struct _FThreadState
     FObject Parameters;
     FObject IndexParameters[INDEX_PARAMETERS];
 } FThreadState;
-
-// ---- Roots ----
-
-typedef struct
-{
-    FObject Bedrock;
-    FObject BedrockLibrary;
-    FObject Features;
-    FObject CommandLine;
-    FObject LibraryPath;
-    FObject EnvironmentVariables;
-
-    FObject SymbolHashtable;
-
-    FObject HashtableRecordType;
-    FObject ExceptionRecordType;
-
-    FObject Assertion;
-    FObject Restriction;
-    FObject Lexical;
-    FObject Syntax;
-    FObject Error;
-
-    FObject RatnumRecordType;
-    FObject ComplexRecordType;
-
-    FObject LoadedLibraries;
-
-    FObject SyntacticEnvRecordType;
-    FObject BindingRecordType;
-    FObject IdentifierRecordType;
-    FObject LambdaRecordType;
-    FObject CaseLambdaRecordType;
-    FObject InlineVariableRecordType;
-    FObject ReferenceRecordType;
-
-    FObject ElseReference;
-    FObject ArrowReference;
-    FObject LibraryReference;
-    FObject AndReference;
-    FObject OrReference;
-    FObject NotReference;
-    FObject QuasiquoteReference;
-    FObject UnquoteReference;
-    FObject UnquoteSplicingReference;
-    FObject ConsReference;
-    FObject AppendReference;
-    FObject ListToVectorReference;
-    FObject EllipsisReference;
-    FObject UnderscoreReference;
-
-    FObject TagSymbol;
-    FObject InteractionEnv;
-
-    FObject StandardInput;
-    FObject StandardOutput;
-    FObject StandardError;
-    FObject QuoteSymbol;
-    FObject QuasiquoteSymbol;
-    FObject UnquoteSymbol;
-    FObject UnquoteSplicingSymbol;
-
-    FObject SyntaxRulesRecordType;
-    FObject PatternVariableRecordType;
-    FObject PatternRepeatRecordType;
-    FObject TemplateRepeatRecordType;
-    FObject SyntaxRuleRecordType;
-
-    FObject EnvironmentRecordType;
-    FObject GlobalRecordType;
-    FObject LibraryRecordType;
-    FObject NoValuePrimitiveObject;
-    FObject LibraryStartupList;
-
-    FObject WrongNumberOfArguments;
-    FObject NotCallable;
-    FObject UnexpectedNumberOfValues;
-    FObject UndefinedMessage;
-    FObject ExecuteThunk;
-    FObject RaiseHandler;
-    FObject InteractiveThunk;
-    FObject ExceptionHandlerSymbol;
-
-    FObject DynamicRecordType;
-    FObject ContinuationRecordType;
-
-    FObject CleanupTConc;
-
-    FObject DefineLibrarySymbol;
-    FObject ImportSymbol;
-    FObject IncludeLibraryDeclarationsSymbol;
-    FObject CondExpandSymbol;
-    FObject ExportSymbol;
-    FObject BeginSymbol;
-    FObject IncludeSymbol;
-    FObject IncludeCISymbol;
-    FObject OnlySymbol;
-    FObject ExceptSymbol;
-    FObject PrefixSymbol;
-    FObject RenameSymbol;
-
-    FObject DatumReferenceRecordType;
-} FRoots;
-
-extern FRoots R;
 
 // ---- Argument Checking ----
 
@@ -1193,7 +1216,25 @@ inline void ByteArgCheck(const char * who, FObject obj)
 inline void FixnumArgCheck(const char * who, FObject obj)
 {
     if (FixnumP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a fixnum", List(obj));
+        RaiseExceptionC(R.Assertion, who, "expected an integer", List(obj));
+}
+
+inline void IntegerArgCheck(const char * who, FObject obj)
+{
+    if (FixnumP(obj) == 0 && BignumP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected an integer", List(obj));
+}
+
+inline void RealArgCheck(const char * who, FObject obj)
+{
+    if (RealP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a real number", List(obj));
+}
+
+inline void NumberArgCheck(const char * who, FObject obj)
+{
+    if (NumberP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a number", List(obj));
 }
 
 inline void CharacterArgCheck(const char * who, FObject obj)

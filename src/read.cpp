@@ -282,22 +282,12 @@ static FObject ReadExactnessPrefix(FObject port, FFixnum rdx)
         if (ch == 'i' || ch == 'I')
         {
             FObject num = ReadNumber(port, s, 0, rdx, 0);
-            
-            
-            // convert num to inexact
-            
-            
-            return(num);
+            return(ToInexact(num));
         }
         else if (ch == 'e' || ch == 'E')
         {
             FObject num = ReadNumber(port, s, 0, rdx, 0);
-            
-            
-            // convert num to exact
-            
-            
-            return(num);
+            return(ToExact(num));
         }
         else
             RaiseExceptionC(R.Lexical, "read", "expected exactness prefix to follow radix prefix",
@@ -461,22 +451,12 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlht)
     else if (ch =='i' || ch == 'I')
     {
         FObject num = ReadRadixPrefix(port);
-        
-        
-        // convert num to inexact
-        
-        
-        return(num);
+        return(ToInexact(num));
     }
     else if (ch == 'e' || ch == 'E')
     {
         FObject num = ReadRadixPrefix(port);
-        
-        
-        // convert num to exact
-        
-        
-        return(num);
+        return(ToExact(num));
     }
     else if (ch ==  '(')
         return(ListToVector(ReadList(port, pdlht)));
@@ -698,54 +678,46 @@ static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlht)
             case '-':
             case '+':
             {
-/*
--                FCh pch;
--
--                if (PeekCh(port, &pch) == 0 || SignSubsequentP(pch) || DelimiterP(pch))
--                {
--                    FCh s[MAXIMUM_IDENTIFIER];
--                    s[0] = ch;
--                    return(ReadIdentifier(port, s, sizeof(s) / sizeof(FCh), 1));
--                }
--
--                if (pch == '.')
--                {
--                    FCh ch2;
--                    ReadCh(port, &ch2);
--
--                    if (PeekCh(port, &pch) == 0)
--                        RaiseExceptionC(R.Lexical, "read",
--                                "unexpected end-of-file reading identifier or number",
--                                List(port));
--
--                    if (DotSubsequentP(pch))
--                    {
--                        FCh s[MAXIMUM_IDENTIFIER];
--                        s[0] = ch;
--                        s[1] = ch2;
--                        return(ReadIdentifier(port, s, sizeof(s) / sizeof(FCh), 2));
--                    }
--                    else
--                    {
--                        FCh s[MAXIMUM_NUMBER];
--                        s[0] = ch;
--                        s[1] = ch2;
--                        return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 2, 0));
--                    }
--                }
--                else
--                {
--                    FCh s[MAXIMUM_NUMBER];
--                    s[0] = ch;
--                    return(ReadNumber(port, s, sizeof(s) / sizeof(FCh), 1, 0));
--                }
-+                FCh s[MAXIMUM_IDENTIFIER];
-+                s[0] = ch;
-+                return(ReadIdentifier(port, s, 1, 1));
-*/
-                FCh s[MAXIMUM_IDENTIFIER];
-                s[0] = ch;
-                return(ReadIdentifier(port, s, 1, 1));
+                FCh pch;
+
+                if (PeekCh(port, &pch) == 0 || SignSubsequentP(pch) || DelimiterP(pch))
+                {
+                    FCh s[MAXIMUM_IDENTIFIER];
+                    s[0] = ch;
+                    return(ReadIdentifier(port, s, 1, 1));
+                }
+
+                if (pch == '.')
+                {
+                    FCh ch2;
+                    ReadCh(port, &ch2);
+
+                    if (PeekCh(port, &pch) == 0)
+                        RaiseExceptionC(R.Lexical, "read",
+                                "unexpected end-of-file reading identifier or number",
+                                List(port));
+
+                    if (DotSubsequentP(pch))
+                    {
+                        FCh s[MAXIMUM_IDENTIFIER];
+                        s[0] = ch;
+                        s[1] = ch2;
+                        return(ReadIdentifier(port, s, 2, 0));
+                    }
+                    else
+                    {
+                        FCh s[MAXIMUM_NUMBER];
+                        s[0] = ch;
+                        s[1] = ch2;
+                        return(ReadNumber(port, s, 2, 10, 0));
+                    }
+                }
+                else
+                {
+                    FCh s[MAXIMUM_NUMBER];
+                    s[0] = ch;
+                    return(ReadNumber(port, s, 1, 10, 0));
+                }
             }
 
             default:

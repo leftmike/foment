@@ -55,7 +55,7 @@
         close-input-port
         close-output-port
         close-port
-;        complex?
+        complex?
         cond
         cond-expand
         cons
@@ -83,7 +83,7 @@
 ;        exact
 ;        exact-integer-sqrt
         exact-integer?
-;        exact?
+        exact?
         expt
         features
         file-error?
@@ -101,11 +101,11 @@
         include
         include-ci
 ;        inexact
-;        inexact?
+        inexact?
         input-port-open?
         input-port?
         integer->char
-;        integer?
+        integer?
         lambda
 ;        lcm
         length
@@ -142,7 +142,7 @@
         not
         null?
         number->string
-;        number?
+        number?
 ;        numerator
         odd?
         open-input-bytevector
@@ -164,7 +164,7 @@
 ;        quotient
         raise
         raise-continuable
-;        rational?
+        rational?
 ;        rationalize
         read-bytevector
         read-bytevector!
@@ -173,7 +173,7 @@
         read-line
         read-string
         read-u8
-;        real?
+        real?
 ;        remainder
         reverse
 ;        round
@@ -310,10 +310,10 @@
 ;        atan
 ;        cos
 ;        exp
-;        finite?
-;        infinite?
+        finite?
+        infinite?
 ;        log
-;        nan?
+        nan?
 ;        sin
         sqrt
 ;        tan
@@ -1083,7 +1083,7 @@
         close-input-port
         close-output-port
         close-port
-;;        complex?
+        complex?
         cond
         cond-expand
         cons
@@ -1111,7 +1111,7 @@
 ;;        exact
 ;;        exact-integer-sqrt
         exact-integer?
-;;        exact?
+        exact?
         expt
         features
         file-error?
@@ -1129,11 +1129,11 @@
         include
         include-ci
 ;;        inexact
-;;        inexact?
+        inexact?
         input-port-open?
         input-port?
         integer->char
-;;        integer?
+        integer?
         lambda
 ;;        lcm
         length
@@ -1170,7 +1170,7 @@
         not
         null?
         number->string
-;;        number?
+        number?
 ;;        numerator
         odd?
         open-input-bytevector
@@ -1192,7 +1192,7 @@
 ;;        quotient
         raise
         raise-continuable
-;;        rational?
+        rational?
 ;;        rationalize
         read-bytevector
         read-bytevector!
@@ -1201,7 +1201,7 @@
         read-line
         read-string
         read-u8
-;;        real?
+        real?
 ;;        remainder
         reverse
 ;;        round
@@ -1358,10 +1358,10 @@
 ;;        atan
 ;;        cos
 ;;        exp
-;;        finite?
-;;        infinite?
+        finite?
+        infinite?
 ;;        log
-;;        nan?
+        nan?
 ;;        sin
         sqrt
 ;;        tan

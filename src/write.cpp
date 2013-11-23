@@ -10,6 +10,7 @@ Foment
 #ifdef FOMENT_UNIX
 #include <pthread.h>
 #endif // FOMENT_UNIX
+#include <float.h>
 #include "foment.hpp"
 #include "syncthrd.hpp"
 #include "io.hpp"
@@ -274,17 +275,6 @@ static void WriteRecord(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
 {
     if (IdentifierP(obj))
         WriteGeneric(port, AsIdentifier(obj)->Symbol, df, wfn, ctx);
-    else if (EnvironmentP(obj))
-    {
-        FCh s[16];
-        int_t sl = NumberAsString((FFixnum) obj, s, 16);
-
-        WriteStringC(port, "#<(environment: #x");
-        WriteString(port, s, sl);
-        WriteCh(port, ' ');
-        wfn(port, AsEnvironment(obj)->Name, df, (void *) wfn, ctx);
-        WriteStringC(port, ">");
-    }
     else
     {
         FObject rt = AsGenericRecord(obj)->Fields[0];
@@ -326,6 +316,11 @@ static void WriteRecord(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
             WriteGeneric(port, AsException(obj)->Irritants, df, wfn, ctx);
 
             WriteLocation(port, AsException(obj)->Irritants);
+        }
+        else if (EnvironmentP(obj))
+        {
+            WriteCh(port, ' ');
+            wfn(port, AsEnvironment(obj)->Name, df, (void *) wfn, ctx);
         }
         else
         {
@@ -576,6 +571,21 @@ static void WriteIndirectObject(FObject port, FObject obj, int_t df, FWriteFn wf
     }
 }
 
+static int_t NeedImaginaryPlusSignP(FObject n)
+{
+    if (FixnumP(n))
+        return(AsFixnum(n) >= 0);
+    else if (RatnumP(n))
+        return(NeedImaginaryPlusSignP(AsRatnum(n)->Numerator));
+    else if (FlonumP(n))
+        return(_isnan(AsFlonum(n)) == 0 && _finite(AsFlonum(n)) != 0);
+    
+    
+    
+    FAssert(0);
+    return(0);
+}
+
 void WriteGeneric(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx)
 {
     if (FixnumP(obj))
@@ -621,6 +631,41 @@ void WriteGeneric(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx)
     }
     else if (PairP(obj))
         WritePair(port, obj, df, wfn, ctx);
+    else if (RatnumP(obj))
+    {
+        WriteGeneric(port, AsRatnum(obj)->Numerator, df, wfn, ctx);
+        WriteCh(port, '/');
+        WriteGeneric(port, AsRatnum(obj)->Denominator, df, wfn, ctx);
+    }
+    else if (ComplexP(obj))
+    {
+        WriteGeneric(port, AsComplex(obj)->Real, df, wfn, ctx);
+        if (NeedImaginaryPlusSignP(AsComplex(obj)->Imaginary))
+            WriteCh(port, '+');
+        if (FixnumP(AsComplex(obj)->Imaginary) == 0 || AsFixnum(AsComplex(obj)->Imaginary) != 1)
+        {
+            if (FixnumP(AsComplex(obj)->Imaginary) && AsFixnum(AsComplex(obj)->Imaginary) == -1)
+                WriteCh(port, '-');
+            else
+                WriteGeneric(port, AsComplex(obj)->Imaginary, df, wfn, ctx);
+        }
+        WriteCh(port, 'i');
+    }
+    else if (FlonumP(obj))
+    {
+        double d = AsFlonum(obj);
+
+        if (_isnan(d))
+            WriteStringC(port, "+nan.0");
+        else if (_finite(d) == 0)
+            WriteStringC(port, d > 0 ? "+inf.0" : "-inf.0");
+        else
+        {
+            char buf[_CVTBUFSIZE];
+            _gcvt_s(buf, sizeof(buf), d, 15);
+            WriteStringC(port, buf);
+        }
+    }
     else if (IndirectP(obj))
         WriteIndirectObject(port, obj, df, wfn, ctx);
     else if (obj == EmptyListObject)

@@ -18,7 +18,7 @@ Foment
 #include "io.hpp"
 
 typedef void * FRaw;
-#define AsRaw(obj) ((FRaw) (((uint_t) (obj)) & ~0x3))
+#define AsRaw(obj) ((FRaw) (((uint_t) (obj)) & ~0x7))
 
 typedef enum
 {
@@ -28,7 +28,8 @@ typedef enum
     ZeroSectionTag, // Generation Zero
     OneSectionTag, // Generation One
     MatureSectionTag,
-    PairSectionTag,
+    TwoSlotSectionTag,
+    FlonumSectionTag,
     BackRefSectionTag,
     ScanSectionTag,
     StackSectionTag
@@ -43,8 +44,12 @@ static uint_t UsedSections;
 #define SectionOffset(ptr) (((uint_t) (ptr)) & 0x3FFF)
 #define SectionBase(ptr) ((unsigned char *) (((uint_t) (ptr)) & ~0x3FFF))
 
-#define MatureP(obj) (SectionTable[SectionIndex(obj)] == MatureSectionTag)
-#define MaturePairP(obj) (SectionTable[SectionIndex(obj)] == PairSectionTag)
+static inline int_t MatureP(FObject obj)
+{
+    unsigned char st = SectionTable[SectionIndex(obj)];
+
+    return(st == MatureSectionTag || st == TwoSlotSectionTag || st == FlonumSectionTag);
+}
 
 #define MAXIMUM_YOUNG_LENGTH (1024 * 4)
 
@@ -57,25 +62,32 @@ typedef struct _FFreeObject
     struct _FFreeObject * Next;
 } FFreeObject;
 
-static FFreeObject * FreeMature = 0;
-static FPair * FreePairs = 0;
-
-#define PAIRS_PER_SECTION (SECTION_SIZE * 8 / (sizeof(FPair) * 8 + 1))
-#define PAIR_MB_SIZE (PAIRS_PER_SECTION / 8)
-#define PAIR_MB_OFFSET (SECTION_SIZE - PAIR_MB_SIZE)
-
-static inline uint_t PairMarkP(FRaw raw)
+typedef struct
 {
-    uint_t idx = SectionOffset(raw) / sizeof(FPair);
+    FObject One;
+    FObject Two;
+} FTwoSlot;
 
-    return((SectionBase(raw) + PAIR_MB_OFFSET)[idx / 8] & (1 << (idx % 8)));
+static FFreeObject * FreeMature = 0;
+static FTwoSlot * FreeTwoSlots = 0;
+static FTwoSlot * FreeFlonums = 0;
+
+#define TWOSLOTS_PER_SECTION (SECTION_SIZE * 8 / (sizeof(FTwoSlot) * 8 + 1))
+#define TWOSLOT_MB_SIZE (TWOSLOTS_PER_SECTION / 8)
+#define TWOSLOT_MB_OFFSET (SECTION_SIZE - TWOSLOT_MB_SIZE)
+
+static inline uint_t TwoSlotMarkP(FRaw raw)
+{
+    uint_t idx = SectionOffset(raw) / sizeof(FTwoSlot);
+
+    return((SectionBase(raw) + TWOSLOT_MB_OFFSET)[idx / 8] & (1 << (idx % 8)));
 }
 
-static inline void SetPairMark(FRaw raw)
+static inline void SetTwoSlotMark(FRaw raw)
 {
-    uint_t idx = SectionOffset(raw) / sizeof(FPair);
+    uint_t idx = SectionOffset(raw) / sizeof(FTwoSlot);
 
-    (SectionBase(raw) + PAIR_MB_OFFSET)[idx / 8] |= (1 << (idx % 8));
+    (SectionBase(raw) + TWOSLOT_MB_OFFSET)[idx / 8] |= (1 << (idx % 8));
 }
 
 uint_t BytesAllocated = 0;
@@ -93,7 +105,15 @@ static int_t FullGCRequired;
 
 #define GCTagP(obj) ImmediateP(obj, GCTagTag)
 
-#define Forward(obj) (*(((FObject *) (obj)) - 1))
+#define AsForward(obj) ((((FYoungHeader *) (obj)) - 1)->Forward)
+
+typedef struct
+{
+    FObject Forward;
+#ifdef FOMENT_32BIT
+    FObject Pad;
+#endif // FOMENT_32BIT
+} FYoungHeader;
 
 #define MarkP(obj) (*((uint_t *) (obj)) & RESERVED_MARK_BIT)
 #define SetMark(obj) *((uint_t *) (obj)) |= RESERVED_MARK_BIT
@@ -102,12 +122,13 @@ static int_t FullGCRequired;
 static inline int_t AliveP(FObject obj)
 {
     obj = AsRaw(obj);
+    unsigned char st = SectionTable[SectionIndex(obj)];
 
-    if (MatureP(obj))
+    if (st == MatureSectionTag)
         return(MarkP(obj));
-    else if (MaturePairP(obj))
-        return(PairMarkP(obj));
-    return(GCTagP(Forward(obj)) == 0);
+    else if (st == TwoSlotSectionTag || st == FlonumSectionTag)
+        return(TwoSlotMarkP(obj));
+    return(GCTagP(AsForward(obj)) == 0);
 }
 
 typedef struct
@@ -227,131 +248,149 @@ static FYoungSection * AllocateYoung(FYoungSection * nxt, FSectionTag tag)
     return(ns);
 }
 
+#if 0
 #ifdef FOMENT_32BIT
 const static uint_t Align[4] = {0, 3, 2, 1};
 #endif // FOMENT_32BIT
 
 #ifdef FOMENT_64BIT
-const static uint_t Align[8] = {0, 7, 6, 5, 4, 3, 2, 1};
 #endif // FOMENT_64BIT
+#endif // 0
+
+#define OBJECT_ALIGNMENT 8
+const static uint_t Align[8] = {0, 7, 6, 5, 4, 3, 2, 1};
 
 static uint_t ObjectSize(FObject obj, uint_t tag)
 {
+    uint_t len;
+
     switch (tag)
     {
     case PairTag:
+    case RatnumTag:
+    case ComplexTag:
+        FAssert(sizeof(FPair) % OBJECT_ALIGNMENT == 0);
+
         return(sizeof(FPair));
 
     case FlonumTag:
+        FAssert(sizeof(FFlonum) % OBJECT_ALIGNMENT == 0);
+
         return(sizeof(FFlonum));
 
     case BoxTag:
         FAssert(BoxP(obj));
+        FAssert(sizeof(FBox) % OBJECT_ALIGNMENT == 0);
 
         return(sizeof(FBox));
 
     case StringTag:
-    {
         FAssert(StringP(obj));
 
-        int_t len = sizeof(FString) + sizeof(FCh) * StringLength(obj);
-        len += Align[len % sizeof(FObject)];
-        return(len);
-    }
+        len = sizeof(FString) + sizeof(FCh) * StringLength(obj);
+        break;
 
     case VectorTag:
         FAssert(VectorP(obj));
         FAssert(VectorLength(obj) >= 0);
 
-        return(sizeof(FVector) + sizeof(FObject) * (VectorLength(obj) - 1));
+        len = sizeof(FVector) + sizeof(FObject) * (VectorLength(obj) - 1);
+        break;
 
     case BytevectorTag:
-    {
         FAssert(BytevectorP(obj));
 
-        int_t len = sizeof(FBytevector) + sizeof(FByte) * (BytevectorLength(obj) - 1);
-        len += Align[len % sizeof(FObject)];
-        return(len);
-    }
+        len = sizeof(FBytevector) + sizeof(FByte) * (BytevectorLength(obj) - 1);
+        break;
 
     case BinaryPortTag:
         FAssert(BinaryPortP(obj));
 
-        return(sizeof(FBinaryPort));
+        len = sizeof(FBinaryPort);
+        break;
 
     case TextualPortTag:
         FAssert(TextualPortP(obj));
 
-        return(sizeof(FTextualPort));
+        len = sizeof(FTextualPort);
+        break;
 
     case ProcedureTag:
         FAssert(ProcedureP(obj));
 
-        return(sizeof(FProcedure));
+        len = sizeof(FProcedure);
+        break;
 
     case SymbolTag:
         FAssert(SymbolP(obj));
 
-        return(sizeof(FSymbol));
+        len = sizeof(FSymbol);
+        break;
 
     case RecordTypeTag:
         FAssert(RecordTypeP(obj));
 
-        return(sizeof(FRecordType) + sizeof(FObject) * (RecordTypeNumFields(obj) - 1));
+        len = sizeof(FRecordType) + sizeof(FObject) * (RecordTypeNumFields(obj) - 1);
+        break;
 
     case RecordTag:
         FAssert(GenericRecordP(obj));
 
-        return(sizeof(FGenericRecord) + sizeof(FObject) * (RecordNumFields(obj) - 1));
+        len = sizeof(FGenericRecord) + sizeof(FObject) * (RecordNumFields(obj) - 1);
+        break;
 
     case PrimitiveTag:
         FAssert(PrimitiveP(obj));
 
-        return(sizeof(FPrimitive));
+        len = sizeof(FPrimitive);
+        break;
 
     case ThreadTag:
         FAssert(ThreadP(obj));
 
-        return(sizeof(FThread));
+        len = sizeof(FThread);
+        break;
 
     case ExclusiveTag:
         FAssert(ExclusiveP(obj));
 
-        return(sizeof(FExclusive));
+        len = sizeof(FExclusive);
+        break;
 
     case ConditionTag:
         FAssert(ConditionP(obj));
 
-        return(sizeof(FCondition));
+        len = sizeof(FCondition);
+        break;
 
     case BignumTag:
-    {
         FAssert(BignumP(obj));
 
-        int_t len = sizeof(FBignum) + sizeof(FBigDigit) * (BignumLength(obj) - 1);
-        len += Align[len % sizeof(FObject)];
-        return(len);
-    }
+        len = sizeof(FBignum) + sizeof(FBigDigit) * (BignumLength(obj) - 1);
+        break;
 
     case GCFreeTag:
         return(ByteLength(obj));
 
     default:
         FAssert(0);
+
+        return(0);
     }
 
-    return(0);
+    len += Align[len % OBJECT_ALIGNMENT];
+    return(len);
 }
 
 // Allocate a new object in GenerationZero.
 FObject MakeObject(uint_t sz, uint_t tag)
 {
     uint_t len = sz;
-    len += Align[len % sizeof(FObject)];
+    len += Align[len % OBJECT_ALIGNMENT];
 
     FAssert(len >= sz);
-    FAssert(len % sizeof(FObject) == 0);
-    FAssert(len >= sizeof(FObject));
+    FAssert(len % OBJECT_ALIGNMENT == 0);
+    FAssert(len >= OBJECT_ALIGNMENT);
 
     if (len < sizeof(Sizes) / sizeof(uint_t))
         Sizes[len] += 1;
@@ -363,7 +402,7 @@ FObject MakeObject(uint_t sz, uint_t tag)
     BytesAllocated += len;
     ts->ObjectsSinceLast += 1;
 
-    if (ts->ActiveZero == 0 || ts->ActiveZero->Used + len + sizeof(FObject) > SECTION_SIZE)
+    if (ts->ActiveZero == 0 || ts->ActiveZero->Used + len + sizeof(FYoungHeader) > SECTION_SIZE)
     {
         EnterExclusive(&GCExclusive);
 
@@ -390,15 +429,17 @@ FObject MakeObject(uint_t sz, uint_t tag)
         LeaveExclusive(&GCExclusive);
     }
 
-    FObject * pobj = (FObject *) (((char *) ts->ActiveZero) + ts->ActiveZero->Used);
-    ts->ActiveZero->Used += len + sizeof(FObject);
-    FObject obj = (FObject) (pobj + 1);
+    FYoungHeader * yh = (FYoungHeader *) (((char *) ts->ActiveZero) + ts->ActiveZero->Used);
+    ts->ActiveZero->Used += len + sizeof(FYoungHeader);
+    FObject obj = (FObject) (yh + 1);
 
-    Forward(obj) = MakeImmediate(tag, GCTagTag);
+    AsForward(obj) = MakeImmediate(tag, GCTagTag);
 
-    FAssert(AsValue(*pobj) == tag);
-    FAssert(GCTagP(*pobj));
+    FAssert(AsValue(yh->Forward) == tag);
+    FAssert(GCTagP(yh->Forward));
     FAssert(SectionTable[SectionIndex(obj)] == ZeroSectionTag);
+
+    FAssert((((uint_t) (obj)) & 0x7) == 0);
 
     return(obj);
 }
@@ -406,21 +447,21 @@ FObject MakeObject(uint_t sz, uint_t tag)
 // Copy an object from GenerationZero to GenerationOne.
 static FObject CopyObject(uint_t len, uint_t tag)
 {
-    FAssert(len % sizeof(FObject) == 0);
-    FAssert(len >= sizeof(FObject));
+    FAssert(len % OBJECT_ALIGNMENT == 0);
+    FAssert(len >= OBJECT_ALIGNMENT);
     FAssert(len <= MAXIMUM_OBJECT_LENGTH);
 
-    if (GenerationOne->Used + len + sizeof(FObject) > SECTION_SIZE)
+    if (GenerationOne->Used + len + sizeof(FYoungHeader) > SECTION_SIZE)
         GenerationOne = AllocateYoung(GenerationOne, OneSectionTag);
 
-    FObject * pobj = (FObject *) (((char *) GenerationOne) + GenerationOne->Used);
-    GenerationOne->Used += len + sizeof(FObject);
-    FObject obj = (FObject) (pobj + 1);
+    FYoungHeader * yh = (FYoungHeader *) (((char *) GenerationOne) + GenerationOne->Used);
+    GenerationOne->Used += len + sizeof(FYoungHeader);
+    FObject obj = (FObject) (yh + 1);
 
-    Forward(obj) = MakeImmediate(tag, GCTagTag);
+    AsForward(obj) = MakeImmediate(tag, GCTagTag);
 
-    FAssert(AsValue(*pobj) == tag);
-    FAssert(GCTagP(*pobj));
+    FAssert(AsValue(yh->Forward) == tag);
+    FAssert(GCTagP(yh->Forward));
     FAssert(SectionTable[SectionIndex(obj)] == OneSectionTag);
 
     return(obj);
@@ -428,7 +469,7 @@ static FObject CopyObject(uint_t len, uint_t tag)
 
 static FObject MakeMature(uint_t len)
 {
-    FAssert(len % sizeof(FObject) == 0);
+    FAssert(len % OBJECT_ALIGNMENT == 0);
     FAssert(len <= MAXIMUM_OBJECT_LENGTH);
 
     FFreeObject ** pfo = &FreeMature;
@@ -480,11 +521,11 @@ FObject MakeMatureObject(uint_t sz, const char * who)
                 EmptyListObject);
 
     uint_t len = sz;
-    len += Align[len % sizeof(FObject)];
+    len += Align[len % OBJECT_ALIGNMENT];
 
     FAssert(len >= sz);
-    FAssert(len % sizeof(FObject) == 0);
-    FAssert(len >= sizeof(FObject));
+    FAssert(len % OBJECT_ALIGNMENT == 0);
+    FAssert(len >= OBJECT_ALIGNMENT);
 
     EnterExclusive(&GCExclusive);
     FObject obj = MakeMature(len);
@@ -493,6 +534,9 @@ FObject MakeMatureObject(uint_t sz, const char * who)
         RaiseExceptionC(R.Assertion, who, "out of memory", EmptyListObject);
 
     BytesAllocated += len;
+
+    FAssert((((uint_t) (obj)) & 0x7) == 0);
+
     return(obj);
 }
 
@@ -501,22 +545,42 @@ FObject MakePinnedObject(uint_t len, const char * who)
     return(MakeMatureObject(len, who));
 }
 
-static FObject MakeMaturePair()
+static FObject MakeMatureTwoSlot()
 {
-    if (FreePairs == 0)
+    if (FreeTwoSlots == 0)
     {
-        FPair * pr = (FPair *) AllocateSection(1, PairSectionTag);
+        FTwoSlot * ts = (FTwoSlot *) AllocateSection(1, TwoSlotSectionTag);
 
-        for (uint_t idx = 0; idx < PAIR_MB_OFFSET / sizeof(FPair); idx++)
+        for (uint_t idx = 0; idx < TWOSLOT_MB_OFFSET / sizeof(FTwoSlot); idx++)
         {
-            pr->First = FreePairs;
-            FreePairs = pr;
-            pr += 1;
+            ts->One = FreeTwoSlots;
+            FreeTwoSlots = ts;
+            ts += 1;
         }
     }
 
-    FObject obj = (FObject) FreePairs;
-    FreePairs = (FPair *) FreePairs->First;
+    FObject obj = (FObject) FreeTwoSlots;
+    FreeTwoSlots = (FTwoSlot *) FreeTwoSlots->One;
+
+    return(obj);
+}
+
+static FObject MakeMatureFlonum()
+{
+    if (FreeFlonums == 0)
+    {
+        FTwoSlot * ts = (FTwoSlot *) AllocateSection(1, FlonumSectionTag);
+
+        for (uint_t idx = 0; idx < TWOSLOT_MB_OFFSET / sizeof(FTwoSlot); idx++)
+        {
+            ts->One = FreeFlonums;
+            FreeFlonums = ts;
+            ts += 1;
+        }
+    }
+
+    FObject obj = (FObject) FreeFlonums;
+    FreeFlonums = (FTwoSlot *) FreeFlonums->One;
 
     return(obj);
 }
@@ -614,7 +678,7 @@ void ModifyVector(FObject obj, uint_t idx, FObject val)
 
     AsVector(obj)->Vector[idx] = val;
 
-    if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0 && MaturePairP(val) == 0)
+    if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0)
     {
         EnterExclusive(&GCExclusive);
         RecordBackRef(AsVector(obj)->Vector + idx, val);
@@ -629,7 +693,7 @@ void ModifyObject(FObject obj, uint_t off, FObject val)
 
     ((FObject *) obj)[off / sizeof(FObject)] = val;
 
-    if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0 && MaturePairP(val) == 0)
+    if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0)
     {
         EnterExclusive(&GCExclusive);
         RecordBackRef(((FObject *) obj) + (off / sizeof(FObject)), val);
@@ -643,7 +707,7 @@ void SetFirst(FObject obj, FObject val)
 
     AsPair(obj)->First = val;
 
-    if (MaturePairP(obj) && ObjectP(val) && MatureP(val) == 0 && MaturePairP(val) == 0)
+    if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0)
     {
         EnterExclusive(&GCExclusive);
         RecordBackRef(&(AsPair(obj)->First), val);
@@ -657,7 +721,7 @@ void SetRest(FObject obj, FObject val)
 
     AsPair(obj)->Rest = val;
 
-    if (MaturePairP(obj) && ObjectP(val) && MatureP(val) == 0 && MaturePairP(val) == 0)
+    if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0)
     {
         EnterExclusive(&GCExclusive);
         RecordBackRef(&(AsPair(obj)->Rest), val);
@@ -671,7 +735,7 @@ void SetBox(FObject bx, FObject val)
 
     AsBox(bx)->Value = val;
 
-    if (MatureP(bx) && ObjectP(val) && MatureP(val) == 0 && MaturePairP(val) == 0)
+    if (MatureP(bx) && ObjectP(val) && MatureP(val) == 0)
     {
         EnterExclusive(&GCExclusive);
         RecordBackRef(&(AsBox(bx)->Value), val);
@@ -705,27 +769,38 @@ static void ScanObject(FObject * pobj, int_t fcf, int_t mf)
             AddToScan(*pobj);
         }
     }
-    else if (SectionTable[sdx] == PairSectionTag)
+    else if (SectionTable[sdx] == TwoSlotSectionTag)
     {
-        if (fcf && PairMarkP(raw) == 0)
+        if (fcf && TwoSlotMarkP(raw) == 0)
         {
-            SetPairMark(raw);
+            SetTwoSlotMark(raw);
             AddToScan(*pobj);
         }
     }
+    else if (SectionTable[sdx] == FlonumSectionTag)
+    {
+        if (fcf && TwoSlotMarkP(raw) == 0)
+            SetTwoSlotMark(raw);
+    }
     else if (SectionTable[sdx] == ZeroSectionTag)
     {
-        if (GCTagP(Forward(raw)))
+        if (GCTagP(AsForward(raw)))
         {
-            uint_t tag = AsValue(Forward(raw));
+            uint_t tag = AsValue(AsForward(raw));
             uint_t len = ObjectSize(raw, tag);
             FObject nobj = CopyObject(len, tag);
             memcpy(nobj, raw, len);
 
             if (tag == PairTag)
                 nobj = PairObject(nobj);
+            else if (tag == RatnumTag)
+                nobj = RatnumObject(nobj);
+            else if (tag == ComplexTag)
+                nobj = ComplexObject(nobj);
+            else if (tag == FlonumTag)
+                nobj = FlonumObject(nobj);
 
-            Forward(raw) = nobj;
+            AsForward(raw) = nobj;
             *pobj = nobj;
 
             if (mf)
@@ -733,26 +808,31 @@ static void ScanObject(FObject * pobj, int_t fcf, int_t mf)
         }
         else
         {
-            *pobj = Forward(raw);
+            *pobj = AsForward(raw);
 
             if (mf)
-                RecordBackRef(pobj, Forward(raw));
+                RecordBackRef(pobj, AsForward(raw));
         }
     }
     else // if (SectionTable[sdx] == OneSectionTag)
     {
         FAssert(SectionTable[sdx] == OneSectionTag);
 
-        if (GCTagP(Forward(raw)))
+        if (GCTagP(AsForward(raw)))
         {
-            uint_t tag = AsValue(Forward(raw));
+            uint_t tag = AsValue(AsForward(raw));
             uint_t len = ObjectSize(raw, tag);
 
             FObject nobj;
-            if (tag == PairTag)
+            if (tag == PairTag || tag == RatnumTag || tag == ComplexTag)
             {
-                nobj = MakeMaturePair();
-                SetPairMark(nobj);
+                nobj = MakeMatureTwoSlot();
+                SetTwoSlotMark(nobj);
+            }
+            else if (tag == FlonumTag)
+            {
+                nobj = MakeMatureFlonum();
+                SetTwoSlotMark(nobj);
             }
             else
                 nobj = MakeMature(len);
@@ -761,27 +841,35 @@ static void ScanObject(FObject * pobj, int_t fcf, int_t mf)
 
             if (tag == PairTag)
                 nobj = PairObject(nobj);
+            else if (tag == RatnumTag)
+                nobj = RatnumObject(nobj);
+            else if (tag == ComplexTag)
+                nobj = ComplexObject(nobj);
+            else if (tag == FlonumTag)
+                nobj = FlonumObject(nobj);
             else
                 SetMark(nobj);
 
             AddToScan(nobj);
 
-            Forward(raw) = nobj;
+            AsForward(raw) = nobj;
             *pobj = nobj;
         }
         else
-            *pobj = Forward(raw);
+            *pobj = AsForward(raw);
     }
 }
 
 static void CleanScan(int_t fcf);
 static void ScanChildren(FRaw raw, uint_t tag, int_t fcf)
 {
-    int_t mf = MatureP(raw) || MaturePairP(raw);
+    int_t mf = MatureP(raw);
 
     switch (tag)
     {
     case PairTag:
+    case RatnumTag:
+    case ComplexTag:
     {
         FPair * pr = (FPair *) raw;
 
@@ -791,6 +879,9 @@ static void ScanChildren(FRaw raw, uint_t tag, int_t fcf)
             ScanObject(&pr->Rest, fcf, mf);
         break;
     }
+
+    case FlonumTag:
+        break;
 
     case BoxTag:
         if (ObjectP(AsBox(raw)->Value))
@@ -899,7 +990,11 @@ static void CleanScan(int_t fcf)
 
             if (PairP(obj))
                 ScanChildren(AsRaw(obj), PairTag, fcf);
-            else
+            else if (RatnumP(obj))
+                ScanChildren(AsRaw(obj), RatnumTag, fcf);
+            else if (ComplexP(obj))
+                ScanChildren(AsRaw(obj), ComplexTag, fcf);
+            else if (FlonumP(obj) == 0)
             {
                 FAssert(IndirectP(obj));
 
@@ -912,16 +1007,16 @@ static void CleanScan(int_t fcf)
         {
             while (ys->Scan < ys->Used)
             {
-                FObject *pobj = (FObject *) (((char *) ys) + ys->Scan);
+                FYoungHeader * yh = (FYoungHeader *) (((char *) ys) + ys->Scan);
 
-                FAssert(SectionTable[SectionIndex(pobj)] == OneSectionTag);
-                FAssert(GCTagP(*pobj));
+                FAssert(SectionTable[SectionIndex(yh)] == OneSectionTag);
+                FAssert(GCTagP(yh->Forward));
 
-                uint_t tag = AsValue(*pobj);
-                FObject obj = (FObject) (pobj + 1);
+                uint_t tag = AsValue(yh->Forward);
+                FObject obj = (FObject) (yh + 1);
 
                 ScanChildren(obj, tag, fcf);
-                ys->Scan += ObjectSize(obj, tag) + sizeof(FObject);
+                ys->Scan += ObjectSize(obj, tag) + sizeof(FYoungHeader);
             }
 
             ys = ys->Next;
@@ -1024,7 +1119,7 @@ static void CollectGuardians(int_t fcf)
             ScanObject(&obj, fcf, 0);
             ScanObject(&tconc, fcf, 0);
 
-            if (MatureP(obj) || MaturePairP(obj))
+            if (MatureP(obj))
                 MatureGuardians = MakePair(MakePair(obj, tconc), MatureGuardians);
             else
                 YoungGuardians = MakePair(MakePair(obj, tconc), YoungGuardians);
@@ -1134,12 +1229,13 @@ printf("Partial Collection...");
 
                 sdx += cnt;
             }
-            else if (SectionTable[sdx] == PairSectionTag)
+            else if (SectionTable[sdx] == TwoSlotSectionTag
+                    || SectionTable[sdx] == FlonumSectionTag)
             {
-                unsigned char * ps = (unsigned char *) SectionPointer(sdx);
+                unsigned char * tss = (unsigned char *) SectionPointer(sdx);
 
-                for (uint_t idx = 0; idx < PAIR_MB_SIZE; idx++)
-                    (ps + PAIR_MB_OFFSET)[idx] = 0;
+                for (uint_t idx = 0; idx < TWOSLOT_MB_SIZE; idx++)
+                    (tss + TWOSLOT_MB_OFFSET)[idx] = 0;
 
                 sdx += 1;
             }
@@ -1243,7 +1339,8 @@ printf("Partial Collection...");
 
     if (fcf)
     {
-        FreePairs = 0;
+        FreeTwoSlots = 0;
+        FreeFlonums = 0;
         FreeMature = 0;
 
         uint_t sdx = 0;
@@ -1283,23 +1380,34 @@ printf("Partial Collection...");
 
                 sdx += cnt;
             }
-            else if (SectionTable[sdx] == PairSectionTag)
+            else if (SectionTable[sdx] == TwoSlotSectionTag
+                    || SectionTable[sdx] == FlonumSectionTag)
             {
-                unsigned char * ps = (unsigned char *) SectionPointer(sdx);
+                unsigned char * tss = (unsigned char *) SectionPointer(sdx);
 
-                for (uint_t idx = 0; idx < PAIR_MB_OFFSET / (sizeof(FPair) * 8); idx++)
-                    if ((ps + PAIR_MB_OFFSET)[idx] != 0xFF)
+                for (uint_t idx = 0; idx < TWOSLOT_MB_OFFSET / (sizeof(FTwoSlot) * 8); idx++)
+                    if ((tss + TWOSLOT_MB_OFFSET)[idx] != 0xFF)
                     {
-                        FPair * pr = (FPair *) (ps + sizeof(FPair) * idx * 8);
+                        FTwoSlot * ts = (FTwoSlot *) (tss + sizeof(FTwoSlot) * idx * 8);
                         for (uint_t bdx = 0; bdx < 8; bdx++)
                         {
-                            if (PairMarkP(pr) == 0)
+                            if (TwoSlotMarkP(ts) == 0)
                             {
-                                pr->First = FreePairs;
-                                FreePairs = pr;
+                                if (SectionTable[sdx] == TwoSlotSectionTag)
+                                {
+                                    ts->One = FreeTwoSlots;
+                                    FreeTwoSlots = ts;
+                                }
+                                else
+                                {
+                                    FAssert(SectionTable[sdx] == FlonumSectionTag);
+
+                                    ts->One = FreeFlonums;
+                                    FreeFlonums = ts;
+                                }
                             }
 
-                            pr += 1;
+                            ts += 1;
                         }
                     }
 
@@ -1412,7 +1520,7 @@ void InstallGuardian(FObject obj, FObject tconc)
     FAssert(PairP(First(tconc)));
     FAssert(PairP(Rest(tconc)));
 
-    if (MatureP(obj) || MaturePairP(obj))
+    if (MatureP(obj))
         MatureGuardians = MakePair(MakePair(obj, tconc), MatureGuardians);
     else
         YoungGuardians = MakePair(MakePair(obj, tconc), YoungGuardians);
@@ -1427,7 +1535,7 @@ void InstallTracker(FObject obj, FObject ret, FObject tconc)
     FAssert(PairP(First(tconc)));
     FAssert(PairP(Rest(tconc)));
 
-    if (MatureP(obj) == 0 && MaturePairP(obj) == 0)
+    if (MatureP(obj) == 0)
         YoungTrackers = MakePair(MakePair(obj, MakePair(ret, tconc)), YoungTrackers);
 }
 
@@ -1549,7 +1657,11 @@ void SetupCore(FThreadState * ts)
     FAssert(sizeof(FObject) == sizeof(char *));
     FAssert(sizeof(FFixnum) <= sizeof(FImmediate));
     FAssert(sizeof(FCh) <= sizeof(FImmediate));
-    FAssert(sizeof(FPair) == sizeof(FObject) * 2);
+    FAssert(sizeof(FTwoSlot) == sizeof(FObject) * 2);
+    FAssert(sizeof(FPair) == sizeof(FTwoSlot));
+    FAssert(sizeof(FRatnum) == sizeof(FTwoSlot));
+    FAssert(sizeof(FComplex) == sizeof(FTwoSlot));
+    FAssert(sizeof(FYoungHeader) == OBJECT_ALIGNMENT);
 
 #ifdef FOMENT_DEBUG
     uint_t len = MakeLength(MAXIMUM_OBJECT_LENGTH, GCFreeTag);
@@ -1579,8 +1691,8 @@ void SetupCore(FThreadState * ts)
 #endif // FOMENT_DEBUG
 
     FAssert(SECTION_SIZE == 1024 * 16);
-    FAssert(PAIR_MB_OFFSET / (sizeof(FPair) * 8) <= PAIR_MB_SIZE);
-    FAssert(PAIRS_PER_SECTION % 8 == 0);
+    FAssert(TWOSLOT_MB_OFFSET / (sizeof(FTwoSlot) * 8) <= TWOSLOT_MB_SIZE);
+    FAssert(TWOSLOTS_PER_SECTION % 8 == 0);
     FAssert(MAXIMUM_YOUNG_LENGTH <= SECTION_SIZE / 2);
 
 #ifdef FOMENT_WINDOWS
@@ -1764,7 +1876,8 @@ Define("dump-gc", DumpGCPrimitive)(int_t argc, FObject argv[])
         case ZeroSectionTag: printf("Zero\n"); break;
         case OneSectionTag: printf("One\n"); break;
         case MatureSectionTag: printf("Mature\n"); break;
-        case PairSectionTag: printf("Pair\n"); break;
+        case TwoSlotSectionTag: printf("TwoSlot\n"); break;
+        case FlonumSectionTag: printf("Flonum\n"); break;
         case BackRefSectionTag: printf("BackRef\n"); break;
         case ScanSectionTag: printf("Scan\n"); break;
         case StackSectionTag: printf("Stack\n"); break;

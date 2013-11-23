@@ -17,6 +17,7 @@ FObject MakePair(FObject first, FObject rest)
     FObject obj = PairObject(pair);
     FAssert(PairP(obj));
     FAssert(AsPair(obj) == pair);
+
     return(obj);
 }
 
