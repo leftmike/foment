@@ -55,6 +55,11 @@ above
 #include "foment.hpp"
 #include "unicode.hpp"
 
+#ifdef FOMENT_UNIX
+#define _finite finite
+#define _isnan isnan
+#endif // FOMENT_UNIX
+
 static FObject MakeFlonum(double_t dbl)
 {
     FFlonum * flo = (FFlonum *) MakeObject(sizeof(FFlonum), FlonumTag);

@@ -10,11 +10,17 @@ Foment
 #ifdef FOMENT_UNIX
 #include <pthread.h>
 #endif // FOMENT_UNIX
+#include <math.h>
 #include <float.h>
 #include "foment.hpp"
 #include "syncthrd.hpp"
 #include "io.hpp"
 #include "compile.hpp"
+
+#ifdef FOMENT_UNIX
+#define _finite finite
+#define _isnan isnan
+#endif // FOMENT_UNIX
 
 // Write
 
@@ -661,9 +667,11 @@ void WriteGeneric(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx)
             WriteStringC(port, d > 0 ? "+inf.0" : "-inf.0");
         else
         {
+#ifdef FOMENT_WINDOWS
             char buf[_CVTBUFSIZE];
             _gcvt_s(buf, sizeof(buf), d, 15);
             WriteStringC(port, buf);
+#endif // FOMENT_WINDOWS
         }
     }
     else if (IndirectP(obj))

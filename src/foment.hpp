@@ -920,7 +920,10 @@ inline int_t RealP(FObject obj)
 
 #define POSITIVE_INFINITY (DBL_MAX * DBL_MAX)
 #define NEGATIVE_INFINITY -POSITIVE_INFINITY
+
+#ifndef NAN
 #define NAN log((double) -2)
+#endif // NAN
 
 FObject ToInexact(FObject n);
 FObject ToExact(FObject n);
