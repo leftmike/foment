@@ -117,16 +117,17 @@ typedef char FChS;
 
 typedef void * FObject;
 typedef uint32_t FCh;
-typedef int32_t FFixnum;
 
 #ifdef FOMENT_32BIT
 typedef uint32_t FImmediate;
+typedef int32_t FFixnum;
 typedef int32_t int_t;
 typedef uint32_t uint_t;
 #endif // FOMENT_32BIT
 
 #ifdef FOMENT_64BIT
 typedef uint64_t FImmediate;
+typedef int64_t FFixnum;
 typedef int64_t int_t;
 typedef uint64_t uint_t;
 #endif // FOMENT_64BIT
@@ -212,7 +213,7 @@ typedef enum
     ((FObject *) ((((FFixnum) (n)) << 4) | (FixnumTag & 0xF)))
 #define AsFixnum(obj) (((FFixnum) (obj)) >> 4)
 
-#define MAXIMUM_FIXNUM ((((FFixnum) 1) << (sizeof(FFixnum) * 8 - 5)) - 1)
+#define MAXIMUM_FIXNUM ((((FFixnum) 1) << (sizeof(int32_t) * 8 - 5)) - 1)
 #define MINIMUM_FIXNUM (- MAXIMUM_FIXNUM - 1)
 
 // ---- Memory Management ----

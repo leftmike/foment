@@ -184,7 +184,7 @@ static FObject BignumFixnumMultiply(FObject bn, FFixnum fn, FObject rbn)
     {
         int64_t n = AsBignum(bn)->Digits[idx] * fn + carry;
         AsBignum(rbn)->Digits[idx] = (FFixnum) n;
-        carry = n >> (sizeof(FFixnum) * 8);
+        carry = n >> (sizeof(int32_t) * 8);
     }
     
     
