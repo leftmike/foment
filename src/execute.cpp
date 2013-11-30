@@ -162,7 +162,7 @@ void WriteInstruction(FObject port, FObject obj, int_t df)
     FAssert(InstructionP(obj));
 
     FCh s[16];
-    int_t sl = NumberAsString(InstructionArg(obj), s, 10);
+    int_t sl = FixnumAsString(InstructionArg(obj), s, 10);
 
     WriteStringC(port, "#<");
 

@@ -16,10 +16,10 @@ FObject MakeString(FCh * s, uint_t sl)
     if (ns == 0)
     {
         ns = (FString *) MakeMatureObject(sizeof(FString) + sl * sizeof(FCh), "make-string");
-        ns->Length = MakeMatureLength(sl * sizeof(FCh), StringTag);
+        ns->Length = MakeMatureLength(sl, StringTag);
     }
     else
-        ns->Length = MakeLength(sl * sizeof(FCh), StringTag);
+        ns->Length = MakeLength(sl, StringTag);
     ns->String[sl] = 0;
 
     if (s != 0)

@@ -117,16 +117,15 @@ typedef char FChS;
 
 typedef void * FObject;
 typedef uint32_t FCh;
+typedef int32_t FFixnum;
 
 #ifdef FOMENT_32BIT
-typedef int32_t FFixnum;
 typedef uint32_t FImmediate;
 typedef int32_t int_t;
 typedef uint32_t uint_t;
 #endif // FOMENT_32BIT
 
 #ifdef FOMENT_64BIT
-typedef int64_t FFixnum;
 typedef uint64_t FImmediate;
 typedef int64_t int_t;
 typedef uint64_t uint_t;
@@ -149,25 +148,25 @@ typedef enum
     // Direct Types
 
     PairTag = 0x01,          // 0bxxxxx001
-    RatnumTag = 0x02,        // 0bxxxxx010
-    ComplexTag = 0x03,       // 0bxxxxx011
-    FlonumTag = 0x04,        // 0bxxxxx100
-    UnusedTag = 0x05,        // 0bxxxxx101
-    UnusedTag2 = 0x06,       // 0bxxxxx110
+    UnusedTag = 0x02,        // 0bxxxxx010
+    DoNotUse = 0x03,         // 0bxxxxx011
+    RatnumTag = 0x04,        // 0bxxxxx100
+    ComplexTag = 0x05,       // 0bxxxxx101
+    FlonumTag = 0x06,        // 0bxxxxx110
 
     FixnumTag = 0x07,        // 0bxxxx0111
 
-    CharacterTag = 0x0F,     // 0bx0001111
-    MiscellaneousTag = 0x1F, // 0bx0011111
-    SpecialSyntaxTag = 0x2F, // 0bx0101111
-    InstructionTag = 0x3F,   // 0bx0111111
-    ValuesCountTag = 0x4F,   // 0bx1001111
-    UnusedTag3 = 0x5F,       // 0bx1011111
-    UnusedTag4 = 0x6F,       // 0bx1101111
+    CharacterTag = 0x0B,     // 0bx0001011
+    MiscellaneousTag = 0x1B, // 0bx0011011
+    SpecialSyntaxTag = 0x2B, // 0bx0101011
+    InstructionTag = 0x3B,   // 0bx0111011
+    ValuesCountTag = 0x4B,   // 0bx1001011
+    UnusedTag2 = 0x5B,       // 0bx1011011
+    UnusedTag3 = 0x6B,       // 0bx1101011
 
     // Used by garbage collector.
 
-    GCTagTag = 0x7F,         // 0bx1111111
+    GCTagTag = 0x7B         // 0bx1111011
 } FDirectTag;
 
 typedef enum
@@ -199,8 +198,8 @@ typedef enum
     GCFreeTag = 0x1F
 } FIndirectTag;
 
-#define IndirectP(obj) ((((FImmediate) (obj)) & 0x7) == 0x0)
-#define ObjectP(obj) ((((FImmediate) (obj)) & 0x7) != 0x7)
+#define IndirectP(obj) ((((FImmediate) (obj)) & 0x3) == 0x0)
+#define ObjectP(obj) ((((FImmediate) (obj)) & 0x3) != 0x3)
 
 #define ImmediateTag(obj) (((FImmediate) (obj)) & 0x7F)
 #define ImmediateP(obj, it) (ImmediateTag((obj)) == it)
@@ -213,22 +212,25 @@ typedef enum
     ((FObject *) ((((FFixnum) (n)) << 4) | (FixnumTag & 0xF)))
 #define AsFixnum(obj) (((FFixnum) (obj)) >> 4)
 
+#define MAXIMUM_FIXNUM ((((FFixnum) 1) << (sizeof(FFixnum) * 8 - 5)) - 1)
+#define MINIMUM_FIXNUM (- MAXIMUM_FIXNUM - 1)
+
 // ---- Memory Management ----
 
 FObject MakeObject(uint_t sz, uint_t tag);
 FObject MakeMatureObject(uint_t len, const char * who);
 FObject MakePinnedObject(uint_t len, const char * who);
 
-#define RESERVED_BITS 6
-#define RESERVED_TAGMASK 0x1F
-#define RESERVED_MARK_BIT 0x20
+#define RESERVED_BITS 8
+#define RESERVED_TAGMASK 0x7F
+#define RESERVED_MARK_BIT 0x80
 
 #ifdef FOMENT_32BIT
-#define MAXIMUM_OBJECT_LENGTH 0x3FFFFFF
+#define MAXIMUM_OBJECT_LENGTH 0xFFFFFF
 #endif // FOMENT_32BIT
 
 #ifdef FOMENT_64BIT
-#define MAXIMUM_OBJECT_LENGTH 0x3FFFFFFFFFFFFFF
+#define MAXIMUM_OBJECT_LENGTH 0xFFFFFFFFFFFFFF
 #endif // FOMENT_64BIT
 
 #define ByteLength(obj) ((*((uint_t *) (obj))) >> RESERVED_BITS)
@@ -437,18 +439,9 @@ FObject MakeStringC(const char * s);
 FObject MakeStringS(FChS * ss);
 FObject MakeStringS(FChS * ss, uint_t ssl);
 
-inline uint_t StringLength(FObject obj)
-{
-    FAssert(StringP(obj));
-    uint_t bl = ByteLength(obj);
-    FAssert(bl % sizeof(FCh) == 0);
-
-    return(bl / sizeof(FCh));
-}
+#define StringLength(obj) ByteLength(obj)
 
 void StringToC(FObject s, char * b, int_t bl);
-FObject StringToNumber(FCh * s, int_t sl, FFixnum rdx);
-int_t NumberAsString(FFixnum n, FCh * s, FFixnum rdx);
 FObject FoldcaseString(FObject s);
 uint_t ByteLengthHash(char * b, uint_t bl);
 uint_t StringLengthHash(FCh * s, uint_t sl);
@@ -853,34 +846,27 @@ typedef struct
 
 // ---- Bignums ----
 
-#ifdef FOMENT_32BIT
-typedef uint16_t FBigDigit;
-typedef int16_t FBigSign;
-#endif // FOMENT_32BIT
-
-#ifdef FOMENT_64BIT
-typedef uint32_t FBigDigit;
-typedef int32_t FBigSign;
-#endif // FOMENT_64BIT
-
 #define BignumP(obj) (IndirectTag(obj) == BignumTag)
 #define AsBignum(obj) ((FBignum *) (obj))
 
 typedef struct
 {
     uint_t Length;
-    FBigSign Sign;
-    FBigDigit Digits[1];
+    FFixnum Digits[1];
 } FBignum;
+
+#define BIGNUM_FLAG_NEGATIVE 0x80000000
+#define MAXIMUM_BIGNUM_LENGTH 0x7FFFFF
 
 inline uint_t BignumLength(FObject obj)
 {
     FAssert(BignumP(obj));
-    uint_t bl = ByteLength(obj);
-    FAssert(bl % sizeof(FBigDigit));
+    uint_t bl = ByteLength(obj) & MAXIMUM_BIGNUM_LENGTH;
 
-    return((bl / sizeof(FBigDigit)) - 1);
+    return(bl);
 }
+
+#define BignumNegativeP(obj) (AsBignum(obj)->Length & BIGNUM_FLAG_NEGATIVE)
 
 // ---- Ratnums ----
 
@@ -907,6 +893,11 @@ typedef struct
 } FComplex;
 
 // ---- Numbers ----
+
+FObject StringToNumber(FCh * s, int_t sl, FFixnum rdx);
+FObject NumberToString(FObject obj, FFixnum rdx);
+
+int_t FixnumAsString(FFixnum n, FCh * s, FFixnum rdx);
 
 inline int_t NumberP(FObject obj)
 {

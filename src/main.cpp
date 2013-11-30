@@ -72,12 +72,12 @@ static int RunRepl(FObject env)
             int_t sl;
 
             WriteCh(R.StandardOutput, '{');
-            sl = NumberAsString(BytesAllocated, s, 10);
+            sl = FixnumAsString(BytesAllocated, s, 10);
             WriteString(R.StandardOutput, s, sl);
             WriteStringC(R.StandardOutput, "}");
             BytesAllocated = 0;
 
-//            sl = NumberAsString(GetLineColumn(R.StandardInput, 0), s, 10);
+//            sl = FixnumAsString(GetLineColumn(R.StandardInput, 0), s, 10);
 //            WriteString(R.StandardOutput, s, sl);
             WriteStringC(R.StandardOutput, " =] ");
 

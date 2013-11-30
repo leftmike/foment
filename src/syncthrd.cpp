@@ -37,7 +37,7 @@ void WriteThread(FObject port, FObject obj, int_t df)
     WriteStringC(port, "#<thread: ");
 
     FCh s[16];
-    int_t sl = NumberAsString((FFixnum) AsThread(obj)->Handle, s, 16);
+    int_t sl = FixnumAsString((FFixnum) AsThread(obj)->Handle, s, 16);
     WriteString(port, s, sl);
     WriteCh(port, '>');
 }
@@ -73,7 +73,7 @@ void WriteExclusive(FObject port, FObject obj, int_t df)
     WriteStringC(port, "#<exclusive: ");
 
     FCh s[16];
-    int_t sl = NumberAsString((FFixnum) &AsExclusive(obj)->Exclusive, s, 16);
+    int_t sl = FixnumAsString((FFixnum) &AsExclusive(obj)->Exclusive, s, 16);
     WriteString(port, s, sl);
     WriteCh(port, '>');
 }
@@ -96,7 +96,7 @@ void WriteCondition(FObject port, FObject obj, int_t df)
     WriteStringC(port, "#<condition: ");
 
     FCh s[16];
-    int_t sl = NumberAsString((FFixnum) &AsCondition(obj)->Condition, s, 16);
+    int_t sl = FixnumAsString((FFixnum) &AsCondition(obj)->Condition, s, 16);
     WriteString(port, s, sl);
     WriteCh(port, '>');
 }

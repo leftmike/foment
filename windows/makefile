@@ -93,15 +93,16 @@ debug\base.cpp: debug\txt2cpp.exe ..\src\base.scm makefile
 debug\foment.exe: debug\foment.obj debug\gc.obj debug\syncthrd.obj debug\compile.obj debug\io.obj\
         debug\synrules.obj debug\synpass.obj debug\midpass.obj debug\genpass.obj\
         debug\pairs.obj debug\unicode.obj debug\chars.obj debug\strings.obj debug\vectors.obj\
-        debug\library.obj debug\execute.obj debug\numbers.obj debug\write.obj debug\read.obj\
-        debug\main.obj debug\base.obj
+        debug\library.obj debug\execute.obj debug\numbers.obj debug\mini-gmp.obj debug\write.obj\
+        debug\read.obj debug\main.obj debug\base.obj
     link /nologo /subsystem:console /out:debug\foment.exe /debug /pdb:debug\foment.pdb $**
 
 release\foment.exe: release\foment.obj release\gc.obj release\syncthrd.obj release\compile.obj\
         release\io.obj release\synrules.obj release\synpass.obj release\midpass.obj\
         release\genpass.obj release\pairs.obj release\unicode.obj release\chars.obj\
         release\strings.obj release\vectors.obj release\library.obj release\execute.obj\
-        release\numbers.obj release\write.obj release\read.obj release\main.obj release\base.obj
+        release\numbers.obj release\mini-gmp.obj release\write.obj release\read.obj\
+        release\main.obj release\base.obj
     link /nologo /subsystem:console /out:release\foment.exe $**
 
 debug\txt2cpp.exe: debug\txt2cpp.obj
@@ -123,7 +124,8 @@ debug\strings.obj: ..\src\strings.cpp ..\src\foment.hpp ..\src\unicode.hpp
 debug\vectors.obj: ..\src\vectors.cpp ..\src\foment.hpp ..\src\unicode.hpp
 debug\library.obj: ..\src\library.cpp ..\src\foment.hpp ..\src\compile.hpp
 debug\execute.obj: ..\src\execute.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\syncthrd.hpp
-debug\numbers.obj: ..\src\numbers.cpp ..\src\foment.hpp ..\src\unicode.hpp
+debug\numbers.obj: ..\src\numbers.cpp ..\src\foment.hpp ..\src\unicode.hpp ..\src\mini-gmp.h
+debug\mini-gmp.obj: ..\src\mini-gmp.c ..\src\mini-gmp.h
 debug\io.obj: ..\src\io.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp ..\src\unicode.hpp
 debug\write.obj: ..\src\write.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
     ..\src\compile.hpp
@@ -147,7 +149,8 @@ release\strings.obj: ..\src\strings.cpp ..\src\foment.hpp ..\src\unicode.hpp
 release\vectors.obj: ..\src\vectors.cpp ..\src\foment.hpp ..\src\unicode.hpp
 release\library.obj: ..\src\library.cpp ..\src\foment.hpp ..\src\compile.hpp
 release\execute.obj: ..\src\execute.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\syncthrd.hpp
-release\numbers.obj: ..\src\numbers.cpp ..\src\foment.hpp ..\src\unicode.hpp
+release\numbers.obj: ..\src\numbers.cpp ..\src\foment.hpp ..\src\unicode.hpp ..\src\mini-gmp.h
+release\mini-gmp.obj: ..\src\mini-gmp.c ..\src\mini-gmp.h
 release\io.obj: ..\src\io.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
     ..\src\unicode.hpp
 release\write.obj: ..\src\write.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\

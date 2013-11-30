@@ -117,7 +117,7 @@ void WriteSharedObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void *
 
                 WriteCh(port, '#');
                 FCh s[8];
-                int_t sl = NumberAsString(ToWriteSharedCtx(ctx)->Label, s, 10);
+                int_t sl = FixnumAsString(ToWriteSharedCtx(ctx)->Label, s, 10);
                 WriteString(port, s, sl);
                 WriteCh(port, '=');
             }
@@ -157,7 +157,7 @@ void WriteSharedObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void *
 
             WriteCh(port, '#');
             FCh s[8];
-            int_t sl = NumberAsString(AsFixnum(val), s, 10);
+            int_t sl = FixnumAsString(AsFixnum(val), s, 10);
             WriteString(port, s, sl);
             WriteCh(port, '#');
         }
@@ -270,7 +270,7 @@ static void WriteLocation(FObject port, FObject obj)
             && AsFixnum(AsIdentifier(obj)->LineNumber) > 0)
     {
         FCh s[16];
-        int_t sl = NumberAsString(AsFixnum(AsIdentifier(obj)->LineNumber), s, 10);
+        int_t sl = FixnumAsString(AsFixnum(AsIdentifier(obj)->LineNumber), s, 10);
 
         WriteStringC(port, " line: ");
         WriteString(port, s, sl);
@@ -285,7 +285,7 @@ static void WriteRecord(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
     {
         FObject rt = AsGenericRecord(obj)->Fields[0];
         FCh s[16];
-        int_t sl = NumberAsString((FFixnum) obj, s, 16);
+        int_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
         WriteStringC(port, "#<(");
         wfn(port, RecordTypeName(rt), df, (void *) wfn, ctx);
@@ -351,7 +351,7 @@ static void WriteIndirectObject(FObject port, FObject obj, int_t df, FWriteFn wf
     case BoxTag:
     {
         FCh s[16];
-        int_t sl = NumberAsString((FFixnum) obj, s, 16);
+        int_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
         WriteStringC(port, "#<(box: #x");
         WriteString(port, s, sl);
@@ -405,7 +405,7 @@ static void WriteIndirectObject(FObject port, FObject obj, int_t df, FWriteFn wf
             if (idx > 0)
                 WriteCh(port, ' ');
 
-            sl = NumberAsString((FFixnum) AsBytevector(obj)->Vector[idx], s, 10);
+            sl = FixnumAsString((FFixnum) AsBytevector(obj)->Vector[idx], s, 10);
             WriteString(port, s, sl);
         }
 
@@ -417,7 +417,7 @@ static void WriteIndirectObject(FObject port, FObject obj, int_t df, FWriteFn wf
     case TextualPortTag:
     {
         FCh s[16];
-        int_t sl = NumberAsString((FFixnum) obj, s, 16);
+        int_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
         WriteStringC(port, "#<");
         if (TextualPortP(obj))
@@ -451,7 +451,7 @@ static void WriteIndirectObject(FObject port, FObject obj, int_t df, FWriteFn wf
             if (BinaryPortP(obj))
             {
                 WriteStringC(port, " offset: ");
-                sl = NumberAsString(GetOffset(obj), s, 10);
+                sl = FixnumAsString(GetOffset(obj), s, 10);
                 WriteString(port, s, sl);
             }
             else
@@ -459,7 +459,7 @@ static void WriteIndirectObject(FObject port, FObject obj, int_t df, FWriteFn wf
                 FAssert(TextualPortP(obj));
 
                 WriteStringC(port, " line: ");
-                sl = NumberAsString(GetLineColumn(obj, 0), s, 10);
+                sl = FixnumAsString(GetLineColumn(obj, 0), s, 10);
                 WriteString(port, s, sl);
             }
         }
@@ -471,7 +471,7 @@ static void WriteIndirectObject(FObject port, FObject obj, int_t df, FWriteFn wf
     case ProcedureTag:
     {
         FCh s[16];
-        int_t sl = NumberAsString((FFixnum) obj, s, 16);
+        int_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
         WriteStringC(port, "#<procedure: ");
         WriteString(port, s, sl);
@@ -505,7 +505,7 @@ static void WriteIndirectObject(FObject port, FObject obj, int_t df, FWriteFn wf
     case RecordTypeTag:
     {
         FCh s[16];
-        int_t sl = NumberAsString((FFixnum) obj, s, 16);
+        int_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
         WriteStringC(port, "#<record-type: #x");
         WriteString(port, s, sl);
@@ -545,7 +545,7 @@ static void WriteIndirectObject(FObject port, FObject obj, int_t df, FWriteFn wf
         WriteStringC(port, fn);
         WriteCh(port, '@');
         FCh s[16];
-        int_t sl = NumberAsString(AsPrimitive(obj)->LineNumber, s, 10);
+        int_t sl = FixnumAsString(AsPrimitive(obj)->LineNumber, s, 10);
         WriteString(port, s, sl);
         WriteCh(port, '>');
         break;
@@ -566,7 +566,7 @@ static void WriteIndirectObject(FObject port, FObject obj, int_t df, FWriteFn wf
     default:
     {
         FCh s[16];
-        int_t sl = NumberAsString((FFixnum) obj, s, 16);
+        int_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
         WriteStringC(port, "#<unknown: ");
         WriteString(port, s, sl);
@@ -597,7 +597,7 @@ void WriteGeneric(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx)
     if (FixnumP(obj))
     {
         FCh s[16];
-        int_t sl = NumberAsString(AsFixnum(obj), s, 10);
+        int_t sl = FixnumAsString(AsFixnum(obj), s, 10);
         WriteString(port, s, sl);
     }
     else if (CharacterP(obj))
@@ -615,7 +615,7 @@ void WriteGeneric(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx)
             else
             {
                 FCh s[16];
-                int_t sl = NumberAsString(AsCharacter(obj), s, 16);
+                int_t sl = FixnumAsString(AsCharacter(obj), s, 16);
                 WriteStringC(port, "#\\x");
                 WriteString(port, s, sl);
             }
@@ -630,7 +630,7 @@ void WriteGeneric(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx)
         WriteStringC(port, "#<values-count: ");
 
         FCh s[16];
-        int_t sl = NumberAsString(AsValuesCount(obj), s, 10);
+        int_t sl = FixnumAsString(AsValuesCount(obj), s, 10);
         WriteString(port, s, sl);
 
         WriteCh(port, '>');
@@ -674,6 +674,13 @@ void WriteGeneric(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx)
 #endif // FOMENT_WINDOWS
         }
     }
+    else if (BignumP(obj))
+    {
+        WriteStringC(port, "#<bignum>");
+        
+        
+        
+    }
     else if (IndirectP(obj))
         WriteIndirectObject(port, obj, df, wfn, ctx);
     else if (obj == EmptyListObject)
@@ -695,7 +702,7 @@ void WriteGeneric(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx)
     else
     {
         FCh s[16];
-        int_t sl = NumberAsString((FFixnum) obj, s, 16);
+        int_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
         WriteStringC(port, "#<unknown: ");
         WriteString(port, s, sl);

@@ -366,7 +366,7 @@ static uint_t ObjectSize(FObject obj, uint_t tag)
     case BignumTag:
         FAssert(BignumP(obj));
 
-        len = sizeof(FBignum) + sizeof(FBigDigit) * (BignumLength(obj) - 1);
+        len = sizeof(FBignum) + sizeof(FFixnum) * (BignumLength(obj) - 1);
         break;
 
     case GCFreeTag:
