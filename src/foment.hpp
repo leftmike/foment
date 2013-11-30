@@ -82,7 +82,7 @@ Missing:
 
 #include <stdint.h>
 
-typedef double double_t;
+typedef double double64_t;
 
 #ifdef FOMENT_WINDOWS
 typedef wchar_t FCh16;
@@ -842,7 +842,7 @@ extern FRoots R;
 
 typedef struct
 {
-    double_t Double;
+    double64_t Double;
 } FFlonum;
 
 // ---- Bignums ----

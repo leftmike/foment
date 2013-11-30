@@ -49,7 +49,7 @@ n: integer
 #define _isnan isnan
 #endif // FOMENT_UNIX
 
-static FObject MakeFlonum(double_t dbl)
+static FObject MakeFlonum(double64_t dbl)
 {
     FFlonum * flo = (FFlonum *) MakeObject(sizeof(FFlonum), FlonumTag);
     flo->Double = dbl;
@@ -367,11 +367,11 @@ static int_t ParseDecimal10(FCh * s, int_t sl, int_t sdx, FFixnum sgn, FObject w
     FAssert(FixnumP(whl));
     FAssert(s[sdx] == '.' || s[sdx] == 'e' || s[sdx] == 'E');
 
-    double_t d = AsFixnum(whl);
+    double64_t d = AsFixnum(whl);
 
     if (s[sdx] == '.')
     {
-        double_t scl = 0.1;
+        double64_t scl = 0.1;
 
         sdx += 1;
         while (sdx < sl)
@@ -1558,6 +1558,8 @@ void SetupNumbers()
     printf("%s\n", mpz_get_str(0, 10, n));
     
     mpz_clear(n);
+
+    FAssert(sizeof(double64_t) == 8);
 
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
