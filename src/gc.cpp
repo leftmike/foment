@@ -16,6 +16,7 @@ Foment
 #include "foment.hpp"
 #include "syncthrd.hpp"
 #include "io.hpp"
+#include "numbers.hpp"
 
 typedef void * FRaw;
 #define AsRaw(obj) ((FRaw) (((uint_t) (obj)) & ~0x7))
@@ -365,9 +366,9 @@ static uint_t ObjectSize(FObject obj, uint_t tag)
 
     case BignumTag:
         FAssert(BignumP(obj));
+        FAssert(sizeof(FBignum) % OBJECT_ALIGNMENT == 0);
 
-        len = sizeof(FBignum) + sizeof(FFixnum) * (BignumLength(obj) - 1);
-        break;
+        return(sizeof(FBignum));
 
     case GCFreeTag:
         return(ByteLength(obj));

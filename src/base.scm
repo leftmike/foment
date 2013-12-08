@@ -80,7 +80,7 @@
         error-object-message
         error-object?
         even?
-;        exact
+        exact
 ;        exact-integer-sqrt
         exact-integer?
         exact?
@@ -100,7 +100,7 @@
         if
         include
         include-ci
-;        inexact
+        inexact
         inexact?
         input-port-open?
         input-port?
@@ -1108,7 +1108,7 @@
         error-object-message
         error-object?
         even?
-;;        exact
+        exact
 ;;        exact-integer-sqrt
         exact-integer?
         exact?
@@ -1128,7 +1128,7 @@
         if
         include
         include-ci
-;;        inexact
+        inexact
         inexact?
         input-port-open?
         input-port?

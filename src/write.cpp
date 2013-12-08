@@ -10,17 +10,10 @@ Foment
 #ifdef FOMENT_UNIX
 #include <pthread.h>
 #endif // FOMENT_UNIX
-#include <math.h>
-#include <float.h>
 #include "foment.hpp"
 #include "syncthrd.hpp"
 #include "io.hpp"
 #include "compile.hpp"
-
-#ifdef FOMENT_UNIX
-#define _finite finite
-#define _isnan isnan
-#endif // FOMENT_UNIX
 
 // Write
 
@@ -577,29 +570,10 @@ static void WriteIndirectObject(FObject port, FObject obj, int_t df, FWriteFn wf
     }
 }
 
-static int_t NeedImaginaryPlusSignP(FObject n)
-{
-    if (FixnumP(n))
-        return(AsFixnum(n) >= 0);
-    else if (RatnumP(n))
-        return(NeedImaginaryPlusSignP(AsRatnum(n)->Numerator));
-    else if (FlonumP(n))
-        return(_isnan(AsFlonum(n)) == 0 && _finite(AsFlonum(n)) != 0);
-    
-    
-    
-    FAssert(0);
-    return(0);
-}
-
 void WriteGeneric(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx)
 {
-    if (FixnumP(obj))
-    {
-        FCh s[16];
-        int_t sl = FixnumAsString(AsFixnum(obj), s, 10);
-        WriteString(port, s, sl);
-    }
+    if (NumberP(obj))
+        Write(port, NumberToString(obj, 10), 1);
     else if (CharacterP(obj))
     {
         if (AsCharacter(obj) < 128)
@@ -637,50 +611,6 @@ void WriteGeneric(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx)
     }
     else if (PairP(obj))
         WritePair(port, obj, df, wfn, ctx);
-    else if (RatnumP(obj))
-    {
-        WriteGeneric(port, AsRatnum(obj)->Numerator, df, wfn, ctx);
-        WriteCh(port, '/');
-        WriteGeneric(port, AsRatnum(obj)->Denominator, df, wfn, ctx);
-    }
-    else if (ComplexP(obj))
-    {
-        WriteGeneric(port, AsComplex(obj)->Real, df, wfn, ctx);
-        if (NeedImaginaryPlusSignP(AsComplex(obj)->Imaginary))
-            WriteCh(port, '+');
-        if (FixnumP(AsComplex(obj)->Imaginary) == 0 || AsFixnum(AsComplex(obj)->Imaginary) != 1)
-        {
-            if (FixnumP(AsComplex(obj)->Imaginary) && AsFixnum(AsComplex(obj)->Imaginary) == -1)
-                WriteCh(port, '-');
-            else
-                WriteGeneric(port, AsComplex(obj)->Imaginary, df, wfn, ctx);
-        }
-        WriteCh(port, 'i');
-    }
-    else if (FlonumP(obj))
-    {
-        double d = AsFlonum(obj);
-
-        if (_isnan(d))
-            WriteStringC(port, "+nan.0");
-        else if (_finite(d) == 0)
-            WriteStringC(port, d > 0 ? "+inf.0" : "-inf.0");
-        else
-        {
-#ifdef FOMENT_WINDOWS
-            char buf[_CVTBUFSIZE];
-            _gcvt_s(buf, sizeof(buf), d, 15);
-            WriteStringC(port, buf);
-#endif // FOMENT_WINDOWS
-        }
-    }
-    else if (BignumP(obj))
-    {
-        WriteStringC(port, "#<bignum>");
-        
-        
-        
-    }
     else if (IndirectP(obj))
         WriteIndirectObject(port, obj, df, wfn, ctx);
     else if (obj == EmptyListObject)

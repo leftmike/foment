@@ -110,7 +110,7 @@ debug\txt2cpp.exe: debug\txt2cpp.obj
     debug\txt2cpp.obj
 
 debug\foment.obj: ..\src\foment.cpp ..\src\foment.hpp ..\src\unicode.hpp
-debug\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp
+debug\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp ..\src\numbers.hpp
 debug\syncthrd.obj: ..\src\syncthrd.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\syncthrd.hpp
 debug\compile.obj: ..\src\compile.cpp ..\src\foment.hpp ..\src\compile.hpp
 debug\synrules.obj: ..\src\synrules.cpp ..\src\foment.hpp ..\src\compile.hpp
@@ -124,7 +124,7 @@ debug\strings.obj: ..\src\strings.cpp ..\src\foment.hpp ..\src\unicode.hpp
 debug\vectors.obj: ..\src\vectors.cpp ..\src\foment.hpp ..\src\unicode.hpp
 debug\library.obj: ..\src\library.cpp ..\src\foment.hpp ..\src\compile.hpp
 debug\execute.obj: ..\src\execute.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\syncthrd.hpp
-debug\numbers.obj: ..\src\numbers.cpp ..\src\foment.hpp ..\src\unicode.hpp ..\src\mini-gmp.h
+debug\numbers.obj: ..\src\numbers.cpp ..\src\foment.hpp ..\src\unicode.hpp ..\src\numbers.hpp
 debug\mini-gmp.obj: ..\src\mini-gmp.c ..\src\mini-gmp.h
 debug\io.obj: ..\src\io.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp ..\src\unicode.hpp
 debug\write.obj: ..\src\write.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
@@ -135,7 +135,8 @@ debug\main.obj: ..\src\main.cpp ..\src\foment.hpp
 debug\base.obj: debug\base.cpp
 
 release\foment.obj: ..\src\foment.cpp ..\src\foment.hpp ..\src\unicode.hpp
-release\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp
+release\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
+    ..\src\numbers.hpp
 release\syncthrd.obj: ..\src\syncthrd.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\syncthrd.hpp
 release\compile.obj: ..\src\compile.cpp ..\src\foment.hpp ..\src\compile.hpp
 release\synrules.obj: ..\src\synrules.cpp ..\src\foment.hpp ..\src\compile.hpp
@@ -149,7 +150,7 @@ release\strings.obj: ..\src\strings.cpp ..\src\foment.hpp ..\src\unicode.hpp
 release\vectors.obj: ..\src\vectors.cpp ..\src\foment.hpp ..\src\unicode.hpp
 release\library.obj: ..\src\library.cpp ..\src\foment.hpp ..\src\compile.hpp
 release\execute.obj: ..\src\execute.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\syncthrd.hpp
-release\numbers.obj: ..\src\numbers.cpp ..\src\foment.hpp ..\src\unicode.hpp ..\src\mini-gmp.h
+release\numbers.obj: ..\src\numbers.cpp ..\src\foment.hpp ..\src\unicode.hpp ..\src\numbers.hpp
 release\mini-gmp.obj: ..\src\mini-gmp.c ..\src\mini-gmp.h
 release\io.obj: ..\src\io.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
     ..\src\unicode.hpp
@@ -159,6 +160,8 @@ release\read.obj: ..\src\read.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\i
     ..\src\unicode.hpp
 release\main.obj: ..\src\main.cpp ..\src\foment.hpp
 release\base.obj: debug\base.cpp
+
+..\src\numbers.hpp: ..\src\mini-gmp.h
 
 debug\txt2cpp.obj: ..\src\txt2cpp.cpp
 

@@ -7,6 +7,11 @@ Goals:
 -- simple implementation
 
 To Do:
+
+-- aka for additional library names
+-- (chibi test) built in
+-- don't load all libraries at startup
+
 -- ctrl-c handling
 
 -- r7rs.scm and r7rs-tests.scm: commented out tests
@@ -37,6 +42,7 @@ Future:
     (2 4 6 8 10)
 
 Bugs:
+-- letrec: http://trac.sacrideo.us/wg/wiki/LetrecStar
 -- serialize loading libraries
 -- serialize symbol table
 -- char-ready? always returns #t
@@ -144,6 +150,17 @@ void FMustBeFailed(const char * fn, int_t ln, const char * expr);
 #define FMustBe(expr)\
     if (! (expr)) FMustBeFailed(__FILE__, __LINE__, #expr)
 
+/*
+Be very very careful changing direct type tags. The number code assumes that 0x4 will only
+be set for Ratnum, Complex, Flonum, and Fixnum. This allows for a fast test for numbers:
+(obj & 0x4) and for two numbers: ((obj1 & 0x4) + (obj2 & 0x4)) == 0x8.
+
+The low two bits of the direct type tags for numbers are used for a fast dispatch to the
+correct arthmetic operation: Ratnum is 0x0, Complex is 0x1, Flonum is 0x2, and Fixnum is 0x3.
+The operation can be found by: ((obj1 & 0x3) << 2) | (obj2 & 0x3).
+
+See numbers.cpp.
+*/
 typedef enum
 {
     // Direct Types
@@ -848,26 +865,6 @@ typedef struct
 // ---- Bignums ----
 
 #define BignumP(obj) (IndirectTag(obj) == BignumTag)
-#define AsBignum(obj) ((FBignum *) (obj))
-
-typedef struct
-{
-    uint_t Length;
-    FFixnum Digits[1];
-} FBignum;
-
-#define BIGNUM_FLAG_NEGATIVE 0x80000000
-#define MAXIMUM_BIGNUM_LENGTH 0x7FFFFF
-
-inline uint_t BignumLength(FObject obj)
-{
-    FAssert(BignumP(obj));
-    uint_t bl = ByteLength(obj) & MAXIMUM_BIGNUM_LENGTH;
-
-    return(bl);
-}
-
-#define BignumNegativeP(obj) (AsBignum(obj)->Length & BIGNUM_FLAG_NEGATIVE)
 
 // ---- Ratnums ----
 

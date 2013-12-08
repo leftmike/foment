@@ -6,14 +6,6 @@ z: complex
 x: real
 n: integer
 
-00: ratnum
-01: complex
-10: flonum
-11: fixnum
-
-(z1 & 0x3) << 2 | (z2 & 0x3)
-
--- NumberToString
 -- StringToNumber: need another routine for string->number which checks for radix and exactness
     prefixes
 <num> : <complex>
@@ -24,30 +16,165 @@ n: integer
 <radix> : #b | #o | #d | #x
 <exactness> : #i | #e
 
--- maybe have Ratnums and Bigrats
+-- check all FAssert(FixnumP(
+-- check all BIGRAT_* and *_BIGRAT
+-- need guardian for Bignums to free the MPInteger
+-- on unix, if gmp is available, use it instead of mini-gmp
+-- Normalize: checks for Bignums to convert to Fixnums; and num and den of Ratnums; and
+Complex with no imaginary part; and make sure that sign of Ratnum is in num and den is positive
 -- handle case of Ratnum num/0
--- ParseUReal: normalize ratnums
--- MakeBignum
--- check for MAXIMUM_FIXNUM or MINIMUM_FIXNUM and make bignum instead: ToExact
 -- ParseComplex: <real> @ <real>
--- ToExact: convert Ratnum
--- RationalPPrimitive: broken
--- write.cpp: NeedImaginaryPlusSignP updated as more types are added
--- OddPPrimitive and EvenPPrimitive: only work for fixnums
 
 */
 
+#include <malloc.h>
 #include <math.h>
 #include <float.h>
 #include <stdio.h>
 #include "foment.hpp"
 #include "unicode.hpp"
-#include "mini-gmp.h"
+#include "numbers.hpp"
 
-#ifdef FOMENT_UNIX
-#define _finite finite
-#define _isnan isnan
-#endif // FOMENT_UNIX
+#ifdef FOMENT_WINDOWS
+#define finite _finite
+#define isnan _isnan
+#endif // FOMENT_WINDOWS
+
+static FObject MakeBignum()
+{
+    FBignum * bn = (FBignum *) MakeObject(sizeof(FBignum), BignumTag);
+    bn->Reserved = BignumTag;
+    mpz_init(bn->MPInteger);
+
+    return(bn);
+}
+
+static FObject MakeBignum(FFixnum n)
+{
+    FBignum * bn = (FBignum *) MakeObject(sizeof(FBignum), BignumTag);
+    bn->Reserved = BignumTag;
+    mpz_init_set_si(bn->MPInteger, (long) n);
+
+    return(bn);
+}
+
+static FObject MakeBignum(double64_t d)
+{
+    FBignum * bn = (FBignum *) MakeObject(sizeof(FBignum), BignumTag);
+    bn->Reserved = BignumTag;
+    mpz_init_set_d(bn->MPInteger, d);
+
+    return(bn);
+}
+
+inline static double64_t BignumToDouble(FObject bn)
+{
+    FAssert(BignumP(bn));
+
+    return(mpz_get_d(AsBignum(bn)));
+}
+
+inline static int_t BignumCompare(FObject bn1, FObject bn2)
+{
+    FAssert(BignumP(bn1));
+    FAssert(BignumP(bn2));
+
+    return(mpz_cmp(AsBignum(bn1), AsBignum(bn2)));
+}
+
+inline static int_t BignumSign(FObject bn)
+{
+    FAssert(BignumP(bn));
+
+    return(mpz_sgn(AsBignum(bn)));
+}
+
+inline static void BignumAdd(FObject rbn, FObject bn1, FObject bn2)
+{
+    FAssert(BignumP(rbn));
+    FAssert(BignumP(bn1));
+    FAssert(BignumP(bn2));
+
+    mpz_add(AsBignum(rbn), AsBignum(bn1), AsBignum(bn2));
+}
+
+inline static void BignumAddFixnum(FObject rbn, FObject bn, FFixnum n)
+{
+    FAssert(BignumP(rbn));
+    FAssert(BignumP(bn));
+
+    if (n > 0)
+        mpz_add_ui(AsBignum(rbn), AsBignum(bn), (unsigned long) n);
+    else
+        mpz_sub_ui(AsBignum(rbn), AsBignum(bn), (unsigned long) (- n));
+}
+
+inline static void BignumMultipy(FObject rbn, FObject bn1, FObject bn2)
+{
+    FAssert(BignumP(rbn));
+    FAssert(BignumP(bn1));
+    FAssert(BignumP(bn2));
+
+    mpz_mul(AsBignum(rbn), AsBignum(bn1), AsBignum(bn2));
+}
+
+inline static void BignumMultiplyFixnum(FObject rbn, FObject bn, FFixnum n)
+{
+    FAssert(BignumP(rbn));
+    FAssert(BignumP(bn));
+
+    mpz_mul_si(AsBignum(rbn), AsBignum(bn), (long) n);
+}
+
+inline static void BignumSubtract(FObject rbn, FObject bn1, FObject bn2)
+{
+    FAssert(BignumP(rbn));
+    FAssert(BignumP(bn1));
+    FAssert(BignumP(bn2));
+
+    mpz_sub(AsBignum(rbn), AsBignum(bn1), AsBignum(bn2));
+}
+
+inline static void BignumDivide(FObject rbn, FObject n, FObject d)
+{
+    FAssert(BignumP(rbn));
+    FAssert(BignumP(n));
+    FAssert(BignumP(d));
+
+    mpz_tdiv_q(AsBignum(rbn), AsBignum(n), AsBignum(d));
+}
+
+inline static void BignumModulo(FObject rbn, FObject n, FObject d)
+{
+    FAssert(BignumP(rbn));
+    FAssert(BignumP(n));
+    FAssert(BignumP(d));
+
+    mpz_mod(AsBignum(rbn), AsBignum(n), AsBignum(d));
+}
+
+inline static FFixnum BignumModuloFixnum(FObject n, FFixnum d)
+{
+    FAssert(BignumP(n));
+
+    return(mpz_fdiv_ui(AsBignum(n), (unsigned long) d));
+}
+
+inline static int_t BignumEqualFixnum(FObject bn, FFixnum n)
+{
+    FAssert(BignumP(bn));
+
+    return(mpz_cmp_si(AsBignum(bn), (long) n) == 0);
+}
+
+inline static FObject Normalize(FObject num)
+{
+    if (BignumP(num) && mpz_cmp_si(AsBignum(num), (long) MINIMUM_FIXNUM) >= 0
+            && mpz_cmp_si(AsBignum(num), (long) MAXIMUM_FIXNUM) <= 0)
+        return(MakeFixnum(mpz_get_si(AsBignum(num))));
+
+    return(num);
+}
 
 static FObject MakeFlonum(double64_t dbl)
 {
@@ -56,7 +183,7 @@ static FObject MakeFlonum(double64_t dbl)
 
     FObject obj = FlonumObject(flo);
     FAssert(FlonumP(obj));
-    FAssert(AsFlonum(obj) == dbl);
+    FAssert(isnan(dbl) || AsFlonum(obj) == dbl);
 
     return(obj);
 }
@@ -66,30 +193,61 @@ static FObject MakeFlonum(double64_t dbl)
 
 static FObject MakeRatnum(FObject nmr, FObject dnm)
 {
-    FAssert(FixnumP(nmr));
-    FAssert(FixnumP(dnm));
+    FAssert(FixnumP(nmr) || BignumP(nmr));
+    FAssert(FixnumP(dnm) || BignumP(dnm));
     FAssert(AsFixnum(dnm) != 0);
 
-    if (AsFixnum(nmr) == 0)
+    if (FixnumP(nmr) && AsFixnum(nmr) == 0)
         return(nmr);
 
-    FFixnum n = AsFixnum(nmr);
-    FFixnum d = AsFixnum(dnm);
-    while (d != 0)
+    if (FixnumP(nmr) && FixnumP(dnm))
     {
-        FFixnum t = n % d;
-        n = d;
-        d = t;
-    }
-    nmr = MakeFixnum(AsFixnum(nmr) / n);
-    dnm = MakeFixnum(AsFixnum(dnm) / n);
+        FFixnum n = AsFixnum(nmr);
+        FFixnum d = AsFixnum(dnm);
 
-    if (AsFixnum(dnm) == 1)
-        return(nmr);
+        while (d != 0)
+        {
+            FFixnum t = n % d;
+            n = d;
+            d = t;
+        }
+
+        nmr = MakeFixnum(AsFixnum(nmr) / n);
+        dnm = MakeFixnum(AsFixnum(dnm) / n);
+
+        if (AsFixnum(dnm) == 1)
+            return(nmr);
+    }
+    else
+    {
+        if (FixnumP(nmr))
+            nmr = MakeBignum(AsFixnum(nmr));
+        if (FixnumP(dnm))
+            dnm = MakeBignum(AsFixnum(dnm));
+
+        FObject n = nmr;
+        FObject d = dnm;
+
+        while (BignumEqualFixnum(d, 0) == 0)
+        {
+            FObject t = MakeBignum();
+            BignumModulo(t, n, d);
+            n = d;
+            d = t;
+        }
+
+        FAssert(n != dnm);
+
+        BignumDivide(nmr, nmr, n);
+        BignumDivide(dnm, dnm, n);
+
+        if (BignumEqualFixnum(dnm, 1))
+            return(Normalize(nmr));
+    }
 
     FRatnum * rat = (FRatnum *) MakeObject(sizeof(FRatnum), RatnumTag);
-    rat->Numerator = nmr;
-    rat->Denominator = dnm;
+    rat->Numerator = Normalize(nmr);
+    rat->Denominator = Normalize(dnm);
 
     FObject obj = RatnumObject(rat);
     FAssert(RatnumP(obj));
@@ -132,99 +290,82 @@ static FObject MakeComplex(FObject rl, FObject img)
     return(obj);
 }
 
-static FObject MakeBignum(FFixnum sgn, uint_t dc)
-{
-    FAssert(dc > 0);
-
-    FBignum * bn = (FBignum *) MakeObject(sizeof(FBignum) + (dc - 1) * sizeof(FFixnum), BignumTag);
-    if (bn == 0)
-    {
-        bn = (FBignum *) MakeMatureObject(sizeof(FBignum) + (dc - 1) * sizeof(FFixnum), "bignum");
-        bn->Length = MakeMatureLength(dc, BignumTag) | (sgn < 0 ? BIGNUM_FLAG_NEGATIVE : 0);
-    }
-    else
-        bn->Length = MakeLength(dc, BignumTag) | (sgn < 0 ? BIGNUM_FLAG_NEGATIVE : 0);
-
-    return(bn);
-}
-
-static FObject BignumFixnumAdd(FObject bn, FFixnum fn)
-{
-    FAssert(BignumP(bn));
-
-    FFixnum carry = fn;
-
-    for (uint_t idx = 0; idx < BignumLength(bn); idx++)
-    {
-        FFixnum n = AsBignum(bn)->Digits[idx];
-        AsBignum(bn)->Digits[idx] += carry;
-
-        carry = (n > (MAXIMUM_FIXNUM - carry));
-        if (carry == 0)
-            break;
-    }
-    
-    
-    
-    
-    return(bn);
-}
-
-static FObject BignumFixnumMultiply(FObject bn, FFixnum fn, FObject rbn)
-{
-    FAssert(BignumP(bn));
-    FAssert(fn > 0);
-
-    if (BignumP(rbn) == 0 || BignumLength(rbn) < BignumLength(bn))
-        rbn = MakeBignum(BignumNegativeP(bn) ? -1 : 1, BignumLength(bn));
-
-    FFixnum carry = 0;
-
-    for (uint_t idx = 0; idx < BignumLength(bn); idx++)
-    {
-        int64_t n = AsBignum(bn)->Digits[idx] * fn + carry;
-        AsBignum(rbn)->Digits[idx] = (FFixnum) n;
-        carry = n >> (sizeof(int32_t) * 8);
-    }
-    
-    
-    
-    return(rbn);
-}
-
 FObject ToInexact(FObject n)
 {
     if (FixnumP(n))
-        return(MakeFlonum(AsFixnum(n)));
+        return(MakeFlonum((double64_t) AsFixnum(n)));
     else if (RatnumP(n))
     {
-        FAssert(FixnumP(AsNumerator(n)));
-        FAssert(FixnumP(AsDenominator(n)));
+        FAssert(FixnumP(AsNumerator(n)) || BignumP(AsNumerator(n)));
+        FAssert(FixnumP(AsDenominator(n)) || BignumP(AsDenominator(n)));
 
-        double d = AsFixnum(AsNumerator(n));
-        d /= AsFixnum(AsDenominator(n));
+        double64_t d = FixnumP(AsNumerator(n)) ? (double64_t) AsFixnum(AsNumerator(n))
+                : BignumToDouble(AsNumerator(n));
+        d /= FixnumP(AsDenominator(n)) ? AsFixnum(AsDenominator(n))
+                : BignumToDouble(AsDenominator(n));
         return(MakeFlonum(d));
     }
+    else if (ComplexP(n))
+    {
+        if (FlonumP(AsReal(n)) == 0)
+            return(MakeComplex(ToInexact(AsReal(n)), ToInexact(AsImaginary(n))));
+    }
+    else if (BignumP(n))
+        return(MakeFlonum(BignumToDouble(n)));
 
     FAssert(FlonumP(n));
     return(n);
 }
 
-static inline double Truncate(double n)
+static inline double64_t Truncate(double64_t n)
 {
     return(floor(n + 0.5 * ((n < 0 ) ? 1 : 0)));
 }
+
+static inline FFixnum TensDigit(double64_t n)
+{
+    return((FFixnum) (n - (Truncate(n / 10.0) * 10.0)));
+}
+
+static FObject GenericMultiply(FObject z1, FObject z2);
+static FObject GenericSubtract(FObject z1, FObject z2);
+static FObject GenericAdd(FObject z1, FObject z2);
 
 FObject ToExact(FObject n)
 {
     if (FlonumP(n))
     {
-        if (AsFlonum(n) == Truncate(AsFlonum(n)))
-            return(MakeFixnum(AsFlonum(n)));
-        
-        
-        
-        return(n);
+        double64_t d = AsFlonum(n);
+
+        if (isnan(d) || finite(d) == 0)
+            RaiseExceptionC(R.Assertion, "exact", "expected a finite number", List(n));
+
+        if (d == Truncate(d))
+        {
+            if (d > MAXIMUM_FIXNUM || d < MINIMUM_FIXNUM)
+                return(MakeBignum(d));
+
+            return(MakeFixnum(d));
+        }
+
+        FObject whl = MakeBignum(Truncate(d));
+        FObject rbn = MakeBignum((FFixnum) 0);
+        FObject scl = MakeFixnum(1);
+        FFixnum sgn = (d < 0 ? -1 : 1);
+        d = fabs(d - Truncate(d));
+
+        for (int_t idx = 0; d != Truncate(d) && idx < 15; idx++)
+        {
+            BignumMultiplyFixnum(rbn, rbn, 10);
+            d *= 10;
+            BignumAddFixnum(rbn, rbn, TensDigit(d));
+            d = d - Truncate(d);
+            scl = GenericMultiply(scl, MakeFixnum(10));
+        }
+
+        BignumMultiplyFixnum(rbn, rbn, sgn);
+
+        return(GenericAdd(MakeRatnum(rbn, scl), whl));
     }
     else if (ComplexP(n))
     {
@@ -250,8 +391,7 @@ static int_t ParseBignum(FCh * s, int_t sl, int_t sdx, FFixnum rdx, FFixnum sgn,
 {
     FAssert(n > 0);
 
-    FObject bn = MakeBignum(sgn, 1);
-    AsBignum(bn)->Digits[0] = n;
+    FObject bn = MakeBignum(sgn * n);
 
     if (rdx == 16)
     {
@@ -269,8 +409,8 @@ static int_t ParseBignum(FCh * s, int_t sl, int_t sdx, FFixnum rdx, FFixnum sgn,
                     break;
             }
 
-            bn = BignumFixnumMultiply(bn, rdx, bn);
-            bn = BignumFixnumAdd(bn, dv);
+            BignumMultiplyFixnum(bn, bn, rdx);
+            BignumAddFixnum(bn, bn, dv);
         }
     }
     else
@@ -282,8 +422,8 @@ static int_t ParseBignum(FCh * s, int_t sl, int_t sdx, FFixnum rdx, FFixnum sgn,
             int_t dv = DigitValue(s[sdx]);
             if (dv >= 0 && dv < rdx)
             {
-                bn = BignumFixnumMultiply(bn, rdx, bn);
-                bn = BignumFixnumAdd(bn, dv);
+                BignumMultiplyFixnum(bn, bn, rdx);
+                BignumAddFixnum(bn, bn, dv);
             }
             else
                 break;
@@ -367,7 +507,7 @@ static int_t ParseDecimal10(FCh * s, int_t sl, int_t sdx, FFixnum sgn, FObject w
     FAssert(FixnumP(whl));
     FAssert(s[sdx] == '.' || s[sdx] == 'e' || s[sdx] == 'E');
 
-    double64_t d = AsFixnum(whl);
+    double64_t d = (double64_t) AsFixnum(whl);
 
     if (s[sdx] == '.')
     {
@@ -637,100 +777,295 @@ int_t FixnumAsString(FFixnum n, FCh * s, FFixnum rdx)
     return(sl);
 }
 
+static int_t NeedImaginaryPlusSignP(FObject n)
+{
+    if (FixnumP(n))
+        return(AsFixnum(n) >= 0);
+    else if (RatnumP(n))
+        return(NeedImaginaryPlusSignP(AsRatnum(n)->Numerator));
+    else if (FlonumP(n))
+        return(isnan(AsFlonum(n)) == 0 && finite(AsFlonum(n)) != 0 && AsFlonum(n) >= 0.0);
+
+    FAssert(BignumP(n));
+
+    return(mpz_cmp_si(AsBignum(n), 0) >= 0);
+}
+
+static void WriteNumber(FObject port, FObject obj, FFixnum rdx)
+{
+    FAssert(NumberP(obj));
+
+    if (FixnumP(obj))
+    {
+        FCh s[16];
+        int_t sl = FixnumAsString(AsFixnum(obj), s, 10);
+
+        WriteString(port, s, sl);
+    }
+    else if (RatnumP(obj))
+    {
+        WriteNumber(port, AsRatnum(obj)->Numerator, rdx);
+        WriteCh(port, '/');
+        WriteNumber(port, AsRatnum(obj)->Denominator, rdx);
+    }
+    else if (ComplexP(obj))
+    {
+        WriteNumber(port, AsComplex(obj)->Real, rdx);
+        if (NeedImaginaryPlusSignP(AsComplex(obj)->Imaginary))
+            WriteCh(port, '+');
+        if (FixnumP(AsComplex(obj)->Imaginary) == 0 || AsFixnum(AsComplex(obj)->Imaginary) != 1)
+        {
+            if (FixnumP(AsComplex(obj)->Imaginary) && AsFixnum(AsComplex(obj)->Imaginary) == -1)
+                WriteCh(port, '-');
+            else
+                WriteNumber(port, AsComplex(obj)->Imaginary, rdx);
+        }
+        WriteCh(port, 'i');
+    }
+    else if (FlonumP(obj))
+    {
+        double64_t d = AsFlonum(obj);
+
+        if (isnan(d))
+            WriteStringC(port, "+nan.0");
+        else if (finite(d) == 0)
+            WriteStringC(port, d > 0 ? "+inf.0" : "-inf.0");
+        else
+        {
+            char s[64];
+            sprintf_s(s, sizeof(s), "%g", d);
+            WriteStringC(port, s);
+        }
+    }
+    else
+    {
+        FAssert(BignumP(obj));
+
+        char * s = mpz_get_str(0, (int) rdx, AsBignum(obj));
+        WriteStringC(port, s);
+        free(s);
+    }
+}
+
 FObject NumberToString(FObject obj, FFixnum rdx)
 {
-    
-    
-    
-    return(NoValueObject);
+    FAssert(NumberP(obj));
+
+    if (FixnumP(obj))
+    {
+        FCh s[16];
+        int_t sl = FixnumAsString(AsFixnum(obj), s, 10);
+
+        return(MakeString(s, sl));
+    }
+    else if (FlonumP(obj))
+    {
+        double64_t d = AsFlonum(obj);
+
+        if (isnan(d))
+            return(MakeStringC("+nan.0"));
+        else if (finite(d) == 0)
+            return(MakeStringC(d > 0 ? "+inf.0" : "-inf.0"));
+        else
+        {
+            char s[64];
+            sprintf_s(s, sizeof(s), "%g", d);
+            return(MakeStringC(s));
+        }
+    }
+
+    FAssert(RatnumP(obj) || ComplexP(obj) || BignumP(obj));
+
+    FObject port = MakeStringOutputPort();
+    WriteNumber(port, obj, rdx);
+    return(GetOutputString(port));
 }
 
-static int_t GenericEqual(FObject z1, FObject z2)
+/*
+This code assumes a very specific layout of immediate type tags: Fixnums, Ratnums, Complex,
+and Flonum all have immediate type tags with 0x4 set. No other immediate type tags have 0x4 set.
+
+In determining the operation, Bignums and Ratnums end up together. Both have 0x0 as their
+low two bits.
+*/
+static inline int_t BothNumberP(FObject z1, FObject z2)
 {
-    if (FixnumP(z1))
-        return(FixnumP(z2) && AsFixnum(z1) == AsFixnum(z2));
-    else if (FlonumP(z1))
-        return(FlonumP(z2) && AsFlonum(z1) == AsFlonum(z2));
-    else if (RatnumP(z1))
-        return(RatnumP(z2) && GenericEqual(AsNumerator(z1), AsNumerator(z1))
-                && GenericEqual(AsDenominator(z1), AsDenominator(z2)));
-
-    FAssert(ComplexP(z1));
-
-    return(ComplexP(z2) && GenericEqual(AsReal(z1), AsReal(z2))
-            && GenericEqual(AsImaginary(z1), AsImaginary(z2)));
+    return(((((FImmediate) (z1)) & 0x4) + (((FImmediate) (z2)) & 0x4)) == 0x8 ||
+            (NumberP(z1) && NumberP(z2)));
 }
 
-static int_t GenericLess(FObject x1, FObject x2)
-{
-    if (FixnumP(x1))
-        return(FixnumP(x2) && AsFixnum(x1) < AsFixnum(x2));
-    else if (FlonumP(x1))
-        return(FlonumP(x2) && AsFlonum(x1) < AsFlonum(x2));
+#define BinaryNumberOp(z1, z2) ((((FImmediate) (z1)) & 0x3) << 2) | (((FImmediate) (z2)) & 0x3)
 
-    FAssert(RatnumP(x1));
-    
-    
-    
-    FAssert(0);
+static const int_t BOP_BIGRAT_BIGRAT = 0x0;   // 0b0000
+static const int_t BOP_BIGRAT_COMPLEX = 0x1;  // 0b0001
+static const int_t BOP_BIGRAT_FLOAT = 0x2;    // 0b0010
+static const int_t BOP_BIGRAT_FIXED = 0x3;    // 0b0011
+static const int_t BOP_COMPLEX_BIGRAT = 0x4;  // 0b0100
+static const int_t BOP_COMPLEX_COMPLEX = 0x5; // 0b0101
+static const int_t BOP_COMPLEX_FLOAT = 0x6;   // 0b0110
+static const int_t BOP_COMPLEX_FIXED = 0x7;   // 0b0111
+static const int_t BOP_FLOAT_BIGRAT = 0x8;    // 0b1000
+static const int_t BOP_FLOAT_COMPLEX = 0x9;   // 0b1001
+static const int_t BOP_FLOAT_FLOAT = 0xA;     // 0b1010
+static const int_t BOP_FLOAT_FIXED = 0xB;     // 0b1011
+static const int_t BOP_FIXED_BIGRAT = 0xC;    // 0b1100
+static const int_t BOP_FIXED_COMPLEX = 0xD;   // 0b1101
+static const int_t BOP_FIXED_FLOAT = 0xE;     // 0b1110
+static const int_t BOP_FIXED_FIXED = 0xF;     // 0b1111
+
+#define UnaryNumberOp(z) (((FImmediate) (z)) & 0x3)
+
+static const int_t UOP_BIGRAT = 0x0;  // 0b0000
+static const int_t UOP_COMPLEX = 0x1; // 0b0001
+static const int_t UOP_FLOAT = 0x2;   // 0b0010
+static const int_t UOP_FIXED = 0x3;   // 0b0011
+
+static int_t GenericSign(FObject x)
+{
+    switch(UnaryNumberOp(x))
+    {
+        case UOP_BIGRAT:
+            if (RatnumP(x))
+                return(GenericSign(AsNumerator(x)));
+            else
+                return(BignumSign(x));
+
+        case UOP_COMPLEX:
+            break;
+
+        case UOP_FLOAT:
+            return(AsFlonum(x) > 0.0 ? 1 : (AsFlonum(x) < 0.0 ? -1 : 0));
+
+        case UOP_FIXED:
+            return(AsFixnum(x) > 0 ? 1 : (AsFixnum(x) < 0 ? -1 : 0));
+    }
+
+    FAssert(ComplexP(x) == 0);
+
     return(0);
 }
 
-static int_t GenericGreater(FObject x1, FObject x2)
+static int_t GenericCompare(char * who, FObject x1, FObject x2, int_t cf)
 {
-    if (FixnumP(x1))
-        return(FixnumP(x2) && AsFixnum(x1) > AsFixnum(x2));
-    else if (FlonumP(x1))
-        return(FlonumP(x2) && AsFlonum(x1) > AsFlonum(x2));
+    if (BothNumberP(x1, x2))
+    {
+        switch (BinaryNumberOp(x1, x2))
+        {
+        case BOP_BIGRAT_BIGRAT:
+            return(GenericSign(GenericSubtract(x1, x2)));
 
-    FAssert(RatnumP(x1));
-    
-    
-    
+        case BOP_BIGRAT_COMPLEX:
+            break;
+
+        case BOP_BIGRAT_FLOAT:
+        case BOP_BIGRAT_FIXED:
+            return(GenericSign(GenericSubtract(x1, x2)));
+
+        case BOP_COMPLEX_BIGRAT:
+        case BOP_COMPLEX_COMPLEX:
+        case BOP_COMPLEX_FLOAT:
+        case BOP_COMPLEX_FIXED:
+            break;
+
+        case BOP_FLOAT_BIGRAT:
+            return(GenericSign(GenericSubtract(x1, x2)));
+
+        case BOP_FLOAT_COMPLEX:
+            break;
+
+        case BOP_FLOAT_FLOAT:
+        {
+            double64_t n = AsFlonum(x1) - AsFlonum(x2);
+            return(n > 0.0 ? 1 : (n < 0.0 ? -1 : 0));
+        }
+
+        case BOP_FLOAT_FIXED:
+        {
+            double64_t n = AsFlonum(x1) - AsFixnum(x2);
+            return(n > 0.0 ? 1 : (n < 0.0 ? -1 : 0));
+        }
+
+        case BOP_FIXED_BIGRAT:
+            return(GenericSign(GenericSubtract(x1, x2)));
+
+        case BOP_FIXED_COMPLEX:
+            break;
+
+        case BOP_FIXED_FLOAT:
+        {
+            double64_t n = AsFixnum(x1) - AsFlonum(x2);
+            return(n > 0.0 ? 1 : (n < 0.0 ? -1 : 0));
+        }
+
+        case BOP_FIXED_FIXED:
+        {
+            int64_t n = AsFixnum(x1) - AsFixnum(x2);
+            return(n > 0 ? 1 : (n < 0 ? -1 : 0));
+        }
+
+        default:
+            FAssert(0);
+        }
+    }
+
+    if (cf)
+    {
+        NumberArgCheck(who, x1);
+        NumberArgCheck(who, x2);
+
+        FObject r1 = ComplexP(x1) ? AsReal(x1) : x1;
+        FObject i1 = ComplexP(x1) ? AsImaginary(x1) : MakeFixnum(0);
+        FObject r2 = ComplexP(x2) ? AsReal(x2) : x2;
+        FObject i2 = ComplexP(x2) ? AsImaginary(x2) : MakeFixnum(0);
+
+        int_t ret = GenericCompare(who, r1, r2, 0);
+        return(ret == 0 ? GenericCompare(who, i1, i2, 0) : ret);
+    }
+    else
+    {
+        RealArgCheck(who, x1);
+        RealArgCheck(who, x2);
+    }
+
     FAssert(0);
+
     return(0);
 }
-
-#define QuickNumberP(z1, z2) ((((FImmediate) (z1)) & 0x4) + (((FImmediate) (z2)) & 0x4)) == 0x8
-#define QuickOp(z1, z2) ((((FImmediate) (z1)) & 0x3) << 2) | (((FImmediate) (z2)) & 0x3)
-
-static const int_t OP_RAT_RAT = 0x0; // 0b0000
-static const int_t OP_RAT_CPX = 0x1; // 0b0001
-static const int_t OP_RAT_FLO = 0x2; // 0b0010
-static const int_t OP_RAT_FIX = 0x3; // 0b0011
-static const int_t OP_CPX_RAT = 0x4; // 0b0100
-static const int_t OP_CPX_CPX = 0x5; // 0b0101
-static const int_t OP_CPX_FLO = 0x6; // 0b0110
-static const int_t OP_CPX_FIX = 0x7; // 0b0111
-static const int_t OP_FLO_RAT = 0x8; // 0b1000
-static const int_t OP_FLO_CPX = 0x9; // 0b1001
-static const int_t OP_FLO_FLO = 0xA; // 0b1010
-static const int_t OP_FLO_FIX = 0xB; // 0b1011
-static const int_t OP_FIX_RAT = 0xC; // 0b1100
-static const int_t OP_FIX_CPX = 0xD; // 0b1101
-static const int_t OP_FIX_FLO = 0xE; // 0b1110
-static const int_t OP_FIX_FIX = 0xF; // 0b1111
 
 static FObject GenericAdd(FObject z1, FObject z2)
 {
-    if (QuickNumberP(z1, z2))
+    if (BothNumberP(z1, z2))
     {
-        switch (QuickOp(z1, z2))
+        switch (BinaryNumberOp(z1, z2))
         {
-        case OP_RAT_RAT:
-            FAssert(FixnumP(AsNumerator(z1)));
-            FAssert(FixnumP(AsDenominator(z1)));
-            FAssert(FixnumP(AsNumerator(z2)));
-            FAssert(FixnumP(AsDenominator(z2)));
+        case BOP_BIGRAT_BIGRAT:
+            if (RatnumP(z1))
+            {
+                if (RatnumP(z2))
+                    return(MakeRatnum(GenericAdd(
+                            GenericMultiply(AsNumerator(z1), AsDenominator(z2)),
+                            GenericMultiply(AsNumerator(z2), AsDenominator(z1))),
+                            GenericMultiply(AsDenominator(z1), AsDenominator(z2))));
 
-            return(MakeRatnum(MakeFixnum(AsFixnum(AsNumerator(z1)) * AsFixnum(AsDenominator(z2))
-                    + AsFixnum(AsNumerator(z2)) * AsFixnum(AsDenominator(z1))),
-                    MakeFixnum(AsFixnum(AsDenominator(z1)) * AsFixnum(AsDenominator(z2)))));
+                return(MakeRatnum(GenericAdd(
+                        GenericMultiply(AsDenominator(z1), z2), AsNumerator(z1)),
+                        AsDenominator(z1)));
+            }
+            else if (RatnumP(z2))
+                return(MakeRatnum(GenericAdd(
+                        GenericMultiply(AsDenominator(z2), z1), AsNumerator(z2)),
+                        AsDenominator(z2)));
+            else
+            {
+                FObject rbn = MakeBignum();
+                BignumAdd(rbn, z1, z2);
+                return(rbn);
+            }
 
-        case OP_RAT_CPX:
+        case BOP_BIGRAT_COMPLEX:
             return(MakeComplex(GenericAdd(z1, AsReal(z2)), AsImaginary(z2)));
 
-        case OP_RAT_FLO:
+        case BOP_BIGRAT_FLOAT:
         {
             FObject flo = ToInexact(z1);
 
@@ -739,25 +1074,31 @@ static FObject GenericAdd(FObject z1, FObject z2)
             return(MakeFlonum(AsFlonum(flo) + AsFlonum(z2)));
         }
 
-        case OP_RAT_FIX:
-            FAssert(FixnumP(AsNumerator(z1)));
-            FAssert(FixnumP(AsDenominator(z1)));
+        case BOP_BIGRAT_FIXED:
+            if (RatnumP(z1))
+                return(MakeRatnum(GenericAdd(AsNumerator(z1),
+                        GenericMultiply(AsDenominator(z1), z2)), AsDenominator(z1)));
+            else
+            {
+                FAssert(BignumP(z1));
 
-            return(MakeRatnum(MakeFixnum(AsFixnum(AsNumerator(z1)) + AsFixnum(z2)
-                    * AsFixnum(AsDenominator(z1))), AsDenominator(z1)));
+                FObject rbn = MakeBignum();
+                BignumAddFixnum(rbn, z1, AsFixnum(z2));
+                return(rbn);
+            }
 
-        case OP_CPX_RAT:
+        case BOP_COMPLEX_BIGRAT:
             return(MakeComplex(GenericAdd(AsReal(z1), z2), AsImaginary(z1)));
 
-        case OP_CPX_CPX:
+        case BOP_COMPLEX_COMPLEX:
             return(MakeComplex(GenericAdd(AsReal(z1), AsReal(z2)),
                     GenericAdd(AsImaginary(z1), AsImaginary(z2))));
 
-        case OP_CPX_FLO:
-        case OP_CPX_FIX:
+        case BOP_COMPLEX_FLOAT:
+        case BOP_COMPLEX_FIXED:
             return(MakeComplex(GenericAdd(AsReal(z1), z2), AsImaginary(z1)));
 
-        case OP_FLO_RAT:
+        case BOP_FLOAT_BIGRAT:
         {
             FObject flo = ToInexact(z2);
 
@@ -766,31 +1107,36 @@ static FObject GenericAdd(FObject z1, FObject z2)
             return(MakeFlonum(AsFlonum(z1) + AsFlonum(flo)));
         }
 
-        case OP_FLO_CPX:
+        case BOP_FLOAT_COMPLEX:
             return(MakeComplex(GenericAdd(z1, AsReal(z2)), AsImaginary(z2)));
 
-        case OP_FLO_FLO:
+        case BOP_FLOAT_FLOAT:
             return(MakeFlonum(AsFlonum(z1) + AsFlonum(z2)));
 
-        case OP_FLO_FIX:
+        case BOP_FLOAT_FIXED:
             return(MakeFlonum(AsFlonum(z1) + AsFixnum(z2)));
 
-        case OP_FIX_RAT:
-            FAssert(FixnumP(AsNumerator(z2)));
-            FAssert(FixnumP(AsDenominator(z2)));
+        case BOP_FIXED_BIGRAT:
+            if (RatnumP(z2))
+                return(MakeRatnum(GenericAdd(AsNumerator(z2),
+                        GenericMultiply(AsDenominator(z2), z1)), AsDenominator(z2)));
+            else
+            {
+                FAssert(BignumP(z2));
+                FObject rbn = MakeBignum();
+                BignumAddFixnum(rbn, z2, AsFixnum(z1));
+                return(rbn);
+            }
 
-            return(MakeRatnum(MakeFixnum(AsFixnum(z1) * AsFixnum(AsDenominator(z2))
-                    + AsFixnum(AsNumerator(z2))), AsDenominator(z2)));
-
-        case OP_FIX_CPX:
+        case BOP_FIXED_COMPLEX:
             return(MakeComplex(GenericAdd(z1, AsReal(z2)), AsImaginary(z2)));
 
-        case OP_FIX_FLO:
+        case BOP_FIXED_FLOAT:
             return(MakeFlonum(AsFixnum(z1) + AsFlonum(z2)));
 
-        case OP_FIX_FIX:
+        case BOP_FIXED_FIXED:
         {
-            FFixnum n = AsFixnum(z1) + AsFixnum(z2);
+            int64_t n = AsFixnum(z1) + AsFixnum(z2);
             if (n < MINIMUM_FIXNUM || n > MAXIMUM_FIXNUM)
                 printf("Number too big or small\n");
 
@@ -806,30 +1152,39 @@ static FObject GenericAdd(FObject z1, FObject z2)
     NumberArgCheck("+", z2);
 
     FAssert(0);
+
     return(NoValueObject);
 }
 
-static FObject GenericSubtract(FObject z1, FObject z2);
 static FObject GenericMultiply(FObject z1, FObject z2)
 {
-    if (QuickNumberP(z1, z2))
+    if (BothNumberP(z1, z2))
     {
-        switch (QuickOp(z1, z2))
+        switch (BinaryNumberOp(z1, z2))
         {
-        case OP_RAT_RAT:
-            FAssert(FixnumP(AsNumerator(z1)));
-            FAssert(FixnumP(AsDenominator(z1)));
-            FAssert(FixnumP(AsNumerator(z2)));
-            FAssert(FixnumP(AsDenominator(z2)));
+        case BOP_BIGRAT_BIGRAT:
+            if (RatnumP(z1))
+            {
+                if (RatnumP(z2))
+                    return(MakeRatnum(GenericMultiply(AsNumerator(z1), AsNumerator(z2)),
+                            GenericMultiply(AsDenominator(z1), AsDenominator(z2))));
 
-            return(MakeRatnum(MakeFixnum(AsFixnum(AsNumerator(z1)) * AsFixnum(AsNumerator(z2))),
-                    MakeFixnum(AsFixnum(AsDenominator(z1)) * AsFixnum(AsDenominator(z2)))));
+                return(MakeRatnum(GenericMultiply(AsNumerator(z1), z2), AsDenominator(z1)));
+            }
+            else if (RatnumP(z2))
+                return(MakeRatnum(GenericMultiply(AsNumerator(z2), z1), AsDenominator(z2)));
+            else
+            {
+                FObject rbn = MakeBignum();
+                BignumMultipy(rbn, z1, z2);
+                return(rbn);
+            }
 
-        case OP_RAT_CPX:
+        case BOP_BIGRAT_COMPLEX:
             return(MakeComplex(GenericMultiply(z1, AsReal(z2)),
                     GenericMultiply(z1, AsImaginary(z2))));
 
-        case OP_RAT_FLO:
+        case BOP_BIGRAT_FLOAT:
         {
             FObject flo = ToInexact(z1);
 
@@ -838,29 +1193,34 @@ static FObject GenericMultiply(FObject z1, FObject z2)
             return(MakeFlonum(AsFlonum(flo) * AsFlonum(z2)));
         }
 
-        case OP_RAT_FIX:
-            FAssert(FixnumP(AsNumerator(z1)));
-            FAssert(FixnumP(AsDenominator(z1)));
+        case BOP_BIGRAT_FIXED:
+            if (RatnumP(z1))
+                return(MakeRatnum(GenericMultiply(AsNumerator(z1), z2), AsDenominator(z1)));
+            else
+            {
+                FAssert(BignumP(z1));
 
-            return(MakeRatnum(MakeFixnum(AsFixnum(AsNumerator(z1)) * AsFixnum(z2)),
-                    AsDenominator(z1)));
+                FObject rbn = MakeBignum();
+                BignumMultiplyFixnum(rbn, z1, AsFixnum(z2));
+                return(rbn);
+            }
 
-        case OP_CPX_RAT:
+        case BOP_COMPLEX_BIGRAT:
             return(MakeComplex(GenericMultiply(AsReal(z1), z2),
                     GenericMultiply(AsImaginary(z1), z2)));
 
-        case OP_CPX_CPX:
+        case BOP_COMPLEX_COMPLEX:
             return(MakeComplex(GenericSubtract(GenericMultiply(AsReal(z1), AsReal(z2)),
                     GenericMultiply(AsImaginary(z1), AsImaginary(z2))),
                     GenericAdd(GenericMultiply(AsReal(z1), AsImaginary(z2)),
                     GenericMultiply(AsImaginary(z1), AsReal(z2)))));
 
-        case OP_CPX_FLO:
-        case OP_CPX_FIX:
+        case BOP_COMPLEX_FLOAT:
+        case BOP_COMPLEX_FIXED:
             return(MakeComplex(GenericMultiply(AsReal(z1), z2),
                     GenericMultiply(AsImaginary(z1), z2)));
 
-        case OP_FLO_RAT:
+        case BOP_FLOAT_BIGRAT:
         {
             FObject flo = ToInexact(z2);
 
@@ -869,31 +1229,31 @@ static FObject GenericMultiply(FObject z1, FObject z2)
             return(MakeFlonum(AsFlonum(z1) * AsFlonum(flo)));
         }
 
-        case OP_FLO_CPX:
+        case BOP_FLOAT_COMPLEX:
             return(MakeComplex(GenericMultiply(z1, AsReal(z2)),
                     GenericMultiply(z1, AsImaginary(z2))));
 
-        case OP_FLO_FLO:
+        case BOP_FLOAT_FLOAT:
             return(MakeFlonum(AsFlonum(z1) * AsFlonum(z2)));
 
-        case OP_FLO_FIX:
+        case BOP_FLOAT_FIXED:
             return(MakeFlonum(AsFlonum(z1) * AsFixnum(z2)));
 
-        case OP_FIX_RAT:
+        case BOP_FIXED_BIGRAT:
             FAssert(FixnumP(AsNumerator(z2)));
             FAssert(FixnumP(AsDenominator(z2)));
 
             return(MakeRatnum(MakeFixnum(AsFixnum(z1) * AsFixnum(AsNumerator(z2))),
                     AsDenominator(z2)));
 
-        case OP_FIX_CPX:
+        case BOP_FIXED_COMPLEX:
             return(MakeComplex(GenericMultiply(z1, AsReal(z2)),
                     GenericMultiply(z1, AsImaginary(z2))));
 
-        case OP_FIX_FLO:
+        case BOP_FIXED_FLOAT:
             return(MakeFlonum(AsFixnum(z1) * AsFlonum(z2)));
 
-        case OP_FIX_FIX:
+        case BOP_FIXED_FIXED:
         {
             int64_t n = AsFixnum(z1) * AsFixnum(z2);
             if (n < MINIMUM_FIXNUM || n > MAXIMUM_FIXNUM)
@@ -916,24 +1276,38 @@ static FObject GenericMultiply(FObject z1, FObject z2)
 
 static FObject GenericSubtract(FObject z1, FObject z2)
 {
-    if (QuickNumberP(z1, z2))
+    if (BothNumberP(z1, z2))
     {
-        switch (QuickOp(z1, z2))
+        switch (BinaryNumberOp(z1, z2))
         {
-        case OP_RAT_RAT:
-            FAssert(FixnumP(AsNumerator(z1)));
-            FAssert(FixnumP(AsDenominator(z1)));
-            FAssert(FixnumP(AsNumerator(z2)));
-            FAssert(FixnumP(AsDenominator(z2)));
+        case BOP_BIGRAT_BIGRAT:
+            if (RatnumP(z1))
+            {
+                if (RatnumP(z2))
+                    return(MakeRatnum(GenericSubtract(
+                            GenericMultiply(AsNumerator(z1), AsDenominator(z2)),
+                            GenericMultiply(AsNumerator(z2), AsDenominator(z1))),
+                            GenericMultiply(AsDenominator(z1), AsDenominator(z2))));
 
-            return(MakeRatnum(MakeFixnum(AsFixnum(AsNumerator(z1)) * AsFixnum(AsDenominator(z2))
-                    - AsFixnum(AsNumerator(z2)) * AsFixnum(AsDenominator(z1))),
-                    MakeFixnum(AsFixnum(AsDenominator(z1)) * AsFixnum(AsDenominator(z2)))));
+                return(MakeRatnum(GenericSubtract(
+                        GenericMultiply(AsDenominator(z1), z2), AsNumerator(z1)),
+                        AsDenominator(z1)));
+            }
+            else if (RatnumP(z2))
+                return(MakeRatnum(GenericSubtract(
+                        GenericMultiply(z1, AsDenominator(z2)), AsNumerator(z2)),
+                        AsDenominator(z2)));
+            else
+            {
+                FObject rbn = MakeBignum();
+                BignumSubtract(rbn, z1, z2);
+                return(rbn);
+            }
 
-        case OP_RAT_CPX:
+        case BOP_BIGRAT_COMPLEX:
             return(MakeComplex(GenericSubtract(z1, AsReal(z2)), AsImaginary(z2)));
 
-        case OP_RAT_FLO:
+        case BOP_BIGRAT_FLOAT:
         {
             FObject flo = ToInexact(z1);
 
@@ -942,25 +1316,25 @@ static FObject GenericSubtract(FObject z1, FObject z2)
             return(MakeFlonum(AsFlonum(flo) - AsFlonum(z2)));
         }
 
-        case OP_RAT_FIX:
+        case BOP_BIGRAT_FIXED:
             FAssert(FixnumP(AsNumerator(z1)));
             FAssert(FixnumP(AsDenominator(z1)));
 
             return(MakeRatnum(MakeFixnum(AsFixnum(AsNumerator(z1)) - AsFixnum(z2)
                     * AsFixnum(AsDenominator(z1))), AsDenominator(z1)));
 
-        case OP_CPX_RAT:
+        case BOP_COMPLEX_BIGRAT:
             return(MakeComplex(GenericSubtract(AsReal(z1), z2), AsImaginary(z1)));
 
-        case OP_CPX_CPX:
+        case BOP_COMPLEX_COMPLEX:
             return(MakeComplex(GenericSubtract(AsReal(z1), AsReal(z2)),
                     GenericSubtract(AsImaginary(z1), AsImaginary(z2))));
 
-        case OP_CPX_FLO:
-        case OP_CPX_FIX:
+        case BOP_COMPLEX_FLOAT:
+        case BOP_COMPLEX_FIXED:
             return(MakeComplex(GenericSubtract(AsReal(z1), z2), AsImaginary(z1)));
 
-        case OP_FLO_RAT:
+        case BOP_FLOAT_BIGRAT:
         {
             FObject flo = ToInexact(z2);
 
@@ -969,31 +1343,31 @@ static FObject GenericSubtract(FObject z1, FObject z2)
             return(MakeFlonum(AsFlonum(z1) - AsFlonum(flo)));
         }
 
-        case OP_FLO_CPX:
+        case BOP_FLOAT_COMPLEX:
             return(MakeComplex(GenericSubtract(z1, AsReal(z2)), AsImaginary(z2)));
 
-        case OP_FLO_FLO:
+        case BOP_FLOAT_FLOAT:
             return(MakeFlonum(AsFlonum(z1) - AsFlonum(z2)));
 
-        case OP_FLO_FIX:
+        case BOP_FLOAT_FIXED:
             return(MakeFlonum(AsFlonum(z1) - AsFixnum(z2)));
 
-        case OP_FIX_RAT:
+        case BOP_FIXED_BIGRAT:
             FAssert(FixnumP(AsNumerator(z2)));
             FAssert(FixnumP(AsDenominator(z2)));
 
             return(MakeRatnum(MakeFixnum(AsFixnum(z1) * AsFixnum(AsDenominator(z2))
                     - AsFixnum(AsNumerator(z2))), AsDenominator(z2)));
 
-        case OP_FIX_CPX:
+        case BOP_FIXED_COMPLEX:
             return(MakeComplex(GenericSubtract(z1, AsReal(z2)), AsImaginary(z2)));
 
-        case OP_FIX_FLO:
+        case BOP_FIXED_FLOAT:
             return(MakeFlonum(AsFixnum(z1) - AsFlonum(z2)));
 
-        case OP_FIX_FIX:
+        case BOP_FIXED_FIXED:
         {
-            FFixnum n = AsFixnum(z1) - AsFixnum(z2);
+            int64_t n = AsFixnum(z1) - AsFixnum(z2);
             if (n < MINIMUM_FIXNUM || n > MAXIMUM_FIXNUM)
                 printf("Number too big or small\n");
 
@@ -1014,24 +1388,33 @@ static FObject GenericSubtract(FObject z1, FObject z2)
 
 static FObject GenericDivide(FObject z1, FObject z2)
 {
-    if (QuickNumberP(z1, z2))
+    if (BothNumberP(z1, z2))
     {
-        switch (QuickOp(z1, z2))
+        switch (BinaryNumberOp(z1, z2))
         {
-        case OP_RAT_RAT:
-            FAssert(FixnumP(AsNumerator(z1)));
-            FAssert(FixnumP(AsDenominator(z1)));
-            FAssert(FixnumP(AsNumerator(z2)));
-            FAssert(FixnumP(AsDenominator(z2)));
+        case BOP_BIGRAT_BIGRAT:
+            if (RatnumP(z1))
+            {
+                if (RatnumP(z2))
+                    return(MakeRatnum(GenericMultiply(AsNumerator(z1), AsDenominator(z2)),
+                            GenericMultiply(AsDenominator(z1), AsNumerator(z2))));
 
-            return(MakeRatnum(MakeFixnum(AsFixnum(AsNumerator(z1)) * AsFixnum(AsDenominator(z2))),
-                    MakeFixnum(AsFixnum(AsDenominator(z1)) * AsFixnum(AsNumerator(z2)))));
+                return(MakeRatnum(AsNumerator(z1), GenericMultiply(AsDenominator(z1), z2)));
+            }
+            else if (RatnumP(z2))
+                return(MakeRatnum(AsNumerator(z2), GenericMultiply(z1, AsDenominator(z2))));
+            else
+            {
+                FObject rbn = MakeBignum();
+                BignumDivide(rbn, z1, z2);
+                return(rbn);
+            }
 
-        case OP_RAT_CPX:
+        case BOP_BIGRAT_COMPLEX:
             return(MakeComplex(GenericDivide(z1, AsReal(z2)),
                     GenericDivide(z1, AsImaginary(z2))));
 
-        case OP_RAT_FLO:
+        case BOP_BIGRAT_FLOAT:
         {
             FObject flo = ToInexact(z1);
 
@@ -1040,18 +1423,18 @@ static FObject GenericDivide(FObject z1, FObject z2)
             return(MakeFlonum(AsFlonum(flo) / AsFlonum(z2)));
         }
 
-        case OP_RAT_FIX:
+        case BOP_BIGRAT_FIXED:
             FAssert(FixnumP(AsNumerator(z1)));
             FAssert(FixnumP(AsDenominator(z1)));
 
             return(MakeRatnum(AsNumerator(z1),
                     MakeFixnum(AsFixnum(AsDenominator(z1)) * AsFixnum(z2))));
 
-        case OP_CPX_RAT:
+        case BOP_COMPLEX_BIGRAT:
             return(MakeComplex(GenericDivide(AsReal(z1), z2),
                     GenericDivide(AsImaginary(z1), z2)));
 
-        case OP_CPX_CPX:
+        case BOP_COMPLEX_COMPLEX:
         {
             FObject cpx = MakeComplex(AsReal(z2), GenericSubtract(MakeFixnum(0), AsImaginary(z2)));
 
@@ -1060,12 +1443,12 @@ static FObject GenericDivide(FObject z1, FObject z2)
             return(GenericDivide(GenericMultiply(z1, cpx), GenericMultiply(z2, cpx)));
         }
 
-        case OP_CPX_FLO:
-        case OP_CPX_FIX:
+        case BOP_COMPLEX_FLOAT:
+        case BOP_COMPLEX_FIXED:
             return(MakeComplex(GenericDivide(AsReal(z1), z2),
                     GenericDivide(AsImaginary(z1), z2)));
 
-        case OP_FLO_RAT:
+        case BOP_FLOAT_BIGRAT:
         {
             FObject flo = ToInexact(z2);
 
@@ -1074,31 +1457,31 @@ static FObject GenericDivide(FObject z1, FObject z2)
             return(MakeFlonum(AsFlonum(z1) / AsFlonum(flo)));
         }
 
-        case OP_FLO_CPX:
+        case BOP_FLOAT_COMPLEX:
             return(MakeComplex(GenericDivide(z1, AsReal(z2)),
                     GenericDivide(z1, AsImaginary(z2))));
 
-        case OP_FLO_FLO:
+        case BOP_FLOAT_FLOAT:
             return(MakeFlonum(AsFlonum(z1) / AsFlonum(z2)));
 
-        case OP_FLO_FIX:
+        case BOP_FLOAT_FIXED:
             return(MakeFlonum(AsFlonum(z1) / AsFixnum(z2)));
 
-        case OP_FIX_RAT:
+        case BOP_FIXED_BIGRAT:
             FAssert(FixnumP(AsNumerator(z2)));
             FAssert(FixnumP(AsDenominator(z2)));
 
             return(MakeRatnum(AsNumerator(z2),
                     MakeFixnum(AsFixnum(z1) * AsFixnum(AsDenominator(z2)))));
 
-        case OP_FIX_CPX:
+        case BOP_FIXED_COMPLEX:
             return(MakeComplex(GenericDivide(z1, AsReal(z2)),
                     GenericDivide(z1, AsImaginary(z2))));
 
-        case OP_FIX_FLO:
+        case BOP_FIXED_FLOAT:
             return(MakeFlonum(AsFixnum(z1) / AsFlonum(z2)));
 
-        case OP_FIX_FIX:
+        case BOP_FIXED_FIXED:
             return(MakeRatnum(z1, z2));
 
         default:
@@ -1137,10 +1520,12 @@ Define("real?", RealPPrimitive)(int_t argc, FObject argv[])
 Define("rational?", RationalPPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("rational?", argc);
-    
-    
-    
-    return(FalseObject);
+
+    if (FlonumP(argv[0]))
+        return((isnan(AsFlonum(argv[0])) || finite(AsFlonum(argv[0])) == 0) ? FalseObject :
+                TrueObject);
+
+    return(RealP(argv[0]) ? TrueObject : FalseObject);
 }
 
 Define("integer?", IntegerPPrimitive)(int_t argc, FObject argv[])
@@ -1192,21 +1577,21 @@ Define("finite?", FinitePPrimitive)(int_t argc, FObject argv[])
     NumberArgCheck("finite?", argv[0]);
 
     if (FlonumP(argv[0]))
-        return(_finite(AsFlonum(argv[0])) ? TrueObject : FalseObject);
+        return(finite(AsFlonum(argv[0])) ? TrueObject : FalseObject);
     else if (ComplexP(argv[0]) && FlonumP(AsReal(argv[0])))
     {
         FAssert(FlonumP(AsImaginary(argv[0])));
 
-        return((_finite(AsFlonum(AsReal(argv[0])))
-                && _finite(AsFlonum(AsImaginary(argv[0])))) ? TrueObject : FalseObject);
+        return((finite(AsFlonum(AsReal(argv[0])))
+                && finite(AsFlonum(AsImaginary(argv[0])))) ? TrueObject : FalseObject);
     }
 
     return(TrueObject);
 }
 
-static inline int_t InfiniteP(double d)
+static inline int_t InfiniteP(double64_t d)
 {
-    return(_isnan(d) == 0 && _finite(d) == 0);
+    return(isnan(d) == 0 && finite(d) == 0);
 }
 
 Define("infinite?", InfinitePPrimitive)(int_t argc, FObject argv[])
@@ -1233,13 +1618,13 @@ Define("nan?", NanPPrimitive)(int_t argc, FObject argv[])
     NumberArgCheck("nan?", argv[0]);
 
     if (FlonumP(argv[0]))
-        return(_isnan(AsFlonum(argv[0])) ? TrueObject : FalseObject);
+        return(isnan(AsFlonum(argv[0])) ? TrueObject : FalseObject);
     else if (ComplexP(argv[0]) && FlonumP(AsReal(argv[0])))
     {
         FAssert(FlonumP(AsImaginary(argv[0])));
 
-        return((_isnan(AsFlonum(AsReal(argv[0])))
-                || _isnan(AsFlonum(AsImaginary(argv[0])))) ? TrueObject : FalseObject);
+        return((isnan(AsFlonum(AsReal(argv[0])))
+                || isnan(AsFlonum(AsImaginary(argv[0])))) ? TrueObject : FalseObject);
     }
 
     return(FalseObject);
@@ -1248,15 +1633,10 @@ Define("nan?", NanPPrimitive)(int_t argc, FObject argv[])
 Define("=", EqualPrimitive)(int_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("=", argc);
-    NumberArgCheck("=", argv[0]);
 
     for (int_t adx = 1; adx < argc; adx++)
-    {
-        NumberArgCheck("=", argv[adx]);
-
-        if (argv[adx - 1] != argv[adx] && GenericEqual(argv[adx - 1], argv[adx]) == 0)
+        if (GenericCompare("=", argv[adx - 1], argv[adx], 1) != 0)
             return(FalseObject);
-    }
 
     return(TrueObject);
 }
@@ -1264,15 +1644,10 @@ Define("=", EqualPrimitive)(int_t argc, FObject argv[])
 Define("<", LessThanPrimitive)(int_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("<", argc);
-    RealArgCheck("<", argv[0]);
 
     for (int_t adx = 1; adx < argc; adx++)
-    {
-        NumberArgCheck("<", argv[adx]);
-
-        if (GenericLess(argv[adx - 1], argv[adx]) == 0)
+        if (GenericCompare("<", argv[adx - 1], argv[adx], 1) >= 0)
             return(FalseObject);
-    }
 
     return(TrueObject);
 }
@@ -1280,15 +1655,10 @@ Define("<", LessThanPrimitive)(int_t argc, FObject argv[])
 Define(">", GreaterThanPrimitive)(int_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck(">", argc);
-    RealArgCheck(">", argv[0]);
 
     for (int_t adx = 1; adx < argc; adx++)
-    {
-        NumberArgCheck(">", argv[adx]);
-
-        if (GenericGreater(argv[adx - 1], argv[adx]) == 0)
+        if (GenericCompare(">", argv[adx - 1], argv[adx], 1) <= 0)
             return(FalseObject);
-    }
 
     return(TrueObject);
 }
@@ -1296,15 +1666,10 @@ Define(">", GreaterThanPrimitive)(int_t argc, FObject argv[])
 Define("<=", LessThanEqualPrimitive)(int_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("<=", argc);
-    RealArgCheck("<=", argv[0]);
 
     for (int_t adx = 1; adx < argc; adx++)
-    {
-        NumberArgCheck("<=", argv[adx]);
-
-        if (GenericGreater(argv[adx - 1], argv[adx]))
+        if (GenericCompare("<=", argv[adx - 1], argv[adx], 1) > 0)
             return(FalseObject);
-    }
 
     return(TrueObject);
 }
@@ -1312,15 +1677,10 @@ Define("<=", LessThanEqualPrimitive)(int_t argc, FObject argv[])
 Define(">=", GreaterThanEqualPrimitive)(int_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck(">=", argc);
-    RealArgCheck(">=", argv[0]);
 
     for (int_t adx = 1; adx < argc; adx++)
-    {
-        NumberArgCheck(">=", argv[adx]);
-
-        if (GenericLess(argv[adx - 1], argv[adx]))
+        if (GenericCompare(">=", argv[adx - 1], argv[adx], 1) < 0)
             return(FalseObject);
-    }
 
     return(TrueObject);
 }
@@ -1341,17 +1701,15 @@ Define("zero?", ZeroPPrimitive)(int_t argc, FObject argv[])
 Define("positive?", PositivePPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("positive?", argc);
-    RealArgCheck("positive?", argv[0]);
 
-    return(GenericGreater(argv[0], MakeFixnum(0)) ? TrueObject : FalseObject);
+    return(GenericCompare("positive?", argv[0], MakeFixnum(0), 0) > 0 ? TrueObject : FalseObject);
 }
 
 Define("negative?", NegativePPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("negative?", argc);
-    RealArgCheck("negative?", argv[0]);
 
-    return(GenericLess(argv[0], MakeFixnum(0)) ? TrueObject : FalseObject);
+    return(GenericCompare("negative?", argv[0], MakeFixnum(0), 0) < 0 ? TrueObject : FalseObject);
 }
 
 Define("odd?", OddPPrimitive)(int_t argc, FObject argv[])
@@ -1359,7 +1717,12 @@ Define("odd?", OddPPrimitive)(int_t argc, FObject argv[])
     OneArgCheck("odd?", argc);
     IntegerArgCheck("odd?", argv[0]);
 
-    return(AsFixnum(argv[0]) % 2 != 0 ? TrueObject : FalseObject);
+    if (FixnumP(argv[0]))
+        return(AsFixnum(argv[0]) % 2 != 0 ? TrueObject : FalseObject);
+
+    FAssert(BignumP(argv[0]));
+
+    return(BignumModuloFixnum(argv[0], 2) != 0 ? TrueObject : FalseObject);
 }
 
 Define("even?", EvenPPrimitive)(int_t argc, FObject argv[])
@@ -1367,7 +1730,12 @@ Define("even?", EvenPPrimitive)(int_t argc, FObject argv[])
     OneArgCheck("even?", argc);
     IntegerArgCheck("even?", argv[0]);
 
-    return(AsFixnum(argv[0]) % 2 == 0 ? TrueObject : FalseObject);
+    if (FixnumP(argv[0]))
+        return(AsFixnum(argv[0]) % 2 == 0 ? TrueObject : FalseObject);
+
+    FAssert(BignumP(argv[0]));
+
+    return(BignumModuloFixnum(argv[0], 2) == 0 ? TrueObject : FalseObject);
 }
 
 Define("+", AddPrimitive)(int_t argc, FObject argv[])
@@ -1441,6 +1809,22 @@ Define("/", DividePrimitive)(int_t argc, FObject argv[])
     }
 
     return(ret);
+}
+
+Define("exact", ExactPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("exact", argc);
+    NumberArgCheck("exact", argv[0]);
+
+    return(ToExact(argv[0]));
+}
+
+Define("inexact", InexactPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("inexact", argc);
+    NumberArgCheck("inexact", argv[0]);
+
+    return(ToInexact(argv[0]));
 }
 
 Define("expt", ExptPrimitive)(int_t argc, FObject argv[])
@@ -1541,6 +1925,8 @@ static FPrimitive * Primitives[] =
     &DividePrimitive,
     
     
+    &ExactPrimitive,
+    &InexactPrimitive,
     &ExptPrimitive,
     &AbsPrimitive,
     &SqrtPrimitive,
@@ -1549,16 +1935,6 @@ static FPrimitive * Primitives[] =
 
 void SetupNumbers()
 {
-    mpz_t n;
-    mpz_t m;
-    mpz_init_set_str(m, "12345678901234567890", 10);
-    mpz_init_set_str(n, "12345678901234567890", 10);
-    mpz_mul(n, n, m);
-    
-    printf("%s\n", mpz_get_str(0, 10, n));
-    
-    mpz_clear(n);
-
     FAssert(sizeof(double64_t) == 8);
 
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
