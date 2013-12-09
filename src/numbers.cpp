@@ -36,6 +36,10 @@ n: integer
 #define isnan _isnan
 #endif // FOMENT_WINDOWS
 
+#ifdef FOMENT_UNIX
+#define sprintf_s(s, n, f, v) sprintf(s, f, v)
+#endif // FOMENT_UNIX
+
 static int_t GenericSign(FObject x);
 static FObject GenericMultiply(FObject z1, FObject z2);
 static FObject GenericSubtract(FObject z1, FObject z2);
@@ -769,7 +773,7 @@ const static char Digits[] = {"0123456789ABCDEF"};
 
 int_t FixnumAsString(FFixnum n, FCh * s, FFixnum rdx)
 {
-    FAssert(rdx <= sizeof(Digits));
+    FAssert(rdx <= (FFixnum) sizeof(Digits));
 
     int_t sl = 0;
 
@@ -967,7 +971,7 @@ static int_t GenericSign(FObject x)
     return(0);
 }
 
-static int_t GenericCompare(char * who, FObject x1, FObject x2, int_t cf)
+static int_t GenericCompare(const char * who, FObject x1, FObject x2, int_t cf)
 {
     if (BothNumberP(x1, x2))
     {
