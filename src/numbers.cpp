@@ -16,13 +16,9 @@ n: integer
 <radix> : #b | #o | #d | #x
 <exactness> : #i | #e
 
--- check all FAssert(FixnumP(
--- check all BIGRAT_* and *_BIGRAT
+-- add features
 -- need guardian for Bignums to free the MPInteger
 -- on unix, if gmp is available, use it instead of mini-gmp
--- Normalize: checks for Bignums to convert to Fixnums; and num and den of Ratnums; and
-Complex with no imaginary part; and make sure that sign of Ratnum is in num and den is positive
--- handle case of Ratnum num/0
 -- ParseComplex: <real> @ <real>
 
 */
@@ -39,6 +35,11 @@ Complex with no imaginary part; and make sure that sign of Ratnum is in num and 
 #define finite _finite
 #define isnan _isnan
 #endif // FOMENT_WINDOWS
+
+static int_t GenericSign(FObject x);
+static FObject GenericMultiply(FObject z1, FObject z2);
+static FObject GenericSubtract(FObject z1, FObject z2);
+static FObject GenericAdd(FObject z1, FObject z2);
 
 static FObject MakeBignum()
 {
@@ -63,6 +64,17 @@ static FObject MakeBignum(double64_t d)
     FBignum * bn = (FBignum *) MakeObject(sizeof(FBignum), BignumTag);
     bn->Reserved = BignumTag;
     mpz_init_set_d(bn->MPInteger, d);
+
+    return(bn);
+}
+
+static FObject MakeBignum(FObject n)
+{
+    FAssert(BignumP(n));
+
+    FBignum * bn = (FBignum *) MakeObject(sizeof(FBignum), BignumTag);
+    bn->Reserved = BignumTag;
+    mpz_init_set(bn->MPInteger, AsBignum(n));
 
     return(bn);
 }
@@ -195,7 +207,7 @@ static FObject MakeRatnum(FObject nmr, FObject dnm)
 {
     FAssert(FixnumP(nmr) || BignumP(nmr));
     FAssert(FixnumP(dnm) || BignumP(dnm));
-    FAssert(AsFixnum(dnm) != 0);
+    FAssert(FixnumP(dnm) == 0 || AsFixnum(dnm) != 0);
 
     if (FixnumP(nmr) && AsFixnum(nmr) == 0)
         return(nmr);
@@ -245,6 +257,8 @@ static FObject MakeRatnum(FObject nmr, FObject dnm)
             return(Normalize(nmr));
     }
 
+    FAssert(GenericSign(dnm) > 0);
+
     FRatnum * rat = (FRatnum *) MakeObject(sizeof(FRatnum), RatnumTag);
     rat->Numerator = Normalize(nmr);
     rat->Denominator = Normalize(dnm);
@@ -278,6 +292,8 @@ static FObject MakeComplex(FObject rl, FObject img)
         if (AsFixnum(img) == 0)
             return(rl);
     }
+
+    FAssert(GenericSign(img) != 0);
 
     FComplex * cmplx = (FComplex *) MakeObject(sizeof(FComplex), ComplexTag);
     cmplx->Real = rl;
@@ -326,10 +342,6 @@ static inline FFixnum TensDigit(double64_t n)
 {
     return((FFixnum) (n - (Truncate(n / 10.0) * 10.0)));
 }
-
-static FObject GenericMultiply(FObject z1, FObject z2);
-static FObject GenericSubtract(FObject z1, FObject z2);
-static FObject GenericAdd(FObject z1, FObject z2);
 
 FObject ToExact(FObject n)
 {
@@ -504,10 +516,10 @@ static int_t ParseDecimal10(FCh * s, int_t sl, int_t sdx, FFixnum sgn, FObject w
     //          | e + <digit> <digit> ...
     //          | e - <digit> <digit> ...
 
-    FAssert(FixnumP(whl));
+    FAssert(FixnumP(whl) || BignumP(whl));
     FAssert(s[sdx] == '.' || s[sdx] == 'e' || s[sdx] == 'E');
 
-    double64_t d = (double64_t) AsFixnum(whl);
+    double64_t d = FixnumP(whl) ? (double64_t) AsFixnum(whl) : BignumToDouble(whl);
 
     if (s[sdx] == '.')
     {
@@ -547,6 +559,9 @@ static int_t ParseDecimal10(FCh * s, int_t sl, int_t sdx, FFixnum sgn, FObject w
         if (sdx < 0)
             return(sdx);
 
+        if (BignumP(e))
+            return(-1);
+
         FAssert(FixnumP(e));
 
         if (AsFixnum(e) != 0)
@@ -579,6 +594,9 @@ static int_t ParseUReal(FCh * s, int_t sl, int_t sdx, FFixnum rdx, FFixnum sgn, 
         FObject dnm;
         sdx = ParseUInteger(s, sl, sdx + 1, rdx, 1, &dnm);
         if (sdx < 0)
+            return(-1);
+
+        if (FixnumP(dnm) && AsFixnum(dnm) == 0)
             return(-1);
 
         *purl = MakeRatnum(*purl, dnm);
@@ -928,7 +946,11 @@ static int_t GenericSign(FObject x)
             if (RatnumP(x))
                 return(GenericSign(AsNumerator(x)));
             else
+            {
+                FAssert(BignumP(x));
+
                 return(BignumSign(x));
+            }
 
         case UOP_COMPLEX:
             break;
@@ -1008,28 +1030,24 @@ static int_t GenericCompare(char * who, FObject x1, FObject x2, int_t cf)
         }
     }
 
-    if (cf)
-    {
-        NumberArgCheck(who, x1);
-        NumberArgCheck(who, x2);
-
-        FObject r1 = ComplexP(x1) ? AsReal(x1) : x1;
-        FObject i1 = ComplexP(x1) ? AsImaginary(x1) : MakeFixnum(0);
-        FObject r2 = ComplexP(x2) ? AsReal(x2) : x2;
-        FObject i2 = ComplexP(x2) ? AsImaginary(x2) : MakeFixnum(0);
-
-        int_t ret = GenericCompare(who, r1, r2, 0);
-        return(ret == 0 ? GenericCompare(who, i1, i2, 0) : ret);
-    }
-    else
+    if (cf == 0)
     {
         RealArgCheck(who, x1);
         RealArgCheck(who, x2);
+
+        FAssert(0);
     }
 
-    FAssert(0);
+    NumberArgCheck(who, x1);
+    NumberArgCheck(who, x2);
 
-    return(0);
+    FObject r1 = ComplexP(x1) ? AsReal(x1) : x1;
+    FObject i1 = ComplexP(x1) ? AsImaginary(x1) : MakeFixnum(0);
+    FObject r2 = ComplexP(x2) ? AsReal(x2) : x2;
+    FObject i2 = ComplexP(x2) ? AsImaginary(x2) : MakeFixnum(0);
+
+    int_t ret = GenericCompare(who, r1, r2, 0);
+    return(ret == 0 ? GenericCompare(who, i1, i2, 0) : ret);
 }
 
 static FObject GenericAdd(FObject z1, FObject z2)
@@ -1057,9 +1075,12 @@ static FObject GenericAdd(FObject z1, FObject z2)
                         AsDenominator(z2)));
             else
             {
+                FAssert(BignumP(z1));
+                FAssert(BignumP(z2));
+
                 FObject rbn = MakeBignum();
                 BignumAdd(rbn, z1, z2);
-                return(rbn);
+                return(Normalize(rbn));
             }
 
         case BOP_BIGRAT_COMPLEX:
@@ -1084,7 +1105,7 @@ static FObject GenericAdd(FObject z1, FObject z2)
 
                 FObject rbn = MakeBignum();
                 BignumAddFixnum(rbn, z1, AsFixnum(z2));
-                return(rbn);
+                return(Normalize(rbn));
             }
 
         case BOP_COMPLEX_BIGRAT:
@@ -1123,9 +1144,10 @@ static FObject GenericAdd(FObject z1, FObject z2)
             else
             {
                 FAssert(BignumP(z2));
+
                 FObject rbn = MakeBignum();
                 BignumAddFixnum(rbn, z2, AsFixnum(z1));
-                return(rbn);
+                return(Normalize(rbn));
             }
 
         case BOP_FIXED_COMPLEX:
@@ -1175,9 +1197,12 @@ static FObject GenericMultiply(FObject z1, FObject z2)
                 return(MakeRatnum(GenericMultiply(AsNumerator(z2), z1), AsDenominator(z2)));
             else
             {
+                FAssert(BignumP(z1));
+                FAssert(BignumP(z2));
+
                 FObject rbn = MakeBignum();
                 BignumMultipy(rbn, z1, z2);
-                return(rbn);
+                return(Normalize(rbn));
             }
 
         case BOP_BIGRAT_COMPLEX:
@@ -1202,7 +1227,7 @@ static FObject GenericMultiply(FObject z1, FObject z2)
 
                 FObject rbn = MakeBignum();
                 BignumMultiplyFixnum(rbn, z1, AsFixnum(z2));
-                return(rbn);
+                return(Normalize(rbn));
             }
 
         case BOP_COMPLEX_BIGRAT:
@@ -1240,11 +1265,16 @@ static FObject GenericMultiply(FObject z1, FObject z2)
             return(MakeFlonum(AsFlonum(z1) * AsFixnum(z2)));
 
         case BOP_FIXED_BIGRAT:
-            FAssert(FixnumP(AsNumerator(z2)));
-            FAssert(FixnumP(AsDenominator(z2)));
+            if (RatnumP(z2))
+                return(MakeRatnum(GenericMultiply(AsNumerator(z2), z1), AsDenominator(z2)));
+            else
+            {
+                FAssert(BignumP(z2));
 
-            return(MakeRatnum(MakeFixnum(AsFixnum(z1) * AsFixnum(AsNumerator(z2))),
-                    AsDenominator(z2)));
+                FObject rbn = MakeBignum();
+                BignumMultiplyFixnum(rbn, z2, AsFixnum(z1));
+                return(Normalize(rbn));
+            }
 
         case BOP_FIXED_COMPLEX:
             return(MakeComplex(GenericMultiply(z1, AsReal(z2)),
@@ -1301,7 +1331,7 @@ static FObject GenericSubtract(FObject z1, FObject z2)
             {
                 FObject rbn = MakeBignum();
                 BignumSubtract(rbn, z1, z2);
-                return(rbn);
+                return(Normalize(rbn));
             }
 
         case BOP_BIGRAT_COMPLEX:
@@ -1317,11 +1347,17 @@ static FObject GenericSubtract(FObject z1, FObject z2)
         }
 
         case BOP_BIGRAT_FIXED:
-            FAssert(FixnumP(AsNumerator(z1)));
-            FAssert(FixnumP(AsDenominator(z1)));
+            if (RatnumP(z1))
+                return(MakeRatnum(GenericSubtract(AsNumerator(z1),
+                        GenericMultiply(AsDenominator(z1), z2)), AsDenominator(z1)));
+            else
+            {
+                FAssert(BignumP(z1));
 
-            return(MakeRatnum(MakeFixnum(AsFixnum(AsNumerator(z1)) - AsFixnum(z2)
-                    * AsFixnum(AsDenominator(z1))), AsDenominator(z1)));
+                FObject rbn = MakeBignum();
+                BignumAddFixnum(rbn, z1, - AsFixnum(z2));
+                return(Normalize(rbn));
+            }
 
         case BOP_COMPLEX_BIGRAT:
             return(MakeComplex(GenericSubtract(AsReal(z1), z2), AsImaginary(z1)));
@@ -1353,11 +1389,18 @@ static FObject GenericSubtract(FObject z1, FObject z2)
             return(MakeFlonum(AsFlonum(z1) - AsFixnum(z2)));
 
         case BOP_FIXED_BIGRAT:
-            FAssert(FixnumP(AsNumerator(z2)));
-            FAssert(FixnumP(AsDenominator(z2)));
+            if (RatnumP(z2))
+                return(MakeRatnum(GenericSubtract(GenericMultiply(AsDenominator(z2), z1),
+                        AsNumerator(z2)), AsDenominator(z2)));
+            else
+            {
+                FAssert(BignumP(z2));
 
-            return(MakeRatnum(MakeFixnum(AsFixnum(z1) * AsFixnum(AsDenominator(z2))
-                    - AsFixnum(AsNumerator(z2))), AsDenominator(z2)));
+                FObject rbn = MakeBignum(z2);
+                BignumMultiplyFixnum(rbn, rbn, -1);
+                BignumAddFixnum(rbn, rbn, AsFixnum(z1));
+                return(Normalize(rbn));
+            }
 
         case BOP_FIXED_COMPLEX:
             return(MakeComplex(GenericSubtract(z1, AsReal(z2)), AsImaginary(z2)));
@@ -1390,6 +1433,9 @@ static FObject GenericDivide(FObject z1, FObject z2)
 {
     if (BothNumberP(z1, z2))
     {
+        if (GenericSign(z2) == 0)
+            RaiseExceptionC(R.Assertion, "/", "divide by zero", List(z1, z2));
+
         switch (BinaryNumberOp(z1, z2))
         {
         case BOP_BIGRAT_BIGRAT:
@@ -1405,9 +1451,12 @@ static FObject GenericDivide(FObject z1, FObject z2)
                 return(MakeRatnum(AsNumerator(z2), GenericMultiply(z1, AsDenominator(z2))));
             else
             {
+                FAssert(BignumP(z1));
+                FAssert(BignumP(z2));
+
                 FObject rbn = MakeBignum();
                 BignumDivide(rbn, z1, z2);
-                return(rbn);
+                return(Normalize(rbn));
             }
 
         case BOP_BIGRAT_COMPLEX:
@@ -1424,11 +1473,16 @@ static FObject GenericDivide(FObject z1, FObject z2)
         }
 
         case BOP_BIGRAT_FIXED:
-            FAssert(FixnumP(AsNumerator(z1)));
-            FAssert(FixnumP(AsDenominator(z1)));
+            if (RatnumP(z1))
+                return(MakeRatnum(AsNumerator(z1), GenericMultiply(AsDenominator(z1), z2)));
+            else
+            {
+                FAssert(BignumP(z1));
 
-            return(MakeRatnum(AsNumerator(z1),
-                    MakeFixnum(AsFixnum(AsDenominator(z1)) * AsFixnum(z2))));
+                FObject rbn = MakeBignum();
+                BignumDivide(rbn, z1, MakeBignum(AsFixnum(z2)));
+                return(Normalize(rbn));
+            }
 
         case BOP_COMPLEX_BIGRAT:
             return(MakeComplex(GenericDivide(AsReal(z1), z2),
@@ -1468,11 +1522,16 @@ static FObject GenericDivide(FObject z1, FObject z2)
             return(MakeFlonum(AsFlonum(z1) / AsFixnum(z2)));
 
         case BOP_FIXED_BIGRAT:
-            FAssert(FixnumP(AsNumerator(z2)));
-            FAssert(FixnumP(AsDenominator(z2)));
+            if (RatnumP(z2))
+                return(MakeRatnum(AsNumerator(z2), GenericMultiply(AsDenominator(z2), z1)));
+            else
+            {
+                FAssert(BignumP(z2));
 
-            return(MakeRatnum(AsNumerator(z2),
-                    MakeFixnum(AsFixnum(z1) * AsFixnum(AsDenominator(z2)))));
+                FObject rbn = MakeBignum();
+                BignumDivide(rbn, MakeBignum(AsFixnum(z1)), z2);
+                return(Normalize(rbn));
+            }
 
         case BOP_FIXED_COMPLEX:
             return(MakeComplex(GenericDivide(z1, AsReal(z2)),
