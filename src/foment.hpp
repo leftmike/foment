@@ -12,11 +12,13 @@ To Do:
 -- (chibi test) built in
 -- don't load all libraries at startup
 
+-- unify specifying the file encoding for OpenInputFile/OpenOutputFile and open-input-file etc.
+-- use an indexed parameter for both
+-- autodetect encoding: utf8 or utf16 byte order mark or encoding: like Guile
+
 -- ctrl-c handling
 
 -- r7rs.scm and r7rs-tests.scm: commented out tests
-
--- specifying file format for programs and libraries
 
 -- IO and GC
 -- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
@@ -628,6 +630,13 @@ void Write(FObject port, FObject obj, int_t df);
 void WriteShared(FObject port, FObject obj, int_t df);
 void WriteSimple(FObject port, FObject obj, int_t df);
 
+typedef FObject (*FMakeEncodedPort)(FObject port);
+extern FMakeEncodedPort MakeEncodedPort;
+
+FObject MakeLatin1Port(FObject port);
+FObject MakeUtf8Port(FObject port);
+FObject MakeUtf16Port(FObject port);
+
 // ---- Record Types ----
 
 #define RecordTypeP(obj) (IndirectTag(obj) == RecordTypeTag)
@@ -892,6 +901,8 @@ typedef struct
 
 // ---- Numbers ----
 
+int_t GenericCompare(const char * who, FObject x1, FObject x2, int_t cf);
+
 FObject StringToNumber(FCh * s, int_t sl, FFixnum rdx);
 FObject NumberToString(FObject obj, FFixnum rdx);
 
@@ -906,6 +917,8 @@ inline int_t RealP(FObject obj)
 {
     return(FixnumP(obj) || BignumP(obj) || RatnumP(obj) || FlonumP(obj));
 }
+
+int_t IntegerP(FObject obj);
 
 #define POSITIVE_INFINITY (DBL_MAX * DBL_MAX)
 #define NEGATIVE_INFINITY -POSITIVE_INFINITY
@@ -1213,7 +1226,7 @@ inline void FixnumArgCheck(const char * who, FObject obj)
 
 inline void IntegerArgCheck(const char * who, FObject obj)
 {
-    if (FixnumP(obj) == 0 && BignumP(obj) == 0)
+    if (IntegerP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected an integer", List(obj));
 }
 

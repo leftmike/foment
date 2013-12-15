@@ -16,6 +16,7 @@ n: integer
 <radix> : #b | #o | #d | #x
 <exactness> : #i | #e
 
+-- fix EqvP to not need NumberP before calling GenericCompare
 -- add features
 -- need guardian for Bignums to free the MPInteger
 -- on unix, if gmp is available, use it instead of mini-gmp
@@ -27,6 +28,7 @@ n: integer
 #include <math.h>
 #include <float.h>
 #include <stdio.h>
+#include <string.h>
 #include "foment.hpp"
 #include "unicode.hpp"
 #include "numbers.hpp"
@@ -37,7 +39,7 @@ n: integer
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-#define sprintf_s(s, n, f, v) sprintf(s, f, v)
+#define sprintf_s snprintf
 #endif // FOMENT_UNIX
 
 static int_t GenericSign(FObject x);
@@ -160,20 +162,20 @@ inline static void BignumDivide(FObject rbn, FObject n, FObject d)
     mpz_tdiv_q(AsBignum(rbn), AsBignum(n), AsBignum(d));
 }
 
-inline static void BignumModulo(FObject rbn, FObject n, FObject d)
+inline static void BignumRemainder(FObject rbn, FObject n, FObject d)
 {
     FAssert(BignumP(rbn));
     FAssert(BignumP(n));
     FAssert(BignumP(d));
 
-    mpz_mod(AsBignum(rbn), AsBignum(n), AsBignum(d));
+    mpz_tdiv_r(AsBignum(rbn), AsBignum(n), AsBignum(d));
 }
 
-inline static FFixnum BignumModuloFixnum(FObject n, FFixnum d)
+inline static FFixnum BignumRemainderFixnum(FObject n, FFixnum d)
 {
     FAssert(BignumP(n));
 
-    return(mpz_fdiv_ui(AsBignum(n), (unsigned long) d));
+    return(mpz_tdiv_ui(AsBignum(n), (unsigned long) d));
 }
 
 inline static int_t BignumEqualFixnum(FObject bn, FFixnum n)
@@ -233,6 +235,12 @@ static FObject MakeRatnum(FObject nmr, FObject dnm)
 
         if (AsFixnum(dnm) == 1)
             return(nmr);
+
+        if (AsFixnum(dnm) < 0)
+        {
+            dnm = MakeFixnum(AsFixnum(dnm) * -1);
+            nmr = MakeFixnum(AsFixnum(nmr) * -1);
+        }
     }
     else
     {
@@ -247,7 +255,7 @@ static FObject MakeRatnum(FObject nmr, FObject dnm)
         while (BignumEqualFixnum(d, 0) == 0)
         {
             FObject t = MakeBignum();
-            BignumModulo(t, n, d);
+            BignumRemainder(t, n, d);
             n = d;
             d = t;
         }
@@ -259,6 +267,29 @@ static FObject MakeRatnum(FObject nmr, FObject dnm)
 
         if (BignumEqualFixnum(dnm, 1))
             return(Normalize(nmr));
+
+        if (GenericSign(dnm) < 0)
+        {
+            FAssert(GenericSign(nmr) > 0);
+
+            if (BignumP(dnm))
+                BignumMultiplyFixnum(dnm, dnm, -1);
+            else
+            {
+                FAssert(FixnumP(dnm));
+
+                dnm = MakeFixnum(AsFixnum(dnm) * -1);
+            }
+
+            if (BignumP(nmr))
+                BignumMultiplyFixnum(nmr, nmr, -1);
+            else
+            {
+                FAssert(FixnumP(nmr));
+
+                nmr = MakeFixnum(AsFixnum(nmr) * -1);
+            }
+        }
     }
 
     FAssert(GenericSign(dnm) > 0);
@@ -282,22 +313,13 @@ static FObject MakeComplex(FObject rl, FObject img)
     FAssert(FixnumP(rl) || BignumP(rl) || FlonumP(rl) || RatnumP(rl));
     FAssert(FixnumP(img) || BignumP(img) || FlonumP(img) || RatnumP(img));
 
-    if (FlonumP(img))
-    {
-        if (AsFlonum(img) == 0.0)
-            return(rl);
+    if (FixnumP(img) && AsFixnum(img) == 0)
+        return(rl);
 
+    if (FlonumP(img))
         rl = ToInexact(rl);
-    }
     else if (FlonumP(rl))
         img = ToInexact(img);
-    else if (FixnumP(img))
-    {
-        if (AsFixnum(img) == 0)
-            return(rl);
-    }
-
-    FAssert(GenericSign(img) != 0);
 
     FComplex * cmplx = (FComplex *) MakeObject(sizeof(FComplex), ComplexTag);
     cmplx->Real = rl;
@@ -407,7 +429,7 @@ static int_t ParseBignum(FCh * s, int_t sl, int_t sdx, FFixnum rdx, FFixnum sgn,
 {
     FAssert(n > 0);
 
-    FObject bn = MakeBignum(sgn * n);
+    FObject bn = MakeBignum(n);
 
     if (rdx == 16)
     {
@@ -445,6 +467,8 @@ static int_t ParseBignum(FCh * s, int_t sl, int_t sdx, FFixnum rdx, FFixnum sgn,
                 break;
         }
     }
+
+    BignumMultiplyFixnum(bn, bn, sgn);
 
     *punt = bn;
     return(sdx);
@@ -524,6 +548,9 @@ static int_t ParseDecimal10(FCh * s, int_t sl, int_t sdx, FFixnum sgn, FObject w
     FAssert(s[sdx] == '.' || s[sdx] == 'e' || s[sdx] == 'E');
 
     double64_t d = FixnumP(whl) ? (double64_t) AsFixnum(whl) : BignumToDouble(whl);
+
+    if (sgn < 0)
+        d *= -1;
 
     if (s[sdx] == '.')
     {
@@ -855,7 +882,17 @@ static void WriteNumber(FObject port, FObject obj, FFixnum rdx)
         else
         {
             char s[64];
-            sprintf_s(s, sizeof(s), "%g", d);
+            int_t idx = sprintf_s(s, sizeof(s), "%.15g", d);
+
+            if (d == Truncate(d) && strchr(s, '.') == 0)
+            {
+                s[idx] = '.';
+                idx += 1;
+                s[idx] = '0';
+                idx += 1;
+                s[idx] = 0;
+            }
+
             WriteStringC(port, s);
         }
     }
@@ -891,7 +928,17 @@ FObject NumberToString(FObject obj, FFixnum rdx)
         else
         {
             char s[64];
-            sprintf_s(s, sizeof(s), "%g", d);
+            int_t idx = sprintf_s(s, sizeof(s), "%.15g", d);
+
+            if (d == Truncate(d) && strchr(s, '.') == 0)
+            {
+                s[idx] = '.';
+                idx += 1;
+                s[idx] = '0';
+                idx += 1;
+                s[idx] = 0;
+            }
+
             return(MakeStringC(s));
         }
     }
@@ -971,7 +1018,7 @@ static int_t GenericSign(FObject x)
     return(0);
 }
 
-static int_t GenericCompare(const char * who, FObject x1, FObject x2, int_t cf)
+int_t GenericCompare(const char * who, FObject x1, FObject x2, int_t cf)
 {
     if (BothNumberP(x1, x2))
     {
@@ -1164,7 +1211,11 @@ static FObject GenericAdd(FObject z1, FObject z2)
         {
             int64_t n = AsFixnum(z1) + AsFixnum(z2);
             if (n < MINIMUM_FIXNUM || n > MAXIMUM_FIXNUM)
-                printf("Number too big or small\n");
+            {
+                FObject bn = MakeBignum(AsFixnum(z1));
+                BignumAddFixnum(bn, bn, AsFixnum(z2));
+                return(bn);
+            }
 
             return(MakeFixnum(n));
         }
@@ -1291,7 +1342,11 @@ static FObject GenericMultiply(FObject z1, FObject z2)
         {
             int64_t n = AsFixnum(z1) * AsFixnum(z2);
             if (n < MINIMUM_FIXNUM || n > MAXIMUM_FIXNUM)
-                printf("number too big or small\n");
+            {
+                FObject bn = MakeBignum(AsFixnum(z1));
+                BignumMultiplyFixnum(bn, bn, AsFixnum(z2));
+                return(bn);
+            }
 
             return(MakeFixnum(n));
         }
@@ -1416,7 +1471,11 @@ static FObject GenericSubtract(FObject z1, FObject z2)
         {
             int64_t n = AsFixnum(z1) - AsFixnum(z2);
             if (n < MINIMUM_FIXNUM || n > MAXIMUM_FIXNUM)
-                printf("Number too big or small\n");
+            {
+                FObject bn = MakeBignum(AsFixnum(z1));
+                BignumAddFixnum(bn, bn, - AsFixnum(z2));
+                return(bn);
+            }
 
             return(MakeFixnum(n));
         }
@@ -1591,14 +1650,19 @@ Define("rational?", RationalPPrimitive)(int_t argc, FObject argv[])
     return(RealP(argv[0]) ? TrueObject : FalseObject);
 }
 
+int_t IntegerP(FObject obj)
+{
+    if (FlonumP(obj))
+        return(AsFlonum(obj) == Truncate(AsFlonum(obj)));
+
+    return(FixnumP(obj) || BignumP(obj));
+}
+
 Define("integer?", IntegerPPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("integer?", argc);
 
-    if (FlonumP(argv[0]))
-        return(AsFlonum(argv[0]) == Truncate(AsFlonum(argv[0])) ? TrueObject : FalseObject);
-
-    return((FixnumP(argv[0]) || BignumP(argv[0])) ? TrueObject : FalseObject);
+    return(IntegerP(argv[0]) ? TrueObject : FalseObject);
 }
 
 static int_t ExactP(FObject obj)
@@ -1748,17 +1812,24 @@ Define(">=", GreaterThanEqualPrimitive)(int_t argc, FObject argv[])
     return(TrueObject);
 }
 
+static int_t ZeroP(FObject obj)
+{
+    if (FixnumP(obj))
+        return(AsFixnum(obj) == 0);
+    else if (FlonumP(obj))
+        return(AsFlonum(obj) == 0.0);
+    else if (ComplexP(obj))
+        return(ZeroP(AsReal(obj)) && ZeroP(AsImaginary(obj)));
+
+    return(0);
+}
+
 Define("zero?", ZeroPPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("zero?", argc);
     NumberArgCheck("zero?", argv[0]);
 
-    if (FixnumP(argv[0]))
-        return(AsFixnum(argv[0]) == 0 ? TrueObject : FalseObject);
-    else if (FlonumP(argv[0]))
-        return(AsFlonum(argv[0]) == 0.0 ? TrueObject : FalseObject);
-
-    return(FalseObject);
+    return(ZeroP(argv[0]) ? TrueObject : FalseObject);
 }
 
 Define("positive?", PositivePPrimitive)(int_t argc, FObject argv[])
@@ -1785,7 +1856,7 @@ Define("odd?", OddPPrimitive)(int_t argc, FObject argv[])
 
     FAssert(BignumP(argv[0]));
 
-    return(BignumModuloFixnum(argv[0], 2) != 0 ? TrueObject : FalseObject);
+    return(BignumRemainderFixnum(argv[0], 2) != 0 ? TrueObject : FalseObject);
 }
 
 Define("even?", EvenPPrimitive)(int_t argc, FObject argv[])
@@ -1798,7 +1869,43 @@ Define("even?", EvenPPrimitive)(int_t argc, FObject argv[])
 
     FAssert(BignumP(argv[0]));
 
-    return(BignumModuloFixnum(argv[0], 2) == 0 ? TrueObject : FalseObject);
+    return(BignumRemainderFixnum(argv[0], 2) == 0 ? TrueObject : FalseObject);
+}
+
+Define("max", MaxPrimitive)(int_t argc, FObject argv[])
+{
+    AtLeastOneArgCheck("max", argc);
+    FObject max = argv[0];
+    int_t ief = FlonumP(argv[0]);
+
+    for (int_t adx = 1; adx < argc; adx++)
+    {
+        if (FlonumP(argv[adx]))
+            ief = 1;
+
+        if (GenericCompare("max", max, argv[adx], 0) < 0)
+            max = argv[adx];
+    }
+
+    return(ief ? ToInexact(max) : max);
+}
+
+Define("min", MinPrimitive)(int_t argc, FObject argv[])
+{
+    AtLeastOneArgCheck("min", argc);
+    FObject min = argv[0];
+    int_t ief = FlonumP(argv[0]);
+
+    for (int_t adx = 1; adx < argc; adx++)
+    {
+        if (FlonumP(argv[adx]))
+            ief = 1;
+
+        if (GenericCompare("min", min, argv[adx], 0) > 0)
+            min = argv[adx];
+    }
+
+    return(ief ? ToInexact(min) : min);
 }
 
 Define("+", AddPrimitive)(int_t argc, FObject argv[])
@@ -1874,6 +1981,74 @@ Define("/", DividePrimitive)(int_t argc, FObject argv[])
     return(ret);
 }
 
+Define("abs", AbsPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("abs", argc);
+
+    return(GenericCompare("abs", argv[0], MakeFixnum(0), 0) < 0
+            ? GenericMultiply(argv[0], MakeFixnum(-1)) : argv[0]);
+}
+
+Define("floor-quotient", FloorQuotientPrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("floor-quotient", argc);
+    IntegerArgCheck("floor-quotient", argv[0]);
+    IntegerArgCheck("floor-quotient", argv[1]);
+
+    if (FixnumP(argv[0]) && FixnumP(argv[1]))
+    {
+        if (GenericSign(argv[0]) * GenericSign(argv[1]) < 0)
+            return(MakeFixnum((AsFixnum(argv[0]) / AsFixnum(argv[1])) - 1));
+
+        return(MakeFixnum(AsFixnum(argv[0]) / AsFixnum(argv[1])));
+    }
+
+    FObject n = BignumP(argv[0]) ? argv[0] : MakeBignum(AsFixnum(argv[0]));
+    FObject d = BignumP(argv[1]) ? argv[1] : MakeBignum(AsFixnum(argv[1]));
+    FObject rbn = MakeBignum();
+
+    BignumDivide(rbn, n, d);
+
+    if (GenericSign(argv[0]) * GenericSign(argv[1]) < 0)
+        BignumAddFixnum(rbn, rbn, -1);
+
+    return(rbn);
+}
+
+Define("truncate-quotient", TruncateQuotientPrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("truncate-quotient", argc);
+    IntegerArgCheck("truncate-quotient", argv[0]);
+    IntegerArgCheck("truncate-quotient", argv[1]);
+
+    if (FixnumP(argv[0]) && FixnumP(argv[1]))
+        return(MakeFixnum(AsFixnum(argv[0]) / AsFixnum(argv[1])));
+
+    FObject n = BignumP(argv[0]) ? argv[0] : MakeBignum(AsFixnum(argv[0]));
+    FObject d = BignumP(argv[1]) ? argv[1] : MakeBignum(AsFixnum(argv[1]));
+    FObject rbn = MakeBignum();
+
+    BignumDivide(rbn, n, d);
+    return(rbn);
+}
+
+Define("truncate-remainder", TruncateRemainderPrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("truncate-remainder", argc);
+    IntegerArgCheck("truncate-remainder", argv[0]);
+    IntegerArgCheck("truncate-remainder", argv[1]);
+
+    if (FixnumP(argv[0]) && FixnumP(argv[1]))
+        return(MakeFixnum(AsFixnum(argv[0]) % AsFixnum(argv[1])));
+
+    FObject n = BignumP(argv[0]) ? argv[0] : MakeBignum(AsFixnum(argv[0]));
+    FObject d = BignumP(argv[1]) ? argv[1] : MakeBignum(AsFixnum(argv[1]));
+    FObject rbn = MakeBignum();
+
+    BignumRemainder(rbn, n, d);
+    return(rbn);
+}
+
 Define("exact", ExactPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("exact", argc);
@@ -1911,17 +2086,6 @@ Define("expt", ExptPrimitive)(int_t argc, FObject argv[])
     }
 
     return(MakeFixnum(ret));
-}
-
-Define("abs", AbsPrimitive)(int_t argc, FObject argv[])
-{
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "abs", "expected one argument", EmptyListObject);
-
-    if (FixnumP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "abs", "expected a fixnum", List(argv[0]));
-
-    return(AsFixnum(argv[0]) < 0 ? MakeFixnum(- AsFixnum(argv[0])) : argv[0]);
 }
 
 Define("sqrt", SqrtPrimitive)(int_t argc, FObject argv[])
@@ -1980,18 +2144,21 @@ static FPrimitive * Primitives[] =
     &NegativePPrimitive,
     &OddPPrimitive,
     &EvenPPrimitive,
-    
-    
+    &MaxPrimitive,
+    &MinPrimitive,
     &AddPrimitive,
     &MultiplyPrimitive,
     &SubtractPrimitive,
     &DividePrimitive,
+    &AbsPrimitive,
+    &FloorQuotientPrimitive,
+    &TruncateQuotientPrimitive,
+    &TruncateRemainderPrimitive,
     
     
     &ExactPrimitive,
     &InexactPrimitive,
     &ExptPrimitive,
-    &AbsPrimitive,
     &SqrtPrimitive,
     &NumberToStringPrimitive
 };

@@ -167,6 +167,9 @@ int_t EqvP(FObject obj1, FObject obj2)
     if (obj1 == obj2)
         return(1);
 
+    if (NumberP(obj1) && NumberP(obj2))
+        return(GenericCompare("eqv?", obj1, obj2, 1) == 0);
+
     return(0);
 }
 
@@ -266,7 +269,7 @@ static int_t EqualPUnionFind(FObject ht, FObject objx, FObject objy)
 
 static int_t EqualP(FObject ht, FObject obj1, FObject obj2)
 {
-    if (EqP(obj1, obj2))
+    if (EqvP(obj1, obj2))
         return(1);
 
     if (PairP(obj1))

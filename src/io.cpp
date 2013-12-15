@@ -31,6 +31,8 @@ Foment
 #define CR 13
 #define LF 10
 
+FMakeEncodedPort MakeEncodedPort = MakeLatin1Port;
+
 // ---- Binary Ports ----
 
 FObject MakeBinaryPort(FObject nam, FObject obj, void * ictx, void * octx, FCloseInputFn cifn,
@@ -605,7 +607,7 @@ static void Latin1WriteString(FObject port, FCh * s, uint_t sl)
     }
 }
 
-static FObject MakeLatin1Port(FObject port)
+FObject MakeLatin1Port(FObject port)
 {
     return(MakeTranslatorPort(port, Latin1ReadCh, Latin1CharReadyP, Latin1WriteString));
 }
@@ -651,7 +653,7 @@ static void Utf8WriteString(FObject port, FCh * s, uint_t sl)
     WriteBytes(AsGenericPort(port)->Object, AsBytevector(bv)->Vector, BytevectorLength(bv));
 }
 
-static FObject MakeUtf8Port(FObject port)
+FObject MakeUtf8Port(FObject port)
 {
     return(MakeTranslatorPort(port, Utf8ReadCh, Utf8CharReadyP, Utf8WriteString));
 }
@@ -703,7 +705,7 @@ static void Utf16WriteString(FObject port, FCh * s, uint_t sl)
     WriteBytes(AsGenericPort(port)->Object, AsBytevector(bv)->Vector, BytevectorLength(bv));
 }
 
-static FObject MakeUtf16Port(FObject port)
+FObject MakeUtf16Port(FObject port)
 {
     return(MakeTranslatorPort(port, Utf16ReadCh, Utf16CharReadyP, Utf16WriteString));
 }
@@ -727,7 +729,7 @@ FObject OpenInputFile(FObject fn)
     if (fp == 0)
         return(NoValueObject);
 
-    return(MakeLatin1Port(MakeStdioPort(fn, fp, 0)));
+    return(MakeEncodedPort(MakeStdioPort(fn, fp, 0)));
 }
 
 FObject OpenOutputFile(FObject fn)
@@ -749,7 +751,7 @@ FObject OpenOutputFile(FObject fn)
     if (fp == 0)
         return(NoValueObject);
 
-    return(MakeLatin1Port(MakeStdioPort(fn, 0, fp)));
+    return(MakeEncodedPort(MakeStdioPort(fn, 0, fp)));
 }
 
 static void SinCloseInput(FObject port)

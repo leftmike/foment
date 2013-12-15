@@ -88,9 +88,9 @@
         features
         file-error?
 ;        floor
-;        floor-quotient
-;        floor-remainder
-;        floor/
+        floor-quotient
+        floor-remainder
+        floor/
         flush-output-port
         for-each
 ;        gcd
@@ -131,12 +131,12 @@
         make-string
         make-vector
         map
-;        max
+        max
         member
         memq
         memv
-;        min
-;        modulo
+        min
+        (rename floor-remainder modulo)
         negative?
         newline
         not
@@ -161,7 +161,7 @@
         procedure?
         quasiquote
         quote
-;        quotient
+        (rename truncate-quotient quotient)
         raise
         raise-continuable
         rational?
@@ -174,7 +174,7 @@
         read-string
         read-u8
         real?
-;        remainder
+        (rename truncate-remainder remainder)
         reverse
 ;        round
         set!
@@ -210,9 +210,9 @@
         syntax-rules
         textual-port?
 ;        truncate
-;        truncate-quotient
-;        truncate-remainder
-;        truncate/
+        truncate-quotient
+        truncate-remainder
+        truncate/
         u8-ready?
         unless
         unquote
@@ -436,6 +436,15 @@
         (define (cdaddr pair) (cdr (car (cdr (cdr pair)))))
         (define (cadddr pair) (car (cdr (cdr (cdr pair)))))
         (define (cddddr pair) (cdr (cdr (cdr (cdr pair)))))
+
+        (define (floor/ n1 n2)
+            (values (floor-quotient n1 n2) (floor-remainder n1 n2)))
+
+        (define (floor-remainder n1 n2)
+            (- n1 (* n2 (floor-quotient n1 n2))))
+
+        (define (truncate/ n1 n2)
+            (values (truncate-quotient n1 n2) (truncate-remainder n1 n2)))
 
         (define member
             (case-lambda
@@ -933,7 +942,8 @@
                     obj)))
 
         (define file-encoding
-            (make-parameter (cond-expand (unix make-utf8-port) (else make-latin1-port))))
+            (make-parameter make-latin1-port))
+;            (make-parameter (cond-expand (unix make-utf8-port) (else make-latin1-port)))
 
         (define (open-input-file string)
             ((file-encoding) (open-binary-input-file string)))
@@ -1116,9 +1126,9 @@
         features
         file-error?
 ;;        floor
-;;        floor-quotient
-;;        floor-remainder
-;;        floor/
+        floor-quotient
+        floor-remainder
+        floor/
         flush-output-port
         for-each
 ;;        gcd
@@ -1159,12 +1169,12 @@
         make-string
         make-vector
         map
-;;        max
+        max
         member
         memq
         memv
-;;        min
-;;        modulo
+        min
+        (rename floor-remainder modulo)
         negative?
         newline
         not
@@ -1189,7 +1199,7 @@
         procedure?
         quasiquote
         quote
-;;        quotient
+        (rename truncate-quotient quotient)
         raise
         raise-continuable
         rational?
@@ -1202,7 +1212,7 @@
         read-string
         read-u8
         real?
-;;        remainder
+        (rename truncate-remainder remainder)
         reverse
 ;;        round
         set!
@@ -1238,9 +1248,9 @@
         syntax-rules
         textual-port?
 ;;        truncate
-;;        truncate-quotient
-;;        truncate-remainder
-;;        truncate/
+        truncate-quotient
+        truncate-remainder
+        truncate/
         u8-ready?
         unless
         unquote

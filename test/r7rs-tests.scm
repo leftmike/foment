@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 
 (import (scheme base) (scheme char) (scheme lazy)
-;        (scheme inexact) (scheme complex)
+       (scheme inexact) ; (scheme complex)
         (scheme time)
         (scheme file) (scheme read) (scheme write)
         (scheme eval) (scheme process-context) (scheme case-lambda)
@@ -514,7 +514,6 @@
 
 (test-end)
 
-#|
 (test-begin "6.2 Numbers")
 
 (test #t (complex? 3+4i))
@@ -550,7 +549,7 @@
 
 (test #t (nan? +nan.0))
 (test #f (nan? 32))
-;; (test #t (nan? +nan.0+5.0i))
+(test #t (nan? +nan.0+5.0i))
 (test #f (nan? 1+2i))
 
 (test #t (= 1 1.0 1.0+0.0i))
@@ -681,6 +680,7 @@
 
 (test -1.0 (remainder -13 -4.0))
 
+#|
 (test 4 (gcd 32 -36))
 (test 0 (gcd))
 (test 288 (lcm 32 -36))
@@ -780,9 +780,10 @@
 (test 100 (string->number "100"))
 (test 256 (string->number "100" 16))
 (test 100.0 (string->number "1e2"))
+|#
 
 (test-end)
-|#
+
 (test-begin "6.3 Booleans")
 
 (test #t #t)
@@ -992,7 +993,6 @@
 (test #f (char-lower-case? #\A))
 (test #f (char-lower-case? #\3))
 
-#|
 (test #t (char-alphabetic? #\Λ))
 (test #f (char-alphabetic? #\x0E50))
 (test #t (char-upper-case? #\Λ))
@@ -1002,7 +1002,6 @@
 (test #f (char-numeric? #\Λ))
 (test #t (char-numeric? #\x0E50))
 (test #t (char-whitespace? #\x1680))
-|#
 
 (test 0 (digit-value #\0))
 (test 3 (digit-value #\3))
@@ -1021,14 +1020,14 @@
 (test #\a (char-downcase #\A))
 (test #\a (char-foldcase #\a))
 (test #\a (char-foldcase #\A))
-#|
+
 (test #\Λ (char-upcase #\λ))
 (test #\Λ (char-upcase #\Λ))
 (test #\λ (char-downcase #\λ))
 (test #\λ (char-downcase #\Λ))
 (test #\λ (char-foldcase #\λ))
 (test #\λ (char-foldcase #\Λ))
-|#
+
 (test-end)
 
 (test-begin "6.7 Strings")
@@ -1105,13 +1104,13 @@
 (test #t (string-ci>=? "abc" "aBc"))
 (test #f (string-ci>=? "abc" "aBcD"))
 (test #t (string-ci>=? "ABCd" "aBc"))
-#|
+
 (test #t (string-ci=? "ΑΒΓ" "αβγ" "αβγ"))
 (test #f (string-ci<? "ΑΒΓ" "αβγ"))
 (test #f (string-ci>? "ΑΒΓ" "αβγ"))
 (test #t (string-ci<=? "ΑΒΓ" "αβγ"))
 (test #t (string-ci>=? "ΑΒΓ" "αβγ"))
-|#
+
 ;; latin
 (test "ABC" (string-upcase "abc"))
 (test "ABC" (string-upcase "ABC"))
@@ -1119,7 +1118,7 @@
 (test "abc" (string-downcase "ABC"))
 (test "abc" (string-foldcase "abc"))
 (test "abc" (string-foldcase "ABC"))
-#|
+
 ;; cyrillic
 (test "ΑΒΓ" (string-upcase "αβγ"))
 (test "ΑΒΓ" (string-upcase "ΑΒΓ"))
@@ -1137,6 +1136,7 @@
 (test "i̇" (string-foldcase "İ"))
 (test "J̌" (string-upcase "ǰ"))
 
+#|
 ;; context-sensitive (final sigma)
 (test "ΓΛΏΣΣΑ" (string-upcase "γλώσσα"))
 (test "γλώσσα" (string-downcase "ΓΛΏΣΣΑ"))
@@ -1146,6 +1146,7 @@
 (test "μέλος" (string-foldcase "ΜΈΛΟΣ"))
 (test "μέλος ενός" (string-downcase "ΜΈΛΟΣ ΕΝΌΣ"))
 |#
+
 (test "" (substring "" 0 0))
 (test "" (substring "a" 0 0))
 (test "" (substring "abc" 1 1))
@@ -1534,8 +1535,8 @@
 
 (test-end)
 
-#|
 (test-begin "6.12 Environments and evaluation")
+#|
 
 ;; (test 21 (eval '(* 7 3) (scheme-report-environment 5)))
 
@@ -1844,7 +1845,6 @@
 ;;
 ;;   (test-numeric-syntax input-str expected-value (input-str))
 
-#|
 ;; Simple
 (test-numeric-syntax "1" 1)
 (test-numeric-syntax "+1" 1 "1")
@@ -1867,14 +1867,14 @@
 ;; Decimal notation with suffix
 (test-numeric-syntax "1e2" 100.0 "100.0" "100.")
 (test-numeric-syntax "1E2" 100.0 "100.0" "100.")
-(test-numeric-syntax "1s2" 100.0 "100.0" "100.")
-(test-numeric-syntax "1S2" 100.0 "100.0" "100.")
-(test-numeric-syntax "1f2" 100.0 "100.0" "100.")
-(test-numeric-syntax "1F2" 100.0 "100.0" "100.")
-(test-numeric-syntax "1d2" 100.0 "100.0" "100.")
-(test-numeric-syntax "1D2" 100.0 "100.0" "100.")
-(test-numeric-syntax "1l2" 100.0 "100.0" "100.")
-(test-numeric-syntax "1L2" 100.0 "100.0" "100.")
+;(test-numeric-syntax "1s2" 100.0 "100.0" "100.")
+;(test-numeric-syntax "1S2" 100.0 "100.0" "100.")
+;(test-numeric-syntax "1f2" 100.0 "100.0" "100.")
+;(test-numeric-syntax "1F2" 100.0 "100.0" "100.")
+;(test-numeric-syntax "1d2" 100.0 "100.0" "100.")
+;(test-numeric-syntax "1D2" 100.0 "100.0" "100.")
+;(test-numeric-syntax "1l2" 100.0 "100.0" "100.")
+;(test-numeric-syntax "1L2" 100.0 "100.0" "100.")
 ;; NaN, Inf
 (test-numeric-syntax "+nan.0" +nan.0 "+nan.0" "+NaN.0")
 (test-numeric-syntax "+NAN.0" +nan.0 "+nan.0" "+NaN.0")
@@ -1889,6 +1889,7 @@
 (test-numeric-syntax "1/2" (/ 1 2))
 (test-numeric-syntax "#e1/2" (/ 1 2) "1/2")
 (test-numeric-syntax "10/2" 5 "5")
+#|
 (test-numeric-syntax "-1/2" (- (/ 1 2)))
 (test-numeric-syntax "0/10" 0 "0")
 (test-numeric-syntax "#e0/10" 0 "0")
@@ -1978,7 +1979,7 @@
 
 ;; (test "/usr/local/bin:/usr/bin:/bin" (get-environment-variable "PATH"))
 
-(test #t (string? (get-environment-variable "PATH")))
+(test #t (string? (get-environment-variable (cond-expand (windows "Path") (else "PATH")))))
 
 ;; (test '(("USER" . "root") ("HOME" . "/")) (get-environment-variables))
 

@@ -18,94 +18,6 @@ Foment
 #define StringCompareS(s1, s2) strcmp(s1, s2)
 #endif // FOMENT_UNIX
 
-#if 0
-static void LoadFile(FObject fn, FObject env)
-{
-    try
-    {
-        FObject port = OpenInputFile(fn);
-        if (TextualPortP(port) == 0)
-            RaiseExceptionC(R.Assertion, "open-input-file", "can not open file for reading",
-                    List(fn));
-
-        PushRoot(&port);
-        PushRoot(&env);
-
-        WantIdentifiersPort(port, 1);
-
-        for (;;)
-        {
-            FObject obj = Read(port);
-            if (obj == EndOfFileObject)
-                break;
-            FObject ret = Eval(obj, env);
-            if (ret != NoValueObject)
-            {
-                Write(R.StandardOutput, ret, 0);
-                WriteCh(R.StandardOutput, '\n');
-            }
-        }
-    }
-    catch (FObject obj)
-    {
-        if (ExceptionP(obj) == 0)
-            WriteStringC(R.StandardOutput, "exception: ");
-        Write(R.StandardOutput, obj, 0);
-        WriteCh(R.StandardOutput, '\n');
-    }
-
-    PopRoot();
-    PopRoot();
-}
-
-static int RunRepl(FObject env)
-{
-    PushRoot(&env);
-
-    WantIdentifiersPort(R.StandardInput, 1);
-
-    for (;;)
-    {
-        try
-        {
-            FCh s[16];
-            int_t sl;
-
-            WriteCh(R.StandardOutput, '{');
-            sl = FixnumAsString(BytesAllocated, s, 10);
-            WriteString(R.StandardOutput, s, sl);
-            WriteStringC(R.StandardOutput, "}");
-            BytesAllocated = 0;
-
-//            sl = FixnumAsString(GetLineColumn(R.StandardInput, 0), s, 10);
-//            WriteString(R.StandardOutput, s, sl);
-            WriteStringC(R.StandardOutput, " =] ");
-
-            FObject obj = Read(R.StandardInput);
-            if (obj == EndOfFileObject)
-                break;
-            FObject ret = Eval(obj, env);
-            if (ret != NoValueObject)
-            {
-                Write(R.StandardOutput, ret, 0);
-                WriteCh(R.StandardOutput, '\n');
-            }
-        }
-        catch (FObject obj)
-        {
-            if (ExceptionP(obj) == 0)
-                WriteStringC(R.StandardOutput, "exception: ");
-            Write(R.StandardOutput, obj, 0);
-            WriteCh(R.StandardOutput, '\n');
-        }
-    }
-
-    PopRoot();
-
-    return(0);
-}
-#endif // 0
-
 static int Usage()
 {
     printf(
@@ -280,6 +192,24 @@ int main(int argc, char * argv[])
                     return(MissingArgument(argv[adx - 1]));
 
                 R.LibraryPath = MakePair(MakeStringS(argv[adx]), R.LibraryPath);
+
+                adx += 1;
+            }
+            else if (StringCompareS(argv[adx], "-latin1") == 0)
+            {
+                MakeEncodedPort = MakeLatin1Port;
+
+                adx += 1;
+            }
+            else if (StringCompareS(argv[adx], "-utf8") == 0)
+            {
+                MakeEncodedPort = MakeUtf8Port;
+
+                adx += 1;
+            }
+            else if (StringCompareS(argv[adx], "-utf16") == 0)
+            {
+                MakeEncodedPort = MakeUtf16Port;
 
                 adx += 1;
             }
