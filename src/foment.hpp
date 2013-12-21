@@ -8,6 +8,8 @@ Goals:
 
 To Do:
 
+-- add (scheme r5rs) library
+
 -- aka for additional library names
 -- (chibi test) built in
 -- don't load all libraries at startup
@@ -919,6 +921,7 @@ inline int_t RealP(FObject obj)
 }
 
 int_t IntegerP(FObject obj);
+int_t RationalP(FObject obj);
 
 #define POSITIVE_INFINITY (DBL_MAX * DBL_MAX)
 #define NEGATIVE_INFINITY -POSITIVE_INFINITY
@@ -1221,7 +1224,7 @@ inline void ByteArgCheck(const char * who, FObject obj)
 inline void FixnumArgCheck(const char * who, FObject obj)
 {
     if (FixnumP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected an integer", List(obj));
+        RaiseExceptionC(R.Assertion, who, "expected an exact integer", List(obj));
 }
 
 inline void IntegerArgCheck(const char * who, FObject obj)
@@ -1234,6 +1237,12 @@ inline void RealArgCheck(const char * who, FObject obj)
 {
     if (RealP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a real number", List(obj));
+}
+
+inline void RationalArgCheck(const char * who, FObject obj)
+{
+    if (RationalP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a rational number", List(obj));
 }
 
 inline void NumberArgCheck(const char * who, FObject obj)

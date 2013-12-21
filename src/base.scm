@@ -43,7 +43,7 @@
         cdar
         cddr
         cdr
-;        ceiling
+        ceiling
         char->integer
         char-ready?
         char<=?
@@ -66,7 +66,7 @@
         define-record-type
         define-syntax
         define-values
-;        denominator
+        denominator
         do
         dynamic-wind
         else
@@ -87,13 +87,13 @@
         expt
         features
         file-error?
-;        floor
+        floor
         floor-quotient
         floor-remainder
         floor/
         flush-output-port
         for-each
-;        gcd
+        gcd
         get-output-bytevector
         get-output-string
         guard
@@ -107,7 +107,7 @@
         integer->char
         integer?
         lambda
-;        lcm
+        lcm
         length
         let
         let*
@@ -143,7 +143,7 @@
         null?
         number->string
         number?
-;        numerator
+        numerator
         odd?
         open-input-bytevector
         open-input-string
@@ -176,7 +176,7 @@
         real?
         (rename truncate-remainder remainder)
         reverse
-;        round
+        round
         set!
         set-car!
         set-cdr!
@@ -209,7 +209,7 @@
         syntax-error
         syntax-rules
         textual-port?
-;        truncate
+        truncate
         truncate-quotient
         truncate-remainder
         truncate/
@@ -1081,7 +1081,7 @@
         cdar
         cddr
         cdr
-;;        ceiling
+        ceiling
         char->integer
         char-ready?
         char<=?
@@ -1104,7 +1104,7 @@
         define-record-type
         define-syntax
         define-values
-;;        denominator
+        denominator
         do
         dynamic-wind
         else
@@ -1125,13 +1125,13 @@
         expt
         features
         file-error?
-;;        floor
+        floor
         floor-quotient
         floor-remainder
         floor/
         flush-output-port
         for-each
-;;        gcd
+        gcd
         get-output-bytevector
         get-output-string
         guard
@@ -1145,7 +1145,7 @@
         integer->char
         integer?
         lambda
-;;        lcm
+        lcm
         length
         let
         let*
@@ -1181,7 +1181,7 @@
         null?
         number->string
         number?
-;;        numerator
+        numerator
         odd?
         open-input-bytevector
         open-input-string
@@ -1214,7 +1214,7 @@
         real?
         (rename truncate-remainder remainder)
         reverse
-;;        round
+        round
         set!
         set-car!
         set-cdr!
@@ -1247,7 +1247,7 @@
         syntax-error
         syntax-rules
         textual-port?
-;;        truncate
+        truncate
         truncate-quotient
         truncate-remainder
         truncate/
