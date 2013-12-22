@@ -54,7 +54,7 @@ int_t IntegerP(FObject obj)
 
 int_t NonNegativeExactIntegerP(FObject obj, int_t bf)
 {
-    return(FixnumP(obj) && AsFixnum(obj) >= 0 || (bf && BignumP(obj) && GenericSign(obj) >= 0));
+    return((FixnumP(obj) && AsFixnum(obj) >= 0) || (bf && BignumP(obj) && GenericSign(obj) >= 0));
 }
 
 static FObject MakeBignum()

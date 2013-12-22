@@ -249,15 +249,6 @@ static FYoungSection * AllocateYoung(FYoungSection * nxt, FSectionTag tag)
     return(ns);
 }
 
-#if 0
-#ifdef FOMENT_32BIT
-const static uint_t Align[4] = {0, 3, 2, 1};
-#endif // FOMENT_32BIT
-
-#ifdef FOMENT_64BIT
-#endif // FOMENT_64BIT
-#endif // 0
-
 #define OBJECT_ALIGNMENT 8
 const static uint_t Align[8] = {0, 7, 6, 5, 4, 3, 2, 1};
 

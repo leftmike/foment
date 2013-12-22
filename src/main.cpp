@@ -150,7 +150,7 @@ int main(int argc, char * argv[])
     catch (FObject obj)
     {
         printf("Unexpected exception: SetupFoment: %p\n", obj);
-        Write(R.StandardOutput, obj, 0);
+        WriteSimple(R.StandardOutput, obj, 0);
         return(1);
     }
 
@@ -233,7 +233,7 @@ int main(int argc, char * argv[])
     {
         if (ExceptionP(obj) == 0)
             WriteStringC(R.StandardOutput, "exception: ");
-        Write(R.StandardOutput, obj, 0);
+        WriteSimple(R.StandardOutput, obj, 0);
         WriteCh(R.StandardOutput, '\n');
 
         return(-1);
