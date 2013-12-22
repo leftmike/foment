@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 
 (import (scheme base) (scheme char) (scheme lazy)
-       (scheme inexact) ; (scheme complex)
+       (scheme inexact) (scheme complex)
         (scheme time)
         (scheme file) (scheme read) (scheme write)
         (scheme eval) (scheme process-context) (scheme case-lambda)
@@ -177,7 +177,6 @@
               (y x))
              y))
 
-#|
 (let*-values (((root rem) (exact-integer-sqrt 32)))
   (test 35 (* root rem)))
 
@@ -204,7 +203,7 @@
 (let*-values (((root rem) (exact-integer-sqrt (expt 2 140))))
   (test 0 rem)
   (test (expt 2 140) (square root)))
-|#
+
 (test '(x y x y) (let ((a 'a) (b 'b) (x 'x) (y 'y))
   (let*-values (((a b) (values x y))
                 ((x y) (values a b)))
@@ -296,8 +295,8 @@
 (test '(list 3 4) `(list ,(+ 1 2) 4))
 (let ((name 'a)) (test '(list a (quote a)) `(list ,name ',name)))
 (test '(a 3 4 5 6 b) `(a ,(+ 1 2) ,@(map abs '(4 -5 6)) b))
-;(test #(10 5 4 16 9 8)
-;    `#(10 5 ,(square 2) ,@(map square '(4 3)) 8))
+(test #(10 5 4 16 9 8)
+    `#(10 5 ,(square 2) ,@(map square '(4 3)) 8))
 (test '(a `(b ,(+ 1 2) ,(foo 4 d) e) f)
     `(a `(b ,(+ 1 2) ,(foo ,(+ 1 3) d) e) f) )
 (let ((name1 'x)
@@ -694,7 +693,6 @@
 (test 5.0 (numerator 5.0))
 (test 1.0 (denominator 5.0))
 
-#|
 (test -5.0 (floor -4.3))
 (test -4.0 (ceiling -4.3))
 (test -4.0 (truncate -4.3))
@@ -780,7 +778,6 @@
 (test 100 (string->number "100"))
 (test 256 (string->number "100" 16))
 (test 100.0 (string->number "1e2"))
-|#
 
 (test-end)
 
@@ -869,8 +866,8 @@
 (test '(d e) (list-tail '(a b c d e) 3))
 
 (test 'c (list-ref '(a b c d) 2))
-;(test 'c (list-ref '(a b c d)
-;          (exact (round 1.8))))
+(test 'c (list-ref '(a b c d)
+          (exact (round 1.8))))
 
 (test '(0 ("Sue" "Sue") "Anna")
     (let ((lst (list 0 '(2 2 2 2) "Anna")))
@@ -893,7 +890,7 @@
 
 (test #f (assq (list 'a) '(((a)) ((b)) ((c)))))
 (test '((a)) (assoc (list 'a) '(((a)) ((b)) ((c)))))
-;(test '(2 4) (assoc 2.0 '((1 1) (2 4) (3 9)) =))
+(test '(2 4) (assoc 2.0 '((1 1) (2 4) (3 9)) =))
 (test '(5 7) (assv 5 '((2 3) (5 7) (11 13))))
 
 (test '(1 2 3) (list-copy '(1 2 3)))
@@ -1219,11 +1216,11 @@
 (test #(a b c) (vector 'a 'b 'c))
 
 (test 8 (vector-ref '#(1 1 2 3 5 8 13 21) 5))
-;(test 13 (vector-ref '#(1 1 2 3 5 8 13 21)
-;            (let ((i (round (* 2 (acos -1)))))
-;              (if (inexact? i)
-;                  (exact i)
-;                  i))))
+(test 13 (vector-ref '#(1 1 2 3 5 8 13 21)
+            (let ((i (round (* 2 (acos -1)))))
+              (if (inexact? i)
+                  (exact i)
+                  i))))
 
 (test #(0 ("Sue" "Sue") "Anna") (let ((vec (vector 0 '(2 2 2 2) "Anna")))
   (vector-set! vec 1 '("Sue" "Sue"))
@@ -1374,9 +1371,9 @@
   (lambda (f g)
     (lambda args
       (f (apply g args)))))
-;(test '(30 0)
-;    (call-with-values (lambda () ((compose exact-integer-sqrt *) 12 75))
-;      list))
+(test '(30 0)
+    (call-with-values (lambda () ((compose exact-integer-sqrt *) 12 75))
+      list))
 
 (test '(b e h) (map cadr '((a b) (d e) (g h))))
 
@@ -1889,7 +1886,6 @@
 (test-numeric-syntax "1/2" (/ 1 2))
 (test-numeric-syntax "#e1/2" (/ 1 2) "1/2")
 (test-numeric-syntax "10/2" 5 "5")
-#|
 (test-numeric-syntax "-1/2" (- (/ 1 2)))
 (test-numeric-syntax "0/10" 0 "0")
 (test-numeric-syntax "#e0/10" 0 "0")
@@ -1912,9 +1908,9 @@
 (test-numeric-syntax "1.0+2i" (make-rectangular 1.0 2) "1.0+2.0i" "1.0+2i" "1.+2i" "1.+2.i")
 (test-numeric-syntax "1+2.0i" (make-rectangular 1 2.0) "1.0+2.0i" "1+2.0i" "1.+2.i" "1+2.i")
 (test-numeric-syntax "1e2+1.0i" (make-rectangular 100.0 1.0) "100.0+1.0i" "100.+1.i")
-(test-numeric-syntax "1s2+1.0i" (make-rectangular 100.0 1.0) "100.0+1.0i" "100.+1.i")
+;(test-numeric-syntax "1s2+1.0i" (make-rectangular 100.0 1.0) "100.0+1.0i" "100.+1.i")
 (test-numeric-syntax "1.0+1e2i" (make-rectangular 1.0 100.0) "1.0+100.0i" "1.+100.i")
-(test-numeric-syntax "1.0+1s2i" (make-rectangular 1.0 100.0) "1.0+100.0i" "1.+100.i")
+;(test-numeric-syntax "1.0+1s2i" (make-rectangular 1.0 100.0) "1.0+100.0i" "1.+100.i")
 ;; Fractional complex numbers (rectangular notation)
 (test-numeric-syntax "1/2+3/4i" (make-rectangular (/ 1 2) (/ 3 4)))
 ;; Mixed fractional/decimal notation complex numbers (rectangular notation)
@@ -1926,6 +1922,7 @@
 (test-numeric-syntax "-inf.0+inf.0i" (make-rectangular -inf.0 +inf.0) "-Inf.0+Inf.0i")
 (test-numeric-syntax "-inf.0-inf.0i" (make-rectangular -inf.0 -inf.0) "-Inf.0-Inf.0i")
 (test-numeric-syntax "+inf.0-inf.0i" (make-rectangular +inf.0 -inf.0) "+Inf.0-Inf.0i")
+
 ;; Complex numbers (polar notation)
 ;; Need to account for imprecision in write output.
 ;;(test-numeric-syntax "1@2" -0.416146836547142+0.909297426825682i "-0.416146836547142+0.909297426825682i")
@@ -1968,7 +1965,7 @@
 ;;(test-numeric-syntax "#b10+11i" (make-rectangular 2 3) "2+3i")
 ;;(test-numeric-syntax "#e1.0+1.0i" (make-rectangular 1 1) "1+1i" "1+i")
 ;;(test-numeric-syntax "#i1.0+1.0i" (make-rectangular 1.0 1.0) "1.0+1.0i" "1.+1.i")
-|#
+
 (test-end)
 
 (test-end)
@@ -1993,10 +1990,10 @@
 
 (test #t (list? (command-line)))
 
-;(test #t (real? (current-second)))
-;(test #t (inexact? (current-second)))
-;(test #t (exact? (current-jiffy)))
-;(test #t (exact? (jiffies-per-second)))
+(test #t (real? (current-second)))
+(test #t (inexact? (current-second)))
+(test #t (exact? (current-jiffy)))
+(test #t (exact? (jiffies-per-second)))
 
 (test #t (list? (features)))
 (test #t (and (memq 'r7rs (features)) #t))

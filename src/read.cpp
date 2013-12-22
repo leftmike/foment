@@ -231,72 +231,6 @@ static FObject ReadNumber(FObject port, FCh * s, int_t sdx, FFixnum rdx, int_t d
     return(n);
 }
 
-static FObject ReadRadixPrefix(FObject port)
-{
-    FCh ch;
-    FCh s[MAXIMUM_NUMBER];
-
-    if (PeekCh(port, &ch) == 0)
-        RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading number", List(port));
-
-    if (ch == '#')
-    {
-        ReadCh(port, &ch);
-
-        if (ReadCh(port, &ch) == 0)
-            RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading number",
-                    List(port));
-
-        if (ch == 'b' || ch == 'B')
-            return(ReadNumber(port, s, 0, 2, 0));
-        else if (ch == 'o' || ch == 'O')
-            return(ReadNumber(port, s, 0, 8, 0));
-        else if (ch == 'd' || ch == 'D')
-            return(ReadNumber(port, s, 0, 10, 0));
-        else if (ch == 'x' || ch == 'X')
-            return(ReadNumber(port, s, 0, 16, 0));
-        else
-            RaiseExceptionC(R.Lexical, "read", "expected radix prefix to follow exactness prefix",
-                    List(port, MakeCharacter(ch)));
-    }
-
-    return(ReadNumber(port, s, 0, 10, 0));
-}
-
-static FObject ReadExactnessPrefix(FObject port, FFixnum rdx)
-{
-    FCh ch;
-    FCh s[MAXIMUM_NUMBER];
-
-    if (PeekCh(port, &ch) == 0)
-        RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading number", List(port));
-
-    if (ch == '#')
-    {
-        ReadCh(port, &ch);
-
-        if (ReadCh(port, &ch) == 0)
-            RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading number",
-                    List(port));
-
-        if (ch == 'i' || ch == 'I')
-        {
-            FObject num = ReadNumber(port, s, 0, rdx, 0);
-            return(ToInexact(num));
-        }
-        else if (ch == 'e' || ch == 'E')
-        {
-            FObject num = ReadNumber(port, s, 0, rdx, 0);
-            return(ToExact(num));
-        }
-        else
-            RaiseExceptionC(R.Lexical, "read", "expected exactness prefix to follow radix prefix",
-                    List(port, MakeCharacter(ch)));
-    }
-
-    return(ReadNumber(port, s, 0, rdx, 0));
-}
-
 static int_t ReadName(FObject port, FCh ch, FCh * s)
 {
     int_t sl;
@@ -440,23 +374,41 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlht)
         RaiseExceptionC(R.Lexical, "read", "unexpected character name",
                 List(port, MakeString(s, sl)));
     }
-    else if (ch == 'b' || ch == 'B')
-        return(ReadExactnessPrefix(port, 2));
-    else if (ch == 'o' || ch == 'O')
-        return(ReadExactnessPrefix(port, 8));
-    else if (ch == 'd' || ch == 'D')
-        return(ReadExactnessPrefix(port, 10));
-    else if (ch == 'x' || ch == 'X')
-        return(ReadExactnessPrefix(port, 16));
-    else if (ch =='i' || ch == 'I')
+    else if (ch == 'b' || ch == 'B' || ch == 'o' || ch == 'O' || ch == 'd' || ch == 'D'
+            || ch == 'x' || ch == 'X' || ch =='i' || ch == 'I' || ch == 'e' || ch == 'E')
     {
-        FObject num = ReadRadixPrefix(port);
-        return(ToInexact(num));
-    }
-    else if (ch == 'e' || ch == 'E')
-    {
-        FObject num = ReadRadixPrefix(port);
-        return(ToExact(num));
+        FCh s[MAXIMUM_NUMBER];
+
+        s[0] = '#';
+        s[1] = ch;
+        int_t sdx = 2;
+
+        if (PeekCh(port, &ch) && ch == '#')
+        {
+            ReadCh(port, &ch);
+
+            if (PeekCh(port, &ch) == 0)
+                RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading number",
+                        List(port));
+
+            if (ch == 'b' || ch == 'B' || ch == 'o' || ch == 'O' || ch == 'd' || ch == 'D'
+                    || ch == 'x' || ch == 'X' || ch =='i' || ch == 'I' || ch == 'e' || ch == 'E')
+            {
+                ReadCh(port, &ch);
+
+                FAssert(sdx + 2 < MAXIMUM_NUMBER);
+
+                s[sdx] = '#';
+                sdx += 1;
+                s[sdx] = ch;
+                sdx += 1;
+            }
+            else
+                RaiseExceptionC(R.Lexical, "read", "unexpected character following #",
+                        List(port, MakeCharacter(ch)));
+        }
+
+        return(ReadNumber(port, s, sdx, 10, 0));
     }
     else if (ch ==  '(')
         return(ListToVector(ReadList(port, pdlht)));
@@ -895,7 +847,7 @@ Define("char-ready?", CharReadyPPrimitive)(int_t argc, FObject argv[])
 Define("read-string", ReadStringPrimitive)(int_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("read-string", argc);
-    NonNegativeArgCheck("read-string", argv[0]);
+    NonNegativeArgCheck("read-string", argv[0], 0);
     FObject port = (argc == 2 ? argv[1] : CurrentInputPort());
     TextualInputPortArgCheck("read-string", port);
 
@@ -934,7 +886,7 @@ Define("u8-ready?", U8ReadyPPrimitive)(int_t argc, FObject argv[])
 Define("read-bytevector", ReadBytevectorPrimitive)(int_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("read-bytevector", argc);
-    NonNegativeArgCheck("read-bytevector", argv[0]);
+    NonNegativeArgCheck("read-bytevector", argv[0], 0);
     FObject port = (argc == 2 ? argv[1] : CurrentInputPort());
     BinaryInputPortArgCheck("read-bytevector", port);
 

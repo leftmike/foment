@@ -7,18 +7,8 @@ x: real
 n: integer
 q: rational
 
--- StringToNumber: need another routine for string->number which checks for radix and exactness
-    prefixes
-<num> : <complex>
-      | <radix> <complex>
-      | <exactness> <complex>
-      | <radix> <exactness> <complex>
-      | <exactness> <radix> <complex>
-<radix> : #b | #o | #d | #x
-<exactness> : #i | #e
-
--- fix EqvP to not need NumberP before calling GenericCompare
--- add features
+-- rationalize is broken: see test2.scm
+-- complex broken: exp, log, sin, cos, tan, asin, acos, atan, sqrt, expt
 -- need guardian for Bignums to free the MPInteger
 -- on unix, if gmp is available, use it instead of mini-gmp
 -- ParseComplex: <real> @ <real>
@@ -43,6 +33,12 @@ q: rational
 #define sprintf_s snprintf
 #endif // FOMENT_UNIX
 
+static int_t GenericCompare(const char * who, FObject x1, FObject x2, int_t cf);
+static int_t GenericSign(FObject x);
+static FObject GenericMultiply(FObject z1, FObject z2);
+static FObject GenericSubtract(FObject z1, FObject z2);
+static FObject GenericAdd(FObject z1, FObject z2);
+
 static inline double64_t Truncate(double64_t n)
 {
     return(floor(n + 0.5 * ((n < 0 ) ? 1 : 0)));
@@ -56,10 +52,10 @@ int_t IntegerP(FObject obj)
     return(FixnumP(obj) || BignumP(obj));
 }
 
-static int_t GenericSign(FObject x);
-static FObject GenericMultiply(FObject z1, FObject z2);
-static FObject GenericSubtract(FObject z1, FObject z2);
-static FObject GenericAdd(FObject z1, FObject z2);
+int_t NonNegativeExactIntegerP(FObject obj, int_t bf)
+{
+    return(FixnumP(obj) && AsFixnum(obj) >= 0 || (bf && BignumP(obj) && GenericSign(obj) >= 0));
+}
 
 static FObject MakeBignum()
 {
@@ -188,6 +184,7 @@ inline static void BignumRemainder(FObject rbn, FObject n, FObject d)
 inline static FFixnum BignumRemainderFixnum(FObject n, FFixnum d)
 {
     FAssert(BignumP(n));
+    FAssert(d >= 0);
 
     return(mpz_tdiv_ui(AsBignum(n), (unsigned long) d));
 }
@@ -197,6 +194,24 @@ inline static int_t BignumEqualFixnum(FObject bn, FFixnum n)
     FAssert(BignumP(bn));
 
     return(mpz_cmp_si(AsBignum(bn), (long) n) == 0);
+}
+
+inline static void BignumExpt(FObject rbn, FObject bn, FFixnum e)
+{
+    FAssert(BignumP(rbn));
+    FAssert(BignumP(bn));
+    FAssert(e >= 0);
+
+    mpz_pow_ui(AsBignum(rbn), AsBignum(bn), (unsigned long) e);
+}
+
+inline static void BignumSqrt(FObject rt, FObject rem, FObject bn)
+{
+    FAssert(BignumP(rt));
+    FAssert(BignumP(rem));
+    FAssert(BignumP(bn));
+
+    mpz_sqrtrem(AsBignum(rt), AsBignum(rem), AsBignum(bn));
 }
 
 inline static FObject Normalize(FObject num)
@@ -319,6 +334,23 @@ static FObject MakeRatnum(FObject nmr, FObject dnm)
     return(obj);
 }
 
+static FObject RatnumDivide(FObject obj)
+{
+    FAssert(RatnumP(obj));
+
+    if (FixnumP(AsNumerator(obj)) && FixnumP(AsDenominator(obj)))
+        return(MakeFixnum(AsFixnum(AsNumerator(obj)) / AsFixnum(AsDenominator(obj))));
+
+    FObject nmr = FixnumP(AsNumerator(obj)) ? MakeBignum(AsFixnum(AsNumerator(obj)))
+            : AsNumerator(obj);
+    FObject dnm = FixnumP(AsDenominator(obj)) ? MakeBignum(AsFixnum(AsDenominator(obj)))
+            : AsDenominator(obj);
+    FObject rbn = MakeBignum();
+
+    BignumDivide(rbn, nmr, dnm);
+    return(Normalize(rbn));
+}
+
 #define AsReal(z) AsComplex(z)->Real
 #define AsImaginary(z) AsComplex(z)->Imaginary
 
@@ -365,6 +397,8 @@ FObject ToInexact(FObject n)
     {
         if (FlonumP(AsReal(n)) == 0)
             return(MakeComplex(ToInexact(AsReal(n)), ToInexact(AsImaginary(n))));
+
+        return(n);
     }
     else if (BignumP(n))
         return(MakeFlonum(BignumToDouble(n)));
@@ -790,19 +824,88 @@ static int_t ParseComplex(FCh * s, int_t sl, FFixnum rdx, FObject * pcmplx)
     return(-1);
 }
 
+#define EXACTNESS_NONE 0
+#define EXACTNESS_EXACT 1
+#define EXACTNESS_INEXACT 2
+
 FObject StringToNumber(FCh * s, int_t sl, FFixnum rdx)
 {
     FAssert(rdx == 2 || rdx == 8 || rdx == 10 || rdx == 16);
 
-    if (sl == 0)
-        return(FalseObject);
+    int_t epf = EXACTNESS_NONE;
+    int_t rpf = 0;
+    int_t sdx = 0;
+
+    while (sdx < sl && s[sdx] == '#')
+    {
+        sdx += 1;
+        if (sdx == sl)
+            return(FalseObject);
+
+        switch (s[sdx])
+        {
+        case 'i':
+        case 'I':
+            if (epf != EXACTNESS_NONE)
+                return(FalseObject);
+            epf = EXACTNESS_INEXACT;
+            break;
+
+        case 'e':
+        case 'E':
+            if (epf != EXACTNESS_NONE)
+                return(FalseObject);
+            epf = EXACTNESS_EXACT;
+            break;
+
+        case 'b':
+        case 'B':
+            if (rpf)
+                return(FalseObject);
+            rdx = 2;
+            break;
+
+        case 'o':
+        case 'O':
+            if (rpf)
+                return(FalseObject);
+            rdx = 8;
+            break;
+
+        case 'd':
+        case 'D':
+            if (rpf)
+                return(FalseObject);
+            rdx = 10;
+            break;
+
+        case 'x':
+        case 'X':
+            if (rpf)
+                return(FalseObject);
+            rdx = 16;
+            break;
+
+        default:
+            return(FalseObject);
+        }
+
+        sdx += 1;
+    }
 
     FObject n;
 
-    if (ParseComplex(s, sl, rdx, &n) < 0)
+    if (ParseComplex(s + sdx, sl - sdx, rdx, &n) < 0)
         return(FalseObject);
 
-    return(n);
+    if (epf == EXACTNESS_NONE)
+        return(n);
+    else if (epf == EXACTNESS_EXACT)
+        return(ToExact(n));
+
+    FAssert(epf == EXACTNESS_INEXACT);
+
+    return(ToInexact(n));
 }
 
 const static char Digits[] = {"0123456789ABCDEF"};
@@ -856,7 +959,7 @@ static void WriteNumber(FObject port, FObject obj, FFixnum rdx)
     if (FixnumP(obj))
     {
         FCh s[16];
-        int_t sl = FixnumAsString(AsFixnum(obj), s, 10);
+        int_t sl = FixnumAsString(AsFixnum(obj), s, rdx);
 
         WriteString(port, s, sl);
     }
@@ -922,7 +1025,7 @@ FObject NumberToString(FObject obj, FFixnum rdx)
     if (FixnumP(obj))
     {
         FCh s[16];
-        int_t sl = FixnumAsString(AsFixnum(obj), s, 10);
+        int_t sl = FixnumAsString(AsFixnum(obj), s, rdx);
 
         return(MakeString(s, sl));
     }
@@ -1027,7 +1130,58 @@ static int_t GenericSign(FObject x)
     return(0);
 }
 
-int_t GenericCompare(const char * who, FObject x1, FObject x2, int_t cf)
+int_t GenericEqvP(FObject x1, FObject x2)
+{
+    if (BothNumberP(x1, x2))
+    {
+        switch (BinaryNumberOp(x1, x2))
+        {
+        case BOP_BIGRAT_BIGRAT:
+            if (RatnumP(x1))
+                return(RatnumP(x2) && GenericCompare("eqv?", x1, x2, 0) == 0);
+            else
+            {
+                FAssert(BignumP(x1));
+
+                return(BignumP(x2) && BignumCompare(x1, x2) == 0);
+            }
+
+        case BOP_BIGRAT_COMPLEX:
+        case BOP_BIGRAT_FLOAT:
+        case BOP_BIGRAT_FIXED:
+        case BOP_COMPLEX_BIGRAT:
+            break;
+
+        case BOP_COMPLEX_COMPLEX:
+            return(GenericCompare("eqv?", x1, x2, 1) == 0);
+
+        case BOP_COMPLEX_FLOAT:
+        case BOP_COMPLEX_FIXED:
+        case BOP_FLOAT_BIGRAT:
+        case BOP_FLOAT_COMPLEX:
+            break;
+
+        case BOP_FLOAT_FLOAT:
+            return(AsFlonum(x1) == AsFlonum(x2));
+
+        case BOP_FLOAT_FIXED:
+        case BOP_FIXED_BIGRAT:
+        case BOP_FIXED_COMPLEX:
+        case BOP_FIXED_FLOAT:
+            break;
+
+        case BOP_FIXED_FIXED:
+            return(AsFixnum(x1) == AsFixnum(x2));
+
+        default:
+            FAssert(0);
+        }
+    }
+
+    return(0);
+}
+
+static int_t GenericCompare(const char * who, FObject x1, FObject x2, int_t cf)
 {
     if (BothNumberP(x1, x2))
     {
@@ -1058,7 +1212,7 @@ int_t GenericCompare(const char * who, FObject x1, FObject x2, int_t cf)
         case BOP_FLOAT_FLOAT:
         {
             double64_t n = AsFlonum(x1) - AsFlonum(x2);
-            return(n > 0.0 ? 1 : (n < 0.0 ? -1 : 0));
+            return(n > 0.0 ? 1 : (n == 0.0 ? 0 : -1));
         }
 
         case BOP_FLOAT_FIXED:
@@ -1853,19 +2007,24 @@ Define("negative?", NegativePPrimitive)(int_t argc, FObject argv[])
     return(GenericSign(argv[0]) < 0 ? TrueObject : FalseObject);
 }
 
+static int_t OddP(FObject obj)
+{
+    if (FixnumP(obj))
+        return(AsFixnum(obj) % 2 != 0);
+    else if (FlonumP(obj))
+        return(fmod(AsFlonum(obj), 2.0) != 0.0);
+
+    FAssert(BignumP(obj));
+
+    return(BignumRemainderFixnum(obj, 2) != 0);
+}
+
 Define("odd?", OddPPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("odd?", argc);
     IntegerArgCheck("odd?", argv[0]);
 
-    if (FixnumP(argv[0]))
-        return(AsFixnum(argv[0]) % 2 != 0 ? TrueObject : FalseObject);
-    else if (FlonumP(argv[0]))
-        return(fmod(AsFlonum(argv[0]), 2.0) != 0.0 ? TrueObject : FalseObject);
-
-    FAssert(BignumP(argv[0]));
-
-    return(BignumRemainderFixnum(argv[0], 2) != 0 ? TrueObject : FalseObject);
+    return(OddP(argv[0]) ? TrueObject : FalseObject);
 }
 
 Define("even?", EvenPPrimitive)(int_t argc, FObject argv[])
@@ -1873,14 +2032,7 @@ Define("even?", EvenPPrimitive)(int_t argc, FObject argv[])
     OneArgCheck("even?", argc);
     IntegerArgCheck("even?", argv[0]);
 
-    if (FixnumP(argv[0]))
-        return(AsFixnum(argv[0]) % 2 == 0 ? TrueObject : FalseObject);
-    else if (FlonumP(argv[0]))
-        return(fmod(AsFlonum(argv[0]), 2.0) == 0.0 ? TrueObject : FalseObject);
-
-    FAssert(BignumP(argv[0]));
-
-    return(BignumRemainderFixnum(argv[0], 2) == 0 ? TrueObject : FalseObject);
+    return(OddP(argv[0]) ? FalseObject : TrueObject);
 }
 
 Define("max", MaxPrimitive)(int_t argc, FObject argv[])
@@ -2059,21 +2211,26 @@ Define("truncate-quotient", TruncateQuotientPrimitive)(int_t argc, FObject argv[
     return(FlonumP(argv[0]) || FlonumP(argv[1]) ? ToInexact(rbn) : rbn);
 }
 
+static FObject TruncateRemainder(FObject n, FObject d)
+{
+    if (FixnumP(n) && FixnumP(d))
+        return(MakeFixnum(AsFixnum(n) % AsFixnum(d)));
+
+    FObject num = ToBignum(n);
+    FObject den = ToBignum(d);
+    FObject rbn = MakeBignum();
+
+    BignumRemainder(rbn, num, den);
+    return(FlonumP(n) || FlonumP(d) ? ToInexact(rbn) : rbn);
+}
+
 Define("truncate-remainder", TruncateRemainderPrimitive)(int_t argc, FObject argv[])
 {
     TwoArgsCheck("truncate-remainder", argc);
     IntegerArgCheck("truncate-remainder", argv[0]);
     IntegerArgCheck("truncate-remainder", argv[1]);
 
-    if (FixnumP(argv[0]) && FixnumP(argv[1]))
-        return(MakeFixnum(AsFixnum(argv[0]) % AsFixnum(argv[1])));
-
-    FObject n = ToBignum(argv[0]);
-    FObject d = ToBignum(argv[1]);
-    FObject rbn = MakeBignum();
-
-    BignumRemainder(rbn, n, d);
-    return(FlonumP(argv[0]) || FlonumP(argv[1]) ? ToInexact(rbn) : rbn);
+    return(TruncateRemainder(argv[0], argv[1]));
 }
 
 static FObject Gcd(FObject a, FObject b)
@@ -2162,11 +2319,11 @@ Define("numerator", NumeratorPrimitive)(int_t argc, FObject argv[])
         obj = ToExact(obj);
 
     if (RatnumP(obj))
-        return(AsNumerator(obj));
+        return(FlonumP(argv[0]) ? ToInexact(AsNumerator(obj)) : AsNumerator(obj));
 
     FAssert(FixnumP(obj) || BignumP(obj));
 
-    return(obj);
+    return(argv[0]);
 }
 
 Define("denominator", DenominatorPrimitive)(int_t argc, FObject argv[])
@@ -2180,55 +2337,499 @@ Define("denominator", DenominatorPrimitive)(int_t argc, FObject argv[])
         obj = ToExact(obj);
 
     if (RatnumP(obj))
-        return(AsDenominator(obj));
+        return(FlonumP(argv[0]) ? ToInexact(AsDenominator(obj)) : AsDenominator(obj));
 
     FAssert(FixnumP(obj) || BignumP(obj));
 
-    return(MakeFixnum(1));
+    return(FlonumP(argv[0]) ? MakeFlonum(1.0) : MakeFixnum(1));
 }
 
 Define("floor", FloorPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("floor", argc);
     RealArgCheck("floor", argv[0]);
-    
-    
-    return(NoValueObject);
+
+    if (FlonumP(argv[0]))
+        return(MakeFlonum(floor(AsFlonum(argv[0]))));
+    else if (RatnumP(argv[0]))
+    {
+        FObject ret = RatnumDivide(argv[0]);
+
+        if (GenericSign(ret) < 0)
+            return(GenericSubtract(ret, MakeFixnum(1)));
+
+        return(ret);
+    }
+
+    return(argv[0]);
 }
 
 Define("ceiling", CeilingPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("ceiling", argc);
     RealArgCheck("ceiling", argv[0]);
-    
-    
-    return(NoValueObject);
+
+    if (FlonumP(argv[0]))
+        return(MakeFlonum(ceil(AsFlonum(argv[0]))));
+    else if (RatnumP(argv[0]))
+    {
+        FObject ret = RatnumDivide(argv[0]);
+
+        if (GenericSign(ret) > 0)
+            return(GenericAdd(ret, MakeFixnum(1)));
+
+        return(ret);
+    }
+
+    return(argv[0]);
 }
 
 Define("truncate", TruncatePrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("truncate", argc);
     RealArgCheck("truncate", argv[0]);
-    
-    
-    return(NoValueObject);
+
+    if (FlonumP(argv[0]))
+        return(MakeFlonum(Truncate(AsFlonum(argv[0]))));
+    else if (RatnumP(argv[0]))
+        return(RatnumDivide(argv[0]));
+
+    return(argv[0]);
 }
 
 Define("round", RoundPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("round", argc);
     RealArgCheck("round", argv[0]);
-    
-    
-    return(NoValueObject);
+
+    FObject obj = argv[0];
+
+    if (FlonumP(argv[0]))
+        obj = ToExact(argv[0]);
+
+    if (RatnumP(obj))
+    {
+        FObject ret = RatnumDivide(obj);
+
+        if (AsDenominator(obj) == MakeFixnum(2) && OddP(ret))
+            ret = GenericAdd(ret, GenericSign(ret) > 0 ? MakeFixnum(1) : MakeFixnum(-1));
+        else
+        {
+            FObject tmp = GenericMultiply(TruncateRemainder(AsNumerator(obj),
+                    AsDenominator(obj)), MakeFixnum(2));
+
+            if (GenericSign(tmp) < 0)
+                tmp = GenericMultiply(tmp, MakeFixnum(-1));
+
+            if (GenericCompare("round", tmp, AsDenominator(obj), 0) > 0)
+                ret = GenericAdd(ret, GenericSign(ret) > 0 ? MakeFixnum(1) : MakeFixnum(-1));
+        }
+
+        return(FlonumP(argv[0]) ? ToInexact(ret) : ret);
+    }
+
+    return(argv[0]);
 }
 
-Define("exact", ExactPrimitive)(int_t argc, FObject argv[])
+Define("rationalize", RationalizePrimitive)(int_t argc, FObject argv[])
 {
-    OneArgCheck("exact", argc);
-    NumberArgCheck("exact", argv[0]);
+    TwoArgsCheck("rationalize", argc);
+    RealArgCheck("rationalize", argv[0]);
+    RealArgCheck("rationalize", argv[1]);
+    
+    
+    
+    return(argv[0]);
+}
 
-    return(ToExact(argv[0]));
+Define("exp", ExpPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("exp", argc);
+    NumberArgCheck("exp", argv[0]);
+
+    if (ComplexP(argv[0]))
+    {
+        FAssert(0);
+        
+        
+        
+        return(MakeFixnum(0));
+    }
+
+    FObject z = ToInexact(argv[0]);
+
+    FAssert(FlonumP(z));
+
+    return(MakeFlonum(exp(AsFlonum(z))));
+}
+
+Define("log", LogPrimitive)(int_t argc, FObject argv[])
+{
+    OneOrTwoArgsCheck("log", argc);
+    NumberArgCheck("log", argv[0]);
+
+    if (argc == 1)
+    {
+        if (ComplexP(argv[0]))
+        {
+            FAssert(0);
+            
+            
+            
+            return(MakeFixnum(0));
+        }
+
+        FObject z = ToInexact(argv[0]);
+
+        FAssert(FlonumP(z));
+
+        return(MakeFlonum(log(AsFlonum(z))));
+    }
+
+    FAssert(argc == 2);
+
+    if (ComplexP(argv[0]) || ComplexP(argv[1]))
+    {
+        FAssert(0);
+        
+        
+        
+        return(MakeFixnum(0));
+    }
+
+    FObject z1 = ToInexact(argv[0]);
+    FObject z2 = ToInexact(argv[1]);
+
+    FAssert(FlonumP(z1));
+    FAssert(FlonumP(z2));
+
+    return(MakeFlonum(log(AsFlonum(z1)) / log(AsFlonum(z2))));
+}
+
+Define("sin", SinPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("sin", argc);
+    NumberArgCheck("sin", argv[0]);
+
+    if (ComplexP(argv[0]))
+    {
+        FAssert(0);
+        
+        
+        
+        return(MakeFixnum(0));
+    }
+
+    FObject z = ToInexact(argv[0]);
+
+    FAssert(FlonumP(z));
+
+    return(MakeFlonum(sin(AsFlonum(z))));
+}
+
+Define("cos", CosPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("cos", argc);
+    NumberArgCheck("cos", argv[0]);
+
+    if (ComplexP(argv[0]))
+    {
+        FAssert(0);
+        
+        
+        
+        return(MakeFixnum(0));
+    }
+
+    FObject z = ToInexact(argv[0]);
+
+    FAssert(FlonumP(z));
+
+    return(MakeFlonum(cos(AsFlonum(z))));
+}
+
+Define("tan", TanPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("tan", argc);
+    NumberArgCheck("tan", argv[0]);
+
+    if (ComplexP(argv[0]))
+    {
+        FAssert(0);
+        
+        
+        
+        return(MakeFixnum(0));
+    }
+
+    FObject z = ToInexact(argv[0]);
+
+    FAssert(FlonumP(z));
+
+    return(MakeFlonum(tan(AsFlonum(z))));
+}
+
+Define("asin", ASinPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("asin", argc);
+    NumberArgCheck("asin", argv[0]);
+
+    if (ComplexP(argv[0]))
+    {
+        FAssert(0);
+        
+        
+        
+        return(MakeFixnum(0));
+    }
+
+    FObject z = ToInexact(argv[0]);
+
+    FAssert(FlonumP(z));
+
+    return(MakeFlonum(asin(AsFlonum(z))));
+}
+
+Define("acos", ACosPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("acos", argc);
+    NumberArgCheck("acos", argv[0]);
+
+    if (ComplexP(argv[0]))
+    {
+        FAssert(0);
+        
+        
+        
+        return(MakeFixnum(0));
+    }
+
+    FObject z = ToInexact(argv[0]);
+
+    FAssert(FlonumP(z));
+
+    return(MakeFlonum(acos(AsFlonum(z))));
+}
+
+Define("atan", ATanPrimitive)(int_t argc, FObject argv[])
+{
+    OneOrTwoArgsCheck("atan", argc);
+
+    if (argc == 1)
+    {
+        NumberArgCheck("log", argv[0]);
+
+        if (ComplexP(argv[0]))
+        {
+            FAssert(0);
+            
+            
+            
+            return(MakeFixnum(0));
+        }
+
+        FObject z = ToInexact(argv[0]);
+
+        FAssert(FlonumP(z));
+
+        return(MakeFlonum(atan(AsFlonum(z))));
+    }
+
+    FAssert(argc == 2);
+
+    if (ComplexP(argv[0]) || ComplexP(argv[1]))
+    {
+        FAssert(0);
+        
+        
+        
+        return(MakeFixnum(0));
+    }
+
+    FObject z1 = ToInexact(argv[0]);
+    FObject z2 = ToInexact(argv[1]);
+
+    FAssert(FlonumP(z1));
+    FAssert(FlonumP(z2));
+
+    return(MakeFlonum(atan2(AsFlonum(z1), AsFlonum(z2))));
+}
+
+Define("square", SquarePrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("square", argc);
+    NumberArgCheck("square", argv[0]);
+
+    return(GenericMultiply(argv[0], argv[0]));
+}
+
+Define("sqrt", SqrtPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("sqrt", argc);
+    NumberArgCheck("sqrt", argv[0]);
+
+    if (ComplexP(argv[0]))
+    {
+        FAssert(0);
+        
+        
+        
+        return(MakeFixnum(0));
+    }
+
+    if (BignumP(argv[0]))
+    {
+        FObject rt = MakeBignum();
+        FObject rem = MakeBignum();
+
+        BignumSqrt(rt, rem, argv[0]);
+        if (GenericSign(rem) == 0)
+            return(Normalize(rt));
+
+        // Fall through.
+    }
+
+    FObject z = ToInexact(argv[0]);
+
+    FAssert(FlonumP(z));
+
+    double64_t d = AsFlonum(z);
+    if (d < 0)
+    {
+        double64_t rt = sqrt(- d);
+        if (rt == Truncate(rt))
+            return(MakeComplex(MakeFlonum(0.0), ToExact(MakeFlonum(rt))));
+
+        return(MakeComplex(MakeFlonum(0.0), MakeFlonum(rt)));
+    }
+
+    double64_t rt = sqrt(d);
+    if (rt == Truncate(rt))
+        return(ToExact(MakeFlonum(rt)));
+
+    return(MakeFlonum(rt));
+}
+
+Define("%exact-integer-sqrt", ExactIntegerSqrtPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("exact-integer-sqrt", argc);
+    NonNegativeArgCheck("exact-integer-sqrt", argv[0], 1);
+
+    if (FixnumP(argv[0]))
+    {
+        FFixnum rt = (FFixnum) sqrt((double64_t) AsFixnum(argv[0]));
+
+        return(MakePair(MakeFixnum(rt), MakeFixnum(AsFixnum(argv[0]) - rt * rt)));
+    }
+
+    FObject rt = MakeBignum();
+    FObject rem = MakeBignum();
+
+    BignumSqrt(rt, rem, argv[0]);
+    return(MakePair(Normalize(rt), Normalize(rem)));
+}
+
+Define("expt", ExptPrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("expt", argc);
+    NumberArgCheck("expt", argv[0]);
+    NumberArgCheck("expt", argv[1]);
+
+    if (FixnumP(argv[1]))
+    {
+        FFixnum e = AsFixnum(argv[1]);
+        if (e < 0)
+            e = - e;
+
+        if (FixnumP(argv[0]) || BignumP(argv[0]))
+        {
+            FObject rbn = MakeBignum();
+            BignumExpt(rbn, FixnumP(argv[0]) ? MakeBignum(AsFixnum(argv[0])) : argv[0], e);
+            return(AsFixnum(argv[1]) < 0 ? MakeRatnum(MakeFixnum(1), rbn) : Normalize(rbn));
+        }
+
+        FObject ret = MakeFixnum(1);
+        FObject n = argv[0];
+
+        while (e > 0)
+        {
+            if (e & 0x1)
+                ret = GenericMultiply(ret, n);
+
+            n = GenericMultiply(n, n);
+            e = e >> 1;
+        }
+
+        if (AsFixnum(argv[1]) < 0)
+            ret = GenericDivide(MakeFixnum(1), ret);
+
+        return(FlonumP(argv[0]) ? ToInexact(ret) : ret);
+    }
+    else if (ComplexP(argv[0]) || ComplexP(argv[1]))
+    {
+        FAssert(0);
+        
+        
+        
+        return(MakeFixnum(0));
+    }
+
+    FObject b = ToInexact(argv[0]);
+    FObject e = ToInexact(argv[1]);
+
+    FAssert(FlonumP(b));
+    FAssert(FlonumP(e));
+
+    return(MakeFlonum(pow(AsFlonum(b), AsFlonum(e))));
+}
+
+Define("make-rectangular", MakeRectangularPrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("make-rectangular", argc);
+    RealArgCheck("make-rectangular", argv[0]);
+    RealArgCheck("make-rectangular", argv[1]);
+
+    return(MakeComplex(argv[0], argv[1]));
+}
+
+Define("make-polar", MakePolarPrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("make-rectangular", argc);
+    RealArgCheck("make-rectangular", argv[0]);
+    RealArgCheck("make-rectangular", argv[1]);
+
+    FObject r= ToInexact(argv[0]);
+    FObject phi = ToInexact(argv[1]);
+
+    FAssert(FlonumP(r));
+    FAssert(FlonumP(phi));
+
+    return(MakeComplex(MakeFlonum(AsFlonum(r) * cos(AsFlonum(phi))),
+            MakeFlonum(AsFlonum(r) * sin(AsFlonum(phi)))));
+}
+
+Define("real-part", RealPartPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("real-part", argc);
+    NumberArgCheck("real-part", argv[0]);
+
+    if (ComplexP(argv[0]))
+        return(AsReal(argv[0]));
+
+    return(argv[0]);
+}
+
+Define("imag-part", ImagPartPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("imag-part", argc);
+    NumberArgCheck("imag-part", argv[0]);
+
+    if (ComplexP(argv[0]))
+        return(AsImaginary(argv[0]));
+    else if (FlonumP(argv[0]))
+        return(MakeFlonum(0.0));
+
+    return(MakeFixnum(0));
 }
 
 Define("inexact", InexactPrimitive)(int_t argc, FObject argv[])
@@ -2239,60 +2840,52 @@ Define("inexact", InexactPrimitive)(int_t argc, FObject argv[])
     return(ToInexact(argv[0]));
 }
 
-Define("expt", ExptPrimitive)(int_t argc, FObject argv[])
+Define("exact", ExactPrimitive)(int_t argc, FObject argv[])
 {
-    if (argc != 2)
-        RaiseExceptionC(R.Assertion, "expt", "expected two arguments", EmptyListObject);
+    OneArgCheck("exact", argc);
+    NumberArgCheck("exact", argv[0]);
 
-    if (FixnumP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "expt", "expected a fixnum", List(argv[0]));
-
-    if (FixnumP(argv[1]) == 0)
-        RaiseExceptionC(R.Assertion, "expt", "expected a fixnum", List(argv[1]));
-
-    int_t x = AsFixnum(argv[0]);
-    int_t n = AsFixnum(argv[1]);
-    int_t ret = 1;
-    while (n > 0)
-    {
-        ret *= x;
-        n -= 1;
-    }
-
-    return(MakeFixnum(ret));
-}
-
-Define("sqrt", SqrtPrimitive)(int_t argc, FObject argv[])
-{
-    if (argc != 1)
-        RaiseExceptionC(R.Assertion, "sqrt", "expected one argument", EmptyListObject);
-
-    if (FixnumP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "sqrt", "expected a fixnum", List(argv[0]));
-
-    int_t n = AsFixnum(argv[0]);
-    int_t x = 1;
-
-    while (x * x < n)
-        x += 1;
-
-    return(MakeFixnum(x));
+    return(ToExact(argv[0]));
 }
 
 Define("number->string", NumberToStringPrimitive)(int_t argc, FObject argv[])
 {
-    if (argc != 2)
-        RaiseExceptionC(R.Assertion, "number->string", "expected two arguments", EmptyListObject);
+    OneOrTwoArgsCheck("number->string", argc);
+    NumberArgCheck("number->string", argv[0]);
 
-    if (FixnumP(argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "number->string", "expected a fixnum", List(argv[0]));
+    FFixnum rdx = 10;
 
-    if (FixnumP(argv[1]) == 0)
-        RaiseExceptionC(R.Assertion, "number->string", "expected a fixnum", List(argv[1]));
+    if (argc == 2)
+    {
+        if (FixnumP(argv[1]) == 0 || (AsFixnum(argv[1]) != 2 && AsFixnum(argv[1]) != 8
+                && AsFixnum(argv[1]) != 10 && AsFixnum(argv[1]) != 16))
+            RaiseExceptionC(R.Assertion, "number->string", "expected radix of 2, 8, 10, or 16",
+                    List(argv[1]));
 
-    FCh s[16];
-    int_t sl = FixnumAsString(AsFixnum(argv[0]), s, AsFixnum(argv[1]));
-    return(MakeString(s, sl));
+        rdx = AsFixnum(argv[1]);
+    }
+
+    return(NumberToString(argv[0], rdx));
+}
+
+Define("string->number", StringToNumberPrimitive)(int_t argc, FObject argv[])
+{
+    OneOrTwoArgsCheck("string->number", argc);
+    StringArgCheck("string->number", argv[0]);
+
+    FFixnum rdx = 10;
+
+    if (argc == 2)
+    {
+        if (FixnumP(argv[1]) == 0 || (AsFixnum(argv[1]) != 2 && AsFixnum(argv[1]) != 8
+                && AsFixnum(argv[1]) != 10 && AsFixnum(argv[1]) != 16))
+            RaiseExceptionC(R.Assertion, "string->number", "expected radix of 2, 8, 10, or 16",
+                    List(argv[1]));
+
+        rdx = AsFixnum(argv[1]);
+    }
+
+    return(StringToNumber(AsString(argv[0])->String, StringLength(argv[0]), rdx));
 }
 
 static FPrimitive * Primitives[] =
@@ -2336,13 +2929,27 @@ static FPrimitive * Primitives[] =
     &CeilingPrimitive,
     &TruncatePrimitive,
     &RoundPrimitive,
-    
-    
-    &ExactPrimitive,
-    &InexactPrimitive,
-    &ExptPrimitive,
+    &RationalizePrimitive,
+    &ExpPrimitive,
+    &LogPrimitive,
+    &SinPrimitive,
+    &CosPrimitive,
+    &TanPrimitive,
+    &ASinPrimitive,
+    &ACosPrimitive,
+    &ATanPrimitive,
+    &SquarePrimitive,
     &SqrtPrimitive,
-    &NumberToStringPrimitive
+    &ExactIntegerSqrtPrimitive,
+    &ExptPrimitive,
+    &MakeRectangularPrimitive,
+    &MakePolarPrimitive,
+    &RealPartPrimitive,
+    &ImagPartPrimitive,
+    &InexactPrimitive,
+    &ExactPrimitive,
+    &NumberToStringPrimitive,
+    &StringToNumberPrimitive
 };
 
 void SetupNumbers()

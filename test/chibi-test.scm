@@ -34,6 +34,13 @@
                     (display " fail: ") (write failed)
                     (newline))))
 
+        (define (check-equal? a b)
+            (if (equal? a b)
+                #t
+                (if (and (number? a) (inexact? a) (number? b) (inexact? b))
+                    (equal? (number->string a) (number->string b))
+                    #f)))
+
         (define-syntax test
             (syntax-rules ()
                 ((test expect expr)
@@ -44,7 +51,7 @@
                                     (display " exception: ")
                                     (write exc)))))
                         (let ((ret expr))
-    		        (if (equal? ret expect)
+    		        (if (check-equal? ret expect)
     		            (test-passed)
     		            (test-failed 'expr
     		                (lambda ()

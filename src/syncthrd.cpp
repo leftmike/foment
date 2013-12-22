@@ -226,7 +226,7 @@ Define("run-thread", RunThreadPrimitive)(int_t argc, FObject argv[])
 Define("sleep", SleepPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("sleep", argc);
-    NonNegativeArgCheck("sleep", argv[0]);
+    NonNegativeArgCheck("sleep", argv[0], 0);
 
 #ifdef FOMENT_WINDOWS
     EnterWait();

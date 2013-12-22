@@ -645,12 +645,10 @@ static FObject GPassSelfTailCall(FLambda * lam, FObject cdl, FObject blst)
 
     FBinding * bd = AsBinding(First(blst));
 
-    if (lam->UseStack == TrueObject)
-        cdl = MakePair(MakeInstruction(SetCStackOpcode,
-                AsFixnum(lam->SlotCount) - AsFixnum(bd->Slot)), cdl);
-    else
-        cdl = MakePair(MakeInstruction(SetFrameOpcode, AsFixnum(bd->Slot)), cdl);
+    FAssert(lam->UseStack == TrueObject);
 
+    cdl = MakePair(MakeInstruction(SetCStackOpcode,
+            AsFixnum(lam->SlotCount) - AsFixnum(bd->Slot)), cdl);
     return(cdl);
 }
 
@@ -707,7 +705,7 @@ static FObject GPassMakeCall(FLambda * lam, FObject cdl, FObject op, int_t argc,
             else if (AsFixnum(AsLambda(op)->ArgCount) != argc)
                 RaiseException(R.Assertion, lam->Name == NoValueObject ? lam : lam->Name,
                         R.WrongNumberOfArguments, List(expr));
-            else if (AsLambda(op) == lam && cf == TailCallFlag)
+            else if (AsLambda(op) == lam && cf == TailCallFlag && lam->UseStack == TrueObject)
             {
                 FAssert(FixnumP(lam->BodyIndex));
 

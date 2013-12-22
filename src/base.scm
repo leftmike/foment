@@ -81,7 +81,7 @@
         error-object?
         even?
         exact
-;        exact-integer-sqrt
+        exact-integer-sqrt
         exact-integer?
         exact?
         expt
@@ -165,7 +165,7 @@
         raise
         raise-continuable
         rational?
-;        rationalize
+        rationalize
         read-bytevector
         read-bytevector!
         read-char
@@ -180,10 +180,10 @@
         set!
         set-car!
         set-cdr!
-;        square
+        square
         string
         string->list
-;        string->number
+        string->number
         string->symbol
         string->utf8
         string->vector
@@ -264,6 +264,13 @@
         string-downcase
         string-foldcase
         string-upcase)
+    (export ;; (scheme complex)
+        angle
+        imag-part
+        magnitude
+        make-polar
+        make-rectangular
+        real-part)
     (export ;; (scheme cxr)
         caaar
         cdaar
@@ -305,18 +312,18 @@
         with-output-to-file
     )
     (export ;; (scheme inexact)
-;        acos
-;        asin
-;        atan
-;        cos
-;        exp
+        acos
+        asin
+        atan
+        cos
+        exp
         finite?
         infinite?
-;        log
+        log
         nan?
-;        sin
+        sin
         sqrt
-;        tan
+        tan
     )
     (export ;; (scheme lazy)
         delay
@@ -407,6 +414,36 @@
         no-value
         set!-values)
     (begin
+        (define-syntax when
+            (syntax-rules ()
+                ((when test result1 result2 ...)
+                    (if test (begin result1 result2 ...)))))
+
+        (define-syntax unless
+            (syntax-rules ()
+                ((unless test result1 result2 ...)
+                    (if (not test) (begin result1 result2 ...)))))
+
+        (define-syntax cond
+            (syntax-rules (else =>)
+                ((cond (else result1 result2 ...)) (begin 'ignore result1 result2 ...))
+                ((cond (test => result))
+                    (let ((temp test)) (if temp (result temp))))
+                ((cond (test => result) clause1 clause2 ...)
+                    (let ((temp test))
+                        (if temp
+                            (result temp)
+                            (cond clause1 clause2 ...))))
+                ((cond (test)) test)
+                ((cond (test) clause1 clause2 ...)
+                    (let ((temp test))
+                        (if temp temp (cond clause1 clause2 ...))))
+                ((cond (test result1 result2 ...)) (if test (begin result1 result2 ...)))
+                ((cond (test result1 result2 ...) clause1 clause2 ...)
+                    (if test
+                        (begin result1 result2 ...)
+                        (cond clause1 clause2 ...)))))
+
         (define (caar pair) (car (car pair)))
         (define (cadr pair) (car (cdr pair)))
         (define (cdar pair) (cdr (car pair)))
@@ -446,6 +483,16 @@
         (define (truncate/ n1 n2)
             (values (truncate-quotient n1 n2) (truncate-remainder n1 n2)))
 
+        (define (exact-integer-sqrt k)
+            (let ((ret (%exact-integer-sqrt k)))
+                (values (car ret) (cdr ret))))
+
+        (define (magnitude z)
+            (sqrt (+ (* (real-part z) (real-part z)) (* (imag-part z) (imag-part z)))))
+
+        (define (angle z)
+            (atan (imag-part z) (real-part z)))
+
         (define member
             (case-lambda
                 ((obj list) (%member obj list))
@@ -475,36 +522,6 @@
                     (assoc list))))
 
         (define (substring string start end) (string-copy string start end))
-
-        (define-syntax when
-            (syntax-rules ()
-                ((when test result1 result2 ...)
-                    (if test (begin result1 result2 ...)))))
-
-        (define-syntax unless
-            (syntax-rules ()
-                ((unless test result1 result2 ...)
-                    (if (not test) (begin result1 result2 ...)))))
-
-        (define-syntax cond
-            (syntax-rules (else =>)
-                ((cond (else result1 result2 ...)) (begin 'ignore result1 result2 ...))
-                ((cond (test => result))
-                    (let ((temp test)) (if temp (result temp))))
-                ((cond (test => result) clause1 clause2 ...)
-                    (let ((temp test))
-                        (if temp
-                            (result temp)
-                            (cond clause1 clause2 ...))))
-                ((cond (test)) test)
-                ((cond (test) clause1 clause2 ...)
-                    (let ((temp test))
-                        (if temp temp (cond clause1 clause2 ...))))
-                ((cond (test result1 result2 ...)) (if test (begin result1 result2 ...)))
-                ((cond (test result1 result2 ...) clause1 clause2 ...)
-                    (if test
-                        (begin result1 result2 ...)
-                        (cond clause1 clause2 ...)))))
 
         (define-syntax define-record-field
             (syntax-rules ()
@@ -1119,7 +1136,7 @@
         error-object?
         even?
         exact
-;;        exact-integer-sqrt
+        exact-integer-sqrt
         exact-integer?
         exact?
         expt
@@ -1203,7 +1220,7 @@
         raise
         raise-continuable
         rational?
-;;        rationalize
+        rationalize
         read-bytevector
         read-bytevector!
         read-char
@@ -1218,10 +1235,10 @@
         set!
         set-car!
         set-cdr!
-;;        square
+        square
         string
         string->list
-;;        string->number
+        string->number
         string->symbol
         string->utf8
         string->vector
@@ -1309,7 +1326,15 @@
         string-foldcase
         string-upcase))
 
-;; (define-library (scheme complex)
+(define-library (scheme complex)
+    (import (foment base))
+    (export
+        angle
+        imag-part
+        magnitude
+        make-polar
+        make-rectangular
+        real-part))
 
 (define-library (scheme cxr)
     (import (foment base))
@@ -1363,18 +1388,18 @@
 (define-library (scheme inexact)
     (import (foment base))
     (export
-;;        acos
-;;        asin
-;;        atan
-;;        cos
-;;        exp
+        acos
+        asin
+        atan
+        cos
+        exp
         finite?
         infinite?
-;;        log
+        log
         nan?
-;;        sin
+        sin
         sqrt
-;;        tan
+        tan
     ))
 
 (define-library (scheme lazy)

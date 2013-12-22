@@ -903,7 +903,7 @@ typedef struct
 
 // ---- Numbers ----
 
-int_t GenericCompare(const char * who, FObject x1, FObject x2, int_t cf);
+int_t GenericEqvP(FObject x1, FObject x2);
 
 FObject StringToNumber(FCh * s, int_t sl, FFixnum rdx);
 FObject NumberToString(FObject obj, FFixnum rdx);
@@ -922,6 +922,7 @@ inline int_t RealP(FObject obj)
 
 int_t IntegerP(FObject obj);
 int_t RationalP(FObject obj);
+int_t NonNegativeExactIntegerP(FObject obj, int_t bf);
 
 #define POSITIVE_INFINITY (DBL_MAX * DBL_MAX)
 #define NEGATIVE_INFINITY -POSITIVE_INFINITY
@@ -1196,9 +1197,9 @@ inline void ThreeToFiveArgsCheck(const char * who, int_t argc)
         RaiseExceptionC(R.Assertion, who, "expected three to five arguments", EmptyListObject);
 }
 
-inline void NonNegativeArgCheck(const char * who, FObject arg)
+inline void NonNegativeArgCheck(const char * who, FObject arg, int_t bf)
 {
-    if (FixnumP(arg) == 0 || AsFixnum(arg) < 0)
+    if (NonNegativeExactIntegerP(arg, bf) == 0)
         RaiseExceptionC(R.Assertion, who, "expected an exact non-negative integer", List(arg));
 }
 

@@ -1819,7 +1819,7 @@ Define("partial-per-full", PartialPerFullPrimitive)(int_t argc, FObject argv[])
 
     if (argc > 0)
     {
-        NonNegativeArgCheck("partial-per-full", argv[0]);
+        NonNegativeArgCheck("partial-per-full", argv[0], 0);
 
         PartialPerFull = AsFixnum(argv[0]);
     }
@@ -1835,7 +1835,7 @@ Define("trigger-bytes", TriggerBytesPrimitive)(int_t argc, FObject argv[])
 
     if (argc > 0)
     {
-        NonNegativeArgCheck("trigger-bytes", argv[0]);
+        NonNegativeArgCheck("trigger-bytes", argv[0], 0);
 
         TriggerBytes = AsFixnum(argv[0]);
     }
@@ -1851,7 +1851,7 @@ Define("trigger-objects", TriggerObjectsPrimitive)(int_t argc, FObject argv[])
 
     if (argc > 0)
     {
-        NonNegativeArgCheck("trigger-objects", argv[0]);
+        NonNegativeArgCheck("trigger-objects", argv[0], 0);
 
         TriggerObjects = AsFixnum(argv[0]);
     }

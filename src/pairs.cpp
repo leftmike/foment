@@ -173,7 +173,7 @@ Define("list?", ListPPrimitive)(int_t argc, FObject argv[])
 Define("make-list", MakeListPrimitive)(int_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("make-list", argc);
-    NonNegativeArgCheck("make-list", argv[0]);
+    NonNegativeArgCheck("make-list", argv[0], 0);
 
     FObject obj = argc == 1 ? FalseObject : argv[1];
     FObject lst = EmptyListObject;
@@ -265,7 +265,7 @@ Define("list-tail", ListTailPrimitive)(int_t argc, FObject argv[])
 {
     TwoArgsCheck("list-tail", argc);
     ListArgCheck("list-tail", argv[0]);
-    NonNegativeArgCheck("list-tail", argv[1]);
+    NonNegativeArgCheck("list-tail", argv[1], 0);
 
     FObject lst = argv[0];
     int_t k = AsFixnum(argv[1]);
@@ -285,7 +285,7 @@ Define("list-ref", ListRefPrimitive)(int_t argc, FObject argv[])
 {
     TwoArgsCheck("list-ref", argc);
     ListArgCheck("list-ref", argv[0]);
-    NonNegativeArgCheck("list-ref", argv[1]);
+    NonNegativeArgCheck("list-ref", argv[1], 0);
 
     FObject lst = argv[0];
     int_t k = AsFixnum(argv[1]);
@@ -307,7 +307,7 @@ Define("list-set!", ListSetPrimitive)(int_t argc, FObject argv[])
 {
     ThreeArgsCheck("list-set!", argc);
     ListArgCheck("list-set!", argv[0]);
-    NonNegativeArgCheck("list-set!", argv[1]);
+    NonNegativeArgCheck("list-set!", argv[1], 0);
 
     FObject lst = argv[0];
     int_t k = AsFixnum(argv[1]);

@@ -324,7 +324,7 @@ Define("string?", StringPPrimitive)(int_t argc, FObject argv[])
 Define("make-string", MakeStringPrimitive)(int_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("make-string", argc);
-    NonNegativeArgCheck("make-string", argv[0]);
+    NonNegativeArgCheck("make-string", argv[0], 0);
 
     if (argc == 2)
     {

@@ -866,10 +866,10 @@
 (check-equal #t (eqv? 'a 'a))
 (check-equal #f (eqv? 'a 'b))
 (check-equal #t (eqv? 2 2))
-;(check-equal #f (eqv? 2 2.0))
+(check-equal #f (eqv? 2 2.0))
 (check-equal #t (eqv? '() '()))
 (check-equal #t (eqv? 100000000 100000000))
-;(check-equal #f (eqv? 0.0 +nan.0))
+(check-equal #f (eqv? 0.0 +nan.0))
 (check-equal #f (eqv? (cons 1 2) (cons 1 2)))
 (check-equal #f (eqv? (lambda () 1) (lambda () 2)))
 (check-equal #t (let ((p (lambda (x) x))) (eqv? p p)))
@@ -1229,7 +1229,7 @@
 
 (check-equal ((a)) (assoc (list 'a) '(((a)) ((b)) ((c)))))
 (check-equal #f (assoc (list 'd) '(((a)) ((b)) ((c)))))
-;(check-equal (2 4) (assoc 2.0 '((1 1) (2 4) (3 9))))
+(check-equal (2 4) (assoc 2.0 '((1 1) (2 4) (3 9)) =))
 (check-equal ("B" . b) (assoc "b" (list '("A" . a) '("B" . b) '("C" . c)) string-ci=?))
 (check-equal #f (assoc "d" (list '("A" . a) '("B" . b) '("C" . c)) string-ci=?))
 

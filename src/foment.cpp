@@ -167,10 +167,7 @@ int_t EqvP(FObject obj1, FObject obj2)
     if (obj1 == obj2)
         return(1);
 
-    if (NumberP(obj1) && NumberP(obj2))
-        return(GenericCompare("eqv?", obj1, obj2, 1) == 0);
-
-    return(0);
+    return(GenericEqvP(obj1, obj2));
 }
 
 int_t EqP(FObject obj1, FObject obj2)
@@ -1257,7 +1254,7 @@ Define("make-eq-hashtable", MakeEqHashtablePrimitive)(int_t argc, FObject argv[]
     ZeroOrOneArgsCheck("make-eq-hashtable", argc);
 
     if (argc == 1)
-        NonNegativeArgCheck("make-eq-hashtable", argv[0]);
+        NonNegativeArgCheck("make-eq-hashtable", argv[0], 0);
 
     return(MakeEqHashtable(argc == 0 ? 0 : AsFixnum(argv[0])));
 }
@@ -1476,7 +1473,7 @@ Define("library-path", LibraryPathPrimitive)(int_t argc, FObject argv[])
 Define("random", RandomPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("random", argc);
-    NonNegativeArgCheck("random", argv[0]);
+    NonNegativeArgCheck("random", argv[0], 0);
 
     return(MakeFixnum(rand() % AsFixnum(argv[0])));
 }
@@ -1777,7 +1774,11 @@ static const char * FeaturesC[] =
 
     FOMENT_MEMORYMODEL,
     "r7rs",
+    "exact-closed",
+    "exact-complex",
+    "ieee-float",
     "full-unicode",
+    "ratios",
     "threads",
     "foment",
     "foment-" FOMENT_VERSION
