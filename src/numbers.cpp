@@ -8,9 +8,7 @@ n: integer
 q: rational
 
 -- rationalize is broken: see test2.scm
--- complex broken: exp, log, sin, cos, tan, asin, acos, atan, sqrt, expt
 -- need guardian for Bignums to free the MPInteger
--- on unix, if gmp is available, use it instead of mini-gmp
 -- ParseComplex: <real> @ <real>
 
 */
@@ -223,7 +221,7 @@ inline static FObject Normalize(FObject num)
     return(num);
 }
 
-static FObject MakeFlonum(double64_t dbl)
+FObject MakeFlonum(double64_t dbl)
 {
     FFlonum * flo = (FFlonum *) MakeObject(sizeof(FFlonum), FlonumTag);
     flo->Double = dbl;
@@ -376,6 +374,11 @@ static FObject MakeComplex(FObject rl, FObject img)
     FAssert(AsComplex(obj) == cmplx);
 
     return(obj);
+}
+
+static inline FObject MakeComplex(double64_t rl, double64_t img)
+{
+    return(MakeComplex(MakeFlonum(rl), MakeFlonum(img)));
 }
 
 FObject ToInexact(FObject n)
@@ -1781,6 +1784,212 @@ static FObject GenericDivide(FObject z1, FObject z2)
     return(NoValueObject);
 }
 
+static FObject GenericExp(FObject z)
+{
+    if (ComplexP(z))
+    {
+        FObject x = ToInexact(AsReal(z));
+        FObject y = ToInexact(AsImaginary(z));
+
+        FAssert(FlonumP(x));
+        FAssert(FlonumP(y));
+
+        double64_t a = AsFlonum(x);
+        double64_t b = AsFlonum(y);
+
+        return(MakeComplex(exp(a) * cos(b), exp(a) * sin(b)));
+    }
+
+    z = ToInexact(z);
+
+    FAssert(FlonumP(z));
+
+    return(MakeFlonum(exp(AsFlonum(z))));
+}
+
+static FObject GenericLog(FObject z)
+{
+    if (ComplexP(z))
+    {
+        FObject x = ToInexact(AsReal(z));
+        FObject y = ToInexact(AsImaginary(z));
+
+        FAssert(FlonumP(x));
+        FAssert(FlonumP(y));
+
+        double64_t a = AsFlonum(x);
+        double64_t b = AsFlonum(y);
+
+        return(MakeComplex(log(sqrt(a * a + b * b)), atan2(b, a)));
+    }
+
+    z = ToInexact(z);
+
+    FAssert(FlonumP(z));
+
+    return(MakeFlonum(log(AsFlonum(z))));
+}
+
+static FObject GenericSine(FObject z)
+{
+    if (ComplexP(z))
+    {
+        FObject x = ToInexact(AsReal(z));
+        FObject y = ToInexact(AsImaginary(z));
+
+        FAssert(FlonumP(x));
+        FAssert(FlonumP(y));
+
+        double64_t a = AsFlonum(x);
+        double64_t b = AsFlonum(y);
+
+        return(MakeComplex(sin(a) * cosh(b), cos(a) * sinh(b)));
+    }
+
+    z = ToInexact(z);
+
+    FAssert(FlonumP(z));
+
+    return(MakeFlonum(sin(AsFlonum(z))));
+}
+
+static FObject GenericCosine(FObject z)
+{
+    if (ComplexP(z))
+    {
+        FObject x = ToInexact(AsReal(z));
+        FObject y = ToInexact(AsImaginary(z));
+
+        FAssert(FlonumP(x));
+        FAssert(FlonumP(y));
+
+        double64_t a = AsFlonum(x);
+        double64_t b = AsFlonum(y);
+
+        return(MakeComplex(cos(a) * cosh(b), - sin(a) * sinh(b)));
+    }
+
+    z = ToInexact(z);
+
+    FAssert(FlonumP(z));
+
+    return(MakeFlonum(cos(AsFlonum(z))));
+}
+
+static FObject GenericTangent(FObject z)
+{
+    if (ComplexP(z))
+    {
+        FObject x = ToInexact(AsReal(z));
+        FObject y = ToInexact(AsImaginary(z));
+
+        FAssert(FlonumP(x));
+        FAssert(FlonumP(y));
+
+        double64_t a = AsFlonum(x);
+        double64_t b = AsFlonum(y);
+
+        return(MakeComplex(sin(2 * a) / (cos(2 * a) + cosh(2 * b)),
+                sinh(2 * b) / (cos(2 * a) + cosh(2 * b))));
+    }
+
+    z = ToInexact(z);
+
+    FAssert(FlonumP(z));
+
+    return(MakeFlonum(tan(AsFlonum(z))));
+}
+
+static FObject GenericSqrt(FObject z);
+static FObject GenericInverseSine(FObject z)
+{
+    if (ComplexP(z))
+    {
+        // -i * log(i * z + sqrt(1 - z^2))
+
+        return(GenericMultiply(MakeComplex(MakeFixnum(0), MakeFixnum(-1)),
+                GenericLog(
+                    GenericAdd(
+                        GenericMultiply(MakeComplex(MakeFixnum(0), MakeFixnum(1)), z),
+                        GenericSqrt(GenericSubtract(MakeFixnum(1), GenericMultiply(z, z)))))));
+    }
+
+    z = ToInexact(z);
+
+    FAssert(FlonumP(z));
+
+    return(MakeFlonum(asin(AsFlonum(z))));
+}
+
+static FObject GenericInverseCosine(FObject z)
+{
+    if (ComplexP(z))
+    {
+        // pi / 2 - sin^(-1)(z)
+
+        return(GenericSubtract(MakeFlonum(acos(-1.0) / 2),
+                GenericMultiply(MakeFixnum(2), GenericInverseSine(z))));
+    }
+
+    z = ToInexact(z);
+
+    FAssert(FlonumP(z));
+
+    return(MakeFlonum(acos(AsFlonum(z))));
+}
+
+static FObject GenericSqrt(FObject z)
+{
+    if (ComplexP(z))
+    {
+        FObject x = ToInexact(AsReal(z));
+        FObject y = ToInexact(AsImaginary(z));
+
+        FAssert(FlonumP(x));
+        FAssert(FlonumP(y));
+
+        double64_t a = AsFlonum(x);
+        double64_t b = AsFlonum(y);
+        double64_t r = sqrt(a * a + b * b);
+
+        FAssert(b != 0.0);
+
+        return(MakeComplex(sqrt((a + r) / 2), (b < 0 ? -1 : 1) * sqrt((r - a) / 2)));
+    }
+
+    if (BignumP(z))
+    {
+        FObject rt = MakeBignum();
+        FObject rem = MakeBignum();
+
+        BignumSqrt(rt, rem, z);
+        if (GenericSign(rem) == 0)
+            return(Normalize(rt));
+
+        // Fall through.
+    }
+
+    z = ToInexact(z);
+
+    FAssert(FlonumP(z));
+
+    double64_t d = AsFlonum(z);
+    if (d < 0)
+    {
+        double64_t rt = sqrt(- d);
+        if (rt == Truncate(rt))
+            return(MakeComplex(MakeFlonum(0.0), ToExact(MakeFlonum(rt))));
+
+        return(MakeComplex(0.0, rt));
+    }
+
+    double64_t rt = sqrt(d);
+    if (rt == Truncate(rt))
+        return(ToExact(MakeFlonum(rt)));
+
+    return(MakeFlonum(rt));
+}
+
 Define("number?", NumberPPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("number?", argc);
@@ -2447,20 +2656,7 @@ Define("exp", ExpPrimitive)(int_t argc, FObject argv[])
     OneArgCheck("exp", argc);
     NumberArgCheck("exp", argv[0]);
 
-    if (ComplexP(argv[0]))
-    {
-        FAssert(0);
-        
-        
-        
-        return(MakeFixnum(0));
-    }
-
-    FObject z = ToInexact(argv[0]);
-
-    FAssert(FlonumP(z));
-
-    return(MakeFlonum(exp(AsFlonum(z))));
+    return(GenericExp(argv[0]));
 }
 
 Define("log", LogPrimitive)(int_t argc, FObject argv[])
@@ -2469,41 +2665,11 @@ Define("log", LogPrimitive)(int_t argc, FObject argv[])
     NumberArgCheck("log", argv[0]);
 
     if (argc == 1)
-    {
-        if (ComplexP(argv[0]))
-        {
-            FAssert(0);
-            
-            
-            
-            return(MakeFixnum(0));
-        }
-
-        FObject z = ToInexact(argv[0]);
-
-        FAssert(FlonumP(z));
-
-        return(MakeFlonum(log(AsFlonum(z))));
-    }
+        return(GenericLog(argv[0]));
 
     FAssert(argc == 2);
 
-    if (ComplexP(argv[0]) || ComplexP(argv[1]))
-    {
-        FAssert(0);
-        
-        
-        
-        return(MakeFixnum(0));
-    }
-
-    FObject z1 = ToInexact(argv[0]);
-    FObject z2 = ToInexact(argv[1]);
-
-    FAssert(FlonumP(z1));
-    FAssert(FlonumP(z2));
-
-    return(MakeFlonum(log(AsFlonum(z1)) / log(AsFlonum(z2))));
+    return(GenericDivide(GenericLog(argv[0]), GenericLog(argv[1])));
 }
 
 Define("sin", SinPrimitive)(int_t argc, FObject argv[])
@@ -2511,20 +2677,7 @@ Define("sin", SinPrimitive)(int_t argc, FObject argv[])
     OneArgCheck("sin", argc);
     NumberArgCheck("sin", argv[0]);
 
-    if (ComplexP(argv[0]))
-    {
-        FAssert(0);
-        
-        
-        
-        return(MakeFixnum(0));
-    }
-
-    FObject z = ToInexact(argv[0]);
-
-    FAssert(FlonumP(z));
-
-    return(MakeFlonum(sin(AsFlonum(z))));
+    return(GenericSine(argv[0]));
 }
 
 Define("cos", CosPrimitive)(int_t argc, FObject argv[])
@@ -2532,20 +2685,7 @@ Define("cos", CosPrimitive)(int_t argc, FObject argv[])
     OneArgCheck("cos", argc);
     NumberArgCheck("cos", argv[0]);
 
-    if (ComplexP(argv[0]))
-    {
-        FAssert(0);
-        
-        
-        
-        return(MakeFixnum(0));
-    }
-
-    FObject z = ToInexact(argv[0]);
-
-    FAssert(FlonumP(z));
-
-    return(MakeFlonum(cos(AsFlonum(z))));
+    return(GenericCosine(argv[0]));
 }
 
 Define("tan", TanPrimitive)(int_t argc, FObject argv[])
@@ -2553,20 +2693,7 @@ Define("tan", TanPrimitive)(int_t argc, FObject argv[])
     OneArgCheck("tan", argc);
     NumberArgCheck("tan", argv[0]);
 
-    if (ComplexP(argv[0]))
-    {
-        FAssert(0);
-        
-        
-        
-        return(MakeFixnum(0));
-    }
-
-    FObject z = ToInexact(argv[0]);
-
-    FAssert(FlonumP(z));
-
-    return(MakeFlonum(tan(AsFlonum(z))));
+    return(GenericTangent(argv[0]));
 }
 
 Define("asin", ASinPrimitive)(int_t argc, FObject argv[])
@@ -2574,20 +2701,7 @@ Define("asin", ASinPrimitive)(int_t argc, FObject argv[])
     OneArgCheck("asin", argc);
     NumberArgCheck("asin", argv[0]);
 
-    if (ComplexP(argv[0]))
-    {
-        FAssert(0);
-        
-        
-        
-        return(MakeFixnum(0));
-    }
-
-    FObject z = ToInexact(argv[0]);
-
-    FAssert(FlonumP(z));
-
-    return(MakeFlonum(asin(AsFlonum(z))));
+    return(GenericInverseSine(argv[0]));
 }
 
 Define("acos", ACosPrimitive)(int_t argc, FObject argv[])
@@ -2595,39 +2709,16 @@ Define("acos", ACosPrimitive)(int_t argc, FObject argv[])
     OneArgCheck("acos", argc);
     NumberArgCheck("acos", argv[0]);
 
-    if (ComplexP(argv[0]))
-    {
-        FAssert(0);
-        
-        
-        
-        return(MakeFixnum(0));
-    }
-
-    FObject z = ToInexact(argv[0]);
-
-    FAssert(FlonumP(z));
-
-    return(MakeFlonum(acos(AsFlonum(z))));
+    return(GenericInverseCosine(argv[0]));
 }
 
 Define("atan", ATanPrimitive)(int_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("atan", argc);
+    RealArgCheck("atan", argv[0]);
 
     if (argc == 1)
     {
-        NumberArgCheck("log", argv[0]);
-
-        if (ComplexP(argv[0]))
-        {
-            FAssert(0);
-            
-            
-            
-            return(MakeFixnum(0));
-        }
-
         FObject z = ToInexact(argv[0]);
 
         FAssert(FlonumP(z));
@@ -2637,14 +2728,7 @@ Define("atan", ATanPrimitive)(int_t argc, FObject argv[])
 
     FAssert(argc == 2);
 
-    if (ComplexP(argv[0]) || ComplexP(argv[1]))
-    {
-        FAssert(0);
-        
-        
-        
-        return(MakeFixnum(0));
-    }
+    RealArgCheck("atan", argv[1]);
 
     FObject z1 = ToInexact(argv[0]);
     FObject z2 = ToInexact(argv[1]);
@@ -2668,46 +2752,7 @@ Define("sqrt", SqrtPrimitive)(int_t argc, FObject argv[])
     OneArgCheck("sqrt", argc);
     NumberArgCheck("sqrt", argv[0]);
 
-    if (ComplexP(argv[0]))
-    {
-        FAssert(0);
-        
-        
-        
-        return(MakeFixnum(0));
-    }
-
-    if (BignumP(argv[0]))
-    {
-        FObject rt = MakeBignum();
-        FObject rem = MakeBignum();
-
-        BignumSqrt(rt, rem, argv[0]);
-        if (GenericSign(rem) == 0)
-            return(Normalize(rt));
-
-        // Fall through.
-    }
-
-    FObject z = ToInexact(argv[0]);
-
-    FAssert(FlonumP(z));
-
-    double64_t d = AsFlonum(z);
-    if (d < 0)
-    {
-        double64_t rt = sqrt(- d);
-        if (rt == Truncate(rt))
-            return(MakeComplex(MakeFlonum(0.0), ToExact(MakeFlonum(rt))));
-
-        return(MakeComplex(MakeFlonum(0.0), MakeFlonum(rt)));
-    }
-
-    double64_t rt = sqrt(d);
-    if (rt == Truncate(rt))
-        return(ToExact(MakeFlonum(rt)));
-
-    return(MakeFlonum(rt));
+    return(GenericSqrt(argv[0]));
 }
 
 Define("%exact-integer-sqrt", ExactIntegerSqrtPrimitive)(int_t argc, FObject argv[])
@@ -2766,13 +2811,7 @@ Define("expt", ExptPrimitive)(int_t argc, FObject argv[])
         return(FlonumP(argv[0]) ? ToInexact(ret) : ret);
     }
     else if (ComplexP(argv[0]) || ComplexP(argv[1]))
-    {
-        FAssert(0);
-        
-        
-        
-        return(MakeFixnum(0));
-    }
+        return(GenericExp(GenericMultiply(argv[1], GenericLog(argv[0]))));
 
     FObject b = ToInexact(argv[0]);
     FObject e = ToInexact(argv[1]);
@@ -2804,8 +2843,7 @@ Define("make-polar", MakePolarPrimitive)(int_t argc, FObject argv[])
     FAssert(FlonumP(r));
     FAssert(FlonumP(phi));
 
-    return(MakeComplex(MakeFlonum(AsFlonum(r) * cos(AsFlonum(phi))),
-            MakeFlonum(AsFlonum(r) * sin(AsFlonum(phi)))));
+    return(MakeComplex(AsFlonum(r) * cos(AsFlonum(phi)), AsFlonum(r) * sin(AsFlonum(phi))));
 }
 
 Define("real-part", RealPartPrimitive)(int_t argc, FObject argv[])

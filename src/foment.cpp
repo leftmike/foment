@@ -725,7 +725,7 @@ Define("current-second", CurrentSecondPrimitive)(int_t argc, FObject argv[])
 
     time_t t = time(0);
 
-    return(MakeFixnum(t));
+    return(MakeFlonum((double64_t) t));
 }
 
 Define("current-jiffy", CurrentJiffyPrimitive)(int_t argc, FObject argv[])

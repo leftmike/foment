@@ -8,6 +8,8 @@ Goals:
 
 To Do:
 
+-- change %assoc to assoc in exceptions -- look in r7rs.scm
+
 -- add (scheme r5rs) library
 
 -- aka for additional library names
@@ -16,7 +18,7 @@ To Do:
 
 -- unify specifying the file encoding for OpenInputFile/OpenOutputFile and open-input-file etc.
 -- use an indexed parameter for both
--- autodetect encoding: utf8 or utf16 byte order mark or encoding: like Guile
+-- autodetect encoding: utf8 or utf16 byte order mark or encoding: like Guile and Chibi
 
 -- ctrl-c handling
 
@@ -29,10 +31,10 @@ To Do:
 -- use Win32 file APIs and not stdio
 
 Future:
+-- on unix, if gmp is available, use it instead of mini-gmp
 -- some mature segments are compacted during a full collection; ie. mark-compact
 -- inline primitives in GPassExpression
 -- debugging information
--- number tags should require only a single test by sharing part of a tag
 -- composable continuations
 -- strings and srfi-13
 -- from Gambit:
@@ -872,6 +874,8 @@ typedef struct
 {
     double64_t Double;
 } FFlonum;
+
+FObject MakeFlonum(double64_t dbl);
 
 // ---- Bignums ----
 
