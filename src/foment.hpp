@@ -7,9 +7,6 @@ Goals:
 -- simple implementation
 
 To Do:
-
--- change %assoc to assoc in exceptions -- look in r7rs.scm
-
 -- add (scheme r5rs) library
 
 -- aka for additional library names
@@ -22,7 +19,7 @@ To Do:
 
 -- ctrl-c handling
 
--- r7rs.scm and r7rs-tests.scm: commented out tests
+-- r7rs-tests.scm: commented out tests
 
 -- IO and GC
 -- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
@@ -158,11 +155,11 @@ void FMustBeFailed(const char * fn, int_t ln, const char * expr);
 
 /*
 Be very very careful changing direct type tags. The number code assumes that 0x4 will only
-be set for Ratnum, Complex, Flonum, and Fixnum. This allows for a fast test for numbers:
+be set for Ratio, Complex, Flonum, and Fixnum. This allows for a fast test for numbers:
 (obj & 0x4) and for two numbers: ((obj1 & 0x4) + (obj2 & 0x4)) == 0x8.
 
 The low two bits of the direct type tags for numbers are used for a fast dispatch to the
-correct arthmetic operation: Ratnum is 0x0, Complex is 0x1, Flonum is 0x2, and Fixnum is 0x3.
+correct arthmetic operation: Ratio is 0x0, Complex is 0x1, Flonum is 0x2, and Fixnum is 0x3.
 The operation can be found by: ((obj1 & 0x3) << 2) | (obj2 & 0x3).
 
 See numbers.cpp.
@@ -174,7 +171,7 @@ typedef enum
     PairTag = 0x01,          // 0bxxxxx001
     UnusedTag = 0x02,        // 0bxxxxx010
     DoNotUse = 0x03,         // 0bxxxxx011
-    RatnumTag = 0x04,        // 0bxxxxx100
+    RatioTag = 0x04,        // 0bxxxxx100
     ComplexTag = 0x05,       // 0bxxxxx101
     FlonumTag = 0x06,        // 0bxxxxx110
 
@@ -881,17 +878,17 @@ FObject MakeFlonum(double64_t dbl);
 
 #define BignumP(obj) (IndirectTag(obj) == BignumTag)
 
-// ---- Ratnums ----
+// ---- Ratios ----
 
-#define RatnumP(obj) ((((FImmediate) (obj)) & 0x7) == RatnumTag)
-#define AsRatnum(obj) ((FRatnum *) (((char *) (obj)) - RatnumTag))
-#define RatnumObject(rat) ((FObject) (((char *) (rat)) + RatnumTag))
+#define RatioP(obj) ((((FImmediate) (obj)) & 0x7) == RatioTag)
+#define AsRatio(obj) ((FRatio *) (((char *) (obj)) - RatioTag))
+#define RatioObject(rat) ((FObject) (((char *) (rat)) + RatioTag))
 
 typedef struct
 {
     FObject Numerator;
     FObject Denominator;
-} FRatnum;
+} FRatio;
 
 // ---- Complex ----
 
@@ -916,12 +913,12 @@ int_t FixnumAsString(FFixnum n, FCh * s, FFixnum rdx);
 
 inline int_t NumberP(FObject obj)
 {
-    return(FixnumP(obj) || BignumP(obj) || RatnumP(obj) || FlonumP(obj) || ComplexP(obj));
+    return(FixnumP(obj) || BignumP(obj) || RatioP(obj) || FlonumP(obj) || ComplexP(obj));
 }
 
 inline int_t RealP(FObject obj)
 {
-    return(FixnumP(obj) || BignumP(obj) || RatnumP(obj) || FlonumP(obj));
+    return(FixnumP(obj) || BignumP(obj) || RatioP(obj) || FlonumP(obj));
 }
 
 int_t IntegerP(FObject obj);

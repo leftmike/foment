@@ -1187,8 +1187,8 @@
 
 (check-error (assertion-violation case-lambda) (member 'a))
 (check-error (assertion-violation case-lambda) (member 'a '(a b c) 3 4))
-(check-error (assertion-violation %member) (member 'a 'b))
-(check-error (assertion-violation %member)
+(check-error (assertion-violation member) (member 'a 'b))
+(check-error (assertion-violation member)
     (let ((x (list 'a)))
         (set-cdr! x x)
         (member 'a x)))
@@ -1235,8 +1235,8 @@
 
 (check-error (assertion-violation case-lambda) (assoc 'a))
 (check-error (assertion-violation case-lambda) (assoc 'a '(a b c) 3 4))
-(check-error (assertion-violation %assoc) (assoc 'a 'b))
-(check-error (assertion-violation %assoc)
+(check-error (assertion-violation assoc) (assoc 'a 'b))
+(check-error (assertion-violation assoc)
     (let ((x (list '(a))))
         (set-cdr! x x)
         (assoc 'a x)))

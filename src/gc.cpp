@@ -259,7 +259,7 @@ static uint_t ObjectSize(FObject obj, uint_t tag)
     switch (tag)
     {
     case PairTag:
-    case RatnumTag:
+    case RatioTag:
     case ComplexTag:
         FAssert(sizeof(FPair) % OBJECT_ALIGNMENT == 0);
 
@@ -785,8 +785,8 @@ static void ScanObject(FObject * pobj, int_t fcf, int_t mf)
 
             if (tag == PairTag)
                 nobj = PairObject(nobj);
-            else if (tag == RatnumTag)
-                nobj = RatnumObject(nobj);
+            else if (tag == RatioTag)
+                nobj = RatioObject(nobj);
             else if (tag == ComplexTag)
                 nobj = ComplexObject(nobj);
             else if (tag == FlonumTag)
@@ -816,7 +816,7 @@ static void ScanObject(FObject * pobj, int_t fcf, int_t mf)
             uint_t len = ObjectSize(raw, tag);
 
             FObject nobj;
-            if (tag == PairTag || tag == RatnumTag || tag == ComplexTag)
+            if (tag == PairTag || tag == RatioTag || tag == ComplexTag)
             {
                 nobj = MakeMatureTwoSlot();
                 SetTwoSlotMark(nobj);
@@ -833,8 +833,8 @@ static void ScanObject(FObject * pobj, int_t fcf, int_t mf)
 
             if (tag == PairTag)
                 nobj = PairObject(nobj);
-            else if (tag == RatnumTag)
-                nobj = RatnumObject(nobj);
+            else if (tag == RatioTag)
+                nobj = RatioObject(nobj);
             else if (tag == ComplexTag)
                 nobj = ComplexObject(nobj);
             else if (tag == FlonumTag)
@@ -860,7 +860,7 @@ static void ScanChildren(FRaw raw, uint_t tag, int_t fcf)
     switch (tag)
     {
     case PairTag:
-    case RatnumTag:
+    case RatioTag:
     case ComplexTag:
     {
         FPair * pr = (FPair *) raw;
@@ -982,8 +982,8 @@ static void CleanScan(int_t fcf)
 
             if (PairP(obj))
                 ScanChildren(AsRaw(obj), PairTag, fcf);
-            else if (RatnumP(obj))
-                ScanChildren(AsRaw(obj), RatnumTag, fcf);
+            else if (RatioP(obj))
+                ScanChildren(AsRaw(obj), RatioTag, fcf);
             else if (ComplexP(obj))
                 ScanChildren(AsRaw(obj), ComplexTag, fcf);
             else if (FlonumP(obj) == 0)
@@ -1486,6 +1486,8 @@ void Collect()
                 CloseInput(obj);
                 CloseOutput(obj);
             }
+            else if (BignumP(obj))
+                DeleteBignum(obj);
             else
             {
                 FAssert(0);
@@ -1651,7 +1653,7 @@ void SetupCore(FThreadState * ts)
     FAssert(sizeof(FCh) <= sizeof(FImmediate));
     FAssert(sizeof(FTwoSlot) == sizeof(FObject) * 2);
     FAssert(sizeof(FPair) == sizeof(FTwoSlot));
-    FAssert(sizeof(FRatnum) == sizeof(FTwoSlot));
+    FAssert(sizeof(FRatio) == sizeof(FTwoSlot));
     FAssert(sizeof(FComplex) == sizeof(FTwoSlot));
     FAssert(sizeof(FYoungHeader) == OBJECT_ALIGNMENT);
 

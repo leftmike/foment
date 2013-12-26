@@ -493,6 +493,24 @@
         (define (angle z)
             (atan (imag-part z) (real-part z)))
 
+        ;; From Chibi Scheme
+        ;; Adapted from Bawden's algorithm.
+        (define (rationalize x e)
+            (define (simplest x y return)
+                (let ((fx (floor x)) (fy (floor y)))
+                    (cond
+                        ((>= fx x)
+                            (return fx 1))
+                        ((= fx fy)
+                            (simplest (/ (- y fy)) (/ (- x fx))
+                                    (lambda (n d) (return (+ d (* fx n)) n))))
+                        (else
+                            (return (+ fx 1) 1)))))
+            (let ((return (if (negative? x) (lambda (num den) (/ (- num) den)) /))
+                    (x (abs x))
+                    (e (abs e)))
+                (simplest (- x e) (+ x e) return)))
+
         (define member
             (case-lambda
                 ((obj list) (%member obj list))

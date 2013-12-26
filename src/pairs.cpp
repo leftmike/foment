@@ -371,8 +371,8 @@ Define("memv", MemvPrimitive)(int_t argc, FObject argv[])
 
 Define("%member", MemberPrimitive)(int_t argc, FObject argv[])
 {
-    TwoArgsCheck("%member", argc);
-    ListArgCheck("%member", argv[1]);
+    TwoArgsCheck("member", argc);
+    ListArgCheck("member", argv[1]);
 
     FObject lst = argv[1];
 
@@ -469,14 +469,14 @@ Define("assv", AssvPrimitive)(int_t argc, FObject argv[])
 
 Define("%assoc", AssocPrimitive)(int_t argc, FObject argv[])
 {
-    TwoArgsCheck("%assoc", argc);
-    ListArgCheck("%assoc", argv[1]);
+    TwoArgsCheck("assoc", argc);
+    ListArgCheck("assoc", argv[1]);
 
     FObject lst = argv[1];
 
     while (PairP(lst))
     {
-        PairArgCheck("%assoc", First(lst));
+        PairArgCheck("assoc", First(lst));
 
         if (EqualP(First(First(lst)), argv[0]))
             return(First(lst));

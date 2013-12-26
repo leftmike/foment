@@ -17,4 +17,6 @@ typedef struct
     mpz_t MPInteger;
 } FBignum;
 
+void DeleteBignum(FObject obj);
+
 #endif // __NUMBERS_HPP__
