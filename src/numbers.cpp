@@ -8,6 +8,7 @@ n: integer
 q: rational
 
 -- rationalize is broken: see test2.scm
+-- rename Ratnum to Ratio
 -- need guardian for Bignums to free the MPInteger
 -- ParseComplex: <real> @ <real>
 
