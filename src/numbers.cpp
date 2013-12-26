@@ -1753,15 +1753,9 @@ static FObject GenericDivide(FObject z1, FObject z2)
 
         case BOP_FIXED_BIGRAT:
             if (RatnumP(z2))
-                return(MakeRatnum(AsNumerator(z2), GenericMultiply(AsDenominator(z2), z1)));
+                return(MakeRatnum(GenericMultiply(AsDenominator(z2), z1), AsNumerator(z2)));
             else
-            {
-                FAssert(BignumP(z2));
-
-                FObject rbn = MakeBignum();
-                BignumDivide(rbn, MakeBignum(AsFixnum(z1)), z2);
-                return(Normalize(rbn));
-            }
+                return(MakeRatnum(z1, z2));
 
         case BOP_FIXED_COMPLEX:
             return(MakeComplex(GenericDivide(z1, AsReal(z2)),

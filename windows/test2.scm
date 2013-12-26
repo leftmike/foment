@@ -1,4 +1,5 @@
-(import (foment base))
+(import (scheme base))
+(import (scheme write))
 
 ;; From Chibi Scheme
 ;; Adapted from Bawden's algorithm.
