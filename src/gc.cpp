@@ -1708,7 +1708,7 @@ void SetupCore(FThreadState * ts)
     if (SectionTable != SectionBase(SectionTable))
       SectionTable += (SECTION_SIZE - SectionOffset(SectionTable));
 
-    mprotect(SectionTable, SECTION_SIZE, PROT_READ | PROT_WRITE);    
+    mprotect(SectionTable, SECTION_SIZE, PROT_READ | PROT_WRITE);
 
     pthread_key_create(&ThreadKey, 0);
 #endif // FOMENT_UNIX

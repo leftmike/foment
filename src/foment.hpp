@@ -7,6 +7,8 @@ Goals:
 -- simple implementation
 
 To Do:
+-- fix maximum/minimum fixnum on 64bit
+
 -- add (scheme r5rs) library
 
 -- aka for additional library names

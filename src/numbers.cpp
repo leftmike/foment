@@ -41,7 +41,7 @@ static inline double64_t Truncate(double64_t n)
 int_t IntegerP(FObject obj)
 {
     if (FlonumP(obj))
-        return(AsFlonum(obj) == Truncate(AsFlonum(obj)));
+        return(finite(AsFlonum(obj)) && AsFlonum(obj) == Truncate(AsFlonum(obj)));
 
     return(FixnumP(obj) || BignumP(obj));
 }
@@ -298,13 +298,12 @@ static FObject MakeRatio(FObject nmr, FObject dnm)
             d = t;
         }
 
-        if (n == dnm)
+        BignumDivide(nmr, nmr, n);
+
+        if (BignumCompare(dnm, n) == 0)
             return(Normalize(nmr));
 
-        BignumDivide(nmr, nmr, n);
         BignumDivide(dnm, dnm, n);
-
-        FAssert(BignumEqualFixnum(dnm, 1) == 0);
 
         if (GenericSign(dnm) < 0)
         {
@@ -1573,7 +1572,7 @@ static FObject GenericSubtract(FObject z1, FObject z2)
                             GenericMultiply(AsDenominator(z1), AsDenominator(z2))));
 
                 return(MakeRatio(GenericSubtract(
-                        GenericMultiply(AsDenominator(z1), z2), AsNumerator(z1)),
+                        AsNumerator(z1), GenericMultiply(AsDenominator(z1), z2)),
                         AsDenominator(z1)));
             }
             else if (RatioP(z2))
@@ -1582,6 +1581,9 @@ static FObject GenericSubtract(FObject z1, FObject z2)
                         AsDenominator(z2)));
             else
             {
+                FAssert(BignumP(z1));
+                FAssert(BignumP(z2));
+
                 FObject rbn = MakeBignum();
                 BignumSubtract(rbn, z1, z2);
                 return(Normalize(rbn));
@@ -2163,7 +2165,7 @@ Define("<", LessThanPrimitive)(int_t argc, FObject argv[])
     AtLeastTwoArgsCheck("<", argc);
 
     for (int_t adx = 1; adx < argc; adx++)
-        if (GenericCompare("<", argv[adx - 1], argv[adx], 1) >= 0)
+        if (GenericCompare("<", argv[adx - 1], argv[adx], 0) >= 0)
             return(FalseObject);
 
     return(TrueObject);
@@ -2174,7 +2176,7 @@ Define(">", GreaterThanPrimitive)(int_t argc, FObject argv[])
     AtLeastTwoArgsCheck(">", argc);
 
     for (int_t adx = 1; adx < argc; adx++)
-        if (GenericCompare(">", argv[adx - 1], argv[adx], 1) <= 0)
+        if (GenericCompare(">", argv[adx - 1], argv[adx], 0) <= 0)
             return(FalseObject);
 
     return(TrueObject);
@@ -2185,7 +2187,7 @@ Define("<=", LessThanEqualPrimitive)(int_t argc, FObject argv[])
     AtLeastTwoArgsCheck("<=", argc);
 
     for (int_t adx = 1; adx < argc; adx++)
-        if (GenericCompare("<=", argv[adx - 1], argv[adx], 1) > 0)
+        if (GenericCompare("<=", argv[adx - 1], argv[adx], 0) > 0)
             return(FalseObject);
 
     return(TrueObject);
@@ -2196,7 +2198,7 @@ Define(">=", GreaterThanEqualPrimitive)(int_t argc, FObject argv[])
     AtLeastTwoArgsCheck(">=", argc);
 
     for (int_t adx = 1; adx < argc; adx++)
-        if (GenericCompare(">=", argv[adx - 1], argv[adx], 1) < 0)
+        if (GenericCompare(">=", argv[adx - 1], argv[adx], 0) < 0)
             return(FalseObject);
 
     return(TrueObject);
@@ -2233,7 +2235,7 @@ Define("positive?", PositivePPrimitive)(int_t argc, FObject argv[])
 Define("negative?", NegativePPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("negative?", argc);
-    RealArgCheck("positive?", argv[0]);
+    RealArgCheck("negative?", argv[0]);
 
     return(GenericSign(argv[0]) < 0 ? TrueObject : FalseObject);
 }
@@ -2269,6 +2271,8 @@ Define("even?", EvenPPrimitive)(int_t argc, FObject argv[])
 Define("max", MaxPrimitive)(int_t argc, FObject argv[])
 {
     AtLeastOneArgCheck("max", argc);
+    RealArgCheck("max", argv[0]);
+
     FObject max = argv[0];
     int_t ief = FlonumP(argv[0]);
 
@@ -2287,6 +2291,8 @@ Define("max", MaxPrimitive)(int_t argc, FObject argv[])
 Define("min", MinPrimitive)(int_t argc, FObject argv[])
 {
     AtLeastOneArgCheck("min", argc);
+    RealArgCheck("min", argv[0]);
+
     FObject min = argv[0];
     int_t ief = FlonumP(argv[0]);
 
