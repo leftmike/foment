@@ -488,10 +488,14 @@
                 (values (car ret) (cdr ret))))
 
         (define (magnitude z)
-            (sqrt (+ (* (real-part z) (real-part z)) (* (imag-part z) (imag-part z)))))
+            (if (real? z)
+                z
+                (sqrt (+ (* (real-part z) (real-part z)) (* (imag-part z) (imag-part z))))))
 
         (define (angle z)
-            (atan (imag-part z) (real-part z)))
+            (if (real? z)
+                (if (exact? z) 0 0.0)
+                (atan (imag-part z) (real-part z))))
 
         ;; From Chibi Scheme
         ;; Adapted from Bawden's algorithm.

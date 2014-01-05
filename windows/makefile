@@ -3,7 +3,8 @@
 #
 
 CLDEBUG = /nologo /MD /W3 /Gm /EHsc /Zi /Od /c /Fodebug/ /DFOMENT_DEBUG /DFOMENT_WINDOWS
-CLRELEASE = /nologo /MD /W3 /O1sy /Gs /GA /EHsc /Forelease/ /c /DFOMENT_WINDOWS
+#CLRELEASE = /nologo /MD /W3 /O1sy /Gs /GA /EHsc /Forelease/ /c /DFOMENT_WINDOWS
+CLRELEASE = /nologo /MD /W3 /O1sy /Zi /Gs /GA /EHsc /Forelease/ /c /DFOMENT_WINDOWS
 
 all: debug release debug\foment.exe release\foment.exe
 
@@ -103,7 +104,8 @@ release\foment.exe: release\foment.obj release\gc.obj release\syncthrd.obj relea
         release\strings.obj release\vectors.obj release\library.obj release\execute.obj\
         release\numbers.obj release\mini-gmp.obj release\write.obj release\read.obj\
         release\main.obj release\base.obj
-    link /nologo /subsystem:console /out:release\foment.exe $**
+#    link /nologo /subsystem:console /out:release\foment.exe $**
+    link /nologo /subsystem:console /out:release\foment.exe /debug /pdb:release\foment.pdb $**
 
 debug\txt2cpp.exe: debug\txt2cpp.obj
     link /nologo /subsystem:console /out:debug\txt2cpp.exe\

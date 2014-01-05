@@ -7,6 +7,14 @@ Goals:
 -- simple implementation
 
 To Do:
+-- add License.wiki: note different license for mini-gmp.?; update date; add license to all files
+
+-- update version number before release
+
+-- test floor/ etc using bignums
+
+-- log with negative numbers is broken which breaks expt with negative numbers
+
 -- fix maximum/minimum fixnum on 64bit
 
 -- add (scheme r5rs) library
@@ -236,7 +244,7 @@ typedef enum
 #define AsFixnum(obj) (((FFixnum) (obj)) >> 4)
 
 #define MAXIMUM_FIXNUM ((((FFixnum) 1) << (sizeof(int32_t) * 8 - 5)) - 1)
-#define MINIMUM_FIXNUM (- MAXIMUM_FIXNUM - 1)
+#define MINIMUM_FIXNUM (- MAXIMUM_FIXNUM)
 
 // ---- Memory Management ----
 
