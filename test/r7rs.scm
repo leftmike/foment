@@ -722,7 +722,7 @@
 (check-equal 121 (with-exception-handler
     (lambda (obj) (* obj obj))
     (lambda ()
-        (guard (excpt ((= excpt 10) (- 10)) ((= excpt 12) (- 12))) (raise 11)))))
+        (guard (excpt ((= excpt 10) (- 10)) ((= excpt 12) (- 12))) (raise-continuable 11)))))
 
 ;; quasiquote
 

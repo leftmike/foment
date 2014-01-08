@@ -913,11 +913,14 @@
                         (let ((gds (%dynamic-stack)))
                             (with-exception-handler
                                 (lambda (obj)
-                                    (let ((hds (%dynamic-stack)))
+                                    (let ((hds (%dynamic-stack))
+                                            (abort (box #t)))
                                         (unwind hds)
                                         (rewind gds)
-                                        (let-values ((lst (guard obj hds)))
-                                            (abort-current-continuation guard-key lst))))
+                                        (let-values ((lst (guard obj hds abort)))
+                                            (if (unbox abort)
+                                                (abort-current-continuation guard-key lst)
+                                                (apply values lst)))))
                                 thunk)))
                     guard-key
                     (lambda (lst) (apply values lst)))))
@@ -926,13 +929,17 @@
             (syntax-rules (else)
                 ((guard (var clause ... (else result1 result2 ...)) body1 body2 ...)
                     (with-guard
-                        (lambda (var hds) (cond clause ... (else result1 result2 ...)))
+                        (lambda (var hds abort) (cond clause ... (else result1 result2 ...)))
                         (lambda () body1 body2 ...)))
                 ((guard (var clause1 clause2 ...) body1 body2 ...)
                     (with-guard
-                        (lambda (var hds)
+                        (lambda (var hds abort)
                             (cond clause1 clause2 ...
-                                (else (unwind (%dynamic-stack)) (rewind hds) (raise-continuable var))))
+                                (else
+                                    (set-box! abort #f)
+                                    (unwind (%dynamic-stack))
+                                    (rewind hds)
+                                    (raise-continuable var))))
                         (lambda () body1 body2 ...)))))
 
 #|
