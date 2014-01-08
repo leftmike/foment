@@ -860,7 +860,6 @@
                 (unwind dyn)
                 (%abort-dynamic dyn (lambda () (apply handler vals)))))
 
-        (define (call-with-current-continuation proc)
             (define (unwind ds)
                 (if (pair? ds)
                     (begin
@@ -872,6 +871,10 @@
                         (rewind (cdr ds))
                         (%dynamic-stack ds)
                         (rewind-mark-list (%dynamic-marks (car ds))))))
+
+        (define (call-with-current-continuation proc)
+            ;; unwind
+            ;; rewind
             (%capture-continuation
                 (lambda (cont)
                     (let ((ds (%dynamic-stack)))
@@ -903,6 +906,36 @@
                 (%mark-continuation 'exception-handler (cdr lst)
                         (lambda () ((car lst) obj)))))
 
+        (define (with-guard guard thunk)
+            (let ((guard-key (cons #f #f)))
+                (call-with-continuation-prompt
+                    (lambda ()
+                        (let ((gds (%dynamic-stack)))
+                            (with-exception-handler
+                                (lambda (obj)
+                                    (let ((hds (%dynamic-stack)))
+                                        (unwind hds)
+                                        (rewind gds)
+                                        (let-values ((lst (guard obj hds)))
+                                            (abort-current-continuation guard-key lst))))
+                                thunk)))
+                    guard-key
+                    (lambda (lst) (apply values lst)))))
+
+        (define-syntax guard
+            (syntax-rules (else)
+                ((guard (var clause ... (else result1 result2 ...)) body1 body2 ...)
+                    (with-guard
+                        (lambda (var hds) (cond clause ... (else result1 result2 ...)))
+                        (lambda () body1 body2 ...)))
+                ((guard (var clause1 clause2 ...) body1 body2 ...)
+                    (with-guard
+                        (lambda (var hds)
+                            (cond clause1 clause2 ...
+                                (else (unwind (%dynamic-stack)) (rewind hds) (raise-continuable var))))
+                        (lambda () body1 body2 ...)))))
+
+#|
         (define guard-key (cons #f #f))
 
         (define (with-guard guard thunk)
@@ -912,9 +945,13 @@
                         (with-exception-handler
                             (lambda (obj)
                                 (let ((hds (%dynamic-stack)))
-                                    (%dynamic-stack gds)
+;                                    (%dynamic-stack gds)
+                                    (unwind hds)
+                                    (rewind gds)
                                     (let-values ((lst (guard obj hds)))
                                         (%dynamic-stack hds)
+;                                        (unwind (%dynamic-stack))
+;                                        (rewind hds)
                                         (abort-current-continuation guard-key lst))))
                             thunk))
                     guard-key
@@ -932,6 +969,7 @@
                             (cond clause1 clause2 ...
                                 (else (%dynamic-stack hds) (raise-continuable var))))
                         (lambda () body1 body2 ...)))))
+|#
 
         (define (make-guardian)
             (let ((tconc (let ((last (cons #f '()))) (cons last last))))

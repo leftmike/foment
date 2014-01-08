@@ -11,13 +11,15 @@ To Do:
 
 -- update version number before release
 
+-- fix guard and add test4.scm as a test to r7rs.scm
+
+-- add (scheme r5rs) library etc and uncomment tests in r7rs-test.scm
+
 -- test floor/ etc using bignums
 
 -- log with negative numbers is broken which breaks expt with negative numbers
 
 -- fix maximum/minimum fixnum on 64bit
-
--- add (scheme r5rs) library
 
 -- aka for additional library names
 -- (chibi test) built in
