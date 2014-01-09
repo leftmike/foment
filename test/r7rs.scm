@@ -724,6 +724,77 @@
     (lambda ()
         (guard (excpt ((= excpt 10) (- 10)) ((= excpt 12) (- 12))) (raise-continuable 11)))))
 
+(check-equal (a b c d a b) (let ((events '()))
+   (guard (c
+           (#t #f))
+     (guard (c
+             ((dynamic-wind
+                  (lambda () (set! events (cons 'c events)))
+                  (lambda () #f)
+                  (lambda () (set! events (cons 'd events))))
+              #f))
+       (dynamic-wind
+           (lambda () (set! events (cons 'a events)))
+           (lambda () (raise 'error))
+           (lambda () (set! events (cons 'b events))))))
+   (reverse events)))
+
+(check-equal (x a b c d a b y) (let ((events '()))
+    (dynamic-wind
+        (lambda () (set! events (cons 'x events)))
+        (lambda ()
+            (guard (c
+                    (#t #f))
+              (guard (c
+                      ((dynamic-wind
+                           (lambda () (set! events (cons 'c events)))
+                           (lambda () #f)
+                           (lambda () (set! events (cons 'd events))))
+                       #f))
+                (dynamic-wind
+                    (lambda () (set! events (cons 'a events)))
+                    (lambda () (raise 'error))
+                    (lambda () (set! events (cons 'b events)))))))
+        (lambda () (set! events (cons 'y events))))
+    (reverse events)))
+
+(check-equal a
+    (guard (c
+        ((eq? c 'a) 'a)
+        (else 'else))
+        (raise 'a)
+        'after))
+
+(check-equal else
+    (guard (c
+        ((eq? c 'a) 'a)
+        (else 'else))
+        (raise 'b)
+        'after))
+
+(check-equal a
+    (guard (c
+        ((eq? c 'a) 'a))
+        (raise 'a)
+        'after))
+
+(check-equal after
+    (with-exception-handler
+        (lambda (c) c)
+        (lambda ()
+            (guard (c
+                ((eq? c 'a) 'a))
+                (raise-continuable 'b)
+                'after))))
+
+(check-equal handler
+    (with-exception-handler
+        (lambda (c) 'handler)
+        (lambda ()
+            (guard (c
+                ((eq? c 'a) 'a))
+                (raise-continuable 'b)))))
+
 ;; quasiquote
 
 (check-equal (list 3 4) `(list ,(+ 1 2) 4))

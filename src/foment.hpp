@@ -57,6 +57,7 @@ Future:
     (2 4 6 8 10)
 
 Bugs:
+-- FBignum should not need to be pinned
 -- letrec: http://trac.sacrideo.us/wg/wiki/LetrecStar
 -- serialize loading libraries
 -- serialize symbol table

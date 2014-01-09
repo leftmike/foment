@@ -37,6 +37,7 @@ FObject MakeProcedure(FObject nam, FObject cv, int_t ac, uint_t fl)
 typedef struct
 {
     FRecord Record;
+    FObject Who;
     FObject CStackPtr;
     FObject AStackPtr;
     FObject Marks;
@@ -45,15 +46,16 @@ typedef struct
 #define AsDynamic(obj) ((FDynamic *) (obj))
 #define DynamicP(obj) RecordP(obj, R.DynamicRecordType)
 
-static const char * DynamicFieldsC[] = {"cstack-ptr", "astack-ptr", "marks"};
+static const char * DynamicFieldsC[] = {"who", "cstack-ptr", "astack-ptr", "marks"};
 
-static FObject MakeDynamic(FObject cdx, FObject adx, FObject ml)
+static FObject MakeDynamic(FObject who, FObject cdx, FObject adx, FObject ml)
 {
     FAssert(sizeof(FDynamic) == sizeof(DynamicFieldsC) + sizeof(FRecord));
     FAssert(FixnumP(cdx));
     FAssert(FixnumP(adx));
 
     FDynamic * dyn = (FDynamic *) MakeRecord(R.DynamicRecordType);
+    dyn->Who = who;
     dyn->CStackPtr = cdx;
     dyn->AStackPtr = adx;
     dyn->Marks = ml;
@@ -65,7 +67,8 @@ static FObject MakeDynamic(FObject dyn, FObject ml)
 {
     FAssert(DynamicP(dyn));
 
-    return(MakeDynamic(AsDynamic(dyn)->CStackPtr, AsDynamic(dyn)->AStackPtr, ml));
+    return(MakeDynamic(AsDynamic(dyn)->Who, AsDynamic(dyn)->CStackPtr, AsDynamic(dyn)->AStackPtr,
+            ml));
 }
 
 // ---- Continuation ----
@@ -917,13 +920,14 @@ TailCallPrimitive:
 
             case MarkContinuationOpcode:
             {
-                FAssert(ts->ArgCount == 3);
-                FAssert(ts->AStackPtr >= 3);
+                FAssert(ts->ArgCount == 4);
+                FAssert(ts->AStackPtr >= 4);
 
                 FObject thnk = ts->AStack[ts->AStackPtr - 1];
                 FObject val = ts->AStack[ts->AStackPtr - 2];
                 FObject key = ts->AStack[ts->AStackPtr - 3];
-                ts->AStackPtr -= 3;
+                FObject who = ts->AStack[ts->AStackPtr - 4];
+                ts->AStackPtr -= 4;
 
                 int_t idx = ts->CStackPtr - 3; // WantValuesObject, Proc, IP
 
@@ -935,7 +939,7 @@ TailCallPrimitive:
 
                     FAssert(FixnumP(AsDynamic(dyn)->CStackPtr));
 
-                    if (AsFixnum(AsDynamic(dyn)->CStackPtr) == idx)
+                    if (AsDynamic(dyn)->Who == who && AsFixnum(AsDynamic(dyn)->CStackPtr) == idx)
                     {
                         ts->DynamicStack = MakePair(MakeDynamic(dyn,
                                 MarkListSet(AsDynamic(dyn)->Marks, key, val)),
@@ -947,7 +951,7 @@ TailCallPrimitive:
                     }
                 }
 
-                ts->DynamicStack = MakePair(MakeDynamic(MakeFixnum(ts->CStackPtr),
+                ts->DynamicStack = MakePair(MakeDynamic(who, MakeFixnum(ts->CStackPtr),
                         MakeFixnum(ts->AStackPtr), MarkListSet(EmptyListObject, key, val)),
                         ts->DynamicStack);
 
@@ -1387,9 +1391,9 @@ void SetupExecute()
             MakeProcedure(StringCToSymbol("%call-continuation"),
             MakeVector(1, v, NoValueObject), 2, 0)));
 
-    // (%mark-continuation <key> <value> <thunk>)
+    // (%mark-continuation <who> <key> <value> <thunk>)
 
-    v[0] = MakeInstruction(CheckCountOpcode, 3);
+    v[0] = MakeInstruction(CheckCountOpcode, 4);
     v[1] = MakeInstruction(MarkContinuationOpcode, 0);
     v[2] = MakeInstruction(PushWantValuesOpcode, 0);
     v[3] = MakeInstruction(CallOpcode, 0);
@@ -1399,7 +1403,7 @@ void SetupExecute()
     LibraryExport(R.BedrockLibrary,
             EnvironmentSetC(R.Bedrock, "%mark-continuation",
             MakeProcedure(StringCToSymbol("%mark-continuation"), MakeVector(7, v, NoValueObject),
-            3, 0)));
+            4, 0)));
 
     // (%abort-dynamic <dynamic> <thunk>)
 
