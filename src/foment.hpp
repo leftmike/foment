@@ -65,7 +65,6 @@ Bugs:
 -- current-second returns an exact integer
 -- write-bytevector, write-string, read-bytevector, and read-bytevector! assume GC does
     not happen during IO
--- call/cc: unwind only as far as the common tail
 -- gc.cpp: AllocateSection failing is not handled by all callers
 -- ExecuteThunk does not check for CStack or AStack overflow
 -- remove Hash from FSymbol (part of Reserved)

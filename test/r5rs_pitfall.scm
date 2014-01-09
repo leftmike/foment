@@ -247,24 +247,26 @@
 
 ;; Modification of the yin-yang puzzle so that it terminates and produces
 ;; a value as a result. (Scott G. Miller)
-;(check-equal (10 9 8 7 6 5 4 3 2 1 0)
-;  (let ((x '())
-;        (y 0))
-;    (call/cc 
-;     (lambda (escape)
-;       (let* ((yin ((lambda (foo) 
-;                      (set! x (cons y x))
-;                      (if (= y 10)
-;                          (escape x)
-;                          (begin
-;                            (set! y 0)
-;                            foo)))
-;                    (call/cc (lambda (bar) bar))))
-;              (yang ((lambda (foo) 
-;                       (set! y (+ y 1))
-;                       foo)
-;                     (call/cc (lambda (baz) baz)))))
-;         (yin yang))))))
+#|
+(check-equal (10 9 8 7 6 5 4 3 2 1 0)
+  (let ((x '())
+        (y 0))
+    (call/cc 
+     (lambda (escape)
+       (let* ((yin ((lambda (foo) 
+                      (set! x (cons y x))
+                      (if (= y 10)
+                          (escape x)
+                          (begin
+                            (set! y 0)
+                            foo)))
+                    (call/cc (lambda (bar) bar))))
+              (yang ((lambda (foo) 
+                       (set! y (+ y 1))
+                       foo)
+                     (call/cc (lambda (baz) baz)))))
+         (yin yang))))))
+|#
 
 ;; Miscellaneous 
 

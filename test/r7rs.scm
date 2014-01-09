@@ -724,6 +724,7 @@
     (lambda ()
         (guard (excpt ((= excpt 10) (- 10)) ((= excpt 12) (- 12))) (raise-continuable 11)))))
 
+;; http://lists.scheme-reports.org/pipermail/scheme-reports/2012-March/001987.html
 (check-equal (a b c d a b) (let ((events '()))
    (guard (c
            (#t #f))
