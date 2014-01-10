@@ -87,6 +87,35 @@ typedef struct
 
 static const char * ContinuationFieldsC[] = {"cstack-ptr", "cstack", "astack-ptr", "astack"};
 
+static FObject UpdateFrame(FObject old, FObject * pmap)
+{
+    FObject map = *pmap;
+
+    while (PairP(map))
+    {
+        FAssert(PairP(First(map)));
+
+        if (First(First(map)) == old)
+            return(Rest(First(map)));
+
+        map = Rest(map);
+    }
+
+    FAssert(VectorP(old));
+
+    FObject nw = MakeVector(VectorLength(old), AsVector(old)->Vector, NoValueObject);
+
+    *pmap = MakePair(MakePair(old, nw), *pmap);
+/*
+    if (VectorP(AsVector(nw)->Vector[0]))
+    {
+//        AsVector(nw)->Vector[0] = UpdateFrame(AsVector(nw)->Vector[0], pmap);
+        ModifyVector(nw, 0, UpdateFrame(AsVector(nw)->Vector[0], pmap));
+    }
+*/
+    return(nw);
+}
+
 static FObject MakeContinuation(FObject cdx, FObject cv, FObject adx, FObject av)
 {
     FAssert(sizeof(FContinuation) == sizeof(ContinuationFieldsC) + sizeof(FRecord));
@@ -100,7 +129,19 @@ static FObject MakeContinuation(FObject cdx, FObject cv, FObject adx, FObject av
     cont->CStack = cv;
     cont->AStackPtr = adx;
     cont->AStack = av;
+#if 0
+    FObject map = EmptyListObject;
 
+    FAssert(VectorLength(cv) == AsFixnum(cdx));
+    for (int_t idx = 0; idx < AsFixnum(cdx); idx++)
+    {
+        if (VectorP(AsVector(cv)->Vector[idx]))
+        {
+//            AsVector(cv)->Vector[idx] = UpdateFrame(AsVector(cv)->Vector[idx], &map);
+            ModifyVector(cv, idx, UpdateFrame(AsVector(cv)->Vector[idx], &map));
+        }
+    }
+#endif // 0
     return(cont);
 }
 
@@ -150,8 +191,6 @@ static const char * Opcodes[] =
     "values",
     "apply",
     "case-lambda",
-//    "call-with-cc",
-//    "call-continuation",
     "capture-continuation",
     "call-continuation",
     "abort",
@@ -843,6 +882,7 @@ TailCallPrimitive:
                             List(MakeFixnum(ts->ArgCount)));
                 break;
             }
+
             case CaptureContinuationOpcode:
             {
                 FMustBe(ts->ArgCount == 1);
@@ -883,7 +923,17 @@ TailCallPrimitive:
                 FObject * cs = ts->CStack - ts->CStackPtr + 1;
                 for (int_t cdx = 0; cdx < ts->CStackPtr; cdx++)
                     cs[cdx] = AsVector(AsContinuation(cont)->CStack)->Vector[cdx];
+#if 0
+                FObject map = EmptyListObject;
 
+                for (int_t cdx = 0; cdx < ts->CStackPtr; cdx++)
+                {
+                    if (VectorP(cs[cdx]))
+                    {
+                        cs[cdx] = UpdateFrame(cs[cdx], &map);
+                    }
+                }
+#endif // 0
                 ts->ArgCount = 0;
                 goto TailCall;
             }
