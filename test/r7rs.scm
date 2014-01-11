@@ -2355,13 +2355,17 @@
 (check-equal (-3 1) (let-values ((ret (floor/ -5 2))) ret))
 (check-equal (-3 -1) (let-values ((ret (floor/ 5 -2))) ret))
 (check-equal (2 -1) (let-values ((ret (floor/ -5 -2))) ret))
-(check-equal (2 1) (let-values ((ret (truncate/ 5 2))) ret))
-(check-equal (-2 -1) (let-values ((ret (truncate/ -5 2))) ret))
-(check-equal (-2 1) (let-values ((ret (truncate/ 5 -2))) ret))
-(check-equal (2 -1) (let-values ((ret (truncate/ -5 -2))) ret))
-(check-equal (2.0 -1.0) (let-values ((ret (truncate/ -5.0 -2))) ret))
+(check-equal (-3.0 -1.0) (let-values ((ret (floor/ 5.0 -2))) ret))
+(check-equal (2.0 -1.0) (let-values ((ret (floor/ -5 -2.0))) ret))
 
-;; floor/ etc using bignums
+(check-equal (100000639104090 32850)
+    (let-values ((ret (floor/ 12345678901234567890 123456))) ret))
+(check-equal (-100000639104091 90606)
+    (let-values ((ret (floor/ -12345678901234567890 123456))) ret))
+(check-equal (-100000639104091 -90606)
+    (let-values ((ret (floor/ 12345678901234567890 -123456))) ret))
+(check-equal (100000639104090 -32850)
+    (let-values ((ret (floor/ -12345678901234567890 -123456))) ret))
 
 (check-error (assertion-violation floor/) (floor/ 1))
 (check-error (assertion-violation floor/) (floor/ 1 2 3))
@@ -2377,6 +2381,22 @@
 
 (check-error (assertion-violation floor-remainder) (floor-remainder 1))
 (check-error (assertion-violation floor-remainder) (floor-remainder 1 2 3))
+
+(check-equal (2 1) (let-values ((ret (truncate/ 5 2))) ret))
+(check-equal (-2 -1) (let-values ((ret (truncate/ -5 2))) ret))
+(check-equal (-2 1) (let-values ((ret (truncate/ 5 -2))) ret))
+(check-equal (2 -1) (let-values ((ret (truncate/ -5 -2))) ret))
+(check-equal (-2.0 1.0) (let-values ((ret (truncate/ 5 -2.0))) ret))
+(check-equal (2.0 -1.0) (let-values ((ret (truncate/ -5.0 -2))) ret))
+
+(check-equal (100000639104090 32850)
+    (let-values ((ret (truncate/ 12345678901234567890 123456))) ret))
+(check-equal (-100000639104090 -32850)
+    (let-values ((ret (truncate/ -12345678901234567890 123456))) ret))
+(check-equal (-100000639104090 32850)
+    (let-values ((ret (truncate/ 12345678901234567890 -123456))) ret))
+(check-equal (100000639104090 -32850)
+    (let-values ((ret (truncate/ -12345678901234567890 -123456))) ret))
 
 (check-error (assertion-violation truncate/) (truncate/ 1))
 (check-error (assertion-violation truncate/) (truncate/ 1 2 3))
