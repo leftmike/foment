@@ -27,9 +27,6 @@ q: rational
 #define sprintf_s snprintf
 #endif // FOMENT_UNIX
 
-#define MAXIMUM_MULTIPLIER ((FFixnum) 0x3FFFFFFF)
-#define MINIMUM_MULTIPLIER (- MAXIMUM_MULTIPLIER)
-
 static int_t GenericCompare(const char * who, FObject x1, FObject x2, int_t cf);
 static int_t GenericSign(FObject x);
 static FObject GenericAdd(FObject z1, FObject z2);

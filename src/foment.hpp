@@ -7,16 +7,6 @@ Goals:
 -- simple implementation
 
 To Do:
--- add License.wiki: note different license for mini-gmp.?; update date; add license to all files
-
--- update version number before release
-
--- fix maximum/minimum fixnum on 64bit
-
--- aka for additional library names
--- (chibi test) built in
--- don't load all libraries at startup
-
 -- unify specifying the file encoding for OpenInputFile/OpenOutputFile and open-input-file etc.
 -- use an indexed parameter for both
 -- autodetect encoding: utf8 or utf16 byte order mark or encoding: like Guile and Chibi
@@ -30,7 +20,9 @@ To Do:
 -- use Win32 file APIs and not stdio
 
 Future:
+-- don't load all builtin libraries at startup
 -- on unix, if gmp is available, use it instead of mini-gmp
+-- increase maximum/minimum fixnum on 64bit
 -- some mature segments are compacted during a full collection; ie. mark-compact
 -- inline primitives in GPassExpression
 -- debugging information
@@ -66,7 +58,7 @@ Bugs:
 #ifndef __FOMENT_HPP__
 #define __FOMENT_HPP__
 
-#define FOMENT_VERSION "0.2"
+#define FOMENT_VERSION "0.3"
 
 #include <stdint.h>
 
@@ -834,6 +826,7 @@ typedef struct
     FObject ExceptSymbol;
     FObject PrefixSymbol;
     FObject RenameSymbol;
+    FObject AkaSymbol;
 
     FObject DatumReferenceRecordType;
 } FRoots;

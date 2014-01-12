@@ -1525,16 +1525,7 @@
          write-simple))
 
 (define-library (scheme inquiry)
-    (import (foment base))
-    (export
-        implementation-name
-        implementation-version
-        cpu-architecture
-        machine-name
-        os-name
-        os-version))
-
-(define-library (srfi 112)
+    (aka (srfi 112))
     (import (foment base))
     (export
         implementation-name
@@ -1545,14 +1536,7 @@
         os-version))
 
 (define-library (scheme boxes)
-    (import (foment base))
-    (export
-        box
-        box?
-        unbox
-        set-box!))
-
-(define-library (srfi 111)
+    (aka (srfi 111))
     (import (foment base))
     (export
         box

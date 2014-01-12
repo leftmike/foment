@@ -721,6 +721,7 @@ static FObject ExpandLibraryDeclarations(FObject env, FObject lst, FObject body)
             body = ExpandLibraryDeclarations(env,
                     CondExpand(MakeSyntacticEnv(R.Bedrock), form, Rest(form)), body);
         else if (EqualToSymbol(First(form), R.ExportSymbol) == 0
+                && EqualToSymbol(First(form), R.AkaSymbol) == 0
                 && EqualToSymbol(First(form), R.BeginSymbol) == 0
                 && EqualToSymbol(First(form), R.IncludeSymbol) == 0
                 && EqualToSymbol(First(form), R.IncludeCISymbol) == 0)
@@ -1010,7 +1011,8 @@ static FObject CompileLibraryCode(FObject env, FObject lst)
             FAssert(EqualToSymbol(First(form), R.ImportSymbol)
                     || EqualToSymbol(First(form), R.IncludeLibraryDeclarationsSymbol)
                     || EqualToSymbol(First(form), R.CondExpandSymbol)
-                    || EqualToSymbol(First(form), R.ExportSymbol));
+                    || EqualToSymbol(First(form), R.ExportSymbol)
+                    || EqualToSymbol(First(form), R.AkaSymbol));
         }
 
         lst = Rest(lst);
@@ -1084,11 +1086,11 @@ static FObject CompileExports(FObject env, FObject lst)
             if (especs != EmptyListObject)
                 RaiseExceptionC(R.Syntax, "export", "expected a proper list of exports",
                         List(form, especs));
-
         }
         else
         {
             FAssert(EqualToSymbol(First(form), R.ImportSymbol)
+                    || EqualToSymbol(First(form), R.AkaSymbol)
                     || EqualToSymbol(First(form), R.IncludeLibraryDeclarationsSymbol)
                     || EqualToSymbol(First(form), R.CondExpandSymbol)
                     || EqualToSymbol(First(form), R.BeginSymbol)
@@ -1102,6 +1104,49 @@ static FObject CompileExports(FObject env, FObject lst)
     FAssert(lst == EmptyListObject);
 
     return(elst);
+}
+
+static FObject CompileAkas(FObject env, FObject lst)
+{
+    FObject akalst = EmptyListObject;
+
+    while (PairP(lst))
+    {
+        FAssert(PairP(First(lst)));
+        FAssert(IdentifierP(First(First(lst))) || SymbolP(First(First(lst))));
+
+        FObject form = First(lst);
+
+        if (EqualToSymbol(First(form), R.AkaSymbol))
+        {
+            if (PairP(Rest(form)) == 0 || Rest(Rest(form)) != EmptyListObject)
+                RaiseExceptionC(R.Syntax, "aka", "expected (aka <library-name>)", List(form));
+
+            FObject ln = LibraryName(First(Rest(form)));
+            if (PairP(ln) == 0)
+                RaiseExceptionC(R.Syntax, "aka",
+                        "library name must be a list of symbols and/or integers",
+                        List(First(Rest(form))));
+
+            akalst = MakePair(ln, akalst);
+        }
+        else
+        {
+            FAssert(EqualToSymbol(First(form), R.ImportSymbol)
+                    || EqualToSymbol(First(form), R.ExportSymbol)
+                    || EqualToSymbol(First(form), R.IncludeLibraryDeclarationsSymbol)
+                    || EqualToSymbol(First(form), R.CondExpandSymbol)
+                    || EqualToSymbol(First(form), R.BeginSymbol)
+                    || EqualToSymbol(First(form), R.IncludeSymbol)
+                    || EqualToSymbol(First(form), R.IncludeCISymbol));
+        }
+
+        lst = Rest(lst);
+    }
+
+    FAssert(lst == EmptyListObject);
+
+    return(akalst);
 }
 
 static FObject UndefinedList;
@@ -1131,6 +1176,7 @@ void CompileLibrary(FObject expr)
 
     FObject proc = CompileLibraryCode(env, body);
     FObject exports = CompileExports(env, body);
+    FObject akalst = CompileAkas(env, body);
 
     UndefinedList = EmptyListObject;
     HashtableWalkVisit(AsEnvironment(env)->Hashtable, WalkVisit, NoValueObject);
@@ -1138,7 +1184,16 @@ void CompileLibrary(FObject expr)
         RaiseExceptionC(R.Syntax, "define-library", "identifier(s) used but never defined",
                 List(UndefinedList, expr));
 
-    MakeLibrary(ln, exports, proc);
+    FObject lib = MakeLibrary(ln, exports, proc);
+
+    while (akalst != EmptyListObject)
+    {
+        FAssert(PairP(akalst));
+        FAssert(LibraryP(lib));
+
+        MakeLibrary(First(akalst), AsLibrary(lib)->Exports, NoValueObject);
+        akalst = Rest(akalst);
+    }
 }
 
 static FObject CondExpandProgram(FObject lst, FObject prog)
@@ -1263,4 +1318,5 @@ void SetupLibrary()
     R.ExceptSymbol = StringCToSymbol("except");
     R.PrefixSymbol = StringCToSymbol("prefix");
     R.RenameSymbol = StringCToSymbol("rename");
+    R.AkaSymbol = StringCToSymbol("aka");
 }
