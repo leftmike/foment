@@ -11,8 +11,6 @@ To Do:
 
 -- update version number before release
 
--- add (scheme r5rs) library etc and uncomment tests in r7rs-test.scm
-
 -- fix maximum/minimum fixnum on 64bit
 
 -- aka for additional library names
@@ -24,8 +22,6 @@ To Do:
 -- autodetect encoding: utf8 or utf16 byte order mark or encoding: like Guile and Chibi
 
 -- ctrl-c handling
-
--- r7rs-tests.scm: commented out tests
 
 -- IO and GC
 -- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
@@ -65,11 +61,6 @@ Bugs:
 -- r5rs_pitfall.scm: yin-yang does not terminate see test2.scm and
    https://groups.google.com/forum/?fromgroups=#!topic/comp.lang.scheme/Fysq_Wplxsw
 -- exhaustively test unicode: char-alphabetic?, char-upcase, etc
-
-Missing:
--- scheme-report-environment
--- null-environment
-
 */
 
 #ifndef __FOMENT_HPP__

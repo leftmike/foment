@@ -1,11 +1,11 @@
 ;; -*- coding: utf-8 -*-
 
 (import (scheme base) (scheme char) (scheme lazy)
-       (scheme inexact) (scheme complex)
+        (scheme inexact) (scheme complex)
         (scheme time)
         (scheme file) (scheme read) (scheme write)
         (scheme eval) (scheme process-context) (scheme case-lambda)
-;        (scheme r5rs)
+        (only (scheme r5rs) scheme-report-environment null-environment)
         (chibi test)  ; or (srfi 64)
         )
 
@@ -1533,9 +1533,8 @@
 (test-end)
 
 (test-begin "6.12 Environments and evaluation")
-#|
 
-;; (test 21 (eval '(* 7 3) (scheme-report-environment 5)))
+(test 21 (eval '(* 7 3) (scheme-report-environment 5)))
 
 (test 20
     (let ((f (eval '(lambda (f x) (f x x)) (null-environment 5))))
@@ -1545,7 +1544,6 @@
 (test 0.0 (eval '(sin 0) (environment '(scheme inexact))))
 (test 1024.0 (eval '(+ (expt 2 10) (sin 0))
                    (environment '(scheme base) '(scheme inexact))))
-|#
 
 (test-end)
 

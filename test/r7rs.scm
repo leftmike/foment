@@ -4434,6 +4434,8 @@
 (check-error (assertion-violation environment) (environment '|scheme base|))
 (check-equal 10 (eval '(+ 1 2 3 4) (environment '(scheme base))))
 (check-error (assertion-violation define) (eval '(define x 10) (environment '(scheme base))))
+(check-equal 3/2 (eval '(inexact->exact 1.5) (environment '(scheme r5rs))))
+(check-equal 1.5 (eval '(exact->inexact 3/2) (environment '(scheme r5rs))))
 
 ;;
 ;; ---- ports ----
