@@ -13,13 +13,6 @@ To Do:
 
 -- add (scheme r5rs) library etc and uncomment tests in r7rs-test.scm
 
--- test floor/ etc using bignums
-
--- log with negative numbers is broken which breaks expt with negative numbers
--- test all of sin etc with negative numbers
-
--- test string->number
-
 -- fix maximum/minimum fixnum on 64bit
 
 -- aka for additional library names
@@ -73,28 +66,9 @@ Bugs:
    https://groups.google.com/forum/?fromgroups=#!topic/comp.lang.scheme/Fysq_Wplxsw
 -- exhaustively test unicode: char-alphabetic?, char-upcase, etc
 
-Testing:
--- 6.1 equivalence predicates complete
--- 6.2
--- 6.3 booleans complete
--- 6.4 pairs and lists complete
--- 6.5 symbols complete
--- 6.6 characters complete
--- 6.7 strings complete
--- 6.8 vectors complete
--- 6.9 bytevectors complete
--- 6.10 control features complete
--- 6.11 exceptions complete
--- 6.12 environments and evaluation complete
--- 6.13.1 ports complete
--- 6.13.2 input complete
--- 6.13.3 output complete
--- 6.14 system interface complete
-
 Missing:
 -- scheme-report-environment
 -- null-environment
--- exit
 
 */
 

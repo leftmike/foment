@@ -87,6 +87,11 @@ typedef struct
 
 static const char * ContinuationFieldsC[] = {"cstack-ptr", "cstack", "astack-ptr", "astack"};
 
+//#define YIN_YANG
+// This would make yin-yang work, but then other continuation tests are broken. Otherwise,
+// all of the continuation tests work except for yin-yang.
+//
+#ifdef YIN_YANG
 static FObject UpdateFrame(FObject old, FObject * pmap)
 {
     FObject map = *pmap;
@@ -115,6 +120,7 @@ static FObject UpdateFrame(FObject old, FObject * pmap)
 */
     return(nw);
 }
+#endif // YIN_YANG
 
 static FObject MakeContinuation(FObject cdx, FObject cv, FObject adx, FObject av)
 {
@@ -129,7 +135,7 @@ static FObject MakeContinuation(FObject cdx, FObject cv, FObject adx, FObject av
     cont->CStack = cv;
     cont->AStackPtr = adx;
     cont->AStack = av;
-#if 0
+#ifdef YIN_YANG
     FObject map = EmptyListObject;
 
     FAssert(VectorLength(cv) == AsFixnum(cdx));
@@ -141,7 +147,7 @@ static FObject MakeContinuation(FObject cdx, FObject cv, FObject adx, FObject av
             ModifyVector(cv, idx, UpdateFrame(AsVector(cv)->Vector[idx], &map));
         }
     }
-#endif // 0
+#endif // YIN_YANG
     return(cont);
 }
 
@@ -923,7 +929,7 @@ TailCallPrimitive:
                 FObject * cs = ts->CStack - ts->CStackPtr + 1;
                 for (int_t cdx = 0; cdx < ts->CStackPtr; cdx++)
                     cs[cdx] = AsVector(AsContinuation(cont)->CStack)->Vector[cdx];
-#if 0
+#ifdef YIN_YANG
                 FObject map = EmptyListObject;
 
                 for (int_t cdx = 0; cdx < ts->CStackPtr; cdx++)
@@ -933,7 +939,7 @@ TailCallPrimitive:
                         cs[cdx] = UpdateFrame(cs[cdx], &map);
                     }
                 }
-#endif // 0
+#endif // YIN_YANG
                 ts->ArgCount = 0;
                 goto TailCall;
             }

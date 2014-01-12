@@ -1882,6 +1882,9 @@ static FObject GenericLog(FObject z)
 
     FAssert(FlonumP(z));
 
+    if (AsFlonum(z) < 0.0)
+        return(GenericLog(MakeComplex(z, MakeFlonum(0.0))));
+
     return(MakeFlonum(log(AsFlonum(z))));
 }
 
@@ -2493,7 +2496,7 @@ static FObject TruncateRemainder(FObject n, FObject d)
     FObject rbn = MakeBignum();
 
     BignumRemainder(rbn, num, den);
-    return(FlonumP(n) || FlonumP(d) ? ToInexact(rbn) : rbn);
+    return(FlonumP(n) || FlonumP(d) ? ToInexact(rbn) : Normalize(rbn));
 }
 
 Define("truncate-remainder", TruncateRemainderPrimitive)(int_t argc, FObject argv[])
@@ -2892,6 +2895,9 @@ Define("expt", ExptPrimitive)(int_t argc, FObject argv[])
 
     FAssert(FlonumP(b));
     FAssert(FlonumP(e));
+
+    if (AsFlonum(b) < 0.0)
+        return(GenericExp(GenericMultiply(argv[1], GenericLog(argv[0]))));
 
     return(MakeFlonum(pow(AsFlonum(b), AsFlonum(e))));
 }

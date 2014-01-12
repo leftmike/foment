@@ -2506,11 +2506,18 @@
 (check-error (assertion-violation rationalize) (rationalize 1 2 3))
 
 (check-equal 1.1051709180756477 (exp 1/10))
+(check-equal 0.9048374180359595 (exp -1/10))
 (check-equal +inf.0 (exp 12345678901234567890))
+(check-equal 0.0 (exp -12345678901234567890))
 (check-equal -1.1312043837568135+2.4717266720048188i (exp 1+2i))
+(check-equal -0.1530918656742263+0.33451182923926226i (exp -1+2i))
 (check-equal -3.209883040054176+0.8484263372940289i (exp 1.2-3.4i))
+(check-equal -0.2911940196921122+0.07696750083614708i (exp -1.2-3.4i))
 (check-equal 1.1051709180756477 (exp 0.1))
+(check-equal 0.9048374180359595 (exp -0.1))
 (check-equal 22026.465794806718 (exp 10))
+(check-equal 4.5399929762484854e-5 (exp -10))
+(check-equal 2.6195173187490626e53 (exp 123))
 (check-equal 2.6195173187490626e53 (exp 123))
 
 (check-error (assertion-violation exp) (exp))
@@ -2520,25 +2527,64 @@
 (check-error (assertion-violation exp) (exp "0"))
 
 (check-equal 0.4054651081081644 (log 3/2))
+(check-equal 0.4054651081081644+3.141592653589793i (log -3/2))
 (check-equal 43.959837789202524 (log 12345678901234567890))
+(check-equal 43.959837789202524+3.141592653589793i (log -12345678901234567890))
 (check-equal 0.8047189562170501+1.1071487177940904i (log 1+2i))
+(check-equal 0.8047189562170501+2.0344439357957027i (log -1+2i))
 (check-equal 1.2824746787307684-1.2315037123408519i (log 1.2-3.4i))
+(check-equal 1.2824746787307684-1.9100889412489412i (log -1.2-3.4i))
 (check-equal 0.4054651081081644 (log 1.5))
+(check-equal 0.4054651081081644+3.141592653589793i (log -1.5))
 (check-equal 14.02623085927966 (log 1234567))
+(check-equal 14.02623085927966+3.141592653589793i (log -1234567))
 (check-equal 2.302585092994046 (log 10))
+(check-equal 2.302585092994046+3.141592653589793i (log -10))
 
-(check-equal -8.637683358612836 (log 12 3/4))
 (check-equal 1.296299930939515 (log 12 34/5))
+(check-equal 1.296299930939515+1.638872969427635i (log -12 34/5))
+(check-equal 0.35169112283875825-0.5763770748080949i (log 12 -34/5))
+(check-equal 1.0803873030631417-0.13174457807537043i (log -12 -34/5))
 (check-equal -0.19656163223282258 (log 1/2 34))
+(check-equal -0.19656163223282258+0.8908881073445405i (log -1/2 34))
+(check-equal -0.1095855753117824+0.09762848578177642i (log 1/2 -34))
+(check-equal 0.33290188235248397+0.5943097794441011i (log -1/2 -34))
 (check-equal 2.409420839653209 (log 1/2 3/4))
+(check-equal 2.409420839653209-10.920362978532015i (log -1/2 3/4))
+(check-equal 0.020036042677901707+0.2188008586960453i (log 1/2 -3/4))
+(check-equal 1.0117203336294214+0.12799029746277502i (log -1/2 -3/4))
 (check-equal 9.135110906572999 (log 12345678901234567890 123))
+(check-equal 9.135110906572999+0.6528412923504182i (log -12345678901234567890 123))
+(check-equal 6.405202410789154-4.181580619625606i (log 12345678901234567890 -123))
+(check-equal 6.704039340488562-3.7238324146621795i (log -12345678901234567890 -123))
 (check-equal 0.10946774595593235 (log 123 12345678901234567890))
+(check-equal 0.10946774595593235+0.07146506474055815i (log -123 12345678901234567890))
+(check-equal 0.1089115070648178-0.00778336790337896i (log 123 -12345678901234567890))
+(check-equal 0.11399281102569848+0.06331856112064839i (log -123 -12345678901234567890))
 (check-equal 1.1591622043557208-0.6678639546657751i (log 12 3+4i))
+(check-equal 2.003522491996478+0.7976299164354059i (log -12 3+4i))
+(check-equal 0.5337098097672296+0.7342888184661313i (log 12 -3-4i))
+(check-equal -0.39462943303818315+1.4090420602656097i (log -12 -3-4i))
 (check-equal 0.22820098812915404+0.3139635638686154i (log 1+2i 34))
+(check-equal 0.22820098812915404-0.5769245434759251i (log -1-2i 34))
+(check-equal 0.283164742120509+0.06169546269417022i (log 1+2i -34))
+(check-equal -0.15932271554375732-0.4349858309681545i (log -1-2i -34))
 (check-equal 0.6729526521196117+0.30018116126729044i (log 1+2i 3+4i))
+(check-equal -0.17140763552114516-1.1653127098338907i (log -1-2i 3+4i))
+(check-equal -0.15432391508523913+0.4755881929072293i (log 1+2i -3-4i))
+(check-equal 0.7740153277201737-0.1991650488922492i (log -1-2i -3-4i))
 (check-equal -8.637683358612836 (log 12 0.75))
+(check-equal -8.637683358612836-10.920362978532015i (log -12 0.75))
+(check-equal -0.07182846166312633-0.7843928735509108i (log 12 -0.75))
+(check-equal 0.9198558292883932-0.8752034347841812i (log -12 -0.75))
 (check-equal 0.14898285427440489 (log 1.2 3.4))
+(check-equal 0.14898285427440489+2.5671316586455806i (log -1.2 3.4))
+(check-equal 0.019628407972746984-0.050388707515650104i (log 1.2 -3.4))
+(check-equal 0.887878965606753+0.2878294569909943i (log -1.2 -3.4))
 (check-equal 0.7859844846031109 (log 123 456))
+(check-equal 0.7859844846031109+0.5131231266956723i (log -123 456))
+(check-equal 0.6221700165879744-0.3192498242479197i (log 123 -456))
+(check-equal 0.83058948443263+0.08692845344305467i (log -123 -456))
 
 (check-error (assertion-violation log) (log))
 (check-error (assertion-violation log) (log 1 2 3))
@@ -2856,11 +2902,239 @@
 (check-error (assertion-violation number->string) (number->string #\1))
 (check-error (assertion-violation number->string) (number->string "123"))
 
-    
-    
-    
-    
-    
+(check-equal 86 (string->number "1010110" 2))
+(check-equal 266312 (string->number "1010110" 8))
+(check-equal 1010110 (string->number "1010110" 10))
+(check-equal 1010110 (string->number "1010110"))
+(check-equal 16843024 (string->number "1010110" 16))
+
+(check-equal 86 (string->number "+1010110" 2))
+(check-equal 266312 (string->number "+1010110" 8))
+(check-equal 1010110 (string->number "+1010110" 10))
+(check-equal 1010110 (string->number "+1010110"))
+(check-equal 16843024 (string->number "+1010110" 16))
+
+(check-equal -86 (string->number "-1010110" 2))
+(check-equal -266312 (string->number "-1010110" 8))
+(check-equal -1010110 (string->number "-1010110" 10))
+(check-equal -1010110 (string->number "-1010110"))
+(check-equal -16843024 (string->number "-1010110" 16))
+
+(check-equal 27 (string->number "000011011" 2))
+(check-equal 4617 (string->number "000011011" 8))
+(check-equal 11011 (string->number "000011011" 10))
+(check-equal 69649 (string->number "000011011" 16))
+
+(check-equal 342391 (string->number "1234567" 8))
+(check-equal 1234567 (string->number "1234567" 10))
+(check-equal 1234567 (string->number "1234567"))
+(check-equal 19088743 (string->number "1234567" 16))
+
+(check-equal 1234567890 (string->number "1234567890" 10))
+(check-equal 1234567890 (string->number "1234567890"))
+(check-equal 78187493520 (string->number "1234567890" 16))
+
+(check-equal 439041101 (string->number "1A2B3C4D" 16))
+
+(check-equal 16843024 (string->number "#x1010110" 2))
+(check-equal 1010110 (string->number "#d1010110" 8))
+(check-equal 266312 (string->number "#o1010110" 10))
+(check-equal 266312 (string->number "#o1010110"))
+(check-equal 86 (string->number "#b1010110" 16))
+
+(check-equal 4444580219171430789360
+    (string->number "111100001111000011110000111100001111000011110000111100001111000011110000" 2))
+(check-equal 15040940990774093821774547278228463013989131795412990679509667840
+    (string->number "111100001111000011110000111100001111000011110000111100001111000011110000" 8))
+(check-equal 111100001111000011110000111100001111000011110000111100001111000011110000
+    (string->number "111100001111000011110000111100001111000011110000111100001111000011110000" 10))
+(check-equal 33154376531681113854560661422351801859329838410521262808467732924068440520839004225536
+    (string->number "111100001111000011110000111100001111000011110000111100001111000011110000" 16))
+
+(check-equal 13889035636016081036092333743870916983
+    (string->number "123456712345671234567123456712345671234567" 8))
+(check-equal 123456712345671234567123456712345671234567
+    (string->number "123456712345671234567123456712345671234567" 10))
+(check-equal 26605824711816610855172917917002038088574653646183
+    (string->number "123456712345671234567123456712345671234567" 16))
+
+(check-equal 123456789012345678901234567890 (string->number "123456789012345678901234567890" 10))
+(check-equal 94522879687365475552814062743484560
+    (string->number "123456789012345678901234567890" 16))
+
+(check-equal 3/17 (string->number "10101/1110111" 2))
+(check-equal 57/4097 (string->number "10101/1110111" 8))
+(check-equal 91/10001 (string->number "10101/1110111" 10))
+(check-equal 91/10001 (string->number "10101/1110111"))
+(check-equal 241/65537 (string->number "10101/1110111" 16))
+
+(check-equal 27/119 (string->number "0011011/0001110111" 2))
+(check-equal 4617/299081 (string->number "0011011/0001110111" 8))
+(check-equal 11011/1110111 (string->number "0011011/0001110111" 10))
+(check-equal 69649/17891601 (string->number "0011011/0001110111" 16))
+
+(check-equal 668/375 (string->number "1234/567" 8))
+(check-equal 1234/567 (string->number "1234/567" 10))
+(check-equal 1234/567 (string->number "1234/567"))
+(check-equal 4660/1383 (string->number "1234/567" 16))
+
+(check-equal 668/375 (string->number "+1234/567" 8))
+(check-equal 1234/567 (string->number "+1234/567" 10))
+(check-equal 1234/567 (string->number "+1234/567"))
+(check-equal 4660/1383 (string->number "+1234/567" 16))
+
+(check-equal -668/375 (string->number "-1234/567" 8))
+(check-equal -1234/567 (string->number "-1234/567" 10))
+(check-equal -1234/567 (string->number "-1234/567"))
+(check-equal -4660/1383 (string->number "-1234/567" 16))
+
+(check-equal 218107/329 (string->number "654321/987" 10))
+(check-equal 218107/329 (string->number "654321/987"))
+(check-equal 737369/271 (string->number "654321/987" 16))
+
+(check-equal 43981/239 (string->number "ABCD/EF" 16))
+
+(check-equal 241/65537 (string->number "#x10101/1110111" 2))
+(check-equal 91/10001 (string->number "#d10101/1110111" 8))
+(check-equal 57/4097 (string->number "#o10101/1110111" 10))
+(check-equal 57/4097 (string->number "#o10101/1110111"))
+(check-equal 3/17 (string->number "#b10101/1110111" 16))
+
+(check-equal 123.0 (string->number "123."))
+(check-equal 123.0 (string->number "123.0"))
+(check-equal 123.456 (string->number "123.456"))
+(check-equal 0.456 (string->number ".456"))
+(check-equal 0.456 (string->number "0.456"))
+(check-equal 1.23e47 (string->number "123.e45"))
+(check-equal 1.23e47 (string->number "123.e+45"))
+(check-equal 1.23e-43 (string->number "123.e-45"))
+(check-equal 1.23456e80 (string->number "123.456e78"))
+(check-equal 1.23456e80 (string->number "123.456e+78"))
+(check-equal 1.23456e-76 (string->number "123.456e-78"))
+(check-equal 1.23e44 (string->number "0.123e45"))
+(check-equal 1.23e44 (string->number "0.123e+45"))
+(check-equal 1.23e-46 (string->number ".123e-45"))
+(check-equal 123.0 (string->number "+123."))
+(check-equal 123.0 (string->number "+123.0"))
+(check-equal 123.456 (string->number "+123.456"))
+(check-equal 0.456 (string->number "+.456"))
+(check-equal 0.456 (string->number "+0.456"))
+(check-equal 1.23e47 (string->number "+123.e45"))
+(check-equal 1.23e47 (string->number "+123.e+45"))
+(check-equal 1.23e-43 (string->number "+123.e-45"))
+(check-equal 1.23456e80 (string->number "+123.456e78"))
+(check-equal 1.23456e80 (string->number "+123.456e+78"))
+(check-equal 1.23456e-76 (string->number "+123.456e-78"))
+(check-equal 1.23e44 (string->number "+0.123e45"))
+(check-equal 1.23e44 (string->number "+0.123e+45"))
+(check-equal 1.23e-46 (string->number "+.123e-45"))
+(check-equal -123.0 (string->number "-123."))
+(check-equal -123.0 (string->number "-123.0"))
+(check-equal -123.456 (string->number "-123.456"))
+(check-equal -0.456 (string->number "-.456"))
+(check-equal -0.456 (string->number "-0.456"))
+(check-equal -1.23e47 (string->number "-123.e45"))
+(check-equal -1.23e47 (string->number "-123.e+45"))
+(check-equal -1.23e-43 (string->number "-123.e-45"))
+(check-equal -1.23456e80 (string->number "-123.456e78"))
+(check-equal -1.23456e80 (string->number "-123.456e+78"))
+(check-equal -1.23456e-76 (string->number "-123.456e-78"))
+(check-equal -1.23e44 (string->number "-0.123e45"))
+(check-equal -1.23e44 (string->number "-0.123e+45"))
+(check-equal -1.23e-46 (string->number "-.123e-45"))
+
+(check-equal 10+51i (string->number "1010+110011i" 2))
+(check-equal 520+36873i (string->number "1010+110011i" 8))
+(check-equal 1010+110011i (string->number "1010+110011i" 10))
+(check-equal 4112+1114129i (string->number "1010+110011i" 16))
+
+(check-equal 4112+1114129i (string->number "#x1010+110011i" 2))
+(check-equal 1010+110011i (string->number "#d1010+110011i" 8))
+(check-equal 520+36873i (string->number "#o1010+110011i" 10))
+(check-equal 10+51i (string->number "#b1010+110011i" 16))
+
+(check-equal 12345+67890i (string->number "12345+67890i"))
+(check-equal -12345+67890i (string->number "-12345+67890i"))
+(check-equal 12345-67890i (string->number "12345-67890i"))
+(check-equal -12345-67890i (string->number "-12345-67890i"))
+
+(check-equal 123.45+6.789i (string->number "123.45+6.7890i"))
+(check-equal -123.45+6.789i (string->number "-123.45+6.7890i"))
+(check-equal 123.45-6.789i (string->number "123.45-6.7890i"))
+(check-equal -123.45-6.789i (string->number "-123.45-6.7890i"))
+
+(check-equal 0+67890i (string->number "+67890i"))
+(check-equal 0-67890i (string->number "-67890i"))
+(check-equal 0.0+6.789i (string->number "+6.7890i"))
+(check-equal 0.0-6.789i (string->number "-6.7890i"))
+
+(check-equal 25/2 (string->number "#e12.5"))
+(check-equal 12.5 (string->number "#i12.5"))
+(check-equal -25/2 (string->number "#e-12.5"))
+(check-equal 12.5 (string->number "#i+12.5"))
+
+(check-equal -25/2 (string->number "#e#d-12.5"))
+(check-equal 12.5 (string->number "#d#i+12.5"))
+
+(check-equal 2 (string->number "#e12/5" 8))
+(check-equal 2.0 (string->number "#i12/5" 8))
+(check-equal 12/5 (string->number "#e12/5" 10))
+(check-equal 2.4 (string->number "#i12/5" 10))
+(check-equal 18/5 (string->number "#e12/5" 16))
+(check-equal 3.6 (string->number "#i12/5" 16))
+
+(check-equal -2 (string->number "#e-12/5" 8))
+(check-equal 2.0 (string->number "#i+12/5" 8))
+(check-equal 12/5 (string->number "#e+12/5" 10))
+(check-equal -2.4 (string->number "#i-12/5" 10))
+(check-equal -18/5 (string->number "#e-12/5" 16))
+(check-equal 3.6 (string->number "#i+12/5" 16))
+
+(check-equal 2 (string->number "#e#o12/5"))
+(check-equal 2.0 (string->number "#i#o12/5"))
+(check-equal 12/5 (string->number "#e#d12/5"))
+(check-equal 2.4 (string->number "#i#d12/5"))
+(check-equal 18/5 (string->number "#e#x12/5"))
+(check-equal 3.6 (string->number "#i#x12/5"))
+
+(check-equal -2 (string->number "#o#e-12/5"))
+(check-equal 2.0 (string->number "#o#i+12/5"))
+(check-equal 12/5 (string->number "#d#e+12/5"))
+(check-equal -2.4 (string->number "#d#i-12/5"))
+(check-equal -18/5 (string->number "#x#e-12/5"))
+(check-equal 3.6 (string->number "#x#i+12/5"))
+
+(check-equal #f (string->number "2" 2))
+(check-equal #f (string->number "8" 8))
+(check-equal #f (string->number "A" 10))
+(check-equal #f (string->number "a" 10))
+(check-equal #f (string->number "G" 16))
+(check-equal #f (string->number "g" 16))
+
+(check-equal #f (string->number "#b2"))
+(check-equal #f (string->number "#o8"))
+(check-equal #f (string->number "#dA"))
+(check-equal #f (string->number "#da"))
+(check-equal #f (string->number "#xG"))
+(check-equal #f (string->number "#xg"))
+
+(check-equal #f (string->number "#a101"))
+(check-equal #f (string->number "#b#a101"))
+(check-equal #f (string->number "-#b#e101"))
+(check-equal #f (string->number "+#b#e101"))
+
+(check-equal #f (string->number "12.34" 2))
+(check-equal #f (string->number "12.34" 8))
+(check-equal #f (string->number "12.34" 16))
+
+(check-equal #f (string->number "#b12.34"))
+(check-equal #f (string->number "#o12.34"))
+(check-equal #f (string->number "#x12.34"))
+
+(check-equal #f (string->number "110011z" 2))
+(check-equal #f (string->number "110011z" 8))
+(check-equal #f (string->number "110011z" 10))
+(check-equal #f (string->number "110011z" 16))
 
 (check-error (assertion-violation string->number) (string->number))
 (check-error (assertion-violation string->number) (string->number "123" 10 3))
@@ -2868,22 +3142,6 @@
 (check-error (assertion-violation string->number) (string->number "111" 12))
 (check-error (assertion-violation string->number) (string->number "111" 18))
 (check-error (assertion-violation string->number) (string->number #\1))
-
-#|
-generic arithmatic: + * - /
-
-ratio
-bignum
-complex(exact)
-complex(inexact)
-flonum
-fixnum
-
-ratio(fixnum/fixnum)
-ratio(fixnum/bignum)
-ratio(bignum/fixnum)
-ratio(bignum/bignum)
-|#
 
 ;;
 ;; ---- booleans ----
