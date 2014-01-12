@@ -9,7 +9,6 @@ q: rational
 
 */
 
-#include <malloc.h>
 #include <math.h>
 #include <float.h>
 #include <stdio.h>
@@ -17,6 +16,12 @@ q: rational
 #include "foment.hpp"
 #include "unicode.hpp"
 #include "numbers.hpp"
+
+#ifdef FOMENT_BSD
+#include <stdlib.h>
+#else // FOMENT_BSD
+#include <malloc.h>
+#endif // FOMENT_BSD
 
 #ifdef FOMENT_WINDOWS
 #define finite _finite
