@@ -304,7 +304,7 @@ static FObject FindLibrary(FObject nam)
 
 // ----------------
 
-// (<name1> <name2> ... <namen>) --> <dir>/<name1>-<name2>-...<namen>.scm
+// (<name1> <name2> ... <namen>) --> <dir>/<name1>-<name2>-...<namen>.sld
 static FObject LibraryNameFlat(FObject dir, FObject nam)
 {
     FObject out = MakeStringOutputPort();
@@ -324,12 +324,12 @@ static FObject LibraryNameFlat(FObject dir, FObject nam)
 
     FAssert(nam == EmptyListObject);
 
-    WriteStringC(out, ".scm");
+    WriteStringC(out, ".sld");
 
     return(GetOutputString(out));
 }
 
-// (<name1> <name2> ... <namen>) --> <dir>\<name1>\<name2>\...\<namen>.scm
+// (<name1> <name2> ... <namen>) --> <dir>\<name1>\<name2>\...\<namen>.sld
 static FObject LibraryNameDeep(FObject dir, FObject nam)
 {
     FObject out = MakeStringOutputPort();
@@ -347,7 +347,7 @@ static FObject LibraryNameDeep(FObject dir, FObject nam)
 
     FAssert(nam == EmptyListObject);
 
-    WriteStringC(out, ".scm");
+    WriteStringC(out, ".sld");
 
     return(GetOutputString(out));
 }
