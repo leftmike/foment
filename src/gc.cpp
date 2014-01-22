@@ -1430,8 +1430,15 @@ void LeaveWait()
     if (GCHappening)
     {
         CollectThreads += 1;
-        ConditionWait(&DoneCondition, &GCExclusive);
+
+        while (GCHappening)
+            ConditionWait(&DoneCondition, &GCExclusive);
+
+        FAssert(CollectThreads > 0);
+
+        CollectThreads -= 1;
     }
+
     LeaveExclusive(&GCExclusive);
 }
 
@@ -1467,7 +1474,10 @@ void Collect()
         }
 
         EnterExclusive(&GCExclusive);
-        CollectThreads = 0;
+
+        FAssert(CollectThreads > 0);
+
+        CollectThreads -= 1;
         GCHappening = 0;
         LeaveExclusive(&GCExclusive);
 
@@ -1500,7 +1510,12 @@ void Collect()
         if (TotalThreads == WaitThreads + CollectThreads)
             WakeCondition(&ReadyCondition);
 
-        ConditionWait(&DoneCondition, &GCExclusive);
+        while (GCHappening)
+            ConditionWait(&DoneCondition, &GCExclusive);
+
+        FAssert(CollectThreads > 0);
+
+        CollectThreads -= 1;
         LeaveExclusive(&GCExclusive);
     }
 }
