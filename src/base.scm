@@ -392,6 +392,7 @@
         current-thread
         run-thread
         exit-thread
+        emergency-exit-thread
         enter-exclusive
         leave-exclusive
         condition-wait
@@ -984,6 +985,9 @@
 
         (define (exit-thread obj)
             (unwind (%dynamic-stack) '())
+            (%exit-thread obj))
+
+        (define (emergency-exit-thread obj)
             (%exit-thread obj))
 
         (define (make-guardian)
