@@ -223,6 +223,25 @@ Define("run-thread", RunThreadPrimitive)(int_t argc, FObject argv[])
     return(thrd);
 }
 
+Define("%exit-thread", ExitThreadPrimitive)(int_t argc, FObject argv[])
+{
+    FMustBe(argc == 1);
+
+    FThreadState * ts = GetThreadState();
+    AsThread(ts->Thread)->Result = argv[0];
+    LeaveThread(ts);
+
+#ifdef FOMENT_WINDOWS
+    ExitThread(0);
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    pthread_exit(0);
+#endif // FOMENT_UNIX
+
+    return(NoValueObject);
+}
+
 Define("sleep", SleepPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("sleep", argc);
@@ -335,6 +354,7 @@ static FPrimitive * Primitives[] =
     &CurrentThreadPrimitive,
     &ThreadPPrimitive,
     &RunThreadPrimitive,
+    &ExitThreadPrimitive,
     &SleepPrimitive,
     &ExclusivePPrimitive,
     &MakeExclusivePrimitive,

@@ -5085,7 +5085,9 @@
 
 (check-error (assertion-violation command-line) (command-line 1))
 
-(check-error (assertion-violation emergency-exit) (emergency-exit 1 2))
+(check-error (assertion-violation exit) (exit 1 2))
+
+(check-error (assertion-violation exit) (emergency-exit 1 2))
 
 (check-equal #f (get-environment-variable "not the name of an environment variable"))
 (check-equal #t (string? (get-environment-variable (cond-expand (windows "Path") (else "PATH")))))

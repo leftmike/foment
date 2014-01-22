@@ -391,6 +391,7 @@
         make-condition
         current-thread
         run-thread
+        exit-thread
         enter-exclusive
         leave-exclusive
         condition-wait
@@ -882,6 +883,7 @@
                     (unwind-mark-list (%dynamic-marks (car ds)))
                     (if (not (eq? ds tail))
                         (unwind (cdr ds) tail)))))
+
         (define (rewind ds tail)
             (if (pair? ds)
                 (begin
@@ -917,19 +919,7 @@
                                     (lambda ()
                                         (rewind ds tail)
                                         (apply values vals))))))))))
-#|
-        (define (call-with-current-continuation proc)
-            (%capture-continuation
-                (lambda (cont)
-                    (let ((ds (%dynamic-stack)))
-                        (proc
-                            (lambda vals
-                                (unwind (%dynamic-stack) '())
-                                (%call-continuation cont
-                                    (lambda ()
-                                        (rewind ds '())
-                                        (apply values vals)))))))))
-|#
+
         (define (with-exception-handler handler thunk)
             (if (not (procedure? handler))
                 (full-error 'assertion-violation 'with-exception-handler
@@ -984,6 +974,17 @@
                                     (unwind-rewind (%dynamic-stack) hds)
                                     (raise-continuable var))))
                         (lambda () body1 body2 ...)))))
+
+        (define (exit . args)
+            (unwind (%dynamic-stack) '())
+            (apply %exit args))
+
+        (define (emergency-exit . args)
+            (apply %exit args))
+
+        (define (exit-thread obj)
+            (unwind (%dynamic-stack) '())
+            (%exit-thread obj))
 
         (define (make-guardian)
             (let ((tconc (let ((last (cons #f '()))) (cons last last))))

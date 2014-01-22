@@ -433,6 +433,18 @@
 (check-error (assertion-violation run-thread) (run-thread + #t))
 (check-error (assertion-violation run-thread) (run-thread (lambda () (+ 1 2 3)) #t))
 
+(define unwound-it #f)
+
+(run-thread
+    (lambda ()
+        (dynamic-wind
+            (lambda () 'nothing)
+            (lambda () (exit-thread #t))
+            (lambda () (set! unwound-it #t)))))
+
+(sleep 10)
+(check-equal #t unwound-it)
+
 (check-error (assertion-violation sleep) (sleep))
 (check-error (assertion-violation sleep) (sleep #t))
 (check-error (assertion-violation sleep) (sleep 1 #t))
