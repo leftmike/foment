@@ -334,7 +334,7 @@ static FObject Execute(FThreadState * ts)
             ts->CtrlCFlag = 0;
 
             if (PrepareHandler(ts, R.CtrlCHandler, R.CtrlCHandlerSymbol, NoValueObject) == 0)
-                ThreadExit(MakeFixnum(-1));
+                ThreadExit();
         }
 
         CheckForGC();

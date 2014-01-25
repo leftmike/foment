@@ -151,7 +151,7 @@ typedef struct _FThread
 } FThread;
 
 FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms, FObject idxprms);
-void ThreadExit(FObject obj);
+void ThreadExit();
 
 // ---- Exclusives ----
 

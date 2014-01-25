@@ -1122,7 +1122,7 @@
             (define (ctrl-c-handler)
                 (abort-current-continuation 'repl-prompt
                     (lambda ()
-                        (display "^C")
+                        (display "execution aborted")
                         (newline))))
             (define (read-eval-write)
                 (let ((obj (read)))

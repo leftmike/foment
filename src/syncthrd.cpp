@@ -10,6 +10,8 @@ Foment
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
+#include <signal.h>
+#include <stdlib.h>
 #include <pthread.h>
 #include <unistd.h>
 #endif // FOMENT_UNIX
@@ -238,14 +240,14 @@ static int ExitCode(FObject obj)
     return(-1);
 }
 
-void ThreadExit(FObject obj)
+void ThreadExit()
 {
 #ifdef FOMENT_WINDOWS
-    ExitThread(ExitCode(obj));
+    ExitThread(0);
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-    pthread_exit(ExitCode(obj));
+    pthread_exit(0);
 #endif // FOMENT_UNIX
 }
 
@@ -258,7 +260,7 @@ Define("%exit-thread", ExitThreadPrimitive)(int_t argc, FObject argv[])
     if (LeaveThread(ts) == 0)
         exit(ExitCode(argv[0]));
     else
-        ThreadExit(argv[0]);
+        ThreadExit();
 
     return(NoValueObject);
 }
@@ -382,26 +384,6 @@ Define("condition-wake-all", ConditionWakeAllPrimitive)(int_t argc, FObject argv
     return(NoValueObject);
 }
 
-static FPrimitive * Primitives[] =
-{
-    &CurrentThreadPrimitive,
-    &ThreadPPrimitive,
-    &RunThreadPrimitive,
-    &ExitThreadPrimitive,
-    &ExitPrimitive,
-    &SleepPrimitive,
-    &ExclusivePPrimitive,
-    &MakeExclusivePrimitive,
-    &EnterExclusivePrimitive,
-    &LeaveExclusivePrimitive,
-    &TryExclusivePrimitive,
-    &ConditionPPrimitive,
-    &MakeConditionPrimitive,
-    &ConditionWaitPrimitive,
-    &ConditionWakePrimitive,
-    &ConditionWakeAllPrimitive
-};
-
 static int_t CtrlCCount;
 static time_t CtrlCTime;
 
@@ -444,13 +426,58 @@ static void SetupSignals()
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
+static void * SignalThread(void * ign)
+{
+    sigset_t ss;
+    sigemptyset(&ss);
+    sigaddset(&ss, SIGINT);
+
+    for (;;)
+    {
+        int sig;
+
+        sigwait(&ss, &sig);
+
+        FAssert(sig == SIGINT);
+
+        HandleCtrlC();
+    }
+
+    return(0);
+}
+
 static void SetupSignals()
 {
-    
-    
-    
+    sigset_t ss;
+    sigemptyset(&ss);
+    sigaddset(&ss, SIGINT);
+
+    sigprocmask(SIG_BLOCK, &ss, 0);
+
+    pthread_t pt;
+    pthread_create(&pt, 0, SignalThread, 0);
 }
 #endif // FOMENT_UNIX
+
+static FPrimitive * Primitives[] =
+{
+    &CurrentThreadPrimitive,
+    &ThreadPPrimitive,
+    &RunThreadPrimitive,
+    &ExitThreadPrimitive,
+    &ExitPrimitive,
+    &SleepPrimitive,
+    &ExclusivePPrimitive,
+    &MakeExclusivePrimitive,
+    &EnterExclusivePrimitive,
+    &LeaveExclusivePrimitive,
+    &TryExclusivePrimitive,
+    &ConditionPPrimitive,
+    &MakeConditionPrimitive,
+    &ConditionWaitPrimitive,
+    &ConditionWakePrimitive,
+    &ConditionWakeAllPrimitive
+};
 
 void SetupThreads()
 {
