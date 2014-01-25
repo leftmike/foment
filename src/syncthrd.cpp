@@ -6,11 +6,15 @@ Foment
 
 #ifdef FOMENT_WINDOWS
 #include <windows.h>
+#define exit(n) _exit(n)
 #endif // FOMENT_WINDOWS
+
 #ifdef FOMENT_UNIX
 #include <pthread.h>
 #include <unistd.h>
 #endif // FOMENT_UNIX
+
+#include <time.h>
 #include "foment.hpp"
 #include "execute.hpp"
 #include "syncthrd.hpp"
@@ -223,21 +227,50 @@ Define("run-thread", RunThreadPrimitive)(int_t argc, FObject argv[])
     return(thrd);
 }
 
+static int ExitCode(FObject obj)
+{
+    if (obj == TrueObject)
+        return(0);
+
+    if (FixnumP(obj))
+        return((int) AsFixnum(obj));
+
+    return(-1);
+}
+
+void ThreadExit(FObject obj)
+{
+#ifdef FOMENT_WINDOWS
+    ExitThread(ExitCode(obj));
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    pthread_exit(ExitCode(obj));
+#endif // FOMENT_UNIX
+}
+
 Define("%exit-thread", ExitThreadPrimitive)(int_t argc, FObject argv[])
 {
     FMustBe(argc == 1);
 
     FThreadState * ts = GetThreadState();
     AsThread(ts->Thread)->Result = argv[0];
-    LeaveThread(ts);
+    if (LeaveThread(ts) == 0)
+        exit(ExitCode(argv[0]));
+    else
+        ThreadExit(argv[0]);
 
-#ifdef FOMENT_WINDOWS
-    ExitThread(0);
-#endif // FOMENT_WINDOWS
+    return(NoValueObject);
+}
 
-#ifdef FOMENT_UNIX
-    pthread_exit(0);
-#endif // FOMENT_UNIX
+Define("%exit", ExitPrimitive)(int_t argc, FObject argv[])
+{
+    ZeroOrOneArgsCheck("exit", argc);
+
+    if (argc == 0)
+        exit(0);
+
+    exit(ExitCode(argv[0]));
 
     return(NoValueObject);
 }
@@ -355,6 +388,7 @@ static FPrimitive * Primitives[] =
     &ThreadPPrimitive,
     &RunThreadPrimitive,
     &ExitThreadPrimitive,
+    &ExitPrimitive,
     &SleepPrimitive,
     &ExclusivePPrimitive,
     &MakeExclusivePrimitive,
@@ -368,8 +402,63 @@ static FPrimitive * Primitives[] =
     &ConditionWakeAllPrimitive
 };
 
+static int_t CtrlCCount;
+static time_t CtrlCTime;
+
+static void HandleCtrlC()
+{
+    time_t now = time(0);
+
+    if (now - CtrlCTime < 2)
+    {
+        CtrlCCount += 1;
+
+        if (CtrlCCount > 2)
+            exit(-1);
+    }
+    else
+    {
+        CtrlCCount = 1;
+        CtrlCTime = now;
+    }
+
+    PropogateCtrlC();
+}
+
+#ifdef FOMENT_WINDOWS
+static BOOL WINAPI CtrlHandler(DWORD ct)
+{
+    if (ct == CTRL_C_EVENT)
+    {
+        HandleCtrlC();
+        return(TRUE);
+    }
+
+    return(FALSE);
+}
+
+static void SetupSignals()
+{
+    SetConsoleCtrlHandler(CtrlHandler, TRUE);
+}
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+static void SetupSignals()
+{
+    
+    
+    
+}
+#endif // FOMENT_UNIX
+
 void SetupThreads()
 {
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
+
+    CtrlCCount = 0;
+    CtrlCTime = time(0);
+
+    SetupSignals();
 }

@@ -151,6 +151,7 @@ typedef struct _FThread
 } FThread;
 
 FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms, FObject idxprms);
+void ThreadExit(FObject obj);
 
 // ---- Exclusives ----
 
@@ -210,7 +211,8 @@ extern uint_t TotalThreads;
 extern OSExclusive GCExclusive;
 
 void EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms);
-void LeaveThread(FThreadState * ts);
+uint_t LeaveThread(FThreadState * ts);
+void PropogateCtrlC();
 
 inline FObject IndexParameter(uint_t idx)
 {

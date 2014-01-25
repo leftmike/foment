@@ -9,12 +9,14 @@ Foment
 #include <windows.h>
 #define exit(n) _exit(n)
 #endif // FOMENT_WINDOWS
+
 #ifdef FOMENT_UNIX
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/utsname.h>
 #include <ctype.h>
 #endif // FOMENT_UNIX
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -634,21 +636,6 @@ Define("command-line", CommandLinePrimitive)(int_t argc, FObject argv[])
     ZeroArgsCheck("command-line", argc);
 
     return(R.CommandLine);
-}
-
-Define("%exit", ExitPrimitive)(int_t argc, FObject argv[])
-{
-    ZeroOrOneArgsCheck("exit", argc);
-
-    if (argc == 0 || argv[0] == TrueObject)
-        exit(0);
-
-    if (FixnumP(argv[0]))
-        exit((int) AsFixnum(argv[0]));
-
-    exit(-1);
-
-    return(NoValueObject);
 }
 
 static void GetEnvironmentVariables()
@@ -1683,7 +1670,6 @@ static FPrimitive * Primitives[] =
     &ErrorObjectIrritantsPrimitive,
     &FullErrorPrimitive,
     &CommandLinePrimitive,
-    &ExitPrimitive,
     &GetEnvironmentVariablePrimitive,
     &GetEnvironmentVariablesPrimitive,
     &CurrentSecondPrimitive,

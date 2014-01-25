@@ -11,7 +11,8 @@ To Do:
 -- use an indexed parameter for both
 -- autodetect encoding: utf8 or utf16 byte order mark or encoding: like Guile and Chibi
 
--- ctrl-c handling
+-- ctrl-c handling: cancel i/o
+-- ctrl-c handling on unix
 
 -- IO and GC
 -- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
@@ -806,8 +807,10 @@ typedef struct
     FObject UndefinedMessage;
     FObject ExecuteThunk;
     FObject RaiseHandler;
+    FObject CtrlCHandler;
     FObject InteractiveThunk;
     FObject ExceptionHandlerSymbol;
+    FObject CtrlCHandlerSymbol;
 
     FObject DynamicRecordType;
     FObject ContinuationRecordType;
@@ -1088,6 +1091,8 @@ typedef struct _FThreadState
     FObject DynamicStack;
     FObject Parameters;
     FObject IndexParameters[INDEX_PARAMETERS];
+
+    int_t CtrlCFlag;
 } FThreadState;
 
 // ---- Argument Checking ----

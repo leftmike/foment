@@ -7,10 +7,12 @@ Foment
 #ifdef FOMENT_WINDOWS
 #include <windows.h>
 #endif // FOMENT_WINDOWS
+
 #ifdef FOMENT_UNIX
 #include <pthread.h>
 #include <sys/mman.h>
 #endif // FOMENT_UNIX
+
 #include <stdio.h>
 #include <string.h>
 #include "foment.hpp"
@@ -1601,9 +1603,11 @@ void EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms)
     else
         for (int_t idx = 0; idx < INDEX_PARAMETERS; idx++)
             ts->IndexParameters[idx] = NoValueObject;
+
+    ts->CtrlCFlag = 0;
 }
 
-void LeaveThread(FThreadState * ts)
+uint_t LeaveThread(FThreadState * ts)
 {
     FAssert(ts == GetThreadState());
     SetThreadState(0);
@@ -1621,6 +1625,8 @@ void LeaveThread(FThreadState * ts)
     EnterExclusive(&GCExclusive);
     FAssert(TotalThreads > 0);
     TotalThreads -= 1;
+
+    uint_t tt = TotalThreads;
 
     FAssert(Threads != 0);
 
@@ -1656,6 +1662,23 @@ void LeaveThread(FThreadState * ts)
     ts->AStack = 0;
     ts->CStack = 0;
     ts->Thread = NoValueObject;
+
+    return(tt);
+}
+
+void PropogateCtrlC()
+{
+    EnterExclusive(&GCExclusive);
+
+    FThreadState * ts = Threads;
+    while (ts != 0)
+    {
+        ts->CtrlCFlag = 1;
+
+        ts = ts->Next;
+    }
+
+    LeaveExclusive(&GCExclusive);
 }
 
 void SetupCore(FThreadState * ts)

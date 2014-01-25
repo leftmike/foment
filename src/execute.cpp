@@ -7,16 +7,20 @@ Foment
 #ifdef FOMENT_WINDOWS
 #include <windows.h>
 #endif // FOMENT_WINDOWS
+
 #ifdef FOMENT_UNIX
 #include <pthread.h>
 #endif // FOMENT_UNIX
+
 #include <stdio.h>
 #include "foment.hpp"
+
 #ifdef FOMENT_BSD
 #include <stdlib.h>
 #else // FOMENT_BSD
 #include <malloc.h>
 #endif // FOMENT_BSD
+
 #include "execute.hpp"
 #include "syncthrd.hpp"
 
@@ -264,12 +268,75 @@ static FObject MarkListSet(FObject ml, FObject key, FObject val)
     return(MarkListUpdate(ml, key, val));
 }
 
+static FObject FindMark(FObject key, FObject dflt)
+{
+    FThreadState * ts = GetThreadState();
+    FObject ds = ts->DynamicStack;
+
+    while (PairP(ds))
+    {
+        FAssert(DynamicP(First(ds)));
+
+        FObject ret = Assq(key, AsDynamic(First(ds))->Marks);
+        if (ret != FalseObject)
+        {
+            FAssert(PairP(ret));
+            FAssert(EqP(First(ret), key));
+
+            return(Rest(ret));
+        }
+
+        ds = Rest(ds);
+    }
+
+    FAssert(ds == EmptyListObject);
+
+    return(dflt);
+}
+
+static int_t PrepareHandler(FThreadState * ts, FObject hdlr, FObject key, FObject obj)
+{
+    if (ProcedureP(hdlr))
+    {
+        FObject lst = FindMark(key, EmptyListObject);
+        if (PairP(lst))
+        {
+            ts->ArgCount = 2;
+
+            ts->AStack[ts->AStackPtr] = obj;
+            ts->AStackPtr += 1;
+            ts->AStack[ts->AStackPtr] = lst;
+            ts->AStackPtr += 1;
+
+            ts->Proc = hdlr;
+            ts->IP = 0;
+            ts->Frame = NoValueObject;
+
+            return(1);
+        }
+        else
+        {
+            FAssert(lst == EmptyListObject);
+        }
+    }
+
+    return(0);
+}
+
 static FObject Execute(FThreadState * ts)
 {
     FObject op;
 
     for (;;)
     {
+        if (ts->CtrlCFlag)
+        {
+            ts->CtrlCFlag = 0;
+
+            if (PrepareHandler(ts, R.CtrlCHandler, R.CtrlCHandlerSymbol, NoValueObject) == 0)
+                ThreadExit(MakeFixnum(-1));
+        }
+
         CheckForGC();
 
         FAssert(VectorP(AsProcedure(ts->Proc)->Code));
@@ -1027,32 +1094,6 @@ TailCallPrimitive:
     }
 }
 
-static FObject FindMark(FObject key, FObject dflt)
-{
-    FThreadState * ts = GetThreadState();
-    FObject ds = ts->DynamicStack;
-
-    while (PairP(ds))
-    {
-        FAssert(DynamicP(First(ds)));
-
-        FObject ret = Assq(key, AsDynamic(First(ds))->Marks);
-        if (ret != FalseObject)
-        {
-            FAssert(PairP(ret));
-            FAssert(EqP(First(ret), key));
-
-            return(Rest(ret));
-        }
-
-        ds = Rest(ds);
-    }
-
-    FAssert(ds == EmptyListObject);
-
-    return(dflt);
-}
-
 FObject ExecuteThunk(FObject op)
 {
     FThreadState * ts = GetThreadState();
@@ -1077,30 +1118,7 @@ FObject ExecuteThunk(FObject op)
         }
         catch (FObject obj)
         {
-            if (ProcedureP(R.RaiseHandler))
-            {
-                FObject lst = FindMark(R.ExceptionHandlerSymbol, EmptyListObject);
-                if (PairP(lst))
-                {
-                    ts->ArgCount = 2;
-
-                    ts->AStack[ts->AStackPtr] = obj;
-                    ts->AStackPtr += 1;
-                    ts->AStack[ts->AStackPtr] = lst;
-                    ts->AStackPtr += 1;
-
-                    ts->Proc = R.RaiseHandler;
-                    ts->IP = 0;
-                    ts->Frame = NoValueObject;
-                }
-                else
-                {
-                    FAssert(lst == EmptyListObject);
-
-                    throw obj;
-                }
-            }
-            else
+            if (PrepareHandler(ts, R.RaiseHandler, R.ExceptionHandlerSymbol, obj) == 0)
                 throw obj;
         }
     }
@@ -1218,14 +1236,25 @@ Define("%execute-thunk", ExecuteThunkPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("%raise-handler", RaiseHandlerPrimitive)(int_t argc, FObject argv[])
+Define("%set-raise-handler!", SetRaiseHandlerPrimitive)(int_t argc, FObject argv[])
 {
-    // (%raise-handler <proc>)
+    // (%set-raise-handler! <proc>)
 
     FMustBe(argc == 1);
     FMustBe(ProcedureP(argv[0]));
 
     R.RaiseHandler = argv[0];
+    return(NoValueObject);
+}
+
+Define("%set-ctrl-c-handler!", SetCtrlCHandlerPrimitive)(int_t argc, FObject argv[])
+{
+    // (%set-ctrl-c-handler! <proc>)
+
+    FMustBe(argc == 1);
+    FMustBe(ProcedureP(argv[0]));
+
+    R.CtrlCHandler = argv[0];
     return(NoValueObject);
 }
 
@@ -1370,7 +1399,8 @@ static FPrimitive * Primitives[] =
     &MapStringsPrimitive,
     &MapVectorsPrimitive,
     &ExecuteThunkPrimitive,
-    &RaiseHandlerPrimitive,
+    &SetRaiseHandlerPrimitive,
+    &SetCtrlCHandlerPrimitive,
     &InteractiveThunkPrimitive,
     &BytesAllocatedPrimitive,
     &DynamicStackPrimitive,
@@ -1392,6 +1422,7 @@ void SetupExecute()
     R.UndefinedMessage = MakeStringC("variable is undefined");
 
     R.ExceptionHandlerSymbol = StringCToSymbol("exception-handler");
+    R.CtrlCHandlerSymbol = StringCToSymbol("ctrl-c-handler");
 
     R.DynamicRecordType = MakeRecordTypeC("dynamic", sizeof(DynamicFieldsC) / sizeof(char *),
             DynamicFieldsC);
@@ -1417,13 +1448,6 @@ void SetupExecute()
     v[1] = MakeInstruction(CallOpcode, 0);
     v[2] = MakeInstruction(ReturnFromOpcode, 0);
     R.ExecuteThunk = MakeProcedure(NoValueObject, MakeVector(3, v, NoValueObject), 1, 0);
-
-/*    v[0] = MakeInstruction(CallWithCCOpcode, 0);
-    LibraryExport(R.BedrockLibrary,
-            EnvironmentSetC(R.Bedrock, "call-with-current-continuation",
-            MakeProcedure(StringCToSymbol("call-with-current-continuation"),
-            MakeVector(1, v, NoValueObject), 1, 0)));
-*/
 
     // (%return <value>)
 

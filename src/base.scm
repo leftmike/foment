@@ -932,7 +932,7 @@
             (%mark-continuation 'mark 'exception-handler (cdr lst)
                     (lambda () ((car lst) obj) (raise obj))))
 
-        (%raise-handler raise-handler)
+        (%set-raise-handler! raise-handler)
 
         (define (raise-continuable obj)
             (let ((lst (%find-mark 'exception-handler '())))
@@ -940,6 +940,19 @@
                     (raise obj))
                 (%mark-continuation 'mark 'exception-handler (cdr lst)
                         (lambda () ((car lst) obj)))))
+
+        (define (with-ctrl-c-handler handler thunk)
+            (if (not (procedure? handler))
+                (full-error 'assertion-violation 'with-ctrl-c-handler
+                            "with-ctrl-c-handler: expected a procedure" handler))
+            (%mark-continuation 'mark 'ctrl-c-handler
+                    (cons handler (%find-mark 'ctrl-c-handler '())) thunk))
+
+        (define (ctrl-c-handler obj lst)
+            (%mark-continuation 'mark 'ctrl-c-handler (cdr lst)
+                    (lambda () ((car lst)) (exit-thread -1))))
+
+        (%set-ctrl-c-handler! ctrl-c-handler)
 
         (define guard-key (cons #f #f))
 
@@ -1095,6 +1108,51 @@
                 ((filename env) (%load filename env))))
 
         (define (repl env exit)
+            (define (exception-handler obj)
+                (abort-current-continuation 'repl-prompt
+                    (lambda ()
+                        (cond
+                            ((error-object? obj)
+                                (write obj)
+                                (newline))
+                            (else
+                                (display "unexpected exception object: ")
+                                (write obj)
+                                (newline))))))
+            (define (ctrl-c-handler)
+                (abort-current-continuation 'repl-prompt
+                    (lambda ()
+                        (display "^C")
+                        (newline))))
+            (define (read-eval-write)
+                (let ((obj (read)))
+                    (if (eof-object? obj)
+                        (exit obj)
+                        (let-values ((lst (eval obj env)))
+                            (if (and (pair? lst)
+                                    (or (not (eq? (car lst) (no-value))) (pair? (cdr lst))))
+                                (write-values lst))))))
+            (define (write-values lst)
+                (if (pair? lst)
+                    (begin
+                        (write (car lst))
+                        (newline)
+                        (write-values (cdr lst)))))
+            (display "{") (write (%bytes-allocated)) (display "} =] ")
+            (call-with-continuation-prompt
+                (lambda ()
+                    (with-exception-handler
+                        exception-handler
+                        (lambda ()
+                            (with-ctrl-c-handler
+                                ctrl-c-handler
+                                read-eval-write))))
+                'repl-prompt
+                (lambda (abort) (abort)))
+            (repl env exit))
+
+#|
+        (define (repl env exit)
             (display "{") (write (%bytes-allocated)) (display "} =] ")
             (guard (exc
                 ((error-object? exc) (write exc) (newline))
@@ -1107,7 +1165,7 @@
                                 (begin
                                     (write ret) (newline)))))))
             (repl env exit))
-
+|#
         (define (handle-command-line lst env)
             (if (not (null? lst))
                 (cond
