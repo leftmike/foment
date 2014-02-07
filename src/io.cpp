@@ -1111,8 +1111,61 @@ static void ConFillExtra(FConsoleInput * ci)
     FillConsoleOutputCharacterW(ci->OutputHandle, ' ',
             (DWORD) (ci->PreviousPossible - ci->Possible), cp, &nc);
 }
-
 #endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+static void ConCloseInput(FObject port)
+{
+    FAssert(TextualPortP(port));
+    
+    
+    
+    free(AsGenericPort(port)->InputContext);
+}
+
+static uint_t ConReadRaw(FConsoleInput * ci, int_t wif)
+{
+    FAssert(ci->RawAvailable == 0);
+    
+    
+    
+    return(1);
+}
+
+static void ConWriteCh(FConsoleInput * ci, FConCh ch)
+{
+    
+    
+}
+
+static void ConGetInfo(FConsoleInput * ci)
+{
+    
+    
+    
+}
+
+static void ConSetCursor(FConsoleInput * ci, int_t x, int_t y)
+{
+    
+    
+    
+}
+
+static void ConWriteBuffer(FConsoleInput * ci)
+{
+    
+    
+    
+}
+
+static void ConFillExtra(FConsoleInput * ci)
+{
+    
+    
+    
+}
+#endif // FOMENT_UNIX
 
 static uint_t ConReadRawCh(FConsoleInput * ci, FCh * ch)
 {
