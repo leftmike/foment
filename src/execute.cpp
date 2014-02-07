@@ -10,14 +10,13 @@ Foment
 
 #ifdef FOMENT_UNIX
 #include <pthread.h>
+#include <stdlib.h>
 #endif // FOMENT_UNIX
 
 #include <stdio.h>
 #include "foment.hpp"
 
-#ifdef FOMENT_BSD
-#include <stdlib.h>
-#else // FOMENT_BSD
+#ifndef FOMENT_BSD
 #include <malloc.h>
 #endif // FOMENT_BSD
 
