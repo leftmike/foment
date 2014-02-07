@@ -329,12 +329,11 @@ static FObject Execute(FThreadState * ts)
 
     for (;;)
     {
-        if (ts->CtrlCFlag)
+        if (ts->CtrlCNotify)
         {
-            ts->CtrlCFlag = 0;
+            ts->CtrlCNotify = 0;
 
-            if (PrepareHandler(ts, R.CtrlCHandler, R.CtrlCHandlerSymbol, NoValueObject) == 0)
-                ThreadExit();
+            PrepareHandler(ts, R.CtrlCHandler, R.CtrlCHandlerSymbol, NoValueObject);
         }
 
         CheckForGC();
@@ -1120,6 +1119,18 @@ FObject ExecuteThunk(FObject op)
         {
             if (PrepareHandler(ts, R.RaiseHandler, R.ExceptionHandlerSymbol, obj) == 0)
                 throw obj;
+        }
+        catch (FNotifyCatch nc)
+        {
+            ((FNotifyCatch) nc);
+
+            ts->CtrlCNotify = 0;
+
+            if (PrepareHandler(ts, R.CtrlCHandler, R.CtrlCHandlerSymbol, NoValueObject) == 0)
+            {
+                printf("no handler for ctrl-c\n");
+                exit(0);
+            }
         }
     }
 }

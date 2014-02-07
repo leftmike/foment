@@ -229,17 +229,6 @@ Define("run-thread", RunThreadPrimitive)(int_t argc, FObject argv[])
     return(thrd);
 }
 
-static int ExitCode(FObject obj)
-{
-    if (obj == TrueObject)
-        return(0);
-
-    if (FixnumP(obj))
-        return((int) AsFixnum(obj));
-
-    return(-1);
-}
-
 void ThreadExit()
 {
 #ifdef FOMENT_WINDOWS
@@ -258,7 +247,7 @@ Define("%exit-thread", ExitThreadPrimitive)(int_t argc, FObject argv[])
     FThreadState * ts = GetThreadState();
     AsThread(ts->Thread)->Result = argv[0];
     if (LeaveThread(ts) == 0)
-        exit(ExitCode(argv[0]));
+        exit(0);
     else
         ThreadExit();
 
@@ -269,10 +258,13 @@ Define("%exit", ExitPrimitive)(int_t argc, FObject argv[])
 {
     ZeroOrOneArgsCheck("exit", argc);
 
-    if (argc == 0)
+    if (argc == 0 || argv[0] == TrueObject)
         exit(0);
 
-    exit(ExitCode(argv[0]));
+    if (FixnumP(argv[0]))
+        exit((int) AsFixnum(argv[0]));
+
+    exit(-1);
 
     return(NoValueObject);
 }
@@ -384,35 +376,72 @@ Define("condition-wake-all", ConditionWakeAllPrimitive)(int_t argc, FObject argv
     return(NoValueObject);
 }
 
+typedef enum
+{
+    NotifyExit,
+    NotifyIgnore,
+    NotifyBroadcast
+} FNotifyDisposition;
+
+static FNotifyDisposition CtrlCDisposition = NotifyBroadcast;
 static int_t CtrlCCount;
 static time_t CtrlCTime;
 
-static void HandleCtrlC()
+static void NotifyThread(FObject thrd);
+static void NotifyCtrlC()
 {
-    time_t now = time(0);
-
-    if (now - CtrlCTime < 2)
+    if (CtrlCDisposition == NotifyExit)
+        exit(-1);
+    else if (CtrlCDisposition == NotifyBroadcast)
     {
-        CtrlCCount += 1;
+        time_t now = time(0);
 
-        if (CtrlCCount > 2)
-            exit(-1);
-    }
-    else
-    {
-        CtrlCCount = 1;
-        CtrlCTime = now;
-    }
+        if (now - CtrlCTime < 2)
+        {
+            CtrlCCount += 1;
 
-    PropogateCtrlC();
+            if (CtrlCCount > 2)
+                exit(-1);
+        }
+        else
+        {
+            CtrlCCount = 1;
+            CtrlCTime = now;
+        }
+
+        EnterExclusive(&GCExclusive);
+
+        FThreadState * ts = Threads;
+        while (ts != 0)
+        {
+            ts->CtrlCNotify = 1;
+            NotifyThread(ts->Thread);
+
+            ts = ts->Next;
+        }
+
+        LeaveExclusive(&GCExclusive);
+    }
 }
 
 #ifdef FOMENT_WINDOWS
+static void CALLBACK UserAPC(ULONG_PTR ign)
+{
+    // Nothing.
+}
+
+static void NotifyThread(FObject thrd)
+{
+    FAssert(ThreadP(thrd));
+
+    QueueUserAPC(UserAPC, AsThread(thrd)->Handle, 0);
+}
+
 static BOOL WINAPI CtrlHandler(DWORD ct)
 {
     if (ct == CTRL_C_EVENT)
     {
-        HandleCtrlC();
+        NotifyCtrlC();
         return(TRUE);
     }
 
@@ -426,6 +455,15 @@ static void SetupSignals()
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
+static void NotifyThread(FObject thrd)
+{
+    
+    
+    // pthread_kill(SIGUSR2) and do nothing signal handler for it
+    
+    
+}
+
 static void * SignalThread(void * ign)
 {
     sigset_t ss;
@@ -440,7 +478,7 @@ static void * SignalThread(void * ign)
 
         FAssert(sig == SIGINT);
 
-        HandleCtrlC();
+        NotifyCtrlC();
     }
 
     return(0);

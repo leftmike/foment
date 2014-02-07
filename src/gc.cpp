@@ -179,7 +179,7 @@ static int_t GCHappening;
 uint_t TotalThreads;
 static uint_t WaitThreads;
 static uint_t CollectThreads;
-static FThreadState * Threads;
+FThreadState * Threads;
 
 static uint_t Sizes[1024 * 8];
 
@@ -1604,7 +1604,7 @@ void EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms)
         for (int_t idx = 0; idx < INDEX_PARAMETERS; idx++)
             ts->IndexParameters[idx] = NoValueObject;
 
-    ts->CtrlCFlag = 0;
+    ts->CtrlCNotify = 0;
 }
 
 uint_t LeaveThread(FThreadState * ts)
@@ -1664,21 +1664,6 @@ uint_t LeaveThread(FThreadState * ts)
     ts->Thread = NoValueObject;
 
     return(tt);
-}
-
-void PropogateCtrlC()
-{
-    EnterExclusive(&GCExclusive);
-
-    FThreadState * ts = Threads;
-    while (ts != 0)
-    {
-        ts->CtrlCFlag = 1;
-
-        ts = ts->Next;
-    }
-
-    LeaveExclusive(&GCExclusive);
 }
 
 void SetupCore(FThreadState * ts)

@@ -17,6 +17,7 @@ Foment
 
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 #include "foment.hpp"
 #ifdef FOMENT_BSD
 #include <stdlib.h>
@@ -881,57 +882,676 @@ FObject MakeStringCInputPort(const char * s)
             CinReadCh, CinCharReadyP, 0));
 }
 
+#define CONSOLE_INPUT_MODE_EDIT 0x00000001
+#define CONSOLE_INPUT_MODE_ECHO 0x00000002
+
+#define MAXIMUM_POSSIBLE 512
+
+typedef wchar_t FConCh;
+
+typedef struct
+{
+#ifdef FOMENT_WINDOWS
+    HANDLE InputHandle;
+    HANDLE OutputHandle;
+#endif // FOMENT_WINDOWS
+
+    uint_t Mode;
+
+    // Raw Mode
+
+    int_t RawUsed; // Number of available characters which have been used.
+    int_t RawAvailable; // Total characters available.
+    FConCh RawBuffer[4];
+
+    // Edit Mode
+
+    int_t Used; // Number of available characters which have been used.
+    int_t Available; // Total characters available.
+
+    int_t Point; // Location of the point (cursor) in edit mode.
+    int_t Possible; // Total characters in edit mode; when a line is entered, possible
+                    // becomes available.
+    int_t PreviousPossible;
+
+    int_t EscPrefix;
+    int_t EscBracketPrefix;
+
+    int16_t StartX;
+    int16_t StartY;
+    int16_t Width;
+    int16_t Height;
+
+    FConCh Buffer[MAXIMUM_POSSIBLE];
+} FConsoleInput;
+
+#define AsConsoleInput(port) ((FConsoleInput *) (AsGenericPort(port)->InputContext))
+
+static void SetConsoleInputMode(FObject port, uint_t cim)
+{
+    FAssert(ConsoleInputPortP(port));
+
+    AsConsoleInput(port)->Mode = cim;
+
+    AsConsoleInput(port)->RawUsed = 0;
+    AsConsoleInput(port)->RawAvailable = 0;
+
+    AsConsoleInput(port)->Used = 0;
+    AsConsoleInput(port)->Available = 0;
+    AsConsoleInput(port)->Point = 0;
+    AsConsoleInput(port)->Possible = 0;
+    AsConsoleInput(port)->PreviousPossible = 0;
+
+    AsConsoleInput(port)->EscPrefix = 0;
+    AsConsoleInput(port)->EscBracketPrefix = 0;
+}
+
 #ifdef FOMENT_WINDOWS
 static void ConCloseInput(FObject port)
 {
     FAssert(TextualPortP(port));
 
-    CloseHandle((HANDLE) AsGenericPort(port)->InputContext);
+    CloseHandle(AsConsoleInput(port)->InputHandle);
+    CloseHandle(AsConsoleInput(port)->OutputHandle);
+
+    free(AsGenericPort(port)->InputContext);
+}
+
+static uint_t ConRawEsc(FConsoleInput * ci, FConCh ch1, FConCh ch2)
+{
+    ci->RawUsed = 0;
+    ci->RawAvailable = 3;
+    ci->RawBuffer[0] = 27; // Esc
+    ci->RawBuffer[1] = ch1;
+    ci->RawBuffer[2] = ch2;
+
+    return(1);
+}
+
+static uint_t ConReadRaw(FConsoleInput * ci, int_t wif)
+{
+    FAssert(ci->RawAvailable == 0);
+
+    INPUT_RECORD ir;
+
+    for (;;)
+    {
+        for (;;)
+        {
+            DWORD ret = WaitForSingleObjectEx(ci->InputHandle, wif ? INFINITE : 0, TRUE);
+
+            if (ret == WAIT_OBJECT_0)
+                break;
+
+            if (ret == WAIT_TIMEOUT)
+            {
+                FAssert(wif == 0);
+
+                return(1);
+            }
+
+            if (ret != WAIT_IO_COMPLETION)
+                return(0);
+
+            if (GetThreadState()->CtrlCNotify)
+            {
+                ci->RawUsed = 0;
+                ci->RawAvailable = 0;
+
+                ci->Used = 0;
+                ci->Available = 0;
+                ci->Point = 0;
+                ci->Possible = 0;
+                ci->PreviousPossible = 0;
+
+                ci->EscPrefix = 0;
+                ci->EscBracketPrefix = 0;
+
+                FNotifyCatch nc = {0};
+
+                throw nc;
+            }
+        }
+
+        DWORD ne;
+
+        if (ReadConsoleInput(ci->InputHandle, &ir, 1, &ne) == 0)
+            return(0);
+
+        if (ir.EventType == KEY_EVENT && ir.Event.KeyEvent.bKeyDown)
+        {
+//printf("[%d %d %x %d]\n", ir.Event.KeyEvent.wRepeatCount, ir.Event.KeyEvent.wVirtualKeyCode,
+//        ir.Event.KeyEvent.dwControlKeyState, ir.Event.KeyEvent.uChar.UnicodeChar);
+
+            if (ir.Event.KeyEvent.uChar.UnicodeChar != 0)
+                break;
+
+            if (ir.Event.KeyEvent.wVirtualKeyCode == 37) // Left Arrow
+                return(ConRawEsc(ci, '[', 'D'));
+
+            if (ir.Event.KeyEvent.wVirtualKeyCode == 38) // Up Arrow
+                return(ConRawEsc(ci, '[', 'A'));
+
+            if (ir.Event.KeyEvent.wVirtualKeyCode == 39) // Right Arrow
+                return(ConRawEsc(ci, '[', 'C'));
+
+            if (ir.Event.KeyEvent.wVirtualKeyCode == 40) // Down Arrow
+                return(ConRawEsc(ci, '[', 'B'));
+        }
+    }
+
+    FAssert(ir.Event.KeyEvent.uChar.UnicodeChar != 0);
+
+    ci->RawUsed = 0;
+
+    if ((ir.Event.KeyEvent.dwControlKeyState & LEFT_ALT_PRESSED)
+            || (ir.Event.KeyEvent.dwControlKeyState & RIGHT_ALT_PRESSED))
+    {
+        ci->RawAvailable = 2;
+        ci->RawBuffer[0] = 27; // Esc
+        ci->RawBuffer[1] = ir.Event.KeyEvent.uChar.UnicodeChar;
+    }
+    else if (ir.Event.KeyEvent.uChar.UnicodeChar == 13) // Carriage Return
+    {
+        ci->RawAvailable = 1;
+        ci->RawBuffer[0] = 10; // Linefeed
+    }
+    else
+    {
+        ci->RawAvailable = 1;
+        ci->RawBuffer[0] = ir.Event.KeyEvent.uChar.UnicodeChar;
+    }
+
+    return(1);
+}
+
+static void ConWriteCh(FConsoleInput * ci, FConCh ch)
+{
+    DWORD nc;
+    WriteConsoleW(ci->OutputHandle, &ch, 1, &nc, 0);
+}
+
+static void ConGetInfo(FConsoleInput * ci)
+{
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+
+    GetConsoleScreenBufferInfo(ci->OutputHandle, &csbi);
+    ci->StartX = csbi.dwCursorPosition.X;
+    ci->StartY = csbi.dwCursorPosition.Y;
+    ci->Width = csbi.dwSize.X;
+    ci->Height = csbi.dwSize.Y;
+}
+
+static void ConSetCursor(FConsoleInput * ci, int_t x, int_t y)
+{
+    COORD cp;
+
+    cp.X = (SHORT) x;
+    cp.Y = (SHORT) y;
+    SetConsoleCursorPosition(ci->OutputHandle, cp);
+}
+
+static void ConWriteBuffer(FConsoleInput * ci)
+{
+    COORD cp;
+    DWORD nc;
+
+    cp.X = ci->StartX;
+    cp.Y = ci->StartY;
+    WriteConsoleOutputCharacterW(ci->OutputHandle, ci->Buffer, (DWORD) ci->Possible, cp, &nc);
+}
+
+static void ConFillExtra(FConsoleInput * ci)
+{
+    COORD cp;
+    DWORD nc;
+
+    cp.X = (ci->StartX + ci->Possible) % ci->Width;
+    cp.Y = (SHORT) (ci->StartY + (ci->StartX + ci->Possible) / ci->Width);
+    FillConsoleOutputCharacterW(ci->OutputHandle, ' ',
+            (DWORD) (ci->PreviousPossible - ci->Possible), cp, &nc);
+}
+
+#endif // FOMENT_WINDOWS
+
+static uint_t ConReadRawCh(FConsoleInput * ci, FCh * ch)
+{
+    if (ci->RawAvailable == 0)
+    {
+        if (ConReadRaw(ci, 1) == 0)
+            return(0);
+    }
+
+    FAssert(ci->RawAvailable > 0 && ci->RawUsed < ci->RawAvailable);
+
+    *ch = ci->RawBuffer[ci->RawUsed];
+    ci->RawUsed += 1;
+
+    if (ci->RawUsed == ci->RawAvailable)
+        ci->RawAvailable = 0;
+
+    return(1);
+}
+
+static uint_t ConRawChReadyP(FConsoleInput * ci)
+{
+    if (ci->RawUsed < ci->RawAvailable)
+        return(1);
+
+    return(ConReadRaw(ci, 0) == 0 || ci->RawUsed < ci->RawAvailable);
+}
+
+static void InsertCh(FConsoleInput * ci, FConCh ch)
+{
+    if (ch == 10 || ci->Possible < MAXIMUM_POSSIBLE - 1)
+    {
+        for (int_t idx = ci->Possible; idx > ci->Point; idx--)
+            ci->Buffer[idx] = ci->Buffer[idx - 1];
+
+        ci->Buffer[ci->Point] = ch;
+        ci->Point += 1;
+        ci->Possible += 1;
+    }
+}
+
+static void DeleteCh(FConsoleInput * ci, int_t p)
+{
+    FAssert(p > 0 && p <= ci->Possible);
+
+    ci->Possible -= 1;
+
+    if (ci->Point >= p)
+        ci->Point -= 1;
+
+    for (int_t idx = p - 1; idx < ci->Possible; idx++)
+        ci->Buffer[idx] = ci->Buffer[idx + 1];
+}
+
+static void Redraw(FConsoleInput * ci)
+{
+    if (ci->Mode & CONSOLE_INPUT_MODE_ECHO)
+    {
+        while (ci->Possible + ci->StartX + 1 >= ci->Width
+                && ((ci->Possible + ci->StartX) / ci->Width) + ci->StartY >= ci->Height)
+        {
+            ConSetCursor(ci, ci->Width, ci->Height);
+            ConWriteCh(ci, '\n');
+
+            FAssert(ci->StartY > 0);
+
+            ci->StartY -= 1;
+        }
+
+        ConWriteBuffer(ci);
+
+        if (ci->Possible < ci->PreviousPossible)
+            ConFillExtra(ci);
+
+        ConSetCursor(ci, (ci->StartX + ci->Point) % ci->Width,
+                ci->StartY + (ci->StartX + ci->Point) / ci->Width);
+
+        ci->PreviousPossible = ci->Possible;
+    }
+}
+
+static uint_t ConEditLine(FConsoleInput * ci, int_t wif)
+{
+    FAssert(ci->Available == 0);
+
+    if (ci->Possible == 0)
+        ConGetInfo(ci);
+
+    for (;;)
+    {
+        int_t rdf = 0;
+        FCh ch;
+
+        if (wif == 0 && ConRawChReadyP(ci) == 0)
+            return(1);
+
+        if (ConReadRawCh(ci, &ch) == 0)
+            return(0);
+
+        if (ci->EscPrefix)
+        {
+            FAssert(ci->EscBracketPrefix == 0);
+
+            ci->EscPrefix = 0;
+
+            if (ch == '[')
+                ci->EscBracketPrefix = 1;
+            else if (ch == 'b')
+            {
+                // backward-word
+
+                if (ci->Point > 0)
+                {
+                    ci->Point -= 1;
+
+                    while (IdentifierSubsequentP(ci->Buffer[ci->Point]) == 0 && ci->Point > 0)
+                        ci->Point -= 1;
+
+                    while (ci->Point > 0 && IdentifierSubsequentP(ci->Buffer[ci->Point - 1]))
+                        ci->Point -= 1;
+
+                    rdf = 1;
+                }
+            }
+            else if (ch == 'd')
+            {
+                // kill-word
+
+                while (ci->Point < ci->Possible
+                        && IdentifierSubsequentP(ci->Buffer[ci->Point]) == 0)
+                    DeleteCh(ci, ci->Point + 1);
+
+                while (ci->Point < ci->Possible
+                        && IdentifierSubsequentP(ci->Buffer[ci->Point]))
+                    DeleteCh(ci, ci->Point + 1);
+
+                rdf = 1;
+            }
+            else if (ch == 'f')
+            {
+                // forward-word
+
+                if (ci->Point < ci->Possible)
+                {
+                    ci->Point += 1;
+
+                    while (IdentifierSubsequentP(ci->Buffer[ci->Point]) == 0
+                            && ci->Point < ci->Possible)
+                        ci->Point += 1;
+
+                    while (ci->Point < ci->Possible
+                            && IdentifierSubsequentP(ci->Buffer[ci->Point]))
+                        ci->Point += 1;
+
+                    rdf = 1;
+                }
+            }
+        }
+        else if (ci->EscBracketPrefix)
+        {
+            FAssert(ci->EscPrefix == 0);
+
+            ci->EscBracketPrefix = 0;
+
+            if (ch == 'A') // Up Arrow
+            {
+                // previous-line
+                
+                
+                
+            }
+            else if (ch == 'B') // Down Arrow
+            {
+                // next-line
+                
+                
+                
+            }
+            else if (ch == 'C') // Right Arrow
+            {
+                // forward-char
+
+                if (ci->Point < ci->Possible)
+                {
+                    ci->Point += 1;
+                    rdf = 1;
+                }
+            }
+            else if (ch == 'D') // Left Arrow
+            {
+                // backward-char
+
+                if (ci->Point > 0)
+                {
+                    ci->Point -= 1;
+                    rdf = 1;
+                }
+            }
+        }
+        else if (ch == 1) // ctrl-a
+        {
+            // beginning-of-line
+
+            ci->Point = 0;
+            rdf = 1;
+        }
+        else if (ch == 2) // ctrl-b
+        {
+            // backward-char
+
+            if (ci->Point > 0)
+            {
+                ci->Point -= 1;
+                rdf = 1;
+            }
+        }
+        else if (ch == 4) // ctrl-d
+        {
+            // delete-char
+
+            if (ci->Point < ci->Possible)
+            {
+                DeleteCh(ci, ci->Point + 1);
+                rdf = 1;
+            }
+        }
+        else if (ch == 5) // ctrl-e
+        {
+            // end-of-line
+
+            ci->Point = ci->Possible;
+            rdf = 1;
+        }
+        else if (ch == 6) // ctrl-f
+        {
+            // forward-char
+
+            if (ci->Point < ci->Possible)
+            {
+                ci->Point += 1;
+                rdf = 1;
+            }
+        }
+        else if (ch == 8) // Backspace
+        {
+            // delete-backward-char
+
+            if (ci->Point > 0)
+            {
+                DeleteCh(ci, ci->Point);
+                rdf = 1;
+            }
+        }
+        else if (ch == 10) // Linefeed
+        {
+            ci->Point = ci->Possible;
+            Redraw(ci);
+
+            InsertCh(ci, 10); // Linefeed
+            ConWriteCh(ci, 10);
+
+            break;
+        }
+        else if (ch == 11) // ctrl-k
+        {
+            // kill-line
+
+            ci->Possible = ci->Point;
+            rdf = 1;
+        }
+        else if (ch == 12) // ctrl-l
+        {
+            // redisplay
+
+            rdf = 1;
+
+            ci->PreviousPossible = MAXIMUM_POSSIBLE;
+        }
+        else if (ch == 14) // ctrl-n
+        {
+            // next-line
+            
+            
+            
+        }
+        else if (ch == 16) // ctrl-p
+        {
+            // previous-line
+            
+            
+            
+        }
+        else if (ch == 26) // ctrl-z
+        {
+            if (ci->Possible == 0)
+            {
+                FAssert(ci->Point == 0);
+
+                ci->Buffer[ci->Possible] = 26;
+                ci->Possible += 1;
+
+                break;
+            }
+        }
+        else if (ch == 27) // Esc
+            ci->EscPrefix = 1;
+        else if (ch == ')')
+        {
+            InsertCh(ci, ch);
+
+            int_t pt = ci->Point;
+            int_t cnt = 0;
+
+            while (ci->Point > 0)
+            {
+                ci->Point -= 1;
+
+                if (ci->Buffer[ci->Point] == '(')
+                {
+                    cnt -= 1;
+
+                    if (cnt == 0)
+                    {
+                        Redraw(ci);
+
+                        time_t t = time(0) + 2;
+
+                        while (t > time(0))
+                            if (ConRawChReadyP(ci))
+                                break;
+                    }
+                }
+                else if (ci->Buffer[ci->Point] == ')')
+                    cnt += 1;
+            }
+
+            ci->Point = pt;
+
+            rdf = 1;
+        }
+        else if (ch >= ' ')
+        {
+            InsertCh(ci, ch);
+            rdf = 1;
+        }
+
+        if (rdf)
+            Redraw(ci);
+    }
+
+    ci->RawUsed = 0;
+    ci->RawAvailable = 0;
+
+    ci->Used = 0;
+    ci->Available = ci->Possible;
+    ci->Point = 0;
+    ci->Possible = 0;
+    ci->PreviousPossible = 0;
+
+    ci->EscPrefix = 0;
+    ci->EscBracketPrefix = 0;
+
+    return(1);
 }
 
 static uint_t ConReadCh(FObject port, FCh * ch)
 {
-    FAssert(TextualPortP(port) && InputPortOpenP(port));
+    FAssert(ConsoleInputPortP(port) && InputPortOpenP(port));
 
-    wchar_t s;
-    DWORD nc;
+    FConsoleInput * ci = AsConsoleInput(port);
 
-    if (ReadConsoleW((HANDLE) AsGenericPort(port)->InputContext, &s, 1, &nc, 0) == 0)
-        return(0);
-
-    if (s == 26) // ctrl-Z
-        return(0);
-
-    if (s < 0xD800 || s > 0xDBFF)
+    if (ci->Mode & CONSOLE_INPUT_MODE_EDIT)
     {
-        *ch = s;
+        if (ci->Available == 0)
+        {
+            if (ConEditLine(ci, 1) == 0)
+                return(0);
+        }
+
+        FAssert(ci->Available > 0 && ci->Used < ci->Available);
+
+        if (ci->Buffer[ci->Used] == 26) // Ctrl-Z
+            return(0);
+
+        *ch = ci->Buffer[ci->Used];
+        ci->Used += 1;
+
+        if (ci->Used == ci->Available)
+            ci->Available = 0;
+
         return(1);
     }
 
-    *ch = 0x010000 + ((s - 0xD800) << 10);
-
-    if (ReadConsoleW((HANDLE) AsGenericPort(port)->InputContext, &s, 1, &nc, 0) == 0)
+    if (ConReadRawCh(ci, ch) == 0)
         return(0);
 
-    if (s < 0xDC00 || s > 0xDFFF)
+    if (*ch == 26) // Ctrl-Z
         return(0);
 
-    *ch += (s - 0xDC00);
+    if (ci->Mode & CONSOLE_INPUT_MODE_ECHO)
+        ConWriteCh(ci, *ch);
+
     return(1);
 }
 
 static int_t ConCharReadyP(FObject port)
 {
     FAssert(TextualPortP(port) && InputPortOpenP(port));
-    
-    
-    return(1);
+
+    FConsoleInput * ci = AsConsoleInput(port);
+
+    if (ci->Mode & CONSOLE_INPUT_MODE_EDIT)
+    {
+        if (ci->Used < ci->Available)
+            return(1);
+
+        return(ConEditLine(ci, 0) == 0 || ci->Used < ci->Available);
+    }
+
+    return(ConRawChReadyP(ci));
 }
 
-static FObject MakeConsoleInputPort(FObject nam, HANDLE h)
+#ifdef FOMENT_WINDOWS
+static FObject MakeConsoleInputPort(FObject nam, HANDLE hin, HANDLE hout)
 {
-    return(MakeTextualPort(nam, NoValueObject, h, 0, ConCloseInput, 0, 0, ConReadCh,
-            ConCharReadyP, 0));
+    FConsoleInput * ci = (FConsoleInput *) malloc(sizeof(FConsoleInput));
+    if (ci == 0)
+        return(NoValueObject);
+
+    ci->InputHandle = hin;
+    ci->OutputHandle = hout;
+
+    FObject port = MakeTextualPort(nam, NoValueObject, ci, 0, ConCloseInput, 0, 0, ConReadCh,
+            ConCharReadyP, 0);
+    AsGenericPort(port)->Flags |= PORT_FLAG_CONSOLE_INPUT;
+
+    SetConsoleInputMode(port, 0);
+
+    return(port);
 }
 
 static void ConCloseOutput(FObject port)
@@ -962,8 +1582,8 @@ static void ConWriteString(FObject port, FCh * s, uint_t sl)
 
 static FObject MakeConsoleOutputPort(FObject nam, HANDLE h)
 {
-    return(MakeTextualPort(nam, NoValueObject, 0, h, 0, ConCloseOutput,
-            ConFlushOutput, 0, 0, ConWriteString));
+    return(MakeTextualPort(nam, NoValueObject, 0, h, 0, ConCloseOutput, ConFlushOutput, 0, 0,
+            ConWriteString));
 }
 #endif // FOMENT_WINDOWS
 
@@ -1268,16 +1888,27 @@ void SetupIO()
     if (hin != INVALID_HANDLE_VALUE && hout != INVALID_HANDLE_VALUE
             && GetConsoleMode(hin, &imd) != 0 && GetConsoleMode(hout, &omd) != 0)
     {
-        R.StandardInput = MakeConsoleInputPort(MakeStringC("console-input"), hin);
+        SetConsoleMode(hin, ENABLE_PROCESSED_INPUT | ENABLE_WINDOW_INPUT);
+
+        R.StandardInput = MakeConsoleInputPort(MakeStringC("console-input"), hin, hout);
+        SetConsoleInputMode(R.StandardInput, CONSOLE_INPUT_MODE_EDIT | CONSOLE_INPUT_MODE_ECHO);
+//        SetConsoleInputMode(R.StandardInput, CONSOLE_INPUT_MODE_ECHO);
+
         R.StandardOutput = MakeConsoleOutputPort(MakeStringC("console-output"), hout);
     }
     else
     {
         R.StandardInput = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-input"), stdin, 0));
-        R.StandardOutput = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-output"), 0, stdout));
+        R.StandardOutput = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-output"), 0,
+                stdout));
     }
 
-    R.StandardError = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-error"), 0, stderr));
+    DWORD emd;
+
+    if (herr != INVALID_HANDLE_VALUE && GetConsoleMode(herr, &emd) != 0)
+        R.StandardError = MakeConsoleOutputPort(MakeStringC("console-output"), herr);
+    else
+        R.StandardError = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-error"), 0, stderr));
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX

@@ -4475,13 +4475,11 @@
 
 (check-equal #f (input-port? "port"))
 (check-equal #t (input-port? (current-input-port)))
-(check-equal #f (input-port? (current-output-port)))
 
 (check-error (assertion-violation input-port?) (input-port?))
 (check-error (assertion-violation input-port?) (input-port? 'port 'port))
 
 (check-equal #f (output-port? "port"))
-(check-equal #f (output-port? (current-input-port)))
 (check-equal #t (output-port? (current-output-port)))
 
 (check-error (assertion-violation output-port?) (output-port?))
@@ -4757,6 +4755,9 @@
 ;; ---- input ----
 ;;
 
+(define output-file (open-output-file "output3.txt"))
+(define input-file (open-input-file "r7rs.scm"))
+
 (check-equal (hello world)
     (parameterize ((current-input-port (open-input-string "(hello world)")))
         (read)))
@@ -4770,7 +4771,7 @@
 (check-error (assertion-violation read) (read 'port))
 (check-error (assertion-violation read) (read (open-input-bytevector #u8(1 2 3))))
 (check-error (assertion-violation read) (read (current-input-port) 2))
-(check-error (assertion-violation read) (read (current-output-port)))
+(check-error (assertion-violation read) (read output-file))
 
 (check-equal #\A (read-char (open-input-string "ABCD")))
 (check-equal #\D
@@ -4784,7 +4785,7 @@
 (check-error (assertion-violation read-char) (read-char 'port))
 (check-error (assertion-violation read-char) (read-char (open-input-bytevector #u8(1 2 3))))
 (check-error (assertion-violation read-char) (read-char (current-input-port) 2))
-(check-error (assertion-violation read-char) (read-char (current-output-port)))
+(check-error (assertion-violation read-char) (read-char output-file))
 
 (check-equal #\A (peek-char (open-input-string "ABCD")))
 (check-equal #\D
@@ -4797,7 +4798,7 @@
 (check-error (assertion-violation peek-char) (peek-char 'port))
 (check-error (assertion-violation peek-char) (peek-char (open-input-bytevector #u8(1 2 3))))
 (check-error (assertion-violation peek-char) (peek-char (current-input-port) 2))
-(check-error (assertion-violation peek-char) (peek-char (current-output-port)))
+(check-error (assertion-violation peek-char) (peek-char output-file))
 
 (check-equal "abcd" (read-line (open-input-string "abcd\nABCD\n")))
 (check-equal "ABCD"
@@ -4809,7 +4810,7 @@
 (check-error (assertion-violation read-line) (read-line 'port))
 (check-error (assertion-violation read-line) (read-line (open-input-bytevector #u8(1 2 3))))
 (check-error (assertion-violation read-line) (read-line (current-input-port) 2))
-(check-error (assertion-violation read-line) (read-line (current-output-port)))
+(check-error (assertion-violation read-line) (read-line output-file))
 
 (check-equal #t (eof-object? (read (open-input-string ""))))
 (check-equal #f (eof-object? 'eof))
@@ -4826,7 +4827,7 @@
 (check-error (assertion-violation char-ready?) (char-ready? 'port))
 (check-error (assertion-violation char-ready?) (char-ready? (open-input-bytevector #u8(1 2 3))))
 (check-error (assertion-violation char-ready?) (char-ready? (current-input-port) 2))
-(check-error (assertion-violation char-ready?) (char-ready? (current-output-port)))
+(check-error (assertion-violation char-ready?) (char-ready? output-file))
 
 (check-equal "abcd" (read-string 4 (open-input-string "abcdefgh")))
 (check-equal "efg"
@@ -4841,32 +4842,32 @@
             (read-string 4 p)
             (read-string 4 p))))
 
-(check-error (assertion-violation read-string) (read-string -1 (current-output-port)))
+(check-error (assertion-violation read-string) (read-string -1 output-file))
 (check-error (assertion-violation read-string) (read-string 1 'port))
 (check-error (assertion-violation read-string) (read-string 1 (open-input-bytevector #u8(1 2 3))))
 (check-error (assertion-violation read-string) (read-string 1 (current-input-port) 2))
-(check-error (assertion-violation read-string) (read-string 1 (current-output-port)))
+(check-error (assertion-violation read-string) (read-string 1 output-file))
 
 (check-equal 1 (read-u8 (open-input-bytevector #u8(1 2 3 4 5))))
 
 (check-error (assertion-violation read-u8) (read-u8 'port))
 (check-error (assertion-violation read-u8) (read-u8 (open-input-string "1234")))
 (check-error (assertion-violation read-u8) (read-u8 (open-input-bytevector #u8(1 2 3)) 2))
-(check-error (assertion-violation read-u8) (read-u8 (current-output-port)))
+(check-error (assertion-violation read-u8) (read-u8 output-file))
 
 (check-equal 1 (peek-u8 (open-input-bytevector #u8(1 2 3 4 5))))
 
 (check-error (assertion-violation peek-u8) (peek-u8 'port))
 (check-error (assertion-violation peek-u8) (peek-u8 (open-input-string "1234")))
 (check-error (assertion-violation peek-u8) (peek-u8 (open-input-bytevector #u8(1 2 3)) 2))
-(check-error (assertion-violation peek-u8) (peek-u8 (current-output-port)))
+(check-error (assertion-violation peek-u8) (peek-u8 output-file))
 
 (check-equal #t (u8-ready? (open-input-bytevector #u8(1 2 3 4 5))))
 
 (check-error (assertion-violation u8-ready?) (u8-ready? 'port))
 (check-error (assertion-violation u8-ready?) (u8-ready? (open-input-string "1234")))
 (check-error (assertion-violation u8-ready?) (u8-ready? (open-input-bytevector #u8(1 2 3)) 2))
-(check-error (assertion-violation u8-ready?) (u8-ready? (current-output-port)))
+(check-error (assertion-violation u8-ready?) (u8-ready? output-file))
 
 (check-equal #u8(1 2 3 4) (read-bytevector 4 (open-input-bytevector #u8(1 2 3 4 5 6 7 8))))
 (check-equal #u8(1 2 3 4) (read-bytevector 8 (open-input-bytevector #u8(1 2 3 4))))
@@ -4877,7 +4878,7 @@
 (check-error (assertion-violation read-bytevector) (read-bytevector 1 (open-input-string "1234")))
 (check-error (assertion-violation read-bytevector)
         (read-bytevector 1 (open-input-bytevector #u8(1 2 3)) 2))
-(check-error (assertion-violation read-bytevector) (read-bytevector 1 (current-output-port)))
+(check-error (assertion-violation read-bytevector) (read-bytevector 1 output-file))
 
 (check-equal #u8(1 2 3 4)
     (let ((bv (make-bytevector 4 0)))
@@ -4954,22 +4955,22 @@
             (get-output-string p))))
 
 (check-error (assertion-violation write) (write))
-(check-error (assertion-violation write) (write #f (current-input-port)))
+(check-error (assertion-violation write) (write #f input-file))
 (check-error (assertion-violation write) (write #f (current-output-port) 3))
 (check-error (assertion-violation write) (write #f (open-output-bytevector)))
 
 (check-error (assertion-violation write-shared) (write-shared))
-(check-error (assertion-violation write-shared) (write-shared #f (current-input-port)))
+(check-error (assertion-violation write-shared) (write-shared #f input-file))
 (check-error (assertion-violation write-shared) (write-shared #f (current-output-port) 3))
 (check-error (assertion-violation write-shared) (write-shared #f (open-output-bytevector)))
 
 (check-error (assertion-violation write-simple) (write-simple))
-(check-error (assertion-violation write-simple) (write-simple #f (current-input-port)))
+(check-error (assertion-violation write-simple) (write-simple #f input-file))
 (check-error (assertion-violation write-simple) (write-simple #f (current-output-port) 3))
 (check-error (assertion-violation write-simple) (write-simple #f (open-output-bytevector)))
 
 (check-error (assertion-violation display) (display))
-(check-error (assertion-violation display) (display #f (current-input-port)))
+(check-error (assertion-violation display) (display #f input-file))
 (check-error (assertion-violation display) (display #f (current-output-port) 3))
 (check-error (assertion-violation display) (display #f (open-output-bytevector)))
 
@@ -4978,7 +4979,7 @@
         (newline p)
         (get-output-string p)))
 
-(check-error (assertion-violation newline) (newline (current-input-port)))
+(check-error (assertion-violation newline) (newline input-file))
 (check-error (assertion-violation newline) (newline (current-output-port) 2))
 (check-error (assertion-violation newline) (newline (open-output-bytevector)))
 
@@ -4988,7 +4989,7 @@
         (get-output-string p)))
 
 (check-error (assertion-violation write-char) (write-char #f))
-(check-error (assertion-violation write-char) (write-char #\a (current-input-port)))
+(check-error (assertion-violation write-char) (write-char #\a input-file))
 (check-error (assertion-violation write-char) (write-char #\a (current-output-port) 3))
 (check-error (assertion-violation write-char) (write-char #\a (open-output-bytevector)))
 
@@ -5006,7 +5007,7 @@
         (get-output-string p)))
 
 (check-error (assertion-violation write-string) (write-string #\a))
-(check-error (assertion-violation write-string) (write-string "a" (current-input-port)))
+(check-error (assertion-violation write-string) (write-string "a" input-file))
 (check-error (assertion-violation write-string) (write-string "a" (open-output-bytevector)))
 (check-error (assertion-violation write-string) (write-string "a" (current-output-port) -1))
 (check-error (assertion-violation write-string) (write-string "a" (current-output-port) 1 0))
@@ -5018,7 +5019,7 @@
         (get-output-bytevector p)))
 
 (check-error (assertion-violation write-u8) (write-u8 #f))
-(check-error (assertion-violation write-u8) (write-u8 1 (current-input-port)))
+(check-error (assertion-violation write-u8) (write-u8 1 input-file))
 (check-error (assertion-violation write-u8) (write-u8 1 (current-output-port)))
 (check-error (assertion-violation write-u8) (write-u8 1 (open-output-bytevector) 3))
 
@@ -5036,7 +5037,7 @@
         (get-output-bytevector p)))
 
 (check-error (assertion-violation write-bytevector) (write-bytevector #(1 2 3 4)))
-(check-error (assertion-violation write-bytevector) (write-bytevector #u8() (current-input-port)))
+(check-error (assertion-violation write-bytevector) (write-bytevector #u8() input-file))
 (check-error (assertion-violation write-bytevector) (write-bytevector #u8() (current-output-port)))
 (check-error (assertion-violation write-bytevector)
     (write-bytevector #u8(1) (open-output-bytevector) -1))
@@ -5047,7 +5048,7 @@
 
 (check-equal #t (begin (flush-output-port) #t))
 
-(check-error (assertion-violation flush-output-port) (flush-output-port (current-input-port)))
+(check-error (assertion-violation flush-output-port) (flush-output-port input-file))
 (check-error (assertion-violation flush-output-port) (flush-output-port (current-output-port) 2))
 
 ;;

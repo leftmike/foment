@@ -1122,8 +1122,7 @@
             (define (ctrl-c-handler)
                 (abort-current-continuation 'repl-prompt
                     (lambda ()
-                        (display "execution aborted")
-                        (newline))))
+                        (cond-expand (windows (display "^C") (newline)) (else (no-value))))))
             (define (read-eval-write)
                 (let ((obj (read)))
                     (if (eof-object? obj)

@@ -78,5 +78,6 @@ inline FObject CurrentOutputPort()
 
 void SetupWrite();
 void SetupRead();
+int_t IdentifierSubsequentP(FCh ch);
 
 #endif // __IO_HPP__

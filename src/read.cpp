@@ -61,7 +61,7 @@ static int_t IdentifierInitialP(FCh ch)
              || ch == '?'|| ch == '^' || ch == '_' || ch == '~' || ch == '@');
 }
 
-static int_t IdentifierSubsequentP(FCh ch)
+int_t IdentifierSubsequentP(FCh ch)
 {
     return(IdentifierInitialP(ch) || NumericP(ch) || ch == '+' || ch == '-' || ch == '.');
 }

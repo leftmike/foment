@@ -208,11 +208,11 @@ inline void SetThreadState(FThreadState * ts)
 #endif // FOMENT_UNIX
 
 extern uint_t TotalThreads;
+extern FThreadState * Threads;
 extern OSExclusive GCExclusive;
 
 void EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms);
 uint_t LeaveThread(FThreadState * ts);
-void PropogateCtrlC();
 
 inline FObject IndexParameter(uint_t idx)
 {
@@ -220,5 +220,10 @@ inline FObject IndexParameter(uint_t idx)
 
     return(GetThreadState()->IndexParameters[idx]);
 }
+
+typedef struct
+{
+    int_t Unused;
+} FNotifyCatch;
 
 #endif // __SYNCTHRD_HPP__
