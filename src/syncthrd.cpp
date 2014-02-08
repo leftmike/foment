@@ -229,28 +229,29 @@ Define("run-thread", RunThreadPrimitive)(int_t argc, FObject argv[])
     return(thrd);
 }
 
-void ThreadExit()
+void ThreadExit(FObject obj)
 {
+    FThreadState * ts = GetThreadState();
+    AsThread(ts->Thread)->Result = obj;
+    if (LeaveThread(ts) == 0)
+        exit(0);
+    else
+    {
 #ifdef FOMENT_WINDOWS
-    ExitThread(0);
+        ExitThread(0);
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-    pthread_exit(0);
+        pthread_exit(0);
 #endif // FOMENT_UNIX
+    }
 }
 
 Define("%exit-thread", ExitThreadPrimitive)(int_t argc, FObject argv[])
 {
     FMustBe(argc == 1);
 
-    FThreadState * ts = GetThreadState();
-    AsThread(ts->Thread)->Result = argv[0];
-    if (LeaveThread(ts) == 0)
-        exit(0);
-    else
-        ThreadExit();
-
+    ThreadExit(argv[0]);
     return(NoValueObject);
 }
 
@@ -376,51 +377,93 @@ Define("condition-wake-all", ConditionWakeAllPrimitive)(int_t argc, FObject argv
     return(NoValueObject);
 }
 
-typedef enum
+static void InterruptThread(FObject thrd);
+void NotifyThread(FObject thrd, FObject obj)
 {
-    NotifyExit,
-    NotifyIgnore,
-    NotifyBroadcast
-} FNotifyDisposition;
+    EnterExclusive(&GCExclusive);
 
-static FNotifyDisposition CtrlCDisposition = NotifyBroadcast;
-static int_t CtrlCCount;
-static time_t CtrlCTime;
+    FThreadState * ts = Threads;
+    while (ts != 0)
+    {
+        if (ts->Thread == thrd)
+        {
+            ts->NotifyFlag = 1;
+            ts->NotifyObject = obj;
+            InterruptThread(ts->Thread);
 
-static void NotifyThread(FObject thrd);
-static void NotifyCtrlC()
+            break;
+        }
+
+        ts = ts->Next;
+    }
+
+    LeaveExclusive(&GCExclusive);
+}
+
+void NotifyBroadcast(FObject obj)
 {
-    if (CtrlCDisposition == NotifyExit)
+    EnterExclusive(&GCExclusive);
+
+    FThreadState * ts = Threads;
+    while (ts != 0)
+    {
+        ts->NotifyFlag = 1;
+        ts->NotifyObject = obj;
+        InterruptThread(ts->Thread);
+
+        ts = ts->Next;
+    }
+
+    LeaveExclusive(&GCExclusive);
+}
+
+#define NOTIFY_EXIT 0
+#define NOTIFY_IGNORE 1
+#define NOTIFY_BROADCAST 2
+
+static int_t SigIntNotify;
+static int_t SigIntCount;
+static time_t SigIntTime;
+
+Define("set-ctrl-c-notify!", SetCtrlCNotifyPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("set-ctrl-c-notify!", argc);
+
+    if (argv[0] == StringCToSymbol("exit"))
+        SigIntNotify = NOTIFY_EXIT;
+    else if (argv[0] == StringCToSymbol("ignore"))
+        SigIntNotify = NOTIFY_IGNORE;
+    else if (argv[0] == StringCToSymbol("broadcast"))
+        SigIntNotify = NOTIFY_BROADCAST;
+    else
+        RaiseExceptionC(R.Assertion, "set-ctrl-c-notify!", "expected exit, ignore, or broadcast",
+                List(argv[0]));
+
+    return(NoValueObject);
+}
+
+static void NotifySigInt()
+{
+    if (SigIntNotify == NOTIFY_EXIT)
         exit(-1);
-    else if (CtrlCDisposition == NotifyBroadcast)
+    else if (SigIntNotify == NOTIFY_BROADCAST)
     {
         time_t now = time(0);
 
-        if (now - CtrlCTime < 2)
+        if (now - SigIntTime < 2)
         {
-            CtrlCCount += 1;
+            SigIntCount += 1;
 
-            if (CtrlCCount > 2)
+            if (SigIntCount > 2)
                 exit(-1);
         }
         else
         {
-            CtrlCCount = 1;
-            CtrlCTime = now;
+            SigIntCount = 1;
+            SigIntTime = now;
         }
 
-        EnterExclusive(&GCExclusive);
-
-        FThreadState * ts = Threads;
-        while (ts != 0)
-        {
-            ts->CtrlCNotify = 1;
-            NotifyThread(ts->Thread);
-
-            ts = ts->Next;
-        }
-
-        LeaveExclusive(&GCExclusive);
+        NotifyBroadcast(R.SigIntSymbol);
     }
 }
 
@@ -430,7 +473,7 @@ static void CALLBACK UserAPC(ULONG_PTR ign)
     // Nothing.
 }
 
-static void NotifyThread(FObject thrd)
+static void InterruptThread(FObject thrd)
 {
     FAssert(ThreadP(thrd));
 
@@ -441,7 +484,7 @@ static BOOL WINAPI CtrlHandler(DWORD ct)
 {
     if (ct == CTRL_C_EVENT)
     {
-        NotifyCtrlC();
+        NotifySigInt();
         return(TRUE);
     }
 
@@ -455,7 +498,7 @@ static void SetupSignals()
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-static void NotifyThread(FObject thrd)
+static void InterruptThread(FObject thrd)
 {
     
     
@@ -478,7 +521,7 @@ static void * SignalThread(void * ign)
 
         FAssert(sig == SIGINT);
 
-        NotifyCtrlC();
+        NotifySigInt();
     }
 
     return(0);
@@ -514,7 +557,8 @@ static FPrimitive * Primitives[] =
     &MakeConditionPrimitive,
     &ConditionWaitPrimitive,
     &ConditionWakePrimitive,
-    &ConditionWakeAllPrimitive
+    &ConditionWakeAllPrimitive,
+    &SetCtrlCNotifyPrimitive
 };
 
 void SetupThreads()
@@ -522,8 +566,9 @@ void SetupThreads()
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 
-    CtrlCCount = 0;
-    CtrlCTime = time(0);
+    SigIntNotify = NOTIFY_EXIT;
+    SigIntCount = 0;
+    SigIntTime = time(0);
 
     SetupSignals();
 }

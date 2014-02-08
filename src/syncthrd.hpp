@@ -151,7 +151,7 @@ typedef struct _FThread
 } FThread;
 
 FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms, FObject idxprms);
-void ThreadExit();
+void ThreadExit(FObject obj);
 
 // ---- Exclusives ----
 
@@ -224,6 +224,6 @@ inline FObject IndexParameter(uint_t idx)
 typedef struct
 {
     int_t Unused;
-} FNotifyCatch;
+} FNotifyThrow;
 
 #endif // __SYNCTHRD_HPP__

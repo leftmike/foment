@@ -328,11 +328,11 @@ static FObject Execute(FThreadState * ts)
 
     for (;;)
     {
-        if (ts->CtrlCNotify)
+        if (ts->NotifyFlag)
         {
-            ts->CtrlCNotify = 0;
+            ts->NotifyFlag = 0;
 
-            PrepareHandler(ts, R.CtrlCHandler, R.CtrlCHandlerSymbol, NoValueObject);
+            PrepareHandler(ts, R.NotifyHandler, R.NotifyHandlerSymbol, ts->NotifyObject);
         }
 
         CheckForGC();
@@ -1119,17 +1119,14 @@ FObject ExecuteThunk(FObject op)
             if (PrepareHandler(ts, R.RaiseHandler, R.ExceptionHandlerSymbol, obj) == 0)
                 throw obj;
         }
-        catch (FNotifyCatch nc)
+        catch (FNotifyThrow nt)
         {
-            ((FNotifyCatch) nc);
+            ((FNotifyThrow) nt);
 
-            ts->CtrlCNotify = 0;
+            ts->NotifyFlag = 0;
 
-            if (PrepareHandler(ts, R.CtrlCHandler, R.CtrlCHandlerSymbol, NoValueObject) == 0)
-            {
-                printf("no handler for ctrl-c\n");
-                exit(0);
-            }
+            if (PrepareHandler(ts, R.NotifyHandler, R.NotifyHandlerSymbol, ts->NotifyObject) == 0)
+                ThreadExit(ts->NotifyObject);
         }
     }
 }
@@ -1257,14 +1254,14 @@ Define("%set-raise-handler!", SetRaiseHandlerPrimitive)(int_t argc, FObject argv
     return(NoValueObject);
 }
 
-Define("%set-ctrl-c-handler!", SetCtrlCHandlerPrimitive)(int_t argc, FObject argv[])
+Define("%set-notify-handler!", SetNotifyHandlerPrimitive)(int_t argc, FObject argv[])
 {
-    // (%set-ctrl-c-handler! <proc>)
+    // (%set-notify-handler! <proc>)
 
     FMustBe(argc == 1);
     FMustBe(ProcedureP(argv[0]));
 
-    R.CtrlCHandler = argv[0];
+    R.NotifyHandler = argv[0];
     return(NoValueObject);
 }
 
@@ -1410,7 +1407,7 @@ static FPrimitive * Primitives[] =
     &MapVectorsPrimitive,
     &ExecuteThunkPrimitive,
     &SetRaiseHandlerPrimitive,
-    &SetCtrlCHandlerPrimitive,
+    &SetNotifyHandlerPrimitive,
     &InteractiveThunkPrimitive,
     &BytesAllocatedPrimitive,
     &DynamicStackPrimitive,
@@ -1432,7 +1429,8 @@ void SetupExecute()
     R.UndefinedMessage = MakeStringC("variable is undefined");
 
     R.ExceptionHandlerSymbol = StringCToSymbol("exception-handler");
-    R.CtrlCHandlerSymbol = StringCToSymbol("ctrl-c-handler");
+    R.NotifyHandlerSymbol = StringCToSymbol("notify-handler");
+    R.SigIntSymbol = StringCToSymbol("sigint");
 
     R.DynamicRecordType = MakeRecordTypeC("dynamic", sizeof(DynamicFieldsC) / sizeof(char *),
             DynamicFieldsC);

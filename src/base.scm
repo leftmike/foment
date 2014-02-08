@@ -941,18 +941,18 @@
                 (%mark-continuation 'mark 'exception-handler (cdr lst)
                         (lambda () ((car lst) obj)))))
 
-        (define (with-ctrl-c-handler handler thunk)
+        (define (with-notify-handler handler thunk)
             (if (not (procedure? handler))
-                (full-error 'assertion-violation 'with-ctrl-c-handler
-                            "with-ctrl-c-handler: expected a procedure" handler))
-            (%mark-continuation 'mark 'ctrl-c-handler
-                    (cons handler (%find-mark 'ctrl-c-handler '())) thunk))
+                (full-error 'assertion-violation 'with-notify-handler
+                            "with-notify-handler: expected a procedure" handler))
+            (%mark-continuation 'mark 'notify-handler
+                    (cons handler (%find-mark 'notify-handler '())) thunk))
 
-        (define (ctrl-c-handler obj lst)
-            (%mark-continuation 'mark 'ctrl-c-handler (cdr lst)
-                    (lambda () ((car lst)) (exit-thread -1))))
+        (define (notify-handler obj lst)
+            (%mark-continuation 'mark 'notify-handler (cdr lst)
+                    (lambda () ((car lst) obj) (exit-thread obj))))
 
-        (%set-ctrl-c-handler! ctrl-c-handler)
+        (%set-notify-handler! notify-handler)
 
         (define guard-key (cons #f #f))
 
@@ -1119,10 +1119,11 @@
                                 (display "unexpected exception object: ")
                                 (write obj)
                                 (newline))))))
-            (define (ctrl-c-handler)
-                (abort-current-continuation 'repl-prompt
-                    (lambda ()
-                        (cond-expand (windows (display "^C") (newline)) (else (no-value))))))
+            (define (notify-handler obj)
+                (if (eq? obj 'sigint)
+                    (abort-current-continuation 'repl-prompt
+                        (lambda ()
+                            (cond-expand (windows (display "^C") (newline)) (else (no-value)))))))
             (define (read-eval-write)
                 (let ((obj (read)))
                     (if (eof-object? obj)
@@ -1143,8 +1144,8 @@
                     (with-exception-handler
                         exception-handler
                         (lambda ()
-                            (with-ctrl-c-handler
-                                ctrl-c-handler
+                            (with-notify-handler
+                                notify-handler
                                 read-eval-write))))
                 'repl-prompt
                 (lambda (abort) (abort)))
@@ -1184,7 +1185,12 @@
         (define (interactive-thunk)
             (let ((env (interaction-environment)))
                 (handle-command-line (cdr (command-line)) env)
-                (call-with-current-continuation (lambda (exit) (repl env exit)))))
+                (call-with-current-continuation
+                    (lambda (exit)
+                        (set-ctrl-c-notify! 'broadcast)
+                        (if (console-port? (current-input-port))
+                            (set-console-input-editline! (current-input-port) #t))
+                        (repl env exit)))))
 
         (%interactive-thunk interactive-thunk)
     ))

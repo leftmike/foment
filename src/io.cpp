@@ -882,8 +882,8 @@ FObject MakeStringCInputPort(const char * s)
             CinReadCh, CinCharReadyP, 0));
 }
 
-#define CONSOLE_INPUT_MODE_EDIT 0x00000001
-#define CONSOLE_INPUT_MODE_ECHO 0x00000002
+#define CONSOLE_INPUT_EDITLINE 0x00000001
+#define CONSOLE_INPUT_ECHO     0x00000002
 
 #define MAXIMUM_POSSIBLE 512
 
@@ -927,29 +927,25 @@ typedef struct
 
 #define AsConsoleInput(port) ((FConsoleInput *) (AsGenericPort(port)->InputContext))
 
-static void SetConsoleInputMode(FObject port, uint_t cim)
+static void ResetConsoleInput(FConsoleInput * ci)
 {
-    FAssert(ConsoleInputPortP(port));
+    ci->RawUsed = 0;
+    ci->RawAvailable = 0;
 
-    AsConsoleInput(port)->Mode = cim;
+    ci->Used = 0;
+    ci->Available = 0;
+    ci->Point = 0;
+    ci->Possible = 0;
+    ci->PreviousPossible = 0;
 
-    AsConsoleInput(port)->RawUsed = 0;
-    AsConsoleInput(port)->RawAvailable = 0;
-
-    AsConsoleInput(port)->Used = 0;
-    AsConsoleInput(port)->Available = 0;
-    AsConsoleInput(port)->Point = 0;
-    AsConsoleInput(port)->Possible = 0;
-    AsConsoleInput(port)->PreviousPossible = 0;
-
-    AsConsoleInput(port)->EscPrefix = 0;
-    AsConsoleInput(port)->EscBracketPrefix = 0;
+    ci->EscPrefix = 0;
+    ci->EscBracketPrefix = 0;
 }
 
 #ifdef FOMENT_WINDOWS
 static void ConCloseInput(FObject port)
 {
-    FAssert(TextualPortP(port));
+    FAssert(InputPortP(port) && ConsolePortP(port));
 
     CloseHandle(AsConsoleInput(port)->InputHandle);
     CloseHandle(AsConsoleInput(port)->OutputHandle);
@@ -993,7 +989,7 @@ static uint_t ConReadRaw(FConsoleInput * ci, int_t wif)
             if (ret != WAIT_IO_COMPLETION)
                 return(0);
 
-            if (GetThreadState()->CtrlCNotify)
+            if (GetThreadState()->NotifyFlag)
             {
                 ci->RawUsed = 0;
                 ci->RawAvailable = 0;
@@ -1007,9 +1003,9 @@ static uint_t ConReadRaw(FConsoleInput * ci, int_t wif)
                 ci->EscPrefix = 0;
                 ci->EscBracketPrefix = 0;
 
-                FNotifyCatch nc = {0};
+                FNotifyThrow nt = {0};
 
-                throw nc;
+                throw nt;
             }
         }
 
@@ -1116,7 +1112,7 @@ static void ConFillExtra(FConsoleInput * ci)
 #ifdef FOMENT_UNIX
 static void ConCloseInput(FObject port)
 {
-    FAssert(TextualPortP(port));
+    FAssert(InputPortP(port) && ConsolePortP(port));
     
     
     
@@ -1222,7 +1218,7 @@ static void DeleteCh(FConsoleInput * ci, int_t p)
 
 static void Redraw(FConsoleInput * ci)
 {
-    if (ci->Mode & CONSOLE_INPUT_MODE_ECHO)
+    if (ci->Mode & CONSOLE_INPUT_ECHO)
     {
         while (ci->Possible + ci->StartX + 1 >= ci->Width
                 && ((ci->Possible + ci->StartX) / ci->Width) + ci->StartY >= ci->Height)
@@ -1533,11 +1529,11 @@ static uint_t ConEditLine(FConsoleInput * ci, int_t wif)
 
 static uint_t ConReadCh(FObject port, FCh * ch)
 {
-    FAssert(ConsoleInputPortP(port) && InputPortOpenP(port));
+    FAssert(ConsolePortP(port) && InputPortOpenP(port));
 
     FConsoleInput * ci = AsConsoleInput(port);
 
-    if (ci->Mode & CONSOLE_INPUT_MODE_EDIT)
+    if (ci->Mode & CONSOLE_INPUT_EDITLINE)
     {
         if (ci->Available == 0)
         {
@@ -1565,7 +1561,7 @@ static uint_t ConReadCh(FObject port, FCh * ch)
     if (*ch == 26) // Ctrl-Z
         return(0);
 
-    if (ci->Mode & CONSOLE_INPUT_MODE_ECHO)
+    if (ci->Mode & CONSOLE_INPUT_ECHO)
         ConWriteCh(ci, *ch);
 
     return(1);
@@ -1573,11 +1569,11 @@ static uint_t ConReadCh(FObject port, FCh * ch)
 
 static int_t ConCharReadyP(FObject port)
 {
-    FAssert(TextualPortP(port) && InputPortOpenP(port));
+    FAssert(ConsolePortP(port) && InputPortOpenP(port));
 
     FConsoleInput * ci = AsConsoleInput(port);
 
-    if (ci->Mode & CONSOLE_INPUT_MODE_EDIT)
+    if (ci->Mode & CONSOLE_INPUT_EDITLINE)
     {
         if (ci->Used < ci->Available)
             return(1);
@@ -1600,9 +1596,10 @@ static FObject MakeConsoleInputPort(FObject nam, HANDLE hin, HANDLE hout)
 
     FObject port = MakeTextualPort(nam, NoValueObject, ci, 0, ConCloseInput, 0, 0, ConReadCh,
             ConCharReadyP, 0);
-    AsGenericPort(port)->Flags |= PORT_FLAG_CONSOLE_INPUT;
+    AsGenericPort(port)->Flags |= PORT_FLAG_CONSOLE;
 
-    SetConsoleInputMode(port, 0);
+    AsConsoleInput(port)->Mode = CONSOLE_INPUT_ECHO;
+    ResetConsoleInput(AsConsoleInput(port));
 
     return(port);
 }
@@ -1635,8 +1632,11 @@ static void ConWriteString(FObject port, FCh * s, uint_t sl)
 
 static FObject MakeConsoleOutputPort(FObject nam, HANDLE h)
 {
-    return(MakeTextualPort(nam, NoValueObject, 0, h, 0, ConCloseOutput, ConFlushOutput, 0, 0,
-            ConWriteString));
+    FObject port = MakeTextualPort(nam, NoValueObject, 0, h, 0, ConCloseOutput, ConFlushOutput, 0,
+            0, ConWriteString);
+    AsGenericPort(port)->Flags |= PORT_FLAG_CONSOLE;
+
+    return(port);
 }
 #endif // FOMENT_WINDOWS
 
@@ -1902,6 +1902,43 @@ Define("want-identifiers", WantIdentifiersPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
+Define("console-port?", ConsolePortPPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("console-port?", argc);
+
+    return(ConsolePortP(argv[0]) ? TrueObject : FalseObject);
+}
+
+Define("set-console-input-editline!", SetConsoleInputEditlinePrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("set-console-input-editline!", argc);
+    ConsoleInputPortArgCheck("set-console-input-editline!", argv[0]);
+    BooleanArgCheck("set-console-input-editline!", argv[1]);
+
+    if (argv[1] == TrueObject)
+        AsConsoleInput(argv[0])->Mode |= CONSOLE_INPUT_EDITLINE;
+    else
+        AsConsoleInput(argv[0])->Mode &= ~CONSOLE_INPUT_EDITLINE;
+
+    ResetConsoleInput(AsConsoleInput(argv[0]));
+
+    return(NoValueObject);
+}
+
+Define("set-console-input-echo!", SetConsoleInputEchoPrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("set-console-input-echo!", argc);
+    ConsoleInputPortArgCheck("set-console-input-echo!", argv[0]);
+    BooleanArgCheck("set-console-input-echo!", argv[1]);
+
+    if (argv[1] == TrueObject)
+        AsConsoleInput(argv[0])->Mode |= CONSOLE_INPUT_ECHO;
+    else
+        AsConsoleInput(argv[0])->Mode &= ~CONSOLE_INPUT_ECHO;
+
+    return(NoValueObject);
+}
+
 static FPrimitive * Primitives[] =
 {
     &FileExistsPPrimitive,
@@ -1927,7 +1964,10 @@ static FPrimitive * Primitives[] =
     &MakeLatin1PortPrimitive,
     &MakeUtf8PortPrimitive,
     &MakeUtf16PortPrimitive,
-    &WantIdentifiersPrimitive
+    &WantIdentifiersPrimitive,
+    &ConsolePortPPrimitive,
+    &SetConsoleInputEditlinePrimitive,
+    &SetConsoleInputEchoPrimitive
 };
 
 void SetupIO()
@@ -1944,9 +1984,6 @@ void SetupIO()
         SetConsoleMode(hin, ENABLE_PROCESSED_INPUT | ENABLE_WINDOW_INPUT);
 
         R.StandardInput = MakeConsoleInputPort(MakeStringC("console-input"), hin, hout);
-        SetConsoleInputMode(R.StandardInput, CONSOLE_INPUT_MODE_EDIT | CONSOLE_INPUT_MODE_ECHO);
-//        SetConsoleInputMode(R.StandardInput, CONSOLE_INPUT_MODE_ECHO);
-
         R.StandardOutput = MakeConsoleOutputPort(MakeStringC("console-output"), hout);
     }
     else

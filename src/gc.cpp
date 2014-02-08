@@ -1592,6 +1592,7 @@ void EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms)
     ts->ArgCount = -1;
     ts->DynamicStack = EmptyListObject;
     ts->Parameters = prms;
+    ts->NotifyObject = NoValueObject;
 
     if (VectorP(idxprms))
     {
@@ -1604,7 +1605,7 @@ void EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms)
         for (int_t idx = 0; idx < INDEX_PARAMETERS; idx++)
             ts->IndexParameters[idx] = NoValueObject;
 
-    ts->CtrlCNotify = 0;
+    ts->NotifyFlag = 0;
 }
 
 uint_t LeaveThread(FThreadState * ts)
