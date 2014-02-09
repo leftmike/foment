@@ -13,6 +13,8 @@ Foment
 #ifdef FOMENT_UNIX
 #include <pthread.h>
 #include <unistd.h>
+#include <termios.h>
+#include <stdlib.h>
 #endif // FOMENT_UNIX
 
 #include <stdio.h>
@@ -887,7 +889,13 @@ FObject MakeStringCInputPort(const char * s)
 
 #define MAXIMUM_POSSIBLE 512
 
+#ifdef FOMENT_WINDOWS
 typedef wchar_t FConCh;
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+typedef unsigned char FConCh;
+#endif // FOMENT_UNIX
 
 typedef struct
 {
@@ -895,6 +903,11 @@ typedef struct
     HANDLE InputHandle;
     HANDLE OutputHandle;
 #endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    int_t InputFd;
+    int_t OutputFd;
+#endif // FOMENT_UNIX
 
     uint_t Mode;
 
@@ -940,6 +953,25 @@ static void ResetConsoleInput(FConsoleInput * ci)
 
     ci->EscPrefix = 0;
     ci->EscBracketPrefix = 0;
+}
+
+static void ConNotifyThrow(FConsoleInput * ci)
+{
+    ci->RawUsed = 0;
+    ci->RawAvailable = 0;
+
+    ci->Used = 0;
+    ci->Available = 0;
+    ci->Point = 0;
+    ci->Possible = 0;
+    ci->PreviousPossible = 0;
+
+    ci->EscPrefix = 0;
+    ci->EscBracketPrefix = 0;
+
+    FNotifyThrow nt = {0};
+
+    throw nt;
 }
 
 #ifdef FOMENT_WINDOWS
@@ -990,23 +1022,7 @@ static uint_t ConReadRaw(FConsoleInput * ci, int_t wif)
                 return(0);
 
             if (GetThreadState()->NotifyFlag)
-            {
-                ci->RawUsed = 0;
-                ci->RawAvailable = 0;
-
-                ci->Used = 0;
-                ci->Available = 0;
-                ci->Point = 0;
-                ci->Possible = 0;
-                ci->PreviousPossible = 0;
-
-                ci->EscPrefix = 0;
-                ci->EscBracketPrefix = 0;
-
-                FNotifyThrow nt = {0};
-
-                throw nt;
-            }
+                ConNotifyThrow(ci);
         }
 
         DWORD ne;
@@ -1114,8 +1130,8 @@ static void ConCloseInput(FObject port)
 {
     FAssert(InputPortP(port) && ConsolePortP(port));
     
-    
-    
+    close(AsConsoleInput(port)->InputFd);
+    close(AsConsoleInput(port)->OutputFd);
     free(AsGenericPort(port)->InputContext);
 }
 
@@ -1123,43 +1139,130 @@ static uint_t ConReadRaw(FConsoleInput * ci, int_t wif)
 {
     FAssert(ci->RawAvailable == 0);
     
+    int_t ret;
     
+    if (wif == 0)
+    {
+        fd_set fds;
+        timeval tv;
+        
+        FD_ZERO(&fds);
+        FD_SET(0, &fds);
+        
+        tv.tv_sec = 0;
+        tv.tv_usec = 0;
+
+        ret = select(1, &fds, 0, 0, &tv);
+        if (ret <= 0)
+            return(1);
+    }
     
+    ret = read(0, ci->RawBuffer, sizeof(ci->RawBuffer));
+
+    if (ret < 1)
+        return(1);
+        
+    if (GetThreadState()->NotifyFlag)
+        ConNotifyThrow(ci);
+
+    if (ci->RawBuffer[0] == 13) // Carriage Return
+        ci->RawBuffer[0] = 10; // Linefeed
+    else if (ci->RawBuffer[0] == 127) // Backspace
+        ci->RawBuffer[0] = 8; // ctrl-h
+
+    ci->RawUsed = 0;
+    ci->RawAvailable = ret;
+
     return(1);
 }
 
 static void ConWriteCh(FConsoleInput * ci, FConCh ch)
 {
-    
-    
-}
-
-static void ConGetInfo(FConsoleInput * ci)
-{
-    
-    
-    
+    write(1, &ch, sizeof(ch));        
 }
 
 static void ConSetCursor(FConsoleInput * ci, int_t x, int_t y)
 {
+    char buf[16];
     
+    sprintf(buf, "\x1B[%d;%dH", (int32_t) y, (int32_t) x);
+    write(1, buf, strlen(buf));
+}
+
+static int_t ConGetCursor(int_t * x, int_t * y)
+{
+    char buf[16];
+    char * str;
+    int_t ret;
     
+    strcpy(buf, "\x1B[6n");
+    write(1, buf, strlen(buf));
+    ret = read(0, buf, sizeof(buf));
+    if (ret < 6)
+        return(0);
+
+    buf[ret] = 0;
+    if (buf[0] != 27 || buf[1] != '[')
+        return(0);
+
+    str = buf + 2;
+    if (strstr(str, ";") == 0)
+        return(0);
+
+    *strstr(str, ";") = 0;
+    *y = atoi(str);
+    str += strlen(str) + 1;
+    if (strstr(str, "R") == 0)
+        return(0);
+
+    *strstr(str, "R") = 0;
+    *x = atoi(str);
     
+    return(1);    
+}
+
+static void ConGetInfo(FConsoleInput * ci)
+{
+    int_t ret;
+    int_t x;
+    int_t y;
+
+    ((int_t) ret);
+
+    ret = ConGetCursor(&x, &y);
+
+    FAssert(ret != 0);
+
+    ci->StartX = x;
+    ci->StartY = y;
+    
+    ConSetCursor(ci, 999, 999);
+    ret = ConGetCursor(&x, &y);
+    
+    FAssert(ret != 0);
+
+    ci->Width = x;
+    ci->Height = y;
+    
+    ConSetCursor(ci, ci->StartX, ci->StartY);
 }
 
 static void ConWriteBuffer(FConsoleInput * ci)
 {
-    
-    
-    
+    ConSetCursor(ci, ci->StartX, ci->StartY);
+    write(1, ci->Buffer, ci->Possible);
 }
 
 static void ConFillExtra(FConsoleInput * ci)
 {
-    
-    
-    
+    int_t x = (ci->StartX + ci->Possible) % ci->Width;
+    int_t y = (ci->StartY + (ci->StartX + ci->Possible) / ci->Width);
+
+    ConSetCursor(ci, x, y);
+
+    FConCh ch = ' ';
+    for (int_t idx = ci->Possible; idx < ci->PreviousPossible; idx++)
+        write(1, &ch, 1);
 }
 #endif // FOMENT_UNIX
 
@@ -1382,6 +1485,18 @@ static uint_t ConEditLine(FConsoleInput * ci, int_t wif)
         {
             // delete-char
 
+#ifdef FOMENT_UNIX
+            if (ci->Possible == 0)
+            {
+                FAssert(ci->Point == 0);
+
+                ci->Buffer[ci->Possible] = 4;
+                ci->Possible += 1;
+
+                break;
+            }
+#endif // FOMENT_UNIX
+
             if (ci->Point < ci->Possible)
             {
                 DeleteCh(ci, ci->Point + 1);
@@ -1405,7 +1520,7 @@ static uint_t ConEditLine(FConsoleInput * ci, int_t wif)
                 rdf = 1;
             }
         }
-        else if (ch == 8) // Backspace
+        else if (ch == 8) // ctrl-h
         {
             // delete-backward-char
 
@@ -1454,6 +1569,7 @@ static uint_t ConEditLine(FConsoleInput * ci, int_t wif)
             
             
         }
+#ifdef FOMENT_WINDOWS
         else if (ch == 26) // ctrl-z
         {
             if (ci->Possible == 0)
@@ -1466,6 +1582,7 @@ static uint_t ConEditLine(FConsoleInput * ci, int_t wif)
                 break;
             }
         }
+#endif // FOMENT_WINDOWS
         else if (ch == 27) // Esc
             ci->EscPrefix = 1;
         else if (ch == ')')
@@ -1543,8 +1660,15 @@ static uint_t ConReadCh(FObject port, FCh * ch)
 
         FAssert(ci->Available > 0 && ci->Used < ci->Available);
 
-        if (ci->Buffer[ci->Used] == 26) // Ctrl-Z
+#ifdef FOMENT_WINDOWS
+        if (ci->Buffer[ci->Used] == 26) // ctrl-z
             return(0);
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+        if (ci->Buffer[ci->Used] == 4) // ctrl-d
+            return(0);
+#endif // FOMENT_UNIX
 
         *ch = ci->Buffer[ci->Used];
         ci->Used += 1;
@@ -1558,8 +1682,15 @@ static uint_t ConReadCh(FObject port, FCh * ch)
     if (ConReadRawCh(ci, ch) == 0)
         return(0);
 
-    if (*ch == 26) // Ctrl-Z
+#ifdef FOMENT_WINDOWS
+    if (*ch == 26) // ctrl-z
         return(0);
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    if (*ch == 4) // ctrl-d
+        return(0);
+#endif // FOMENT_UNIX
 
     if (ci->Mode & CONSOLE_INPUT_ECHO)
         ConWriteCh(ci, *ch);
@@ -1597,7 +1728,6 @@ static FObject MakeConsoleInputPort(FObject nam, HANDLE hin, HANDLE hout)
     FObject port = MakeTextualPort(nam, NoValueObject, ci, 0, ConCloseInput, 0, 0, ConReadCh,
             ConCharReadyP, 0);
     AsGenericPort(port)->Flags |= PORT_FLAG_CONSOLE;
-
     AsConsoleInput(port)->Mode = CONSOLE_INPUT_ECHO;
     ResetConsoleInput(AsConsoleInput(port));
 
@@ -1639,6 +1769,59 @@ static FObject MakeConsoleOutputPort(FObject nam, HANDLE h)
     return(port);
 }
 #endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+static FObject MakeConsoleInputPort(FObject nam, int_t ifd, int_t ofd)
+{
+    FConsoleInput * ci = (FConsoleInput *) malloc(sizeof(FConsoleInput));
+    if (ci == 0)
+        return(NoValueObject);
+
+    ci->InputFd = ifd;
+    ci->OutputFd = ofd;
+
+    FObject port = MakeTextualPort(nam, NoValueObject, ci, 0, ConCloseInput, 0, 0, ConReadCh,
+            ConCharReadyP, 0);
+    AsGenericPort(port)->Flags |= PORT_FLAG_CONSOLE;
+    AsConsoleInput(port)->Mode = CONSOLE_INPUT_ECHO;
+    ResetConsoleInput(AsConsoleInput(port));
+
+    return(port);
+}
+
+static void ConCloseOutput(FObject port)
+{
+    FAssert(TextualPortP(port));
+
+    close((int_t) AsGenericPort(port)->OutputContext);
+}
+
+static void ConFlushOutput(FObject port)
+{
+    // Nothing.
+}
+
+static void ConWriteString(FObject port, FCh * s, uint_t sl)
+{
+    FAssert(TextualPortP(port) && OutputPortOpenP(port));
+
+    FObject bv = ConvertStringToUtf8(s, sl, 0);
+
+    FAssert(BytevectorP(bv));
+
+    write((int_t) AsGenericPort(port)->OutputContext, AsBytevector(bv)->Vector,
+            BytevectorLength(bv));
+}
+
+static FObject MakeConsoleOutputPort(FObject nam, int_t ofd)
+{
+    FObject port = MakeTextualPort(nam, NoValueObject, 0, (void *) ofd, 0, ConCloseOutput,
+            ConFlushOutput, 0, 0, ConWriteString);
+    AsGenericPort(port)->Flags |= PORT_FLAG_CONSOLE;
+
+    return(port);
+}
+#endif // FOMENT_UNIX
 
 // ---- System interface ----
 
@@ -1970,6 +2153,38 @@ static FPrimitive * Primitives[] =
     &SetConsoleInputEchoPrimitive
 };
 
+#ifdef FOMENT_UNIX
+static struct termios OriginalTios;
+
+static void FomentAtExit(void)
+{
+    tcsetattr(0, TCSANOW, &OriginalTios);
+}
+
+static int_t SetupConsole()
+{
+    struct termios tios;
+
+    tcgetattr(0, &OriginalTios);
+    atexit(FomentAtExit);
+
+    tcgetattr(0, &tios);
+    tios.c_iflag = BRKINT;
+    tios.c_lflag = ISIG;
+    tios.c_cc[VMIN] = 1;
+    tios.c_cc[VTIME] = 1;
+    tcsetattr(0, TCSANOW, &tios);
+    
+    int_t x;
+    int_t y;
+    
+    if (ConGetCursor(&x, &y) == 0)
+        return(0);
+
+    return(1);
+}
+#endif // FOMENT_UNIX
+
 void SetupIO()
 {
 #ifdef FOMENT_WINDOWS
@@ -2002,8 +2217,17 @@ void SetupIO()
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-    R.StandardInput = MakeUtf8Port(MakeStdioPort(MakeStringC("standard-input"), stdin, 0));
-    R.StandardOutput = MakeUtf8Port(MakeStdioPort(MakeStringC("standard-output"), 0, stdout));
+    if (isatty(0) && isatty(1) && SetupConsole())
+    {
+        R.StandardInput = MakeConsoleInputPort(MakeStringC("console-input"), 0, 1);
+        R.StandardOutput = MakeConsoleOutputPort(MakeStringC("console-output"), 1);
+    }
+    else
+    {
+        R.StandardInput = MakeUtf8Port(MakeStdioPort(MakeStringC("standard-input"), stdin, 0));
+        R.StandardOutput = MakeUtf8Port(MakeStdioPort(MakeStringC("standard-output"), 0, stdout));
+    }
+
     R.StandardError = MakeUtf8Port(MakeStdioPort(MakeStringC("standard-error"), 0, stderr));
 #endif // FOMENT_UNIX
 
