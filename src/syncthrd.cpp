@@ -500,11 +500,7 @@ static void SetupSignals()
 #ifdef FOMENT_UNIX
 static void InterruptThread(FObject thrd)
 {
-    
-    
-    // pthread_kill(SIGUSR2) and do nothing signal handler for it
-    
-    
+    pthread_kill(AsThread(thrd)->Handle, SIGUSR2);
 }
 
 static void * SignalThread(void * ign)
@@ -527,6 +523,11 @@ static void * SignalThread(void * ign)
     return(0);
 }
 
+static void HandleSigUsr2(int sig)
+{
+    // Nothing.
+}
+
 static void SetupSignals()
 {
     sigset_t ss;
@@ -535,6 +536,8 @@ static void SetupSignals()
 
     sigprocmask(SIG_BLOCK, &ss, 0);
 
+    signal(SIGUSR2, HandleSigUsr2);
+    
     pthread_t pt;
     pthread_create(&pt, 0, SignalThread, 0);
 }

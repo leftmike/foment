@@ -20,9 +20,6 @@ To Do:
 -- console mode api (console-port? <obj>) (set-console-input-editline! <port> #t|#f)
 (set-console-input-echo! <port> #t|#f)
 
--- editline on unix
--- on unix use pthread_kill to pass signals between threads using SIGUSR2
-
 -- document:
 -- (with-notify-handler <handler> <thunk>)
 -- (set-ctrl-c-notify! exit|ignore|broadcast)

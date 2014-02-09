@@ -1140,8 +1140,8 @@ static uint_t ConReadRaw(FConsoleInput * ci, int_t wif)
     FAssert(ci->RawAvailable == 0);
     
     int_t ret;
-    
-    if (wif == 0)
+
+    for (;;)
     {
         fd_set fds;
         timeval tv;
@@ -1152,18 +1152,26 @@ static uint_t ConReadRaw(FConsoleInput * ci, int_t wif)
         tv.tv_sec = 0;
         tv.tv_usec = 0;
 
-        ret = select(1, &fds, 0, 0, &tv);
-        if (ret <= 0)
+        ret = select(1, &fds, 0, 0, wif ? 0 : &tv);
+        
+        if (ret > 0)
+            break;
+
+        if (ret == 0)
+        {
+            FAssert(wif == 0);
+
             return(1);
+        }
+
+        if (GetThreadState()->NotifyFlag)
+            ConNotifyThrow(ci);
     }
     
     ret = read(0, ci->RawBuffer, sizeof(ci->RawBuffer));
 
     if (ret < 1)
         return(1);
-        
-    if (GetThreadState()->NotifyFlag)
-        ConNotifyThrow(ci);
 
     if (ci->RawBuffer[0] == 13) // Carriage Return
         ci->RawBuffer[0] = 10; // Linefeed

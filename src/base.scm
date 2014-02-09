@@ -1122,8 +1122,8 @@
             (define (notify-handler obj)
                 (if (eq? obj 'sigint)
                     (abort-current-continuation 'repl-prompt
-                        (lambda ()
-                            (cond-expand (windows (display "^C") (newline)) (else (no-value)))))))
+                        (lambda () (display "^C") (newline)))))
+;                            (cond-expand (windows (display "^C") (newline)) (else (no-value)))))))
             (define (read-eval-write)
                 (let ((obj (read)))
                     (if (eof-object? obj)
