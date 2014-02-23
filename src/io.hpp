@@ -25,7 +25,7 @@ typedef struct
 
 #define AsBinaryPort(obj) ((FBinaryPort *) obj)
 
-FObject MakeBinaryPort(FObject nam, FObject obj, void * ictx, void * octx, FCloseInputFn cifn,
+FObject MakeBinaryPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn,
     FCloseOutputFn cofn, FFlushOutputFn fofn, FReadBytesFn rbfn, FByteReadyPFn brpfn,
     FWriteBytesFn wbfn);
 
@@ -48,7 +48,7 @@ typedef struct
 
 #define AsTextualPort(obj) ((FTextualPort *) obj)
 
-FObject MakeTextualPort(FObject nam, FObject obj, void * ictx, void * octx, FCloseInputFn cifn,
+FObject MakeTextualPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn,
     FCloseOutputFn cofn, FFlushOutputFn fofn, FReadChFn rcfn, FCharReadyPFn crpfn,
     FWriteStringFn wsfn);
 

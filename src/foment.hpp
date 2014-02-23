@@ -9,22 +9,12 @@ Goals:
 To Do:
 -- loading libraries: warn if a file matches library name, but does not contain a library
 -- allow multiple file extensions for libraries
--- Windows: $(APPDATA)\Foment
--- Unix: $(HOME)/.local/foment
+-- Windows: $(APPDATA)\Foment\Libraries
+-- Unix: $(HOME)/.local/foment/lib
 
 -- unify specifying the file encoding for OpenInputFile/OpenOutputFile and open-input-file etc.
 -- use an indexed parameter for both
 -- autodetect encoding: utf8 or utf16 byte order mark or encoding: like Guile and Chibi
-
--- document:
--- console mode api (console-port? <obj>) (set-console-input-editline! <port> #t|#f)
-(set-console-input-echo! <port> #t|#f)
-
--- document:
--- (with-notify-handler <handler> <thunk>)
--- (set-ctrl-c-notify! exit|ignore|broadcast)
-
--- history
 
 -- IO and GC
 -- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
@@ -509,8 +499,7 @@ typedef struct
     uint_t Flags;
     FObject Name;
     FObject Object;
-    void * InputContext;
-    void * OutputContext;
+    void * Context;
     FCloseInputFn CloseInputFn;
     FCloseOutputFn CloseOutputFn;
     FFlushOutputFn FlushOutputFn;

@@ -373,6 +373,8 @@
         make-utf16-port
         file-encoding
         want-identifiers
+        set-console-input-editline!
+        set-console-input-echo!
         with-continuation-mark
         call-with-continuation-prompt
         abort-current-continuation
@@ -1123,7 +1125,6 @@
                 (if (eq? obj 'sigint)
                     (abort-current-continuation 'repl-prompt
                         (lambda () (display "^C") (newline)))))
-;                            (cond-expand (windows (display "^C") (newline)) (else (no-value)))))))
             (define (read-eval-write)
                 (let ((obj (read)))
                     (if (eof-object? obj)
@@ -1151,21 +1152,6 @@
                 (lambda (abort) (abort)))
             (repl env exit))
 
-#|
-        (define (repl env exit)
-            (display "{") (write (%bytes-allocated)) (display "} =] ")
-            (guard (exc
-                ((error-object? exc) (write exc) (newline))
-                (else (display "unexpected exception object: ") (write exc) (newline)))
-                (let ((obj (read)))
-                    (if (eof-object? obj)
-                        (exit obj)
-                        (let ((ret (eval obj env)))
-                            (if (not (eq? ret (no-value)))
-                                (begin
-                                    (write ret) (newline)))))))
-            (repl env exit))
-|#
         (define (handle-command-line lst env)
             (if (not (null? lst))
                 (cond
@@ -1182,15 +1168,26 @@
                     (else
                         (handle-command-line (cdr lst) env)))))
 
+        (define history-file
+            (cond-expand (windows "foment.history") (else "~/.foment_history")))
+
         (define (interactive-thunk)
             (let ((env (interaction-environment)))
                 (handle-command-line (cdr (command-line)) env)
                 (call-with-current-continuation
                     (lambda (exit)
                         (set-ctrl-c-notify! 'broadcast)
-                        (if (console-port? (current-input-port))
-                            (set-console-input-editline! (current-input-port) #t))
-                        (repl env exit)))))
+                        (let ((port (current-input-port)))
+                            (if (console-port? port)
+                                (dynamic-wind
+                                    (lambda ()
+                                        (set-console-input-editline! port #t)
+                                        (%load-history port history-file))
+                                    (lambda ()
+                                        (repl env exit))
+                                    (lambda ()
+                                        (%save-history port history-file)))
+                                (repl env exit)))))))
 
         (%interactive-thunk interactive-thunk)
     ))

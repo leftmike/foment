@@ -2,6 +2,13 @@
 
 Foment
 
+-- MakeHandlePort for unix
+-- combine OpenInputFile and OpenBinaryInputFilePrimitive (and for Output too)
+-- replace StdioPort with BufferedPort
+-- add an optional PeekBytes to BinaryPorts
+-- get rid of commented sections
+-- sockets
+
 */
 
 #ifdef FOMENT_WINDOWS
@@ -38,7 +45,7 @@ FMakeEncodedPort MakeEncodedPort = MakeLatin1Port;
 
 // ---- Binary Ports ----
 
-FObject MakeBinaryPort(FObject nam, FObject obj, void * ictx, void * octx, FCloseInputFn cifn,
+FObject MakeBinaryPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn,
     FCloseOutputFn cofn, FFlushOutputFn fofn, FReadBytesFn rbfn, FByteReadyPFn brpfn,
     FWriteBytesFn wbfn)
 {
@@ -52,8 +59,7 @@ FObject MakeBinaryPort(FObject nam, FObject obj, void * ictx, void * octx, FClos
             | (cofn != 0 ? (PORT_FLAG_OUTPUT | PORT_FLAG_OUTPUT_OPEN) : 0);
     port->Generic.Name = nam;
     port->Generic.Object = obj;
-    port->Generic.InputContext = ictx;
-    port->Generic.OutputContext = octx;
+    port->Generic.Context = ctx;
     port->Generic.CloseInputFn = cifn;
     port->Generic.CloseOutputFn = cofn;
     port->Generic.FlushOutputFn = fofn;
@@ -137,33 +143,31 @@ static void StdioCloseInput(FObject port)
 {
     FAssert(BinaryPortP(port));
 
-    if (OutputPortOpenP(port) == 0
-            || AsGenericPort(port)->InputContext != AsGenericPort(port)->OutputContext)
-        fclose((FILE *) AsGenericPort(port)->InputContext);
+    if (OutputPortOpenP(port) == 0)
+        fclose((FILE *) AsGenericPort(port)->Context);
 }
 
 static void StdioCloseOutput(FObject port)
 {
     FAssert(BinaryPortP(port));
 
-    if (InputPortOpenP(port) == 0
-            || AsGenericPort(port)->InputContext != AsGenericPort(port)->OutputContext)
-        fclose((FILE *) AsGenericPort(port)->OutputContext);
+    if (InputPortOpenP(port) == 0)
+        fclose((FILE *) AsGenericPort(port)->Context);
 }
 
 static void StdioFlushOutput(FObject port)
 {
     FAssert(BinaryPortP(port) && OutputPortOpenP(port));
 
-    fflush((FILE *) AsGenericPort(port)->OutputContext);
+    fflush((FILE *) AsGenericPort(port)->Context);
 }
 
 static uint_t StdioReadBytes(FObject port, void * b, uint_t bl)
 {
     FAssert(BinaryPortP(port) && InputPortOpenP(port));
-    FAssert(AsGenericPort(port)->InputContext != 0);
+    FAssert(AsGenericPort(port)->Context != 0);
 
-    return(fread(b, 1, bl, (FILE *) AsGenericPort(port)->InputContext));
+    return(fread(b, 1, bl, (FILE *) AsGenericPort(port)->Context));
 }
 
 static int_t StdioByteReadyP(FObject port)
@@ -176,17 +180,99 @@ static int_t StdioByteReadyP(FObject port)
 static void StdioWriteBytes(FObject port, void * b, uint_t bl)
 {
     FAssert(BinaryPortP(port) && OutputPortOpenP(port));
-    FAssert(AsGenericPort(port)->OutputContext != 0);
+    FAssert(AsGenericPort(port)->Context != 0);
 
-    fwrite(b, 1, bl, (FILE *) AsGenericPort(port)->OutputContext);
+    fwrite(b, 1, bl, (FILE *) AsGenericPort(port)->Context);
 }
 
-static FObject MakeStdioPort(FObject nam, FILE * ifp, FILE * ofp)
+static FObject MakeStdioInputPort(FObject nam, FILE * fp)
 {
-    return(MakeBinaryPort(nam, NoValueObject, ifp, ofp, ifp ? StdioCloseInput : 0,
-            ofp ? StdioCloseOutput : 0, ofp ? StdioFlushOutput : 0, ifp ? StdioReadBytes : 0,
-            ifp ? StdioByteReadyP : 0, ofp ? StdioWriteBytes : 0));
+    return(MakeBinaryPort(nam, NoValueObject, fp, StdioCloseInput, 0, 0, StdioReadBytes,
+            StdioByteReadyP, 0));
 }
+
+static FObject MakeStdioOutputPort(FObject nam, FILE * fp)
+{
+    return(MakeBinaryPort(nam, NoValueObject, fp, 0, StdioCloseOutput, StdioFlushOutput, 0, 0,
+            StdioWriteBytes));
+}
+
+#ifdef FOMENT_WINDOWS
+static void HandleCloseInput(FObject port)
+{
+    FAssert(BinaryPortP(port));
+
+    if (OutputPortOpenP(port) == 0)
+        CloseHandle((HANDLE) AsGenericPort(port)->Context);
+}
+
+static void HandleCloseOutput(FObject port)
+{
+    FAssert(BinaryPortP(port));
+
+    if (InputPortOpenP(port) == 0)
+        CloseHandle((HANDLE) AsGenericPort(port)->Context);
+}
+
+static void HandleFlushOutput(FObject port)
+{
+    FAssert(BinaryPortP(port) && OutputPortOpenP(port));
+
+    FlushFileBuffers((HANDLE) AsGenericPort(port)->Context);
+}
+
+static uint_t HandleReadBytes(FObject port, void * b, uint_t bl)
+{
+    FAssert(BinaryPortP(port) && InputPortOpenP(port));
+
+    DWORD nr;
+
+    if (ReadFile((HANDLE) AsGenericPort(port)->Context, b, (DWORD) bl, &nr, 0) == 0)
+        return(0);
+
+    return(nr);
+}
+
+static int_t FileByteReadyP(FObject port)
+{
+    FAssert(BinaryPortP(port) && InputPortOpenP(port));
+
+    return(1);
+}
+
+static int_t PipeByteReadyP(FObject port)
+{
+    FAssert(BinaryPortP(port) && InputPortOpenP(port));
+
+
+    DWORD tba;
+
+    return(PeekNamedPipe((HANDLE) AsGenericPort(port)->Context, 0, 0, 0, &tba, 0) == 0
+            || tba > 0);
+}
+
+static void HandleWriteBytes(FObject port, void * b, uint_t bl)
+{
+    FAssert(BinaryPortP(port) && OutputPortOpenP(port));
+    FAssert(AsGenericPort(port)->Context != 0);
+
+    DWORD nw;
+
+    WriteFile((HANDLE) AsGenericPort(port)->Context, b, (DWORD) bl, &nw, 0);
+}
+
+static FObject MakeHandleInputPort(FObject nam, HANDLE h)
+{
+    return(MakeBinaryPort(nam, NoValueObject, h, HandleCloseInput, 0, 0, HandleReadBytes,
+            GetFileType(h) == FILE_TYPE_PIPE ? PipeByteReadyP : FileByteReadyP, 0));
+}
+
+static FObject MakeHandleOutputPort(FObject nam, HANDLE h)
+{
+    return(MakeBinaryPort(nam, NoValueObject, h, 0, HandleCloseOutput, HandleFlushOutput, 0, 0,
+            HandleWriteBytes));
+}
+#endif // FOMENT_WINDOWS
 
 static void BvinCloseInput(FObject port)
 {
@@ -200,7 +286,7 @@ static uint_t BvinReadBytes(FObject port, void * b, uint_t bl)
     FAssert(BinaryPortP(port) && InputPortOpenP(port));
 
     FObject bv = AsGenericPort(port)->Object;
-    uint_t bdx = (uint_t) AsGenericPort(port)->InputContext;
+    uint_t bdx = (uint_t) AsGenericPort(port)->Context;
 
     FAssert(BytevectorP(bv));
     FAssert(bdx <= BytevectorLength(bv));
@@ -212,7 +298,7 @@ static uint_t BvinReadBytes(FObject port, void * b, uint_t bl)
         bl = BytevectorLength(bv) - bdx;
 
     memcpy(b, AsBytevector(bv)->Vector + bdx, bl);
-    AsGenericPort(port)->InputContext = (void *) (bdx + bl);
+    AsGenericPort(port)->Context = (void *) (bdx + bl);
 
     return(bl);
 }
@@ -228,7 +314,7 @@ static FObject MakeBytevectorInputPort(FObject bv)
 {
     FAssert(BytevectorP(bv));
 
-    return(MakeBinaryPort(NoValueObject, bv, 0, 0, BvinCloseInput, 0, 0, BvinReadBytes,
+    return(MakeBinaryPort(NoValueObject, bv, 0, BvinCloseInput, 0, 0, BvinReadBytes,
             BvinByteReadyP, 0));
 }
 
@@ -283,7 +369,7 @@ static FObject GetOutputBytevector(FObject port)
 
 static FObject MakeBytevectorOutputPort()
 {
-    FObject port = MakeBinaryPort(NoValueObject, EmptyListObject, 0, 0, 0, BvoutCloseOutput,
+    FObject port = MakeBinaryPort(NoValueObject, EmptyListObject, 0, 0, BvoutCloseOutput,
             BvoutFlushOutput, 0, 0, BvoutWriteBytes);
     AsGenericPort(port)->Flags |= PORT_FLAG_BYTEVECTOR_OUTPUT;
     return(port);
@@ -291,7 +377,7 @@ static FObject MakeBytevectorOutputPort()
 
 // ---- Textual Ports ----
 
-FObject MakeTextualPort(FObject nam, FObject obj, void * ictx, void * octx, FCloseInputFn cifn,
+FObject MakeTextualPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn,
     FCloseOutputFn cofn, FFlushOutputFn fofn, FReadChFn rcfn, FCharReadyPFn crpfn,
     FWriteStringFn wsfn)
 {
@@ -305,8 +391,7 @@ FObject MakeTextualPort(FObject nam, FObject obj, void * ictx, void * octx, FClo
             | (cofn != 0 ? (PORT_FLAG_OUTPUT | PORT_FLAG_OUTPUT_OPEN) : 0);
     port->Generic.Name = nam;
     port->Generic.Object = obj;
-    port->Generic.InputContext = ictx;
-    port->Generic.OutputContext = octx;
+    port->Generic.Context = ctx;
     port->Generic.CloseInputFn = cifn;
     port->Generic.CloseOutputFn = cofn;
     port->Generic.FlushOutputFn = fofn;
@@ -550,7 +635,7 @@ static FObject MakeTranslatorPort(FObject port, FReadChFn rcfn, FCharReadyPFn cr
 {
     FAssert(BinaryPortP(port));
 
-    return(MakeTextualPort(AsGenericPort(port)->Name, port, 0, 0,
+    return(MakeTextualPort(AsGenericPort(port)->Name, port, 0,
             InputPortP(port) ? TranslatorCloseInput : 0,
             OutputPortP(port) ? TranslatorCloseOutput : 0,
             OutputPortP(port) ? TranslatorFlushOutput : 0,
@@ -720,19 +805,31 @@ FObject OpenInputFile(FObject fn)
 
     FAssert(BytevectorP(bv));
 
-    FILE * fp = _wfopen((FCh16 *) AsBytevector(bv)->Vector, L"rb");
+/*    FILE * fp = _wfopen((FCh16 *) AsBytevector(bv)->Vector, L"rb");
+    if (fp == 0)
+        return(NoValueObject);
+
+    return(MakeEncodedPort(MakeStdioInputPort(fn, fp)));*/
+
+    HANDLE h = CreateFileW((FCh16 *) AsBytevector(bv)->Vector, GENERIC_READ,
+            FILE_SHARE_READ | FILE_SHARE_WRITE, 0, OPEN_EXISTING, 0, 0);
+    if (h == INVALID_HANDLE_VALUE)
+        return(NoValueObject);
+
+    return(MakeEncodedPort(MakeHandleInputPort(fn, h)));
 #endif // FOMENT_WINDOWS
+
 #ifdef FOMENT_UNIX
     FObject bv = ConvertStringToUtf8(fn);
 
     FAssert(BytevectorP(bv));
 
     FILE * fp = fopen((const char *) AsBytevector(bv)->Vector, "rb");
-#endif // FOMENT_UNIX
     if (fp == 0)
         return(NoValueObject);
 
-    return(MakeEncodedPort(MakeStdioPort(fn, fp, 0)));
+    return(MakeEncodedPort(MakeStdioInputPort(fn, fp)));
+#endif // FOMENT_UNIX
 }
 
 FObject OpenOutputFile(FObject fn)
@@ -742,19 +839,31 @@ FObject OpenOutputFile(FObject fn)
 
     FAssert(BytevectorP(bv));
 
-    FILE * fp = _wfopen((FCh16 *) AsBytevector(bv)->Vector, L"wb");
+/*    FILE * fp = _wfopen((FCh16 *) AsBytevector(bv)->Vector, L"wb");
+    if (fp == 0)
+        return(NoValueObject);
+
+    return(MakeEncodedPort(MakeStdioOutputPort(fn, fp)));*/
+
+    HANDLE h = CreateFileW((FCh16 *) AsBytevector(bv)->Vector, GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE, 0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
+    if (h == INVALID_HANDLE_VALUE)
+        return(NoValueObject);
+
+    return(MakeEncodedPort(MakeHandleOutputPort(fn, h)));
 #endif // FOMENT_WINDOWS
+
 #ifdef FOMENT_UNIX
     FObject bv = ConvertStringToUtf8(fn);
 
     FAssert(BytevectorP(bv));
 
     FILE * fp = fopen((const char *) AsBytevector(bv)->Vector, "wb");
-#endif // FOMENT_UNIX
     if (fp == 0)
         return(NoValueObject);
 
-    return(MakeEncodedPort(MakeStdioPort(fn, 0, fp)));
+    return(MakeEncodedPort(MakeStdioOutputPort(fn, fp)));
+#endif // FOMENT_UNIX
 }
 
 static void SinCloseInput(FObject port)
@@ -769,7 +878,7 @@ static uint_t SinReadCh(FObject port, FCh * ch)
     FAssert(TextualPortP(port) && InputPortOpenP(port));
 
     FObject s = AsGenericPort(port)->Object;
-    uint_t sdx = (uint_t) AsGenericPort(port)->InputContext;
+    uint_t sdx = (uint_t) AsGenericPort(port)->Context;
 
     FAssert(StringP(s));
     FAssert(sdx <= StringLength(s));
@@ -778,7 +887,7 @@ static uint_t SinReadCh(FObject port, FCh * ch)
         return(0);
 
     *ch = AsString(s)->String[sdx];
-    AsGenericPort(port)->InputContext = (void *) (sdx + 1);
+    AsGenericPort(port)->Context = (void *) (sdx + 1);
 
     return(1);
 }
@@ -792,7 +901,7 @@ FObject MakeStringInputPort(FObject s)
 {
     FAssert(StringP(s));
 
-    return(MakeTextualPort(NoValueObject, s, 0, 0, SinCloseInput, 0, 0, SinReadCh, SinCharReadyP,
+    return(MakeTextualPort(NoValueObject, s, 0, SinCloseInput, 0, 0, SinReadCh, SinCharReadyP,
             0));
 }
 
@@ -847,7 +956,7 @@ FObject GetOutputString(FObject port)
 
 FObject MakeStringOutputPort()
 {
-    FObject port = MakeTextualPort(NoValueObject, EmptyListObject, 0, 0, 0, SoutCloseOutput,
+    FObject port = MakeTextualPort(NoValueObject, EmptyListObject, 0, 0, SoutCloseOutput,
             SoutFlushOutput, 0, 0, SoutWriteString);
     AsGenericPort(port)->Flags |= PORT_FLAG_STRING_OUTPUT;
     return(port);
@@ -862,13 +971,13 @@ static uint_t CinReadCh(FObject port, FCh * ch)
 {
     FAssert(TextualPortP(port));
 
-    char * s = (char *) AsGenericPort(port)->InputContext;
+    char * s = (char *) AsGenericPort(port)->Context;
 
     if (*s == 0)
         return(0);
 
     *ch = *s;
-    AsGenericPort(port)->InputContext = (void *) (s + 1);
+    AsGenericPort(port)->Context = (void *) (s + 1);
 
     return(1);
 }
@@ -880,14 +989,17 @@ static int_t CinCharReadyP(FObject port)
 
 FObject MakeStringCInputPort(const char * s)
 {
-    return(MakeTextualPort(NoValueObject, NoValueObject, (void *) s, 0, CinCloseInput, 0, 0,
+    return(MakeTextualPort(NoValueObject, NoValueObject, (void *) s, CinCloseInput, 0, 0,
             CinReadCh, CinCharReadyP, 0));
 }
+
+// ---- Console Input and Output ----
 
 #define CONSOLE_INPUT_EDITLINE 0x00000001
 #define CONSOLE_INPUT_ECHO     0x00000002
 
-#define MAXIMUM_POSSIBLE 512
+#define MAXIMUM_POSSIBLE 4096
+#define MAXIMUM_HISTORY 64
 
 #ifdef FOMENT_WINDOWS
 typedef wchar_t FConCh;
@@ -896,6 +1008,12 @@ typedef wchar_t FConCh;
 #ifdef FOMENT_UNIX
 typedef unsigned char FConCh;
 #endif // FOMENT_UNIX
+
+typedef struct
+{
+    FConCh * String;
+    int_t Length;
+} FHistory;
 
 typedef struct
 {
@@ -917,7 +1035,7 @@ typedef struct
     int_t RawAvailable; // Total characters available.
     FConCh RawBuffer[4];
 
-    // Edit Mode
+    // EditLine Mode
 
     int_t Used; // Number of available characters which have been used.
     int_t Available; // Total characters available.
@@ -936,9 +1054,13 @@ typedef struct
     int16_t Height;
 
     FConCh Buffer[MAXIMUM_POSSIBLE];
+
+    FHistory History[MAXIMUM_HISTORY];
+    int_t HistoryEnd;
+    int_t HistoryCurrent;
 } FConsoleInput;
 
-#define AsConsoleInput(port) ((FConsoleInput *) (AsGenericPort(port)->InputContext))
+#define AsConsoleInput(port) ((FConsoleInput *) (AsGenericPort(port)->Context))
 
 static void ResetConsoleInput(FConsoleInput * ci)
 {
@@ -955,6 +1077,202 @@ static void ResetConsoleInput(FConsoleInput * ci)
     ci->EscBracketPrefix = 0;
 }
 
+static FConsoleInput * MakeConsoleInput()
+{
+    FConsoleInput * ci = (FConsoleInput *) malloc(sizeof(FConsoleInput));
+    if (ci == 0)
+        return(0);
+
+    ResetConsoleInput(ci);
+    ci->HistoryEnd = 0;
+    ci->HistoryCurrent = 0;
+
+    for (int_t idx = 0; idx < MAXIMUM_HISTORY; idx++)
+        ci->History[idx].String = 0;
+
+    return(ci);
+}
+
+static void ConFreeHistory(FConsoleInput * ci)
+{
+    for (int_t idx = 0; idx < MAXIMUM_HISTORY; idx++)
+        if (ci->History[idx].String != 0)
+        {
+            free(ci->History[idx].String);
+            ci->History[idx].String = 0;
+        }
+}
+
+static void FreeConsoleInput(FConsoleInput * ci)
+{
+    ConFreeHistory(ci);
+    free(ci);
+}
+
+static int_t NextHistory(int_t hdx)
+{
+    return(hdx == MAXIMUM_HISTORY - 1 ? 0 : hdx + 1);
+}
+
+static int_t PreviousHistory(int_t hdx)
+{
+    return(hdx == 0 ? MAXIMUM_HISTORY - 1 : hdx - 1);
+}
+
+static void ConAddHistory(FConsoleInput * ci, FConCh * b, int_t bl)
+{
+    FConCh * s = (FConCh *) malloc(sizeof(FConCh) * bl);
+    if (s != 0)
+    {
+        memcpy(s, b, bl * sizeof(FConCh));
+
+        if (ci->History[ci->HistoryEnd].String != 0)
+            free(ci->History[ci->HistoryEnd].String);
+
+        ci->History[ci->HistoryEnd].String = s;
+        ci->History[ci->HistoryEnd].Length = bl;
+
+        ci->HistoryEnd = NextHistory(ci->HistoryEnd);
+    }
+}
+
+static void ConAddHistory(FConsoleInput * ci)
+{
+    ConAddHistory(ci, ci->Buffer, ci->Possible);
+}
+
+static void ConHistoryMove(FConsoleInput * ci, int_t hdx)
+{
+    if (ci->History[hdx].String != 0)
+    {
+        FAssert(ci->History[hdx].Length < MAXIMUM_POSSIBLE);
+
+        memcpy(ci->Buffer, ci->History[hdx].String, ci->History[hdx].Length * sizeof(FConCh));
+        ci->Possible = ci->History[hdx].Length;
+        ci->Point = ci->History[hdx].Length;
+
+        ci->HistoryCurrent = hdx;
+    }
+}
+
+static void ConHistoryPrevious(FConsoleInput * ci)
+{
+    FAssert(ci->HistoryCurrent >= 0 && ci->HistoryCurrent < MAXIMUM_HISTORY);
+
+    ConHistoryMove(ci, PreviousHistory(ci->HistoryCurrent));
+}
+
+static void ConHistoryNext(FConsoleInput * ci)
+{
+    FAssert(ci->HistoryCurrent >= 0 && ci->HistoryCurrent < MAXIMUM_HISTORY);
+
+    ConHistoryMove(ci, NextHistory(ci->HistoryCurrent));
+}
+
+static FObject ConHistory(FConsoleInput * ci)
+{
+    FObject lst = EmptyListObject;
+    int_t hdx = ci->HistoryEnd;
+
+    for (;;)
+    {
+        if (ci->History[hdx].String != 0)
+        {
+#ifdef FOMENT_WINDOWS
+            FAssert(sizeof(FCh16) == sizeof(FConCh));
+
+            lst = MakePair(ConvertUtf16ToString(ci->History[hdx].String, ci->History[hdx].Length),
+                    lst);
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+            FAssert(sizeof(FCh8) == sizeof(FConCh));
+
+            lst = MakePair(ConvertUtf8ToString(ci->History[hdx].String, ci->History[hdx].Length),
+                    lst);
+#endif // FOMENT_UNIX
+        }
+
+        hdx = PreviousHistory(hdx);
+        if (hdx == ci->HistoryEnd)
+            break;
+    }
+
+    return(lst);
+}
+
+static void ConSetHistory(FConsoleInput * ci, FObject lst)
+{
+    ConFreeHistory(ci);
+    ci->HistoryEnd = 0;
+
+    FObject frm = lst;
+
+    for (;;)
+    {
+        if (lst == EmptyListObject)
+            break;
+
+        if (PairP(lst) == 0 || StringP(First(lst)) == 0)
+            RaiseExceptionC(R.Assertion, "set-console-input-history!",
+                    "expected a list of strings", List(frm, lst));
+
+        FObject bv;
+
+#ifdef FOMENT_WINDOWS
+        FAssert(sizeof(FCh16) == sizeof(FConCh));
+
+        bv = ConvertStringToUtf16(AsString(First(lst))->String, StringLength(First(lst)), 0);
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+        FAssert(sizeof(FCh8) == sizeof(FConCh));
+
+        bv = ConvertStringToUtf8(AsString(First(lst))->String, StringLength(First(lst)), 0);
+#endif // FOMENT_UNIX
+
+        FAssert(BytevectorP(bv));
+
+        int_t bl = BytevectorLength(bv) / sizeof(FConCh);
+        if (bl >= MAXIMUM_POSSIBLE)
+            bl = MAXIMUM_POSSIBLE - 1;
+
+        ConAddHistory(ci, (FConCh *) AsBytevector(bv)->Vector, bl);
+
+        lst = Rest(lst);
+    }
+
+    ci->HistoryCurrent = ci->HistoryEnd;
+}
+
+static void ConSaveHistory(FConsoleInput * ci, FObject fn)
+{
+    try
+    {
+        FObject port = OpenOutputFile(fn);
+        WriteSimple(port, ConHistory(ci), 0);
+        CloseOutput(port);
+    }
+    catch (FObject obj)
+    {
+        ((FObject) obj);
+    }
+}
+
+static void ConLoadHistory(FConsoleInput * ci, FObject fn)
+{
+    try
+    {
+        FObject port = OpenInputFile(fn);
+        ConSetHistory(ci, Read(port));
+        CloseInput(port);
+    }
+    catch (FObject obj)
+    {
+        ((FObject) obj);
+    }
+}
+
 static void ConNotifyThrow(FConsoleInput * ci)
 {
     ci->RawUsed = 0;
@@ -969,6 +1287,8 @@ static void ConNotifyThrow(FConsoleInput * ci)
     ci->EscPrefix = 0;
     ci->EscBracketPrefix = 0;
 
+    ci->HistoryCurrent = ci->HistoryEnd;
+
     FNotifyThrow nt = {0};
 
     throw nt;
@@ -982,7 +1302,7 @@ static void ConCloseInput(FObject port)
     CloseHandle(AsConsoleInput(port)->InputHandle);
     CloseHandle(AsConsoleInput(port)->OutputHandle);
 
-    free(AsGenericPort(port)->InputContext);
+    FreeConsoleInput(AsConsoleInput(port));
 }
 
 static uint_t ConRawEsc(FConsoleInput * ci, FConCh ch1, FConCh ch2)
@@ -1129,31 +1449,32 @@ static void ConFillExtra(FConsoleInput * ci)
 static void ConCloseInput(FObject port)
 {
     FAssert(InputPortP(port) && ConsolePortP(port));
-    
+
     close(AsConsoleInput(port)->InputFd);
     close(AsConsoleInput(port)->OutputFd);
-    free(AsGenericPort(port)->InputContext);
+
+    FreeConsoleInput(AsConsoleInput(port));
 }
 
 static uint_t ConReadRaw(FConsoleInput * ci, int_t wif)
 {
     FAssert(ci->RawAvailable == 0);
-    
+
     int_t ret;
 
     for (;;)
     {
         fd_set fds;
         timeval tv;
-        
+
         FD_ZERO(&fds);
         FD_SET(0, &fds);
-        
+
         tv.tv_sec = 0;
         tv.tv_usec = 0;
 
         ret = select(1, &fds, 0, 0, wif ? 0 : &tv);
-        
+
         if (ret > 0)
             break;
 
@@ -1167,7 +1488,7 @@ static uint_t ConReadRaw(FConsoleInput * ci, int_t wif)
         if (GetThreadState()->NotifyFlag)
             ConNotifyThrow(ci);
     }
-    
+
     ret = read(0, ci->RawBuffer, sizeof(ci->RawBuffer));
 
     if (ret < 1)
@@ -1186,13 +1507,13 @@ static uint_t ConReadRaw(FConsoleInput * ci, int_t wif)
 
 static void ConWriteCh(FConsoleInput * ci, FConCh ch)
 {
-    write(1, &ch, sizeof(ch));        
+    write(1, &ch, sizeof(ch));
 }
 
 static void ConSetCursor(FConsoleInput * ci, int_t x, int_t y)
 {
     char buf[16];
-    
+
     sprintf(buf, "\x1B[%d;%dH", (int32_t) y, (int32_t) x);
     write(1, buf, strlen(buf));
 }
@@ -1202,7 +1523,7 @@ static int_t ConGetCursor(int_t * x, int_t * y)
     char buf[16];
     char * str;
     int_t ret;
-    
+
     strcpy(buf, "\x1B[6n");
     write(1, buf, strlen(buf));
     ret = read(0, buf, sizeof(buf));
@@ -1225,8 +1546,8 @@ static int_t ConGetCursor(int_t * x, int_t * y)
 
     *strstr(str, "R") = 0;
     *x = atoi(str);
-    
-    return(1);    
+
+    return(1);
 }
 
 static void ConGetInfo(FConsoleInput * ci)
@@ -1243,15 +1564,15 @@ static void ConGetInfo(FConsoleInput * ci)
 
     ci->StartX = x;
     ci->StartY = y;
-    
+
     ConSetCursor(ci, 999, 999);
     ret = ConGetCursor(&x, &y);
-    
+
     FAssert(ret != 0);
 
     ci->Width = x;
     ci->Height = y;
-    
+
     ConSetCursor(ci, ci->StartX, ci->StartY);
 }
 
@@ -1439,17 +1760,17 @@ static uint_t ConEditLine(FConsoleInput * ci, int_t wif)
 
             if (ch == 'A') // Up Arrow
             {
-                // previous-line
-                
-                
-                
+                // previous-history
+
+                ConHistoryPrevious(ci);
+                rdf = 1;
             }
             else if (ch == 'B') // Down Arrow
             {
-                // next-line
-                
-                
-                
+                // next-history
+
+                ConHistoryNext(ci);
+                rdf = 1;
             }
             else if (ch == 'C') // Right Arrow
             {
@@ -1543,6 +1864,9 @@ static uint_t ConEditLine(FConsoleInput * ci, int_t wif)
             ci->Point = ci->Possible;
             Redraw(ci);
 
+            if (ci->Possible > 0)
+                ConAddHistory(ci);
+
             InsertCh(ci, 10); // Linefeed
             ConWriteCh(ci, 10);
 
@@ -1565,17 +1889,17 @@ static uint_t ConEditLine(FConsoleInput * ci, int_t wif)
         }
         else if (ch == 14) // ctrl-n
         {
-            // next-line
-            
-            
-            
+            // next-history
+
+            ConHistoryNext(ci);
+            rdf = 1;
         }
         else if (ch == 16) // ctrl-p
         {
-            // previous-line
-            
-            
-            
+            // previous-history
+
+            ConHistoryPrevious(ci);
+            rdf = 1;
         }
 #ifdef FOMENT_WINDOWS
         else if (ch == 26) // ctrl-z
@@ -1648,6 +1972,8 @@ static uint_t ConEditLine(FConsoleInput * ci, int_t wif)
 
     ci->EscPrefix = 0;
     ci->EscBracketPrefix = 0;
+
+    ci->HistoryCurrent = ci->HistoryEnd;
 
     return(1);
 }
@@ -1726,18 +2052,17 @@ static int_t ConCharReadyP(FObject port)
 #ifdef FOMENT_WINDOWS
 static FObject MakeConsoleInputPort(FObject nam, HANDLE hin, HANDLE hout)
 {
-    FConsoleInput * ci = (FConsoleInput *) malloc(sizeof(FConsoleInput));
+    FConsoleInput * ci = MakeConsoleInput();
     if (ci == 0)
         return(NoValueObject);
 
     ci->InputHandle = hin;
     ci->OutputHandle = hout;
 
-    FObject port = MakeTextualPort(nam, NoValueObject, ci, 0, ConCloseInput, 0, 0, ConReadCh,
+    FObject port = MakeTextualPort(nam, NoValueObject, ci, ConCloseInput, 0, 0, ConReadCh,
             ConCharReadyP, 0);
     AsGenericPort(port)->Flags |= PORT_FLAG_CONSOLE;
     AsConsoleInput(port)->Mode = CONSOLE_INPUT_ECHO;
-    ResetConsoleInput(AsConsoleInput(port));
 
     return(port);
 }
@@ -1746,7 +2071,7 @@ static void ConCloseOutput(FObject port)
 {
     FAssert(TextualPortP(port));
 
-    CloseHandle((HANDLE) AsGenericPort(port)->OutputContext);
+    CloseHandle((HANDLE) AsGenericPort(port)->Context);
 }
 
 static void ConFlushOutput(FObject port)
@@ -1763,14 +2088,14 @@ static void ConWriteString(FObject port, FCh * s, uint_t sl)
 
     FAssert(BytevectorP(bv));
 
-    WriteConsoleW((HANDLE) AsGenericPort(port)->OutputContext,
+    WriteConsoleW((HANDLE) AsGenericPort(port)->Context,
             (FCh16 *) AsBytevector(bv)->Vector, (DWORD) BytevectorLength(bv) / sizeof(FCh16),
             &nc, 0);
 }
 
 static FObject MakeConsoleOutputPort(FObject nam, HANDLE h)
 {
-    FObject port = MakeTextualPort(nam, NoValueObject, 0, h, 0, ConCloseOutput, ConFlushOutput, 0,
+    FObject port = MakeTextualPort(nam, NoValueObject, h, 0, ConCloseOutput, ConFlushOutput, 0,
             0, ConWriteString);
     AsGenericPort(port)->Flags |= PORT_FLAG_CONSOLE;
 
@@ -1781,18 +2106,17 @@ static FObject MakeConsoleOutputPort(FObject nam, HANDLE h)
 #ifdef FOMENT_UNIX
 static FObject MakeConsoleInputPort(FObject nam, int_t ifd, int_t ofd)
 {
-    FConsoleInput * ci = (FConsoleInput *) malloc(sizeof(FConsoleInput));
+    FConsoleInput * ci = MakeConsoleInput();
     if (ci == 0)
         return(NoValueObject);
 
     ci->InputFd = ifd;
     ci->OutputFd = ofd;
 
-    FObject port = MakeTextualPort(nam, NoValueObject, ci, 0, ConCloseInput, 0, 0, ConReadCh,
+    FObject port = MakeTextualPort(nam, NoValueObject, ci, ConCloseInput, 0, 0, ConReadCh,
             ConCharReadyP, 0);
     AsGenericPort(port)->Flags |= PORT_FLAG_CONSOLE;
     AsConsoleInput(port)->Mode = CONSOLE_INPUT_ECHO;
-    ResetConsoleInput(AsConsoleInput(port));
 
     return(port);
 }
@@ -1801,7 +2125,7 @@ static void ConCloseOutput(FObject port)
 {
     FAssert(TextualPortP(port));
 
-    close((int_t) AsGenericPort(port)->OutputContext);
+    close((int_t) AsGenericPort(port)->Context);
 }
 
 static void ConFlushOutput(FObject port)
@@ -1817,13 +2141,13 @@ static void ConWriteString(FObject port, FCh * s, uint_t sl)
 
     FAssert(BytevectorP(bv));
 
-    write((int_t) AsGenericPort(port)->OutputContext, AsBytevector(bv)->Vector,
+    write((int_t) AsGenericPort(port)->Context, AsBytevector(bv)->Vector,
             BytevectorLength(bv));
 }
 
 static FObject MakeConsoleOutputPort(FObject nam, int_t ofd)
 {
-    FObject port = MakeTextualPort(nam, NoValueObject, 0, (void *) ofd, 0, ConCloseOutput,
+    FObject port = MakeTextualPort(nam, NoValueObject, (void *) ofd, 0, ConCloseOutput,
             ConFlushOutput, 0, 0, ConWriteString);
     AsGenericPort(port)->Flags |= PORT_FLAG_CONSOLE;
 
@@ -1941,20 +2265,34 @@ Define("open-binary-input-file", OpenBinaryInputFilePrimitive)(int_t argc, FObje
 
     FAssert(BytevectorP(bv));
 
-    FILE * fp = _wfopen((FCh16 *) AsBytevector(bv)->Vector, L"rb");
+/*    FILE * fp = _wfopen((FCh16 *) AsBytevector(bv)->Vector, L"rb");
+    if (fp == 0)
+        RaiseExceptionC(R.Assertion, "open-binary-input-file",
+                "unable to open file for input", List(argv[0]));
+
+    return(MakeStdioInputPort(argv[0], fp));*/
+
+    HANDLE h = CreateFileW((FCh16 *) AsBytevector(bv)->Vector, GENERIC_READ,
+            FILE_SHARE_READ | FILE_SHARE_WRITE, 0, OPEN_EXISTING, 0, 0);
+    if (h == INVALID_HANDLE_VALUE)
+        RaiseExceptionC(R.Assertion, "open-binary-input-file",
+                "unable to open file for input", List(argv[0]));
+
+    return(MakeHandleInputPort(argv[0], h));
 #endif // FOMENT_WINDOWS
+
 #ifdef FOMENT_UNIX
     FObject bv = ConvertStringToUtf8(argv[0]);
 
     FAssert(BytevectorP(bv));
 
     FILE * fp = fopen((const char *) AsBytevector(bv)->Vector, "rb");
-#endif // FOMENT_UNIX
     if (fp == 0)
         RaiseExceptionC(R.Assertion, "open-binary-input-file",
                 "unable to open file for input", List(argv[0]));
 
-    return(MakeStdioPort(argv[0], fp, 0));
+    return(MakeStdioInputPort(argv[0], fp));
+#endif // FOMENT_UNIX
 }
 
 Define("open-binary-output-file", OpenBinaryOutputFilePrimitive)(int_t argc, FObject argv[])
@@ -1967,20 +2305,34 @@ Define("open-binary-output-file", OpenBinaryOutputFilePrimitive)(int_t argc, FOb
 
     FAssert(BytevectorP(bv));
 
-    FILE * fp = _wfopen((FCh16 *) AsBytevector(bv)->Vector, L"wb");
+/*    FILE * fp = _wfopen((FCh16 *) AsBytevector(bv)->Vector, L"wb");
+    if (fp == 0)
+        RaiseExceptionC(R.Assertion, "open-binary-output-file",
+                "unable to open file for output", List(argv[0]));
+
+    return(MakeStdioOutputPort(argv[0], fp));*/
+
+    HANDLE h = CreateFileW((FCh16 *) AsBytevector(bv)->Vector, GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE, 0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
+    if (h == INVALID_HANDLE_VALUE)
+        RaiseExceptionC(R.Assertion, "open-binary-output-file",
+                "unable to open file for output", List(argv[0]));
+
+    return(MakeHandleOutputPort(argv[0], h));
 #endif // FOMENT_WINDOWS
+
 #ifdef FOMENT_UNIX
     FObject bv = ConvertStringToUtf8(argv[0]);
 
     FAssert(BytevectorP(bv));
 
     FILE * fp = fopen((const char *) AsBytevector(bv)->Vector, "wb");
-#endif // FOMENT_UNIX
     if (fp == 0)
         RaiseExceptionC(R.Assertion, "open-binary-output-file",
                 "unable to open file for output", List(argv[0]));
 
-    return(MakeStdioPort(argv[0], 0, fp));
+    return(MakeStdioOutputPort(argv[0], fp));
+#endif // FOMENT_UNIX
 }
 
 Define("close-port", ClosePortPrimitive)(int_t argc, FObject argv[])
@@ -2130,6 +2482,26 @@ Define("set-console-input-echo!", SetConsoleInputEchoPrimitive)(int_t argc, FObj
     return(NoValueObject);
 }
 
+Define("%save-history", SaveHistoryPrimitive)(int_t argc, FObject argv[])
+{
+    FMustBe(argc == 2);
+    FMustBe(ConsolePortP(argv[0]) && InputPortOpenP(argv[0]));
+    FMustBe(StringP(argv[1]));
+
+    ConSaveHistory(AsConsoleInput(argv[0]), argv[1]);
+    return(NoValueObject);
+}
+
+Define("%load-history", LoadHistoryPrimitive)(int_t argc, FObject argv[])
+{
+    FMustBe(argc == 2);
+    FMustBe(ConsolePortP(argv[0]) && InputPortOpenP(argv[0]));
+    FMustBe(StringP(argv[1]));
+
+    ConLoadHistory(AsConsoleInput(argv[0]), argv[1]);
+    return(NoValueObject);
+}
+
 static FPrimitive * Primitives[] =
 {
     &FileExistsPPrimitive,
@@ -2158,7 +2530,9 @@ static FPrimitive * Primitives[] =
     &WantIdentifiersPrimitive,
     &ConsolePortPPrimitive,
     &SetConsoleInputEditlinePrimitive,
-    &SetConsoleInputEchoPrimitive
+    &SetConsoleInputEchoPrimitive,
+    &SaveHistoryPrimitive,
+    &LoadHistoryPrimitive
 };
 
 #ifdef FOMENT_UNIX
@@ -2199,29 +2573,37 @@ void SetupIO()
     HANDLE hin = GetStdHandle(STD_INPUT_HANDLE);
     HANDLE hout = GetStdHandle(STD_OUTPUT_HANDLE);
     HANDLE herr = GetStdHandle(STD_ERROR_HANDLE);
-    DWORD imd, omd;
 
-    if (hin != INVALID_HANDLE_VALUE && hout != INVALID_HANDLE_VALUE
-            && GetConsoleMode(hin, &imd) != 0 && GetConsoleMode(hout, &omd) != 0)
+    if (hin != INVALID_HANDLE_VALUE && hout != INVALID_HANDLE_VALUE)
     {
-        SetConsoleMode(hin, ENABLE_PROCESSED_INPUT | ENABLE_WINDOW_INPUT);
+        DWORD imd, omd;
 
-        R.StandardInput = MakeConsoleInputPort(MakeStringC("console-input"), hin, hout);
-        R.StandardOutput = MakeConsoleOutputPort(MakeStringC("console-output"), hout);
+        if (GetConsoleMode(hin, &imd) != 0 && GetConsoleMode(hout, &omd) != 0)
+        {
+            SetConsoleMode(hin, ENABLE_PROCESSED_INPUT | ENABLE_WINDOW_INPUT);
+
+            R.StandardInput = MakeConsoleInputPort(MakeStringC("console-input"), hin, hout);
+            R.StandardOutput = MakeConsoleOutputPort(MakeStringC("console-output"), hout);
+        }
+        else
+        {
+            R.StandardInput = MakeLatin1Port(MakeHandleInputPort(MakeStringC("standard-input"),
+                    hin));
+            R.StandardOutput = MakeLatin1Port(MakeHandleOutputPort(MakeStringC("standard-output"),
+                    hout));
+        }
     }
-    else
+
+    if (herr != INVALID_HANDLE_VALUE)
     {
-        R.StandardInput = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-input"), stdin, 0));
-        R.StandardOutput = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-output"), 0,
-                stdout));
+        DWORD emd;
+
+        if (GetConsoleMode(herr, &emd) != 0)
+            R.StandardError = MakeConsoleOutputPort(MakeStringC("console-output"), herr);
+        else
+            R.StandardError = MakeLatin1Port(MakeHandleOutputPort(MakeStringC("standard-error"),
+                    herr));
     }
-
-    DWORD emd;
-
-    if (herr != INVALID_HANDLE_VALUE && GetConsoleMode(herr, &emd) != 0)
-        R.StandardError = MakeConsoleOutputPort(MakeStringC("console-output"), herr);
-    else
-        R.StandardError = MakeLatin1Port(MakeStdioPort(MakeStringC("standard-error"), 0, stderr));
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
@@ -2232,11 +2614,12 @@ void SetupIO()
     }
     else
     {
-        R.StandardInput = MakeUtf8Port(MakeStdioPort(MakeStringC("standard-input"), stdin, 0));
-        R.StandardOutput = MakeUtf8Port(MakeStdioPort(MakeStringC("standard-output"), 0, stdout));
+        R.StandardInput = MakeUtf8Port(MakeStdioInputPort(MakeStringC("standard-input"), stdin));
+        R.StandardOutput = MakeUtf8Port(MakeStdioOutputPort(MakeStringC("standard-output"),
+                stdout));
     }
 
-    R.StandardError = MakeUtf8Port(MakeStdioPort(MakeStringC("standard-error"), 0, stderr));
+    R.StandardError = MakeUtf8Port(MakeStdioOutputPort(MakeStringC("standard-error"), stderr));
 #endif // FOMENT_UNIX
 
     R.QuoteSymbol = StringCToSymbol("quote");
