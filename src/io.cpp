@@ -22,6 +22,9 @@ Foment
 #include <unistd.h>
 #include <termios.h>
 #include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #endif // FOMENT_UNIX
 
 #include <stdio.h>
@@ -244,7 +247,6 @@ static int_t PipeByteReadyP(FObject port)
 {
     FAssert(BinaryPortP(port) && InputPortOpenP(port));
 
-
     DWORD tba;
 
     return(PeekNamedPipe((HANDLE) AsGenericPort(port)->Context, 0, 0, 0, &tba, 0) == 0
@@ -254,7 +256,6 @@ static int_t PipeByteReadyP(FObject port)
 static void HandleWriteBytes(FObject port, void * b, uint_t bl)
 {
     FAssert(BinaryPortP(port) && OutputPortOpenP(port));
-    FAssert(AsGenericPort(port)->Context != 0);
 
     DWORD nw;
 
@@ -273,6 +274,68 @@ static FObject MakeHandleOutputPort(FObject nam, HANDLE h)
             HandleWriteBytes));
 }
 #endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+static void FileDescCloseInput(FObject port)
+{
+    FAssert(BinaryPortP(port));
+
+    if (OutputPortOpenP(port) == 0)
+        close((int_t) AsGenericPort(port)->Context);
+}
+
+static void FileDescCloseOutput(FObject port)
+{
+    FAssert(BinaryPortP(port));
+
+    if (InputPortOpenP(port) == 0)
+        close((int_t) AsGenericPort(port)->Context);
+}
+
+static void FileDescFlushOutput(FObject port)
+{
+    FAssert(BinaryPortP(port) && OutputPortOpenP(port));
+
+    fsync((int_t) AsGenericPort(port)->Context);
+}
+
+static uint_t FileDescReadBytes(FObject port, void * b, uint_t bl)
+{
+    FAssert(BinaryPortP(port) && InputPortOpenP(port));
+
+    int_t br = read((int_t) AsGenericPort(port)->Context, b, bl);
+    if (br <= 0)
+        return(0);
+        
+    return(br);
+}
+
+static int_t FileDescByteReadyP(FObject port)
+{
+    FAssert(BinaryPortP(port) && InputPortOpenP(port));
+
+    return(1);
+}
+
+static void FileDescWriteBytes(FObject port, void * b, uint_t bl)
+{
+    FAssert(BinaryPortP(port) && OutputPortOpenP(port));
+
+    write((int_t) AsGenericPort(port)->Context, b, bl);
+}
+
+static FObject MakeFileDescInputPort(FObject nam, int_t fd)
+{
+    return(MakeBinaryPort(nam, NoValueObject, (void *) fd, FileDescCloseInput, 0, 0,
+            FileDescReadBytes, FileDescByteReadyP, 0));
+}
+
+static FObject MakeFileDescOutputPort(FObject nam, int_t fd)
+{
+    return(MakeBinaryPort(nam, NoValueObject, (void *) fd, 0, FileDescCloseOutput,
+            FileDescFlushOutput, 0, 0, FileDescWriteBytes));
+}
+#endif // FOMENT_UNIX
 
 static void BvinCloseInput(FObject port)
 {
@@ -824,11 +887,17 @@ FObject OpenInputFile(FObject fn)
 
     FAssert(BytevectorP(bv));
 
-    FILE * fp = fopen((const char *) AsBytevector(bv)->Vector, "rb");
+/*    FILE * fp = fopen((const char *) AsBytevector(bv)->Vector, "rb");
     if (fp == 0)
         return(NoValueObject);
 
-    return(MakeEncodedPort(MakeStdioInputPort(fn, fp)));
+    return(MakeEncodedPort(MakeStdioInputPort(fn, fp)));*/
+    
+    int_t fd = open((const char *) AsBytevector(bv)->Vector, O_RDONLY);
+    if (fd < 0)
+        return(NoValueObject);
+
+    return(MakeEncodedPort(MakeFileDescInputPort(fn, fd)));
 #endif // FOMENT_UNIX
 }
 
@@ -858,11 +927,17 @@ FObject OpenOutputFile(FObject fn)
 
     FAssert(BytevectorP(bv));
 
-    FILE * fp = fopen((const char *) AsBytevector(bv)->Vector, "wb");
+/*    FILE * fp = fopen((const char *) AsBytevector(bv)->Vector, "wb");
     if (fp == 0)
         return(NoValueObject);
 
-    return(MakeEncodedPort(MakeStdioOutputPort(fn, fp)));
+    return(MakeEncodedPort(MakeStdioOutputPort(fn, fp)));*/
+    
+    int_t fd = open((const char *) AsBytevector(bv)->Vector, O_WRONLY | O_TRUNC);
+    if (fd < 0)
+        return(NoValueObject);
+        
+    return(MakeEncodedPort(MakeFileDescOutputPort(fn, fd)));
 #endif // FOMENT_UNIX
 }
 
@@ -1186,8 +1261,6 @@ static FObject ConHistory(FConsoleInput * ci)
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-            FAssert(sizeof(FCh8) == sizeof(FConCh));
-
             lst = MakePair(ConvertUtf8ToString(ci->History[hdx].String, ci->History[hdx].Length),
                     lst);
 #endif // FOMENT_UNIX
@@ -1226,8 +1299,6 @@ static void ConSetHistory(FConsoleInput * ci, FObject lst)
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-        FAssert(sizeof(FCh8) == sizeof(FConCh));
-
         bv = ConvertStringToUtf8(AsString(First(lst))->String, StringLength(First(lst)), 0);
 #endif // FOMENT_UNIX
 
@@ -2286,12 +2357,19 @@ Define("open-binary-input-file", OpenBinaryInputFilePrimitive)(int_t argc, FObje
 
     FAssert(BytevectorP(bv));
 
-    FILE * fp = fopen((const char *) AsBytevector(bv)->Vector, "rb");
+/*    FILE * fp = fopen((const char *) AsBytevector(bv)->Vector, "rb");
     if (fp == 0)
         RaiseExceptionC(R.Assertion, "open-binary-input-file",
                 "unable to open file for input", List(argv[0]));
 
-    return(MakeStdioInputPort(argv[0], fp));
+    return(MakeStdioInputPort(argv[0], fp));*/
+    
+    int_t fd = open((const char *) AsBytevector(bv)->Vector, O_RDONLY);
+    if (fd < 0)
+        RaiseExceptionC(R.Assertion, "open-binary-input-file",
+                "unable to open file for input", List(argv[0]));
+
+    return(MakeFileDescInputPort(argv[0], fd));
 #endif // FOMENT_UNIX
 }
 
@@ -2326,12 +2404,19 @@ Define("open-binary-output-file", OpenBinaryOutputFilePrimitive)(int_t argc, FOb
 
     FAssert(BytevectorP(bv));
 
-    FILE * fp = fopen((const char *) AsBytevector(bv)->Vector, "wb");
+/*    FILE * fp = fopen((const char *) AsBytevector(bv)->Vector, "wb");
     if (fp == 0)
         RaiseExceptionC(R.Assertion, "open-binary-output-file",
                 "unable to open file for output", List(argv[0]));
 
-    return(MakeStdioOutputPort(argv[0], fp));
+    return(MakeStdioOutputPort(argv[0], fp));*/
+
+    int_t fd = open((const char *) AsBytevector(bv)->Vector, O_WRONLY | O_TRUNC);
+    if (fd < 0)
+        RaiseExceptionC(R.Assertion, "open-binary-output-file",
+                "unable to open file for output", List(argv[0]));
+        
+    return(MakeFileDescOutputPort(argv[0], fd));
 #endif // FOMENT_UNIX
 }
 
