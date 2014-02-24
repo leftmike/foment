@@ -3,7 +3,6 @@
 Foment
 
 -- MakeHandlePort for unix
--- combine OpenInputFile and OpenBinaryInputFilePrimitive (and for Output too)
 -- replace StdioPort with BufferedPort
 -- add an optional PeekBytes to BinaryPorts
 -- get rid of commented sections
@@ -861,25 +860,19 @@ FObject MakeUtf16Port(FObject port)
     return(MakeTranslatorPort(port, Utf16ReadCh, Utf16CharReadyP, Utf16WriteString));
 }
 
-FObject OpenInputFile(FObject fn)
+static FObject OpenBinaryInputFile(FObject fn)
 {
 #ifdef FOMENT_WINDOWS
     FObject bv = ConvertStringToUtf16(fn);
 
     FAssert(BytevectorP(bv));
-
-/*    FILE * fp = _wfopen((FCh16 *) AsBytevector(bv)->Vector, L"rb");
-    if (fp == 0)
-        return(NoValueObject);
-
-    return(MakeEncodedPort(MakeStdioInputPort(fn, fp)));*/
 
     HANDLE h = CreateFileW((FCh16 *) AsBytevector(bv)->Vector, GENERIC_READ,
             FILE_SHARE_READ | FILE_SHARE_WRITE, 0, OPEN_EXISTING, 0, 0);
     if (h == INVALID_HANDLE_VALUE)
         return(NoValueObject);
 
-    return(MakeEncodedPort(MakeHandleInputPort(fn, h)));
+    return(MakeHandleInputPort(fn, h));
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
@@ -887,39 +880,37 @@ FObject OpenInputFile(FObject fn)
 
     FAssert(BytevectorP(bv));
 
-/*    FILE * fp = fopen((const char *) AsBytevector(bv)->Vector, "rb");
-    if (fp == 0)
-        return(NoValueObject);
-
-    return(MakeEncodedPort(MakeStdioInputPort(fn, fp)));*/
-    
     int_t fd = open((const char *) AsBytevector(bv)->Vector, O_RDONLY);
     if (fd < 0)
         return(NoValueObject);
 
-    return(MakeEncodedPort(MakeFileDescInputPort(fn, fd)));
+    return(MakeFileDescInputPort(fn, fd));
 #endif // FOMENT_UNIX
 }
 
-FObject OpenOutputFile(FObject fn)
+FObject OpenInputFile(FObject fn)
+{
+    FObject port = OpenBinaryInputFile(fn);
+
+    if (BinaryPortP(port))
+        return(MakeEncodedPort(port));
+
+    return(port);
+}
+
+static FObject OpenBinaryOutputFile(FObject fn)
 {
 #ifdef FOMENT_WINDOWS
     FObject bv = ConvertStringToUtf16(fn);
 
     FAssert(BytevectorP(bv));
 
-/*    FILE * fp = _wfopen((FCh16 *) AsBytevector(bv)->Vector, L"wb");
-    if (fp == 0)
-        return(NoValueObject);
-
-    return(MakeEncodedPort(MakeStdioOutputPort(fn, fp)));*/
-
     HANDLE h = CreateFileW((FCh16 *) AsBytevector(bv)->Vector, GENERIC_WRITE,
             FILE_SHARE_READ | FILE_SHARE_WRITE, 0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
     if (h == INVALID_HANDLE_VALUE)
         return(NoValueObject);
 
-    return(MakeEncodedPort(MakeHandleOutputPort(fn, h)));
+    return(MakeHandleOutputPort(fn, h));
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
@@ -927,18 +918,22 @@ FObject OpenOutputFile(FObject fn)
 
     FAssert(BytevectorP(bv));
 
-/*    FILE * fp = fopen((const char *) AsBytevector(bv)->Vector, "wb");
-    if (fp == 0)
-        return(NoValueObject);
-
-    return(MakeEncodedPort(MakeStdioOutputPort(fn, fp)));*/
-    
     int_t fd = open((const char *) AsBytevector(bv)->Vector, O_WRONLY | O_TRUNC);
     if (fd < 0)
         return(NoValueObject);
-        
-    return(MakeEncodedPort(MakeFileDescOutputPort(fn, fd)));
+
+    return(MakeFileDescOutputPort(fn, fd));
 #endif // FOMENT_UNIX
+}
+
+FObject OpenOutputFile(FObject fn)
+{
+    FObject port = OpenBinaryOutputFile(fn);
+
+    if (BinaryPortP(port))
+        return(MakeEncodedPort(port));
+
+    return(port);
 }
 
 static void SinCloseInput(FObject port)
@@ -2331,46 +2326,13 @@ Define("open-binary-input-file", OpenBinaryInputFilePrimitive)(int_t argc, FObje
     OneArgCheck("open-binary-input-file", argc);
     StringArgCheck("open-binary-input-file", argv[0]);
 
-#ifdef FOMENT_WINDOWS
-    FObject bv = ConvertStringToUtf16(argv[0]);
+    FObject port = OpenBinaryInputFile(argv[0]);
 
-    FAssert(BytevectorP(bv));
-
-/*    FILE * fp = _wfopen((FCh16 *) AsBytevector(bv)->Vector, L"rb");
-    if (fp == 0)
+    if (BinaryPortP(port) == 0)
         RaiseExceptionC(R.Assertion, "open-binary-input-file",
                 "unable to open file for input", List(argv[0]));
 
-    return(MakeStdioInputPort(argv[0], fp));*/
-
-    HANDLE h = CreateFileW((FCh16 *) AsBytevector(bv)->Vector, GENERIC_READ,
-            FILE_SHARE_READ | FILE_SHARE_WRITE, 0, OPEN_EXISTING, 0, 0);
-    if (h == INVALID_HANDLE_VALUE)
-        RaiseExceptionC(R.Assertion, "open-binary-input-file",
-                "unable to open file for input", List(argv[0]));
-
-    return(MakeHandleInputPort(argv[0], h));
-#endif // FOMENT_WINDOWS
-
-#ifdef FOMENT_UNIX
-    FObject bv = ConvertStringToUtf8(argv[0]);
-
-    FAssert(BytevectorP(bv));
-
-/*    FILE * fp = fopen((const char *) AsBytevector(bv)->Vector, "rb");
-    if (fp == 0)
-        RaiseExceptionC(R.Assertion, "open-binary-input-file",
-                "unable to open file for input", List(argv[0]));
-
-    return(MakeStdioInputPort(argv[0], fp));*/
-    
-    int_t fd = open((const char *) AsBytevector(bv)->Vector, O_RDONLY);
-    if (fd < 0)
-        RaiseExceptionC(R.Assertion, "open-binary-input-file",
-                "unable to open file for input", List(argv[0]));
-
-    return(MakeFileDescInputPort(argv[0], fd));
-#endif // FOMENT_UNIX
+    return(port);
 }
 
 Define("open-binary-output-file", OpenBinaryOutputFilePrimitive)(int_t argc, FObject argv[])
@@ -2378,46 +2340,13 @@ Define("open-binary-output-file", OpenBinaryOutputFilePrimitive)(int_t argc, FOb
     OneArgCheck("open-binary-output-file", argc);
     StringArgCheck("open-binary-output-file", argv[0]);
 
-#ifdef FOMENT_WINDOWS
-    FObject bv = ConvertStringToUtf16(argv[0]);
+    FObject port = OpenBinaryOutputFile(argv[0]);
 
-    FAssert(BytevectorP(bv));
-
-/*    FILE * fp = _wfopen((FCh16 *) AsBytevector(bv)->Vector, L"wb");
-    if (fp == 0)
+    if (BinaryPortP(port) == 0)
         RaiseExceptionC(R.Assertion, "open-binary-output-file",
                 "unable to open file for output", List(argv[0]));
 
-    return(MakeStdioOutputPort(argv[0], fp));*/
-
-    HANDLE h = CreateFileW((FCh16 *) AsBytevector(bv)->Vector, GENERIC_WRITE,
-            FILE_SHARE_READ | FILE_SHARE_WRITE, 0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
-    if (h == INVALID_HANDLE_VALUE)
-        RaiseExceptionC(R.Assertion, "open-binary-output-file",
-                "unable to open file for output", List(argv[0]));
-
-    return(MakeHandleOutputPort(argv[0], h));
-#endif // FOMENT_WINDOWS
-
-#ifdef FOMENT_UNIX
-    FObject bv = ConvertStringToUtf8(argv[0]);
-
-    FAssert(BytevectorP(bv));
-
-/*    FILE * fp = fopen((const char *) AsBytevector(bv)->Vector, "wb");
-    if (fp == 0)
-        RaiseExceptionC(R.Assertion, "open-binary-output-file",
-                "unable to open file for output", List(argv[0]));
-
-    return(MakeStdioOutputPort(argv[0], fp));*/
-
-    int_t fd = open((const char *) AsBytevector(bv)->Vector, O_WRONLY | O_TRUNC);
-    if (fd < 0)
-        RaiseExceptionC(R.Assertion, "open-binary-output-file",
-                "unable to open file for output", List(argv[0]));
-        
-    return(MakeFileDescOutputPort(argv[0], fd));
-#endif // FOMENT_UNIX
+    return(port);
 }
 
 Define("close-port", ClosePortPrimitive)(int_t argc, FObject argv[])
