@@ -1169,7 +1169,9 @@
                         (handle-command-line (cdr lst) env)))))
 
         (define history-file
-            (cond-expand (windows "foment.history") (else "~/.foment_history")))
+            (cond-expand
+                (windows "foment.history")
+                (else (string-append (get-environment-variable "HOME") "/.foment_history"))))
 
         (define (interactive-thunk)
             (let ((env (interaction-environment)))

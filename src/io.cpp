@@ -2,7 +2,6 @@
 
 Foment
 
--- replace StdioPort with BufferedPort
 -- add an optional PeekBytes to BinaryPorts
 -- sockets
 
@@ -24,7 +23,6 @@ Foment
 #include <fcntl.h>
 #endif // FOMENT_UNIX
 
-#include <stdio.h>
 #include <string.h>
 #include <time.h>
 #include "foment.hpp"
@@ -137,64 +135,6 @@ void WriteBytes(FObject port, void * b, uint_t bl)
     FAssert(bl > 0);
 
     AsBinaryPort(port)->WriteBytesFn(port, b, bl);
-}
-
-static void StdioCloseInput(FObject port)
-{
-    FAssert(BinaryPortP(port));
-
-    if (OutputPortOpenP(port) == 0)
-        fclose((FILE *) AsGenericPort(port)->Context);
-}
-
-static void StdioCloseOutput(FObject port)
-{
-    FAssert(BinaryPortP(port));
-
-    if (InputPortOpenP(port) == 0)
-        fclose((FILE *) AsGenericPort(port)->Context);
-}
-
-static void StdioFlushOutput(FObject port)
-{
-    FAssert(BinaryPortP(port) && OutputPortOpenP(port));
-
-    fflush((FILE *) AsGenericPort(port)->Context);
-}
-
-static uint_t StdioReadBytes(FObject port, void * b, uint_t bl)
-{
-    FAssert(BinaryPortP(port) && InputPortOpenP(port));
-    FAssert(AsGenericPort(port)->Context != 0);
-
-    return(fread(b, 1, bl, (FILE *) AsGenericPort(port)->Context));
-}
-
-static int_t StdioByteReadyP(FObject port)
-{
-    FAssert(BinaryPortP(port) && InputPortOpenP(port));
-
-    return(1);
-}
-
-static void StdioWriteBytes(FObject port, void * b, uint_t bl)
-{
-    FAssert(BinaryPortP(port) && OutputPortOpenP(port));
-    FAssert(AsGenericPort(port)->Context != 0);
-
-    fwrite(b, 1, bl, (FILE *) AsGenericPort(port)->Context);
-}
-
-static FObject MakeStdioInputPort(FObject nam, FILE * fp)
-{
-    return(MakeBinaryPort(nam, NoValueObject, fp, StdioCloseInput, 0, 0, StdioReadBytes,
-            StdioByteReadyP, 0));
-}
-
-static FObject MakeStdioOutputPort(FObject nam, FILE * fp)
-{
-    return(MakeBinaryPort(nam, NoValueObject, fp, 0, StdioCloseOutput, StdioFlushOutput, 0, 0,
-            StdioWriteBytes));
 }
 
 typedef struct
@@ -1112,7 +1052,8 @@ static FObject OpenBinaryOutputFile(FObject fn)
 
     FAssert(BytevectorP(bv));
 
-    int_t fd = open((const char *) AsBytevector(bv)->Vector, O_WRONLY | O_TRUNC);
+    int_t fd = open((const char *) AsBytevector(bv)->Vector, O_WRONLY | O_TRUNC | O_CREAT,
+            S_IRUSR | S_IWUSR);
     if (fd < 0)
         return(NoValueObject);
 
@@ -1507,29 +1448,37 @@ static void ConSetHistory(FConsoleInput * ci, FObject lst)
 
 static void ConSaveHistory(FConsoleInput * ci, FObject fn)
 {
-    try
+    FObject port = OpenOutputFile(fn);
+
+    if (OutputPortP(port))
     {
-        FObject port = OpenOutputFile(fn);
-        WriteSimple(port, ConHistory(ci), 0);
-        CloseOutput(port);
-    }
-    catch (FObject obj)
-    {
-        ((FObject) obj);
+        try
+        {
+            WriteSimple(port, ConHistory(ci), 0);
+            CloseOutput(port);
+        }
+        catch (FObject obj)
+        {
+            ((FObject) obj);
+        }
     }
 }
 
 static void ConLoadHistory(FConsoleInput * ci, FObject fn)
 {
-    try
+    FObject port = OpenInputFile(fn);
+
+    if (InputPortP(port))
     {
-        FObject port = OpenInputFile(fn);
-        ConSetHistory(ci, Read(port));
-        CloseInput(port);
-    }
-    catch (FObject obj)
-    {
-        ((FObject) obj);
+        try
+        {
+            ConSetHistory(ci, Read(port));
+            CloseInput(port);
+        }
+        catch (FObject obj)
+        {
+            ((FObject) obj);
+        }
     }
 }
 
@@ -2822,12 +2771,14 @@ void SetupIO()
     }
     else
     {
-        R.StandardInput = MakeUtf8Port(MakeStdioInputPort(MakeStringC("standard-input"), stdin));
-        R.StandardOutput = MakeUtf8Port(MakeStdioOutputPort(MakeStringC("standard-output"),
-                stdout));
+        R.StandardInput = MakeUtf8Port(
+                MakeFileDescInputPort(MakeStringC("standard-input"), 0));
+        R.StandardOutput = MakeUtf8Port(
+                MakeFileDescOutputPort(MakeStringC("standard-output"), 1));
     }
 
-    R.StandardError = MakeUtf8Port(MakeStdioOutputPort(MakeStringC("standard-error"), stderr));
+    R.StandardError = MakeUtf8Port(
+            MakeFileDescOutputPort(MakeStringC("standard-error"), 2));
 #endif // FOMENT_UNIX
 
     R.QuoteSymbol = StringCToSymbol("quote");
