@@ -2,10 +2,8 @@
 
 Foment
 
--- MakeHandlePort for unix
 -- replace StdioPort with BufferedPort
 -- add an optional PeekBytes to BinaryPorts
--- get rid of commented sections
 -- sockets
 
 */
@@ -197,6 +195,202 @@ static FObject MakeStdioOutputPort(FObject nam, FILE * fp)
 {
     return(MakeBinaryPort(nam, NoValueObject, fp, 0, StdioCloseOutput, StdioFlushOutput, 0, 0,
             StdioWriteBytes));
+}
+
+typedef struct
+{
+    unsigned char * InputBuffer;
+    uint_t InputAvailable;
+    uint_t InputUsed;
+    uint_t InputMaximum;
+
+    unsigned char * OutputBuffer;
+    uint_t OutputUsed;
+    uint_t OutputMaximum;
+} FBufferedContext;
+
+#define AsBufferedContext(port) ((FBufferedContext *) AsGenericPort(port)->Context)
+
+static void FreeBufferedContext(FObject port)
+{
+    FBufferedContext * bc = AsBufferedContext(port);
+
+    if (bc->InputBuffer != 0)
+        free(bc->InputBuffer);
+    if (bc->OutputBuffer != 0)
+        free(bc->OutputBuffer);
+    free(bc);
+}
+
+static void BufferedCloseInput(FObject port)
+{
+    FAssert(BinaryPortP(port));
+
+    if (OutputPortOpenP(port) == 0)
+        FreeBufferedContext(port);
+
+    CloseInput(AsGenericPort(port)->Object);
+}
+
+static void BufferedFlushOutput(FObject port)
+{
+    FAssert(BinaryPortP(port));
+
+    FBufferedContext * bc = AsBufferedContext(port);
+
+    if (bc->OutputUsed > 0)
+    {
+        WriteBytes(AsGenericPort(port)->Object, bc->OutputBuffer, bc->OutputUsed);
+        bc->OutputUsed = 0;
+
+        FlushOutput(AsGenericPort(port)->Object);
+    }
+}
+
+static void BufferedCloseOutput(FObject port)
+{
+    FAssert(BinaryPortP(port));
+
+    BufferedFlushOutput(port);
+
+    if (InputPortOpenP(port) == 0)
+        FreeBufferedContext(port);
+
+    CloseOutput(AsGenericPort(port)->Object);
+}
+
+static uint_t BufferedReadBytes(FObject port, void * b, uint_t bl)
+{
+    FAssert(BinaryPortP(port) && InputPortOpenP(port));
+    FAssert(AsGenericPort(port)->Context != 0);
+
+    FBufferedContext * bc = AsBufferedContext(port);
+    uint_t br = 0;
+    unsigned char * ptr = (unsigned char *) b;
+
+    while (br < bl)
+    {
+        if (bc->InputUsed == bc->InputAvailable)
+        {
+            if (bl - br >= bc->InputMaximum)
+            {
+                br += ReadBytes(AsGenericPort(port)->Object, ptr + br, bl - br);
+                return(br);
+            }
+
+            FAssert(bc->InputBuffer != 0);
+
+            bc->InputUsed = 0;
+            bc->InputAvailable = ReadBytes(AsGenericPort(port)->Object, bc->InputBuffer,
+                    bc->InputMaximum);
+            if (bc->InputAvailable == 0)
+                return(0);
+        }
+
+        FAssert(bc->InputUsed < bc->InputAvailable);
+
+        uint_t sz = bc->InputAvailable - bc->InputUsed;
+        if (sz <= (bl - br))
+        {
+            memcpy(ptr + br, bc->InputBuffer + bc->InputUsed, sz);
+            bc->InputUsed += sz;
+            br += sz;
+        }
+        else
+        {
+            memcpy(ptr + br, bc->InputBuffer + bc->InputUsed, bl - br);
+            bc->InputUsed += (bl - br);
+            br = bl;
+        }
+    }
+
+    return(br);
+}
+
+static int_t BufferedByteReadyP(FObject port)
+{
+    FAssert(BinaryPortP(port) && InputPortOpenP(port));
+
+    FBufferedContext * bc = AsBufferedContext(port);
+
+    return(bc->InputUsed < bc->InputAvailable || ByteReadyP(AsGenericPort(port)->Object));
+}
+
+static void BufferedWriteBytes(FObject port, void * b, uint_t bl)
+{
+    FAssert(BinaryPortP(port) && OutputPortOpenP(port));
+    FAssert(AsGenericPort(port)->Context != 0);
+
+    FBufferedContext * bc = AsBufferedContext(port);
+
+    FAssert(bc->OutputUsed < bc->OutputMaximum);
+
+    if (bc->OutputUsed + bl < bc->OutputMaximum)
+    {
+        memcpy(bc->OutputBuffer + bc->OutputUsed, b, bl);
+        bc->OutputUsed += bl;
+    }
+    else
+    {
+        uint_t sz = bc->OutputMaximum - bc->OutputUsed;
+
+        memcpy(bc->OutputBuffer + bc->OutputUsed, b, sz);
+        WriteBytes(AsGenericPort(port)->Object, bc->OutputBuffer, bc->OutputMaximum);
+        bc->OutputUsed = 0;
+
+        if (sz < bl)
+            WriteBytes(AsGenericPort(port)->Object, ((char *) b) + sz, bl - sz);
+    }
+}
+
+static FObject MakeBufferedPort(FObject port)
+{
+    FAssert(BinaryPortP(port));
+    FAssert(InputPortOpenP(port) || OutputPortOpenP(port));
+
+    FBufferedContext * bc = (FBufferedContext *) malloc(sizeof(FBufferedContext));
+    if (bc == 0)
+        return(NoValueObject);
+
+    bc->InputBuffer = 0;
+    bc->InputAvailable = 0;
+    bc->InputUsed = 0;
+    bc->InputMaximum = 1024;
+
+    bc->OutputBuffer = 0;
+    bc->OutputUsed = 0;
+    bc->OutputMaximum = 1024;
+
+    if (InputPortOpenP(port))
+    {
+        bc->InputBuffer = (unsigned char *) malloc(bc->InputMaximum);
+        if (bc->InputBuffer == 0)
+        {
+            free(bc);
+            return(NoValueObject);
+        }
+    }
+
+    if (OutputPortOpenP(port))
+    {
+        bc->OutputBuffer = (unsigned char *) malloc(bc->OutputMaximum);
+        if (bc->OutputBuffer == 0)
+        {
+            if (bc->InputBuffer != 0)
+                free(bc->InputBuffer);
+
+            free(bc);
+            return(NoValueObject);
+        }
+    }
+
+    return(MakeBinaryPort(AsGenericPort(port)->Name, port, bc,
+            InputPortOpenP(port) ? BufferedCloseInput : 0,
+            OutputPortOpenP(port) ? BufferedCloseOutput : 0,
+            OutputPortOpenP(port) ? BufferedFlushOutput : 0,
+            InputPortOpenP(port) ? BufferedReadBytes : 0,
+            InputPortOpenP(port) ? BufferedByteReadyP : 0,
+            OutputPortOpenP(port)? BufferedWriteBytes: 0));
 }
 
 #ifdef FOMENT_WINDOWS
@@ -872,7 +1066,7 @@ static FObject OpenBinaryInputFile(FObject fn)
     if (h == INVALID_HANDLE_VALUE)
         return(NoValueObject);
 
-    return(MakeHandleInputPort(fn, h));
+    return(MakeBufferedPort(MakeHandleInputPort(fn, h)));
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
@@ -884,7 +1078,7 @@ static FObject OpenBinaryInputFile(FObject fn)
     if (fd < 0)
         return(NoValueObject);
 
-    return(MakeFileDescInputPort(fn, fd));
+    return(MakeBufferedPort(MakeFileDescInputPort(fn, fd)));
 #endif // FOMENT_UNIX
 }
 
@@ -910,7 +1104,7 @@ static FObject OpenBinaryOutputFile(FObject fn)
     if (h == INVALID_HANDLE_VALUE)
         return(NoValueObject);
 
-    return(MakeHandleOutputPort(fn, h));
+    return(MakeBufferedPort(MakeHandleOutputPort(fn, h)));
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
@@ -922,7 +1116,7 @@ static FObject OpenBinaryOutputFile(FObject fn)
     if (fd < 0)
         return(NoValueObject);
 
-    return(MakeFileDescOutputPort(fn, fd));
+    return(MakeBufferedPort(MakeFileDescOutputPort(fn, fd)));
 #endif // FOMENT_UNIX
 }
 
@@ -2601,10 +2795,10 @@ void SetupIO()
         }
         else
         {
-            R.StandardInput = MakeLatin1Port(MakeHandleInputPort(MakeStringC("standard-input"),
-                    hin));
-            R.StandardOutput = MakeLatin1Port(MakeHandleOutputPort(MakeStringC("standard-output"),
-                    hout));
+            R.StandardInput = MakeLatin1Port(MakeBufferedPort(
+                    MakeHandleInputPort(MakeStringC("standard-input"), hin)));
+            R.StandardOutput = MakeLatin1Port(MakeBufferedPort(
+                    MakeHandleOutputPort(MakeStringC("standard-output"), hout)));
         }
     }
 
@@ -2615,8 +2809,8 @@ void SetupIO()
         if (GetConsoleMode(herr, &emd) != 0)
             R.StandardError = MakeConsoleOutputPort(MakeStringC("console-output"), herr);
         else
-            R.StandardError = MakeLatin1Port(MakeHandleOutputPort(MakeStringC("standard-error"),
-                    herr));
+            R.StandardError = MakeLatin1Port(MakeBufferedPort(
+                    MakeHandleOutputPort(MakeStringC("standard-error"), herr)));
     }
 #endif // FOMENT_WINDOWS
 
