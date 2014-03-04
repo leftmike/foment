@@ -34,6 +34,7 @@ Foment
 #include "foment.hpp"
 #ifdef FOMENT_BSD
 #include <stdlib.h>
+#include <netinet/in.h>
 #else // FOMENT_BSD
 #include <malloc.h>
 #endif // FOMENT_BSD
