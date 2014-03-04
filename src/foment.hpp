@@ -12,18 +12,14 @@ To Do:
 -- Windows: $(APPDATA)\Foment\Libraries
 -- Unix: $(HOME)/.local/foment/lib
 
--- unify specifying the file encoding for OpenInputFile/OpenOutputFile and open-input-file etc.
--- use an indexed parameter for both
--- autodetect encoding: utf8 or utf16 byte order mark or encoding: like Guile and Chibi
--- add an optional PeekBytes to BinaryPorts
-
 -- IO and GC
 -- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
 -- or use FAlive
 -- use EnterWait and LeaveWait: reads, writes, connects, and accepts
 
+-- document: using coding: to specify file encoding
 -- document: socket api, get-ip-addresses, make-buffered-port
--- srfi-106 on socket api
+-- document: srfi-106
 
 Future:
 -- don't load all builtin libraries at startup
@@ -623,13 +619,6 @@ void Write(FObject port, FObject obj, int_t df);
 void WriteShared(FObject port, FObject obj, int_t df);
 void WriteSimple(FObject port, FObject obj, int_t df);
 
-typedef FObject (*FMakeEncodedPort)(FObject port);
-extern FMakeEncodedPort MakeEncodedPort;
-
-FObject MakeLatin1Port(FObject port);
-FObject MakeUtf8Port(FObject port);
-FObject MakeUtf16Port(FObject port);
-
 // ---- Record Types ----
 
 #define RecordTypeP(obj) (IndirectTag(obj) == RecordTypeTag)
@@ -1159,6 +1148,12 @@ inline void SixArgsCheck(const char * who, int_t argc)
 {
     if (argc != 6)
         RaiseExceptionC(R.Assertion, who, "expected six arguments", EmptyListObject);
+}
+
+inline void SevenArgsCheck(const char * who, int_t argc)
+{
+    if (argc != 7)
+        RaiseExceptionC(R.Assertion, who, "expected seven arguments", EmptyListObject);
 }
 
 inline void AtLeastOneArgCheck(const char * who, int_t argc)

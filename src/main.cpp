@@ -195,24 +195,6 @@ int main(int argc, char * argv[])
 
                 adx += 1;
             }
-            else if (StringCompareS(argv[adx], "-latin1") == 0)
-            {
-                MakeEncodedPort = MakeLatin1Port;
-
-                adx += 1;
-            }
-            else if (StringCompareS(argv[adx], "-utf8") == 0)
-            {
-                MakeEncodedPort = MakeUtf8Port;
-
-                adx += 1;
-            }
-            else if (StringCompareS(argv[adx], "-utf16") == 0)
-            {
-                MakeEncodedPort = MakeUtf16Port;
-
-                adx += 1;
-            }
             else if (StringCompareS(argv[adx], "-no-inline-procedures") == 0
                     || StringCompareS(argv[adx], "-no-inline-imports") == 0)
                 adx += 1;

@@ -22,8 +22,8 @@ stress: all
 	cd ../test ; ../unix/release/foment runtests.scm stress.scm r7rs.scm
 
 chibi: all
-	cd ../test ; ../unix/debug/foment -utf8 r7rs-tests.scm
-	cd ../test ; ../unix/release/foment -utf8 r7rs-tests.scm
+	cd ../test ; ../unix/debug/foment r7rs-tests.scm
+	cd ../test ; ../unix/release/foment r7rs-tests.scm
 
 debug:
 	-mkdir debug

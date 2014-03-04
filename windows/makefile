@@ -31,8 +31,8 @@ stress: all
 
 chibi: all
     cd ..\test
-    ..\windows\debug\foment -utf8 r7rs-tests.scm
-    ..\windows\release\foment -utf8 r7rs-tests.scm
+    ..\windows\debug\foment r7rs-tests.scm
+    ..\windows\release\foment r7rs-tests.scm
 
 debug:
     -mkdir debug

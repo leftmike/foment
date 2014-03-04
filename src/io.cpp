@@ -54,8 +54,6 @@ typedef int_t SOCKET;
 #define CR 13
 #define LF 10
 
-FMakeEncodedPort MakeEncodedPort = MakeLatin1Port;
-
 // ---- Binary Ports ----
 
 FObject MakeBinaryPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn,
@@ -260,6 +258,32 @@ static uint_t BufferedReadBytes(FObject port, void * b, uint_t bl)
     }
 
     return(br);
+}
+
+static void * LookaheadBytes(FObject port, uint_t * bl)
+{
+    FAssert(BinaryPortP(port) && InputPortOpenP(port));
+
+    if (AsGenericPort(port)->Flags & PORT_FLAG_BUFFERED)
+    {
+        FAssert(AsGenericPort(port)->Context != 0);
+
+        FBufferedContext * bc = AsBufferedContext(port);
+
+        FAssert(bc->InputUsed == bc->InputAvailable);
+        FAssert(bc->InputBuffer != 0);
+
+        bc->InputUsed = 0;
+        bc->InputAvailable = ReadBytes(AsGenericPort(port)->Object, bc->InputBuffer,
+                bc->InputMaximum);
+        if (bc->InputAvailable == 0)
+            return(0);
+
+        *bl = bc->InputAvailable;
+        return(bc->InputBuffer);
+    }
+
+    return(0);
 }
 
 static int_t BufferedByteReadyP(FObject port)
@@ -943,6 +967,66 @@ static FObject MakeTranslatorPort(FObject port, FReadChFn rcfn, FCharReadyPFn cr
             OutputPortP(port) ? wsfn : 0));
 }
 
+static uint_t AsciiReadCh(FObject port, FCh * ch)
+{
+    FAssert(BinaryPortP(AsGenericPort(port)->Object));
+
+    unsigned char b;
+
+    if (ReadBytes(AsGenericPort(port)->Object, &b, 1) != 1)
+        return(0);
+
+    if (b > 127)
+        *ch = '?';
+    else
+        *ch = b;
+
+    if (b == CR)
+    {
+        if (PeekByte(AsGenericPort(port)->Object, &b) != 0 && b != LF)
+        {
+            AsTextualPort(port)->Line += 1;
+            AsTextualPort(port)->Column = 0;
+        }
+    }
+    else if (b == LF)
+    {
+        AsTextualPort(port)->Line += 1;
+        AsTextualPort(port)->Column = 0;
+    }
+
+    return(1);
+}
+
+static int_t AsciiCharReadyP(FObject port)
+{
+    FAssert(BinaryPortP(AsGenericPort(port)->Object));
+
+    return(ByteReadyP(AsGenericPort(port)->Object));
+}
+
+static void AsciiWriteString(FObject port, FCh * s, uint_t sl)
+{
+    FAssert(BinaryPortP(AsGenericPort(port)->Object));
+
+    for (uint_t sdx = 0; sdx < sl; sdx++)
+    {
+        unsigned char b;
+
+        if (s[sdx] > 0x7F)
+            b = '?';
+        else
+            b = (unsigned char) s[sdx];
+
+        WriteBytes(AsGenericPort(port)->Object, &b, 1);
+    }
+}
+
+static FObject MakeAsciiPort(FObject port)
+{
+    return(MakeTranslatorPort(port, AsciiReadCh, AsciiCharReadyP, AsciiWriteString));
+}
+
 static uint_t Latin1ReadCh(FObject port, FCh * ch)
 {
     FAssert(BinaryPortP(AsGenericPort(port)->Object));
@@ -994,7 +1078,7 @@ static void Latin1WriteString(FObject port, FCh * s, uint_t sl)
     }
 }
 
-FObject MakeLatin1Port(FObject port)
+static FObject MakeLatin1Port(FObject port)
 {
     return(MakeTranslatorPort(port, Latin1ReadCh, Latin1CharReadyP, Latin1WriteString));
 }
@@ -1040,7 +1124,7 @@ static void Utf8WriteString(FObject port, FCh * s, uint_t sl)
     WriteBytes(AsGenericPort(port)->Object, AsBytevector(bv)->Vector, BytevectorLength(bv));
 }
 
-FObject MakeUtf8Port(FObject port)
+static FObject MakeUtf8Port(FObject port)
 {
     return(MakeTranslatorPort(port, Utf8ReadCh, Utf8CharReadyP, Utf8WriteString));
 }
@@ -1092,9 +1176,73 @@ static void Utf16WriteString(FObject port, FCh * s, uint_t sl)
     WriteBytes(AsGenericPort(port)->Object, AsBytevector(bv)->Vector, BytevectorLength(bv));
 }
 
-FObject MakeUtf16Port(FObject port)
+static FObject MakeUtf16Port(FObject port)
 {
     return(MakeTranslatorPort(port, Utf16ReadCh, Utf16CharReadyP, Utf16WriteString));
+}
+
+static int_t EncodingChP(char ch)
+{
+    return((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9')
+            || ch == '-');
+}
+
+static FObject MakeEncodedPort(FObject port)
+{
+    FAssert(BinaryPortP(port));
+
+    if (InputPortOpenP(port) == 0)
+#ifdef FOMENT_WINDOWS
+        return(MakeLatin1Port(port));
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+        return(MakeUtf8Port(port));
+#endif // FOMENT_UNIX
+
+    uint_t bl;
+    char * b = (char *) LookaheadBytes(port, &bl);
+
+    if (b == 0)
+        return(MakeAsciiPort(port));
+
+    FAssert(b != 0);
+
+    if (bl >= 2 && b[0] == 0xFF && b[1] == 0xFE) // Little Endian
+        return(MakeUtf16Port(port));
+
+//    if (bl >= 2 && b[0] == 0xFE && b[1] == 0xFF) // Big Endian
+//        return(MakeUtf16Port(port));
+
+    // Search "coding:" but strstr will not work because b is not null terminated.
+
+    for (uint_t bdx = 6; bdx < bl; bdx += 7)
+    {
+        if (b[bdx] == ':' && b[bdx - 1] == 'g' && b[bdx - 2] == 'n' && b[bdx - 3] == 'i'
+                && b[bdx - 4] == 'd' && b[bdx - 5] == 'o' && b[bdx - 6] == 'c')
+        {
+            bdx += 1;
+            while (bdx < bl && EncodingChP(b[bdx]) == 0)
+                bdx += 1;
+
+            uint_t edx = bdx;
+            while (edx < bl && EncodingChP(b[edx]))
+                edx += 1;
+
+            if (edx > bdx)
+            {
+                if (edx - bdx == 5 && strncmp("utf-8", b + bdx, 5) == 0)
+                    return(MakeUtf8Port(port));
+                else if (edx - bdx == 7 && strncmp("latin-1", b + bdx, 7) == 0)
+                    return(MakeLatin1Port(port));
+                else if (edx - bdx == 10 && strncmp("iso-8859-1", b + bdx, 10) == 0)
+                    return(MakeLatin1Port(port));
+            }
+
+            break;
+        }
+    }
+
+    return(MakeAsciiPort(port));
 }
 
 static FObject OpenBinaryInputFile(FObject fn)
@@ -2815,6 +2963,16 @@ static FObject LastSocketError()
 }
 #endif // FOMENT_UNIX
 
+Define("socket?", SocketPPrimitive)(int_t argc, FObject argv[])
+{
+    // (socket? <obj>)
+
+    OneArgCheck("socket?", argc);
+
+    return((BinaryPortP(argv[0]) && (AsGenericPort(argv[0])->Flags & PORT_FLAG_SOCKET))
+            ? TrueObject : FalseObject);
+}
+
 Define("make-socket", MakeSocketPrimitive)(int_t argc, FObject argv[])
 {
     // (make-socket <address-family> <socket-domain> <protocol>)
@@ -2833,12 +2991,13 @@ Define("make-socket", MakeSocketPrimitive)(int_t argc, FObject argv[])
 }
 
 static void GetAddressInformation(const char * who, addrinfoW ** res, FObject node,
-    FObject svc, FObject afam, FObject sdmn, FObject prot)
+    FObject svc, FObject afam, FObject sdmn, FObject flgs, FObject prot)
 {
     StringArgCheck(who, node);
     StringArgCheck(who, svc);
     FixnumArgCheck(who, afam);
     FixnumArgCheck(who, sdmn);
+    FixnumArgCheck(who, flgs);
     FixnumArgCheck(who, prot);
 
     addrinfoW hts;
@@ -2847,7 +3006,7 @@ static void GetAddressInformation(const char * who, addrinfoW ** res, FObject no
     hts.ai_family = (int) AsFixnum(afam);
     hts.ai_socktype = (int) AsFixnum(sdmn);
     hts.ai_protocol = (int) AsFixnum(prot);
-    hts.ai_flags = AI_PASSIVE;
+    hts.ai_flags = AI_PASSIVE | (int) AsFixnum(flgs);
 
 #ifdef FOMENT_WINDOWS
     FObject nn = ConvertStringToUtf16(node);
@@ -2870,117 +3029,120 @@ static void GetAddressInformation(const char * who, addrinfoW ** res, FObject no
 #endif // FOMENT_UNIX
 }
 
-Define("socket-bind", BindSocketPrimitive)(int_t argc, FObject argv[])
+Define("bind-socket", BindSocketPrimitive)(int_t argc, FObject argv[])
 {
-    // (socket-bind <socket> <node> <service> <address-family> <socket-domain> <protocol>)
+    // (bind-socket <socket> <node> <service> <address-family> <socket-domain> <protocol>)
 
-    SixArgsCheck("socket-bind", argc);
-    SocketPortArgCheck("socket-bind", argv[0]);
+    SixArgsCheck("bind-socket", argc);
+    SocketPortArgCheck("bind-socket", argv[0]);
 
     addrinfoW * res;
-    GetAddressInformation("socket-bind", &res, argv[1], argv[2], argv[3], argv[4], argv[5]);
+    GetAddressInformation("bind-socket", &res, argv[1], argv[2], argv[3], argv[4],
+            MakeFixnum(0), argv[5]);
 
     if (bind((SOCKET) AsGenericPort(argv[0])->Context, res->ai_addr, (int) res->ai_addrlen) != 0)
-        RaiseExceptionC(R.Assertion, "socket-bind", "bind failed",
+        RaiseExceptionC(R.Assertion, "bind-socket", "bind failed",
                 List(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
                 LastSocketError()));
 
     return(NoValueObject);
 }
 
-Define("socket-listen", ListenSocketPrimitive)(int_t argc, FObject argv[])
+Define("listen-socket", ListenSocketPrimitive)(int_t argc, FObject argv[])
 {
-    // (socket-listen <socket> [<backlog>])
+    // (listen-socket <socket> [<backlog>])
 
-    OneOrTwoArgsCheck("socket-listen", argc);
-    SocketPortArgCheck("socket-listen", argv[0]);
+    OneOrTwoArgsCheck("listen-socket", argc);
+    SocketPortArgCheck("listen-socket", argv[0]);
 
     int bcklg = SOMAXCONN;
     if (argc == 2)
     {
-        NonNegativeArgCheck("socket-listen", argv[1], 0);
+        NonNegativeArgCheck("listen-socket", argv[1], 0);
 
         bcklg = (int) AsFixnum(argv[1]);
     }
 
     if (listen((SOCKET) AsGenericPort(argv[0])->Context, bcklg) != 0)
-        RaiseExceptionC(R.Assertion, "socket-listen", "listen failed",
+        RaiseExceptionC(R.Assertion, "listen-socket", "listen failed",
                 List(LastSocketError()));
 
     return(NoValueObject);
 }
 
-Define("socket-accept", AcceptSocketPrimitive)(int_t argc, FObject argv[])
+Define("accept-socket", AcceptSocketPrimitive)(int_t argc, FObject argv[])
 {
-    // (socket-accept <socket>)
+    // (accept-socket <socket>)
 
-    OneArgCheck("socket-accept", argc);
-    SocketPortArgCheck("socket-accept", argv[0]);
+    OneArgCheck("accept-socket", argc);
+    SocketPortArgCheck("accept-socket", argv[0]);
 
     SOCKET s = accept((SOCKET) AsGenericPort(argv[0])->Context, 0, 0);
     if (s == INVALID_SOCKET)
-        RaiseExceptionC(R.Assertion, "socket-accept", "accept failed",
+        RaiseExceptionC(R.Assertion, "accept-socket", "accept failed",
                 List(LastSocketError()));
 
     return(MakeSocketPort(s));
 }
 
-Define("socket-connect", ConnectSocketPrimitive)(int_t argc, FObject argv[])
+Define("connect-socket", ConnectSocketPrimitive)(int_t argc, FObject argv[])
 {
-    // (socket-connect <socket> <node> <service> <address-family> <socket-domain> <protocol>)
+    // (connect-socket <socket> <node> <service> <address-family> <socket-domain>
+    //         <flags> <protocol>)
 
-    SixArgsCheck("socket-connect", argc);
-    SocketPortArgCheck("socket-connect", argv[0]);
+    SevenArgsCheck("connect-socket", argc);
+    SocketPortArgCheck("connect-socket", argv[0]);
 
     addrinfoW * res;
-    GetAddressInformation("socket-connect", &res, argv[1], argv[2], argv[3], argv[4], argv[5]);
+    GetAddressInformation("connect-socket", &res, argv[1], argv[2], argv[3], argv[4], argv[5],
+            argv[6]);
 
     if (connect((SOCKET) AsGenericPort(argv[0])->Context, res->ai_addr, (int) res->ai_addrlen)
             != 0)
-        RaiseExceptionC(R.Assertion, "socket-connect", "connect failed",
+        RaiseExceptionC(R.Assertion, "connect-socket", "connect failed",
                 List(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
                 LastSocketError()));
 
     return(NoValueObject);
 }
 
-Define("socket-shutdown", ShutdownSocketPrimitive)(int_t argc, FObject argv[])
+Define("shutdown-socket", ShutdownSocketPrimitive)(int_t argc, FObject argv[])
 {
-    // (socket-shutdown <socket> <how>)
+    // (shutdown-socket <socket> <how>)
 
-    TwoArgsCheck("socket-shutdown", argc);
-    SocketPortArgCheck("socket-shutdown", argv[0]);
-    FixnumArgCheck("socket-shutdown", argv[1]);
+    TwoArgsCheck("shutdown-socket", argc);
+    SocketPortArgCheck("shutdown-socket", argv[0]);
+    FixnumArgCheck("shutdown-socket", argv[1]);
 
     if (shutdown((SOCKET) AsGenericPort(argv[0])->Context, (int) AsFixnum(argv[1])) != 0)
-        RaiseExceptionC(R.Assertion, "socket-shutdown", "shutdown failed",
+        RaiseExceptionC(R.Assertion, "shutdown-socket", "shutdown failed",
                 List(argv[0], argv[1], LastSocketError()));
 
     return(NoValueObject);
 }
 
-Define("socket-send", SendSocketPrimitive)(int_t argc, FObject argv[])
+Define("send-socket", SendSocketPrimitive)(int_t argc, FObject argv[])
 {
-    // (socket-send <socket> <bv> <flags>)
+    // (send-socket <socket> <bv> <flags>)
 
-    ThreeArgsCheck("socket-send", argc);
-    SocketPortArgCheck("socket-send", argv[0]);
-    BytevectorArgCheck("socket-send", argv[1]);
-    FixnumArgCheck("socket-send", argv[2]);
+    ThreeArgsCheck("send-socket", argc);
+    SocketPortArgCheck("send-socket", argv[0]);
+    BytevectorArgCheck("send-socket", argv[1]);
+    FixnumArgCheck("send-socket", argv[2]);
 
     SocketSend((SOCKET) AsGenericPort(argv[0])->Context, (char *) AsBytevector(argv[1])->Vector,
             (int) BytevectorLength(argv[1]), (int) AsFixnum(argv[2]));
     return(NoValueObject);
 }
 
-Define("socket-recv", ReceiveSocketPrimitive)(int_t argc, FObject argv[])
+Define("recv-socket", ReceiveSocketPrimitive)(int_t argc, FObject argv[])
 {
-    // (socket-recv <socket> <size> <flags>)
+    // (recv-socket <socket> <size> <flags>)
 
-    ThreeArgsCheck("socket-recv", argc);
-    SocketPortArgCheck("socket-recv", argv[0]);
-    NonNegativeArgCheck("socket-recv", argv[1], 0);
-    FixnumArgCheck("socket-recv", argv[2]);
+    ThreeArgsCheck("recv-socket", argc);
+    SocketPortArgCheck("recv-socket", argv[0]);
+    NonNegativeArgCheck("recv-socket", argv[1], 0);
+    FixnumArgCheck("recv-socket", argv[2]);
 
     FObject bv = MakeBytevector(AsFixnum(argv[1]));
     int br = SocketReceive((SOCKET) AsGenericPort(argv[0])->Context,
@@ -3122,6 +3284,7 @@ static FPrimitive * Primitives[] =
     &LoadHistoryPrimitive,
     &SocketMergeFlagsPrimitive,
     &SocketPurgeFlagsPrimitive,
+    &SocketPPrimitive,
     &MakeSocketPrimitive,
     &BindSocketPrimitive,
     &ListenSocketPrimitive,

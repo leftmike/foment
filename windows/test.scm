@@ -2,7 +2,7 @@
 
 (define (server)
     (define (loop s)
-;;        (let ((bv (socket-recv s 128 0)))
+;;        (let ((bv (recv-socket s 128 0)))
 ;;            (if (> (bytevector-length bv) 0)
         (let ((bv (read-bytevector 128 s)))
             (if (not (eof-object? bv))
@@ -10,9 +10,10 @@
                     (write (utf8->string bv))
                     (loop s)))))
     (let ((s (make-socket (address-family inet) (socket-domain stream) (ip-protocol tcp))))
-        (socket-bind s "localhost" "12345" (address-family inet) (socket-domain stream) (ip-protocol tcp))
-        (socket-listen s)
-        (loop (socket-accept s))))
+        (bind-socket s "localhost" "12345" (address-family inet) (socket-domain stream)
+                (ip-protocol tcp))
+        (listen-socket s)
+        (loop (accept-socket s))))
 
 (define (client)
     (define (loop s)
@@ -20,8 +21,8 @@
         (write-bytevector (string->utf8 (read-line)) s)
         (loop s))
     (let ((s (make-socket (address-family inet) (socket-domain stream) (ip-protocol tcp))))
-        (socket-connect s "localhost" "12345" (address-family inet) (socket-domain stream)
-                (ip-protocol tcp))
+        (connect-socket s "localhost" "12345" (address-family inet) (socket-domain stream)
+                0 (ip-protocol tcp))
         (loop s)))
 
 (cond
