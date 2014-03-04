@@ -15,12 +15,15 @@ To Do:
 -- unify specifying the file encoding for OpenInputFile/OpenOutputFile and open-input-file etc.
 -- use an indexed parameter for both
 -- autodetect encoding: utf8 or utf16 byte order mark or encoding: like Guile and Chibi
+-- add an optional PeekBytes to BinaryPorts
 
 -- IO and GC
 -- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
 -- or use FAlive
--- use EnterWait and LeaveWait
--- use Win32 file APIs and not stdio
+-- use EnterWait and LeaveWait: reads, writes, connects, and accepts
+
+-- document: socket api, get-ip-addresses, make-buffered-port
+-- srfi-106 on socket api
 
 Future:
 -- don't load all builtin libraries at startup

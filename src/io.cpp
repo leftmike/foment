@@ -2,9 +2,6 @@
 
 Foment
 
--- add an optional PeekBytes to BinaryPorts
--- reads/writes/connects/accepts should enter io wait for gc
-
 */
 
 #ifdef FOMENT_WINDOWS
@@ -2804,14 +2801,14 @@ Define("socket-purge-flags", SocketPurgeFlagsPrimitive)(int_t argc, FObject argv
 }
 
 #ifdef FOMENT_WINDOWS
-static FObject GetLastError()
+static FObject LastSocketError()
 {
     return(MakeFixnum(WSAGetLastError()));
 }
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-static FObject GetLastError()
+static FObject LastSocketError()
 {
     return(MakeStringC(strerror(errno)));
 }
@@ -2829,7 +2826,7 @@ Define("make-socket", MakeSocketPrimitive)(int_t argc, FObject argv[])
     SOCKET s = socket((int) AsFixnum(argv[0]), (int) AsFixnum(argv[1]), (int) AsFixnum(argv[2]));
     if (s == INVALID_SOCKET)
         RaiseExceptionC(R.Assertion, "make-socket", "creating a socket failed",
-                List(argv[0], argv[1], argv[2], GetLastError()));
+                List(argv[0], argv[1], argv[2], LastSocketError()));
 
     return(MakeSocketPort(s));
 }
@@ -2858,7 +2855,7 @@ static void GetAddressInformation(const char * who, addrinfoW ** res, FObject no
     if (GetAddrInfoW((FCh16 *) AsBytevector(nn)->Vector, (FCh16 *) AsBytevector(sn)->Vector,
             &hts, res) != 0)
         RaiseExceptionC(R.Assertion, who, "GetAddrInfoW failed",
-                List(node, svc, afam, sdmn, prot, GetLastError()));
+                List(node, svc, afam, sdmn, prot, LastSocketError()));
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
@@ -2868,7 +2865,7 @@ static void GetAddressInformation(const char * who, addrinfoW ** res, FObject no
     if (getaddrinfo((char *) AsBytevector(nn)->Vector, (char *) AsBytevector(sn)->Vector,
             &hts, res) != 0)
         RaiseExceptionC(R.Assertion, who, "GetAddrInfoW failed",
-                List(node, svc, afam, sdmn, prot, GetLastError()));
+                List(node, svc, afam, sdmn, prot, LastSocketError()));
 #endif // FOMENT_UNIX
 }
 
@@ -2885,7 +2882,7 @@ Define("socket-bind", BindSocketPrimitive)(int_t argc, FObject argv[])
     if (bind((SOCKET) AsGenericPort(argv[0])->Context, res->ai_addr, (int) res->ai_addrlen) != 0)
         RaiseExceptionC(R.Assertion, "socket-bind", "bind failed",
                 List(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
-                GetLastError()));
+                LastSocketError()));
 
     return(NoValueObject);
 }
@@ -2907,7 +2904,7 @@ Define("socket-listen", ListenSocketPrimitive)(int_t argc, FObject argv[])
 
     if (listen((SOCKET) AsGenericPort(argv[0])->Context, bcklg) != 0)
         RaiseExceptionC(R.Assertion, "socket-listen", "listen failed",
-                List(GetLastError()));
+                List(LastSocketError()));
 
     return(NoValueObject);
 }
@@ -2922,7 +2919,7 @@ Define("socket-accept", AcceptSocketPrimitive)(int_t argc, FObject argv[])
     SOCKET s = accept((SOCKET) AsGenericPort(argv[0])->Context, 0, 0);
     if (s == INVALID_SOCKET)
         RaiseExceptionC(R.Assertion, "socket-accept", "accept failed",
-                List(GetLastError()));
+                List(LastSocketError()));
 
     return(MakeSocketPort(s));
 }
@@ -2941,7 +2938,7 @@ Define("socket-connect", ConnectSocketPrimitive)(int_t argc, FObject argv[])
             != 0)
         RaiseExceptionC(R.Assertion, "socket-connect", "connect failed",
                 List(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
-                GetLastError()));
+                LastSocketError()));
 
     return(NoValueObject);
 }
@@ -2956,7 +2953,7 @@ Define("socket-shutdown", ShutdownSocketPrimitive)(int_t argc, FObject argv[])
 
     if (shutdown((SOCKET) AsGenericPort(argv[0])->Context, (int) AsFixnum(argv[1])) != 0)
         RaiseExceptionC(R.Assertion, "socket-shutdown", "shutdown failed",
-                List(argv[0], argv[1], GetLastError()));
+                List(argv[0], argv[1], LastSocketError()));
 
     return(NoValueObject);
 }
@@ -3064,11 +3061,11 @@ Define("get-ip-addresses", GetIpAddressesPrimitive)(int_t argc, FObject argv[])
 
 #ifdef FOMENT_UNIX
     struct ifaddrs * ifab;
-    
+
     if (getifaddrs(&ifab) != 0)
         RaiseExceptionC(R.Assertion, "get-ip-addresses", "getifaddrs failed",
-                List(GetLastError()));
-    
+                List(LastSocketError()));
+
     FObject lst = EmptyListObject;
 
     for (struct ifaddrs * ifa = ifab; ifa != 0; ifa = ifa->ifa_next)
@@ -3083,7 +3080,7 @@ Define("get-ip-addresses", GetIpAddressesPrimitive)(int_t argc, FObject argv[])
                         ifa->ifa_addr, buf, 46)), lst);
         }
     }
-    
+
     freeifaddrs(ifab);
 
     return(lst);
