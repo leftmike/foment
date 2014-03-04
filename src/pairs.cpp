@@ -104,6 +104,26 @@ FObject List(FObject obj1, FObject obj2, FObject obj3, FObject obj4)
     return(MakePair(obj1, MakePair(obj2, MakePair(obj3, MakePair(obj4, EmptyListObject)))));
 }
 
+FObject List(FObject obj1, FObject obj2, FObject obj3, FObject obj4, FObject obj5)
+{
+    return(MakePair(obj1, MakePair(obj2, MakePair(obj3, MakePair(obj4,
+            MakePair(obj5, EmptyListObject))))));
+}
+
+FObject List(FObject obj1, FObject obj2, FObject obj3, FObject obj4, FObject obj5,
+    FObject obj6)
+{
+    return(MakePair(obj1, MakePair(obj2, MakePair(obj3, MakePair(obj4,
+            MakePair(obj5, MakePair(obj6, EmptyListObject)))))));
+}
+
+FObject List(FObject obj1, FObject obj2, FObject obj3, FObject obj4, FObject obj5,
+    FObject obj6, FObject obj7)
+{
+    return(MakePair(obj1, MakePair(obj2, MakePair(obj3, MakePair(obj4,
+            MakePair(obj5, MakePair(obj6, MakePair(obj7, EmptyListObject))))))));
+}
+
 Define("pair?", PairPPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("pair?", argc);

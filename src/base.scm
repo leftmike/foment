@@ -367,10 +367,49 @@
         box?
         unbox
         set-box!)
+    (export ;; (srfi 106)
+        get-ip-addresses
+        make-socket
+        socket-bind
+        socket-listen
+        socket-accept
+        socket-connect
+        socket-shutdown
+        socket-send
+        socket-recv
+        address-family
+        address-info
+        message-type
+        ip-protocol
+        shutdown-method
+        socket-domain
+        socket-merge-flags
+        socket-purge-flags
+        *af-unspec*
+        *af-inet*
+        *af-inet6*
+        *sock-stream*
+        *sock-dgram*
+        *sock-raw*
+        *ai-canonname*
+        *ai-numerichost*
+        *ai-v4mapped*
+        *ai-all*
+        *ai-addrconfig*
+        *ipproto-ip*
+        *ipproto-tcp*
+        *ipproto-udp*
+        *msg-peek*
+        *msg-oob*
+        *msg-waitall*
+        *shut-rd*
+        *shut-wr*
+        *shut-rdwr*)
     (export
         make-latin1-port
         make-utf8-port
         make-utf16-port
+        make-buffered-port
         file-encoding
         want-identifiers
         set-console-input-editline!
@@ -1084,6 +1123,71 @@
                 (let-values ((results (parameterize ((current-output-port port)) (thunk))))
                     (close-output-port port)
                     (apply values results))))
+
+        (define-syntax address-family
+            (syntax-rules (unspec inet inet6)
+                ((address-family unspec) *af-unspec*)
+                ((address-family inet) *af-inet*)
+                ((address-family inet6) *af-inet6*)))
+
+        (define-syntax socket-domain
+            (syntax-rules (stream datagram raw)
+                ((socket-domain stream) *sock-stream*)
+                ((socket-domain datagram) *sock-dgram*)
+                ((socket-domain raw) *sock-raw*)))
+
+        (define-syntax ip-protocol
+            (syntax-rules (ip tcp udp)
+                ((ip-protocol ip) *ipproto-ip*)
+                ((ip-protocol tcp) *ipproto-tcp*)
+                ((ip-protocol udp) *ipproto-udp*)))
+
+        (define-syntax shutdown-method
+            (syntax-rules (read write)
+                ((shutdown-method read) *shut-rd*)
+                ((shutdown-method write) *shut-wr*)
+                ((shutdown-method read write) *shut-rdwr*)
+                ((shutdown-method write read) *shut-rdwr*)))
+
+        (define (alist-lookup obj alist who msg)
+            (cond
+                ((assq obj alist) => cdr)
+                (else (full-error 'syntax-error who msg obj))))
+
+        (define address-info-alist
+            (list
+                (cons 'canonname *ai-canonname*)
+                (cons 'numerichost *ai-numerichost*)
+                (cons 'v4mapped *ai-v4mapped*)
+                (cons 'all *ai-all*)
+                (cons 'addrconfig *ai-addrconfig*)))
+
+        (define-syntax address-info
+            (syntax-rules ()
+                ((address-info name ...)
+                    (apply socket-merge-flags
+                        (map
+                            (lambda (n)
+                                (alist-lookup n address-info-alist 'address-info
+                                        "address-info: expected an address info flag"))
+                            '(name ...))))))
+
+        (define message-type-alist
+            (list
+                (cons 'none 0)
+                (cons 'peek *msg-peek*)
+                (cons 'oob *msg-oob*)
+                (cons 'waitall *msg-waitall*)))
+
+        (define-syntax message-type
+            (syntax-rules ()
+                ((message-type name ...)
+                    (apply socket-merge-flags
+                        (map
+                            (lambda (n)
+                                (alist-lookup n message-type-alist 'message-type
+                                        "message-type: expected a message type flag"))
+                            '(name ...))))))
 
         (define (execute-thunk thunk)
             (%return (call-with-continuation-prompt thunk (default-prompt-tag)

@@ -384,6 +384,11 @@ FObject List(FObject obj);
 FObject List(FObject obj1, FObject obj2);
 FObject List(FObject obj1, FObject obj2, FObject obj3);
 FObject List(FObject obj1, FObject obj2, FObject obj3, FObject obj4);
+FObject List(FObject obj1, FObject obj2, FObject obj3, FObject obj4, FObject obj5);
+FObject List(FObject obj1, FObject obj2, FObject obj3, FObject obj4, FObject obj5,
+    FObject obj6);
+FObject List(FObject obj1, FObject obj2, FObject obj3, FObject obj4, FObject obj5,
+    FObject obj6, FObject obj7);
 
 FObject Memq(FObject obj, FObject lst);
 FObject Assq(FObject obj, FObject alst);
@@ -489,6 +494,8 @@ FObject U8ListToBytevector(FObject obj);
 #define PORT_FLAG_FOLDCASE           0x02000000
 #define PORT_FLAG_WANT_IDENTIFIERS   0x01000000
 #define PORT_FLAG_CONSOLE            0x00800000
+#define PORT_FLAG_SOCKET             0x00400000
+#define PORT_FLAG_BUFFERED           0x00200000
 
 typedef void (*FCloseInputFn)(FObject port);
 typedef void (*FCloseOutputFn)(FObject port);
@@ -563,6 +570,11 @@ inline int_t WantIdentifiersPortP(FObject port)
 inline int_t ConsolePortP(FObject port)
 {
     return(TextualPortP(port) && (AsGenericPort(port)->Flags & PORT_FLAG_CONSOLE));
+}
+
+inline int_t SocketPortP(FObject port)
+{
+    return(BinaryPortP(port) && (AsGenericPort(port)->Flags & PORT_FLAG_SOCKET));
 }
 
 // Binary and textual ports
@@ -1128,6 +1140,24 @@ inline void ThreeArgsCheck(const char * who, int_t argc)
         RaiseExceptionC(R.Assertion, who, "expected three arguments", EmptyListObject);
 }
 
+inline void FourArgsCheck(const char * who, int_t argc)
+{
+    if (argc != 4)
+        RaiseExceptionC(R.Assertion, who, "expected four arguments", EmptyListObject);
+}
+
+inline void FiveArgsCheck(const char * who, int_t argc)
+{
+    if (argc != 5)
+        RaiseExceptionC(R.Assertion, who, "expected five arguments", EmptyListObject);
+}
+
+inline void SixArgsCheck(const char * who, int_t argc)
+{
+    if (argc != 6)
+        RaiseExceptionC(R.Assertion, who, "expected six arguments", EmptyListObject);
+}
+
 inline void AtLeastOneArgCheck(const char * who, int_t argc)
 {
     if (argc < 1)
@@ -1373,6 +1403,12 @@ inline void ConsoleInputPortArgCheck(const char * who, FObject obj)
 {
     if (ConsolePortP(obj) == 0 || InputPortOpenP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected an open console input port", List(obj));
+}
+
+inline void SocketPortArgCheck(const char * who, FObject obj)
+{
+    if (SocketPortP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a socket port", List(obj));
 }
 
 inline void ProcedureArgCheck(const char * who, FObject obj)

@@ -6,6 +6,8 @@ CLDEBUG = /nologo /MD /W3 /Gm /EHsc /Zi /Od /c /Fodebug/ /DFOMENT_DEBUG /DFOMENT
 #CLRELEASE = /nologo /MD /W3 /O1sy /Gs /GA /EHsc /Forelease/ /c /DFOMENT_WINDOWS
 CLRELEASE = /nologo /MD /W3 /O1sy /Zi /Gs /GA /EHsc /Forelease/ /c /DFOMENT_WINDOWS
 
+LIBS = ws2_32.lib iphlpapi.lib
+
 all: debug release debug\foment.exe release\foment.exe
 
 clean: debug release manual
@@ -96,7 +98,7 @@ debug\foment.exe: debug\foment.obj debug\gc.obj debug\syncthrd.obj debug\compile
         debug\pairs.obj debug\unicode.obj debug\chars.obj debug\strings.obj debug\vectors.obj\
         debug\library.obj debug\execute.obj debug\numbers.obj debug\mini-gmp.obj debug\write.obj\
         debug\read.obj debug\main.obj debug\base.obj
-    link /nologo /subsystem:console /out:debug\foment.exe /debug /pdb:debug\foment.pdb $**
+    link /nologo /subsystem:console /out:debug\foment.exe /debug /pdb:debug\foment.pdb $** $(LIBS)
 
 release\foment.exe: release\foment.obj release\gc.obj release\syncthrd.obj release\compile.obj\
         release\io.obj release\synrules.obj release\synpass.obj release\midpass.obj\
@@ -105,7 +107,8 @@ release\foment.exe: release\foment.obj release\gc.obj release\syncthrd.obj relea
         release\numbers.obj release\mini-gmp.obj release\write.obj release\read.obj\
         release\main.obj release\base.obj
 #    link /nologo /subsystem:console /out:release\foment.exe $**
-    link /nologo /subsystem:console /out:release\foment.exe /debug /pdb:release\foment.pdb $**
+    link /nologo /subsystem:console /out:release\foment.exe /debug /pdb:release\foment.pdb $**\
+        $(LIBS)
 
 debug\txt2cpp.exe: debug\txt2cpp.obj
     link /nologo /subsystem:console /out:debug\txt2cpp.exe\
