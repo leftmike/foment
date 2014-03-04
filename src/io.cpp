@@ -3,7 +3,6 @@
 Foment
 
 -- add an optional PeekBytes to BinaryPorts
--- sockets on unix
 -- reads/writes/connects/accepts should enter io wait for gc
 
 */
@@ -25,6 +24,11 @@ Foment
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/socket.h>
+#include <errno.h>
+#include <netdb.h>
+#include <ifaddrs.h>
+#include <arpa/inet.h>
 #endif // FOMENT_UNIX
 
 #include <stdio.h>
@@ -39,6 +43,14 @@ Foment
 #include "syncthrd.hpp"
 #include "io.hpp"
 #include "unicode.hpp"
+
+#ifdef FOMENT_UNIX
+typedef int_t SOCKET;
+#define closesocket(s) close(s)
+#define SOCKET_ERROR -1
+#define INVALID_SOCKET -1
+#define addrinfoW addrinfo
+#endif // FOMENT_UNIX
 
 #define NOT_PEEKED ((uint_t) (-1))
 #define CR 13
@@ -2791,6 +2803,20 @@ Define("socket-purge-flags", SocketPurgeFlagsPrimitive)(int_t argc, FObject argv
     return(MakeFixnum(ret));
 }
 
+#ifdef FOMENT_WINDOWS
+static FObject GetLastError()
+{
+    return(MakeFixnum(WSAGetLastError()));
+}
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+static FObject GetLastError()
+{
+    return(MakeStringC(strerror(errno)));
+}
+#endif // FOMENT_UNIX
+
 Define("make-socket", MakeSocketPrimitive)(int_t argc, FObject argv[])
 {
     // (make-socket <address-family> <socket-domain> <protocol>)
@@ -2803,7 +2829,7 @@ Define("make-socket", MakeSocketPrimitive)(int_t argc, FObject argv[])
     SOCKET s = socket((int) AsFixnum(argv[0]), (int) AsFixnum(argv[1]), (int) AsFixnum(argv[2]));
     if (s == INVALID_SOCKET)
         RaiseExceptionC(R.Assertion, "make-socket", "creating a socket failed",
-                List(argv[0], argv[1], argv[2], MakeFixnum(WSAGetLastError())));
+                List(argv[0], argv[1], argv[2], GetLastError()));
 
     return(MakeSocketPort(s));
 }
@@ -2825,13 +2851,25 @@ static void GetAddressInformation(const char * who, addrinfoW ** res, FObject no
     hts.ai_protocol = (int) AsFixnum(prot);
     hts.ai_flags = AI_PASSIVE;
 
+#ifdef FOMENT_WINDOWS
     FObject nn = ConvertStringToUtf16(node);
     FObject sn = ConvertStringToUtf16(svc);
 
     if (GetAddrInfoW((FCh16 *) AsBytevector(nn)->Vector, (FCh16 *) AsBytevector(sn)->Vector,
             &hts, res) != 0)
         RaiseExceptionC(R.Assertion, who, "GetAddrInfoW failed",
-                List(node, svc, afam, sdmn, prot, MakeFixnum(WSAGetLastError())));
+                List(node, svc, afam, sdmn, prot, GetLastError()));
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    FObject nn = ConvertStringToUtf8(node);
+    FObject sn = ConvertStringToUtf8(svc);
+
+    if (getaddrinfo((char *) AsBytevector(nn)->Vector, (char *) AsBytevector(sn)->Vector,
+            &hts, res) != 0)
+        RaiseExceptionC(R.Assertion, who, "GetAddrInfoW failed",
+                List(node, svc, afam, sdmn, prot, GetLastError()));
+#endif // FOMENT_UNIX
 }
 
 Define("socket-bind", BindSocketPrimitive)(int_t argc, FObject argv[])
@@ -2841,20 +2879,13 @@ Define("socket-bind", BindSocketPrimitive)(int_t argc, FObject argv[])
     SixArgsCheck("socket-bind", argc);
     SocketPortArgCheck("socket-bind", argv[0]);
 
-#ifdef FOMENT_WINDOWS
     addrinfoW * res;
-#endif // FOMENT_WINDOWS
-
-#ifdef FOMENT_UNIX
-    
-#endif // FOMENT_UNIX
-
     GetAddressInformation("socket-bind", &res, argv[1], argv[2], argv[3], argv[4], argv[5]);
 
     if (bind((SOCKET) AsGenericPort(argv[0])->Context, res->ai_addr, (int) res->ai_addrlen) != 0)
         RaiseExceptionC(R.Assertion, "socket-bind", "bind failed",
                 List(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
-                MakeFixnum(WSAGetLastError())));
+                GetLastError()));
 
     return(NoValueObject);
 }
@@ -2876,7 +2907,7 @@ Define("socket-listen", ListenSocketPrimitive)(int_t argc, FObject argv[])
 
     if (listen((SOCKET) AsGenericPort(argv[0])->Context, bcklg) != 0)
         RaiseExceptionC(R.Assertion, "socket-listen", "listen failed",
-                List(MakeFixnum(WSAGetLastError())));
+                List(GetLastError()));
 
     return(NoValueObject);
 }
@@ -2891,7 +2922,7 @@ Define("socket-accept", AcceptSocketPrimitive)(int_t argc, FObject argv[])
     SOCKET s = accept((SOCKET) AsGenericPort(argv[0])->Context, 0, 0);
     if (s == INVALID_SOCKET)
         RaiseExceptionC(R.Assertion, "socket-accept", "accept failed",
-                List(MakeFixnum(WSAGetLastError())));
+                List(GetLastError()));
 
     return(MakeSocketPort(s));
 }
@@ -2903,21 +2934,14 @@ Define("socket-connect", ConnectSocketPrimitive)(int_t argc, FObject argv[])
     SixArgsCheck("socket-connect", argc);
     SocketPortArgCheck("socket-connect", argv[0]);
 
-#ifdef FOMENT_WINDOWS
     addrinfoW * res;
-#endif // FOMENT_WINDOWS
-
-#ifdef FOMENT_UNIX
-    
-#endif // FOMENT_UNIX
-
     GetAddressInformation("socket-connect", &res, argv[1], argv[2], argv[3], argv[4], argv[5]);
 
     if (connect((SOCKET) AsGenericPort(argv[0])->Context, res->ai_addr, (int) res->ai_addrlen)
             != 0)
         RaiseExceptionC(R.Assertion, "socket-connect", "connect failed",
                 List(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
-                MakeFixnum(WSAGetLastError())));
+                GetLastError()));
 
     return(NoValueObject);
 }
@@ -2932,7 +2956,7 @@ Define("socket-shutdown", ShutdownSocketPrimitive)(int_t argc, FObject argv[])
 
     if (shutdown((SOCKET) AsGenericPort(argv[0])->Context, (int) AsFixnum(argv[1])) != 0)
         RaiseExceptionC(R.Assertion, "socket-shutdown", "shutdown failed",
-                List(argv[0], argv[1], MakeFixnum(WSAGetLastError())));
+                List(argv[0], argv[1], GetLastError()));
 
     return(NoValueObject);
 }
@@ -3039,13 +3063,30 @@ Define("get-ip-addresses", GetIpAddressesPrimitive)(int_t argc, FObject argv[])
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
+    struct ifaddrs * ifab;
     
+    if (getifaddrs(&ifab) != 0)
+        RaiseExceptionC(R.Assertion, "get-ip-addresses", "getifaddrs failed",
+                List(GetLastError()));
     
+    FObject lst = EmptyListObject;
+
+    for (struct ifaddrs * ifa = ifab; ifa != 0; ifa = ifa->ifa_next)
+    {
+        if (ifa->ifa_addr != 0 && (ifa->ifa_addr->sa_family == AF_INET
+                || ifa->ifa_addr->sa_family == AF_INET6))
+        {
+            char buf[46];
+
+            if (AsFixnum(argv[0]) == AF_UNSPEC || ifa->ifa_addr->sa_family == AsFixnum(argv[0]))
+                lst = MakePair(MakeStringC(inet_ntop(ifa->ifa_addr->sa_family,
+                        ifa->ifa_addr, buf, 46)), lst);
+        }
+    }
     
-    
-    
-    
-    return(NoValueObject);
+    freeifaddrs(ifab);
+
+    return(lst);
 #endif // FOMENT_UNIX
 }
 
@@ -3222,9 +3263,17 @@ void SetupIO()
     DefineConstant(R.Bedrock, R.BedrockLibrary, "*msg-oob*", MakeFixnum(MSG_OOB));
     DefineConstant(R.Bedrock, R.BedrockLibrary, "*msg-waitall*", MakeFixnum(MSG_WAITALL));
 
+#ifdef FOMENT_WINDOWS
     DefineConstant(R.Bedrock, R.BedrockLibrary, "*shut-rd*", MakeFixnum(SD_RECEIVE));
     DefineConstant(R.Bedrock, R.BedrockLibrary, "*shut-wr*", MakeFixnum(SD_SEND));
     DefineConstant(R.Bedrock, R.BedrockLibrary, "*shut-rdwr*", MakeFixnum(SD_BOTH));
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    DefineConstant(R.Bedrock, R.BedrockLibrary, "*shut-rd*", MakeFixnum(SHUT_RD));
+    DefineConstant(R.Bedrock, R.BedrockLibrary, "*shut-wr*", MakeFixnum(SHUT_WR));
+    DefineConstant(R.Bedrock, R.BedrockLibrary, "*shut-rdwr*", MakeFixnum(SHUT_RDWR));
+#endif // FOMENT_UNIX
 
     SetupWrite();
     SetupRead();

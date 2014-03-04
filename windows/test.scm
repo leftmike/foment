@@ -10,7 +10,7 @@
                     (write (utf8->string bv))
                     (loop s)))))
     (let ((s (make-socket (address-family inet) (socket-domain stream) (ip-protocol tcp))))
-        (socket-bind s "" "12345" (address-family inet) (socket-domain stream) (ip-protocol tcp))
+        (socket-bind s "localhost" "12345" (address-family inet) (socket-domain stream) (ip-protocol tcp))
         (socket-listen s)
         (loop (socket-accept s))))
 
@@ -20,7 +20,7 @@
         (write-bytevector (string->utf8 (read-line)) s)
         (loop s))
     (let ((s (make-socket (address-family inet) (socket-domain stream) (ip-protocol tcp))))
-        (socket-connect s "" "12345" (address-family inet) (socket-domain stream)
+        (socket-connect s "localhost" "12345" (address-family inet) (socket-domain stream)
                 (ip-protocol tcp))
         (loop s)))
 
