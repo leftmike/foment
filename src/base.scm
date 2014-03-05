@@ -1092,8 +1092,7 @@
                     obj)))
 
         (define file-encoding
-            (make-parameter make-latin1-port))
-;            (make-parameter (cond-expand (unix make-utf8-port) (else make-latin1-port)))
+            (make-parameter make-encoded-port))
 
         (define (open-input-file string)
             ((file-encoding) (open-binary-input-file string)))

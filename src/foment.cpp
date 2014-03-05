@@ -1890,6 +1890,7 @@ void SetupFoment(FThreadState * ts, int argc, FChS * argv[])
     R.LibraryPath = EmptyListObject;
 
     GetEnvironmentVariables();
+
     FObject lp = Assoc(MakeStringC("FOMENT_LIBPATH"), R.EnvironmentVariables);
     if (PairP(lp))
     {
@@ -1918,6 +1919,8 @@ void SetupFoment(FThreadState * ts, int argc, FChS * argv[])
             R.LibraryPath = MakePair(
                     MakeString(AsString(lp)->String + strt, idx - strt), R.LibraryPath);
     }
+
+    R.LibraryExtensions = List(MakeStringC("sld"), MakeStringC("scm"));
 
     if (argc > 0)
     {

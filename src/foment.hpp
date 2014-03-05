@@ -7,8 +7,6 @@ Goals:
 -- simple implementation
 
 To Do:
--- loading libraries: warn if a file matches library name, but does not contain a library
--- allow multiple file extensions for libraries
 -- Windows: $(APPDATA)\Foment\Libraries
 -- Unix: $(HOME)/.local/foment/lib
 
@@ -749,6 +747,7 @@ typedef struct
     FObject Features;
     FObject CommandLine;
     FObject LibraryPath;
+    FObject LibraryExtensions;
     FObject EnvironmentVariables;
 
     FObject SymbolHashtable;

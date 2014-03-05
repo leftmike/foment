@@ -304,8 +304,8 @@ static FObject FindLibrary(FObject nam)
 
 // ----------------
 
-// (<name1> <name2> ... <namen>) --> <dir>/<name1>-<name2>-...<namen>.sld
-static FObject LibraryNameFlat(FObject dir, FObject nam)
+// (<name1> <name2> ... <namen>) --> <dir>/<name1>-<name2>-...<namen>.<ext>
+static FObject LibraryNameFlat(FObject dir, FObject nam, FObject ext)
 {
     FObject out = MakeStringOutputPort();
     WriteSimple(out, dir, 1);
@@ -324,13 +324,14 @@ static FObject LibraryNameFlat(FObject dir, FObject nam)
 
     FAssert(nam == EmptyListObject);
 
-    WriteStringC(out, ".sld");
+    WriteStringC(out, ".");
+    WriteSimple(out, ext, 1);
 
     return(GetOutputString(out));
 }
 
-// (<name1> <name2> ... <namen>) --> <dir>\<name1>\<name2>\...\<namen>.sld
-static FObject LibraryNameDeep(FObject dir, FObject nam)
+// (<name1> <name2> ... <namen>) --> <dir>\<name1>\<name2>\...\<namen>.<ext>
+static FObject LibraryNameDeep(FObject dir, FObject nam, FObject ext)
 {
     FObject out = MakeStringOutputPort();
     WriteSimple(out, dir, 1);
@@ -347,7 +348,8 @@ static FObject LibraryNameDeep(FObject dir, FObject nam)
 
     FAssert(nam == EmptyListObject);
 
-    WriteStringC(out, ".sld");
+    WriteStringC(out, ".");
+    WriteSimple(out, ext, 1);
 
     return(GetOutputString(out));
 }
@@ -370,31 +372,46 @@ static FObject LoadLibrary(FObject nam)
     {
         FAssert(StringP(First(lp)));
 
-        FObject port = OpenInputFile(LibraryNameFlat(First(lp), nam));
-        if (TextualPortP(port) == 0)
-            port = OpenInputFile(LibraryNameDeep(First(lp), nam));
+        FObject le = R.LibraryExtensions;
 
-        if (TextualPortP(port))
+        while (PairP(le))
         {
-            WantIdentifiersPort(port, 1);
+            FAssert(StringP(First(le)));
 
-            for (;;)
+            FObject libfn = LibraryNameFlat(First(lp), nam, First(le));
+            FObject port = OpenInputFile(libfn);
+
+            if (TextualPortP(port) == 0)
             {
-                FObject obj = Read(port);
-
-                if (obj == EndOfFileObject)
-                    break;
-
-                if (PairP(obj) == 0 || EqualToSymbol(First(obj), R.DefineLibrarySymbol) == 0)
-                    RaiseExceptionC(R.Syntax, "define-library", "expected a library", List(obj));
-
-                CompileLibrary(obj);
+                libfn = LibraryNameDeep(First(lp), nam, First(le));
+                port = OpenInputFile(libfn);
             }
-        }
 
-        FObject lib = FindLibrary(nam);
-        if (LibraryP(lib))
-            return(lib);
+            if (TextualPortP(port))
+            {
+                WantIdentifiersPort(port, 1);
+
+                for (;;)
+                {
+                    FObject obj = Read(port);
+
+                    if (obj == EndOfFileObject)
+                        break;
+
+                    if (PairP(obj) == 0 || EqualToSymbol(First(obj), R.DefineLibrarySymbol) == 0)
+                        RaiseExceptionC(R.Syntax, "define-library", "expected a library",
+                                List(obj, libfn));
+
+                    CompileLibrary(obj);
+                }
+            }
+
+            FObject lib = FindLibrary(nam);
+            if (LibraryP(lib))
+                return(lib);
+
+            le = Rest(le);
+        }
 
         lp = Rest(lp);
     }

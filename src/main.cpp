@@ -25,6 +25,7 @@ static int Usage()
         "    foment [OPTION]... FILE [ARG]...\n"
         "    -A DIR            append a library search directory\n"
         "    -I DIR            prepend a library search directory\n"
+        "    -X EXT            add EXT as a possible filename extensions for libraries\n"
         "interactive session (repl):\n"
         "    foment [OPTION]... [FLAG]... [ARG]...\n\n"
         "    -i                interactive session\n"
@@ -192,6 +193,17 @@ int main(int argc, char * argv[])
                     return(MissingArgument(argv[adx - 1]));
 
                 R.LibraryPath = MakePair(MakeStringS(argv[adx]), R.LibraryPath);
+
+                adx += 1;
+            }
+            else if (StringCompareS(argv[adx], "-X") == 0)
+            {
+                adx += 1;
+
+                if (adx == argc)
+                    return(MissingArgument(argv[adx - 1]));
+
+                R.LibraryExtensions = MakePair(MakeStringS(argv[adx]), R.LibraryExtensions);
 
                 adx += 1;
             }

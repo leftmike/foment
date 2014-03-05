@@ -2852,6 +2852,14 @@ Define("make-buffered-port", MakeBufferedPortPrimitive)(int_t argc, FObject argv
     return(MakeBufferedPort(argv[0]));
 }
 
+Define("make-encoded-port", MakeEncodedPortPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("make-encoded-port", argc);
+    BinaryPortArgCheck("make-encoded-port", argv[0]);
+
+    return(MakeEncodedPort(argv[0]));
+}
+
 Define("want-identifiers", WantIdentifiersPrimitive)(int_t argc, FObject argv[])
 {
     TwoArgsCheck("want-identifiers", argc);
@@ -3276,6 +3284,7 @@ static FPrimitive * Primitives[] =
     &MakeUtf8PortPrimitive,
     &MakeUtf16PortPrimitive,
     &MakeBufferedPortPrimitive,
+    &MakeEncodedPortPrimitive,
     &WantIdentifiersPrimitive,
     &ConsolePortPPrimitive,
     &SetConsoleInputEditlinePrimitive,
