@@ -328,6 +328,8 @@ static FObject Execute(FThreadState * ts)
 
     for (;;)
     {
+        FAssert(ts->DontWait == 0);
+
         if (ts->NotifyFlag)
         {
             ts->NotifyFlag = 0;

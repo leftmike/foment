@@ -1161,8 +1161,7 @@ static void CollectTrackers(FObject trkrs, int_t fcf, int_t mtf)
 
 static void Collect(int_t fcf)
 {
-/*
-    if (fcf)
+/*    if (fcf)
 printf("Full Collection...");
     else
 printf("Partial Collection...");
@@ -1249,6 +1248,10 @@ printf("Partial Collection...");
         FAssert(ObjectP(ts->Thread));
         ScanObject(&(ts->Thread), fcf, 0);
 
+        for (FAlive * ap = ts->AliveList; ap != 0; ap = ap->Next)
+            if (ObjectP(*ap->Pointer))
+                ScanObject(ap->Pointer, fcf, 0);
+
         for (uint_t rdx = 0; rdx < ts->UsedRoots; rdx++)
             if (ObjectP(*ts->Roots[rdx]))
                 ScanObject(ts->Roots[rdx], fcf, 0);
@@ -1273,6 +1276,9 @@ printf("Partial Collection...");
         for (int_t idx = 0; idx < INDEX_PARAMETERS; idx++)
             if (ObjectP(ts->IndexParameters[idx]))
                 ScanObject(ts->IndexParameters + idx, fcf, 0);
+
+        if (ObjectP(ts->NotifyObject))
+            ScanObject(&ts->NotifyObject, fcf, 0);
 
         ts = ts->Next;
     }
@@ -1417,31 +1423,42 @@ printf("Partial Collection...");
 
 void EnterWait()
 {
-    EnterExclusive(&GCExclusive);
-    WaitThreads += 1;
-    if (GCHappening && TotalThreads == WaitThreads + CollectThreads)
-        WakeCondition(&ReadyCondition);
-    LeaveExclusive(&GCExclusive);
+    if (GetThreadState()->DontWait == 0)
+    {
+#ifdef FOMENT_STRESSWAIT
+        GCRequired = 1;
+        Collect();
+#endif // FOMENT_STRESSWAIT
+
+        EnterExclusive(&GCExclusive);
+        WaitThreads += 1;
+        if (GCHappening && TotalThreads == WaitThreads + CollectThreads)
+            WakeCondition(&ReadyCondition);
+        LeaveExclusive(&GCExclusive);
+    }
 }
 
 void LeaveWait()
 {
-    EnterExclusive(&GCExclusive);
-    WaitThreads -= 1;
-
-    if (GCHappening)
+    if (GetThreadState()->DontWait == 0)
     {
-        CollectThreads += 1;
+        EnterExclusive(&GCExclusive);
+        WaitThreads -= 1;
 
-        while (GCHappening)
-            ConditionWait(&DoneCondition, &GCExclusive);
+        if (GCHappening)
+        {
+            CollectThreads += 1;
 
-        FAssert(CollectThreads > 0);
+            while (GCHappening)
+                ConditionWait(&DoneCondition, &GCExclusive);
 
-        CollectThreads -= 1;
+            FAssert(CollectThreads > 0);
+
+            CollectThreads -= 1;
+        }
+
+        LeaveExclusive(&GCExclusive);
     }
-
-    LeaveExclusive(&GCExclusive);
 }
 
 void Collect()
@@ -1550,6 +1567,39 @@ void InstallTracker(FObject obj, FObject ret, FObject tconc)
         YoungTrackers = MakePair(MakePair(obj, MakePair(ret, tconc)), YoungTrackers);
 }
 
+FAlive::FAlive(FObject * ptr)
+{
+    FThreadState * ts = GetThreadState();
+
+    Next = ts->AliveList;
+    ts->AliveList = this;
+    Pointer = ptr;
+}
+
+FAlive::~FAlive()
+{
+    FThreadState * ts = GetThreadState();
+
+    FAssert(ts->AliveList == this);
+
+    ts->AliveList = Next;
+}
+
+FDontWait::FDontWait()
+{
+    FThreadState * ts = GetThreadState();
+    ts->DontWait += 1;
+}
+
+FDontWait::~FDontWait()
+{
+    FThreadState * ts = GetThreadState();
+
+    FAssert(ts->DontWait > 0);
+
+    ts->DontWait -= 1;
+}
+
 void EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms)
 {
 #ifdef FOMENT_WINDOWS
@@ -1578,6 +1628,8 @@ void EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms)
     LeaveExclusive(&GCExclusive);
 
     ts->Thread = thrd;
+    ts->AliveList = 0;
+    ts->DontWait = 0;
     ts->ActiveZero = 0;
     ts->ObjectsSinceLast = 0;
     ts->UsedRoots = 0;

@@ -7,7 +7,8 @@
         (let ((bv (read-bytevector 128 s)))
             (if (not (eof-object? bv))
                 (begin
-                    (write (utf8->string bv))
+                    (display (utf8->string bv))
+                    (newline)
                     (loop s)))))
     (let ((s (make-socket (address-family inet) (socket-domain stream) (ip-protocol tcp))))
         (bind-socket s "localhost" "12345" (address-family inet) (socket-domain stream)

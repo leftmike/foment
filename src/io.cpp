@@ -2,6 +2,8 @@
 
 Foment
 
+-- fix FileDescByteReadyP to use select or poll
+
 */
 
 #ifdef FOMENT_WINDOWS
@@ -118,6 +120,8 @@ int_t PeekByte(FObject port, FByte * b)
         return(1);
     }
 
+    FAlive ap(&port);
+
     if (AsBinaryPort(port)->ReadBytesFn(port, b, 1) == 0)
         return(0);
 
@@ -217,6 +221,7 @@ static uint_t BufferedReadBytes(FObject port, void * b, uint_t bl)
     FAssert(BinaryPortP(port) && InputPortOpenP(port));
     FAssert(AsGenericPort(port)->Context != 0);
 
+    FAlive ap(&port);
     FBufferedContext * bc = AsBufferedContext(port);
     uint_t br = 0;
     unsigned char * ptr = (unsigned char *) b;
@@ -403,7 +408,10 @@ static void SocketFlushOutput(FObject port)
 
 static int SocketReceive(SOCKET s, char * b, int bl, int flgs)
 {
+    EnterWait();
     int br = recv(s, b, bl, flgs);
+    LeaveWait();
+
     if (br == SOCKET_ERROR)
         return(0);
 
@@ -489,11 +497,13 @@ static uint_t HandleReadBytes(FObject port, void * b, uint_t bl)
     FAssert(BinaryPortP(port) && InputPortOpenP(port));
 
     DWORD nr;
+    HANDLE h = (HANDLE) AsGenericPort(port)->Context;
 
-    if (ReadFile((HANDLE) AsGenericPort(port)->Context, b, (DWORD) bl, &nr, 0) == 0)
-        return(0);
+    EnterWait();
+    BOOL ret = ReadFile(h, b, (DWORD) bl, &nr, 0);
+    LeaveWait();
 
-    return(nr);
+    return(ret == 0 ? 0 : nr);
 }
 
 static int_t FileByteReadyP(FObject port)
@@ -563,11 +573,13 @@ static uint_t FileDescReadBytes(FObject port, void * b, uint_t bl)
 {
     FAssert(BinaryPortP(port) && InputPortOpenP(port));
 
-    int_t br = read((int_t) AsGenericPort(port)->Context, b, bl);
-    if (br <= 0)
-        return(0);
-        
-    return(br);
+    int_t fd = (int_t) AsGenericPort(port)->Context;
+
+    EnterWait();
+    int_t br = read(fd, b, bl);
+    LeaveWait();
+
+    return(br <= 0 ? 0 : br);
 }
 
 static int_t FileDescByteReadyP(FObject port)
@@ -755,6 +767,8 @@ uint_t PeekCh(FObject port, FCh * ch)
         return(1);
     }
 
+    FAlive ap(&port);
+
     if (ReadCh(port, ch) == 0)
         return(0);
 
@@ -792,7 +806,9 @@ FObject ReadLine(FObject port)
 {
     FAssert(TextualPortP(port) && InputPortOpenP(port));
 
+    FAlive ap(&port);
     FObject lst = EmptyListObject;
+    FAlive al(&lst);
     FCh ch = 0;
 
     while (ReadCh(port, &ch))
@@ -830,7 +846,9 @@ FObject ReadString(FObject port, uint_t cnt)
 {
     FAssert(TextualPortP(port) && InputPortOpenP(port));
 
+    FAlive ap(&port);
     FObject lst = EmptyListObject;
+    FAlive al(&lst);
     FCh ch;
 
     while (cnt > 0 && ReadCh(port, &ch))
@@ -971,6 +989,7 @@ static uint_t AsciiReadCh(FObject port, FCh * ch)
 {
     FAssert(BinaryPortP(AsGenericPort(port)->Object));
 
+    FAlive ap(&port);
     unsigned char b;
 
     if (ReadBytes(AsGenericPort(port)->Object, &b, 1) != 1)
@@ -1031,6 +1050,7 @@ static uint_t Latin1ReadCh(FObject port, FCh * ch)
 {
     FAssert(BinaryPortP(AsGenericPort(port)->Object));
 
+    FAlive ap(&port);
     unsigned char b;
 
     if (ReadBytes(AsGenericPort(port)->Object, &b, 1) != 1)
@@ -1087,6 +1107,7 @@ static uint_t Utf8ReadCh(FObject port, FCh * ch)
 {
     FAssert(BinaryPortP(AsGenericPort(port)->Object));
 
+    FAlive ap(&port);
     unsigned char ub[6];
 
     if (ReadBytes(AsGenericPort(port)->Object, ub, 1) != 1)
@@ -1133,6 +1154,7 @@ static uint_t Utf16ReadCh(FObject port, FCh * pch)
 {
     FAssert(BinaryPortP(AsGenericPort(port)->Object));
 
+    FAlive ap(&port);
     FCh16 ch16;
 
     if (ReadBytes(AsGenericPort(port)->Object, (FByte *) &ch16, 2) != 2)
@@ -1199,6 +1221,7 @@ static FObject MakeEncodedPort(FObject port)
         return(MakeUtf8Port(port));
 #endif // FOMENT_UNIX
 
+    FAlive ap(&port);
     uint_t bl;
     char * b = (char *) LookaheadBytes(port, &bl);
 
@@ -1236,6 +1259,8 @@ static FObject MakeEncodedPort(FObject port)
                     return(MakeLatin1Port(port));
                 else if (edx - bdx == 10 && strncmp("iso-8859-1", b + bdx, 10) == 0)
                     return(MakeLatin1Port(port));
+                else if (edx - bdx == 5 && strncmp("ascii", b + bdx, 5) == 0)
+                    return(MakeAsciiPort(port));
             }
 
             break;
@@ -1718,6 +1743,7 @@ static void ConSaveHistory(FConsoleInput * ci, FObject fn)
 static void ConLoadHistory(FConsoleInput * ci, FObject fn)
 {
     FObject port = OpenInputFile(fn);
+    FAlive ap(&port);
 
     if (InputPortP(port))
     {
@@ -1786,7 +1812,9 @@ static uint_t ConReadRaw(FConsoleInput * ci, int_t wif)
     {
         for (;;)
         {
+            EnterWait();
             DWORD ret = WaitForSingleObjectEx(ci->InputHandle, wif ? INFINITE : 0, TRUE);
+            LeaveWait();
 
             if (ret == WAIT_OBJECT_0)
                 break;
@@ -1933,7 +1961,9 @@ static uint_t ConReadRaw(FConsoleInput * ci, int_t wif)
         tv.tv_sec = 0;
         tv.tv_usec = 0;
 
+        EnterWait();
         ret = select(1, &fds, 0, 0, wif ? 0 : &tv);
+        LeaveWait();
 
         if (ret > 0)
             break;
@@ -2820,6 +2850,14 @@ Define("get-output-bytevector", GetOutputBytevectorPrimitive)(int_t argc, FObjec
     return(GetOutputBytevector(argv[0]));
 }
 
+Define("make-ascii-port", MakeAsciiPortPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("make-ascii-port", argc);
+    BinaryPortArgCheck("make-ascii-port", argv[0]);
+
+    return(MakeAsciiPort(argv[0]));
+}
+
 Define("make-latin1-port", MakeLatin1PortPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("make-latin1-port", argc);
@@ -3030,7 +3068,8 @@ static void GetAddressInformation(const char * who, addrinfoW ** res, FObject no
     FObject nn = ConvertStringToUtf8(node);
     FObject sn = ConvertStringToUtf8(svc);
 
-    if (getaddrinfo((char *) AsBytevector(nn)->Vector, (char *) AsBytevector(sn)->Vector,
+    if (getaddrinfo(StringLength(node) == 0 ? 0 : (char *) AsBytevector(nn)->Vector,
+            StringLength(svc) == 0 ? 0 : (char *) AsBytevector(sn)->Vector,
             &hts, res) != 0)
         RaiseExceptionC(R.Assertion, who, "GetAddrInfoW failed",
                 List(node, svc, afam, sdmn, prot, LastSocketError()));
@@ -3085,7 +3124,12 @@ Define("accept-socket", AcceptSocketPrimitive)(int_t argc, FObject argv[])
     OneArgCheck("accept-socket", argc);
     SocketPortArgCheck("accept-socket", argv[0]);
 
-    SOCKET s = accept((SOCKET) AsGenericPort(argv[0])->Context, 0, 0);
+    SOCKET ls = (SOCKET) AsGenericPort(argv[0])->Context;
+
+    EnterWait();
+    SOCKET s = accept(ls, 0, 0);
+    LeaveWait();
+
     if (s == INVALID_SOCKET)
         RaiseExceptionC(R.Assertion, "accept-socket", "accept failed",
                 List(LastSocketError()));
@@ -3105,8 +3149,13 @@ Define("connect-socket", ConnectSocketPrimitive)(int_t argc, FObject argv[])
     GetAddressInformation("connect-socket", &res, argv[1], argv[2], argv[3], argv[4], argv[5],
             argv[6]);
 
-    if (connect((SOCKET) AsGenericPort(argv[0])->Context, res->ai_addr, (int) res->ai_addrlen)
-            != 0)
+    SOCKET s = (SOCKET) AsGenericPort(argv[0])->Context;
+
+    EnterWait();
+    int_t ret = connect(s, res->ai_addr, (int) res->ai_addrlen);
+    LeaveWait();
+
+    if (ret != 0)
         RaiseExceptionC(R.Assertion, "connect-socket", "connect failed",
                 List(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
                 LastSocketError()));
@@ -3152,19 +3201,29 @@ Define("recv-socket", ReceiveSocketPrimitive)(int_t argc, FObject argv[])
     NonNegativeArgCheck("recv-socket", argv[1], 0);
     FixnumArgCheck("recv-socket", argv[2]);
 
-    FObject bv = MakeBytevector(AsFixnum(argv[1]));
-    int br = SocketReceive((SOCKET) AsGenericPort(argv[0])->Context,
-            (char *) AsBytevector(bv)->Vector, (int) AsFixnum(argv[1]), (int) AsFixnum(argv[2]));
+    int bvl = (int) AsFixnum(argv[1]);
+    char b[128];
+    char * ptr;
+    if (bvl <= sizeof(b))
+        ptr = b;
+    else
+    {
+        ptr = (char *) malloc(bvl);
+        if (ptr == 0)
+            RaiseExceptionC(R.Restriction, "recv-socket", "insufficient memory",
+                    List(argv[0]));
+    }
 
-    if (br == AsFixnum(argv[1]))
-        return(bv);
+    int br = SocketReceive((SOCKET) AsGenericPort(argv[0])->Context, ptr, bvl,
+            (int) AsFixnum(argv[2]));
 
-    FAssert(br < AsFixnum(argv[1]));
+    FObject bv = MakeBytevector(br);
+    memcpy(AsBytevector(bv)->Vector, ptr, br);
 
-    FObject rbv = MakeBytevector(br);
-    memcpy(AsBytevector(rbv)->Vector, AsBytevector(bv)->Vector, br);
+    if (ptr != b)
+        free(ptr);
 
-    return(rbv);
+    return(bv);
 }
 
 Define("get-ip-addresses", GetIpAddressesPrimitive)(int_t argc, FObject argv[])
@@ -3280,6 +3339,7 @@ static FPrimitive * Primitives[] =
     &OpenInputBytevectorPrimitive,
     &OpenOutputBytevectorPrimitive,
     &GetOutputBytevectorPrimitive,
+    &MakeAsciiPortPrimitive,
     &MakeLatin1PortPrimitive,
     &MakeUtf8PortPrimitive,
     &MakeUtf16PortPrimitive,

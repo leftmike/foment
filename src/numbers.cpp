@@ -59,7 +59,8 @@ int_t NonNegativeExactIntegerP(FObject obj, int_t bf)
 
 static FObject MakeBignum()
 {
-    FBignum * bn = (FBignum *) MakePinnedObject(sizeof(FBignum), "make-bignum"); // MakeObject(sizeof(FBignum), BignumTag);
+//    FBignum * bn = (FBignum *) MakePinnedObject(sizeof(FBignum), "make-bignum");
+    FBignum * bn = (FBignum *) MakeObject(sizeof(FBignum), BignumTag);
     bn->Reserved = BignumTag;
     mpz_init(bn->MPInteger);
 
@@ -70,7 +71,8 @@ static FObject MakeBignum()
 
 static FObject MakeBignum(FFixnum n)
 {
-    FBignum * bn = (FBignum *) MakePinnedObject(sizeof(FBignum), "make-bignum"); // MakeObject(sizeof(FBignum), BignumTag);
+//    FBignum * bn = (FBignum *) MakePinnedObject(sizeof(FBignum), "make-bignum");
+    FBignum * bn = (FBignum *) MakeObject(sizeof(FBignum), BignumTag);
     bn->Reserved = BignumTag;
     mpz_init_set_si(bn->MPInteger, (long) n);
 
@@ -81,7 +83,8 @@ static FObject MakeBignum(FFixnum n)
 
 static FObject MakeBignum(double64_t d)
 {
-    FBignum * bn = (FBignum *) MakePinnedObject(sizeof(FBignum), "make-bignum"); // MakeObject(sizeof(FBignum), BignumTag);
+//    FBignum * bn = (FBignum *) MakePinnedObject(sizeof(FBignum), "make-bignum");
+    FBignum * bn = (FBignum *) MakeObject(sizeof(FBignum), BignumTag);
     bn->Reserved = BignumTag;
     mpz_init_set_d(bn->MPInteger, d);
 
@@ -94,7 +97,8 @@ static FObject MakeBignum(FObject n)
 {
     FAssert(BignumP(n));
 
-    FBignum * bn = (FBignum *) MakePinnedObject(sizeof(FBignum), "make-bignum"); // MakeObject(sizeof(FBignum), BignumTag);
+//    FBignum * bn = (FBignum *) MakePinnedObject(sizeof(FBignum), "make-bignum");
+    FBignum * bn = (FBignum *) MakeObject(sizeof(FBignum), BignumTag);
     bn->Reserved = BignumTag;
     mpz_init_set(bn->MPInteger, AsBignum(n));
 

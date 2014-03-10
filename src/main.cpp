@@ -100,16 +100,22 @@ static int ProgramMode(int adx, int argc, FChS * argv[])
     adx += 1;
     R.CommandLine = MakePair(MakeInvocation(adx, argv), MakeCommandLine(argc - adx, argv + adx));
 
-    FObject port = OpenInputFile(nam);
-    if (TextualPortP(port) == 0)
+    FObject port;
     {
+        FDontWait dw;
+
+        port = OpenInputFile(nam);
+        if (TextualPortP(port) == 0)
+        {
 #ifdef FOMENT_WINDOWS
-        printf("error: unable to open program: %S\n", argv[adx - 1]);
+            printf("error: unable to open program: %S\n", argv[adx - 1]);
 #endif // FOMENT_WINDOWS
+
 #ifdef FOMENT_UNIX
-        printf("error: unable to open program: %s\n", argv[adx - 1]);
+            printf("error: unable to open program: %s\n", argv[adx - 1]);
 #endif // FOMENT_UNIX
-        return(Usage());
+            return(Usage());
+        }
     }
 
     FObject proc = CompileProgram(nam, port);

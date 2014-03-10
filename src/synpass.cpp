@@ -1794,6 +1794,7 @@ FObject ReadInclude(FObject lst, int_t cif)
     if (PairP(lst) == 0)
         return(EmptyListObject);
 
+    FDontWait dw;
     FObject ret = EmptyListObject;
 
     while (PairP(lst))

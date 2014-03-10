@@ -10,15 +10,6 @@ To Do:
 -- Windows: $(APPDATA)\Foment\Libraries
 -- Unix: $(HOME)/.local/foment/lib
 
--- IO and GC
--- boxes, vectors, procedures, records, and pairs need to be read and written using scheme code
--- or use FAlive
--- use EnterWait and LeaveWait: reads, writes, connects, and accepts
-
--- document: using coding: to specify file encoding
--- document: socket api, get-ip-addresses, make-buffered-port
--- document: srfi-106
-
 Future:
 -- don't load all builtin libraries at startup
 -- on unix, if gmp is available, use it instead of mini-gmp
@@ -43,8 +34,6 @@ Bugs:
 -- letrec: http://trac.sacrideo.us/wg/wiki/LetrecStar
 -- serialize loading libraries
 -- serialize symbol table
--- write-bytevector, write-string, read-bytevector, and read-bytevector! assume GC does
-    not happen during IO
 -- gc.cpp: AllocateSection failing is not handled by all callers
 -- ExecuteThunk does not check for CStack or AStack overflow
 -- remove Hash from FSymbol (part of Reserved)
@@ -260,6 +249,25 @@ void ModifyObject(FObject obj, uint_t off, FObject val);
 
 void InstallGuardian(FObject obj, FObject tconc);
 void InstallTracker(FObject obj, FObject ret, FObject tconc);
+
+class FAlive
+{
+public:
+
+    FAlive(FObject * ptr);
+    ~FAlive();
+
+    FAlive * Next;
+    FObject * Pointer;
+};
+
+class FDontWait
+{
+public:
+
+    FDontWait();
+    ~FDontWait();
+};
 
 //
 // ---- Immediate Types ----
@@ -1079,6 +1087,9 @@ typedef struct _FThreadState
     struct _FThreadState * Previous;
 
     FObject Thread;
+
+    FAlive * AliveList;
+    uint_t DontWait;
 
     FYoungSection * ActiveZero;
     uint_t ObjectsSinceLast;

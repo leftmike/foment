@@ -86,6 +86,7 @@ static int_t DotSubsequentP(FCh ch)
 
 static FCh ReadStringHexChar(FObject port)
 {
+    FAlive ap(&port);
     FCh s[16];
     int_t sl = 2;
     FCh ch;
@@ -122,6 +123,7 @@ static FCh ReadStringHexChar(FObject port)
 
 static FObject ReadStringLiteral(FObject port, FCh tch)
 {
+    FAlive ap(&port);
     FCh s[512];
     int_t sl = 0;
     FCh ch;
@@ -200,6 +202,7 @@ UnexpectedEof:
 
 static FObject ReadNumber(FObject port, FCh * s, int_t sdx, FFixnum rdx, int_t df)
 {
+    FAlive ap(&port);
     FCh ch;
 
     for (;;)
@@ -233,6 +236,7 @@ static FObject ReadNumber(FObject port, FCh * s, int_t sdx, FFixnum rdx, int_t d
 
 static int_t ReadName(FObject port, FCh ch, FCh * s)
 {
+    FAlive ap(&port);
     int_t sl;
 
     sl = 0;
@@ -257,6 +261,7 @@ static int_t ReadName(FObject port, FCh ch, FCh * s)
 
 static FObject ReadIdentifier(FObject port, FCh * s, int_t sdx, int_t mbnf)
 {
+    FAlive ap(&port);
     int_t ln;
     FCh ch;
 
@@ -297,6 +302,7 @@ static FObject ReadList(FObject port, FObject * pdlht);
 static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlht);
 static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlht)
 {
+    FAlive ap(&port);
     FCh ch;
 
     if (ReadCh(port, &ch) == 0)
@@ -519,6 +525,7 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlht)
 
 static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlht)
 {
+    FAlive ap(&port);
     FCh ch;
 
     for (;;)
@@ -570,7 +577,7 @@ static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlht)
             case '.':
                 if (PeekCh(port, &ch) == 0)
                     RaiseExceptionC(R.Lexical, "read",
-                            "unexpected end-of-file reading dotted pair", List(port));
+                            "unexpected end-of-file reading dot", List(port));
 
                 if (DotSubsequentP(ch))
                 {
@@ -611,17 +618,15 @@ static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlht)
                     RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading unquote",
                             List(port));
 
-                FObject sym;
+                FObject sym = R.UnquoteSymbol;
+                FAlive as(&sym);
                 if (ch == '@')
                 {
                     ReadCh(port, &ch);
                     sym = R.UnquoteSplicingSymbol;
                 }
-                else
-                    sym = R.UnquoteSymbol;
 
-                FObject obj;
-                obj = Read(port, 0, 0, pdlht);
+                FObject obj = Read(port, 0, 0, pdlht);
                 return(MakePair(WantIdentifiersPortP(port)
                         ? MakeIdentifier(sym, GetLineColumn(port, 0)) : sym,
                         MakePair(obj, EmptyListObject)));
@@ -704,9 +709,9 @@ Eof:
 
 static FObject ReadList(FObject port, FObject * pdlht)
 {
-    FObject obj;
-
-    obj = Read(port, 0, 1, pdlht);
+    FAlive ap(&port);
+    FObject obj = Read(port, 0, 1, pdlht);
+    FAlive ao(&obj);
 
     if (obj == EolObject)
         return(EmptyListObject);
@@ -772,6 +777,9 @@ FObject Read(FObject port)
     FAssert(InputPortP(port) && InputPortOpenP(port));
 
     FObject dlht = NoValueObject;
+    FAlive ap(&port);
+    FAlive adlht(&dlht);
+
     FObject obj = Read(port, 1, 0, &dlht);
     if (HashtableP(dlht))
         ResolveDatumReferences(port, obj, dlht);
@@ -891,17 +899,29 @@ Define("read-bytevector", ReadBytevectorPrimitive)(int_t argc, FObject argv[])
     BinaryInputPortArgCheck("read-bytevector", port);
 
     int_t bvl = AsFixnum(argv[0]);
-    FObject bv = MakeBytevector(bvl);
-    int_t rl = ReadBytes(port, AsBytevector(bv)->Vector, bvl);
+    FByte b[128];
+    FByte * ptr;
+    if (bvl <= sizeof(b))
+        ptr = b;
+    else
+    {
+        ptr = (FByte *) malloc(bvl);
+        if (ptr == 0)
+            RaiseExceptionC(R.Restriction, "read-bytevector!", "insufficient memory",
+                    List(argv[0]));
+    }
+
+    int_t rl = ReadBytes(port, ptr, bvl);
     if (rl == 0)
         return(EndOfFileObject);
 
-    if (rl == bvl)
-        return(bv);
+    FObject bv = MakeBytevector(rl);
+    memcpy(AsBytevector(bv)->Vector, ptr, rl);
 
-    FObject nbv = MakeBytevector(rl);
-    memcpy(AsBytevector(nbv)->Vector, AsBytevector(bv)->Vector, rl);
-    return(nbv);
+    if (ptr != b)
+        free(ptr);
+
+    return(bv);
 }
 
 Define("read-bytevector!", ReadBytevectorModifyPrimitive)(int_t argc, FObject argv[])
@@ -934,9 +954,23 @@ Define("read-bytevector!", ReadBytevectorModifyPrimitive)(int_t argc, FObject ar
         end = (int_t) BytevectorLength(argv[0]);
     }
 
-    int_t rl = ReadBytes(port, AsBytevector(argv[0])->Vector + strt, end - strt);
+    FByte b[128];
+    FByte * ptr;
+    if (end - strt <= sizeof(b))
+        ptr = b;
+    else
+    {
+        ptr = (FByte *) malloc(end - strt);
+        if (ptr == 0)
+            RaiseExceptionC(R.Restriction, "read-bytevector", "insufficient memory",
+                    List(MakeFixnum(end - strt)));
+    }
+
+    int_t rl = ReadBytes(port, ptr, end - strt);
     if (rl == 0)
         return(EndOfFileObject);
+
+    memcpy(AsBytevector(argv[0])->Vector + strt, ptr, end - strt);
     return(MakeFixnum(rl));
 }
 

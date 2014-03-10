@@ -368,10 +368,12 @@
         unbox
         set-box!)
     (export
+        make-ascii-port
         make-latin1-port
         make-utf8-port
         make-utf16-port
         make-buffered-port
+        make-encoded-port
         file-encoding
         want-identifiers
         set-console-input-editline!
