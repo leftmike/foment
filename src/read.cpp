@@ -11,6 +11,11 @@ Foment
 #include <pthread.h>
 #endif // FOMENT_UNIX
 #include <string.h>
+#ifdef FOMENT_BSD
+#include <stdlib.h>
+#else // FOMENT_BSD
+#include <malloc.h>
+#endif // FOMENT_BSD
 #include "foment.hpp"
 #include "syncthrd.hpp"
 #include "io.hpp"
@@ -901,7 +906,7 @@ Define("read-bytevector", ReadBytevectorPrimitive)(int_t argc, FObject argv[])
     int_t bvl = AsFixnum(argv[0]);
     FByte b[128];
     FByte * ptr;
-    if (bvl <= sizeof(b))
+    if (bvl <= (int) sizeof(b))
         ptr = b;
     else
     {
@@ -956,7 +961,7 @@ Define("read-bytevector!", ReadBytevectorModifyPrimitive)(int_t argc, FObject ar
 
     FByte b[128];
     FByte * ptr;
-    if (end - strt <= sizeof(b))
+    if (end - strt <= (int) sizeof(b))
         ptr = b;
     else
     {

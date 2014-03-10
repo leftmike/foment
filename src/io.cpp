@@ -3204,7 +3204,7 @@ Define("recv-socket", ReceiveSocketPrimitive)(int_t argc, FObject argv[])
     int bvl = (int) AsFixnum(argv[1]);
     char b[128];
     char * ptr;
-    if (bvl <= sizeof(b))
+    if (bvl <= (int) sizeof(b))
         ptr = b;
     else
     {
