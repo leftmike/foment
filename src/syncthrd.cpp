@@ -149,19 +149,22 @@ static void FomentThread(FObject obj)
     try
     {
         if (ProcedureP(AsThread(obj)->Thunk))
-            AsThread(obj)->Result = ExecuteThunk(AsThread(obj)->Thunk);
+//            AsThread(obj)->Result = ExecuteThunk(AsThread(obj)->Thunk);
+            Modify(FThread, obj, Result, ExecuteThunk(AsThread(obj)->Thunk));
         else
         {
             FAssert(PrimitiveP(AsThread(obj)->Thunk));
 
-            AsThread(obj)->Result = AsPrimitive(AsThread(obj)->Thunk)->PrimitiveFn(0, 0);
+//            AsThread(obj)->Result = AsPrimitive(AsThread(obj)->Thunk)->PrimitiveFn(0, 0);
+            Modify(FThread, obj, Result, AsPrimitive(AsThread(obj)->Thunk)->PrimitiveFn(0, 0));
         }
     }
     catch (FObject exc)
     {
         Write(R.StandardOutput, exc, 0);
 
-        AsThread(obj)->Result = exc;
+//        AsThread(obj)->Result = exc;
+        Modify(FThread, obj, Result, exc);
     }
 
     LeaveThread(&ts);
@@ -232,7 +235,10 @@ Define("run-thread", RunThreadPrimitive)(int_t argc, FObject argv[])
 void ThreadExit(FObject obj)
 {
     FThreadState * ts = GetThreadState();
-    AsThread(ts->Thread)->Result = obj;
+
+//    AsThread(ts->Thread)->Result = obj;
+    Modify(FThread, ts->Thread, Result, obj);
+
     if (LeaveThread(ts) == 0)
         exit(0);
     else

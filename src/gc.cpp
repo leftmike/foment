@@ -54,6 +54,11 @@ static inline int_t MatureP(FObject obj)
     return(st == MatureSectionTag || st == TwoSlotSectionTag || st == FlonumSectionTag);
 }
 
+static inline FSectionTag SectionTag(FObject obj)
+{
+    return((FSectionTag) SectionTable[SectionIndex(obj)]);
+}
+
 #define MAXIMUM_YOUNG_LENGTH (1024 * 4)
 
 static FYoungSection * GenerationZero;
@@ -369,7 +374,7 @@ static uint_t ObjectSize(FObject obj, uint_t tag)
     default:
         FAssert(0);
 
-        return(0);
+        return(0xFFFF);
     }
 
     len += Align[len % OBJECT_ALIGNMENT];
@@ -641,10 +646,13 @@ static FScanSection * AllocateScanSection(FScanSection * nxt)
     return(ss);
 }
 
-static void RecordBackRef(FObject * ref, FObject val)
+static void RecordBackRef(char * who, FObject * ref, FObject val)
 {
+    FAssert(val != 0);
     FAssert(*ref == val);
     FAssert(ObjectP(val));
+    FAssert(MatureP(val) == 0);
+    FAssert(MatureP(ref));
 
     if (BackRefSections->Used == ((SECTION_SIZE - sizeof(FBackRefSection)) / sizeof(FBackRef)) + 1)
     {
@@ -675,7 +683,7 @@ void ModifyVector(FObject obj, uint_t idx, FObject val)
     if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0)
     {
         EnterExclusive(&GCExclusive);
-        RecordBackRef(AsVector(obj)->Vector + idx, val);
+        RecordBackRef("vector", AsVector(obj)->Vector + idx, val);
         LeaveExclusive(&GCExclusive);
     }
 }
@@ -690,7 +698,7 @@ void ModifyObject(FObject obj, uint_t off, FObject val)
     if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0)
     {
         EnterExclusive(&GCExclusive);
-        RecordBackRef(((FObject *) obj) + (off / sizeof(FObject)), val);
+        RecordBackRef("object", ((FObject *) obj) + (off / sizeof(FObject)), val);
         LeaveExclusive(&GCExclusive);
     }
 }
@@ -704,7 +712,7 @@ void SetFirst(FObject obj, FObject val)
     if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0)
     {
         EnterExclusive(&GCExclusive);
-        RecordBackRef(&(AsPair(obj)->First), val);
+        RecordBackRef("first", &(AsPair(obj)->First), val);
         LeaveExclusive(&GCExclusive);
     }
 }
@@ -718,7 +726,7 @@ void SetRest(FObject obj, FObject val)
     if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0)
     {
         EnterExclusive(&GCExclusive);
-        RecordBackRef(&(AsPair(obj)->Rest), val);
+        RecordBackRef("rest", &(AsPair(obj)->Rest), val);
         LeaveExclusive(&GCExclusive);
     }
 }
@@ -732,7 +740,7 @@ void SetBox(FObject bx, FObject val)
     if (MatureP(bx) && ObjectP(val) && MatureP(val) == 0)
     {
         EnterExclusive(&GCExclusive);
-        RecordBackRef(&(AsBox(bx)->Value), val);
+        RecordBackRef("box", &(AsBox(bx)->Value), val);
         LeaveExclusive(&GCExclusive);
     }
 }
@@ -746,8 +754,9 @@ static void AddToScan(FObject obj)
     ScanSections->Used += 1;
 }
 
-static void ScanObject(FObject * pobj, int_t fcf, int_t mf)
+static void ScanObject(char * who, FObject * pobj, int_t fcf, int_t mf)
 {
+    FAssert(mf == 0 || MatureP(pobj));
     FAssert(ObjectP(*pobj));
 
     FObject raw = AsRaw(*pobj);
@@ -797,15 +806,19 @@ static void ScanObject(FObject * pobj, int_t fcf, int_t mf)
             AsForward(raw) = nobj;
             *pobj = nobj;
 
+            FAssert(SectionTag(AsForward(raw)) == OneSectionTag || MatureP(AsForward(raw)));
+
             if (mf)
-                RecordBackRef(pobj, nobj);
+                RecordBackRef("need to forward", pobj, nobj);
         }
         else
         {
+            FAssert(SectionTag(AsForward(raw)) == OneSectionTag || MatureP(AsForward(raw)));
+
             *pobj = AsForward(raw);
 
             if (mf)
-                RecordBackRef(pobj, AsForward(raw));
+                RecordBackRef("already", pobj, AsForward(raw));
         }
     }
     else // if (SectionTable[sdx] == OneSectionTag)
@@ -851,6 +864,8 @@ static void ScanObject(FObject * pobj, int_t fcf, int_t mf)
         }
         else
             *pobj = AsForward(raw);
+
+        FAssert(MatureP(*pobj));
     }
 }
 
@@ -868,9 +883,9 @@ static void ScanChildren(FRaw raw, uint_t tag, int_t fcf)
         FPair * pr = (FPair *) raw;
 
         if (ObjectP(pr->First))
-            ScanObject(&pr->First, fcf, mf);
+            ScanObject("first", &pr->First, fcf, mf);
         if (ObjectP(pr->Rest))
-            ScanObject(&pr->Rest, fcf, mf);
+            ScanObject("rest", &pr->Rest, fcf, mf);
         break;
     }
 
@@ -879,7 +894,7 @@ static void ScanChildren(FRaw raw, uint_t tag, int_t fcf)
 
     case BoxTag:
         if (ObjectP(AsBox(raw)->Value))
-            ScanObject(&(AsBox(raw)->Value), fcf, mf);
+            ScanObject("box", &(AsBox(raw)->Value), fcf, mf);
         break;
 
     case StringTag:
@@ -889,7 +904,7 @@ static void ScanChildren(FRaw raw, uint_t tag, int_t fcf)
         for (uint_t vdx = 0; vdx < VectorLength(raw); vdx++)
         {
             if (ObjectP(AsVector(raw)->Vector[vdx]))
-                ScanObject(AsVector(raw)->Vector + vdx, fcf, mf);
+                ScanObject("vector", AsVector(raw)->Vector + vdx, fcf, mf);
             if (ScanSections->Next != 0 && ScanSections->Used
                     > ((SECTION_SIZE - sizeof(FScanSection)) / sizeof(FObject)) / 2)
                 CleanScan(fcf);
@@ -902,33 +917,33 @@ static void ScanChildren(FRaw raw, uint_t tag, int_t fcf)
     case BinaryPortTag:
     case TextualPortTag:
         if (ObjectP(AsGenericPort(raw)->Name))
-            ScanObject(&(AsGenericPort(raw)->Name), fcf, mf);
+            ScanObject("port-name", &(AsGenericPort(raw)->Name), fcf, mf);
         if (ObjectP(AsGenericPort(raw)->Object))
-            ScanObject(&(AsGenericPort(raw)->Object), fcf, mf);
+            ScanObject("port-object", &(AsGenericPort(raw)->Object), fcf, mf);
         break;
 
     case ProcedureTag:
         if (ObjectP(AsProcedure(raw)->Name))
-            ScanObject(&(AsProcedure(raw)->Name), fcf, mf);
+            ScanObject("proc", &(AsProcedure(raw)->Name), fcf, mf);
         if (ObjectP(AsProcedure(raw)->Code))
-            ScanObject(&(AsProcedure(raw)->Code), fcf, mf);
+            ScanObject("proc", &(AsProcedure(raw)->Code), fcf, mf);
         break;
 
     case SymbolTag:
         if (ObjectP(AsSymbol(raw)->String))
-            ScanObject(&(AsSymbol(raw)->String), fcf, mf);
+            ScanObject("symbol", &(AsSymbol(raw)->String), fcf, mf);
         break;
 
     case RecordTypeTag:
         for (uint_t fdx = 0; fdx < RecordTypeNumFields(raw); fdx++)
             if (ObjectP(AsRecordType(raw)->Fields[fdx]))
-                ScanObject(AsRecordType(raw)->Fields + fdx, fcf, mf);
+                ScanObject("record-type", AsRecordType(raw)->Fields + fdx, fcf, mf);
         break;
 
     case RecordTag:
         for (uint_t fdx = 0; fdx < RecordNumFields(raw); fdx++)
             if (ObjectP(AsGenericRecord(raw)->Fields[fdx]))
-                ScanObject(AsGenericRecord(raw)->Fields + fdx, fcf, mf);
+                ScanObject("record", AsGenericRecord(raw)->Fields + fdx, fcf, mf);
         break;
 
     case PrimitiveTag:
@@ -936,13 +951,13 @@ static void ScanChildren(FRaw raw, uint_t tag, int_t fcf)
 
     case ThreadTag:
         if (ObjectP(AsThread(raw)->Result))
-            ScanObject(&(AsThread(raw)->Result), fcf, mf);
+            ScanObject("thread", &(AsThread(raw)->Result), fcf, mf);
         if (ObjectP(AsThread(raw)->Thunk))
-            ScanObject(&(AsThread(raw)->Thunk), fcf, mf);
+            ScanObject("thread", &(AsThread(raw)->Thunk), fcf, mf);
         if (ObjectP(AsThread(raw)->Parameters))
-            ScanObject(&(AsThread(raw)->Parameters), fcf, mf);
+            ScanObject("thread", &(AsThread(raw)->Parameters), fcf, mf);
         if (ObjectP(AsThread(raw)->IndexParameters))
-            ScanObject(&(AsThread(raw)->IndexParameters), fcf, mf);
+            ScanObject("thread", &(AsThread(raw)->IndexParameters), fcf, mf);
         break;
 
     case ExclusiveTag:
@@ -1017,7 +1032,11 @@ static void CleanScan(int_t fcf)
         }
 
         if (GenerationOne->Scan == GenerationOne->Used && ScanSections->Used == 0)
+        {
+            FAssert(ScanSections->Next == 0);
+
             break;
+        }
     }
 }
 
@@ -1048,6 +1067,7 @@ static void CollectGuardians(int_t fcf)
             FAssert(PairP(First(MatureGuardians)));
 
             FObject ot = First(MatureGuardians);
+
             if (AliveP(First(ot)))
                 mbhold = MakePair(ot, mbhold);
             else
@@ -1090,8 +1110,8 @@ static void CollectGuardians(int_t fcf)
             FObject obj = First(First(flst));
             FObject tconc = Rest(First(flst));
 
-            ScanObject(&obj, fcf, 0);
-            ScanObject(&tconc, fcf, 0);
+            ScanObject("guardian1", &obj, fcf, 0);
+            ScanObject("guardian2", &tconc, fcf, 0);
             TConcAdd(tconc, obj);
 
             flst = Rest(flst);
@@ -1110,8 +1130,8 @@ static void CollectGuardians(int_t fcf)
 
         if (AliveP(tconc))
         {
-            ScanObject(&obj, fcf, 0);
-            ScanObject(&tconc, fcf, 0);
+            ScanObject("guardian3", &obj, fcf, 0);
+            ScanObject("guardian4", &tconc, fcf, 0);
 
             if (MatureP(obj))
                 MatureGuardians = MakePair(MakePair(obj, tconc), MatureGuardians);
@@ -1142,10 +1162,10 @@ static void CollectTrackers(FObject trkrs, int_t fcf, int_t mtf)
         {
             FObject oo = obj;
 
-            ScanObject(&obj, fcf, 0);
+            ScanObject("tracker", &obj, fcf, 0);
             if (ObjectP(ret))
-                ScanObject(&ret, fcf, 0);
-            ScanObject(&tconc, fcf, 0);
+                ScanObject("tracker", &ret, fcf, 0);
+            ScanObject("tracker", &tconc, fcf, 0);
 
             FAssert(mtf == 0 || oo == obj);
 
@@ -1240,45 +1260,45 @@ printf("Partial Collection...");
     FObject * rv = (FObject *) &R;
     for (uint_t rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
         if (ObjectP(rv[rdx]))
-            ScanObject(rv + rdx, fcf, 0);
+            ScanObject("roots", rv + rdx, fcf, 0);
 
     ts = Threads;
     while (ts != 0)
     {
         FAssert(ObjectP(ts->Thread));
-        ScanObject(&(ts->Thread), fcf, 0);
+        ScanObject("thread", &(ts->Thread), fcf, 0);
 
         for (FAlive * ap = ts->AliveList; ap != 0; ap = ap->Next)
             if (ObjectP(*ap->Pointer))
-                ScanObject(ap->Pointer, fcf, 0);
+                ScanObject("alive", ap->Pointer, fcf, 0);
 
         for (uint_t rdx = 0; rdx < ts->UsedRoots; rdx++)
             if (ObjectP(*ts->Roots[rdx]))
-                ScanObject(ts->Roots[rdx], fcf, 0);
+                ScanObject("thread roots", ts->Roots[rdx], fcf, 0);
 
         for (int_t adx = 0; adx < ts->AStackPtr; adx++)
             if (ObjectP(ts->AStack[adx]))
-                ScanObject(ts->AStack + adx, fcf, 0);
+                ScanObject("astack", ts->AStack + adx, fcf, 0);
 
         for (int_t cdx = 0; cdx < ts->CStackPtr; cdx++)
             if (ObjectP(ts->CStack[- cdx]))
-                ScanObject(ts->CStack - cdx, fcf, 0);
+                ScanObject("cstack", ts->CStack - cdx, fcf, 0);
 
         if (ObjectP(ts->Proc))
-            ScanObject(&ts->Proc, fcf, 0);
+            ScanObject("thread-proc", &ts->Proc, fcf, 0);
         if (ObjectP(ts->Frame))
-            ScanObject(&ts->Frame, fcf, 0);
+            ScanObject("thread-frame", &ts->Frame, fcf, 0);
         if (ObjectP(ts->DynamicStack))
-            ScanObject(&ts->DynamicStack, fcf, 0);
+            ScanObject("dynamic-stack", &ts->DynamicStack, fcf, 0);
         if (ObjectP(ts->Parameters))
-            ScanObject(&ts->Parameters, fcf, 0);
+            ScanObject("parameters", &ts->Parameters, fcf, 0);
 
         for (int_t idx = 0; idx < INDEX_PARAMETERS; idx++)
             if (ObjectP(ts->IndexParameters[idx]))
-                ScanObject(ts->IndexParameters + idx, fcf, 0);
+                ScanObject("index-parameters", ts->IndexParameters + idx, fcf, 0);
 
         if (ObjectP(ts->NotifyObject))
-            ScanObject(&ts->NotifyObject, fcf, 0);
+            ScanObject("notify", &ts->NotifyObject, fcf, 0);
 
         ts = ts->Next;
     }
@@ -1293,9 +1313,14 @@ printf("Partial Collection...");
                 if (*brs->BackRef[idx].Ref == brs->BackRef[idx].Value)
                 {
                     FAssert(ObjectP(*brs->BackRef[idx].Ref));
+                    FAssert(MatureP(*brs->BackRef[idx].Ref) == 0);
+                    FAssert(MatureP(brs->BackRef[idx].Ref));
 
-                    ScanObject(brs->BackRef[idx].Ref, fcf, 0);
-                    brs->BackRef[idx].Value = *brs->BackRef[idx].Ref;
+                    ScanObject("back-ref", brs->BackRef[idx].Ref, fcf, 0);
+                    if (MatureP(*brs->BackRef[idx].Ref))
+                        brs->BackRef[idx].Value = 0;
+                    else
+                        brs->BackRef[idx].Value = *brs->BackRef[idx].Ref;
                 }
                 else
                     brs->BackRef[idx].Value = 0;
@@ -1305,7 +1330,7 @@ printf("Partial Collection...");
         }
 
         if (ObjectP(MatureGuardians))
-            ScanObject(&MatureGuardians, fcf, 0);
+            ScanObject("mature-guardians", &MatureGuardians, fcf, 0);
     }
 
     CleanScan(fcf);
@@ -1766,7 +1791,8 @@ void SetupCore(FThreadState * ts)
     FAssert(MAXIMUM_YOUNG_LENGTH <= SECTION_SIZE / 2);
 
 #ifdef FOMENT_WINDOWS
-    SectionTable = (unsigned char *) VirtualAlloc(0, SECTION_SIZE * SECTION_SIZE, MEM_RESERVE,
+    SectionTable = (unsigned char *) VirtualAlloc((LPVOID) 0x00000041A0E53F28, // 0,
+    SECTION_SIZE * SECTION_SIZE, MEM_RESERVE,
             PAGE_READWRITE);
     FAssert(SectionTable != 0);
 

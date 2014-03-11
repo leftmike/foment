@@ -184,9 +184,9 @@ void EnvironmentImportLibrary(FObject env, FObject nam)
         FAssert(SymbolP(First(First(elst))));
         FAssert(GlobalP(Rest(First(elst))));
 
-        #ifdef FOMENT_DEBUG
+#ifdef FOMENT_DEBUG
         int_t ret =
-        #endif // FOMENT_DEBUG
+#endif // FOMENT_DEBUG
         EnvironmentImportGlobal(env,
                 ImportGlobal(env, First(First(elst)), Rest(First(elst))));
         FAssert(ret == 0);

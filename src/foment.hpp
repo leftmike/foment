@@ -7,10 +7,11 @@ Goals:
 -- simple implementation
 
 To Do:
--- Windows: $(APPDATA)\Foment\Libraries
--- Unix: $(HOME)/.local/foment/lib
+-- fix FileDescByteReadyP to use select or poll
 
 Future:
+-- Windows: $(APPDATA)\Foment\Libraries
+-- Unix: $(HOME)/.local/foment/lib
 -- don't load all builtin libraries at startup
 -- on unix, if gmp is available, use it instead of mini-gmp
 -- increase maximum/minimum fixnum on 64bit

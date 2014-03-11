@@ -2,8 +2,6 @@
 
 Foment
 
--- fix FileDescByteReadyP to use select or poll
-
 */
 
 #ifdef FOMENT_WINDOWS
@@ -673,7 +671,8 @@ static void BvoutWriteBytes(FObject port, void * b, uint_t bl)
     for (uint_t bdx = 0; bdx < bl; bdx++)
         lst = MakePair(MakeFixnum(((unsigned char *) b)[bdx]), lst);
 
-    AsGenericPort(port)->Object = lst;
+//    AsGenericPort(port)->Object = lst;
+    Modify(FGenericPort, port, Object, lst);
 }
 
 static FObject GetOutputBytevector(FObject port)
@@ -1406,7 +1405,8 @@ static void SoutWriteString(FObject port, FCh * s, uint_t sl)
     for (uint_t sdx = 0; sdx < sl; sdx++)
         lst = MakePair(MakeCharacter(s[sdx]), lst);
 
-    AsGenericPort(port)->Object = lst;
+//    AsGenericPort(port)->Object = lst;
+    Modify(FGenericPort, port, Object, lst);
 }
 
 FObject GetOutputString(FObject port)
