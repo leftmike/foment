@@ -233,7 +233,7 @@ void FailedThreadState()
     FThreadState * ts = GetThreadState();
     printf("proc: ");
     WriteSimple(R.StandardOutput, ts->Proc, 0);
-    printf(" instruction count: %d\n", ts->InstructionCount);
+    printf(" instruction count: %d\n", (int) ts->InstructionCount);
 
     int_t tdx = ts->CurrentTrace;
     do
@@ -243,10 +243,10 @@ void FailedThreadState()
             tdx = 0;
 
         if (ts->Trace[tdx].Name != 0)
-            printf("%s.%d primitive %s\n", Opcodes[ts->Trace[tdx].Opcode], ts->Trace[tdx].Arg,
-                    ts->Trace[tdx].Name);
+            printf("%s.%d primitive %s\n", Opcodes[ts->Trace[tdx].Opcode],
+                    (int) ts->Trace[tdx].Arg, ts->Trace[tdx].Name);
         else
-            printf("%s.%d\n", Opcodes[ts->Trace[tdx].Opcode], ts->Trace[tdx].Arg);
+            printf("%s.%d\n", Opcodes[ts->Trace[tdx].Opcode], (int) ts->Trace[tdx].Arg);
     }
     while (tdx != ts->CurrentTrace);
 }
@@ -359,7 +359,7 @@ static FObject Execute(FThreadState * ts)
     {
 #ifdef FOMENT_DEBUG
 //    ValidateSections();
-#endif FOMENT_DEBUG
+#endif // FOMENT_DEBUG
         FAssert(ts->DontWait == 0);
 
         if (ts->NotifyFlag)
