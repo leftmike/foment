@@ -227,6 +227,31 @@ void WriteInstruction(FObject port, FObject obj, int_t df)
     WriteCh(port, '>');
 }
 
+#ifdef FOMENT_DEBUG
+void FailedThreadState()
+{
+    FThreadState * ts = GetThreadState();
+    printf("proc: ");
+    WriteSimple(R.StandardOutput, ts->Proc, 0);
+    printf(" instruction count: %d\n", ts->InstructionCount);
+
+    int_t tdx = ts->CurrentTrace;
+    do
+    {
+        tdx += 1;
+        if (tdx == TRACE_SIZE)
+            tdx = 0;
+
+        if (ts->Trace[tdx].Name != 0)
+            printf("%s.%d primitive %s\n", Opcodes[ts->Trace[tdx].Opcode], ts->Trace[tdx].Arg,
+                    ts->Trace[tdx].Name);
+        else
+            printf("%s.%d\n", Opcodes[ts->Trace[tdx].Opcode], ts->Trace[tdx].Arg);
+    }
+    while (tdx != ts->CurrentTrace);
+}
+#endif // FOMENT_DEBUG
+
 // --------
 
 static FObject MarkListRef(FObject ml, FObject key, FObject def)
@@ -322,12 +347,19 @@ static int_t PrepareHandler(FThreadState * ts, FObject hdlr, FObject key, FObjec
     return(0);
 }
 
+#ifdef FOMENT_DEBUG
+extern void ValidateSections();
+#endif // FOMENT_DEBUG
+
 static FObject Execute(FThreadState * ts)
 {
     FObject op;
 
     for (;;)
     {
+#ifdef FOMENT_DEBUG
+//    ValidateSections();
+#endif FOMENT_DEBUG
         FAssert(ts->DontWait == 0);
 
         if (ts->NotifyFlag)
@@ -355,6 +387,18 @@ static FObject Execute(FThreadState * ts)
         }
         else
         {
+#ifdef FOMENT_DEBUG
+            ts->CurrentTrace += 1;
+            if (ts->CurrentTrace == TRACE_SIZE)
+                ts->CurrentTrace = 0;
+
+            ts->Trace[ts->CurrentTrace].Opcode = InstructionOpcode(obj);
+            ts->Trace[ts->CurrentTrace].Arg = InstructionArg(obj);
+            ts->Trace[ts->CurrentTrace].Name = 0;
+
+            ts->InstructionCount += 1;
+#endif // FOMENT_DEBUG
+
 //printf("%s.%d %d %d\n", Opcodes[InstructionOpcode(obj)], InstructionArg(obj), ts->CStackPtr, ts->AStackPtr);
             switch (InstructionOpcode(obj))
             {
@@ -505,6 +549,7 @@ static FObject Execute(FThreadState * ts)
                 ts->AStackPtr -= 1;
 //                AsVector(ts->Frame)->Vector[InstructionArg(obj)] = ts->AStack[ts->AStackPtr];
                 ModifyVector(ts->Frame, InstructionArg(obj), ts->AStack[ts->AStackPtr]);
+
                 break;
 
             case GetVectorOpcode:
@@ -523,8 +568,8 @@ static FObject Execute(FThreadState * ts)
                 FAssert((uint_t) InstructionArg(obj)
                         < VectorLength(ts->AStack[ts->AStackPtr - 1]));
 
-                  AsVector(ts->AStack[ts->AStackPtr - 1])->Vector[InstructionArg(obj)] =
-                          ts->AStack[ts->AStackPtr - 2];
+//                AsVector(ts->AStack[ts->AStackPtr - 1])->Vector[InstructionArg(obj)] =
+//                        ts->AStack[ts->AStackPtr - 2];
                 ModifyVector(ts->AStack[ts->AStackPtr - 1], InstructionArg(obj),
                         ts->AStack[ts->AStackPtr - 2]);
                 ts->AStackPtr -= 2;
@@ -643,6 +688,10 @@ CallProcedure:
 CallPrimitive:
                     FAssert(ts->AStackPtr >= ts->ArgCount);
 
+#ifdef FOMENT_DEBUG
+                    ts->Trace[ts->CurrentTrace].Name = AsPrimitive(op)->Name;
+#endif // FOMENT_DEBUG
+
                     FObject ret = AsPrimitive(op)->PrimitiveFn(ts->ArgCount,
                             ts->AStack + ts->AStackPtr - ts->ArgCount);
                     ts->AStackPtr -= ts->ArgCount;
@@ -691,6 +740,10 @@ TailCallProcedure:
                 {
 TailCallPrimitive:
                     FAssert(ts->AStackPtr >= ts->ArgCount);
+
+#ifdef FOMENT_DEBUG
+                    ts->Trace[ts->CurrentTrace].Name = AsPrimitive(op)->Name;
+#endif // FOMENT_DEBUG
 
                     FObject ret = AsPrimitive(op)->PrimitiveFn(ts->ArgCount,
                             ts->AStack + ts->AStackPtr - ts->ArgCount);

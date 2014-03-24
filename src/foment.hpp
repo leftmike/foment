@@ -1082,6 +1082,15 @@ typedef struct _FYoungSection
 
 #define INDEX_PARAMETERS 3
 
+#define TRACE_SIZE 32
+
+typedef struct _FTrace
+{
+    uint_t Opcode;
+    uint_t Arg;
+    const char * Name;
+} FTrace;
+
 typedef struct _FThreadState
 {
     struct _FThreadState * Next;
@@ -1115,7 +1124,17 @@ typedef struct _FThreadState
 
     int_t NotifyFlag;
     FObject NotifyObject;
+
+#ifdef FOMENT_DEBUG
+    FTrace Trace[TRACE_SIZE];
+    int_t CurrentTrace;
+    uint_t InstructionCount;
+#endif // FOMENT_DEBUG
 } FThreadState;
+
+#ifdef FOMENT_DEBUG
+void FailedThreadState();
+#endif // FOMENT_DEBUG
 
 // ---- Argument Checking ----
 

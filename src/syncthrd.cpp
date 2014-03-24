@@ -129,8 +129,10 @@ static FObject CurrentIndexParameters()
     {
         FAssert(PairP(GetThreadState()->IndexParameters[idx]));
 
-        AsVector(v)->Vector[idx] = MakePair(First(GetThreadState()->IndexParameters[idx]),
-                EmptyListObject);
+//        AsVector(v)->Vector[idx] = MakePair(First(GetThreadState()->IndexParameters[idx]),
+//                EmptyListObject);
+        ModifyVector(v, idx, MakePair(First(GetThreadState()->IndexParameters[idx]),
+                EmptyListObject));
     }
 
     return(v);

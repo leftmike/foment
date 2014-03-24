@@ -383,7 +383,8 @@ Define("vector-append", VectorAppendPrimitive)(int_t argc, FObject argv[])
     for (int_t adx = 0; adx < argc; adx++)
     {
         for (int_t vdx = 0; vdx < (int_t) VectorLength(argv[adx]); vdx++)
-            AsVector(v)->Vector[idx + vdx] = AsVector(argv[adx])->Vector[vdx];
+//            AsVector(v)->Vector[idx + vdx] = AsVector(argv[adx])->Vector[vdx];
+            ModifyVector(v, idx + vdx, AsVector(argv[adx])->Vector[vdx]);
 
         idx += VectorLength(argv[adx]);
     }

@@ -408,6 +408,7 @@
 
 (run-thread
     (lambda ()
+        (sleep 100)
         (enter-exclusive e)
         (set! t (current-thread))
         (leave-exclusive e)

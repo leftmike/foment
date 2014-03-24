@@ -71,8 +71,6 @@ typedef enum
     ValuesOpcode,
     ApplyOpcode,
     CaseLambdaOpcode,
-//    CallWithCCOpcode,
-//    CallContinuationOpcode,
     CaptureContinuationOpcode,
     CallContinuationOpcode,
     AbortOpcode,
