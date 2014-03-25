@@ -357,9 +357,6 @@ static FObject Execute(FThreadState * ts)
 
     for (;;)
     {
-#ifdef FOMENT_DEBUG
-//    ValidateSections();
-#endif // FOMENT_DEBUG
         FAssert(ts->DontWait == 0);
 
         if (ts->NotifyFlag)
@@ -1141,6 +1138,10 @@ TailCallPrimitive:
                 FAssert(PairP(ts->DynamicStack));
 
                 ts->DynamicStack = Rest(ts->DynamicStack);
+                break;
+
+            default:
+                FAssert(0);
                 break;
             }
         }

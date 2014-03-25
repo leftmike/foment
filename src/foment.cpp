@@ -67,6 +67,7 @@ void FAssertFailed(const char * fn, int_t ln, const char * expr)
 #endif // FOMENT_DEBUG
 
 //    *((char *) 0) = 0;
+//    fgetc(stdin);
     exit(1);
 }
 

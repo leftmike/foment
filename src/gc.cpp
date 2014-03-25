@@ -1309,7 +1309,7 @@ static void ValidateObject(FObject obj, uint_t tag)
     }
 }
 
-void ValidateSections()
+static void ValidateSections()
 {
     uint_t sdx = 0;
     while (sdx < UsedSections)
@@ -1380,7 +1380,7 @@ void ValidateSections()
             sdx += 1;
     }
 }
-#endif FOMENT_DEBUG
+#endif // FOMENT_DEBUG
 
 static void Collect(int_t fcf)
 {

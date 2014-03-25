@@ -145,28 +145,36 @@ static void FomentThread(FObject obj)
     FAssert(ThreadP(obj));
 
     EnterThread(&ts, obj, AsThread(obj)->Parameters, AsThread(obj)->IndexParameters);
-    AsThread(obj)->Parameters = NoValueObject;
-    AsThread(obj)->IndexParameters = NoValueObject;
+
+    FAssert(ts.Thread == obj);
+    FAssert(ThreadP(ts.Thread));
+
+    AsThread(ts.Thread)->Parameters = NoValueObject;
+    AsThread(ts.Thread)->IndexParameters = NoValueObject;
 
     try
     {
-        if (ProcedureP(AsThread(obj)->Thunk))
-//            AsThread(obj)->Result = ExecuteThunk(AsThread(obj)->Thunk);
-            Modify(FThread, obj, Result, ExecuteThunk(AsThread(obj)->Thunk));
+        if (ProcedureP(AsThread(ts.Thread)->Thunk))
+        {
+//            AsThread(ts.Thread)->Result = ExecuteThunk(AsThread(ts.Thread)->Thunk);
+            Modify(FThread, ts.Thread, Result, ExecuteThunk(AsThread(ts.Thread)->Thunk));
+        }
         else
         {
-            FAssert(PrimitiveP(AsThread(obj)->Thunk));
+            FAssert(PrimitiveP(AsThread(ts.Thread)->Thunk));
 
-//            AsThread(obj)->Result = AsPrimitive(AsThread(obj)->Thunk)->PrimitiveFn(0, 0);
-            Modify(FThread, obj, Result, AsPrimitive(AsThread(obj)->Thunk)->PrimitiveFn(0, 0));
+//            AsThread(ts.Thread)->Result =
+//                    AsPrimitive(AsThread(ts.Thread)->Thunk)->PrimitiveFn(0, 0);
+            Modify(FThread, ts.Thread, Result,
+                    AsPrimitive(AsThread(ts.Thread)->Thunk)->PrimitiveFn(0, 0));
         }
     }
     catch (FObject exc)
     {
         Write(R.StandardOutput, exc, 0);
 
-//        AsThread(obj)->Result = exc;
-        Modify(FThread, obj, Result, exc);
+//        AsThread(ts.Thread)->Result = exc;
+        Modify(FThread, ts.Thread, Result, exc);
     }
 
     LeaveThread(&ts);
