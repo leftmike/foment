@@ -2,12 +2,7 @@
 
 Foment
 
-Goals:
--- R7RS including syntax-rules
--- simple implementation
-
 To Do:
--- fix FileDescByteReadyP to use select or poll
 
 Future:
 -- Windows: $(APPDATA)\Foment\Libraries

@@ -584,7 +584,16 @@ static int_t FileDescByteReadyP(FObject port)
 {
     FAssert(BinaryPortP(port) && InputPortOpenP(port));
 
-    return(1);
+    fd_set fds;
+    timeval tv;
+
+    FD_ZERO(&fds);
+    FD_SET(0, &fds);
+
+    tv.tv_sec = 0;
+    tv.tv_usec = 0;
+
+    return(select(1, &fds, 0, 0, &tv) > 0);
 }
 
 static void FileDescWriteBytes(FObject port, void * b, uint_t bl)

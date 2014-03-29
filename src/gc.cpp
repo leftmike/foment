@@ -1215,7 +1215,7 @@ static void ValidateSlot(FObject obj, FObject * ref)
             }
 
             printf("foment: internal error: missing back reference: tag: %d object: %p\n",
-                    PairP(obj) ? PairTag : IndirectTag(obj), obj);
+                    PairP(obj) ? (int) PairTag : (int) IndirectTag(obj), obj);
         }
     }
     else
@@ -1304,7 +1304,7 @@ static void ValidateObject(FObject obj, uint_t tag)
         break;
 
     default:
-        printf("%p %d\n", obj, tag);
+        printf("%p %d\n", obj, (int) tag);
         FAssert(0);
     }
 }
