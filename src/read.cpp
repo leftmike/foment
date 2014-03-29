@@ -11,12 +11,12 @@ Foment
 #include <pthread.h>
 #endif // FOMENT_UNIX
 #include <string.h>
+#include "foment.hpp"
 #ifdef FOMENT_BSD
 #include <stdlib.h>
 #else // FOMENT_BSD
 #include <malloc.h>
 #endif // FOMENT_BSD
-#include "foment.hpp"
 #include "syncthrd.hpp"
 #include "io.hpp"
 #include "unicode.hpp"

@@ -1238,7 +1238,7 @@ static FObject MakeEncodedPort(FObject port)
 
     FAssert(b != 0);
 
-    if (bl >= 2 && b[0] == 0xFF && b[1] == 0xFE) // Little Endian
+    if (bl >= 2 && (unsigned char) b[0] == 0xFF && (unsigned char) b[1] == 0xFE) // Little Endian
         return(MakeUtf16Port(port));
 
 //    if (bl >= 2 && b[0] == 0xFE && b[1] == 0xFF) // Big Endian
