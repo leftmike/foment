@@ -41,7 +41,7 @@ Bugs:
 #ifndef __FOMENT_HPP__
 #define __FOMENT_HPP__
 
-#define FOMENT_VERSION "0.3"
+#define FOMENT_VERSION "0.4"
 
 #include <stdint.h>
 
