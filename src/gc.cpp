@@ -98,18 +98,18 @@ static inline void SetTwoSlotMark(FRaw raw)
     (SectionBase(raw) + TWOSLOT_MB_OFFSET)[idx / 8] |= (1 << (idx % 8));
 }
 
-uint_t BytesAllocated = 0;
-uint_t BytesSinceLast = 0;
-uint_t ObjectsSinceLast = 0;
+volatile uint_t BytesAllocated = 0;
+static volatile uint_t BytesSinceLast = 0;
+static uint_t ObjectsSinceLast = 0;
 uint_t CollectionCount = 0;
-uint_t PartialCount = 0;
-uint_t PartialPerFull = 4;
-uint_t TriggerBytes = SECTION_SIZE * 8;
-uint_t TriggerObjects = TriggerBytes / (sizeof(FPair) * 8);
-uint_t MaximumBackRefFraction = 128;
+static uint_t PartialCount = 0;
+static uint_t PartialPerFull = 4;
+static uint_t TriggerBytes = SECTION_SIZE * 8;
+static uint_t TriggerObjects = TriggerBytes / (sizeof(FPair) * 8);
+static uint_t MaximumBackRefFraction = 128;
 
-int_t GCRequired;
-static int_t FullGCRequired;
+int_t volatile GCRequired;
+static volatile int_t FullGCRequired;
 
 #define GCTagP(obj) ImmediateP(obj, GCTagTag)
 
@@ -180,10 +180,10 @@ OSExclusive GCExclusive;
 static OSCondition ReadyCondition;
 static OSCondition DoneCondition;
 
-static int_t GCHappening;
-uint_t TotalThreads;
-static uint_t WaitThreads;
-static uint_t CollectThreads;
+static volatile int_t GCHappening;
+volatile uint_t TotalThreads;
+static volatile uint_t WaitThreads;
+static volatile uint_t CollectThreads;
 FThreadState * Threads;
 
 static uint_t Sizes[1024 * 8];

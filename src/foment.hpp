@@ -223,7 +223,7 @@ void PushRoot(FObject * rt);
 void PopRoot();
 void ClearRoots();
 
-extern int_t GCRequired;
+extern volatile int_t GCRequired;
 
 void EnterWait();
 void LeaveWait();
@@ -1475,7 +1475,7 @@ inline void EqHashtableArgCheck(const char * who, FObject obj)
 extern uint_t InlineProcedures;
 extern uint_t InlineImports;
 
-extern uint_t BytesAllocated;
+extern volatile uint_t BytesAllocated;
 extern uint_t CollectionCount;
 
 FObject CompileProgram(FObject nam, FObject port);

@@ -207,7 +207,7 @@ inline void SetThreadState(FThreadState * ts)
 }
 #endif // FOMENT_UNIX
 
-extern uint_t TotalThreads;
+extern volatile uint_t TotalThreads;
 extern FThreadState * Threads;
 extern OSExclusive GCExclusive;
 
