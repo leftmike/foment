@@ -11,6 +11,9 @@ Foment
 #ifdef FOMENT_UNIX
 #include <pthread.h>
 #include <sys/mman.h>
+#ifdef __APPLE__
+#define MAP_ANONYMOUS MAP_ANON
+#endif // __APPLE__
 #endif // FOMENT_UNIX
 
 #include <stdio.h>
