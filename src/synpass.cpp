@@ -1203,7 +1203,10 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
     {
         // (cond-expand <ce-clause> ...)
 
-        return(SPassExpression(se, MakePair(BeginSyntax, CondExpand(se, expr, Rest(expr)))));
+        FObject ce = CondExpand(se, expr, Rest(expr));
+        if (ce == EmptyListObject)
+            return(NoValueObject);
+        return(SPassExpression(se, MakePair(BeginSyntax, ce)));
     }
     else if (ss == CaseLambdaSyntax)
     {
@@ -1541,7 +1544,11 @@ static FObject SPassBody(FObject se, FObject ss, FObject body)
         {
             // (cond-expand <ce-clause> ...)
 
-            body = AppendBegin(ss, CondExpand(se, expr, Rest(expr)), Rest(body), expr);
+            FObject ce = CondExpand(se, expr, Rest(expr));
+            if (ce != EmptyListObject)
+                body = AppendBegin(ss, ce, Rest(body), expr);
+            else
+                body = Rest(body);
         }
         else if (First(expr) == DefineSyntax)
         {
@@ -1756,9 +1763,9 @@ FObject CondExpand(FObject se, FObject expr, FObject clst)
     {
         FObject cls = First(clst);
 
-        if (PairP(cls) == 0 || PairP(Rest(cls)) == 0)
+        if (PairP(cls) == 0)
             RaiseExceptionC(R.Syntax, "cond-expand",
-                    "expected (<feature requirement> <expression> ..) for each clause",
+                    "expected (<feature requirement> <expression> ...) for each clause",
                     List(expr, clst));
 
         if ((IdentifierP(First(cls)) || SymbolP(First(cls)))

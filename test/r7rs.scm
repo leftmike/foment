@@ -392,6 +392,20 @@
 (check-equal 1
     (let ((x 1) (y 2)) (cond-expand ((library (lib ce2)) x) (else y))))
 
+(check-equal 1
+    (let ((x 1)) (cond-expand (r7rs) (else (set! x 2))) x))
+
+(define ce 1)
+(cond-expand (r7rs) (else (set! ce 2)))
+(check-equal 1 ce)
+
+(check-equal 2
+    (let ((x 1)) (cond-expand (not-a-feature) (else (set! x 2))) x))
+
+(define ce2 1)
+(cond-expand (not-a-feature) (else (set! ce2 2)))
+(check-equal 2 ce2)
+
 ;; let
 
 (check-equal 6 (let ((x 2) (y 3)) (* x y)))

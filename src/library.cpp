@@ -736,8 +736,11 @@ static FObject ExpandLibraryDeclarations(FObject env, FObject lst, FObject body)
         else if (EqualToSymbol(First(form), R.IncludeLibraryDeclarationsSymbol))
             body = ExpandLibraryDeclarations(env, ReadInclude(Rest(form), 0), body);
         else if (EqualToSymbol(First(form), R.CondExpandSymbol))
-            body = ExpandLibraryDeclarations(env,
-                    CondExpand(MakeSyntacticEnv(R.Bedrock), form, Rest(form)), body);
+        {
+            FObject ce = CondExpand(MakeSyntacticEnv(R.Bedrock), form, Rest(form));
+            if (ce != EmptyListObject)
+                body = ExpandLibraryDeclarations(env, ce , body);
+        }
         else if (EqualToSymbol(First(form), R.ExportSymbol) == 0
                 && EqualToSymbol(First(form), R.AkaSymbol) == 0
                 && EqualToSymbol(First(form), R.BeginSymbol) == 0
@@ -973,8 +976,12 @@ static FObject CompileEvalExpr(FObject obj, FObject env, FObject body)
             return(CompileEvalBegin(ReadInclude(Rest(obj), op == IncludeCISyntax), env, body, obj,
                     op));
         else if (op == CondExpandSyntax)
-            return(CompileEvalBegin(CondExpand(MakeSyntacticEnv(env), obj, Rest(obj)), env, body,
-                    obj, op));
+        {
+            FObject ce = CondExpand(MakeSyntacticEnv(env), obj, Rest(obj));
+            if (ce == EmptyListObject)
+                return(body);
+            return(CompileEvalBegin(ce, env, body, obj, op));
+        }
     }
 
     return(MakePair(obj, body));
@@ -1223,8 +1230,11 @@ static FObject CondExpandProgram(FObject lst, FObject prog)
         FObject obj = First(lst);
 
         if (PairP(obj) && EqualToSymbol(First(obj), R.CondExpandSymbol))
-            prog = CondExpandProgram(CondExpand(MakeSyntacticEnv(R.Bedrock), obj, Rest(obj)),
-                    prog);
+        {
+            FObject ce = CondExpand(MakeSyntacticEnv(R.Bedrock), obj, Rest(obj));
+            if (ce != EmptyListObject)
+                prog = CondExpandProgram(ce, prog);
+        }
         else
             prog = MakePair(obj, prog);
 
@@ -1254,8 +1264,11 @@ FObject CompileProgram(FObject nam, FObject port)
                 break;
 
             if (PairP(obj) && EqualToSymbol(First(obj), R.CondExpandSymbol))
-                prog = CondExpandProgram(CondExpand(MakeSyntacticEnv(R.Bedrock), obj, Rest(obj)),
-                        prog);
+            {
+                FObject ce = CondExpand(MakeSyntacticEnv(R.Bedrock), obj, Rest(obj));
+                if (ce != EmptyListObject)
+                    prog = CondExpandProgram(ce, prog);
+            }
             else
                 prog = MakePair(obj, prog);
         }
