@@ -118,6 +118,15 @@ static int ProgramMode(int adx, int argc, FChS * argv[])
         }
     }
 
+#ifdef FOMENT_UNIX
+    FCh ch;
+
+    // Skip #!/usr/local/bin/foment
+
+    if (PeekCh(port, &ch) && ch == '#')
+        ReadLine(port);
+#endif // FOMENT_UNIX
+
     FObject proc = CompileProgram(nam, port);
 
     ExecuteThunk(proc);
