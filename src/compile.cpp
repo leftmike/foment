@@ -63,16 +63,17 @@ FObject MakeBinding(FObject se, FObject id, FObject ra)
 
 static int_t IdentifierMagic = 0;
 
-static const char * IdentifierFieldsC[] = {"symbol", "line-number", "magic", "syntactic-env",
-    "wrapped"};
+static const char * IdentifierFieldsC[] = {"symbol", "filename", "line-number", "magic",
+    "syntactic-env", "wrapped"};
 
-FObject MakeIdentifier(FObject sym, int_t ln)
+FObject MakeIdentifier(FObject sym, FObject fn, int_t ln)
 {
     FAssert(sizeof(FIdentifier) == sizeof(IdentifierFieldsC) + sizeof(FRecord));
     FAssert(SymbolP(sym));
 
     FIdentifier * i = (FIdentifier *) MakeRecord(R.IdentifierRecordType);
     i->Symbol = sym;
+    i->Filename = fn;
     i->LineNumber = MakeFixnum(ln);
 
     IdentifierMagic += 1;
@@ -82,6 +83,11 @@ FObject MakeIdentifier(FObject sym, int_t ln)
     i->Wrapped = NoValueObject;
 
     return(i);
+}
+
+FObject MakeIdentifier(FObject sym)
+{
+    return(MakeIdentifier(sym, NoValueObject, 0));
 }
 
 FObject WrapIdentifier(FObject id, FObject se)
@@ -290,26 +296,26 @@ void SetupCompile()
     R.IdentifierRecordType = MakeRecordTypeC("identifier",
             sizeof(IdentifierFieldsC) / sizeof(char *), IdentifierFieldsC);
 
-    R.ElseReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("else"), 0));
-    R.ArrowReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("=>"), 0));
+    R.ElseReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("else")));
+    R.ArrowReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("=>")));
     R.LibraryReference = MakeReference(R.Bedrock,
-            MakeIdentifier(StringCToSymbol("library"), 0));
-    R.AndReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("and"), 0));
-    R.OrReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("or"), 0));
-    R.NotReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("not"), 0));
+            MakeIdentifier(StringCToSymbol("library")));
+    R.AndReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("and")));
+    R.OrReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("or")));
+    R.NotReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("not")));
     R.QuasiquoteReference = MakeReference(R.Bedrock,
-            MakeIdentifier(StringCToSymbol("quasiquote"), 0));
+            MakeIdentifier(StringCToSymbol("quasiquote")));
     R.UnquoteReference = MakeReference(R.Bedrock,
-            MakeIdentifier(StringCToSymbol("unquote"), 0));
+            MakeIdentifier(StringCToSymbol("unquote")));
     R.UnquoteSplicingReference = MakeReference(R.Bedrock,
-            MakeIdentifier(StringCToSymbol("unquote-splicing"), 0));
-    R.ConsReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("cons"), 0));
+            MakeIdentifier(StringCToSymbol("unquote-splicing")));
+    R.ConsReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("cons")));
     R.AppendReference = MakeReference(R.Bedrock,
-            MakeIdentifier(StringCToSymbol("append"), 0));
+            MakeIdentifier(StringCToSymbol("append")));
     R.ListToVectorReference = MakeReference(R.Bedrock,
-            MakeIdentifier(StringCToSymbol("list->vector"), 0));
-    R.EllipsisReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("..."), 0));
-    R.UnderscoreReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("_"), 0));
+            MakeIdentifier(StringCToSymbol("list->vector")));
+    R.EllipsisReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("...")));
+    R.UnderscoreReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("_")));
 
     R.TagSymbol = StringCToSymbol("tag");
     R.InteractionEnv = NoValueObject;

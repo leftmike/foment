@@ -86,7 +86,7 @@ static int ProgramMode(int adx, int argc, FChS * argv[])
 
     while (*s)
     {
-        if (*s == PathCh)
+        if (PathChP(*s))
             pth = s;
 
         s += 1;

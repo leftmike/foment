@@ -299,7 +299,7 @@ static FObject ReadIdentifier(FObject port, FCh * s, int_t sdx, int_t mbnf)
     FObject sym = FoldcasePortP(port) ? StringToSymbol(FoldcaseString(MakeString(s, sdx)))
             : StringLengthToSymbol(s, sdx);
     if (WantIdentifiersPortP(port))
-        return(MakeIdentifier(sym, ln));
+        return(MakeIdentifier(sym, GetFilename(port), ln));
     return(sym);
 }
 
@@ -567,7 +567,8 @@ static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlht)
                 FObject sym = FoldcasePortP(port)
                         ? StringToSymbol(FoldcaseString(ReadStringLiteral(port, '|')))
                         : StringToSymbol(ReadStringLiteral(port, '|'));
-                return(WantIdentifiersPortP(port) ? MakeIdentifier(sym, ln) : sym);
+                return(WantIdentifiersPortP(port) ? MakeIdentifier(sym, GetFilename(port), ln)
+                        : sym);
             }
 
             case '(':
@@ -606,15 +607,17 @@ static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlht)
             {
                 FObject obj = Read(port, 0, 0, pdlht);
                 return(MakePair(WantIdentifiersPortP(port) ? MakeIdentifier(R.QuoteSymbol,
-                        GetLineColumn(port, 0)) : R.QuoteSymbol, MakePair(obj, EmptyListObject)));
+                        GetFilename(port), GetLineColumn(port, 0)) :
+                        R.QuoteSymbol, MakePair(obj, EmptyListObject)));
             }
 
             case '`':
             {
                 FObject obj = Read(port, 0, 0, pdlht);
                 return(MakePair(WantIdentifiersPortP(port)
-                        ? MakeIdentifier(R.QuasiquoteSymbol, GetLineColumn(port, 0))
-                        : R.QuasiquoteSymbol, MakePair(obj, EmptyListObject)));
+                        ? MakeIdentifier(R.QuasiquoteSymbol, GetFilename(port),
+                        GetLineColumn(port, 0)) :
+                        R.QuasiquoteSymbol, MakePair(obj, EmptyListObject)));
             }
 
             case ',':
@@ -633,7 +636,7 @@ static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlht)
 
                 FObject obj = Read(port, 0, 0, pdlht);
                 return(MakePair(WantIdentifiersPortP(port)
-                        ? MakeIdentifier(sym, GetLineColumn(port, 0)) : sym,
+                        ? MakeIdentifier(sym, GetFilename(port), GetLineColumn(port, 0)) : sym,
                         MakePair(obj, EmptyListObject)));
             }
 

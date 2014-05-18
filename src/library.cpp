@@ -734,7 +734,7 @@ static FObject ExpandLibraryDeclarations(FObject env, FObject lst, FObject body)
         if (EqualToSymbol(First(form), R.ImportSymbol))
             EnvironmentImport(env, form);
         else if (EqualToSymbol(First(form), R.IncludeLibraryDeclarationsSymbol))
-            body = ExpandLibraryDeclarations(env, ReadInclude(Rest(form), 0), body);
+            body = ExpandLibraryDeclarations(env, ReadInclude(First(form), Rest(form), 0), body);
         else if (EqualToSymbol(First(form), R.CondExpandSymbol))
         {
             FObject ce = CondExpand(MakeSyntacticEnv(R.Bedrock), form, Rest(form));
@@ -973,8 +973,8 @@ static FObject CompileEvalExpr(FObject obj, FObject env, FObject body)
         else if (op == BeginSyntax)
             return(CompileEvalBegin(Rest(obj), env, body, obj, BeginSyntax));
         else if (op == IncludeSyntax || op == IncludeCISyntax)
-            return(CompileEvalBegin(ReadInclude(Rest(obj), op == IncludeCISyntax), env, body, obj,
-                    op));
+            return(CompileEvalBegin(ReadInclude(First(obj), Rest(obj), op == IncludeCISyntax), env,
+                    body, obj, op));
         else if (op == CondExpandSyntax)
         {
             FObject ce = CondExpand(MakeSyntacticEnv(env), obj, Rest(obj));

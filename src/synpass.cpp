@@ -4,6 +4,7 @@ Foment
 
 */
 
+#include <string.h>
 #include "foment.hpp"
 #include "compile.hpp"
 
@@ -212,7 +213,7 @@ static FObject SPassSequence(FObject se, FObject ss, FObject form, FObject seq);
 static FObject AddFormal(FObject se, FObject ss, FObject bs, FObject id, FObject form, FObject ra)
 {
     if (SymbolP(id))
-        id = MakeIdentifier(id, 0);
+        id = MakeIdentifier(id);
 
     if (IdentifierP(id) == 0)
         RaiseException(R.Syntax, SpecialSyntaxToSymbol(ss),
@@ -293,7 +294,7 @@ static void LeaveLetScope(FObject lb)
 static FObject AddBinding(FObject se, FObject ss, FObject bs, FObject id, FObject form)
 {
     if (SymbolP(id))
-        id = MakeIdentifier(id, 0);
+        id = MakeIdentifier(id);
 
     if (IdentifierP(id) == 0)
         RaiseException(R.Syntax, SpecialSyntaxToSymbol(ss),
@@ -468,7 +469,7 @@ static FObject SPassLetBindings(FObject se, FObject ss, FObject lb, int_t rf, in
 static FObject AddLetStarBinding(FObject se, FObject id, FObject form)
 {
     if (SymbolP(id))
-        id = MakeIdentifier(id, 0);
+        id = MakeIdentifier(id);
 
     if (IdentifierP(id) == 0)
         RaiseExceptionC(R.Syntax, "let*", "expected (<variable> <init>) for each binding",
@@ -625,7 +626,7 @@ int_t MatchReference(FObject ref, FObject se, FObject expr)
         if (AsIdentifier(AsReference(ref)->Identifier)->Symbol != expr)
             return(0);
 
-        expr = MakeIdentifier(expr, 0);
+        expr = MakeIdentifier(expr);
     }
     else
     {
@@ -797,7 +798,7 @@ FObject SPassDo(FObject se, FObject expr)
 
     inits = ReverseListModify(inits);
 
-    FObject tag = MakeIdentifier(R.TagSymbol, -1);
+    FObject tag = MakeIdentifier(R.TagSymbol);
     FObject tb = MakeBinding(se, tag, FalseObject);
 
     EnterScopeList(bs);
@@ -864,7 +865,7 @@ static FObject SPassReadInclude(FObject expr, FObject ss)
 {
     FAssert(ss == IncludeSyntax || ss == IncludeCISyntax);
 
-    FObject ret = ReadInclude(Rest(expr), ss == IncludeCISyntax);
+    FObject ret = ReadInclude(First(expr), Rest(expr), ss == IncludeCISyntax);
     if (PairP(ret) == 0)
         RaiseException(R.Syntax, SpecialSyntaxToSymbol(ss),
                 SpecialSyntaxMsgC(ss, "expected a proper list of one or more strings"),
@@ -997,7 +998,7 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
 
         FObject var = First(Rest(expr));
         if (SymbolP(var))
-            var = MakeIdentifier(var, 0);
+            var = MakeIdentifier(var);
         if (IdentifierP(var) == 0)
             RaiseExceptionC(R.Syntax, "set!", "variable expected", List(expr, var));
 
@@ -1038,7 +1039,7 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
             FObject var = First(lst);
 
             if (SymbolP(var))
-                var = MakeIdentifier(var, 0);
+                var = MakeIdentifier(var);
             if (IdentifierP(var) == 0)
                 RaiseExceptionC(R.Syntax, "set!-values", "variable expected", List(expr, var));
 
@@ -1078,7 +1079,7 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
 
         FObject tag = First(Rest(expr));
         if (SymbolP(tag))
-            tag = MakeIdentifier(tag, 0);
+            tag = MakeIdentifier(tag);
         if (IdentifierP(tag))
             return(SPassNamedLet(se, tag, expr));
 
@@ -1252,7 +1253,7 @@ static FObject SPassOperands(FObject se, FObject opds, FObject form)
 static FObject SPassKeyword(FObject se, FObject expr)
 {
     if (SymbolP(expr))
-        expr = MakeIdentifier(expr, 0);
+        expr = MakeIdentifier(expr);
     if (IdentifierP(expr))
         return(MakeReference(ResolveIdentifier(se, expr), expr));
 
@@ -1262,7 +1263,7 @@ static FObject SPassKeyword(FObject se, FObject expr)
 static FObject SPassExpression(FObject se, FObject expr)
 {
     if (SymbolP(expr))
-        expr = MakeIdentifier(expr, 0);
+        expr = MakeIdentifier(expr);
 
     if (IdentifierP(expr))
     {
@@ -1465,7 +1466,7 @@ static FObject SPassBodyExpression(FObject se, FObject expr)
     FObject op = SPassBodyExpression(se, First(expr));
 
     if (SymbolP(op))
-        op = MakeIdentifier(op, 0);
+        op = MakeIdentifier(op);
 
     if (IdentifierP(op))
     {
@@ -1482,7 +1483,11 @@ static FObject SPassBodyExpression(FObject se, FObject expr)
         }
 
         if (SpecialSyntaxP(val))
+        {
+            if (val == IncludeSyntax || val == IncludeCISyntax)
+                return(MakePair(val, expr));
             return(MakePair(val, Rest(expr)));
+        }
 
         if (SyntaxRulesP(val))
             return(SPassBodyExpression(se, ExpandSyntaxRules(se, val, Rest(expr))));
@@ -1527,18 +1532,18 @@ static FObject SPassBody(FObject se, FObject ss, FObject body)
         if (PairP(expr) == 0)
             break;
 
-        if (First(expr) == BeginSyntax)
-        {
-            // (begin ...)
-
-            body = AppendBegin(ss, Rest(expr), Rest(body), expr);
-        }
-        else if (First(expr) == IncludeSyntax || First(expr) == IncludeCISyntax)
+        if (First(expr) == IncludeSyntax || First(expr) == IncludeCISyntax)
         {
             // (include <string> ...)
             // (include-ci <string> ...)
 
-            body = AppendBegin(ss, SPassReadInclude(expr, First(expr)), Rest(body), expr);
+            body = AppendBegin(ss, SPassReadInclude(Rest(expr), First(expr)), Rest(body), expr);
+        }
+        else if (First(expr) == BeginSyntax)
+        {
+            // (begin ...)
+
+            body = AppendBegin(ss, Rest(expr), Rest(body), expr);
         }
         else if (First(expr) == CondExpandSyntax)
         {
@@ -1558,8 +1563,8 @@ static FObject SPassBody(FObject se, FObject ss, FObject body)
 
             if (PairP(Rest(expr)) == 0)
                 RaiseExceptionC(R.Syntax, "define",
-                        "expected (define (<variable> ...) <body>) or (define <variable> <expr>)",
-                        List(expr));
+                    "expected (define (<variable> ...) <body>) or (define <variable> <expr>)",
+                    List(expr));
 
             if (PairP(First(Rest(expr))))
             {
@@ -1796,20 +1801,52 @@ FObject CondExpand(FObject se, FObject expr, FObject clst)
 
 // ----------------
 
-FObject ReadInclude(FObject lst, int_t cif)
+static FObject MungeIncludeName(FObject source, FObject target)
 {
+    FAssert(StringP(source));
+    FAssert(StringP(target));
+
+    FCh * src = AsString(source)->String;
+    uint_t srclen = StringLength(source);
+    FCh * tgt = AsString(target)->String;
+    uint_t tgtlen = StringLength(target);
+    uint_t idx;
+
+    if (PathChP(tgt[0]))
+        return(target);
+
+    for (idx = srclen; idx > 0; idx--)
+    {
+        if (PathChP(src[idx - 1]))
+            break;
+    }
+
+    if (idx == 0)
+        return(target);
+
+    FObject s = MakeStringCh(idx + tgtlen, 0);
+    memcpy(AsString(s)->String, src, idx * sizeof(FCh));
+    memcpy(AsString(s)->String + idx, tgt, tgtlen * sizeof(FCh));
+    return(s);
+}
+
+FObject ReadInclude(FObject op, FObject lst, int_t cif)
+{
+    FAssert(SymbolP(op) || IdentifierP(op));
+
     if (PairP(lst) == 0)
         return(EmptyListObject);
 
     FDontWait dw;
     FObject ret = EmptyListObject;
+    FObject src = IdentifierP(op) ? AsIdentifier(op)->Filename : NoValueObject;
 
     while (PairP(lst))
     {
         if (StringP(First(lst)) == 0)
             return(EmptyListObject);
 
-        FObject port = OpenInputFile(First(lst));
+        FObject port = OpenInputFile(MungeIncludeName(src, First(lst)));
         if (TextualPortP(port) == 0)
             RaiseExceptionC(R.Assertion, "open-input-file", "can not open file for reading",
                     List(First(lst)));

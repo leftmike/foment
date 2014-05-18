@@ -1934,13 +1934,13 @@ void SetupFoment(FThreadState * ts, int argc, FChS * argv[])
         FChS * s = argv[0];
         while (*s)
         {
-            if (*s == PathCh)
+            if (PathChP(*s))
                 break;
 
             s += 1;
         }
 
-        if (*s == PathCh)
+        if (PathChP(*s))
             R.LibraryPath = MakePair(MakeStringS(argv[0], s - argv[0]), R.LibraryPath);
     }
 

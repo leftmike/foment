@@ -173,7 +173,7 @@ FObject ExpandSyntaxRules(FObject se, FObject sr, FObject expr);
 int_t MatchReference(FObject ref, FObject se, FObject expr);
 FObject ExpandExpression(FObject se, FObject expr);
 FObject CondExpand(FObject se, FObject expr, FObject clst);
-FObject ReadInclude(FObject lst, int_t cif);
+FObject ReadInclude(FObject op, FObject lst, int_t cif);
 FObject SPassLambda(FObject se, FObject name, FObject formals, FObject body);
 void MPassLambda(FLambda * lam);
 

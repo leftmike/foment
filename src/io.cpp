@@ -880,6 +880,13 @@ uint_t GetLineColumn(FObject port, uint_t * col)
     return(AsTextualPort(port)->Line);
 }
 
+FObject GetFilename(FObject port)
+{
+    FAssert(BinaryPortP(port) || TextualPortP(port));
+
+    return(AsGenericPort(port)->Name);
+}
+
 void FoldcasePort(FObject port, int_t fcf)
 {
     FAssert(TextualPortP(port) && InputPortP(port));

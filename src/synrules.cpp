@@ -195,7 +195,7 @@ static FObject CopyLiterals(FObject se, FObject obj, FObject ellip)
 
         FObject id = First(obj);
         if (SymbolP(id))
-            id = MakeIdentifier(id, 0);
+            id = MakeIdentifier(id);
 
         lits = MakePair(MakeReference(ResolveIdentifier(se, id), id), lits);
         obj = Rest(obj);
@@ -256,7 +256,7 @@ static FObject CompilePatternVariables(FObject se, FObject form, FObject lits, F
     }
 
     if (SymbolP(pat))
-        pat = MakeIdentifier(pat, 0);
+        pat = MakeIdentifier(pat);
 
     if (IdentifierP(pat))
     {
@@ -315,7 +315,7 @@ static FObject RepeatPatternVariables(FObject se, FObject pvars, FObject pat, FO
     }
 
     if (SymbolP(pat))
-        pat = MakeIdentifier(pat, 0);
+        pat = MakeIdentifier(pat);
 
     if (IdentifierP(pat))
     {
@@ -343,7 +343,7 @@ static FObject CompilePattern(FObject se, FObject lits, FObject pvars, FObject e
     else if (VectorP(pat))
         return(MakeVector(1, 0, CompilePattern(se, lits, pvars, ellip, VectorToList(pat))));
     else if (SymbolP(pat))
-        pat = MakeIdentifier(pat, 0);
+        pat = MakeIdentifier(pat);
 
     if (IdentifierP(pat))
     {
@@ -468,7 +468,7 @@ static FObject CompileTemplate(FObject se, FObject form, FObject pvars, FObject 
         return(MakeVector(1, 0, CompileTemplate(se, form, pvars, ellip, VectorToList(tpl),
                 trs, 0)));
     else if (SymbolP(tpl))
-        tpl = MakeIdentifier(tpl, 0);
+        tpl = MakeIdentifier(tpl);
 
     if (IdentifierP(tpl))
     {
@@ -539,7 +539,7 @@ FObject CompileSyntaxRules(FObject se, FObject obj)
     }
     else if (PairP(Rest(obj)) && SymbolP(First(Rest(obj))))
     {
-        FObject id = MakeIdentifier(First(Rest(obj)), 0);
+        FObject id = MakeIdentifier(First(Rest(obj)));
         ellip = MakeReference(ResolveIdentifier(se, id), id);
         obj = Rest(obj);
     }

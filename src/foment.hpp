@@ -608,6 +608,7 @@ int_t CharReadyP(FObject port);
 FObject ReadLine(FObject port);
 FObject ReadString(FObject port, uint_t cnt);
 uint_t GetLineColumn(FObject port, uint_t * col);
+FObject GetFilename(FObject port);
 void FoldcasePort(FObject port, int_t fcf);
 void WantIdentifiersPort(FObject port, int_t wif);
 
@@ -996,6 +997,7 @@ typedef struct
 {
     FRecord Record;
     FObject Symbol;
+    FObject Filename;
     FObject LineNumber;
     FObject Magic;
     FObject SyntacticEnv;
@@ -1005,7 +1007,8 @@ typedef struct
 #define AsIdentifier(obj) ((FIdentifier *) (obj))
 #define IdentifierP(obj) RecordP(obj, R.IdentifierRecordType)
 
-FObject MakeIdentifier(FObject sym, int_t ln);
+FObject MakeIdentifier(FObject sym, FObject fn, int_t ln);
+FObject MakeIdentifier(FObject sym);
 FObject WrapIdentifier(FObject id, FObject se);
 
 // ---- Procedures ----
@@ -1522,9 +1525,17 @@ void WriteCondition(FObject port, FObject obj, int_t df);
 #ifdef FOMENT_WINDOWS
 #define PathCh '\\'
 #define PathSep ';'
+inline int_t PathChP(FCh ch)
+{
+    return(ch == '\\' || ch == '/');
+}
 #else // FOMENT_WINDOWS
 #define PathCh '/'
 #define PathSep ':'
+inline int_t PathChP(FCh ch)
+{
+    return(ch == '/');
+}
 #endif // FOMENT_WINDOWS
 
 #endif // __FOMENT_HPP__
