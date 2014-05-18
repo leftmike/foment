@@ -946,7 +946,7 @@ FObject StringToNumber(FCh * s, int_t sl, FFixnum rdx)
     return(ToInexact(n));
 }
 
-const static char Digits[] = {"0123456789ABCDEF"};
+const static char Digits[] = {"0123456789abcdef"};
 
 int_t FixnumAsString(FFixnum n, FCh * s, FFixnum rdx)
 {
@@ -1066,7 +1066,6 @@ static void WriteNumber(FObject port, FObject obj, FFixnum rdx)
         FAssert(BignumP(obj));
 
         char * s = mpz_get_str(0, (int) rdx, AsBignum(obj));
-        Uppercase(s);
         WriteStringC(port, s);
         free(s);
     }
