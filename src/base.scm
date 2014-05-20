@@ -1279,6 +1279,12 @@
                 (else (string-append (get-environment-variable "HOME") "/.foment_history"))))
 
         (define (interactive-thunk)
+            (when (console-port? (current-output-port))
+                (display "Foment Scheme ")
+                (display (implementation-version))
+                (if %debug-build
+                    (display " (debug)"))
+                (newline))
             (let ((env (interaction-environment)))
                 (handle-command-line (cdr (command-line)) env)
                 (call-with-current-continuation

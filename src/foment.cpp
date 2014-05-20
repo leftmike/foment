@@ -1883,6 +1883,14 @@ void SetupFoment(FThreadState * ts, int argc, FChS * argv[])
     LibraryExport(R.BedrockLibrary,
             EnvironmentSetC(R.Bedrock, "%standard-error", R.StandardError));
 
+#ifdef FOMENT_DEBUG
+    LibraryExport(R.BedrockLibrary,
+            EnvironmentSetC(R.Bedrock, "%debug-build", TrueObject));
+#else // FOMENT_DEBUG
+    LibraryExport(R.BedrockLibrary,
+            EnvironmentSetC(R.Bedrock, "%debug-build", FalseObject));
+#endif // FOMENT_DEBUG
+
     R.Features = EmptyListObject;
 
     for (uint_t idx = 0; idx < sizeof(FeaturesC) / sizeof(char *); idx++)
