@@ -313,7 +313,7 @@ static FObject LibraryNameFlat(FObject dir, FObject nam, FObject ext)
 
     while (PairP(nam))
     {
-        FAssert(SymbolP(First(nam)));
+        FAssert(SymbolP(First(nam)) || IntegerP(First(nam)));
 
         WriteSimple(out, First(nam), 1);
 
@@ -338,7 +338,7 @@ static FObject LibraryNameDeep(FObject dir, FObject nam, FObject ext)
 
     while (PairP(nam))
     {
-        FAssert(SymbolP(First(nam)));
+        FAssert(SymbolP(First(nam)) || IntegerP(First(nam)));
 
         WriteCh(out, PathCh);
         WriteSimple(out, First(nam), 1);

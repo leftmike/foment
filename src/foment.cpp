@@ -62,9 +62,6 @@ FRoots R;
 void FAssertFailed(const char * fn, int_t ln, const char * expr)
 {
     printf("FAssert: %s (%d)%s\n", expr, (int) ln, fn);
-#ifdef FOMENT_DEBUG
-    FailedThreadState();
-#endif // FOMENT_DEBUG
 
 //    *((char *) 0) = 0;
 //    fgetc(stdin);
@@ -74,9 +71,6 @@ void FAssertFailed(const char * fn, int_t ln, const char * expr)
 void FMustBeFailed(const char * fn, int_t ln, const char * expr)
 {
     printf("FMustBe: %s (%d)%s\n", expr, (int) ln, fn);
-#ifdef FOMENT_DEBUG
-    FailedThreadState();
-#endif // FOMENT_DEBUG
 
 //    *((char *) 0) = 0;
     exit(1);

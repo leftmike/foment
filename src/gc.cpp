@@ -1897,14 +1897,6 @@ void EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms)
             ts->IndexParameters[idx] = NoValueObject;
 
     ts->NotifyFlag = 0;
-
-#ifdef FOMENT_DEBUG
-    for (int_t idx = 0; idx < TRACE_SIZE; idx++)
-        ts->Trace[idx].Opcode = -1;
-
-    ts->CurrentTrace = TRACE_SIZE - 1;
-    ts->InstructionCount = 0;
-#endif // FOMENT_DEBUG
 }
 
 uint_t LeaveThread(FThreadState * ts)

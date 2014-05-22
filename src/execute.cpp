@@ -227,31 +227,6 @@ void WriteInstruction(FObject port, FObject obj, int_t df)
     WriteCh(port, '>');
 }
 
-#ifdef FOMENT_DEBUG
-void FailedThreadState()
-{
-    FThreadState * ts = GetThreadState();
-    printf("proc: ");
-    WriteSimple(R.StandardOutput, ts->Proc, 0);
-    printf(" instruction count: %d\n", (int) ts->InstructionCount);
-
-    int_t tdx = ts->CurrentTrace;
-    do
-    {
-        tdx += 1;
-        if (tdx == TRACE_SIZE)
-            tdx = 0;
-
-        if (ts->Trace[tdx].Name != 0)
-            printf("%s.%d primitive %s\n", Opcodes[ts->Trace[tdx].Opcode],
-                    (int) ts->Trace[tdx].Arg, ts->Trace[tdx].Name);
-        else
-            printf("%s.%d\n", Opcodes[ts->Trace[tdx].Opcode], (int) ts->Trace[tdx].Arg);
-    }
-    while (tdx != ts->CurrentTrace);
-}
-#endif // FOMENT_DEBUG
-
 // --------
 
 static FObject MarkListRef(FObject ml, FObject key, FObject def)
@@ -384,18 +359,6 @@ static FObject Execute(FThreadState * ts)
         }
         else
         {
-#ifdef FOMENT_DEBUG
-            ts->CurrentTrace += 1;
-            if (ts->CurrentTrace == TRACE_SIZE)
-                ts->CurrentTrace = 0;
-
-            ts->Trace[ts->CurrentTrace].Opcode = InstructionOpcode(obj);
-            ts->Trace[ts->CurrentTrace].Arg = InstructionArg(obj);
-            ts->Trace[ts->CurrentTrace].Name = 0;
-
-            ts->InstructionCount += 1;
-#endif // FOMENT_DEBUG
-
 //printf("%s.%d %d %d\n", Opcodes[InstructionOpcode(obj)], InstructionArg(obj), ts->CStackPtr, ts->AStackPtr);
             switch (InstructionOpcode(obj))
             {
@@ -685,10 +648,6 @@ CallProcedure:
 CallPrimitive:
                     FAssert(ts->AStackPtr >= ts->ArgCount);
 
-#ifdef FOMENT_DEBUG
-                    ts->Trace[ts->CurrentTrace].Name = AsPrimitive(op)->Name;
-#endif // FOMENT_DEBUG
-
                     FObject ret = AsPrimitive(op)->PrimitiveFn(ts->ArgCount,
                             ts->AStack + ts->AStackPtr - ts->ArgCount);
                     ts->AStackPtr -= ts->ArgCount;
@@ -737,10 +696,6 @@ TailCallProcedure:
                 {
 TailCallPrimitive:
                     FAssert(ts->AStackPtr >= ts->ArgCount);
-
-#ifdef FOMENT_DEBUG
-                    ts->Trace[ts->CurrentTrace].Name = AsPrimitive(op)->Name;
-#endif // FOMENT_DEBUG
 
                     FObject ret = AsPrimitive(op)->PrimitiveFn(ts->ArgCount,
                             ts->AStack + ts->AStackPtr - ts->ArgCount);
