@@ -7,6 +7,9 @@ CCRELEASE = -c -Wall -DFOMENT_UNIX
 
 all: debug release debug/foment release/foment
 
+install: all
+	sudo cp debug/foment /usr/local/bin
+
 clean: debug release
 	-rm debug/*
 	-rm release/*
