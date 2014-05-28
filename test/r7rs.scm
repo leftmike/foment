@@ -3714,6 +3714,8 @@
 (check-error (assertion-violation string-length) (string-length #\a))
 (check-error (assertion-violation string-length) (string-length "" #\a))
 
+(check-equal 658 (string-length "DURING the whole of a dull, dark, and soundless day in the autumn of the year, when the clouds hung oppressively low in the heavens, I had been passing alone, on horseback, through a singularly dreary tract of country; and at length found myself, as the shades of the evening drew on, within view of the melancholy House of Usher. I know not how it was--but, with the first glimpse of the building, a sense of insufferable gloom pervaded my spirit. I say insufferable; for the feeling was unrelieved by any of that half-pleasurable, because poetic, sentiment, with which the mind usually receives even the sternest natural images of the desolate or terrible."))
+
 (check-equal #\3 (string-ref "123456" 2))
 
 (check-error (assertion-violation string-ref) (string-ref ""))

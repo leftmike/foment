@@ -129,7 +129,9 @@ static FCh ReadStringHexChar(FObject port)
 static FObject ReadStringLiteral(FObject port, FCh tch)
 {
     FAlive ap(&port);
-    FCh s[512];
+    FCh sb[128];
+    FCh * s = sb;
+    int_t msl = sizeof(sb) / sizeof(FCh);
     int_t sl = 0;
     FCh ch;
 
@@ -194,13 +196,32 @@ Again:
 
         s[sl] = ch;
         sl += 1;
-        if (sl == sizeof(s) / sizeof(FCh))
-            RaiseExceptionC(R.Restriction, "read", "string too long", List(port));
+        if (sl == msl)
+        {
+            FCh * ns = (FCh *) malloc(msl * 2 * sizeof(FCh));
+            if (ns == 0)
+            {
+                if (s != sb)
+                    free(s);
+                RaiseExceptionC(R.Restriction, "read", "string too long", List(port));
+            }
+
+            memcpy(ns, s, msl * sizeof(FCh));
+            if (s != sb)
+                free(s);
+            s = ns;
+            msl *= 2;
+        }
     }
 
-    return(MakeString(s, sl));
+    FObject obj = MakeString(s, sl);
+    if (s != sb)
+        free(s);
+    return(obj);
 
 UnexpectedEof:
+    if (s != sb)
+        free(s);
     RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading string", List(port));
     return(NoValueObject);
 }
