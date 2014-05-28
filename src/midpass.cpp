@@ -829,6 +829,12 @@ static void MFourLambdaEnclosing(FLambda * enc, FLambda * lam, int cf)
 
 //    enc->UseStack = FalseObject;
     Modify(FLambda, enc, UseStack, FalseObject);
+
+    if (AsFixnum(lam->Level) == 0 || AsFixnum(lam->Level) > AsFixnum(enc->Level) + 1)
+    {
+//        lam->Level = MakeFixnum(AsFixnum(enc->Level) + 1);
+        Modify(FLambda, lam, Level, MakeFixnum(AsFixnum(enc->Level) + 1));
+    }
 }
 
 static void MFourLambdaBefore(FLambda * enc, FLambda * lam, int cf)
@@ -840,11 +846,6 @@ static void MFourLambdaBefore(FLambda * enc, FLambda * lam, int cf)
     {
 //        lam->Level = MakeFixnum(1);
         Modify(FLambda, lam, Level, MakeFixnum(1));
-    }
-    else
-    {
-//        lam->Level = MakeFixnum(AsFixnum(enc->Level) + 1);
-        Modify(FLambda, lam, Level, MakeFixnum(AsFixnum(enc->Level) + 1));
     }
 }
 
