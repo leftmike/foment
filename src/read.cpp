@@ -134,6 +134,7 @@ static FObject ReadStringLiteral(FObject port, FCh tch)
     int_t msl = sizeof(sb) / sizeof(FCh);
     int_t sl = 0;
     FCh ch;
+    FObject obj;
 
     FAssert(tch == '"' || tch == '|');
 
@@ -214,7 +215,7 @@ Again:
         }
     }
 
-    FObject obj = MakeString(s, sl);
+    obj = MakeString(s, sl);
     if (s != sb)
         free(s);
     return(obj);
