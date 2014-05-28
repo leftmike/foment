@@ -41,7 +41,13 @@ static FObject GenericDivide(FObject z1, FObject z2);
 
 static inline double64_t Truncate(double64_t n)
 {
-    return(floor(n + 0.5 * ((n < 0 ) ? 1 : 0)));
+#ifdef FOMENT_WINDOWS
+    return(((n) < 0) ? ceil((n)) : floor((n)));
+#else // FOMENT_WINDOWS
+    return(trunc(n));
+#endif // FOMENT_WINDOWS
+
+//    return(floor(n + 0.5 * ((n < 0 ) ? 1 : 0)));
 }
 
 int_t IntegerP(FObject obj)
