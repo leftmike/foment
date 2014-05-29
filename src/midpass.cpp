@@ -653,7 +653,7 @@ static void MTwoLetInitCaseLambda(FCaseLambda * cl, FObject nam, FObject ef)
     while (PairP(cases))
     {
         FAssert(LambdaP(First(cases)));
-        FAssert(AsLambda(First(cases))->Name == NoValueObject);
+//        FAssert(AsLambda(First(cases))->Name == NoValueObject);
 
 //        AsLambda(First(cases))->Name = nam;
         Modify(FLambda, First(cases), Name, nam);
@@ -675,7 +675,7 @@ static int MTwoLetFormalsInit(FLambda * lam, FObject flst, FObject init)
     {
         if (LambdaP(init))
         {
-            FAssert(AsLambda(init)->Name == NoValueObject);
+//            FAssert(AsLambda(init)->Name == NoValueObject);
 
 //            AsLambda(init)->Escapes = bd->Escapes;
             Modify(FLambda, init, Escapes, bd->Escapes);

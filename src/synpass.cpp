@@ -857,7 +857,7 @@ static FObject SPassCaseLambda(FObject se, FObject expr, FObject clst)
                 "expected (case-lambda (<formals> <body>) ...)", List(expr, clst));
 
     FObject cls = First(clst);
-    return(MakePair(SPassLambda(se, NoValueObject, First(cls), Rest(cls)),
+    return(MakePair(SPassLambda(se, First(expr), First(cls), Rest(cls)),
             SPassCaseLambda(se, expr, Rest(clst))));
 }
 
@@ -967,7 +967,7 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
             RaiseExceptionC(R.Syntax, "lambda", "expected (lambda <formals> <body>)",
                     List(expr));
 
-        return(SPassLambda(se, NoValueObject, First(Rest(expr)), Rest(Rest(expr))));
+        return(SPassLambda(se, First(expr), First(Rest(expr)), Rest(Rest(expr))));
     }
     else if (ss == IfSyntax)
     {
@@ -1416,7 +1416,8 @@ FObject VariablesAndExpandInits(FObject se, FObject dlst, FObject bl)
                 // (define (<variable> . <formal>) <body>)
 
                 lb = MakePair(MakePair(First(bl), MakePair(
-                        SPassLambda(se, NoValueObject, Rest(First(Rest(expr))), Rest(Rest(expr))),
+                        SPassLambda(se, First(First(Rest(expr))), Rest(First(Rest(expr))),
+                                Rest(Rest(expr))),
                         EmptyListObject)), lb);
             }
             else
