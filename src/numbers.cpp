@@ -996,17 +996,6 @@ static int_t NeedImaginaryPlusSignP(FObject n)
     return(mpz_cmp_si(AsBignum(n), 0) >= 0);
 }
 
-static void Uppercase(char * s)
-{
-    while (*s)
-    {
-        if (*s >= 'a' && *s <= 'z')
-            *s = *s - 'a' + 'A';
-
-        s += 1;
-    }
-}
-
 static void WriteNumber(FObject port, FObject obj, FFixnum rdx)
 {
     FAssert(NumberP(obj));
