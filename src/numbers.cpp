@@ -1761,7 +1761,7 @@ WriteCh(R.StandardOutput, '\n');
                 FAssert(BignumP(z1));
                 FAssert(BignumP(z2));
 
-                return(MakeRatio(z1, z2));
+                return(MakeRatio(MakeBignum(z1), MakeBignum(z2)));
             }
 
         case BOP_BIGRAT_COMPLEX:
@@ -1780,7 +1780,7 @@ WriteCh(R.StandardOutput, '\n');
             if (RatioP(z1))
                 return(MakeRatio(AsNumerator(z1), GenericMultiply(AsDenominator(z1), z2)));
             else
-                return(MakeRatio(z1, z2));
+                return(MakeRatio(MakeBignum(z1), z2));
 
         case BOP_COMPLEX_BIGRAT:
             return(MakeComplex(GenericDivide(AsReal(z1), z2),
@@ -1816,7 +1816,7 @@ WriteCh(R.StandardOutput, '\n');
             if (RatioP(z2))
                 return(MakeRatio(GenericMultiply(AsDenominator(z2), z1), AsNumerator(z2)));
             else
-                return(MakeRatio(z1, z2));
+                return(MakeRatio(z1, MakeBignum(z2)));
 
         case BOP_FIXED_COMPLEX:
             return(ComplexDivide(z1, MakeFixnum(0), AsReal(z2), AsImaginary(z2)));
