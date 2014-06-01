@@ -3418,6 +3418,14 @@ static void DefineConstant(FObject env, FObject lib, const char * nam, FObject v
     LibraryExport(lib, EnvironmentSetC(env, nam, val));
 }
 
+void ExitFoment()
+{
+    if (TextualPortP(R.StandardOutput) || BinaryPortP(R.StandardOutput))
+        FlushOutput(R.StandardOutput);
+    if (TextualPortP(R.StandardError) || BinaryPortP(R.StandardError))
+        FlushOutput(R.StandardError);
+}
+
 void SetupIO()
 {
 #ifdef FOMENT_WINDOWS

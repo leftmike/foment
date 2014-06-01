@@ -1481,6 +1481,7 @@ FObject ExecuteThunk(FObject op);
 FObject MakeCommandLine(int_t argc, FChS * argv[]);
 void SetupFoment(FThreadState * ts, int argc, FChS * argv[]);
 extern uint_t SetupComplete;
+void ExitFoment();
 
 // ---- Do Not Call Directly ----
 

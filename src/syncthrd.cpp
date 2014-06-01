@@ -250,7 +250,11 @@ void ThreadExit(FObject obj)
     Modify(FThread, ts->Thread, Result, obj);
 
     if (LeaveThread(ts) == 0)
+    {
+        ExitFoment();
+
         exit(0);
+    }
     else
     {
 #ifdef FOMENT_WINDOWS
@@ -274,6 +278,8 @@ Define("%exit-thread", ExitThreadPrimitive)(int_t argc, FObject argv[])
 Define("%exit", ExitPrimitive)(int_t argc, FObject argv[])
 {
     ZeroOrOneArgsCheck("exit", argc);
+
+    ExitFoment();
 
     if (argc == 0 || argv[0] == TrueObject)
         exit(0);

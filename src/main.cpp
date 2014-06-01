@@ -130,6 +130,7 @@ static int ProgramMode(int adx, int argc, FChS * argv[])
     FObject proc = CompileProgram(nam, port);
 
     ExecuteThunk(proc);
+    ExitFoment();
     return(0);
 }
 
@@ -229,6 +230,7 @@ int main(int argc, char * argv[])
                 MakeCommandLine(argc - adx, argv + adx));
 
         ExecuteThunk(R.InteractiveThunk);
+        ExitFoment();
         return(0);
 //        return(RunRepl(GetInteractionEnv()));
     }
