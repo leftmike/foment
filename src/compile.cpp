@@ -113,9 +113,10 @@ static const char * LambdaFieldsC[] = {"name", "bindings", "body", "rest-arg", "
     "escapes", "use-stack", "level", "slot-count", "middle-pass", "procedure", "body-index",
     "may-inline"};
 
-FObject MakeLambda(FObject nam, FObject bs, FObject body)
+FObject MakeLambda(FObject enc, FObject nam, FObject bs, FObject body)
 {
     FAssert(sizeof(FLambda) == sizeof(LambdaFieldsC) + sizeof(FRecord));
+    FAssert(LambdaP(enc) || enc == NoValueObject);
 
     FLambda * l = (FLambda *) MakeRecord(R.LambdaRecordType);
     l->Name = nam;
@@ -127,7 +128,7 @@ FObject MakeLambda(FObject nam, FObject bs, FObject body)
 
     l->Escapes = FalseObject;
     l->UseStack = TrueObject;
-    l->Level = MakeFixnum(0);
+    l->Level = LambdaP(enc) ? MakeFixnum(AsFixnum(AsLambda(enc)->Level) + 1) : MakeFixnum(1);
     l->SlotCount = MakeFixnum(-1);
     l->MiddlePass = NoValueObject;
     l->MayInline = MakeFixnum(0); // Number of procedure calls or FalseObject.
@@ -191,7 +192,7 @@ FObject MakeReference(FObject be, FObject id)
 
 FObject CompileLambda(FObject env, FObject name, FObject formals, FObject body)
 {
-    FObject obj = SPassLambda(MakeSyntacticEnv(env), name, formals, body);
+    FObject obj = SPassLambda(NoValueObject, MakeSyntacticEnv(env), name, formals, body);
     FAssert(LambdaP(obj));
 
     MPassLambda(AsLambda(obj));
@@ -260,7 +261,7 @@ Define("syntax", SyntaxPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("syntax", argc);
 
-    return(ExpandExpression(MakeSyntacticEnv(GetInteractionEnv()), argv[0]));
+    return(ExpandExpression(NoValueObject, MakeSyntacticEnv(GetInteractionEnv()), argv[0]));
 }
 
 Define("unsyntax", UnsyntaxPrimitive)(int_t argc, FObject argv[])

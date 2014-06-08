@@ -802,51 +802,11 @@ static FMiddlePass MThree =
 
 // ---- Middle Four ----
 //
-// - level for each lambda: outer most lambda is level one
-
-static void MFourLambdaEnclosing(FLambda * enc, FLambda * lam, int cf)
-{
-    FAssert(enc != 0);
-
-    if (AsFixnum(lam->Level) == 0 || AsFixnum(lam->Level) > AsFixnum(enc->Level) + 1)
-    {
-//        lam->Level = MakeFixnum(AsFixnum(enc->Level) + 1);
-        Modify(FLambda, lam, Level, MakeFixnum(AsFixnum(enc->Level) + 1));
-    }
-}
-
-static void MFourLambdaBefore(FLambda * enc, FLambda * lam, int cf)
-{
-    if (enc == 0)
-    {
-//        lam->Level = MakeFixnum(1);
-        Modify(FLambda, lam, Level, MakeFixnum(1));
-    }
-}
-
-static FMiddlePass MFour =
-{
-    MakeFixnum(4),
-    0,
-    MFourLambdaEnclosing,
-    MFourLambdaBefore,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-};
-
-// ---- Middle Five ----
-//
 // - assign slots to bindings
 // - lambda leaf analysis
 // - level for each binding
 
-static void MFiveLambdaFormal(FLambda * lam, FBinding * bd)
+static void MFourLambdaFormal(FLambda * lam, FBinding * bd)
 {
 //    bd->Level = lam->Level;
     Modify(FBinding, bd, Level, lam->Level);
@@ -863,7 +823,7 @@ static void MFiveLambdaFormal(FLambda * lam, FBinding * bd)
     }
 }
 
-static void MFiveLambdaEnclosing(FLambda * enc, FLambda * lam, int cf)
+static void MFourLambdaEnclosing(FLambda * enc, FLambda * lam, int cf)
 {
     FAssert(enc != 0);
 
@@ -871,13 +831,13 @@ static void MFiveLambdaEnclosing(FLambda * enc, FLambda * lam, int cf)
     Modify(FLambda, enc, UseStack, FalseObject);
 }
 
-static void MFiveLambdaBefore(FLambda * enc, FLambda * lam, int cf)
+static void MFourLambdaBefore(FLambda * enc, FLambda * lam, int cf)
 {
 //    lam->SlotCount = MakeFixnum(1); // Slot 0 is reserved for the enclosing frame.
     Modify(FLambda, lam, SlotCount, MakeFixnum(1)); // Slot 0 is reserved for the enclosing frame.
 }
 
-static void MFiveLetFormal(FLambda * lam, FBinding * bd)
+static void MFourLetFormal(FLambda * lam, FBinding * bd)
 {
     FAssert(bd->Constant == NoValueObject);
 
@@ -890,17 +850,17 @@ static void MFiveLetFormal(FLambda * lam, FBinding * bd)
     Modify(FLambda, lam, SlotCount, MakeFixnum(AsFixnum(lam->SlotCount) + 1));
 }
 
-static FMiddlePass MFive =
+static FMiddlePass MFour =
 {
     MakeFixnum(5),
-    MFiveLambdaFormal,
-    MFiveLambdaEnclosing,
-    MFiveLambdaBefore,
+    MFourLambdaFormal,
+    MFourLambdaEnclosing,
+    MFourLambdaBefore,
     0,
     0,
     0,
     0,
-    MFiveLetFormal,
+    MFourLetFormal,
     0,
     0,
     0
@@ -914,5 +874,4 @@ void MPassLambda(FLambda * lam)
     MPassLambda(&MTwo, lam);
     MPassLambda(&MThree, lam);
     MPassLambda(&MFour, lam);
-    MPassLambda(&MFive, lam);
 }

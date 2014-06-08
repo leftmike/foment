@@ -205,10 +205,11 @@ static int_t SyntaxBindingP(FObject be, FObject var)
     return(0);
 }
 
-static FObject SPassExpression(FObject se, FObject expr);
-static FObject SPassBody(FObject se, FObject ss, FObject body);
-static FObject SPassSequenceLast(FObject se, FObject ss, FObject form, FObject seq, FObject last);
-static FObject SPassSequence(FObject se, FObject ss, FObject form, FObject seq);
+static FObject SPassExpression(FObject enc, FObject se, FObject expr);
+static FObject SPassBody(FObject enc, FObject se, FObject ss, FObject body);
+static FObject SPassSequenceLast(FObject enc, FObject se, FObject ss, FObject form, FObject seq,
+    FObject last);
+static FObject SPassSequence(FObject enc, FObject se, FObject ss, FObject form, FObject seq);
 
 static FObject AddFormal(FObject se, FObject ss, FObject bs, FObject id, FObject form, FObject ra)
 {
@@ -354,10 +355,10 @@ static FObject SPassLetVar(FObject se, FObject ss, FObject lb, FObject bs, FObje
     return(AddBinding(se, ss, bs, First(vi), lb));
 }
 
-static FObject SPassLetInit(FObject se, FObject ss, FObject lb, FObject nlb, FObject bd,
-    FObject vi, int_t vf)
+static FObject SPassLetInit(FObject enc, FObject se, FObject ss, FObject lb, FObject nlb,
+    FObject bd, FObject vi, int_t vf)
 {
-    FObject expr = SPassExpression(se, First(Rest(vi)));
+    FObject expr = SPassExpression(enc, se, First(Rest(vi)));
     if (ss == LetSyntaxSyntax || ss == LetrecSyntaxSyntax)
     {
         // (<keyword> <transformer>)
@@ -427,7 +428,8 @@ static FObject GatherLetValuesFormals(FObject bs, FObject lb)
     return(ReverseListModify(nbs));
 }
 
-static FObject SPassLetBindings(FObject se, FObject ss, FObject lb, int_t rf, int_t vf)
+static FObject SPassLetBindings(FObject enc, FObject se, FObject ss, FObject lb, int_t rf,
+    int_t vf)
 {
     // ((<variable> <init>) ...)
     // ((<formals> <init>) ...)
@@ -454,7 +456,7 @@ static FObject SPassLetBindings(FObject se, FObject ss, FObject lb, int_t rf, in
 
     for (tlb = lb; PairP(tlb); tlb = Rest(tlb))
     {
-        nlb = SPassLetInit(se, ss, lb, nlb, First(tbs), First(tlb), vf);
+        nlb = SPassLetInit(enc, se, ss, lb, nlb, First(tbs), First(tlb), vf);
         tbs = Rest(tbs);
     }
 
@@ -478,8 +480,8 @@ static FObject AddLetStarBinding(FObject se, FObject id, FObject form)
     return(MakeBinding(se, id, FalseObject));
 }
 
-static FObject SPassLetStarVarInit(FObject se, FObject ss, FObject lb, FObject nlb, FObject vi,
-    int_t vf)
+static FObject SPassLetStarVarInit(FObject enc, FObject se, FObject ss, FObject lb, FObject nlb,
+    FObject vi, int_t vf)
 {
     // (<variable> <init>)
     // (<formals> <init>)
@@ -493,14 +495,14 @@ static FObject SPassLetStarVarInit(FObject se, FObject ss, FObject lb, FObject n
     {
         FObject bd = AddLetStarBinding(se, First(vi), lb);
         nlb = MakePair(MakePair(MakePair(bd, EmptyListObject),
-                MakePair(SPassExpression(se, First(Rest(vi))), EmptyListObject)), nlb);
+                MakePair(SPassExpression(enc, se, First(Rest(vi))), EmptyListObject)), nlb);
 
         EnterScope(bd);
     }
     else
     {
         FObject bs = SPassFormals(se, ss, EmptyListObject, First(vi), First(vi));
-        nlb = MakePair(MakePair(bs, MakePair(SPassExpression(se, First(Rest(vi))),
+        nlb = MakePair(MakePair(bs, MakePair(SPassExpression(enc, se, First(Rest(vi))),
                 EmptyListObject)), nlb);
 
         EnterScopeList(bs);
@@ -509,7 +511,7 @@ static FObject SPassLetStarVarInit(FObject se, FObject ss, FObject lb, FObject n
     return(nlb);
 }
 
-static FObject SPassLetStarBindings(FObject se, FObject ss, FObject lb, int_t vf)
+static FObject SPassLetStarBindings(FObject enc, FObject se, FObject ss, FObject lb, int_t vf)
 {
     // ((<variable> <init>) ...)
     // ((<formals> <init>) ...)
@@ -518,7 +520,7 @@ static FObject SPassLetStarBindings(FObject se, FObject ss, FObject lb, int_t vf
     FObject nlb = EmptyListObject;
 
     for (tlb = lb; PairP(tlb); tlb = Rest(tlb))
-        nlb = SPassLetStarVarInit(se, ss, lb, nlb, First(tlb), vf);
+        nlb = SPassLetStarVarInit(enc, se, ss, lb, nlb, First(tlb), vf);
 
     if (tlb != EmptyListObject)
         RaiseException(R.Syntax, SpecialSyntaxToSymbol(ss),
@@ -561,14 +563,14 @@ static FObject GatherNamedLetInits(FObject lb)
     return(ReverseListModify(inits));
 }
 
-static FObject SPassNamedLet(FObject se, FObject tag, FObject expr)
+static FObject SPassNamedLet(FObject enc, FObject se, FObject tag, FObject expr)
 {
     // (let <variable> ((<variable> <init>) ...) <body>)
 
     if (PairP(Rest(Rest(Rest(expr)))) == 0)
         RaiseExceptionC(R.Syntax, "let", "expected bindings followed by a body", List(expr));
 
-    FObject lb = SPassLetBindings(se, LetSyntax, First(Rest(Rest(expr))), 0, 0);
+    FObject lb = SPassLetBindings(enc, se, LetSyntax, First(Rest(Rest(expr))), 0, 0);
     FObject tb = MakeBinding(se, tag, FalseObject);
     EnterScope(tb);
 
@@ -576,11 +578,11 @@ static FObject SPassNamedLet(FObject se, FObject tag, FObject expr)
     // --> ((letrec (((tag) (lambda (name ...) body1 body2 ...)))
     //         tag) val ...)
 
-    FObject lam = MakeLambda(NoValueObject, GatherNamedLetFormals(lb),
-            SPassBody(se, LetSyntax, Rest(Rest(Rest(expr)))));
+    FObject lambda = MakeLambda(enc, NoValueObject, GatherNamedLetFormals(lb),
+            SPassBody(enc, se, LetSyntax, Rest(Rest(Rest(expr)))));
     FObject ret = MakePair(MakePair(LetrecSyntax, MakePair(MakePair(
             MakePair(MakePair(tb, EmptyListObject),
-                MakePair(lam, EmptyListObject)), EmptyListObject),
+                MakePair(lambda, EmptyListObject)), EmptyListObject),
                 MakePair(MakeReference(tb, tag), EmptyListObject))), GatherNamedLetInits(lb));
 
     LeaveScope(tb);
@@ -589,7 +591,8 @@ static FObject SPassNamedLet(FObject se, FObject tag, FObject expr)
     return(ret);
 }
 
-static FObject SPassLet(FObject se, FObject ss, FObject expr, int_t rf, int_t sf, int_t vf)
+static FObject SPassLet(FObject enc, FObject se, FObject ss, FObject expr, int_t rf, int_t sf,
+    int_t vf)
 {
     // rf : rec flag; eg. rf = 1 for letrec
     // sf : star flag; eg. sf = 1 for let*
@@ -601,16 +604,16 @@ static FObject SPassLet(FObject se, FObject ss, FObject expr, int_t rf, int_t sf
 
     FObject lb;
     if (rf == 0 && sf != 0)
-        lb = SPassLetStarBindings(se, ss, First(Rest(expr)), vf);
+        lb = SPassLetStarBindings(enc, se, ss, First(Rest(expr)), vf);
     else
-        lb = SPassLetBindings(se, ss, First(Rest(expr)), rf, vf);
+        lb = SPassLetBindings(enc, se, ss, First(Rest(expr)), rf, vf);
 
     FObject ret;
     if (ss == LetSyntaxSyntax || ss == LetrecSyntaxSyntax)
-        ret = MakePair(BeginSyntax, SPassBody(se, ss, Rest(Rest(expr))));
+        ret = MakePair(BeginSyntax, SPassBody(enc, se, ss, Rest(Rest(expr))));
     else
         ret = MakePair(ss == LetrecSyntax ? LetrecSyntax : LetStarValuesSyntax,
-                MakePair(lb, SPassBody(se, ss, Rest(Rest(expr)))));
+                MakePair(lb, SPassBody(enc, se, ss, Rest(Rest(expr)))));
 
     LeaveLetScope(lb);
 
@@ -689,7 +692,7 @@ static FObject AddCaseDatumList(FObject dtml, FObject dtms, FObject cse, FObject
     return(dtms);
 }
 
-static FObject SPassCaseClauses(FObject se, FObject clst, FObject cse)
+static FObject SPassCaseClauses(FObject enc, FObject se, FObject clst, FObject cse)
 {
     FObject rlst = EmptyListObject;
     FObject dtms = EmptyListObject;
@@ -719,12 +722,12 @@ static FObject SPassCaseClauses(FObject se, FObject clst, FObject cse)
                             List(cse, cls));
 
                 rlst = MakePair(MakePair(ElseSyntax, MakePair(ArrowSyntax,
-                        MakePair(SPassExpression(se, First(Rest(Rest(cls)))),
+                        MakePair(SPassExpression(enc, se, First(Rest(Rest(cls)))),
                         EmptyListObject))), rlst);
             }
             else
                 rlst = MakePair(MakePair(ElseSyntax,
-                        SPassSequence(se, CaseSyntax, cse, Rest(cls))), rlst);
+                        SPassSequence(enc, se, CaseSyntax, cse, Rest(cls))), rlst);
         }
         else
         {
@@ -742,11 +745,11 @@ static FObject SPassCaseClauses(FObject se, FObject clst, FObject cse)
                             "expected ((<datum> ...) => <expression>)", List(cse, cls));
 
                 rlst = MakePair(MakePair(dtml, MakePair(ArrowSyntax,
-                        MakePair(SPassExpression(se, First(Rest(Rest(cls)))),
+                        MakePair(SPassExpression(enc, se, First(Rest(Rest(cls)))),
                         EmptyListObject))), rlst);
             }
             else
-                rlst = MakePair(MakePair(dtml, SPassSequence(se, CaseSyntax, cse, Rest(cls))),
+                rlst = MakePair(MakePair(dtml, SPassSequence(enc, se, CaseSyntax, cse, Rest(cls))),
                         rlst);
         }
 
@@ -759,7 +762,7 @@ static FObject SPassCaseClauses(FObject se, FObject clst, FObject cse)
     return(ReverseListModify(rlst));
 }
 
-FObject SPassDo(FObject se, FObject expr)
+FObject SPassDo(FObject enc, FObject se, FObject expr)
 {
     // (do ((var init [step]) ...) (test expr ...) cmd ...)
     // --> ((letrec (((tag) (lambda (var ...)
@@ -787,7 +790,7 @@ FObject SPassDo(FObject se, FObject expr)
             RaiseExceptionC(R.Syntax, "do", "expected (<var> <init> [<step>])", List(expr, vis));
 
         bs = AddBinding(se, DoSyntax, bs, First(vis), vis);
-        inits = MakePair(SPassExpression(se, First(Rest(vis))), inits);
+        inits = MakePair(SPassExpression(enc, se, First(Rest(vis))), inits);
 
         visl = Rest(visl);
     }
@@ -813,9 +816,9 @@ FObject SPassDo(FObject se, FObject expr)
         FObject vis = First(visl);
 
         if (PairP(Rest(Rest(vis))))
-            stps = MakePair(SPassExpression(se, First(Rest(Rest(vis)))), stps);
+            stps = MakePair(SPassExpression(enc, se, First(Rest(Rest(vis)))), stps);
         else
-            stps = MakePair(SPassExpression(se, First(vis)), stps);
+            stps = MakePair(SPassExpression(enc, se, First(vis)), stps);
 
         visl = Rest(visl);
     }
@@ -827,17 +830,17 @@ FObject SPassDo(FObject se, FObject expr)
     FAssert(PairP(tst));
 
     FObject ift = Rest(tst) == EmptyListObject ? FalseObject
-            : MakePair(BeginSyntax, SPassSequence(se, DoSyntax, Rest(tst), Rest(tst)));
+            : MakePair(BeginSyntax, SPassSequence(enc, se, DoSyntax, Rest(tst), Rest(tst)));
 
     FObject cmds = Rest(Rest(Rest(expr))); // cmd ...
     FObject cdo = MakePair(MakeReference(tb, tag), stps); // (tag step ...)
 
     FObject iff = cmds == EmptyListObject ? cdo
-            : MakePair(BeginSyntax, SPassSequenceLast(se, DoSyntax, cmds, cmds,
+            : MakePair(BeginSyntax, SPassSequenceLast(enc, se, DoSyntax, cmds, cmds,
             MakePair(cdo, EmptyListObject))); // (begin cmd ... (tag step ...))
 
-    FObject lambda = MakeLambda(NoValueObject, bs, MakePair(MakePair(IfSyntax,
-            MakePair(SPassExpression(se, First(tst)), MakePair(ift,
+    FObject lambda = MakeLambda(enc, NoValueObject, bs, MakePair(MakePair(IfSyntax,
+            MakePair(SPassExpression(enc, se, First(tst)), MakePair(ift,
             MakePair(iff, EmptyListObject)))), EmptyListObject));
 
     LeaveScopeList(bs);
@@ -847,7 +850,7 @@ FObject SPassDo(FObject se, FObject expr)
             EmptyListObject), MakePair(MakeReference(tb, tag), EmptyListObject))), inits));
 }
 
-static FObject SPassCaseLambda(FObject se, FObject expr, FObject clst)
+static FObject SPassCaseLambda(FObject enc, FObject se, FObject expr, FObject clst)
 {
     if (clst == EmptyListObject)
         return(EmptyListObject);
@@ -857,8 +860,8 @@ static FObject SPassCaseLambda(FObject se, FObject expr, FObject clst)
                 "expected (case-lambda (<formals> <body>) ...)", List(expr, clst));
 
     FObject cls = First(clst);
-    return(MakePair(SPassLambda(se, First(expr), First(cls), Rest(cls)),
-            SPassCaseLambda(se, expr, Rest(clst))));
+    return(MakePair(SPassLambda(enc, se, First(expr), First(cls), Rest(cls)),
+            SPassCaseLambda(enc, se, expr, Rest(clst))));
 }
 
 static FObject SPassReadInclude(FObject expr, FObject ss)
@@ -874,7 +877,7 @@ static FObject SPassReadInclude(FObject expr, FObject ss)
     return(ret);
 }
 
-static FObject SPassQuasiquote(FObject se, FObject expr, FObject tpl, int_t dpth)
+static FObject SPassQuasiquote(FObject enc, FObject se, FObject expr, FObject tpl, int_t dpth)
 {
     if (PairP(tpl))
     {
@@ -889,7 +892,7 @@ static FObject SPassQuasiquote(FObject se, FObject expr, FObject tpl, int_t dpth
                     RaiseExceptionC(R.Syntax, "unquote", "expected (unquote <expression>)",
                             List(expr, tpl));
 
-                return(SPassExpression(se, First(Rest(tpl))));
+                return(SPassExpression(enc, se, First(Rest(tpl))));
             }
         }
         else if (MatchReference(R.QuasiquoteReference, se, First(tpl)))
@@ -909,16 +912,16 @@ static FObject SPassQuasiquote(FObject se, FObject expr, FObject tpl, int_t dpth
                 RaiseExceptionC(R.Syntax, "unquote-splicing",
                         "expected (unquote-splicing <expression>)", List(expr, ftpl));
 
-            FObject rst = SPassQuasiquote(se, expr, Rest(tpl), dpth);
+            FObject rst = SPassQuasiquote(enc, se, expr, Rest(tpl), dpth);
             if (rst == Rest(tpl))
                 rst = MakePair(QuoteSyntax, MakePair(SyntaxToDatum(rst), EmptyListObject));
 
-            return(MakePair(R.AppendReference, MakePair(SPassExpression(se, First(Rest(ftpl))),
-                    MakePair(rst, EmptyListObject))));
+            return(MakePair(R.AppendReference, MakePair(SPassExpression(enc, se,
+                    First(Rest(ftpl))), MakePair(rst, EmptyListObject))));
         }
 
-        FObject fst = SPassQuasiquote(se, expr, First(tpl), dpth);
-        FObject rst = SPassQuasiquote(se, expr, Rest(tpl), dpth);
+        FObject fst = SPassQuasiquote(enc, se, expr, First(tpl), dpth);
+        FObject rst = SPassQuasiquote(enc, se, expr, Rest(tpl), dpth);
         if (fst == First(tpl) && rst == Rest(tpl))
             return(tpl);
 
@@ -932,7 +935,7 @@ static FObject SPassQuasiquote(FObject se, FObject expr, FObject tpl, int_t dpth
     else if (VectorP(tpl))
     {
         FObject ltpl = VectorToList(tpl);
-        FObject ret = SPassQuasiquote(se, expr, ltpl, dpth);
+        FObject ret = SPassQuasiquote(enc, se, expr, ltpl, dpth);
         if (ret == ltpl)
             return(tpl);
 
@@ -944,7 +947,7 @@ static FObject SPassQuasiquote(FObject se, FObject expr, FObject tpl, int_t dpth
     return(tpl);
 }
 
-static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
+static FObject SPassSpecialSyntax(FObject enc, FObject se, FObject ss, FObject expr)
 {
     FAssert(SpecialSyntaxP(ss));
 
@@ -967,7 +970,7 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
             RaiseExceptionC(R.Syntax, "lambda", "expected (lambda <formals> <body>)",
                     List(expr));
 
-        return(SPassLambda(se, First(expr), First(Rest(expr)), Rest(Rest(expr))));
+        return(SPassLambda(enc, se, First(expr), First(Rest(expr)), Rest(Rest(expr))));
     }
     else if (ss == IfSyntax)
     {
@@ -981,10 +984,10 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
             RaiseExceptionC(R.Syntax, "if", "expected (if <test> <consequent> [<alternate>])",
                     List(expr));
 
-        return(MakePair(IfSyntax, MakePair(SPassExpression(se, First(Rest(expr))),
-                MakePair(SPassExpression(se, First(Rest(Rest(expr)))),
+        return(MakePair(IfSyntax, MakePair(SPassExpression(enc, se, First(Rest(expr))),
+                MakePair(SPassExpression(enc, se, First(Rest(Rest(expr)))),
                 Rest(Rest(Rest(expr))) == EmptyListObject ? EmptyListObject
-                : MakePair(SPassExpression(se, First(Rest(Rest(Rest(expr))))),
+                : MakePair(SPassExpression(enc, se, First(Rest(Rest(Rest(expr))))),
                 EmptyListObject)))));
     }
     else if (ss == SetBangSyntax)
@@ -1021,7 +1024,7 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
         }
 
         return(MakePair(SetBangSyntax, MakePair(MakeReference(be, var),
-                MakePair(SPassExpression(se, First(Rest(Rest(expr)))), EmptyListObject))));
+                MakePair(SPassExpression(enc, se, First(Rest(Rest(expr)))), EmptyListObject))));
     }
     else if (ss == SetBangValuesSyntax)
     {
@@ -1066,7 +1069,7 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
         }
 
         return(MakePair(SetBangValuesSyntax, MakePair(ReverseListModify(blst),
-                MakePair(SPassExpression(se, First(Rest(Rest(expr)))), EmptyListObject))));
+                MakePair(SPassExpression(enc, se, First(Rest(Rest(expr)))), EmptyListObject))));
     }
     else if (ss == LetSyntax)
     {
@@ -1081,51 +1084,51 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
         if (SymbolP(tag))
             tag = MakeIdentifier(tag);
         if (IdentifierP(tag))
-            return(SPassNamedLet(se, tag, expr));
+            return(SPassNamedLet(enc, se, tag, expr));
 
-        return(SPassLet(se, ss, expr, 0, 0, 0));
+        return(SPassLet(enc, se, ss, expr, 0, 0, 0));
     }
     else if (ss == LetStarSyntax)
     {
         // (let* ((<variable> <init>) ...) <body>)
 
-        return(SPassLet(se, ss, expr, 0, 1, 0));
+        return(SPassLet(enc, se, ss, expr, 0, 1, 0));
     }
     else if (ss == LetrecSyntax)
     {
         // (letrec ((<variable> <init>) ...) <body>)
 
-        return(SPassLet(se, ss, expr, 1, 0, 0));
+        return(SPassLet(enc, se, ss, expr, 1, 0, 0));
     }
     else if (ss == LetrecStarSyntax)
     {
         // (letrec* ((<variable> <init>) ...) <body>)
 
-        return(SPassLet(se, ss, expr, 1, 1, 0));
+        return(SPassLet(enc, se, ss, expr, 1, 1, 0));
     }
     else if (ss == LetValuesSyntax)
     {
         // (let-values ((<formals> <init>) ...) <body>)
 
-        return(SPassLet(se, ss, expr, 0, 0, 1));
+        return(SPassLet(enc, se, ss, expr, 0, 0, 1));
     }
     else if (ss == LetStarValuesSyntax)
     {
         // (let*-values ((<formals> <init>) ...) <body>)
 
-        return(SPassLet(se, ss, expr, 0, 1, 1));
+        return(SPassLet(enc, se, ss, expr, 0, 1, 1));
     }
     else if (ss == LetSyntaxSyntax)
     {
         // (let-syntax ((<keyword> <transformer>) ...) <body>)
 
-        return(SPassLet(se, ss, expr, 0, 0, 0));
+        return(SPassLet(enc, se, ss, expr, 0, 0, 0));
     }
     else if (ss == LetrecSyntaxSyntax)
     {
         // (letrec-syntax ((<keyword> <transformer>) ...) <body>)
 
-        return(SPassLet(se, ss, expr, 1, 0, 0));
+        return(SPassLet(enc, se, ss, expr, 1, 0, 0));
     }
     else if (ss == CaseSyntax)
     {
@@ -1135,8 +1138,8 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
             RaiseExceptionC(R.Syntax, "case", "expected (case <test> <clause> ...)",
                     List(expr));
 
-        return(MakePair(CaseSyntax, MakePair(SPassExpression(se, First(Rest(expr))),
-                SPassCaseClauses(se, Rest(Rest(expr)), expr))));
+        return(MakePair(CaseSyntax, MakePair(SPassExpression(enc, se, First(Rest(expr))),
+                SPassCaseClauses(enc, se, Rest(Rest(expr)), expr))));
     }
     else if (ss == OrSyntax)
     {
@@ -1149,9 +1152,9 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
             RaiseExceptionC(R.Syntax, "or", "expected (or <test> ...)", List(expr));
 
         if (Rest(Rest(expr)) == EmptyListObject)
-            return(SPassExpression(se, First(Rest(expr))));
+            return(SPassExpression(enc, se, First(Rest(expr))));
 
-        return(MakePair(OrSyntax, SPassSequence(se, OrSyntax, expr, Rest(expr))));
+        return(MakePair(OrSyntax, SPassSequence(enc, se, OrSyntax, expr, Rest(expr))));
     }
     else if (ss == BeginSyntax)
     {
@@ -1161,13 +1164,13 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
             RaiseExceptionC(R.Syntax, "begin", "expected (begin <expression> ...)",
                     List(expr));
 
-        return(MakePair(BeginSyntax, SPassSequence(se, BeginSyntax, expr, Rest(expr))));
+        return(MakePair(BeginSyntax, SPassSequence(enc, se, BeginSyntax, expr, Rest(expr))));
     }
     else if (ss == DoSyntax)
     {
         // (do ((<variable> <init> [<step>]) ...) (<test> <expression> ...) <command> ...)
 
-        return(SPassDo(se, expr));
+        return(SPassDo(enc, se, expr));
     }
     else if (ss == SyntaxRulesSyntax)
     {
@@ -1198,7 +1201,7 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
         // (include <string> ...)
         // (include-ci <string> ...)
 
-        return(SPassExpression(se, MakePair(BeginSyntax, SPassReadInclude(expr, ss))));
+        return(SPassExpression(enc, se, MakePair(BeginSyntax, SPassReadInclude(expr, ss))));
     }
     else if (ss == CondExpandSyntax)
     {
@@ -1207,7 +1210,7 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
         FObject ce = CondExpand(se, expr, Rest(expr));
         if (ce == EmptyListObject)
             return(NoValueObject);
-        return(SPassExpression(se, MakePair(BeginSyntax, ce)));
+        return(SPassExpression(enc, se, MakePair(BeginSyntax, ce)));
     }
     else if (ss == CaseLambdaSyntax)
     {
@@ -1217,7 +1220,7 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
             RaiseExceptionC(R.Syntax, "case-lambda",
                     "expected (case-lambda (<formals> <body>) ...)", List(expr));
 
-        return(MakeCaseLambda(SPassCaseLambda(se, expr, Rest(expr))));
+        return(MakeCaseLambda(SPassCaseLambda(enc, se, expr, Rest(expr))));
     }
     else if (ss == QuasiquoteSyntax)
     {
@@ -1227,7 +1230,7 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
             RaiseExceptionC(R.Syntax, "quasiquote", "expected (quasiquote <qq-template>)",
                     List(expr));
 
-        FObject obj = SPassQuasiquote(se, expr, First(Rest(expr)), 1);
+        FObject obj = SPassQuasiquote(enc, se, expr, First(Rest(expr)), 1);
         if (obj == First(Rest(expr)))
             return(MakePair(QuoteSyntax, MakePair(SyntaxToDatum(obj), EmptyListObject)));
         return(obj);
@@ -1239,7 +1242,7 @@ static FObject SPassSpecialSyntax(FObject se, FObject ss, FObject expr)
     return(expr);
 }
 
-static FObject SPassOperands(FObject se, FObject opds, FObject form)
+static FObject SPassOperands(FObject enc, FObject se, FObject opds, FObject form)
 {
     if (opds == EmptyListObject)
         return(EmptyListObject);
@@ -1247,7 +1250,8 @@ static FObject SPassOperands(FObject se, FObject opds, FObject form)
     if (PairP(opds) == 0)
         RaiseExceptionC(R.Syntax, "procedure-call", "expected list of operands", List(form, opds));
 
-    return(MakePair(SPassExpression(se, First(opds)), SPassOperands(se, Rest(opds), form)));
+    return(MakePair(SPassExpression(enc, se, First(opds)),
+            SPassOperands(enc, se, Rest(opds), form)));
 }
 
 static FObject SPassKeyword(FObject se, FObject expr)
@@ -1260,7 +1264,7 @@ static FObject SPassKeyword(FObject se, FObject expr)
     return(expr);
 }
 
-static FObject SPassExpression(FObject se, FObject expr)
+static FObject SPassExpression(FObject enc, FObject se, FObject expr)
 {
     if (SymbolP(expr))
         expr = MakeIdentifier(expr);
@@ -1293,11 +1297,11 @@ static FObject SPassExpression(FObject se, FObject expr)
         }
 
         if (SpecialSyntaxP(val))
-            return(SPassSpecialSyntax(se, val, expr));
+            return(SPassSpecialSyntax(enc, se, val, expr));
 
         if (SyntaxRulesP(val))
-            return(SPassExpression(se, ExpandSyntaxRules(se, val, Rest(expr))));
-//            return(SPassExpression(se, ExpandSyntaxRules(MakeSyntacticEnv(se), val, Rest(expr))));
+            return(SPassExpression(enc, se, ExpandSyntaxRules(se, val, Rest(expr))));
+//            return(SPassExpression(enc, se, ExpandSyntaxRules(MakeSyntacticEnv(se), val, Rest(expr))));
 
         // Other macro transformers would go here.
     }
@@ -1305,10 +1309,12 @@ static FObject SPassExpression(FObject se, FObject expr)
     // Procedure Call
     // (<operator> <operand> ...)
 
-    return(MakePair(SPassExpression(se, First(expr)), SPassOperands(se, Rest(expr), expr)));
+    return(MakePair(SPassExpression(enc, se, First(expr)),
+            SPassOperands(enc, se, Rest(expr), expr)));
 }
 
-static FObject SPassSequenceLast(FObject se, FObject ss, FObject form, FObject seq, FObject last)
+static FObject SPassSequenceLast(FObject enc, FObject se, FObject ss, FObject form, FObject seq,
+    FObject last)
 {
     if (seq == EmptyListObject)
         return(last);
@@ -1317,16 +1323,16 @@ static FObject SPassSequenceLast(FObject se, FObject ss, FObject form, FObject s
         RaiseException(R.Syntax, SpecialSyntaxToSymbol(ss),
                 SpecialSyntaxMsgC(ss, "expected list of expressions"), List(form, seq));
 
-    return(MakePair(SPassExpression(se, First(seq)),
-            SPassSequenceLast(se, ss, form, Rest(seq), last)));
+    return(MakePair(SPassExpression(enc, se, First(seq)),
+            SPassSequenceLast(enc, se, ss, form, Rest(seq), last)));
 }
 
-static FObject SPassSequence(FObject se, FObject ss, FObject form, FObject seq)
+static FObject SPassSequence(FObject enc, FObject se, FObject ss, FObject form, FObject seq)
 {
-    return(SPassSequenceLast(se, ss, form, seq, EmptyListObject));
+    return(SPassSequenceLast(enc, se, ss, form, seq, EmptyListObject));
 }
 
-FObject GatherVariablesAndSyntax(FObject se, FObject dlst, FObject bs)
+static FObject GatherVariablesAndSyntax(FObject enc, FObject se, FObject dlst, FObject bs)
 {
     FObject bl = EmptyListObject;
 
@@ -1376,7 +1382,7 @@ FObject GatherVariablesAndSyntax(FObject se, FObject dlst, FObject bs)
             FAssert(PairP(Rest(Rest(expr))));
             FAssert(Rest(Rest(Rest(expr))) == EmptyListObject);
 
-            FObject trans = SPassExpression(se, First(Rest(Rest(expr))));
+            FObject trans = SPassExpression(enc, se, First(Rest(Rest(expr))));
             if (SyntaxP(trans) == 0)
                 RaiseExceptionC(R.Syntax, "define-syntax", "expected a transformer",
                         List(expr, First(Rest(Rest(expr)))));
@@ -1395,7 +1401,7 @@ FObject GatherVariablesAndSyntax(FObject se, FObject dlst, FObject bs)
     return(ReverseListModify(bl));
 }
 
-FObject VariablesAndExpandInits(FObject se, FObject dlst, FObject bl)
+static FObject VariablesAndExpandInits(FObject enc, FObject se, FObject dlst, FObject bl)
 {
     FObject lb = EmptyListObject;
 
@@ -1416,7 +1422,7 @@ FObject VariablesAndExpandInits(FObject se, FObject dlst, FObject bl)
                 // (define (<variable> . <formal>) <body>)
 
                 lb = MakePair(MakePair(First(bl), MakePair(
-                        SPassLambda(se, First(First(Rest(expr))), Rest(First(Rest(expr))),
+                        SPassLambda(enc, se, First(First(Rest(expr))), Rest(First(Rest(expr))),
                                 Rest(Rest(expr))),
                         EmptyListObject)), lb);
             }
@@ -1428,7 +1434,7 @@ FObject VariablesAndExpandInits(FObject se, FObject dlst, FObject bl)
                 FAssert(Rest(Rest(Rest(expr))) == EmptyListObject);
 
                 lb = MakePair(MakePair(First(bl),
-                        MakePair(SPassExpression(se, First(Rest(Rest(expr)))),
+                        MakePair(SPassExpression(enc, se, First(Rest(Rest(expr)))),
                         EmptyListObject)), lb);
             }
 
@@ -1442,7 +1448,7 @@ FObject VariablesAndExpandInits(FObject se, FObject dlst, FObject bl)
             FAssert(PairP(bl));
 
             lb = MakePair(MakePair(First(bl),
-                    MakePair(SPassExpression(se, First(Rest(Rest(expr)))), EmptyListObject)),
+                    MakePair(SPassExpression(enc, se, First(Rest(Rest(expr)))), EmptyListObject)),
                     lb);
 
             bl = Rest(bl);
@@ -1513,7 +1519,7 @@ static FObject AppendBegin(FObject ss, FObject begin, FObject body, FObject form
     return(MakePair(First(begin), AppendBegin(ss, Rest(begin), body, form)));
 }
 
-static FObject SPassBody(FObject se, FObject ss, FObject body)
+static FObject SPassBody(FObject enc, FObject se, FObject ss, FObject body)
 {
     // lambda, let, let*, letrec, letrec*, let-values, let*-values, let-syntax, letrec-syntax,
     // parameterize, guard, and case-lambda all have bodies
@@ -1626,7 +1632,7 @@ static FObject SPassBody(FObject se, FObject ss, FObject body)
                 SpecialSyntaxMsgC(ss, "body must have at least one expression"), List(body));
 
     if (dlst == EmptyListObject)
-        return(SPassSequence(se, ss, body, body));
+        return(SPassSequence(enc, se, ss, body, body));
 
     dlst = ReverseListModify(dlst);
 
@@ -1635,39 +1641,41 @@ static FObject SPassBody(FObject se, FObject ss, FObject body)
     // an init expression in pass 3.
 
     EnterScopeList(bs);
-    FObject bl = GatherVariablesAndSyntax(se, dlst, bs);
+    FObject bl = GatherVariablesAndSyntax(enc, se, dlst, bs);
 
     FObject ret;
     if (bl == EmptyListObject)
-        ret = SPassSequence(se, ss, body, body);
+        ret = SPassSequence(enc, se, ss, body, body);
     else
     {
         // Pass 3: expand inits and pair with bindings
 
-        FObject lb = VariablesAndExpandInits(se, dlst, bl);
+        FObject lb = VariablesAndExpandInits(enc, se, dlst, bl);
         ret = MakePair(MakePair(LetStarValuesSyntax,
-                MakePair(lb, SPassSequence(se, ss, body, body))), EmptyListObject);
+                MakePair(lb, SPassSequence(enc, se, ss, body, body))), EmptyListObject);
     }
 
     LeaveScopeList(bs);
     return(ret);
 }
 
-FObject SPassLambda(FObject se, FObject name, FObject formals, FObject body)
+FObject SPassLambda(FObject enc, FObject se, FObject name, FObject formals, FObject body)
 {
     FAssert(SyntacticEnvP(se));
 
     FObject bs = SPassFormals(se, LambdaSyntax, EmptyListObject, formals, formals);
     EnterScopeList(bs);
-    FObject ret = MakeLambda(name, bs, SPassBody(se, LambdaSyntax, body));
+    FObject lambda = MakeLambda(enc, name, bs, NoValueObject);
+//    AsLambda(lambda)->Body = SPassBody(lambda, se, LambdaSyntax, body);
+    Modify(FLambda, lambda, Body, SPassBody(lambda, se, LambdaSyntax, body));
     LeaveScopeList(bs);
 
-    return(ret);
+    return(lambda);
 }
 
-FObject ExpandExpression(FObject se, FObject expr)
+FObject ExpandExpression(FObject enc, FObject se, FObject expr)
 {
-    return(SPassExpression(se, expr));
+    return(SPassExpression(enc, se, expr));
 }
 
 // ----------------

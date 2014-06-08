@@ -86,7 +86,7 @@ typedef struct
 #define AsLambda(obj) ((FLambda *) (obj))
 #define LambdaP(obj) RecordP(obj, R.LambdaRecordType)
 
-FObject MakeLambda(FObject nam, FObject bs, FObject body);
+FObject MakeLambda(FObject enc, FObject nam, FObject bs, FObject body);
 
 // ---- CaseLambda ----
 
@@ -171,10 +171,10 @@ FObject CompileSyntaxRules(FObject se, FObject obj);
 FObject ExpandSyntaxRules(FObject se, FObject sr, FObject expr);
 
 int_t MatchReference(FObject ref, FObject se, FObject expr);
-FObject ExpandExpression(FObject se, FObject expr);
+FObject ExpandExpression(FObject enc, FObject se, FObject expr);
 FObject CondExpand(FObject se, FObject expr, FObject clst);
 FObject ReadInclude(FObject op, FObject lst, int_t cif);
-FObject SPassLambda(FObject se, FObject name, FObject formals, FObject body);
+FObject SPassLambda(FObject enc, FObject se, FObject name, FObject formals, FObject body);
 void MPassLambda(FLambda * lam);
 
 FObject GPassLambda(FLambda * lam);
