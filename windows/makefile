@@ -34,6 +34,10 @@ chibi: all
     ..\windows\debug\foment r7rs-tests.scm
     ..\windows\release\foment r7rs-tests.scm
 
+testsrfi: all
+    cd ..\test
+    ..\windows\debug\foment runtests.scm srfi.scm
+
 debug:
     -mkdir debug
 

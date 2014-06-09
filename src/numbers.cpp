@@ -251,6 +251,41 @@ inline static void BignumSqrt(FObject rt, FObject rem, FObject bn)
     mpz_sqrtrem(AsBignum(rt), AsBignum(rem), AsBignum(bn));
 }
 
+inline static void BignumAnd(FObject rbn, FObject bn1, FObject bn2)
+{
+    FAssert(BignumP(rbn));
+    FAssert(BignumP(bn1));
+    FAssert(BignumP(bn2));
+
+    mpz_and(AsBignum(rbn), AsBignum(bn1), AsBignum(bn2));
+}
+
+inline static void BignumIOr(FObject rbn, FObject bn1, FObject bn2)
+{
+    FAssert(BignumP(rbn));
+    FAssert(BignumP(bn1));
+    FAssert(BignumP(bn2));
+
+    mpz_ior(AsBignum(rbn), AsBignum(bn1), AsBignum(bn2));
+}
+
+inline static void BignumXOr(FObject rbn, FObject bn1, FObject bn2)
+{
+    FAssert(BignumP(rbn));
+    FAssert(BignumP(bn1));
+    FAssert(BignumP(bn2));
+
+    mpz_xor(AsBignum(rbn), AsBignum(bn1), AsBignum(bn2));
+}
+
+inline static void BignumNot(FObject rbn, FObject bn)
+{
+    FAssert(BignumP(rbn));
+    FAssert(BignumP(bn));
+
+    mpz_com(AsBignum(rbn), AsBignum(bn));
+}
+
 inline static FObject Normalize(FObject num)
 {
     if (BignumP(num) && mpz_cmp_si(AsBignum(num), (long) MINIMUM_FIXNUM) >= 0
@@ -3000,6 +3035,110 @@ Define("string->number", StringToNumberPrimitive)(int_t argc, FObject argv[])
     return(StringToNumber(AsString(argv[0])->String, StringLength(argv[0]), rdx));
 }
 
+// ---- SRFI 60: Integers As Bits ----
+
+Define("bitwise-and", BitwiseAndPrimitive)(int_t argc, FObject argv[])
+{
+    if (argc == 0)
+        return(MakeFixnum(-1));
+
+    IntegerArgCheck("bitwise-and", argv[0]);
+    FObject ret = argv[0];
+
+    for (int_t adx = 1; adx < argc; adx++)
+    {
+        IntegerArgCheck("bitwise-and", argv[adx]);
+
+        if (BignumP(ret) || BignumP(argv[adx]))
+        {
+            ret = ToBignum(ret);
+            BignumAnd(ret, ret, ToBignum(argv[adx]));
+        }
+        else
+        {
+            FAssert(FixnumP(ret));
+            FAssert(FixnumP(argv[adx]));
+
+            ret = MakeFixnum(AsFixnum(ret) & AsFixnum(argv[adx]));
+        }
+    }
+
+    return(Normalize(ret));
+}
+
+Define("bitwise-ior", BitwiseIOrPrimitive)(int_t argc, FObject argv[])
+{
+    if (argc == 0)
+        return(MakeFixnum(0));
+
+    IntegerArgCheck("bitwise-ior", argv[0]);
+    FObject ret = argv[0];
+
+    for (int_t adx = 1; adx < argc; adx++)
+    {
+        IntegerArgCheck("bitwise-ior", argv[adx]);
+
+        if (BignumP(ret) || BignumP(argv[adx]))
+        {
+            ret = ToBignum(ret);
+            BignumIOr(ret, ret, ToBignum(argv[adx]));
+        }
+        else
+        {
+            FAssert(FixnumP(ret));
+            FAssert(FixnumP(argv[adx]));
+
+            ret = MakeFixnum(AsFixnum(ret) | AsFixnum(argv[adx]));
+        }
+    }
+
+    return(Normalize(ret));
+}
+
+Define("bitwise-xor", BitwiseXOrPrimitive)(int_t argc, FObject argv[])
+{
+    if (argc == 0)
+        return(MakeFixnum(0));
+
+    IntegerArgCheck("bitwise-xor", argv[0]);
+    FObject ret = argv[0];
+
+    for (int_t adx = 1; adx < argc; adx++)
+    {
+        IntegerArgCheck("bitwise-xor", argv[adx]);
+
+        if (BignumP(ret) || BignumP(argv[adx]))
+        {
+            ret = ToBignum(ret);
+            BignumXOr(ret, ret, ToBignum(argv[adx]));
+        }
+        else
+        {
+            FAssert(FixnumP(ret));
+            FAssert(FixnumP(argv[adx]));
+
+            ret = MakeFixnum(AsFixnum(ret) ^ AsFixnum(argv[adx]));
+        }
+    }
+
+    return(Normalize(ret));
+}
+
+Define("bitwise-not", BitwiseNotPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("bitwise-not", argc);
+    IntegerArgCheck("bitwise-not", argv[0]);
+
+    if (BignumP(argv[0]))
+    {
+        FObject ret = MakeBignum();
+        BignumNot(ret, argv[0]);
+        return(Normalize(ret));
+    }
+
+    return(MakeFixnum(~AsFixnum(argv[0])));
+}
+
 static FPrimitive * Primitives[] =
 {
     &NumberPPrimitive,
@@ -3060,7 +3199,11 @@ static FPrimitive * Primitives[] =
     &InexactPrimitive,
     &ExactPrimitive,
     &NumberToStringPrimitive,
-    &StringToNumberPrimitive
+    &StringToNumberPrimitive,
+    &BitwiseAndPrimitive,
+    &BitwiseIOrPrimitive,
+    &BitwiseXOrPrimitive,
+    &BitwiseNotPrimitive
 };
 
 void SetupNumbers()

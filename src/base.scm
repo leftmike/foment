@@ -367,6 +367,12 @@
         box?
         unbox
         set-box!)
+    (export ;; (srfi 60)
+        bitwise-and
+        bitwise-ior
+        bitwise-xor
+        bitwise-not
+        )
     (export
         make-ascii-port
         make-latin1-port
@@ -2058,3 +2064,25 @@
                 (apply values results)))))
 
 
+(define-library (srfi 60)
+    (import (foment base))
+    (export
+        bitwise-and
+        (rename bitwise-and logand)
+        bitwise-ior
+        (rename bitwise-ior logior)
+        bitwise-xor
+        (rename bitwise-xor logxor)
+        bitwise-not
+        (rename bitwise-not lognot)
+        bitwise-merge
+        (rename bitwise-merge bitwise-if)
+        any-bits-set?
+        (rename any-bits-set? logtest)
+        )
+    (begin
+        (define (bitwise-merge mask n0 n1)
+            (bitwise-ior (bitwise-and mask n0) (bitwise-and (bitwise-not mask) n1)))
+        (define (any-bits-set? n1 n2)
+            (not (zero? (bitwise-and n1 n2))))
+    ))

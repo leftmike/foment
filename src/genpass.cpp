@@ -594,7 +594,7 @@ FObject GPassLambdaFrame(FLambda * lam, FObject cdl, FLambda * op)
 {
     if (AsFixnum(op->Level) > AsFixnum(lam->Level))
     {
-//        FAssert(AsFixnum(op->Level) == AsFixnum(lam->Level) + 1);
+        FAssert(AsFixnum(op->Level) == AsFixnum(lam->Level) + 1);
         FAssert(lam->UseStack == FalseObject);
 
         cdl = MakePair(MakeInstruction(PushFrameOpcode, 0), cdl);
