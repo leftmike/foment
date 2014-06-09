@@ -575,7 +575,7 @@ static FObject SPassNamedLet(FObject enc, FObject se, FObject tag, FObject expr)
     EnterScope(tb);
 
     // (let tag ((name val) ...) body1 body2 ...)
-    // --> ((letrec (((tag) (lambda (name ...) body1 body2 ...)))
+    // --> ((letrec ((tag (lambda (name ...) body1 body2 ...)))
     //         tag) val ...)
 
     FObject lambda = MakeLambda(enc, NoValueObject, GatherNamedLetFormals(lb),
@@ -765,7 +765,7 @@ static FObject SPassCaseClauses(FObject enc, FObject se, FObject clst, FObject c
 FObject SPassDo(FObject enc, FObject se, FObject expr)
 {
     // (do ((var init [step]) ...) (test expr ...) cmd ...)
-    // --> ((letrec (((tag) (lambda (var ...)
+    // --> ((letrec ((tag (lambda (var ...)
     //         (if test (begin expr ...)
     //                (begin cmd ... (tag step ...)))))) tag) init ...)
 
@@ -805,6 +805,7 @@ FObject SPassDo(FObject enc, FObject se, FObject expr)
     FObject tb = MakeBinding(se, tag, FalseObject);
 
     EnterScopeList(bs);
+    FObject lambda = MakeLambda(enc, NoValueObject, bs, NoValueObject);
 
     FObject stps = EmptyListObject;
 
@@ -816,9 +817,9 @@ FObject SPassDo(FObject enc, FObject se, FObject expr)
         FObject vis = First(visl);
 
         if (PairP(Rest(Rest(vis))))
-            stps = MakePair(SPassExpression(enc, se, First(Rest(Rest(vis)))), stps);
+            stps = MakePair(SPassExpression(lambda, se, First(Rest(Rest(vis)))), stps);
         else
-            stps = MakePair(SPassExpression(enc, se, First(vis)), stps);
+            stps = MakePair(SPassExpression(lambda, se, First(vis)), stps);
 
         visl = Rest(visl);
     }
@@ -830,17 +831,20 @@ FObject SPassDo(FObject enc, FObject se, FObject expr)
     FAssert(PairP(tst));
 
     FObject ift = Rest(tst) == EmptyListObject ? FalseObject
-            : MakePair(BeginSyntax, SPassSequence(enc, se, DoSyntax, Rest(tst), Rest(tst)));
+            : MakePair(BeginSyntax, SPassSequence(lambda, se, DoSyntax, Rest(tst), Rest(tst)));
 
     FObject cmds = Rest(Rest(Rest(expr))); // cmd ...
     FObject cdo = MakePair(MakeReference(tb, tag), stps); // (tag step ...)
 
     FObject iff = cmds == EmptyListObject ? cdo
-            : MakePair(BeginSyntax, SPassSequenceLast(enc, se, DoSyntax, cmds, cmds,
+            : MakePair(BeginSyntax, SPassSequenceLast(lambda, se, DoSyntax, cmds, cmds,
             MakePair(cdo, EmptyListObject))); // (begin cmd ... (tag step ...))
 
-    FObject lambda = MakeLambda(enc, NoValueObject, bs, MakePair(MakePair(IfSyntax,
-            MakePair(SPassExpression(enc, se, First(tst)), MakePair(ift,
+//    AsLambda(lambda)->Body = MakePair(MakePair(IfSyntax,
+//            MakePair(SPassExpression(enc, se, First(tst)), MakePair(ift,
+//            MakePair(iff, EmptyListObject)))), EmptyListObject);
+    Modify(FLambda, lambda, Body, MakePair(MakePair(IfSyntax,
+            MakePair(SPassExpression(lambda, se, First(tst)), MakePair(ift,
             MakePair(iff, EmptyListObject)))), EmptyListObject));
 
     LeaveScopeList(bs);
