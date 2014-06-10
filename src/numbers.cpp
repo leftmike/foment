@@ -286,6 +286,27 @@ inline static void BignumNot(FObject rbn, FObject bn)
     mpz_com(AsBignum(rbn), AsBignum(bn));
 }
 
+inline static uint_t BignumBitCount(FObject bn)
+{
+    FAssert(BignumP(bn));
+
+    return(mpz_popcount(AsBignum(bn)));
+}
+
+inline static uint_t BignumIntegerLength(FObject bn)
+{
+    FAssert(BignumP(bn));
+
+    return(mpz_sizeinbase(AsBignum(bn), 2));
+}
+
+inline static uint_t BignumFirstSetBit(FObject bn)
+{
+    FAssert(BignumP(bn));
+
+    return(mpz_scan1(AsBignum(bn), 0));
+}
+
 inline static FObject Normalize(FObject num)
 {
     if (BignumP(num) && mpz_cmp_si(AsBignum(num), (long) MINIMUM_FIXNUM) >= 0
@@ -3139,6 +3160,64 @@ Define("bitwise-not", BitwiseNotPrimitive)(int_t argc, FObject argv[])
     return(MakeFixnum(~AsFixnum(argv[0])));
 }
 
+
+/*
+BitCount was adapted from Chibi Scheme which adapted it from
+http://graphics.stanford.edu/~seander/bithacks.html
+*/
+static uint_t BitCount(uint_t n)
+{
+    n -= ((n >> 1) & (uint_t) ~(uint_t)0/3);
+    n = ((n & (uint_t) ~(uint_t)0/15*3) + ((n >> 2) & (uint_t) ~(uint_t)0/15*3));
+    n = (n + (n >> 4)) & (uint_t) ~(uint_t)0/255*15;
+
+    return ((uint_t)(n * ((uint_t) ~(uint_t)0/255)) >> (sizeof(n) - 1) * 8);
+}
+
+Define("bit-count", BitCountPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("bit-count", argc);
+    IntegerArgCheck("bit-count", argv[0]);
+
+    if (BignumP(argv[0]))
+        return(MakeFixnum(BignumBitCount(argv[0])));
+
+    int_t n = AsFixnum(argv[0]);
+    return(MakeFixnum(BitCount(n < 0 ? ~n : n)));
+}
+
+Define("integer-length", IntegerLengthPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("integer-length", argc);
+    IntegerArgCheck("integer-length", argv[0]);
+
+    if (BignumP(argv[0]))
+        return(MakeFixnum(BignumIntegerLength(argv[0])));
+
+    uint_t n = AsFixnum(argv[0]);
+    for (int_t idx = sizeof(uint_t) * 8 - 1; idx >= 0; idx--)
+        if (n & ((uint_t) 1 << idx))
+            return(MakeFixnum(idx + 1));
+
+    return(MakeFixnum(0));
+}
+
+Define("first-set-bit", FirstSetBitPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("first-set-bit", argc);
+    IntegerArgCheck("first-set-bit", argv[0]);
+
+    if (BignumP(argv[0]))
+        return(MakeFixnum(BignumFirstSetBit(argv[0])));
+
+    uint_t n = AsFixnum(argv[0]);
+    for (int_t idx = 0; idx < sizeof(uint_t) * 8; idx++)
+        if (n & ((uint_t) 1 << idx))
+            return(MakeFixnum(idx));
+
+    return(MakeFixnum(-1));
+}
+
 static FPrimitive * Primitives[] =
 {
     &NumberPPrimitive,
@@ -3203,7 +3282,10 @@ static FPrimitive * Primitives[] =
     &BitwiseAndPrimitive,
     &BitwiseIOrPrimitive,
     &BitwiseXOrPrimitive,
-    &BitwiseNotPrimitive
+    &BitwiseNotPrimitive,
+    &BitCountPrimitive,
+    &IntegerLengthPrimitive,
+    &FirstSetBitPrimitive
 };
 
 void SetupNumbers()

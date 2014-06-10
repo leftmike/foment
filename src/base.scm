@@ -372,6 +372,9 @@
         bitwise-ior
         bitwise-xor
         bitwise-not
+        bit-count
+        integer-length
+        first-set-bit
         )
     (export
         make-ascii-port
@@ -2079,6 +2082,11 @@
         (rename bitwise-merge bitwise-if)
         any-bits-set?
         (rename any-bits-set? logtest)
+        bit-count
+        (rename bit-count logcount)
+        integer-length
+        first-set-bit
+        (rename first-set-bit log2-binary-factors)
         )
     (begin
         (define (bitwise-merge mask n0 n1)
