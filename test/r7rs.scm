@@ -5138,3 +5138,91 @@
 
 (check-error (assertion-violation features) (features 1))
 
+;;
+;; ----------------------------------------------------------------
+;;
+;; Additional test cases from Seth Alves.
+;;
+
+(define powers-of-two ;; 64 bits worth
+  (vector
+   #x8000000000000000 #x4000000000000000 #x2000000000000000 #x1000000000000000
+   #x800000000000000 #x400000000000000 #x200000000000000 #x100000000000000
+   #x80000000000000 #x40000000000000 #x20000000000000 #x10000000000000
+   #x8000000000000 #x4000000000000 #x2000000000000 #x1000000000000
+
+   #x800000000000 #x400000000000 #x200000000000 #x100000000000
+   #x80000000000 #x40000000000 #x20000000000 #x10000000000
+   #x8000000000 #x4000000000 #x2000000000 #x1000000000
+   #x800000000 #x400000000 #x200000000 #x100000000
+
+   #x80000000 #x40000000 #x20000000 #x10000000
+   #x8000000 #x4000000 #x2000000 #x1000000
+   #x800000 #x400000 #x200000 #x100000
+   #x80000 #x40000 #x20000 #x10000
+
+   #x8000 #x4000 #x2000 #x1000
+   #x800 #x400 #x200 #x100
+   #x80 #x40 #x20 #x10
+   #x8 #x4 #x2 #x1))
+
+(check-equal #t (= (vector-ref powers-of-two 36) #x8000000))
+(/ 12418 (vector-ref powers-of-two 36))
+(check-equal #t (= (vector-ref powers-of-two 36) #x8000000))
+
+(define (something i j)
+  (define result '())
+
+  (define (blerg A)
+    (define (lc x)
+      (vector-ref A x))
+    (make-vector 18 (lc 2)))
+
+  (define (foo A)
+    (cond
+     (#t '#(1 0 0 0 1 0 0 0 1 1 0 0 0 1 0 0 0 1))
+     (else (blerg #f))))
+
+  (set! result (cons 'OK1 result))
+  (foo (blerg (make-vector 18 0)))
+  (set! result (cons 'OK2 result))
+  result
+  )
+
+(check-equal (OK2 OK1) (something 0 1))
+
+(define (something2)
+  (define result '())
+
+  (define (product A B)
+    (define (lc)
+      (vector-ref A 2))
+    (vector (lc) 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7))
+
+  (define (power A e)
+    (cond
+     (#t
+      '#(1 0 0 0 1 0 0 0 1 1 0 0 0 1 0 0 0 1))
+     (else
+      (product (power A (- e 1)) A))
+     ))
+
+
+  (define A (make-vector 18 0))
+
+  (set! result (cons 'OK1 result))
+  (power (product A A) 0)
+  (set! result (cons 'OK2 result))
+  result
+  )
+
+(check-equal (OK2 OK1) (something2))
+
+(define (something3 i j)
+  (define (lc) (vector-ref A 2))
+  (define (product) (lc))
+  (define (power A) (product))
+  (define A (make-vector 18 0))
+  (power (product)))
+
+(check-equal 0 (something3 0 1))
