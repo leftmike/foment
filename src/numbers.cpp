@@ -132,6 +132,15 @@ static FObject ToBignum(FObject obj)
     return(obj);
 }
 
+inline static FObject Normalize(FObject num)
+{
+    if (BignumP(num) && mpz_cmp_si(AsBignum(num), (long) MINIMUM_FIXNUM) >= 0
+            && mpz_cmp_si(AsBignum(num), (long) MAXIMUM_FIXNUM) <= 0)
+        return(MakeFixnum(mpz_get_si(AsBignum(num))));
+
+    return(num);
+}
+
 inline static double64_t BignumToDouble(FObject bn)
 {
     FAssert(BignumP(bn));
@@ -307,13 +316,23 @@ inline static uint_t BignumFirstSetBit(FObject bn)
     return(mpz_scan1(AsBignum(bn), 0));
 }
 
-inline static FObject Normalize(FObject num)
+inline static FObject BignumArithmeticShift(FObject bn, FFixnum cnt)
 {
-    if (BignumP(num) && mpz_cmp_si(AsBignum(num), (long) MINIMUM_FIXNUM) >= 0
-            && mpz_cmp_si(AsBignum(num), (long) MAXIMUM_FIXNUM) <= 0)
-        return(MakeFixnum(mpz_get_si(AsBignum(num))));
+    FAssert(BignumP(bn));
 
-    return(num);
+    if (cnt == 0)
+        return(bn);
+
+    if (cnt < 0)
+    {
+        FObject rbn = MakeBignum();
+        mpz_fdiv_q_2exp(AsBignum(rbn), AsBignum(bn), (mp_bitcnt_t) - cnt);
+        return(Normalize(rbn));
+    }
+
+    FObject rbn = MakeBignum();
+    mpz_mul_2exp(AsBignum(rbn), AsBignum(bn), (mp_bitcnt_t) cnt);
+    return(rbn);
 }
 
 FObject MakeFlonum(double64_t dbl)
@@ -3218,6 +3237,29 @@ Define("first-set-bit", FirstSetBitPrimitive)(int_t argc, FObject argv[])
     return(MakeFixnum(-1));
 }
 
+Define("arithmetic-shift", ArithmeticShiftPrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("arithmetic-shift", argc);
+    IntegerArgCheck("arithmetic-shift", argv[0]);
+    FixnumArgCheck("arithmetic-shift", argv[1]);
+
+    FFixnum cnt = AsFixnum(argv[1]);
+    if (cnt == 0)
+        return(argv[0]);
+
+    if (FixnumP(argv[0]))
+    {
+        if (cnt < 0)
+            return(MakeFixnum(AsFixnum(argv[0]) >> -cnt));
+
+        int64_t n = AsFixnum(argv[0]) << cnt;
+        if ((n >> cnt) == AsFixnum(argv[0]) && n >= MINIMUM_FIXNUM && n <= MAXIMUM_FIXNUM)
+            return(MakeFixnum(n));
+    }
+
+    return(BignumArithmeticShift(ToBignum(argv[0]), cnt));
+}
+
 static FPrimitive * Primitives[] =
 {
     &NumberPPrimitive,
@@ -3285,7 +3327,8 @@ static FPrimitive * Primitives[] =
     &BitwiseNotPrimitive,
     &BitCountPrimitive,
     &IntegerLengthPrimitive,
-    &FirstSetBitPrimitive
+    &FirstSetBitPrimitive,
+    &ArithmeticShiftPrimitive
 };
 
 void SetupNumbers()

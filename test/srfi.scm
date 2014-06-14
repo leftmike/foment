@@ -132,3 +132,135 @@
 
 (check-equal #f (any-bits-set? #b0100 #b1011))
 (check-equal #t (any-bits-set? #b0100 #b0111))
+
+(check-equal 4 (bit-count #b10101010))
+(check-equal 0 (bit-count 0))
+(check-equal 1 (bit-count -2))
+
+(check-error (assertion-violation bit-count) (bit-count))
+(check-error (assertion-violation bit-count) (bit-count 12 34))
+(check-error (assertion-violation bit-count) (bit-count 12.34))
+(check-error (assertion-violation bit-count) (bit-count 12/34))
+
+(check-equal 8 (integer-length #b10101010))
+(check-equal 0 (integer-length 0))
+(check-equal 4 (integer-length #b1111))
+
+(check-error (assertion-violation integer-length) (integer-length))
+(check-error (assertion-violation integer-length) (integer-length 12 34))
+(check-error (assertion-violation integer-length) (integer-length 12.34))
+(check-error (assertion-violation integer-length) (integer-length 12/34))
+
+(check-equal -1 (first-set-bit 0))
+(check-equal -1 (first-set-bit 0))
+(check-equal 0 (first-set-bit -1))
+(check-equal 0 (first-set-bit 1))
+(check-equal 1 (first-set-bit -2))
+(check-equal 1 (first-set-bit 2))
+(check-equal 0 (first-set-bit -3))
+(check-equal 0 (first-set-bit 3))
+(check-equal 2 (first-set-bit -4))
+(check-equal 2 (first-set-bit 4))
+(check-equal 0 (first-set-bit -5))
+(check-equal 0 (first-set-bit 5))
+(check-equal 1 (first-set-bit -6))
+(check-equal 1 (first-set-bit 6))
+(check-equal 0 (first-set-bit -7))
+(check-equal 0 (first-set-bit 7))
+(check-equal 3 (first-set-bit -8))
+(check-equal 3 (first-set-bit 8))
+(check-equal 0 (first-set-bit -9))
+(check-equal 0 (first-set-bit 9))
+(check-equal 1 (first-set-bit -10))
+(check-equal 1 (first-set-bit 10))
+(check-equal 0 (first-set-bit -11))
+(check-equal 0 (first-set-bit 11))
+(check-equal 2 (first-set-bit -12))
+(check-equal 2 (first-set-bit 12))
+(check-equal 0 (first-set-bit -13))
+(check-equal 0 (first-set-bit 13))
+(check-equal 1 (first-set-bit -14))
+(check-equal 1 (first-set-bit 14))
+(check-equal 0 (first-set-bit -15))
+(check-equal 0 (first-set-bit 15))
+(check-equal 4 (first-set-bit -16))
+(check-equal 4 (first-set-bit 16))
+(check-equal 123 (first-set-bit (arithmetic-shift 1 123)))
+(check-equal 123 (first-set-bit (arithmetic-shift -1 123)))
+
+(check-error (assertion-violation first-set-bit) (first-set-bit))
+(check-error (assertion-violation first-set-bit) (first-set-bit 12 34))
+(check-error (assertion-violation first-set-bit) (first-set-bit 12.34))
+(check-error (assertion-violation first-set-bit) (first-set-bit 12/34))
+
+(check-equal #t (logbit? 0 #b1101))
+(check-equal #f (logbit? 1 #b1101))
+(check-equal #t (logbit? 2 #b1101))
+(check-equal #t (logbit? 3 #b1101))
+(check-equal #f (logbit? 4 #b1101))
+
+(check-equal "1" (number->string (copy-bit 0 0 #t) 2))
+(check-equal "100" (number->string (copy-bit 2 0 #t) 2))
+(check-equal "1011" (number->string (copy-bit 2 #b1111 #f) 2))
+
+(check-equal "1010" (number->string (bit-field #b1101101010 0 4) 2))
+(check-equal "10110" (number->string (bit-field #b1101101010 4 9) 2))
+
+(check-equal "1101100000" (number->string (copy-bit-field #b1101101010 0 0 4) 2))
+(check-equal "1101101111" (number->string (copy-bit-field #b1101101010 -1 0 4) 2))
+(check-equal "110100111110000" (number->string (copy-bit-field #b110100100010000 -1 5 9) 2))
+
+(check-equal "1000" (number->string (arithmetic-shift #b1 3) 2))
+(check-equal "101" (number->string (arithmetic-shift #b1010 -1) 2))
+
+(check-equal "111010110111100110100010101" (number->string (arithmetic-shift 123456789 0) 2))
+(check-equal "11101011011110011010001010100000" (number->string (arithmetic-shift 123456789 5) 2))
+(check-equal "-11101011011110011010001010100000"
+    (number->string (arithmetic-shift -123456789 5) 2))
+(check-equal "1110101101111001101000101010000000000000"
+    (number->string (arithmetic-shift 123456789 13) 2))
+(check-equal "-1110101101111001101000101100010000000"
+    (number->string (arithmetic-shift -987654321 7) 2))
+(check-equal "1111000100100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    (number->string (arithmetic-shift 123456 101) 2))
+(check-equal "-1111000100100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    (number->string (arithmetic-shift -123456 101) 2))
+(check-equal "1000011100100111111101100011011010011010101011111000001111001010000101010000001001100111010001111010111110001100011111110001100101101100111000111111000010101101001000000000000000000000000"
+    (number->string (arithmetic-shift 12345678901234567890123456789012345678901234567890 23) 2))
+(check-equal "-10000111001001111111011000110110100110101010111110000011110010100001010100000010011001110100011110101111100011000111111100011001011011001110001111110000101011010010000000000000000000000000000"
+    (number->string (arithmetic-shift -12345678901234567890123456789012345678901234567890 27) 2))
+(check-equal "1110101101111001101000101" (number->string (arithmetic-shift 123456789 -2) 2))
+(check-equal "-1110101101111001101000110" (number->string (arithmetic-shift -123456789 -2) 2))
+(check-equal "1110101101" (number->string (arithmetic-shift 123456789 -17) 2))
+(check-equal "0" (number->string (arithmetic-shift 123456789 -101) 2))
+(check-equal "-1" (number->string (arithmetic-shift -123456789 -101) 2))
+(check-equal "1001110101010111101010000010011100100101111000001111001100010000101110011111110000111101001000011011110001100001101111011010010011100100011001100111111110001100101101100111000111111000"
+    (number->string (arithmetic-shift 123456789012345678901234567890123456789012345678901234567890 -13) 2))
+(check-equal "-1001110101010111101010000010011100100101111000001111001100010000101110011111110000111101001000011011110001100001101111011010010011100100011001100111111110001100101101100111000111111001"
+    (number->string (arithmetic-shift -123456789012345678901234567890123456789012345678901234567890 -13) 2))
+(check-equal "100111010101011110101000001001110010010111100000111100110001000010111001111111000011110100100001"
+    (number->string (arithmetic-shift 123456789012345678901234567890123456789012345678901234567890 -101) 2))
+(check-equal "-100111010101011110101000001001110010010111100000111100110001000010111001111111000011110100100010"
+    (number->string (arithmetic-shift -123456789012345678901234567890123456789012345678901234567890 -101) 2))
+(check-equal "1001110101010111"
+    (number->string (arithmetic-shift 123456789012345678901234567890123456789012345678901234567890 -181) 2))
+(check-equal "-1001110101011000"
+    (number->string (arithmetic-shift -123456789012345678901234567890123456789012345678901234567890 -181) 2))
+(check-equal "0"
+    (number->string (arithmetic-shift 123456789012345678901234567890123456789012345678901234567890 -201) 2))
+(check-equal "-1"
+    (number->string (arithmetic-shift -123456789012345678901234567890123456789012345678901234567890 -201) 2))
+
+(check-error (assertion-violation arithmetic-shift) (arithmetic-shift))
+(check-error (assertion-violation arithmetic-shift) (arithmetic-shift 12))
+(check-error (assertion-violation arithmetic-shift) (arithmetic-shift 12 34.56))
+(check-error (assertion-violation arithmetic-shift) (arithmetic-shift 12 34/56))
+(check-error (assertion-violation arithmetic-shift) (arithmetic-shift 12.34 56))
+(check-error (assertion-violation arithmetic-shift) (arithmetic-shift 12/34 56))
+
+(check-equal "10" (number->string (rotate-bit-field #b0100 3 0 4) 2))
+(check-equal "10" (number->string (rotate-bit-field #b0100 -1 0 4) 2))
+(check-equal "110100010010000" (number->string (rotate-bit-field #b110100100010000 -1 5 9) 2))
+(check-equal "110100000110000" (number->string (rotate-bit-field #b110100100010000 1 5 9) 2))
+
+(check-equal "e5" (number->string (reverse-bit-field #xa7 0 8) 16))
