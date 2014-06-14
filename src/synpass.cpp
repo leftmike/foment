@@ -578,8 +578,10 @@ static FObject SPassNamedLet(FObject enc, FObject se, FObject tag, FObject expr)
     // --> ((letrec ((tag (lambda (name ...) body1 body2 ...)))
     //         tag) val ...)
 
-    FObject lambda = MakeLambda(enc, NoValueObject, GatherNamedLetFormals(lb),
-            SPassBody(enc, se, LetSyntax, Rest(Rest(Rest(expr)))));
+    FObject lambda = MakeLambda(enc, NoValueObject, GatherNamedLetFormals(lb), NoValueObject);
+//    AsLambda(lambda)->Body = SPassBody(lambda, se, LetSyntax, Rest(Rest(Rest(expr))));
+    Modify(FLambda, lambda, Body, SPassBody(lambda, se, LetSyntax, Rest(Rest(Rest(expr)))));
+
     FObject ret = MakePair(MakePair(LetrecSyntax, MakePair(MakePair(
             MakePair(MakePair(tb, EmptyListObject),
                 MakePair(lambda, EmptyListObject)), EmptyListObject),
