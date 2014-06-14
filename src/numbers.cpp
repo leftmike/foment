@@ -3230,7 +3230,7 @@ Define("first-set-bit", FirstSetBitPrimitive)(int_t argc, FObject argv[])
         return(MakeFixnum(BignumFirstSetBit(argv[0])));
 
     uint_t n = AsFixnum(argv[0]);
-    for (int_t idx = 0; idx < sizeof(uint_t) * 8; idx++)
+    for (uint_t idx = 0; idx < sizeof(uint_t) * 8; idx++)
         if (n & ((uint_t) 1 << idx))
             return(MakeFixnum(idx));
 
