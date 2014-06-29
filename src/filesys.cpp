@@ -11,18 +11,12 @@ Foment
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-#include <pthread.h>
-#include <unistd.h>
-#include <termios.h>
-#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
-#include <sys/socket.h>
-#include <errno.h>
-#include <netdb.h>
-#include <ifaddrs.h>
-#include <arpa/inet.h>
+#include <unistd.h>
+#include <dirent.h>
 #endif // FOMENT_UNIX
 
 #include <stdio.h>
@@ -43,6 +37,7 @@ Define("file-exists?", FileExistsPPrimitive)(int_t argc, FObject argv[])
 
     return(_waccess((FCh16 *) AsBytevector(bv)->Vector, 0) == 0 ? TrueObject : FalseObject);
 #endif // FOMENT_WINDOWS
+
 #ifdef FOMENT_UNIX
     FObject bv = ConvertStringToUtf8(argv[0]);
 
@@ -103,8 +98,12 @@ Define("file-size", FileSizePrimitive)(int_t argc, FObject argv[])
 
     FAssert(BytevectorP(bv));
 
-//    return(access((const char *) AsBytevector(bv)->Vector, 0) == 0 ? TrueObject : FalseObject);
-    return(NoValueObject);
+    struct stat st;
+
+    if (stat((const char *) AsBytevector(bv)->Vector, &st) != 0 || S_ISREG(st.st_mode) == 0)
+        RaiseExceptionC(R.Assertion, "file-size", "not a file", List(argv[0]));
+
+    return(MakeIntegerU(st.st_size));
 #endif // FOMENT_UNIX
 }
 
@@ -128,7 +127,19 @@ Define("file-regular?", FileRegularPPrimitive)(int_t argc, FObject argv[])
             (fad.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) == 0) ?
             TrueObject : FalseObject);
 #endif // FOMENT_WINDOWS
-    return(NoValueObject);
+
+#ifdef FOMENT_UNIX
+    FObject bv = ConvertStringToUtf8(argv[0]);
+
+    FAssert(BytevectorP(bv));
+
+    struct stat st;
+
+    if (stat((const char *) AsBytevector(bv)->Vector, &st) != 0)
+        RaiseExceptionC(R.Assertion, "file-regular", "not a file or directory", List(argv[0]));
+
+    return(S_ISREG(st.st_mode) ? TrueObject : FalseObject);
+#endif // FOMENT_UNIX
 }
 
 Define("file-directory?", FileDirectoryPPrimitive)(int_t argc, FObject argv[])
@@ -149,7 +160,19 @@ Define("file-directory?", FileDirectoryPPrimitive)(int_t argc, FObject argv[])
         RaiseExceptionC(R.Assertion, "file-directory?", "not a file or directory", List(argv[0]));
     return((fad.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? TrueObject : FalseObject);
 #endif // FOMENT_WINDOWS
-    return(NoValueObject);
+
+#ifdef FOMENT_UNIX
+    FObject bv = ConvertStringToUtf8(argv[0]);
+
+    FAssert(BytevectorP(bv));
+
+    struct stat st;
+
+    if (stat((const char *) AsBytevector(bv)->Vector, &st) != 0)
+        RaiseExceptionC(R.Assertion, "file-directory?", "not a file or directory", List(argv[0]));
+
+    return(S_ISDIR(st.st_mode) ? TrueObject : FalseObject);
+#endif // FOMENT_UNIX
 }
 
 Define("file-symbolic-link?", FileSymbolicLinkPPrimitive)(int_t argc, FObject argv[])
@@ -171,7 +194,20 @@ Define("file-symbolic-link?", FileSymbolicLinkPPrimitive)(int_t argc, FObject ar
                 List(argv[0]));
     return((fad.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) ? TrueObject : FalseObject);
 #endif // FOMENT_WINDOWS
-    return(NoValueObject);
+
+#ifdef FOMENT_UNIX
+    FObject bv = ConvertStringToUtf8(argv[0]);
+
+    FAssert(BytevectorP(bv));
+
+    struct stat st;
+
+    if (lstat((const char *) AsBytevector(bv)->Vector, &st) != 0)
+        RaiseExceptionC(R.Assertion, "file-symbolic-link?", "not a file or directory",
+                List(argv[0]));
+
+    return(S_ISLNK(st.st_mode) ? TrueObject : FalseObject);
+#endif // FOMENT_UNIX
 }
 
 #ifdef FOMENT_UNIX
@@ -182,7 +218,11 @@ Define("file-readable?", FileReadablePPrimitive)(int_t argc, FObject argv[])
     OneArgCheck("file-readable?", argc);
     StringArgCheck("file-readable?", argv[0]);
 
-    return(NoValueObject);
+    FObject bv = ConvertStringToUtf8(argv[0]);
+
+    FAssert(BytevectorP(bv));
+
+    return(access((const char *) AsBytevector(bv)->Vector, R_OK) == 0 ? TrueObject : FalseObject);
 }
 #endif // FOMENT_UNIX
 
@@ -205,7 +245,15 @@ Define("file-writable?", FileWritablePPrimitive)(int_t argc, FObject argv[])
                 List(argv[0]));
     return((fad.dwFileAttributes & FILE_ATTRIBUTE_READONLY) ? FalseObject : TrueObject);
 #endif // FOMENT_WINDOWS
-    return(NoValueObject);
+
+#ifdef FOMENT_UNIX
+    FObject bv = ConvertStringToUtf8(argv[0]);
+
+    FAssert(BytevectorP(bv));
+
+    return(access((const char *) AsBytevector(bv)->Vector, W_OK | F_OK) == 0 ? TrueObject :
+            FalseObject);
+#endif // FOMENT_UNIX
 }
 
 #ifdef FOMENT_UNIX
@@ -216,7 +264,11 @@ Define("file-executable?", FileExecutablePPrimitive)(int_t argc, FObject argv[])
     OneArgCheck("file-executable?", argc);
     StringArgCheck("file-executable?", argv[0]);
 
-    return(NoValueObject);
+    FObject bv = ConvertStringToUtf8(argv[0]);
+
+    FAssert(BytevectorP(bv));
+
+    return(access((const char *) AsBytevector(bv)->Vector, X_OK) == 0 ? TrueObject : FalseObject);
 }
 #endif // FOMENT_UNIX
 
@@ -312,10 +364,28 @@ Define("file-stat-ctime", FileStatCtimePrimitive)(int_t argc, FObject argv[])
     WIN32_FILE_ATTRIBUTE_DATA fad;
 
     if (GetFileAttributesExW((FCh16 *) AsBytevector(bv)->Vector, GetFileExInfoStandard, &fad) == 0)
-        RaiseExceptionC(R.Assertion, "file-directory?", "not a file or directory", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "file-stat-ctime", "not a file or directory", List(argv[0]));
     return(MakeIntegerU(ConvertTime(&fad.ftCreationTime)));
 #endif // FOMENT_WINDOWS
-    return(NoValueObject);
+
+#ifdef FOMENT_UNIX
+    FObject bv = ConvertStringToUtf8(argv[0]);
+
+    FAssert(BytevectorP(bv));
+
+    struct stat st;
+
+    if (stat((const char *) AsBytevector(bv)->Vector, &st) != 0)
+        RaiseExceptionC(R.Assertion, "file-stat-ctime", "not a file or directory", List(argv[0]));
+
+#ifdef FOMENT_BSD
+    uint64_t tm = st.st_ctim.tv_nsec;
+#else
+    uint64_t tm = st.st_ctime;
+#endif
+
+    return(MakeIntegerU(tm * 1000000000));
+#endif // FOMENT_UNIX
 }
 
 Define("file-stat-mtime", FileStatMtimePrimitive)(int_t argc, FObject argv[])
@@ -335,10 +405,28 @@ Define("file-stat-mtime", FileStatMtimePrimitive)(int_t argc, FObject argv[])
     WIN32_FILE_ATTRIBUTE_DATA fad;
 
     if (GetFileAttributesExW((FCh16 *) AsBytevector(bv)->Vector, GetFileExInfoStandard, &fad) == 0)
-        RaiseExceptionC(R.Assertion, "file-directory?", "not a file or directory", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "file-stat-mtime", "not a file or directory", List(argv[0]));
     return(MakeIntegerU(ConvertTime(&fad.ftLastWriteTime)));
 #endif // FOMENT_WINDOWS
-    return(NoValueObject);
+
+#ifdef FOMENT_UNIX
+    FObject bv = ConvertStringToUtf8(argv[0]);
+
+    FAssert(BytevectorP(bv));
+
+    struct stat st;
+
+    if (stat((const char *) AsBytevector(bv)->Vector, &st) != 0)
+        RaiseExceptionC(R.Assertion, "file-stat-mtime", "not a file or directory", List(argv[0]));
+
+#ifdef FOMENT_BSD
+    uint64_t tm = st.st_mtim.tv_nsec;
+#else
+    uint64_t tm = st.st_mtime;
+#endif
+
+    return(MakeIntegerU(tm * 1000000000));
+#endif // FOMENT_UNIX
 }
 
 Define("file-stat-atime", FileStatAtimePrimitive)(int_t argc, FObject argv[])
@@ -358,10 +446,28 @@ Define("file-stat-atime", FileStatAtimePrimitive)(int_t argc, FObject argv[])
     WIN32_FILE_ATTRIBUTE_DATA fad;
 
     if (GetFileAttributesExW((FCh16 *) AsBytevector(bv)->Vector, GetFileExInfoStandard, &fad) == 0)
-        RaiseExceptionC(R.Assertion, "file-directory?", "not a file or directory", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "file-stat-atime", "not a file or directory", List(argv[0]));
     return(MakeIntegerU(ConvertTime(&fad.ftLastAccessTime)));
 #endif // FOMENT_WINDOWS
-    return(NoValueObject);
+
+#ifdef FOMENT_UNIX
+    FObject bv = ConvertStringToUtf8(argv[0]);
+
+    FAssert(BytevectorP(bv));
+
+    struct stat st;
+
+    if (stat((const char *) AsBytevector(bv)->Vector, &st) != 0)
+        RaiseExceptionC(R.Assertion, "file-stat-atime", "not a file or directory", List(argv[0]));
+
+#ifdef FOMENT_BSD
+    uint64_t tm = st.st_atim.tv_nsec;
+#else
+    uint64_t tm = st.st_atime;
+#endif
+
+    return(MakeIntegerU(tm * 1000000000));
+#endif // FOMENT_UNIX
 }
 
 Define("create-symbolic-link", CreateSymbolicLinkPrimitive)(int_t argc, FObject argv[])
@@ -394,6 +500,19 @@ Define("create-symbolic-link", CreateSymbolicLinkPrimitive)(int_t argc, FObject 
                 List(argv[0], argv[1], MakeIntegerU(GetLastError())));
 #endif // FOMENT_WINDOWS
 
+#ifdef FOMENT_UNIX
+    FObject bv1 = ConvertStringToUtf8(argv[0]);
+    FObject bv2 = ConvertStringToUtf8(argv[1]);
+
+    FAssert(BytevectorP(bv1));
+    FAssert(BytevectorP(bv2));
+
+    if (symlink((const char *) AsBytevector(bv1)->Vector, (const char *) AsBytevector(bv2)->Vector)
+            != 0)
+        RaiseExceptionC(R.Assertion, "create-symbolic-link", "unable to create symbolic link",
+                List(argv[0], argv[1], MakeFixnum(errno)));
+#endif // FOMENT_UNIX
+
     return(NoValueObject);
 }
 
@@ -422,6 +541,19 @@ Define("rename-file", RenameFilePrimitive)(int_t argc, FObject argv[])
                 List(argv[0], argv[1], MakeIntegerU(GetLastError())));
 #endif // FOMENT_WINDOWS
 
+#ifdef FOMENT_UNIX
+    FObject bv1 = ConvertStringToUtf8(argv[0]);
+    FObject bv2 = ConvertStringToUtf8(argv[1]);
+
+    FAssert(BytevectorP(bv1));
+    FAssert(BytevectorP(bv2));
+
+    if (rename((const char *) AsBytevector(bv1)->Vector, (const char *) AsBytevector(bv2)->Vector)
+            != 0)
+        RaiseExceptionC(R.Assertion, "rename-file", "unable to rename file",
+                List(argv[0], argv[1], MakeFixnum(errno)));
+#endif // FOMENT_UNIX
+
     return(NoValueObject);
 }
 
@@ -442,6 +574,16 @@ Define("create-directory", CreateDirectoryPrimitive)(int_t argc, FObject argv[])
         RaiseExceptionC(R.Assertion, "create-directory", "unable to create directory",
                 List(argv[0], MakeIntegerU(GetLastError())));
 #endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    FObject bv = ConvertStringToUtf8(argv[0]);
+
+    FAssert(BytevectorP(bv));
+
+    if (mkdir((const char *) AsBytevector(bv)->Vector, S_IRWXU | S_IRWXG | S_IRWXO) != 0)
+        RaiseExceptionC(R.Assertion, "create-directory", "unable to create directory",
+                List(argv[0], MakeFixnum(errno)));
+#endif // FOMENT_UNIX
 
     return(NoValueObject);
 }
@@ -464,6 +606,15 @@ Define("delete-directory", DeleteDirectoryPrimitive)(int_t argc, FObject argv[])
                 List(argv[0], MakeIntegerU(GetLastError())));
 #endif // FOMENT_WINDOWS
 
+#ifdef FOMENT_UNIX
+    FObject bv = ConvertStringToUtf8(argv[0]);
+
+    FAssert(BytevectorP(bv));
+
+    if (rmdir((const char *) AsBytevector(bv)->Vector) != 0)
+        RaiseExceptionC(R.Assertion, "delete-directory", "unable to delete directory",
+                List(argv[0], MakeFixnum(errno)));
+#endif // FOMENT_UNIX
     return(NoValueObject);
 }
 
@@ -495,6 +646,29 @@ Define("list-directory", ListDirectoryPrimitive)(int_t argc, FObject argv[])
 
     return(lst);
 #endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    FObject bv = ConvertStringToUtf8(argv[0]);
+    FObject lst = EmptyListObject;
+
+    FAssert(BytevectorP(bv));
+
+    DIR * dh;
+    dh = opendir((const char *) AsBytevector(bv)->Vector);
+    if (dh == 0)
+        RaiseExceptionC(R.Assertion, "list-directory", "unable to list directory",
+                List(argv[0], MakeFixnum(errno)));
+    for (;;)
+    {
+        struct dirent * de = readdir(dh);
+        if (de == 0)
+            break;
+        lst = MakePair(ConvertUtf8ToString((FByte *) de->d_name, strlen(de->d_name)), lst);
+    }
+    closedir(dh);
+
+    return(lst);
+#endif // FOMENT_UNIX
 }
 
 Define("copy-file", CopyFilePrimitive)(int_t argc, FObject argv[])
@@ -521,6 +695,19 @@ Define("copy-file", CopyFilePrimitive)(int_t argc, FObject argv[])
         return(FalseObject);
 #endif // FOMENT_WINDOWS
 
+#ifdef FOMENT_UNIX
+    FObject bv1 = ConvertStringToUtf8(argv[0]);
+    FObject bv2 = ConvertStringToUtf8(argv[1]);
+
+    FAssert(BytevectorP(bv1));
+    FAssert(BytevectorP(bv2));
+
+//    if (rename((const char *) AsBytevector(bv1)->Vector, (const char *) AsBytevector(bv2)->Vector)
+//            != 0)
+//        RaiseExceptionC(R.Assertion, "rename-file", "unable to rename file",
+//                List(argv[0], argv[1], MakeFixnum(errno)));
+#endif // FOMENT_UNIX
+
     return(TrueObject);
 }
 
@@ -545,6 +732,15 @@ Define("current-directory", CurrentDirectoryPrimitive)(int_t argc, FObject argv[
                     List(argv[0], MakeIntegerU(GetLastError())));
 #endif // FOMENT_WINDOWS
 
+#ifdef FOMENT_UNIX
+        FObject bv = ConvertStringToUtf8(argv[0]);
+
+        FAssert(BytevectorP(bv));
+
+        if (chdir((const char *) AsBytevector(bv)->Vector) != 0)
+            RaiseExceptionC(R.Assertion, "current-directory", "unable to set current directory",
+                    List(argv[0], MakeFixnum(errno)));
+#endif // FOMENT_UNIX
         return(NoValueObject);
     }
 
@@ -558,6 +754,12 @@ Define("current-directory", CurrentDirectoryPrimitive)(int_t argc, FObject argv[
 
     return(ConvertUtf16ToString((FCh16 *) AsBytevector(b)->Vector, sz));
 #endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    char cd[MAXPATHLEN];
+    getcwd(cd, MAXPATHLEN);
+    return(ConvertUtf8ToString((FByte *) cd, strlen(cd)));
+#endif // FOMENT_UNIX
 }
 
 static FPrimitive * Primitives[] =
