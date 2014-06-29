@@ -470,7 +470,33 @@
         *msg-waitall*
         *shut-rd*
         *shut-wr*
-        *shut-rdwr*)
+        *shut-rdwr*
+        file-size
+        file-regular?
+        file-directory?
+        file-symbolic-link?
+        file-writable?
+        file-stat-ctime
+        file-stat-mtime
+        file-stat-atime
+        create-symbolic-link
+        rename-file
+        create-directory
+        delete-directory
+        list-directory
+        copy-file
+        current-directory
+        build-path)
+    (cond-expand
+        (unix
+            (export
+                file-readable?
+                file-executable?))
+        (windows
+            (export
+                file-archive?
+                file-system?
+                file-hidden?)))
     (begin
         (define-syntax when
             (syntax-rules ()
@@ -1199,6 +1225,9 @@
                                 (alist-lookup n message-type-alist 'message-type
                                         "message-type: expected a message type flag"))
                             '(name ...))))))
+
+        (define (build-path path1 path2)
+            (string-append path1 (cond-expand (windows "\\") (else "/")) path2))
 
         (define (execute-thunk thunk)
             (%return (call-with-continuation-prompt thunk (default-prompt-tag)

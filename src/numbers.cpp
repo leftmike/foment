@@ -141,6 +141,38 @@ inline static FObject Normalize(FObject num)
     return(num);
 }
 
+FObject MakeInteger(int64_t n)
+{
+    if (n >= MINIMUM_FIXNUM && n <= MAXIMUM_FIXNUM)
+        return(MakeFixnum(n));
+
+    if (n > 0)
+        return(MakeInteger(n >> 32, n & 0xFFFFFFFF));
+
+    n = -n;
+    FObject bn = MakeInteger(n >> 32, n & 0xFFFFFFFF);
+    FAssert(BignumP(bn));
+    mpz_mul_si(AsBignum(bn), AsBignum(bn), -1);
+    return(bn);
+}
+
+FObject MakeIntegerU(uint64_t n)
+{
+    if (n <= MAXIMUM_FIXNUM)
+        return(MakeFixnum(n));
+
+    return(MakeInteger(n >> 32, n & 0xFFFFFFFF));
+}
+
+FObject MakeInteger(uint32_t high, uint32_t low)
+{
+    FObject bn = MakeBignum();
+    mpz_set_ui(AsBignum(bn), high);
+    mpz_mul_2exp(AsBignum(bn), AsBignum(bn), 32);
+    mpz_add_ui(AsBignum(bn), AsBignum(bn), low);
+    return(bn);
+}
+
 inline static double64_t BignumToDouble(FObject bn)
 {
     FAssert(BignumP(bn));

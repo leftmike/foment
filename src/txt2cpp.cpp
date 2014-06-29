@@ -74,7 +74,7 @@ int main(int argc, char * argv[])
                     break;
                 }
 
-                if (*s == '"')
+                if (*s == '"' || *s == '\\')
                     fputc('\\', outf);
                 fputc(*s, outf);
 

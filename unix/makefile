@@ -41,14 +41,15 @@ debug/foment: debug/foment.o debug/gc.o debug/syncthrd.o debug/compile.o debug/i
 		debug/synrules.o debug/synpass.o debug/midpass.o debug/genpass.o\
 		debug/pairs.o debug/unicode.o debug/chars.o debug/strings.o debug/vectors.o\
 		debug/library.o debug/execute.o debug/numbers.o	debug/mini-gmp.o debug/write.o\
-		debug/read.o debug/main.o debug/base.o
+		debug/read.o debug/filesys.o debug/main.o debug/base.o
 	g++ -o debug/foment $^ -lpthread
 
 release/foment: release/foment.o release/gc.o release/syncthrd.o release/compile.o release/io.o\
 		release/synrules.o release/synpass.o release/midpass.o release/genpass.o\
 		release/pairs.o release/unicode.o release/chars.o release/strings.o\
 		release/vectors.o release/library.o release/execute.o release/numbers.o\
-		release/mini-gmp.o release/write.o release/read.o release/main.o release/base.o
+		release/mini-gmp.o release/write.o release/read.o release/filesys.o\
+		release/main.o release/base.o
 	g++ -o release/foment $^ -lpthread
 
 debug/foment.o: ../src/foment.cpp ../src/foment.hpp ../src/unicode.hpp
@@ -74,6 +75,7 @@ debug/write.o: ../src/write.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.
 	../src/compile.hpp
 debug/read.o: ../src/read.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
 	../src/unicode.hpp
+debug/filesys.o: ../src/filesys.cpp ../src/foment.hpp ../src/unicode.hpp
 debug/main.o: ../src/main.cpp ../src/foment.hpp
 debug/base.o: debug/base.cpp
 
@@ -100,6 +102,7 @@ release/write.o: ../src/write.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/i
 	../src/compile.hpp
 release/read.o: ../src/read.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
 	../src/unicode.hpp
+release/filesys.o: ../src/filesys.cpp ../src/foment.hpp ../src/unicode.hpp
 release/main.o: ../src/main.cpp ../src/foment.hpp
 release/base.o: debug/base.cpp
 

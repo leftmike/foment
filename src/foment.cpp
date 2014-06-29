@@ -1866,6 +1866,7 @@ void SetupFoment(FThreadState * ts, int argc, FChS * argv[])
     SetupStrings();
     SetupVectors();
     SetupIO();
+    SetupFileSys();
     SetupCompile();
     SetupExecute();
     SetupNumbers();

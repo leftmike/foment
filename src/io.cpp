@@ -2,67 +2,6 @@
 
 Foment
 
-directory-list --> list of a directory's children
-file-type --> 'normal, 'directory, 'symbolic-link, etc
-rename-file
-create-directory
-delete-directory
-create-symbolic-link
-file-size
-file-mtime
-
-** current-directory parameter for getting or setting CWD
-
-chibi and chicken have change-directory.  gauche has sys-chdir.
-sagittarius has current-directory.
-
-Chicken:
-
-directory
-[procedure] (directory [PATHNAME [SHOW-DOTFILES?]]) 
-Returns a list with all files that are contained in the directory with the name PATHNAME (which defaults to the value of (current-directory)). Files beginning with . are included only if SHOW-DOTFILES? is given and not #f.
-
-change-directory
-[procedure] (change-directory NAME) 
-Changes the current working directory to NAME.
-current-directory
-
-[procedure] (current-directory [DIR]) 
-Returns the name of the current working directory. If the optional argument DIR is given, then (current-directory DIR) is equivalent to (change-directory DIR).
-
-delete-directory
-[procedure] (delete-directory NAME [RECURSIVE]) 
-Deletes the directory with the pathname NAME. If RECURSIVE is not given or false, then the directory has to be empty.
-
-[procedure] (file-modification-time FILE) 
-[procedure] (set! (file-modification-time FILE) SECONDS) 
-Returns time (in seconds) of the last access, modification or change of FILE. FILE may be a filename or a file-descriptor. If the file does not exist, an error is signaled.
-(set! (file-modification-time FILE) SECONDS) sets the access- and modification time of FILE to SECONDS.
-
-file-size
-[procedure] (file-size FILE) 
-Returns the size of the file designated by FILE. FILE may be a filename or a file-descriptor. If the file does not exist, an error is signaled. Note that for very large files, file-size may return an inexact integer.
-
-file-type
-[procedure] (file-type FILE [LINK [ERROR]]) 
-Returns the file-type for FILE, which should be a filename or file-descriptor. If LINK is given and true, symbolic-links are not followed:
- regular-file
- directory
- fifo
- socket
- symbolic-link
- character-device
- block-device
-Note that not all types are supported on every platform. If ERROR is given and true, file-type signals an error if the file does not exist.
-
-create-symbolic-link
-[procedure] (create-symbolic-link OLDNAME NEWNAME) 
-Creates a symbolic link with the filename NEWNAME that points to the file named OLDNAME.
-
-rename-file
-[procedure] (rename-file OLD NEW) 
-Renames the file or directory with the pathname OLD to NEW. If the operation does not succeed, an error is signaled.
-
 */
 
 #ifdef FOMENT_WINDOWS
@@ -2722,53 +2661,6 @@ static FObject MakeConsoleOutputPort(FObject nam, int_t ofd)
 }
 #endif // FOMENT_UNIX
 
-// ---- System interface ----
-
-Define("file-exists?", FileExistsPPrimitive)(int_t argc, FObject argv[])
-{
-    OneArgCheck("file-exists?", argc);
-    StringArgCheck("file-exists?", argv[0]);
-
-#ifdef FOMENT_WINDOWS
-    FObject bv = ConvertStringToUtf16(argv[0]);
-
-    FAssert(BytevectorP(bv));
-
-    return(_waccess((FCh16 *) AsBytevector(bv)->Vector, 0) == 0 ? TrueObject : FalseObject);
-#endif // FOMENT_WINDOWS
-#ifdef FOMENT_UNIX
-    FObject bv = ConvertStringToUtf8(argv[0]);
-
-    FAssert(BytevectorP(bv));
-
-    return(access((const char *) AsBytevector(bv)->Vector, 0) == 0 ? TrueObject : FalseObject);
-#endif // FOMENT_UNIX
-}
-
-Define("delete-file", DeleteFilePrimitive)(int_t argc, FObject argv[])
-{
-    OneArgCheck("delete-file", argc);
-    StringArgCheck("delete-file", argv[0]);
-
-#ifdef FOMENT_WINDOWS
-    FObject bv = ConvertStringToUtf16(argv[0]);
-
-    FAssert(BytevectorP(bv));
-
-    if (_wremove((FCh16 *) AsBytevector(bv)->Vector) != 0)
-#endif // FOMENT_WINDOWS
-#ifdef FOMENT_UNIX
-    FObject bv = ConvertStringToUtf8(argv[0]);
-
-    FAssert(BytevectorP(bv));
-
-    if (remove((const char *) AsBytevector(bv)->Vector) != 0)
-#endif // FOMENT_UNIX
-        RaiseExceptionC(R.Assertion, "delete-file", "unable to delete file", List(argv[0]));
-
-    return(NoValueObject);
-}
-
 // ---- Input and output ----
 
 Define("input-port?", InputPortPPrimitive)(int_t argc, FObject argv[])
@@ -3396,8 +3288,6 @@ Define("get-ip-addresses", GetIpAddressesPrimitive)(int_t argc, FObject argv[])
 
 static FPrimitive * Primitives[] =
 {
-    &FileExistsPPrimitive,
-    &DeleteFilePrimitive,
     &InputPortPPrimitive,
     &OutputPortPPrimitive,
     &TextualPortPPrimitive,

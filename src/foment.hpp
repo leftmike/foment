@@ -26,7 +26,6 @@ Future:
     (2 4 6 8 10)
 
 Bugs:
--- FBignum should not need to be pinned
 -- letrec: http://trac.sacrideo.us/wg/wiki/LetrecStar
 -- serialize loading libraries
 -- serialize symbol table
@@ -924,6 +923,10 @@ int_t NonNegativeExactIntegerP(FObject obj, int_t bf);
 FObject ToInexact(FObject n);
 FObject ToExact(FObject n);
 
+FObject MakeInteger(int64_t n);
+FObject MakeIntegerU(uint64_t n);
+FObject MakeInteger(uint32_t high, uint32_t low);
+
 // ---- Environments ----
 
 #define EnvironmentP(obj) RecordP(obj, R.EnvironmentRecordType)
@@ -1205,6 +1208,12 @@ inline void OneToFourArgsCheck(const char * who, int_t argc)
 {
     if (argc < 1 || argc > 4)
         RaiseExceptionC(R.Assertion, who, "expected one to four arguments", EmptyListObject);
+}
+
+inline void TwoOrThreeArgsCheck(const char * who, int_t argc)
+{
+    if (argc < 2 || argc > 3)
+        RaiseExceptionC(R.Assertion, who, "expected two or three arguments", EmptyListObject);
 }
 
 inline void TwoToFourArgsCheck(const char * who, int_t argc)
@@ -1492,6 +1501,7 @@ void SetupCharacters();
 void SetupStrings();
 void SetupVectors();
 void SetupIO();
+void SetupFileSys();
 void SetupCompile();
 void SetupExecute();
 void SetupNumbers();
