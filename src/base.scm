@@ -484,7 +484,6 @@
         create-directory
         delete-directory
         list-directory
-        copy-file
         current-directory
         build-path)
     (cond-expand

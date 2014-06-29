@@ -663,52 +663,13 @@ Define("list-directory", ListDirectoryPrimitive)(int_t argc, FObject argv[])
         struct dirent * de = readdir(dh);
         if (de == 0)
             break;
-        lst = MakePair(ConvertUtf8ToString((FByte *) de->d_name, strlen(de->d_name)), lst);
+        if (strcmp(de->d_name, ".") != 0 && strcmp(de->d_name, "..") != 0)
+            lst = MakePair(ConvertUtf8ToString((FByte *) de->d_name, strlen(de->d_name)), lst);
     }
     closedir(dh);
 
     return(lst);
 #endif // FOMENT_UNIX
-}
-
-Define("copy-file", CopyFilePrimitive)(int_t argc, FObject argv[])
-{
-// Function copy-file src dst :optional overwrite
-// src and dst must be string and indicating existing file path.
-// Copies given src file to dst and returns #t if it's copied otherwise #f.
-//
-// If optional argument overwrite is #t then it will over write the file even if it exists.
-
-    TwoOrThreeArgsCheck("copy-file", argc);
-    StringArgCheck("copy-file", argv[0]);
-    StringArgCheck("copy-file", argv[1]);
-
-#ifdef FOMENT_WINDOWS
-    FObject bv1 = ConvertStringToUtf16(argv[0]);
-    FObject bv2 = ConvertStringToUtf16(argv[1]);
-
-    FAssert(BytevectorP(bv1));
-    FAssert(BytevectorP(bv2));
-
-    if (CopyFileExW((FCh16 *) AsBytevector(bv1)->Vector, (FCh16 *) AsBytevector(bv2)->Vector,
-            0, 0, 0, (argc == 3 && argv[2] == TrueObject) ? 0 : COPY_FILE_FAIL_IF_EXISTS) == 0)
-        return(FalseObject);
-#endif // FOMENT_WINDOWS
-
-#ifdef FOMENT_UNIX
-    FObject bv1 = ConvertStringToUtf8(argv[0]);
-    FObject bv2 = ConvertStringToUtf8(argv[1]);
-
-    FAssert(BytevectorP(bv1));
-    FAssert(BytevectorP(bv2));
-
-//    if (rename((const char *) AsBytevector(bv1)->Vector, (const char *) AsBytevector(bv2)->Vector)
-//            != 0)
-//        RaiseExceptionC(R.Assertion, "rename-file", "unable to rename file",
-//                List(argv[0], argv[1], MakeFixnum(errno)));
-#endif // FOMENT_UNIX
-
-    return(TrueObject);
 }
 
 Define("current-directory", CurrentDirectoryPrimitive)(int_t argc, FObject argv[])
@@ -790,7 +751,6 @@ static FPrimitive * Primitives[] =
     &CreateDirectoryPrimitive,
     &DeleteDirectoryPrimitive,
     &ListDirectoryPrimitive,
-    &CopyFilePrimitive,
     &CurrentDirectoryPrimitive
 };
 
