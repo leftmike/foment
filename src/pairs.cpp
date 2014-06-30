@@ -247,7 +247,8 @@ static FObject ReverseList(const char * nam, FObject list)
 
 Define("append", AppendPrimitive)(int_t argc, FObject argv[])
 {
-    AtLeastOneArgCheck("append", argc);
+    if (argc == 0)
+        return(EmptyListObject);
 
     FObject ret = argv[argc - 1];
 

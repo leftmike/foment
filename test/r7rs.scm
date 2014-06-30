@@ -3277,13 +3277,13 @@
         (length x)))
 (check-error (assertion-violation length) (length '() 2))
 
+(check-equal () (append))
 (check-equal (x y) (append '(x) '(y)))
 (check-equal (a b c d) (append '(a) '(b c d)))
 (check-equal (a (b) (c)) (append '(a (b)) '((c))))
 (check-equal (a b c . d) (append '(a b) '(c . d)))
 (check-equal a (append '() 'a))
 
-(check-error (assertion-violation append) (append))
 (check-error (assertion-violation append)
     (let ((x (list 'a)))
         (set-cdr! x x)
