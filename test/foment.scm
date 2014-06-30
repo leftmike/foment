@@ -562,3 +562,89 @@
 (check-syntax (syntax-violation syntax-rules) (r7rs-letrec ((x 2)) y . x))
 (check-syntax (syntax-violation let) (r7rs-letrec (((x y z) 2)) y x))
 (check-syntax (syntax-violation let) (r7rs-letrec ((x 2) ("y" 3)) y))
+
+;;
+;; file system api
+;;
+
+(check-equal 127 (file-size "lib-a-b-c.sld"))
+(check-error (assertion-violation file-size) (file-size))
+(check-error (assertion-violation file-size) (file-size 'not-actually-a-filename))
+(check-error (assertion-violation file-size) (file-size "not actually a filename"))
+(check-error (assertion-violation file-size) (file-size "not actually" "a filename"))
+
+(check-equal #t (file-regular? "foment.scm"))
+(check-equal #f (file-regular? "lib"))
+(check-equal #f (file-regular? "not actually a filename"))
+(check-error (assertion-violation file-regular?) (file-regular?))
+(check-error (assertion-violation file-regular?) (file-regular? 'not-a-filename))
+(check-error (assertion-violation file-regular?) (file-regular? "not a filename" "just not"))
+
+(check-equal #f (file-directory? "foment.scm"))
+(check-equal #t (file-directory? "lib"))
+(check-equal #f (file-directory? "not actually a filename"))
+(check-error (assertion-violation file-directory?) (file-directory?))
+(check-error (assertion-violation file-directory?) (file-directory? 'not-a-filename))
+(check-error (assertion-violation file-directory?) (file-directory? "not a filename" "just not"))
+
+(check-equal #t (file-readable? "foment.scm"))
+(check-equal #f (file-readable? "not a file"))
+(check-error (assertion-violation file-readable?) (file-readable?))
+(check-error (assertion-violation file-readable?) (file-readable? 'not-a-filename))
+(check-error (assertion-violation file-readable?) (file-readable? "not a filename" "just not"))
+
+(check-equal #t (file-writable? "foment.scm"))
+(check-equal #f (file-writable? "not a file"))
+(check-error (assertion-violation file-writable?) (file-writable?))
+(check-error (assertion-violation file-writable?) (file-writable? 'not-a-filename))
+(check-error (assertion-violation file-writable?) (file-writable? "not a filename" "just not"))
+
+(check-error (assertion-violation create-symbolic-link) (create-symbolic-link "not a filename"))
+(check-error (assertion-violation create-symbolic-link) (create-symbolic-link "not a" 'filename))
+(check-error (assertion-violation create-symbolic-link)
+    (create-symbolic-link "not a filename" "just not" "a filename"))
+
+(call-with-output-file "rename.me" (lambda (p) (write "all good" p) (newline p)))
+(if (file-regular? "me.renamed")
+    (delete-file "me.renamed"))
+(check-equal #f (file-regular? "me.renamed"))
+(rename-file "rename.me" "me.renamed")
+(check-equal #t (file-regular? "me.renamed"))
+
+(call-with-output-file "me.overwritten" (lambda (p) (write "all bad" p) (newline p)))
+(check-equal #t (file-regular? "me.overwritten"))
+(rename-file "me.renamed" "me.overwritten")
+(check-equal #t (file-regular? "me.overwritten"))
+(check-equal "all good" (call-with-input-file "me.overwritten" (lambda (p) (read p))))
+
+(check-error (assertion-violation rename-file) (rename-file "not a filename"))
+(check-error (assertion-violation rename-file) (rename-file "not a" 'filename))
+(check-error (assertion-violation rename-file)
+    (rename-file "not a filename" "just not" "a filename"))
+
+(if (file-directory? "testdirectory")
+    (delete-directory "testdirectory"))
+
+(create-directory "testdirectory")
+(check-equal #t (file-directory? "testdirectory"))
+(delete-directory "testdirectory")
+(check-equal #f (file-directory? "testdirectory"))
+
+(check-error (assertion-violation create-directory) (create-directory))
+(check-error (assertion-violation create-directory) (create-directory 'not-a-filename))
+(check-error (assertion-violation create-directory) (create-directory "not a filename" "just not"))
+
+(check-error (assertion-violation delete-directory) (delete-directory))
+(check-error (assertion-violation delete-directory) (delete-directory 'not-a-filename))
+(check-error (assertion-violation delete-directory) (delete-directory "not a filename" "just not"))
+
+(check-equal "foment.scm" (car (member "foment.scm" (list-directory "."))))
+(check-equal #f (member "not a filename" (list-directory ".")))
+(check-equal "test" (car (member "test" (list-directory ".."))))
+(check-error (assertion-violation list-directory) (list-directory))
+(check-error (assertion-violation list-directory) (list-directory 'not-a-filename))
+(check-error (assertion-violation list-directory) (list-directory "not a filename" "just not"))
+
+(check-error (assertion-violation current-directory) (current-directory 'not-a-filename))
+(check-error (assertion-violation current-directory) (current-directory "not-a-filename"))
+(check-error (assertion-violation current-directory) (current-directory ".." "not a filename"))

@@ -166,6 +166,9 @@ FObject MakeIntegerU(uint64_t n)
 
 FObject MakeInteger(uint32_t high, uint32_t low)
 {
+    if (high == 0 && low <= MAXIMUM_FIXNUM)
+        return(MakeFixnum(low));
+
     FObject bn = MakeBignum();
     mpz_set_ui(AsBignum(bn), high);
     mpz_mul_2exp(AsBignum(bn), AsBignum(bn), 32);
