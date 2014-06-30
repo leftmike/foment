@@ -24,7 +24,7 @@ FCh ConvertUtf8ToCh(FByte * b, uint_t bl);
 FObject ConvertUtf8ToString(FByte * b, uint_t bl);
 FObject ConvertStringToUtf8(FCh * s, uint_t sl, int_t ztf);
 FObject ConvertUtf16ToString(FCh16 * b, uint_t bl);
-FObject ConvertStringToUtf16(FCh * s, uint_t sl, int_t ztf);
+FObject ConvertStringToUtf16(FCh * s, uint_t sl, int_t ztf, uint_t el);
 
 inline FObject ConvertStringToUtf8(FObject s)
 {
@@ -37,7 +37,7 @@ inline FObject ConvertStringToUtf16(FObject s)
 {
     FAssert(StringP(s));
 
-    return(ConvertStringToUtf16(AsString(s)->String, StringLength(s), 1));
+    return(ConvertStringToUtf16(AsString(s)->String, StringLength(s), 1, 0));
 }
 
 int WhitespaceP(FCh ch);

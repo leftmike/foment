@@ -508,41 +508,42 @@ Define("string->symbol", StringToSymbolPrimitive)(int_t argc, FObject argv[])
 
 // ---- Exceptions ----
 
-static const char * ExceptionFieldsC[] = {"type", "who", "message", "irritants"};
+static const char * ExceptionFieldsC[] = {"type", "who", "kind", "message", "irritants"};
 
-FObject MakeException(FObject typ, FObject who, FObject msg, FObject lst)
+FObject MakeException(FObject typ, FObject who, FObject knd, FObject msg, FObject lst)
 {
     FAssert(sizeof(FException) == sizeof(ExceptionFieldsC) + sizeof(FRecord));
 
     FException * exc = (FException *) MakeRecord(R.ExceptionRecordType);
     exc->Type = typ;
     exc->Who = who;
+    exc->Kind = knd;
     exc->Message = msg;
     exc->Irritants = lst;
 
     return(exc);
 }
 
-void RaiseException(FObject typ, FObject who, FObject msg, FObject lst)
+void RaiseException(FObject typ, FObject who, FObject knd, FObject msg, FObject lst)
 {
-    Raise(MakeException(typ, who, msg, lst));
+    Raise(MakeException(typ, who, knd, msg, lst));
 }
 
-void RaiseExceptionC(FObject typ, const char * who, const char * msg, FObject lst)
+void RaiseExceptionC(FObject typ, const char * who, FObject knd, const char * msg, FObject lst)
 {
     char buf[128];
 
     FAssert(strlen(who) + strlen(msg) + 3 < sizeof(buf));
 
     if (strlen(who) + strlen(msg) + 3 >= sizeof(buf))
-        Raise(MakeException(typ, StringCToSymbol(who), MakeStringC(msg), lst));
+        Raise(MakeException(typ, StringCToSymbol(who), knd, MakeStringC(msg), lst));
     else
     {
         strcpy(buf, who);
         strcat(buf, ": ");
         strcat(buf, msg);
 
-        Raise(MakeException(typ, StringCToSymbol(who), MakeStringC(buf), lst));
+        Raise(MakeException(typ, StringCToSymbol(who), knd, MakeStringC(buf), lst));
     }
 }
 
@@ -571,7 +572,7 @@ Define("error", ErrorPrimitive)(int_t argc, FObject argv[])
         lst = MakePair(argv[argc], lst);
     }
 
-    throw MakeException(R.Assertion, StringCToSymbol("error"), argv[0], lst);
+    Raise(MakeException(R.Assertion, StringCToSymbol("error"), NoValueObject, argv[0], lst));
     return(NoValueObject);
 }
 
@@ -598,6 +599,14 @@ Define("error-object-who", ErrorObjectWhoPrimitive)(int_t argc, FObject argv[])
     return(AsException(argv[0])->Who);
 }
 
+Define("error-object-kind", ErrorObjectKindPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("error-object-kind", argc);
+    ExceptionArgCheck("error-object-kind", argv[0]);
+
+    return(AsException(argv[0])->Kind);
+}
+
 Define("error-object-message", ErrorObjectMessagePrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("error-object-message", argc);
@@ -616,19 +625,19 @@ Define("error-object-irritants", ErrorObjectIrritantsPrimitive)(int_t argc, FObj
 
 Define("full-error", FullErrorPrimitive)(int_t argc, FObject argv[])
 {
-    AtLeastThreeArgsCheck("full-error", argc);
+    AtLeastFourArgsCheck("full-error", argc);
     SymbolArgCheck("full-error", argv[0]);
     SymbolArgCheck("full-error", argv[1]);
-    StringArgCheck("full-error", argv[2]);
+    StringArgCheck("full-error", argv[3]);
 
     FObject lst = EmptyListObject;
-    while (argc > 3)
+    while (argc > 4)
     {
         argc -= 1;
         lst = MakePair(argv[argc], lst);
     }
 
-    throw MakeException(argv[0], argv[1], argv[2], lst);
+    Raise(MakeException(argv[0], argv[1], argv[2], argv[3], lst));
     return(NoValueObject);
 }
 
@@ -1669,6 +1678,7 @@ static FPrimitive * Primitives[] =
     &ErrorObjectPPrimitive,
     &ErrorObjectTypePrimitive,
     &ErrorObjectWhoPrimitive,
+    &ErrorObjectKindPrimitive,
     &ErrorObjectMessagePrimitive,
     &ErrorObjectIrritantsPrimitive,
     &FullErrorPrimitive,

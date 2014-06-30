@@ -1206,7 +1206,7 @@ static void Utf16WriteString(FObject port, FCh * s, uint_t sl)
 {
     FAssert(BinaryPortP(AsGenericPort(port)->Object));
 
-    FObject bv = ConvertStringToUtf16(s, sl, 0);
+    FObject bv = ConvertStringToUtf16(s, sl, 0, 0);
 
     FAssert(BytevectorP(bv));
 
@@ -1717,7 +1717,7 @@ static void ConSetHistory(FConsoleInput * ci, FObject lst)
 #ifdef FOMENT_WINDOWS
         FAssert(sizeof(FCh16) == sizeof(FConCh));
 
-        bv = ConvertStringToUtf16(AsString(First(lst))->String, StringLength(First(lst)), 0);
+        bv = ConvertStringToUtf16(AsString(First(lst))->String, StringLength(First(lst)), 0, 0);
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
@@ -2589,7 +2589,7 @@ static void ConWriteString(FObject port, FCh * s, uint_t sl)
 {
     FAssert(TextualPortP(port) && OutputPortOpenP(port));
 
-    FObject bv = ConvertStringToUtf16(s, sl, 0);
+    FObject bv = ConvertStringToUtf16(s, sl, 0, 0);
     DWORD nc;
 
     FAssert(BytevectorP(bv));
@@ -2722,7 +2722,7 @@ Define("open-binary-input-file", OpenBinaryInputFilePrimitive)(int_t argc, FObje
     FObject port = OpenBinaryInputFile(argv[0]);
 
     if (BinaryPortP(port) == 0)
-        RaiseExceptionC(R.Assertion, "open-binary-input-file",
+        RaiseExceptionC(R.Assertion, "open-binary-input-file", R.FileErrorSymbol,
                 "unable to open file for input", List(argv[0]));
 
     return(port);
@@ -2736,7 +2736,7 @@ Define("open-binary-output-file", OpenBinaryOutputFilePrimitive)(int_t argc, FOb
     FObject port = OpenBinaryOutputFile(argv[0]);
 
     if (BinaryPortP(port) == 0)
-        RaiseExceptionC(R.Assertion, "open-binary-output-file",
+        RaiseExceptionC(R.Assertion, "open-binary-output-file", R.FileErrorSymbol,
                 "unable to open file for output", List(argv[0]));
 
     return(port);
@@ -3442,6 +3442,7 @@ void SetupIO()
     R.QuasiquoteSymbol = StringCToSymbol("quasiquote");
     R.UnquoteSymbol = StringCToSymbol("unquote");
     R.UnquoteSplicingSymbol = StringCToSymbol("unquote-splicing");
+    R.FileErrorSymbol = StringCToSymbol("file-error");
 
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);

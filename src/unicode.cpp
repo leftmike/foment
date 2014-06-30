@@ -270,10 +270,10 @@ FObject ConvertUtf16ToString(FCh16 * b, uint_t bl)
     return(s);
 }
 
-FObject ConvertStringToUtf16(FCh * s, uint_t sl, int_t ztf)
+FObject ConvertStringToUtf16(FCh * s, uint_t sl, int_t ztf, uint_t el)
 {
     uint_t ul = Utf16LengthOfCh(s, sl);
-    FObject b = MakeBytevector((ul + (ztf ? 1 : 0)) * sizeof(FCh16));
+    FObject b = MakeBytevector((ul + (ztf ? 1 : 0) + el) * sizeof(FCh16));
     FCh16 * u = (FCh16 *) AsBytevector(b)->Vector;
     uint_t udx = 0;
 

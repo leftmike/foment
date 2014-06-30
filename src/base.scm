@@ -423,6 +423,7 @@
         unsyntax
         error-object-type
         error-object-who
+        error-object-kind
         full-error
         loaded-libraries
         library-path
@@ -475,8 +476,8 @@
         file-regular?
         file-directory?
         file-symbolic-link?
+        file-readable?
         file-writable?
-        file-stat-ctime
         file-stat-mtime
         file-stat-atime
         create-symbolic-link
@@ -489,7 +490,6 @@
     (cond-expand
         (unix
             (export
-                file-readable?
                 file-executable?))
         (windows
             (export
@@ -609,7 +609,7 @@
                                 list
                                 (member (cdr list)))))
                     (if (not (list? list))
-                        (full-error 'assertion-violation 'member "member: expected a list"))
+                        (full-error 'assertion-violation 'member #f "member: expected a list"))
                     (member list))))
 
         (define assoc
@@ -623,20 +623,20 @@
                                 (car list)
                                 (assoc (cdr list)))))
                     (if (not (list? list))
-                        (full-error 'assertion-violation 'assoc "assoc: expected a list"))
+                        (full-error 'assertion-violation 'assoc #f "assoc: expected a list"))
                     (assoc list))))
 
         (define (substring string start end) (string-copy string start end))
 
         (define (scheme-report-environment version)
             (if (not (eq? version 5))
-                (full-error 'assertion-violation 'scheme-report-environment
+                (full-error 'assertion-violation 'scheme-report-environment #f
                         "scheme-report-environment: expected a version of 5" version))
             (environment '(scheme r5rs)))
 
         (define (null-environment version)
             (if (not (eq? version 5))
-                (full-error 'assertion-violation 'null-environment
+                (full-error 'assertion-violation 'null-environment #f
                         "null-environment expected a version of 5" version))
             (environment '(scheme null)))
 
@@ -683,7 +683,7 @@
                         '()
                         (cons (apply proc cars) (map proc cdrs)))))
             (if (null? lists)
-                (full-error 'assertion-violation 'map "map: expected at least one argument")
+                (full-error 'assertion-violation 'map #f "map: expected at least one argument")
                 (map proc lists)))
 
         (define (string-map proc . strings)
@@ -693,7 +693,7 @@
                         '()
                         (cons (apply proc args) (map proc (+ idx 1) strings)))))
             (if (null? strings)
-                (full-error 'assertion-violation 'string-map
+                (full-error 'assertion-violation 'string-map #f
                         "string-map: expected at least one argument")
                 (list->string (map proc 0 strings))))
 
@@ -704,7 +704,7 @@
                         '()
                         (cons (apply proc args) (map proc (+ idx 1) vectors)))))
             (if (null? vectors)
-                (full-error 'assertion-violation 'vector-map
+                (full-error 'assertion-violation 'vector-map #f
                         "vector-map: expected at least one argument")
                 (list->vector (map proc 0 vectors))))
 
@@ -716,7 +716,7 @@
                         (no-value)
                         (begin (apply proc cars) (for-each proc cdrs)))))
             (if (null? lists)
-                (full-error 'assertion-violation 'for-each
+                (full-error 'assertion-violation 'for-each #f
                         "for-each: expected at least one argument")
                 (for-each proc lists)))
 
@@ -727,7 +727,7 @@
                         (no-value)
                         (begin (apply proc args) (for-each proc (+ idx 1) strings)))))
             (if (null? strings)
-                (full-error 'assertion-violation 'string-for-each
+                (full-error 'assertion-violation 'string-for-each #f
                         "string-for-each: expected at least one argument")
                 (for-each proc 0 strings)))
 
@@ -738,7 +738,7 @@
                         (no-value)
                         (begin (apply proc args) (for-each proc (+ idx 1) vectors)))))
             (if (null? vectors)
-                (full-error 'assertion-violation 'vector-for-each
+                (full-error 'assertion-violation 'vector-for-each #f
                         "vector-for-each: expected at least one argument")
                 (for-each proc 0 vectors)))
 
@@ -746,10 +746,7 @@
             (and (error-object? obj) (eq? (error-object-who obj) 'read)))
 
         (define (file-error? obj)
-            (and (error-object? obj)
-                (let ((who (error-object-who obj)))
-                    (or (eq? who 'open-binary-input-file) (eq? who 'open-binary-output-file)
-                            (eq? who 'delete-file)))))
+            (and (error-object? obj) (eq? (error-object-kind obj) 'file-error)))
 
         (define-record-type promise
             (%make-promise state)
@@ -814,7 +811,7 @@
                         (lambda (val) val)
                         (if (null? (cdr converter))
                             (car converter)
-                            (full-error 'assertion-violation 'make-parameter
+                            (full-error 'assertion-violation 'make-parameter #f
                                     "make-parameter: expected one or two arguments"))))
                     (init (converter init)))
                 (letrec
@@ -838,9 +835,9 @@
                                     (eq-hashtable-set! (%parameters) parameter
                                             (cons (converter val)
                                             (eq-hashtable-ref (%parameters) parameter '())))
-                                    (full-error 'assertion-violation '<parameter>
+                                    (full-error 'assertion-violation '<parameter> #f
                                             "<parameter>: expected zero or one arguments")))
-                            (val (full-error 'assertion-violation '<parameter>
+                            (val (full-error 'assertion-violation '<parameter> #f
                                     "<parameter>: expected zero or one arguments")))))
                     (%procedure->parameter parameter)
                     parameter)))
@@ -858,9 +855,9 @@
                             (if (eq? key push-parameter)
                                 (%index-parameter index (cons (converter val)
                                         (%index-parameter index)))
-                                (full-error 'assertion-violation '<parameter>
+                                (full-error 'assertion-violation '<parameter> #f
                                         "<parameter>: expected zero or one arguments")))
-                        (val (full-error 'assertion-violation '<parameter>
+                        (val (full-error 'assertion-violation '<parameter> #f
                                 "<parameter>: expected zero or one arguments")))))
                 (%index-parameter index (list (converter init)))
                 (%procedure->parameter parameter)
@@ -878,7 +875,7 @@
             (if (not (null? params))
                 (let ((p (car params)))
                     (if (not (%parameter? p))
-                        (full-error 'assertion-violation 'parameterize
+                        (full-error 'assertion-violation 'parameterize #f
                                 "parameterize: expected a parameter" p))
                     (p (car vals) push-parameter)
                     (before-parameterize (cdr params) (cdr vals)))))
@@ -913,7 +910,7 @@
 
         (define (call-with-continuation-prompt proc tag handler . args)
             (if (and (eq? tag (default-prompt-tag)) (not (eq? handler default-prompt-handler)))
-                (full-error 'assertion-violation 'call-with-continuation-prompt
+                (full-error 'assertion-violation 'call-with-continuation-prompt #f
                         "call-with-continuation-prompt: use of default-prompt-tag requires use of default-prompt-handler"))
             (%mark-continuation 'prompt tag handler (lambda () (apply proc args))))
 
@@ -951,7 +948,7 @@
                         (unwind to))))
             (let-values (((dyn handler) (find-mark (%dynamic-stack) tag)))
                 (if (not dyn)
-                    (full-error 'assertion-violation 'abort-current-continuation
+                    (full-error 'assertion-violation 'abort-current-continuation #f
                             "abort-current-continuation: expected a prompt tag" tag))
                 (unwind dyn)
                 (%abort-dynamic dyn (lambda () (apply handler vals)))))
@@ -1001,7 +998,7 @@
 
         (define (with-exception-handler handler thunk)
             (if (not (procedure? handler))
-                (full-error 'assertion-violation 'with-exception-handler
+                (full-error 'assertion-violation 'with-exception-handler #f
                             "with-exception-handler: expected a procedure" handler))
             (%mark-continuation 'mark 'exception-handler
                     (cons handler (%find-mark 'exception-handler '())) thunk))
@@ -1021,7 +1018,7 @@
 
         (define (with-notify-handler handler thunk)
             (if (not (procedure? handler))
-                (full-error 'assertion-violation 'with-notify-handler
+                (full-error 'assertion-violation 'with-notify-handler #f
                             "with-notify-handler: expected a procedure" handler))
             (%mark-continuation 'mark 'notify-handler
                     (cons handler (%find-mark 'notify-handler '())) thunk))
@@ -1108,7 +1105,7 @@
             (make-index-parameter 0 %standard-input
                 (lambda (obj)
                     (if (not (and (input-port? obj) (input-port-open? obj)))
-                        (full-error 'assertion-violation 'current-input-port
+                        (full-error 'assertion-violation 'current-input-port #f
                                 "current-input-port: expected an open input port" obj))
                     obj)))
 
@@ -1116,7 +1113,7 @@
             (make-index-parameter 1 %standard-output
                 (lambda (obj)
                     (if (not (and (output-port? obj) (output-port-open? obj)))
-                        (full-error 'assertion-violation 'current-output-port
+                        (full-error 'assertion-violation 'current-output-port #f
                                 "current-output-port: expected an open output port" obj))
                     obj)))
 
@@ -1124,7 +1121,7 @@
             (make-index-parameter 2 %standard-error
                 (lambda (obj)
                     (if (not (and (output-port? obj) (output-port-open? obj)))
-                        (full-error 'assertion-violation 'current-error-port
+                        (full-error 'assertion-violation 'current-error-port #f
                                 "current-error-port: expected an open output port" obj))
                     obj)))
 
@@ -1188,7 +1185,7 @@
         (define (alist-lookup obj alist who msg)
             (cond
                 ((assq obj alist) => cdr)
-                (else (full-error 'syntax-error who msg obj))))
+                (else (full-error 'syntax-error who #f msg obj))))
 
         (define address-info-alist
             (list

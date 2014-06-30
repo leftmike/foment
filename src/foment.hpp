@@ -800,6 +800,7 @@ typedef struct
     FObject QuasiquoteSymbol;
     FObject UnquoteSymbol;
     FObject UnquoteSplicingSymbol;
+    FObject FileErrorSymbol;
 
     FObject SyntaxRulesRecordType;
     FObject PatternVariableRecordType;
@@ -1057,6 +1058,7 @@ typedef struct
     FObject Type; // error, assertion-violation, implementation-restriction, lexical-violation,
                   // syntax-violation, undefined-violation
     FObject Who;
+    FObject Kind; // file-error or read-error
     FObject Message; // should be a string
     FObject Irritants; // a list of zero or more irritants
 } FException;
@@ -1064,10 +1066,21 @@ typedef struct
 #define AsException(obj) ((FException *) (obj))
 #define ExceptionP(obj) RecordP(obj, R.ExceptionRecordType)
 
-FObject MakeException(FObject typ, FObject who, FObject msg, FObject lst);
-void RaiseException(FObject typ, FObject who, FObject msg, FObject lst);
-void RaiseExceptionC(FObject typ, const char * who, const char * msg, FObject lst);
+FObject MakeException(FObject typ, FObject who, FObject knd, FObject msg, FObject lst);
+
 void Raise(FObject obj);
+
+void RaiseException(FObject typ, FObject who, FObject knd, FObject msg, FObject lst);
+inline void RaiseException(FObject typ, FObject who, FObject msg, FObject lst)
+{
+    RaiseException(typ, who, NoValueObject, msg, lst);
+}
+
+void RaiseExceptionC(FObject typ, const char * who, FObject knd, const char * msg, FObject lst);
+inline void RaiseExceptionC(FObject typ, const char * who, const char * msg, FObject lst)
+{
+    RaiseExceptionC(typ, who, NoValueObject, msg, lst);
+}
 
 // ---- Thread State ----
 
@@ -1184,6 +1197,12 @@ inline void AtLeastThreeArgsCheck(const char * who, int_t argc)
 {
     if (argc < 3)
         RaiseExceptionC(R.Assertion, who, "expected at least three arguments", EmptyListObject);
+}
+
+inline void AtLeastFourArgsCheck(const char * who, int_t argc)
+{
+    if (argc < 4)
+        RaiseExceptionC(R.Assertion, who, "expected at least four arguments", EmptyListObject);
 }
 
 inline void ZeroOrOneArgsCheck(const char * who, int_t argc)
