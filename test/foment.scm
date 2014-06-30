@@ -567,7 +567,8 @@
 ;; file system api
 ;;
 
-(check-equal 127 (file-size "lib-a-b-c.sld"))
+(check-equal #t (= (cond-expand (windows 127) (else 122))
+    (file-size "lib-a-b-c.sld")))
 (check-error (assertion-violation file-size) (file-size))
 (check-error (assertion-violation file-size) (file-size 'not-actually-a-filename))
 (check-error (assertion-violation file-size) (file-size "not actually a filename"))
