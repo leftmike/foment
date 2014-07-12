@@ -3285,7 +3285,7 @@ Define("arithmetic-shift", ArithmeticShiftPrimitive)(int_t argc, FObject argv[])
     if (FixnumP(argv[0]))
     {
         if (cnt < 0)
-            return(MakeFixnum(AsFixnum(argv[0]) >> -cnt));
+            return(MakeFixnum((int64_t) AsFixnum(argv[0]) >> -cnt));
 
         int64_t n = AsFixnum(argv[0]) << cnt;
         if ((n >> cnt) == AsFixnum(argv[0]) && n >= MINIMUM_FIXNUM && n <= MAXIMUM_FIXNUM)
