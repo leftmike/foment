@@ -662,16 +662,33 @@ static void FileDescWriteBytes(FObject port, void * b, uint_t bl)
     write((int_t) AsGenericPort(port)->Context, b, bl);
 }
 
+static int64_t FileDescGetPosition(FObject port)
+{
+    FAssert(BinaryPortP(port) && PortOpenP(port) && PositioningPortP(port));
+
+    return(lseek((int_t) AsGenericPort(port)->Context, 0, SEEK_CUR));
+}
+
+static void FileDescSetPosition(FObject port, int64_t pos, FPositionFrom frm)
+{
+    FAssert(BinaryPortP(port) && PortOpenP(port) && PositioningPortP(port));
+    FAssert(frm == FromBegin || frm == FromCurrent || frm == FromEnd);
+
+    lseek((int_t) AsGenericPort(port)->Context, pos, 
+            frm == FromBegin ? SEEK_SET : (frm == FromCurrent ? SEEK_CUR : SEEK_END));
+}
+
 static FObject MakeFileDescInputPort(FObject nam, int_t fd)
 {
     return(MakeBinaryPort(nam, NoValueObject, (void *) fd, FileDescCloseInput, 0, 0,
-            FileDescReadBytes, FileDescByteReadyP, 0, 0, 0));
+            FileDescReadBytes, FileDescByteReadyP, 0, FileDescGetPosition, FileDescSetPosition));
 }
 
 static FObject MakeFileDescOutputPort(FObject nam, int_t fd)
 {
     return(MakeBinaryPort(nam, NoValueObject, (void *) fd, 0, FileDescCloseOutput,
-            FileDescFlushOutput, 0, 0, FileDescWriteBytes, 0, 0));
+            FileDescFlushOutput, 0, 0, FileDescWriteBytes, FileDescGetPosition,
+            FileDescSetPosition));
 }
 #endif // FOMENT_UNIX
 
