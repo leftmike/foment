@@ -27,7 +27,7 @@ typedef struct
 
 FObject MakeBinaryPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn,
     FCloseOutputFn cofn, FFlushOutputFn fofn, FReadBytesFn rbfn, FByteReadyPFn brpfn,
-    FWriteBytesFn wbfn);
+    FWriteBytesFn wbfn, FGetPositionFn gpfn, FSetPositionFn spfn);
 
 // ---- Textual Ports ----
 
@@ -50,7 +50,7 @@ typedef struct
 
 FObject MakeTextualPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn,
     FCloseOutputFn cofn, FFlushOutputFn fofn, FReadChFn rcfn, FCharReadyPFn crpfn,
-    FWriteStringFn wsfn);
+    FWriteStringFn wsfn, FGetPositionFn gpfn, FSetPositionFn spfn);
 
 inline FObject CurrentInputPort()
 {

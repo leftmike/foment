@@ -38,6 +38,10 @@ testsrfi: all
     cd ..\test
     ..\windows\debug\foment runtests.scm srfi.scm
 
+testfoment: all
+    cd ..\test
+    ..\windows\debug\foment runtests.scm foment.scm
+
 debug:
     -mkdir debug
 

@@ -649,3 +649,53 @@
 (check-error (assertion-violation current-directory) (current-directory 'not-a-filename))
 (check-error (assertion-violation current-directory) (current-directory "not-a-filename"))
 (check-error (assertion-violation current-directory) (current-directory ".." "not a filename"))
+
+;;
+;; port positioning
+;;
+
+(define obp (open-binary-output-file "output4.txt"))
+(define ibp (open-binary-input-file "input.txt"))
+
+(check-equal #t (port-has-port-position? ibp))
+(check-equal #f (port-has-port-position? (current-output-port)))
+(check-equal #t (port-has-port-position? obp))
+(check-equal #f (port-has-port-position? (current-input-port)))
+(check-equal #t (eq? port-has-port-position? port-has-set-port-position!?))
+
+(check-error (assertion-violation positioning-port?) (port-has-port-position?))
+(check-error (assertion-violation positioning-port?) (port-has-port-position? ibp obp))
+(check-error (assertion-violation positioning-port?) (port-has-port-position? 'port))
+
+(check-equal 0 (port-position ibp))
+(check-equal 97 (read-u8 ibp)) ;; #\a
+(check-equal 1 (port-position ibp))
+(set-port-position! ibp 25 'current)
+(check-equal 26 (port-position ibp))
+(set-port-position! ibp 0 'end)
+(check-equal 52 (port-position ibp))
+
+(set-port-position! ibp 22 'begin)
+(check-equal 22 (port-position ibp))
+(set-port-position! ibp -10 'current)
+(check-equal 12 (port-position ibp))
+(check-equal 109 (read-u8 ibp)) ;; #\m
+(check-equal 13 (port-position ibp))
+
+(set-port-position! ibp -1 'end)
+(check-equal 90 (read-u8 ibp)) ;; #\Z
+(check-equal 52 (port-position ibp))
+
+(check-equal 0 (port-position obp))
+(write-bytevector #u8(0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0) obp)
+(set-port-position! obp -1 'end)
+(write-u8 123 obp)
+(set-port-position! obp 10 'begin)
+(write-u8 34 obp)
+(set-port-position! obp 1 'current)
+(write-u8 56 obp)
+(close-port obp)
+
+(define obp (open-binary-input-file "output4.txt"))
+(check-equal #u8(0 1 2 3 4 5 6 7 8 9 34 1 56 3 4 5 6 7 8 9 123) (read-bytevector 1024 obp))
+

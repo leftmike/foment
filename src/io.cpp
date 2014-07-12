@@ -58,22 +58,26 @@ typedef int_t SOCKET;
 
 FObject MakeBinaryPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn,
     FCloseOutputFn cofn, FFlushOutputFn fofn, FReadBytesFn rbfn, FByteReadyPFn brpfn,
-    FWriteBytesFn wbfn)
+    FWriteBytesFn wbfn, FGetPositionFn gpfn, FSetPositionFn spfn)
 {
     FAssert((cifn == 0 && rbfn == 0 && brpfn == 0) || (cifn != 0 && rbfn != 0 && brpfn != 0));
     FAssert((cofn == 0 && wbfn == 0 && fofn == 0) || (cofn != 0 && wbfn != 0 && fofn != 0));
     FAssert(cifn != 0 || cofn != 0);
+    FAssert((gpfn == 0 && spfn == 0) || (gpfn != 0 && spfn != 0));
 
     FBinaryPort * port = (FBinaryPort *) MakeObject(sizeof(FBinaryPort), BinaryPortTag);
     port->Generic.Flags = BinaryPortTag
             | (cifn != 0 ? (PORT_FLAG_INPUT | PORT_FLAG_INPUT_OPEN) : 0)
-            | (cofn != 0 ? (PORT_FLAG_OUTPUT | PORT_FLAG_OUTPUT_OPEN) : 0);
+            | (cofn != 0 ? (PORT_FLAG_OUTPUT | PORT_FLAG_OUTPUT_OPEN) : 0)
+            | (gpfn != 0 ? PORT_FLAG_POSITIONING : 0);
     port->Generic.Name = nam;
     port->Generic.Object = obj;
     port->Generic.Context = ctx;
     port->Generic.CloseInputFn = cifn;
     port->Generic.CloseOutputFn = cofn;
     port->Generic.FlushOutputFn = fofn;
+    port->Generic.GetPositionFn = gpfn;
+    port->Generic.SetPositionFn = spfn;
     port->ReadBytesFn = rbfn;
     port->ByteReadyPFn = brpfn;
     port->WriteBytesFn = wbfn;
@@ -154,14 +158,10 @@ void WriteBytes(FObject port, void * b, uint_t bl)
 
 typedef struct
 {
-    unsigned char * InputBuffer;
-    uint_t InputAvailable;
-    uint_t InputUsed;
-    uint_t InputMaximum;
-
-    unsigned char * OutputBuffer;
-    uint_t OutputUsed;
-    uint_t OutputMaximum;
+    unsigned char * Buffer;
+    uint_t Available;
+    uint_t Used;
+    uint_t Maximum;
 } FBufferedContext;
 
 #define AsBufferedContext(port) ((FBufferedContext *) AsGenericPort(port)->Context)
@@ -170,10 +170,8 @@ static void FreeBufferedContext(FObject port)
 {
     FBufferedContext * bc = AsBufferedContext(port);
 
-    if (bc->InputBuffer != 0)
-        free(bc->InputBuffer);
-    if (bc->OutputBuffer != 0)
-        free(bc->OutputBuffer);
+    if (bc->Buffer != 0)
+        free(bc->Buffer);
     free(bc);
 }
 
@@ -193,10 +191,10 @@ static void BufferedFlushOutput(FObject port)
 
     FBufferedContext * bc = AsBufferedContext(port);
 
-    if (bc->OutputUsed > 0)
+    if (bc->Used > 0)
     {
-        WriteBytes(AsGenericPort(port)->Object, bc->OutputBuffer, bc->OutputUsed);
-        bc->OutputUsed = 0;
+        WriteBytes(AsGenericPort(port)->Object, bc->Buffer, bc->Used);
+        bc->Used = 0;
 
         FlushOutput(AsGenericPort(port)->Object);
     }
@@ -226,36 +224,35 @@ static uint_t BufferedReadBytes(FObject port, void * b, uint_t bl)
 
     while (br < bl)
     {
-        if (bc->InputUsed == bc->InputAvailable)
+        if (bc->Used == bc->Available)
         {
-            if (bl - br >= bc->InputMaximum)
+            if (bl - br >= bc->Maximum)
             {
                 br += ReadBytes(AsGenericPort(port)->Object, ptr + br, bl - br);
                 return(br);
             }
 
-            FAssert(bc->InputBuffer != 0);
+            FAssert(bc->Buffer != 0);
 
-            bc->InputUsed = 0;
-            bc->InputAvailable = ReadBytes(AsGenericPort(port)->Object, bc->InputBuffer,
-                    bc->InputMaximum);
-            if (bc->InputAvailable == 0)
+            bc->Used = 0;
+            bc->Available = ReadBytes(AsGenericPort(port)->Object, bc->Buffer, bc->Maximum);
+            if (bc->Available == 0)
                 return(0);
         }
 
-        FAssert(bc->InputUsed < bc->InputAvailable);
+        FAssert(bc->Used < bc->Available);
 
-        uint_t sz = bc->InputAvailable - bc->InputUsed;
+        uint_t sz = bc->Available - bc->Used;
         if (sz <= (bl - br))
         {
-            memcpy(ptr + br, bc->InputBuffer + bc->InputUsed, sz);
-            bc->InputUsed += sz;
+            memcpy(ptr + br, bc->Buffer + bc->Used, sz);
+            bc->Used += sz;
             br += sz;
         }
         else
         {
-            memcpy(ptr + br, bc->InputBuffer + bc->InputUsed, bl - br);
-            bc->InputUsed += (bl - br);
+            memcpy(ptr + br, bc->Buffer + bc->Used, bl - br);
+            bc->Used += (bl - br);
             br = bl;
         }
     }
@@ -273,17 +270,16 @@ static void * LookaheadBytes(FObject port, uint_t * bl)
 
         FBufferedContext * bc = AsBufferedContext(port);
 
-        FAssert(bc->InputUsed == bc->InputAvailable);
-        FAssert(bc->InputBuffer != 0);
+        FAssert(bc->Used == bc->Available);
+        FAssert(bc->Buffer != 0);
 
-        bc->InputUsed = 0;
-        bc->InputAvailable = ReadBytes(AsGenericPort(port)->Object, bc->InputBuffer,
-                bc->InputMaximum);
-        if (bc->InputAvailable == 0)
+        bc->Used = 0;
+        bc->Available = ReadBytes(AsGenericPort(port)->Object, bc->Buffer, bc->Maximum);
+        if (bc->Available == 0)
             return(0);
 
-        *bl = bc->InputAvailable;
-        return(bc->InputBuffer);
+        *bl = bc->Available;
+        return(bc->Buffer);
     }
 
     return(0);
@@ -295,7 +291,7 @@ static int_t BufferedByteReadyP(FObject port)
 
     FBufferedContext * bc = AsBufferedContext(port);
 
-    return(bc->InputUsed < bc->InputAvailable || ByteReadyP(AsGenericPort(port)->Object));
+    return(bc->Used < bc->Available || ByteReadyP(AsGenericPort(port)->Object));
 }
 
 static void BufferedWriteBytes(FObject port, void * b, uint_t bl)
@@ -305,30 +301,77 @@ static void BufferedWriteBytes(FObject port, void * b, uint_t bl)
 
     FBufferedContext * bc = AsBufferedContext(port);
 
-    FAssert(bc->OutputUsed < bc->OutputMaximum);
+    FAssert(bc->Used < bc->Maximum);
 
-    if (bc->OutputUsed + bl < bc->OutputMaximum)
+    if (bc->Used + bl < bc->Maximum)
     {
-        memcpy(bc->OutputBuffer + bc->OutputUsed, b, bl);
-        bc->OutputUsed += bl;
+        memcpy(bc->Buffer + bc->Used, b, bl);
+        bc->Used += bl;
     }
     else
     {
-        uint_t sz = bc->OutputMaximum - bc->OutputUsed;
+        uint_t sz = bc->Maximum - bc->Used;
 
-        memcpy(bc->OutputBuffer + bc->OutputUsed, b, sz);
-        WriteBytes(AsGenericPort(port)->Object, bc->OutputBuffer, bc->OutputMaximum);
-        bc->OutputUsed = 0;
+        memcpy(bc->Buffer + bc->Used, b, sz);
+        WriteBytes(AsGenericPort(port)->Object, bc->Buffer, bc->Maximum);
+        bc->Used = 0;
 
         if (sz < bl)
             WriteBytes(AsGenericPort(port)->Object, ((char *) b) + sz, bl - sz);
     }
 }
 
+static int64_t BufferedGetPosition(FObject port)
+{
+    FAssert(BinaryPortP(port) && PortOpenP(port) && PositioningPortP(port));
+    FAssert(AsGenericPort(port)->Context != 0);
+
+    FBufferedContext * bc = AsBufferedContext(port);
+
+    if (InputPortOpenP(port))
+    {
+        int64_t pos = GetPosition(AsGenericPort(port)->Object);
+
+        FAssert(pos - bc->Available + bc->Used >= 0);
+
+        return(pos - bc->Available + bc->Used);
+    }
+    else if (OutputPortOpenP(port))
+        return(GetPosition(AsGenericPort(port)->Object) + bc->Used);
+
+    return(0);
+}
+
+static void BufferedSetPosition(FObject port, int64_t pos, FPositionFrom frm)
+{
+    FAssert(BinaryPortP(port) && PortOpenP(port) && PositioningPortP(port));
+    FAssert(AsGenericPort(port)->Context != 0);
+
+    if (InputPortOpenP(port))
+    {
+        FBufferedContext * bc = AsBufferedContext(port);
+
+        if (frm == FromCurrent)
+            pos = pos - bc->Available + bc->Used;
+
+        bc->Available = 0;
+        bc->Used = 0;
+
+        SetPosition(AsGenericPort(port)->Object, pos, frm);
+    }
+    else if (OutputPortOpenP(port))
+    {
+        BufferedFlushOutput(port);
+
+        SetPosition(AsGenericPort(port)->Object, pos, frm);
+    }
+}
+
 static FObject MakeBufferedPort(FObject port)
 {
     FAssert(BinaryPortP(port));
-    FAssert(InputPortOpenP(port) || OutputPortOpenP(port));
+    FAssert((InputPortOpenP(port) && OutputPortOpenP(port) == 0) ||
+            (InputPortOpenP(port) == 0 && OutputPortOpenP(port)));
 
     if (AsGenericPort(port)->Flags & PORT_FLAG_BUFFERED)
         return(port);
@@ -337,36 +380,16 @@ static FObject MakeBufferedPort(FObject port)
     if (bc == 0)
         return(NoValueObject);
 
-    bc->InputBuffer = 0;
-    bc->InputAvailable = 0;
-    bc->InputUsed = 0;
-    bc->InputMaximum = 1024;
+    bc->Buffer = 0;
+    bc->Available = 0;
+    bc->Used = 0;
+    bc->Maximum = 1024;
 
-    bc->OutputBuffer = 0;
-    bc->OutputUsed = 0;
-    bc->OutputMaximum = 1024;
-
-    if (InputPortOpenP(port))
+    bc->Buffer = (unsigned char *) malloc(bc->Maximum);
+    if (bc->Buffer == 0)
     {
-        bc->InputBuffer = (unsigned char *) malloc(bc->InputMaximum);
-        if (bc->InputBuffer == 0)
-        {
-            free(bc);
-            return(NoValueObject);
-        }
-    }
-
-    if (OutputPortOpenP(port))
-    {
-        bc->OutputBuffer = (unsigned char *) malloc(bc->OutputMaximum);
-        if (bc->OutputBuffer == 0)
-        {
-            if (bc->InputBuffer != 0)
-                free(bc->InputBuffer);
-
-            free(bc);
-            return(NoValueObject);
-        }
+        free(bc);
+        return(NoValueObject);
     }
 
     FObject nport = MakeBinaryPort(AsGenericPort(port)->Name, port, bc,
@@ -375,7 +398,9 @@ static FObject MakeBufferedPort(FObject port)
             OutputPortOpenP(port) ? BufferedFlushOutput : 0,
             InputPortOpenP(port) ? BufferedReadBytes : 0,
             InputPortOpenP(port) ? BufferedByteReadyP : 0,
-            OutputPortOpenP(port)? BufferedWriteBytes: 0);
+            OutputPortOpenP(port) ? BufferedWriteBytes : 0,
+            PositioningPortP(port) ? BufferedGetPosition : 0,
+            PositioningPortP(port) ? BufferedSetPosition : 0);
     AsGenericPort(nport)->Flags |= PORT_FLAG_BUFFERED;
 
     return(nport);
@@ -460,7 +485,7 @@ static FObject MakeSocketPort(SOCKET s)
 {
     FObject port = MakeBinaryPort(NoValueObject, NoValueObject, (void *) s, SocketCloseInput,
             SocketCloseOutput, SocketFlushOutput, SocketReadBytes, SocketByteReadyP,
-            SocketWriteBytes);
+            SocketWriteBytes, 0, 0);
     AsGenericPort(port)->Flags |= PORT_FLAG_SOCKET;
 
     return(port);
@@ -530,16 +555,50 @@ static void HandleWriteBytes(FObject port, void * b, uint_t bl)
     WriteFile((HANDLE) AsGenericPort(port)->Context, b, (DWORD) bl, &nw, 0);
 }
 
+static int64_t HandleGetPosition(FObject port)
+{
+    FAssert(BinaryPortP(port) && PortOpenP(port) && PositioningPortP(port));
+
+    LARGE_INTEGER off;
+    LARGE_INTEGER pos;
+
+    off.QuadPart = 0;
+    if (SetFilePointerEx((HANDLE) AsGenericPort(port)->Context, off, &pos, FILE_CURRENT) == 0)
+        return(0);
+
+    return(pos.QuadPart);
+}
+
+static void HandleSetPosition(FObject port, int64_t pos, FPositionFrom frm)
+{
+    FAssert(BinaryPortP(port) && PortOpenP(port) && PositioningPortP(port));
+    FAssert(frm == FromBegin || frm == FromCurrent || frm == FromEnd);
+
+    LARGE_INTEGER off;
+
+    off.QuadPart = pos;
+    SetFilePointerEx((HANDLE) AsGenericPort(port)->Context, off, 0,
+            frm == FromBegin ? FILE_BEGIN : (frm == FromCurrent ? FILE_CURRENT : FILE_END));
+}
+
 static FObject MakeHandleInputPort(FObject nam, HANDLE h)
 {
+    if (GetFileType(h) == FILE_TYPE_PIPE)
+        return(MakeBinaryPort(nam, NoValueObject, h, HandleCloseInput, 0, 0, HandleReadBytes,
+            PipeByteReadyP, 0, 0, 0));
+
     return(MakeBinaryPort(nam, NoValueObject, h, HandleCloseInput, 0, 0, HandleReadBytes,
-            GetFileType(h) == FILE_TYPE_PIPE ? PipeByteReadyP : FileByteReadyP, 0));
+            FileByteReadyP, 0, HandleGetPosition, HandleSetPosition));
 }
 
 static FObject MakeHandleOutputPort(FObject nam, HANDLE h)
 {
+    if (GetFileType(h) == FILE_TYPE_PIPE)
+        return(MakeBinaryPort(nam, NoValueObject, h, 0, HandleCloseOutput, HandleFlushOutput, 0, 0,
+                HandleWriteBytes, 0, 0));
+
     return(MakeBinaryPort(nam, NoValueObject, h, 0, HandleCloseOutput, HandleFlushOutput, 0, 0,
-            HandleWriteBytes));
+            HandleWriteBytes, HandleGetPosition, HandleSetPosition));
 }
 #endif // FOMENT_WINDOWS
 
@@ -606,13 +665,13 @@ static void FileDescWriteBytes(FObject port, void * b, uint_t bl)
 static FObject MakeFileDescInputPort(FObject nam, int_t fd)
 {
     return(MakeBinaryPort(nam, NoValueObject, (void *) fd, FileDescCloseInput, 0, 0,
-            FileDescReadBytes, FileDescByteReadyP, 0));
+            FileDescReadBytes, FileDescByteReadyP, 0, 0, 0));
 }
 
 static FObject MakeFileDescOutputPort(FObject nam, int_t fd)
 {
     return(MakeBinaryPort(nam, NoValueObject, (void *) fd, 0, FileDescCloseOutput,
-            FileDescFlushOutput, 0, 0, FileDescWriteBytes));
+            FileDescFlushOutput, 0, 0, FileDescWriteBytes, 0, 0));
 }
 #endif // FOMENT_UNIX
 
@@ -657,7 +716,7 @@ static FObject MakeBytevectorInputPort(FObject bv)
     FAssert(BytevectorP(bv));
 
     return(MakeBinaryPort(NoValueObject, bv, 0, BvinCloseInput, 0, 0, BvinReadBytes,
-            BvinByteReadyP, 0));
+            BvinByteReadyP, 0, 0, 0));
 }
 
 static void BvoutCloseOutput(FObject port)
@@ -713,7 +772,7 @@ static FObject GetOutputBytevector(FObject port)
 static FObject MakeBytevectorOutputPort()
 {
     FObject port = MakeBinaryPort(NoValueObject, EmptyListObject, 0, 0, BvoutCloseOutput,
-            BvoutFlushOutput, 0, 0, BvoutWriteBytes);
+            BvoutFlushOutput, 0, 0, BvoutWriteBytes, 0, 0);
     AsGenericPort(port)->Flags |= PORT_FLAG_BYTEVECTOR_OUTPUT;
     return(port);
 }
@@ -722,22 +781,26 @@ static FObject MakeBytevectorOutputPort()
 
 FObject MakeTextualPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn,
     FCloseOutputFn cofn, FFlushOutputFn fofn, FReadChFn rcfn, FCharReadyPFn crpfn,
-    FWriteStringFn wsfn)
+    FWriteStringFn wsfn, FGetPositionFn gpfn, FSetPositionFn spfn)
 {
     FAssert((cifn == 0 && rcfn == 0 && crpfn == 0) || (cifn != 0 && rcfn != 0 && crpfn != 0));
     FAssert((cofn == 0 && wsfn == 0 && fofn == 0) || (cofn != 0 && wsfn != 0 && fofn != 0));
     FAssert(cifn != 0 || cofn != 0);
+    FAssert((gpfn == 0 && spfn == 0) || (gpfn != 0 && spfn != 0));
 
     FTextualPort * port = (FTextualPort *) MakeObject(sizeof(FTextualPort), TextualPortTag);
     port->Generic.Flags = TextualPortTag
             | (cifn != 0 ? (PORT_FLAG_INPUT | PORT_FLAG_INPUT_OPEN) : 0)
-            | (cofn != 0 ? (PORT_FLAG_OUTPUT | PORT_FLAG_OUTPUT_OPEN) : 0);
+            | (cofn != 0 ? (PORT_FLAG_OUTPUT | PORT_FLAG_OUTPUT_OPEN) : 0)
+            | (gpfn != 0 ? PORT_FLAG_POSITIONING : 0);
     port->Generic.Name = nam;
     port->Generic.Object = obj;
     port->Generic.Context = ctx;
     port->Generic.CloseInputFn = cifn;
     port->Generic.CloseOutputFn = cofn;
     port->Generic.FlushOutputFn = fofn;
+    port->Generic.GetPositionFn = gpfn;
+    port->Generic.SetPositionFn = spfn;
     port->ReadChFn = rcfn;
     port->CharReadyPFn = crpfn;
     port->WriteStringFn = wsfn;
@@ -965,6 +1028,20 @@ void FlushOutput(FObject port)
     AsGenericPort(port)->FlushOutputFn(port);
 }
 
+int64_t GetPosition(FObject port)
+{
+    FAssert(PositioningPortP(port));
+
+    return(AsGenericPort(port)->GetPositionFn(port));
+}
+
+void SetPosition(FObject port, int64_t pos, FPositionFrom frm)
+{
+    FAssert(PositioningPortP(port));
+
+    AsGenericPort(port)->SetPositionFn(port, pos, frm);
+}
+
 static void TranslatorCloseInput(FObject port)
 {
     FAssert(BinaryPortP(AsGenericPort(port)->Object));
@@ -997,7 +1074,7 @@ static FObject MakeTranslatorPort(FObject port, FReadChFn rcfn, FCharReadyPFn cr
             OutputPortP(port) ? TranslatorFlushOutput : 0,
             InputPortP(port) ? rcfn : 0,
             InputPortP(port) ? crpfn : 0,
-            OutputPortP(port) ? wsfn : 0));
+            OutputPortP(port) ? wsfn : 0, 0, 0));
 }
 
 static uint_t AsciiReadCh(FObject port, FCh * ch)
@@ -1398,7 +1475,7 @@ FObject MakeStringInputPort(FObject s)
     FAssert(StringP(s));
 
     return(MakeTextualPort(NoValueObject, s, 0, SinCloseInput, 0, 0, SinReadCh, SinCharReadyP,
-            0));
+            0, 0, 0));
 }
 
 static void SoutCloseOutput(FObject port)
@@ -1454,7 +1531,7 @@ FObject GetOutputString(FObject port)
 FObject MakeStringOutputPort()
 {
     FObject port = MakeTextualPort(NoValueObject, EmptyListObject, 0, 0, SoutCloseOutput,
-            SoutFlushOutput, 0, 0, SoutWriteString);
+            SoutFlushOutput, 0, 0, SoutWriteString, 0, 0);
     AsGenericPort(port)->Flags |= PORT_FLAG_STRING_OUTPUT;
     return(port);
 }
@@ -1487,7 +1564,7 @@ static int_t CinCharReadyP(FObject port)
 FObject MakeStringCInputPort(const char * s)
 {
     return(MakeTextualPort(NoValueObject, NoValueObject, (void *) s, CinCloseInput, 0, 0,
-            CinReadCh, CinCharReadyP, 0));
+            CinReadCh, CinCharReadyP, 0, 0, 0));
 }
 
 // ---- Console Input and Output ----
@@ -2566,7 +2643,7 @@ static FObject MakeConsoleInputPort(FObject nam, HANDLE hin, HANDLE hout)
     ci->OutputHandle = hout;
 
     FObject port = MakeTextualPort(nam, NoValueObject, ci, ConCloseInput, 0, 0, ConReadCh,
-            ConCharReadyP, 0);
+            ConCharReadyP, 0, 0, 0);
     AsGenericPort(port)->Flags |= PORT_FLAG_CONSOLE;
     AsConsoleInput(port)->Mode = CONSOLE_INPUT_ECHO;
 
@@ -2602,7 +2679,7 @@ static void ConWriteString(FObject port, FCh * s, uint_t sl)
 static FObject MakeConsoleOutputPort(FObject nam, HANDLE h)
 {
     FObject port = MakeTextualPort(nam, NoValueObject, h, 0, ConCloseOutput, ConFlushOutput, 0,
-            0, ConWriteString);
+            0, ConWriteString, 0, 0);
     AsGenericPort(port)->Flags |= PORT_FLAG_CONSOLE;
 
     return(port);
@@ -2620,7 +2697,7 @@ static FObject MakeConsoleInputPort(FObject nam, int_t ifd, int_t ofd)
     ci->OutputFd = ofd;
 
     FObject port = MakeTextualPort(nam, NoValueObject, ci, ConCloseInput, 0, 0, ConReadCh,
-            ConCharReadyP, 0);
+            ConCharReadyP, 0, 0, 0);
     AsGenericPort(port)->Flags |= PORT_FLAG_CONSOLE;
     AsConsoleInput(port)->Mode = CONSOLE_INPUT_ECHO;
 
@@ -2654,7 +2731,7 @@ static void ConWriteString(FObject port, FCh * s, uint_t sl)
 static FObject MakeConsoleOutputPort(FObject nam, int_t ofd)
 {
     FObject port = MakeTextualPort(nam, NoValueObject, (void *) ofd, 0, ConCloseOutput,
-            ConFlushOutput, 0, 0, ConWriteString);
+            ConFlushOutput, 0, 0, ConWriteString, 0, 0);
     AsGenericPort(port)->Flags |= PORT_FLAG_CONSOLE;
 
     return(port);
@@ -2930,6 +3007,46 @@ Define("%load-history", LoadHistoryPrimitive)(int_t argc, FObject argv[])
     FMustBe(StringP(argv[1]));
 
     ConLoadHistory(AsConsoleInput(argv[0]), argv[1]);
+    return(NoValueObject);
+}
+
+Define("positioning-port?", PositioningPortPPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("positioning-port?", argc);
+    PortArgCheck("positioning-port?", argv[0]);
+
+    return(PositioningPortP(argv[0]) ? TrueObject : FalseObject);
+}
+
+Define("port-position", PortPositionPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("port-position", argc);
+    OpenPositioningPortArgCheck("port-position", argv[0]);
+
+    return(MakeInteger(GetPosition(argv[0])));
+}
+
+Define("set-port-position!", SetPortPositionPrimitive)(int_t argc, FObject argv[])
+{
+    TwoOrThreeArgsCheck("set-port-position!", argc);
+    OpenPositioningPortArgCheck("set-port-position!", argv[0]);
+    FixnumArgCheck("set-port-position!", argv[1]);
+
+    FPositionFrom frm = FromBegin;
+    if (argc == 3)
+    {
+        if (argv[2] == R.BeginSymbol)
+            frm = FromBegin;
+        else if (argv[2] == R.CurrentSymbol)
+            frm = FromCurrent;
+        else if (argv[2] == R.EndSymbol)
+            frm = FromEnd;
+        else
+            RaiseExceptionC(R.Assertion, "set-port-position!",
+                    "expected begin, current, or end", List(argv[2]));
+    }
+
+    SetPosition(argv[0], AsFixnum(argv[1]), frm);
     return(NoValueObject);
 }
 
@@ -3318,6 +3435,9 @@ static FPrimitive * Primitives[] =
     &SetConsoleInputEchoPrimitive,
     &SaveHistoryPrimitive,
     &LoadHistoryPrimitive,
+    &PositioningPortPPrimitive,
+    &PortPositionPrimitive,
+    &SetPortPositionPrimitive,
     &SocketMergeFlagsPrimitive,
     &SocketPurgeFlagsPrimitive,
     &SocketPPrimitive,
@@ -3443,6 +3563,8 @@ void SetupIO()
     R.UnquoteSymbol = StringCToSymbol("unquote");
     R.UnquoteSplicingSymbol = StringCToSymbol("unquote-splicing");
     R.FileErrorSymbol = StringCToSymbol("file-error");
+    R.CurrentSymbol = StringCToSymbol("current");
+    R.EndSymbol = StringCToSymbol("end");
 
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);

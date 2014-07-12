@@ -496,10 +496,20 @@ FObject U8ListToBytevector(FObject obj);
 #define PORT_FLAG_CONSOLE            0x00800000
 #define PORT_FLAG_SOCKET             0x00400000
 #define PORT_FLAG_BUFFERED           0x00200000
+#define PORT_FLAG_POSITIONING        0x00100000
+
+typedef enum
+{
+    FromBegin,
+    FromCurrent,
+    FromEnd
+} FPositionFrom;
 
 typedef void (*FCloseInputFn)(FObject port);
 typedef void (*FCloseOutputFn)(FObject port);
 typedef void (*FFlushOutputFn)(FObject port);
+typedef int64_t (*FGetPositionFn)(FObject port);
+typedef void (*FSetPositionFn)(FObject port, int64_t pos, FPositionFrom frm);
 
 typedef struct
 {
@@ -510,6 +520,8 @@ typedef struct
     FCloseInputFn CloseInputFn;
     FCloseOutputFn CloseOutputFn;
     FFlushOutputFn FlushOutputFn;
+    FGetPositionFn GetPositionFn;
+    FSetPositionFn SetPositionFn;
 } FGenericPort;
 
 #define AsGenericPort(obj) ((FGenericPort *) obj)
@@ -541,6 +553,14 @@ inline int_t OutputPortOpenP(FObject obj)
     FAssert(BinaryPortP(obj) || TextualPortP(obj));
 
     return(AsGenericPort(obj)->Flags & PORT_FLAG_OUTPUT_OPEN);
+}
+
+inline int_t PortOpenP(FObject obj)
+{
+    FAssert(BinaryPortP(obj) || TextualPortP(obj));
+
+    return((AsGenericPort(obj)->Flags & PORT_FLAG_INPUT_OPEN) ||
+            (AsGenericPort(obj)->Flags & PORT_FLAG_OUTPUT_OPEN));
 }
 
 inline int_t StringOutputPortP(FObject obj)
@@ -577,11 +597,20 @@ inline int_t SocketPortP(FObject port)
     return(BinaryPortP(port) && (AsGenericPort(port)->Flags & PORT_FLAG_SOCKET));
 }
 
+inline int_t PositioningPortP(FObject obj)
+{
+    FAssert(BinaryPortP(obj) || TextualPortP(obj));
+
+    return(AsGenericPort(obj)->Flags & PORT_FLAG_POSITIONING);
+}
+
 // Binary and textual ports
 
 void CloseInput(FObject port);
 void CloseOutput(FObject port);
 void FlushOutput(FObject port);
+int64_t GetPosition(FObject port);
+void SetPosition(FObject port, int64_t pos, FPositionFrom frm);
 
 // Binary ports
 
@@ -801,6 +830,8 @@ typedef struct
     FObject UnquoteSymbol;
     FObject UnquoteSplicingSymbol;
     FObject FileErrorSymbol;
+    FObject CurrentSymbol;
+    FObject EndSymbol;
 
     FObject SyntaxRulesRecordType;
     FObject PatternVariableRecordType;
@@ -1444,6 +1475,13 @@ inline void SocketPortArgCheck(const char * who, FObject obj)
 {
     if (SocketPortP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a socket port", List(obj));
+}
+
+inline void OpenPositioningPortArgCheck(const char * who, FObject obj)
+{
+    if (PortOpenP(obj) == 0 || PositioningPortP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected an open port which supports positioning",
+                List(obj));
 }
 
 inline void ProcedureArgCheck(const char * who, FObject obj)

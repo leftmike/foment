@@ -434,6 +434,10 @@
         random
         no-value
         set!-values
+        (rename positioning-port? port-has-port-position?)
+        (rename positioning-port? port-has-set-port-position!?)
+        port-position
+        set-port-position!
         get-ip-addresses
         socket?
         make-socket
