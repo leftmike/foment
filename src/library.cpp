@@ -777,8 +777,13 @@ static FObject CompileEvalExpr(FObject obj, FObject env, FObject body);
 static FObject CompileEvalBegin(FObject obj, FObject env, FObject body, FObject form, FObject ss)
 {
     if (PairP(obj) == 0)
+    {
+        if (ss == BeginSyntax)
+            return(body);
+
         RaiseException(R.Syntax, SpecialSyntaxToSymbol(ss),
                 SpecialSyntaxMsgC(ss, "expected at least one expression"), List(form, obj));
+    }
 
     while (PairP(obj))
     {
