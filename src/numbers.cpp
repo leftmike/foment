@@ -986,6 +986,9 @@ FObject StringToNumber(FCh * s, int_t sl, FFixnum rdx)
 {
     FAssert(rdx == 2 || rdx == 8 || rdx == 10 || rdx == 16);
 
+    if (sl == 0)
+        return(FalseObject);
+
     int_t epf = EXACTNESS_NONE;
     int_t rpf = 0;
     int_t sdx = 0;
