@@ -1948,16 +1948,17 @@ void SetupFoment(FThreadState * ts, int argc, FChS * argv[])
     if (argc > 0)
     {
         FChS * s = argv[0];
+        FChS * pth = 0;
         while (*s)
         {
             if (PathChP(*s))
-                break;
+                pth = s;
 
             s += 1;
         }
 
-        if (PathChP(*s))
-            R.LibraryPath = MakePair(MakeStringS(argv[0], s - argv[0]), R.LibraryPath);
+        if (pth != 0)
+            R.LibraryPath = MakePair(MakeStringS(argv[0], pth - argv[0]), R.LibraryPath);
     }
 
     R.LibraryPath = ReverseListModify(MakePair(MakeStringC("."), R.LibraryPath));
