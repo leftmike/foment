@@ -3121,7 +3121,7 @@ Define("bitwise-and", BitwiseAndPrimitive)(int_t argc, FObject argv[])
         return(MakeFixnum(-1));
 
     IntegerArgCheck("bitwise-and", argv[0]);
-    FObject ret = argv[0];
+    FObject ret = BignumP(argv[0]) ? MakeBignum(argv[0]) : argv[0];
 
     for (int_t adx = 1; adx < argc; adx++)
     {
@@ -3150,7 +3150,7 @@ Define("bitwise-ior", BitwiseIOrPrimitive)(int_t argc, FObject argv[])
         return(MakeFixnum(0));
 
     IntegerArgCheck("bitwise-ior", argv[0]);
-    FObject ret = argv[0];
+    FObject ret = BignumP(argv[0]) ? MakeBignum(argv[0]) : argv[0];
 
     for (int_t adx = 1; adx < argc; adx++)
     {
@@ -3179,7 +3179,7 @@ Define("bitwise-xor", BitwiseXOrPrimitive)(int_t argc, FObject argv[])
         return(MakeFixnum(0));
 
     IntegerArgCheck("bitwise-xor", argv[0]);
-    FObject ret = argv[0];
+    FObject ret = BignumP(argv[0]) ? MakeBignum(argv[0]) : argv[0];
 
     for (int_t adx = 1; adx < argc; adx++)
     {
