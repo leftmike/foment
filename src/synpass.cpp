@@ -529,24 +529,23 @@ static FObject SPassLetStarBindings(FObject enc, FObject se, FObject ss, FObject
    return(ReverseListModify(nlb));
 }
 
-static FObject GatherNamedLetFormals(FObject lb)
+static FObject SPassNamedLetFormals(FObject se, FObject lb)
 {
-    FObject formals = EmptyListObject;
+    // ((<variable> <init>) ...)
 
-    while (lb != EmptyListObject)
-    {
-        FAssert(PairP(lb));
-        FAssert(PairP(First(lb)));
-        FAssert(PairP(First(First(lb))));
+    FObject bs = EmptyListObject;
+    FObject tlb;
 
-        formals = MakePair(First(First(First(lb))), formals);
-        lb = Rest(lb);
-    }
+    for (tlb = lb; PairP(tlb); tlb = Rest(tlb))
+        bs = SPassLetVar(se, LetSyntax, lb, bs, First(tlb), 0);
 
-    return(ReverseListModify(formals));
+    if (tlb != EmptyListObject)
+        RaiseException(R.Syntax, "let", "expected a list of bindings", List(lb, tlb));
+
+    return(bs);
 }
 
-static FObject GatherNamedLetInits(FObject lb)
+static FObject SPassNamedLetInits(FObject enc, FObject se, FObject lb)
 {
     FObject inits = EmptyListObject;
 
@@ -556,7 +555,7 @@ static FObject GatherNamedLetInits(FObject lb)
         FAssert(PairP(First(lb)));
         FAssert(PairP(Rest(First(lb))));
 
-        inits = MakePair(First(Rest(First(lb))), inits);
+        inits = MakePair(SPassExpression(enc, se, First(Rest(First(lb)))), inits);
         lb = Rest(lb);
     }
 
@@ -570,27 +569,31 @@ static FObject SPassNamedLet(FObject enc, FObject se, FObject tag, FObject expr)
     if (PairP(Rest(Rest(Rest(expr)))) == 0)
         RaiseExceptionC(R.Syntax, "let", "expected bindings followed by a body", List(expr));
 
-    FObject lb = SPassLetBindings(enc, se, LetSyntax, First(Rest(Rest(expr))), 0, 0);
-    FObject tb = MakeBinding(se, tag, FalseObject);
-    EnterScope(tb);
+    FObject tb = EnterScope(MakeBinding(se, tag, FalseObject));
+    FObject bs = SPassNamedLetFormals(se, First(Rest(Rest(expr))));
+    EnterScopeList(bs);
 
     // (let tag ((name val) ...) body1 body2 ...)
     // --> ((letrec ((tag (lambda (name ...) body1 body2 ...)))
     //         tag) val ...)
 
-    FObject lambda = MakeLambda(enc, NoValueObject, GatherNamedLetFormals(lb), NoValueObject);
+    FObject lambda = MakeLambda(enc, NoValueObject, bs, NoValueObject);
 //    AsLambda(lambda)->Body = SPassBody(lambda, se, LetSyntax, Rest(Rest(Rest(expr))));
     Modify(FLambda, lambda, Body, SPassBody(lambda, se, LetSyntax, Rest(Rest(Rest(expr)))));
 
-    FObject ret = MakePair(MakePair(LetrecSyntax, MakePair(MakePair(
+    LeaveScopeList(bs);
+    LeaveScope(tb);
+
+    return(List(LetrecSyntax, List(List(List(tb), lambda)),
+            MakePair(MakeReference(tb, tag),
+            SPassNamedLetInits(enc, se, First(Rest(Rest(expr)))))));
+
+/*    FObject ret = MakePair(MakePair(LetrecSyntax, MakePair(MakePair(
             MakePair(MakePair(tb, EmptyListObject),
                 MakePair(lambda, EmptyListObject)), EmptyListObject),
                 MakePair(MakeReference(tb, tag), EmptyListObject))), GatherNamedLetInits(lb));
 
-    LeaveScope(tb);
-    LeaveLetScope(lb);
-
-    return(ret);
+    return(ret);*/
 }
 
 static FObject SPassLet(FObject enc, FObject se, FObject ss, FObject expr, int_t rf, int_t sf,
