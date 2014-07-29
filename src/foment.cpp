@@ -120,7 +120,7 @@ static const char * SpecialSyntaxes[] =
     "set!-values"
 };
 
-static const char * SpecialSyntaxToName(FObject obj)
+const char * SpecialSyntaxToName(FObject obj)
 {
     FAssert(SpecialSyntaxP(obj));
 
@@ -129,31 +129,6 @@ static const char * SpecialSyntaxToName(FObject obj)
     FAssert(n < (int_t) (sizeof(SpecialSyntaxes) / sizeof(char *)));
 
     return(SpecialSyntaxes[n]);
-}
-
-FObject SpecialSyntaxToSymbol(FObject obj)
-{
-    return(StringCToSymbol(SpecialSyntaxToName(obj)));
-}
-
-FObject SpecialSyntaxMsgC(FObject obj, const char * msg)
-{
-    char buf[128];
-    char * s = buf;
-    const char * n = SpecialSyntaxToName(obj);
-
-    while (*n)
-        *s++ = *n++;
-
-    *s++ = ':';
-    *s++ = ' ';
-
-    while (*msg)
-        *s++ = *msg++;
-
-    *s = 0;
-
-    return(MakeStringC(buf));
 }
 
 void WriteSpecialSyntax(FObject port, FObject obj, int_t df)

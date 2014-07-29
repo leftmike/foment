@@ -781,8 +781,8 @@ static FObject CompileEvalBegin(FObject obj, FObject env, FObject body, FObject 
         if (ss == BeginSyntax)
             return(body);
 
-        RaiseException(R.Syntax, SpecialSyntaxToSymbol(ss),
-                SpecialSyntaxMsgC(ss, "expected at least one expression"), List(form, obj));
+        RaiseExceptionC(R.Syntax, SpecialSyntaxToName(ss),
+                "expected at least one expression", List(form, obj));
     }
 
     while (PairP(obj))
@@ -793,8 +793,8 @@ static FObject CompileEvalBegin(FObject obj, FObject env, FObject body, FObject 
     }
 
     if (obj != EmptyListObject)
-        RaiseException(R.Syntax, SpecialSyntaxToSymbol(ss),
-                SpecialSyntaxMsgC(ss, "expected a proper list"), List(form, obj));
+        RaiseExceptionC(R.Syntax, SpecialSyntaxToName(ss),
+                "expected a proper list", List(form, obj));
 
     return(body);
 }

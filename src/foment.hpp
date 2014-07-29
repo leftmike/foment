@@ -301,8 +301,7 @@ public:
 // ---- Special Syntax ----
 
 #define SpecialSyntaxP(obj) ImmediateP((obj), SpecialSyntaxTag)
-FObject SpecialSyntaxToSymbol(FObject obj);
-FObject SpecialSyntaxMsgC(FObject obj, const char * msg);
+const char * SpecialSyntaxToName(FObject obj);
 
 #define QuoteSyntax MakeImmediate(0, SpecialSyntaxTag)
 #define LambdaSyntax MakeImmediate(1, SpecialSyntaxTag)
