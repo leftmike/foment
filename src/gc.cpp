@@ -1189,13 +1189,163 @@ static void CollectTrackers(FObject trkrs, int_t fcf, int_t mtf)
 }
 
 #ifdef FOMENT_DEBUG
-static void ValidateSlot(FObject obj, FObject * ref)
+static char * ObjectName(uint_t tag)
+{
+    switch (tag)
+    {
+    case PairTag:
+        return("pair");
+
+    case RatioTag:
+        return("ratio");
+
+    case ComplexTag:
+        return("complex");
+
+    case FlonumTag:
+        return("flonum");
+
+    case BoxTag:
+        return("box");
+
+    case StringTag:
+        return("string");
+
+    case VectorTag:
+        return("vector");
+
+    case BytevectorTag:
+        return("bytevector");
+
+    case BinaryPortTag:
+        return("binary-port");
+
+    case TextualPortTag:
+        return("textual-port");
+
+    case ProcedureTag:
+        return("procedure");
+
+    case SymbolTag:
+        return("symbol");
+
+    case RecordTypeTag:
+        return("record-type");
+
+    case RecordTag:
+        return("record");
+
+    case PrimitiveTag:
+        return("primitive");
+
+    case ThreadTag:
+        return("thread");
+
+    case ExclusiveTag:
+        return("exclusive");
+
+    case ConditionTag:
+        return("condition");
+
+    case BignumTag:
+        return("bignum");
+
+    case GCFreeTag:
+        return("gc-free");
+
+    default:
+        return("unknown");
+    }
+}
+
+static char * SectionName(uint_t sdx)
+{
+    switch (sdx)
+    {
+    case HoleSectionTag:
+        return("hole");
+
+    case FreeSectionTag:
+        return("free");
+
+    case TableSectionTag:
+        return("table");
+
+    case ZeroSectionTag:
+        return("zero");
+
+    case OneSectionTag:
+        return("one");
+
+    case MatureSectionTag:
+        return("mature");
+
+    case TwoSlotSectionTag:
+        return("two-slot");
+
+    case FlonumSectionTag:
+        return("flonum");
+
+    case BackRefSectionTag:
+        return("back-ref");
+
+    case ScanSectionTag:
+        return("scan");
+
+    case StackSectionTag:
+        return("stack");
+
+    default:
+        return("unknown");
+    }
+}
+
+static void ValidateSlot(FObject obj, FObject * ref, uint_t tag, uint_t sec, uint_t off, int ln,
+    int vdx, char * slot)
 {
     FObject val = *ref;
 
     if (ObjectP(val))
     {
         uint_t sdx = SectionIndex(val);
+
+        if (sdx >= UsedSections ||
+            (SectionTable[sdx] == ZeroSectionTag || SectionTable[sdx] == OneSectionTag
+                || SectionTable[sdx] == MatureSectionTag || SectionTable[sdx] == TwoSlotSectionTag
+                || SectionTable[sdx] == FlonumSectionTag) == 0)
+        {
+            printf("internal error: @%d bad object %p in %s section offset: %d\n",
+                    ln, obj, SectionName(SectionTable[SectionIndex(obj)]), SectionOffset(obj));
+            if (vdx == -1)
+                printf("%s->%s = ", ObjectName(tag), slot);
+            else
+                printf("len: %d %s[%d] = ",
+                        tag == StringTag ? StringLength(obj) : ObjectLength(obj),
+                        ObjectName(tag), vdx);
+            if (sdx >= UsedSections)
+                printf("%p sdx: %d >= used sections: %d\n", val, sdx, UsedSections);
+            else
+                printf("%p in %s section offset: %d\n", val, SectionName(SectionTable[sdx]),
+                        SectionOffset(val));
+
+            if (SectionTable[SectionIndex(obj)] == ZeroSectionTag)
+            {
+                FThreadState * ts = Threads;
+
+                while (ts != 0)
+                {
+                    if (SectionIndex(ts->ActiveZero) == SectionIndex(obj))
+                    {
+                        if (ts == GetThreadState())
+                            printf("object in zero section of current thread\n");
+                        else
+                            printf("object in zero section of thread: %p\n", ts->Thread);
+                    }
+
+                    ts = ts->Next;
+                }
+            }
+        }
 
         FAssert(sdx < UsedSections);
         FAssert(SectionTable[sdx] == ZeroSectionTag || SectionTable[sdx] == OneSectionTag
@@ -1217,12 +1367,26 @@ static void ValidateSlot(FObject obj, FObject * ref)
                 brs = brs->Next;
             }
 
-            printf("foment: internal error: missing back reference: tag: %d object: %p\n",
+            printf("internal error: missing back reference: tag: %d object: %p\n",
                     PairP(obj) ? (int) PairTag : (int) IndirectTag(obj), obj);
         }
     }
     else
     {
+        if ((PairP(val) || RatioP(val) || ComplexP(val) || FlonumP(val) || FixnumP(val)
+                || ImmediateP(val, CharacterTag) || ImmediateP(val, MiscellaneousTag)
+                || ImmediateP(val, SpecialSyntaxTag) || ImmediateP(val, InstructionTag)
+                || ImmediateP(val, ValuesCountTag)) == 0)
+        {
+            printf("internal error: @%d bad object %p in %s section offset: %d\n",
+                    ln, obj, SectionName(SectionTable[SectionIndex(obj)]), SectionOffset(obj));
+            if (vdx == -1)
+                printf("%s->%s = ", ObjectName(tag), slot);
+            else
+                printf("%s[%d] = ", ObjectName(tag), vdx);
+            printf("%p\n", val);
+        }
+
         FAssert(PairP(val) || RatioP(val) || ComplexP(val) || FlonumP(val) || FixnumP(val)
                 || ImmediateP(val, CharacterTag) || ImmediateP(val, MiscellaneousTag)
                 || ImmediateP(val, SpecialSyntaxTag) || ImmediateP(val, InstructionTag)
@@ -1230,22 +1394,22 @@ static void ValidateSlot(FObject obj, FObject * ref)
     }
 }
 
-static void ValidateObject(FObject obj, uint_t tag)
+static void ValidateObject(FObject obj, uint_t tag, uint_t sec, uint_t off, int ln)
 {
     switch (tag)
     {
     case PairTag:
     case RatioTag:
     case ComplexTag:
-//        ValidateSlot(obj, &AsPair(obj)->First);
-//        ValidateSlot(obj, &AsPair(obj)->Rest);
+//        ValidateSlot(obj, &AsPair(obj)->First, tag, sec, off, ln, -1, "first");
+//        ValidateSlot(obj, &AsPair(obj)->Rest, tag, sec, off, ln, -1, "rest");
         break;
 
     case FlonumTag:
         break;
 
     case BoxTag:
-        ValidateSlot(obj, &AsBox(obj)->Value);
+        ValidateSlot(obj, &AsBox(obj)->Value, tag, sec, off, ln, -1, "value");
         break;
 
     case StringTag:
@@ -1253,7 +1417,7 @@ static void ValidateObject(FObject obj, uint_t tag)
 
     case VectorTag:
         for (uint_t vdx = 0; vdx < VectorLength(obj); vdx++)
-            ValidateSlot(obj, &AsVector(obj)->Vector[vdx]);
+            ValidateSlot(obj, &AsVector(obj)->Vector[vdx], tag, sec, off, ln, (int) vdx, 0);
         break;
 
     case BytevectorTag:
@@ -1261,37 +1425,38 @@ static void ValidateObject(FObject obj, uint_t tag)
 
     case BinaryPortTag:
     case TextualPortTag:
-        ValidateSlot(obj, &AsGenericPort(obj)->Name);
-        ValidateSlot(obj, &AsGenericPort(obj)->Object);
+        ValidateSlot(obj, &AsGenericPort(obj)->Name, tag, sec, off, ln, -1, "name");
+        ValidateSlot(obj, &AsGenericPort(obj)->Object, tag, sec, off, ln, -1, "object");
         break;
 
     case ProcedureTag:
-        ValidateSlot(obj, &AsProcedure(obj)->Name);
-        ValidateSlot(obj, &AsProcedure(obj)->Code);
+        ValidateSlot(obj, &AsProcedure(obj)->Name, tag, sec, off, ln, -1, "name");
+        ValidateSlot(obj, &AsProcedure(obj)->Code, tag, sec, off, ln, -1, "code");
         break;
 
     case SymbolTag:
-        ValidateSlot(obj, &AsSymbol(obj)->String);
+        ValidateSlot(obj, &AsSymbol(obj)->String, tag, sec, off, ln, -1, "string");
         break;
 
     case RecordTypeTag:
         for (uint_t fdx = 0; fdx < RecordTypeNumFields(obj); fdx++)
-            ValidateSlot(obj, &AsRecordType(obj)->Fields[fdx]);
+            ValidateSlot(obj, &AsRecordType(obj)->Fields[fdx], tag, sec, off, ln, (int) fdx, 0);
         break;
 
     case RecordTag:
         for (uint_t fdx = 0; fdx < RecordNumFields(obj); fdx++)
-            ValidateSlot(obj, &AsGenericRecord(obj)->Fields[fdx]);
+            ValidateSlot(obj, &AsGenericRecord(obj)->Fields[fdx], tag, sec, off, ln, (int) fdx, 0);
         break;
 
     case PrimitiveTag:
         break;
 
     case ThreadTag:
-        ValidateSlot(obj, &AsThread(obj)->Result);
-        ValidateSlot(obj, &AsThread(obj)->Thunk);
-        ValidateSlot(obj, &AsThread(obj)->Parameters);
-        ValidateSlot(obj, &AsThread(obj)->IndexParameters);
+        ValidateSlot(obj, &AsThread(obj)->Result, tag, sec, off, ln, -1, "result");
+        ValidateSlot(obj, &AsThread(obj)->Thunk, tag, sec, off, ln, -1, "thunk");
+        ValidateSlot(obj, &AsThread(obj)->Parameters, tag, sec, off, ln, -1, "parameters");
+        ValidateSlot(obj, &AsThread(obj)->IndexParameters, tag, sec, off, ln, -1,
+                "index-parameters");
         break;
 
     case ExclusiveTag:
@@ -1307,12 +1472,12 @@ static void ValidateObject(FObject obj, uint_t tag)
         break;
 
     default:
-        printf("%p %d\n", obj, (int) tag);
+        printf("(%d) %p %d\n", ln, obj, (int) tag);
         FAssert(0);
     }
 }
 
-static void ValidateSections()
+static void ValidateSections(int ln)
 {
     uint_t sdx = 0;
     while (sdx < UsedSections)
@@ -1335,9 +1500,15 @@ static void ValidateSections()
 
                 uint_t tag = AsValue(yh->Forward);
                 FObject obj = (FObject) (yh + 1);
-                
-//                ValidateObject(obj, tag);
-                
+
+                FAssert(SectionIndex(obj) == sdx);
+                FAssert(SectionOffset(obj) == idx + sizeof(FYoungHeader));
+
+                if (SectionTable[sdx] == ZeroSectionTag)
+                    ValidateObject(obj, tag, sdx, idx, ln);
+                else
+                    ValidateObject(obj, tag, sdx, idx, ln);
+
                 idx += ObjectSize(obj, tag) + sizeof(FYoungHeader);
             }
 
@@ -1352,9 +1523,11 @@ static void ValidateSections()
             unsigned char * ms = (unsigned char *) SectionPointer(sdx);
             FObject obj = (FObject) ms;
 
-            while (obj < ((char *) ms) + SECTION_SIZE * cnt)
+            while (obj < ms + SECTION_SIZE * cnt)
             {
-                ValidateObject(obj, IndirectTag(obj));
+                FAssert(SectionIndex(obj) >= sdx && SectionIndex(obj) < sdx + cnt);
+
+                ValidateObject(obj, IndirectTag(obj), sdx, 0, ln);
                 obj = ((char *) obj) + ObjectSize(obj, IndirectTag(obj));
             }
 
@@ -1371,7 +1544,7 @@ static void ValidateSections()
                     FAssert(ts->One != 0);
                     FAssert(ts->Two != 0);
 
-                    ValidateObject(PairObject(ts), PairTag);
+                    ValidateObject(PairObject(ts), PairTag, sdx, idx, ln);
                 }
 
                 ts += 1;
@@ -1393,7 +1566,7 @@ static void Collect(int_t fcf)
         printf("Partial Collection...");*/
 
 #ifdef FOMENT_DEBUG
-    ValidateSections();
+    ValidateSections(__LINE__);
 #endif // FOMENT_DEBUG
 
     CollectionCount += 1;
@@ -1654,7 +1827,7 @@ static void Collect(int_t fcf)
     }
 
 #ifdef FOMENT_DEBUG
-//    ValidateSections();
+    ValidateSections(__LINE__);
 #endif // FOMENT_DEBUG
 
 //    printf("Done.\n");
@@ -1951,6 +2124,10 @@ uint_t LeaveThread(FThreadState * ts)
     ts->AStack = 0;
     ts->CStack = 0;
     ts->Thread = NoValueObject;
+
+    ts->ActiveZero->Next = GenerationZero;
+    GenerationZero = ts->ActiveZero;
+    ts->ActiveZero = 0;
 
     LeaveExclusive(&GCExclusive);
     WakeCondition(&ReadyCondition); // Just in case a collection is pending.

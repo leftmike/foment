@@ -298,14 +298,15 @@ Define("sleep", SleepPrimitive)(int_t argc, FObject argv[])
     NonNegativeArgCheck("sleep", argv[0], 0);
 
 #ifdef FOMENT_WINDOWS
+    DWORD n = (DWORD) AsFixnum(argv[0]);
     EnterWait();
-    Sleep((DWORD) AsFixnum(argv[0]));
+    Sleep(n);
     LeaveWait();
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-    EnterWait();
     useconds_t us = AsFixnum(argv[0]);
+    EnterWait();
     usleep(us * 1000);
     LeaveWait();
 #endif // FOMENT_UNIX
@@ -332,8 +333,10 @@ Define("enter-exclusive", EnterExclusivePrimitive)(int_t argc, FObject argv[])
     OneArgCheck("enter-exclusive", argc);
     ExclusiveArgCheck("enter-exclusive", argv[0]);
 
+    OSExclusive * ose = &AsExclusive(argv[0])->Exclusive;
+
     EnterWait();
-    EnterExclusive(&AsExclusive(argv[0])->Exclusive);
+    EnterExclusive(ose);
     LeaveWait();
     return(NoValueObject);
 }
@@ -375,8 +378,11 @@ Define("condition-wait", ConditionWaitPrimitive)(int_t argc, FObject argv[])
     ConditionArgCheck("condition-wait", argv[0]);
     ExclusiveArgCheck("condition-wait", argv[1]);
 
+    OSCondition * osc = &AsCondition(argv[0])->Condition;
+    OSExclusive * ose = &AsExclusive(argv[1])->Exclusive;
+
     EnterWait();
-    ConditionWait(&AsCondition(argv[0])->Condition, &AsExclusive(argv[1])->Exclusive);
+    ConditionWait(osc, ose);
     LeaveWait();
     return(NoValueObject);
 }

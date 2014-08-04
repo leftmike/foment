@@ -698,4 +698,3 @@
 
 (define obp (open-binary-input-file "output4.txt"))
 (check-equal #u8(0 1 2 3 4 5 6 7 8 9 34 1 56 3 4 5 6 7 8 9 123) (read-bytevector 1024 obp))
-

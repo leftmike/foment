@@ -267,8 +267,7 @@
                      (call/cc (lambda (baz) baz)))))
          (yin yang))))))
 |#
-
-;; Miscellaneous 
+;; Miscellaneous
 
 ;;Al Petrofsky
 ;; In thread:
