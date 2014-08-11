@@ -1189,7 +1189,7 @@ static void CollectTrackers(FObject trkrs, int_t fcf, int_t mtf)
 }
 
 #ifdef FOMENT_DEBUG
-static char * ObjectName(uint_t tag)
+static const char * ObjectName(uint_t tag)
 {
     switch (tag)
     {
@@ -1258,7 +1258,7 @@ static char * ObjectName(uint_t tag)
     }
 }
 
-static char * SectionName(uint_t sdx)
+static const char * SectionName(uint_t sdx)
 {
     switch (sdx)
     {
@@ -1301,7 +1301,7 @@ static char * SectionName(uint_t sdx)
 }
 
 static void ValidateSlot(FObject obj, FObject * ref, uint_t tag, uint_t sec, uint_t off, int ln,
-    int vdx, char * slot)
+    int vdx, const char * slot)
 {
     FObject val = *ref;
 
@@ -1314,18 +1314,18 @@ static void ValidateSlot(FObject obj, FObject * ref, uint_t tag, uint_t sec, uin
                 || SectionTable[sdx] == MatureSectionTag || SectionTable[sdx] == TwoSlotSectionTag
                 || SectionTable[sdx] == FlonumSectionTag) == 0)
         {
-            printf("internal error: @%d bad object %p in %s section offset: %d\n",
+            printf("internal error: @%d bad object %p in %s section offset: %lu\n",
                     ln, obj, SectionName(SectionTable[SectionIndex(obj)]), SectionOffset(obj));
             if (vdx == -1)
                 printf("%s->%s = ", ObjectName(tag), slot);
             else
-                printf("len: %d %s[%d] = ",
+                printf("len: %lu %s[%d] = ",
                         tag == StringTag ? StringLength(obj) : ObjectLength(obj),
                         ObjectName(tag), vdx);
             if (sdx >= UsedSections)
-                printf("%p sdx: %d >= used sections: %d\n", val, sdx, UsedSections);
+                printf("%p sdx: %lu >= used sections: %lu\n", val, sdx, UsedSections);
             else
-                printf("%p in %s section offset: %d\n", val, SectionName(SectionTable[sdx]),
+                printf("%p in %s section offset: %lu\n", val, SectionName(SectionTable[sdx]),
                         SectionOffset(val));
 
             if (SectionTable[SectionIndex(obj)] == ZeroSectionTag)
@@ -1378,7 +1378,7 @@ static void ValidateSlot(FObject obj, FObject * ref, uint_t tag, uint_t sec, uin
                 || ImmediateP(val, SpecialSyntaxTag) || ImmediateP(val, InstructionTag)
                 || ImmediateP(val, ValuesCountTag)) == 0)
         {
-            printf("internal error: @%d bad object %p in %s section offset: %d\n",
+            printf("internal error: @%d bad object %p in %s section offset: %lu\n",
                     ln, obj, SectionName(SectionTable[SectionIndex(obj)]), SectionOffset(obj));
             if (vdx == -1)
                 printf("%s->%s = ", ObjectName(tag), slot);
@@ -2125,9 +2125,12 @@ uint_t LeaveThread(FThreadState * ts)
     ts->CStack = 0;
     ts->Thread = NoValueObject;
 
-    ts->ActiveZero->Next = GenerationZero;
-    GenerationZero = ts->ActiveZero;
-    ts->ActiveZero = 0;
+    if (ts->ActiveZero != 0)
+    {
+        ts->ActiveZero->Next = GenerationZero;
+        GenerationZero = ts->ActiveZero;
+        ts->ActiveZero = 0;
+    }
 
     LeaveExclusive(&GCExclusive);
     WakeCondition(&ReadyCondition); // Just in case a collection is pending.
