@@ -1566,7 +1566,7 @@ static void Collect(int_t fcf)
         printf("Partial Collection...");*/
 
 #ifdef FOMENT_DEBUG
-    ValidateSections(__LINE__);
+//    ValidateSections(__LINE__);
 #endif // FOMENT_DEBUG
 
     CollectionCount += 1;
@@ -1827,7 +1827,7 @@ static void Collect(int_t fcf)
     }
 
 #ifdef FOMENT_DEBUG
-    ValidateSections(__LINE__);
+//    ValidateSections(__LINE__);
 #endif // FOMENT_DEBUG
 
 //    printf("Done.\n");
