@@ -1743,19 +1743,6 @@ static const char * FeaturesC[] =
     "foment-" FOMENT_VERSION
 };
 
-FObject MakeCommandLine(int_t argc, FChS * argv[])
-{
-    FObject cl = EmptyListObject;
-
-    while (argc > 0)
-    {
-        argc -= 1;
-        cl = MakePair(MakeStringS(argv[argc]), cl);
-    }
-
-    return(cl);
-}
-
 static int LittleEndianP()
 {
     uint_t nd = 1;
@@ -1778,7 +1765,7 @@ static void FixupUName(char * s)
 }
 #endif // FOMENT_UNIX
 
-void SetupFoment(FThreadState * ts, int argc, FChS * argv[])
+void SetupFoment(FThreadState * ts)
 {
 #ifdef FOMENT_WINDOWS
     StartingTicks = GetTickCount64();
@@ -1884,7 +1871,6 @@ void SetupFoment(FThreadState * ts, int argc, FChS * argv[])
     R.Features = MakePair(StringCToSymbol(LittleEndianP() ? "little-endian" : "big-endian"),
             R.Features);
 
-    R.CommandLine = MakeCommandLine(argc, argv);
     R.LibraryPath = EmptyListObject;
 
     GetEnvironmentVariables();
@@ -1919,24 +1905,6 @@ void SetupFoment(FThreadState * ts, int argc, FChS * argv[])
     }
 
     R.LibraryExtensions = List(MakeStringC("sld"), MakeStringC("scm"));
-
-    if (argc > 0)
-    {
-        FChS * s = argv[0];
-        FChS * pth = 0;
-        while (*s)
-        {
-            if (PathChP(*s))
-                pth = s;
-
-            s += 1;
-        }
-
-        if (pth != 0)
-            R.LibraryPath = MakePair(MakeStringS(argv[0], pth - argv[0]), R.LibraryPath);
-    }
-
-    R.LibraryPath = ReverseListModify(MakePair(MakeStringC("."), R.LibraryPath));
 
     SetupScheme();
 
