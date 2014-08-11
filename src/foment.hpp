@@ -172,7 +172,7 @@ typedef enum
     GCFreeTag = 0x1F
 } FIndirectTag;
 
-#define IndirectP(obj) ((((FImmediate) (obj)) & 0x3) == 0x0)
+#define IndirectP(obj) ((((FImmediate) (obj)) & 0x7) == 0x0)
 #define ObjectP(obj) ((((FImmediate) (obj)) & 0x3) != 0x3)
 
 #define ImmediateTag(obj) (((FImmediate) (obj)) & 0x7F)
@@ -1543,8 +1543,7 @@ FObject SyntaxToDatum(FObject obj);
 
 FObject ExecuteThunk(FObject op);
 
-FObject MakeCommandLine(int_t argc, FChS * argv[]);
-void SetupFoment(FThreadState * ts, int argc, FChS * argv[]);
+void SetupFoment(FThreadState * ts);
 extern uint_t SetupComplete;
 void ExitFoment();
 

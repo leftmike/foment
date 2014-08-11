@@ -4,6 +4,11 @@ Foment
 
 */
 
+#ifdef FOMENT_UNIX
+#include <sys/stat.h>
+#include <unistd.h>
+#include <alloca.h>
+#endif // FOMENT_UNIX
 #include <stdio.h>
 #include <string.h>
 #include "foment.hpp"
@@ -77,13 +82,56 @@ static FObject MakeInvocation(int argc, FChS * argv[])
     return(s);
 }
 
-static int ProgramMode(int adx, int argc, FChS * argv[])
+static FObject MakeCommandLine(int_t argc, FChS * argv[])
 {
-    FAssert(adx < argc);
+    FObject cl = EmptyListObject;
 
-    FChS * s = argv[adx];
+    while (argc > 0)
+    {
+        argc -= 1;
+        cl = MakePair(MakeStringS(argv[argc]), cl);
+    }
+
+    return(cl);
+}
+
+#ifdef FOMENT_UNIX
+static void AddToLibraryPath(FChS * prog)
+{
+    struct stat st;
+
+    if (lstat(prog, &st) != -1 && S_ISLNK(st.st_mode))
+    {
+        FChS * link = (FChS *) alloca(st.st_size + 1);
+        size_t ret = readlink(prog, link, st.st_size + 1);
+        link[ret] = 0;
+
+        AddToLibraryPath(link);
+    }
+    else
+    {
+        FChS * s = prog;
+        FChS * pth = 0;
+        while (*s)
+        {
+            if (PathChP(*s))
+                pth = s;
+
+            s += 1;
+        }
+
+        if (pth != 0)
+            R.LibraryPath = MakePair(MakeStringS(prog, pth - prog), R.LibraryPath);
+        else
+            R.LibraryPath = MakePair(MakeStringC("."), R.LibraryPath);
+    }
+}
+#else // FOMENT_UNIX
+
+static void AddToLibraryPath(FChS * prog)
+{
+    FChS * s = prog;
     FChS * pth = 0;
-
     while (*s)
     {
         if (PathChP(*s))
@@ -93,7 +141,15 @@ static int ProgramMode(int adx, int argc, FChS * argv[])
     }
 
     if (pth != 0)
-        R.LibraryPath = MakePair(MakeStringS(argv[adx], pth - argv[adx]), R.LibraryPath);
+        R.LibraryPath = MakePair(MakeStringS(prog, pth - prog), R.LibraryPath);
+    else
+        R.LibraryPath = MakePair(MakeStringC("."), R.LibraryPath);
+}
+#endif // FOMENT_UNIX
+
+static int ProgramMode(int adx, int argc, FChS * argv[])
+{
+    FAssert(adx < argc);
 
     FObject nam = MakeStringS(argv[adx]);
 
@@ -139,22 +195,45 @@ int wmain(int argc, FChS * argv[])
 int main(int argc, char * argv[])
 #endif // FOMENT_UNIX
 {
+    int_t pdx = 0;
     int adx = 1;
     while (adx < argc)
     {
-        if (StringCompareS(argv[adx], "-no-inline-procedures") == 0)
+        if (StringCompareS(argv[adx], "-A") == 0)
+            adx += 2;
+        else if (StringCompareS(argv[adx], "-I") == 0)
+            adx += 2;
+        else if (StringCompareS(argv[adx], "-X") == 0)
+            adx += 2;
+        else if (argv[adx][0] != '-')
+        {
+            pdx = adx;
+            break;
+        }
+        else if (StringCompareS(argv[adx], "-no-inline-procedures") == 0)
+        {
             InlineProcedures = 0;
+            adx += 1;
+        }
         else if (StringCompareS(argv[adx], "-no-inline-imports") == 0)
+        {
             InlineImports = 0;
-
-        adx += 1;
+            adx += 1;
+        }
+        else
+            break;
     }
 
     FThreadState ts;
 
     try
     {
-        SetupFoment(&ts, argc, argv);
+        SetupFoment(&ts);
+
+        if (pdx > 0)
+        {
+            AddToLibraryPath(argv[pdx]);
+        }
     }
     catch (FObject obj)
     {
@@ -224,6 +303,7 @@ int main(int argc, char * argv[])
                 break;
         }
 
+        R.LibraryPath = ReverseListModify(MakePair(MakeStringC("."), R.LibraryPath));
         R.CommandLine = MakePair(MakeInvocation(adx, argv),
                 MakeCommandLine(argc - adx, argv + adx));
 
