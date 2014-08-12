@@ -264,6 +264,10 @@ public:
     ~FDontWait();
 };
 
+void ValidateGC(int ln);
+void FailedGC();
+void FailedExecute();
+
 //
 // ---- Immediate Types ----
 //

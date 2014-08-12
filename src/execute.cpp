@@ -23,6 +23,9 @@ Foment
 #include "execute.hpp"
 #include "syncthrd.hpp"
 
+static int_t LastOpcode;
+static FObject LastPrimitive = NoValueObject;
+
 // ---- Procedure ----
 
 FObject MakeProcedure(FObject nam, FObject cv, int_t ac, uint_t fl)
@@ -322,10 +325,6 @@ static int_t PrepareHandler(FThreadState * ts, FObject hdlr, FObject key, FObjec
     return(0);
 }
 
-#ifdef FOMENT_DEBUG
-extern void ValidateSections();
-#endif // FOMENT_DEBUG
-
 static FObject Execute(FThreadState * ts)
 {
     FObject op;
@@ -360,6 +359,8 @@ static FObject Execute(FThreadState * ts)
         else
         {
 //printf("%s.%d %d %d\n", Opcodes[InstructionOpcode(obj)], InstructionArg(obj), ts->CStackPtr, ts->AStackPtr);
+            LastOpcode = InstructionOpcode(obj);
+
             switch (InstructionOpcode(obj))
             {
             case CheckCountOpcode:
@@ -648,6 +649,7 @@ CallProcedure:
 CallPrimitive:
                     FAssert(ts->AStackPtr >= ts->ArgCount);
 
+                    LastPrimitive = op;
                     FObject ret = AsPrimitive(op)->PrimitiveFn(ts->ArgCount,
                             ts->AStack + ts->AStackPtr - ts->ArgCount);
                     ts->AStackPtr -= ts->ArgCount;
@@ -963,6 +965,7 @@ TailCallPrimitive:
 
             case CaptureContinuationOpcode:
             {
+                FAssert(ts->AStackPtr > 0);
                 FMustBe(ts->ArgCount == 1);
 
                 op = ts->AStack[ts->AStackPtr - 1];
@@ -979,6 +982,7 @@ TailCallPrimitive:
 
             case CallContinuationOpcode:
             {
+                FAssert(ts->AStackPtr > 1);
                 FMustBe(ts->ArgCount == 2);
 
                 FObject cont = ts->AStack[ts->AStackPtr - 2];
@@ -1140,6 +1144,15 @@ FObject ExecuteThunk(FObject op)
                 ThreadExit(ts->NotifyObject);
         }
     }
+}
+
+void FailedExecute()
+{
+    printf("last opcode: %d %s\n", LastOpcode,
+            LastOpcode >= 0 && LastOpcode < sizeof(Opcodes) / sizeof(char *)
+            ? Opcodes[LastOpcode] : "unknown");
+    WriteSimple(R.StandardOutput, LastPrimitive, 0);
+    printf("\n");
 }
 
 Define("procedure?", ProcedurePPrimitive)(int_t argc, FObject argv[])

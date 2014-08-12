@@ -63,8 +63,8 @@ void FAssertFailed(const char * fn, int_t ln, const char * expr)
 {
     printf("FAssert: %s (%d)%s\n", expr, (int) ln, fn);
 
-//    *((char *) 0) = 0;
-//    fgetc(stdin);
+    FailedGC();
+    FailedExecute();
     ExitFoment();
     exit(1);
 }
@@ -73,7 +73,8 @@ void FMustBeFailed(const char * fn, int_t ln, const char * expr)
 {
     printf("FMustBe: %s (%d)%s\n", expr, (int) ln, fn);
 
-//    *((char *) 0) = 0;
+    FailedGC();
+    FailedExecute();
     ExitFoment();
     exit(1);
 }
