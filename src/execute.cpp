@@ -23,7 +23,7 @@ Foment
 #include "execute.hpp"
 #include "syncthrd.hpp"
 
-static int_t LastOpcode;
+static uint_t LastOpcode;
 static FObject LastPrimitive = NoValueObject;
 
 // ---- Procedure ----
@@ -1148,8 +1148,8 @@ FObject ExecuteThunk(FObject op)
 
 void FailedExecute()
 {
-    printf("last opcode: %d %s\n", LastOpcode,
-            LastOpcode >= 0 && LastOpcode < sizeof(Opcodes) / sizeof(char *)
+    printf("last opcode: %ld %s\n", LastOpcode,
+	    LastOpcode < sizeof(Opcodes) / sizeof(char *)
             ? Opcodes[LastOpcode] : "unknown");
     WriteSimple(R.StandardOutput, LastPrimitive, 0);
     printf("\n");
