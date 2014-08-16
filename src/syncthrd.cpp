@@ -171,7 +171,10 @@ static void FomentThread(FObject obj)
     }
     catch (FObject exc)
     {
+        if (ExceptionP(obj) == 0)
+            WriteStringC(R.StandardOutput, "exception: ");
         Write(R.StandardOutput, exc, 0);
+        WriteCh(R.StandardOutput, '\n');
 
 //        AsThread(ts.Thread)->Result = exc;
         Modify(FThread, ts.Thread, Result, exc);

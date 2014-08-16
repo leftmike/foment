@@ -220,6 +220,11 @@ int main(int argc, char * argv[])
             InlineImports = 0;
             adx += 1;
         }
+        else if (StringCompareS(argv[adx], "-validate-heap") == 0)
+        {
+            ValidateHeap = 1;
+            adx += 1;
+        }
         else
             break;
     }
@@ -239,6 +244,12 @@ int main(int argc, char * argv[])
     {
         printf("Unexpected exception: SetupFoment: %p\n", obj);
         WriteSimple(R.StandardOutput, obj, 0);
+
+        if (ValidateHeap)
+        {
+            FailedGC();
+            FailedExecute();
+        }
         return(1);
     }
 
@@ -295,7 +306,8 @@ int main(int argc, char * argv[])
                 adx += 1;
             }
             else if (StringCompareS(argv[adx], "-no-inline-procedures") == 0
-                    || StringCompareS(argv[adx], "-no-inline-imports") == 0)
+                    || StringCompareS(argv[adx], "-no-inline-imports") == 0
+                    || StringCompareS(argv[adx], "-validate-heap") == 0)
                 adx += 1;
             else if (argv[adx][0] != '-')
                 return(ProgramMode(adx, argc, argv));
@@ -319,6 +331,11 @@ int main(int argc, char * argv[])
         WriteSimple(R.StandardOutput, obj, 0);
         WriteCh(R.StandardOutput, '\n');
 
+        if (ValidateHeap)
+        {
+            FailedGC();
+            FailedExecute();
+        }
         return(-1);
     }
 }

@@ -1527,6 +1527,7 @@ inline void EqHashtableArgCheck(const char * who, FObject obj)
 
 extern uint_t InlineProcedures;
 extern uint_t InlineImports;
+extern uint_t ValidateHeap;
 
 extern volatile uint_t BytesAllocated;
 extern uint_t CollectionCount;

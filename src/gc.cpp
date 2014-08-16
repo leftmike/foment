@@ -1775,7 +1775,8 @@ static void Collect(int_t fcf)
     else
         printf("Partial Collection...");*/
 
-    ValidateGC(__LINE__);
+    if (ValidateHeap)
+        ValidateGC(__LINE__);
 
     CollectionCount += 1;
     GCRequired = 0;
@@ -2058,7 +2059,8 @@ static void Collect(int_t fcf)
         FreeTracker(trkr);
     }
 
-//    ValidateGC(__LINE__);
+//    if (ValidateHeap)
+//        ValidateGC(__LINE__);
 //    printf("Done.\n");
 }
 

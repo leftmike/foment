@@ -15,17 +15,17 @@ clean: debug release
 	-rm release/*
 
 test: all
-	cd ../test ; ../unix/debug/foment runtests.scm r7rs.scm r7rs-eval.scm foment.scm eccentric.scm r5rs_pitfall.scm unicode.scm srfi.scm
-	cd ../test ; ../unix/debug/foment r7rs.scm
+	cd ../test ; ../unix/debug/foment -validate-heap runtests.scm r7rs.scm r7rs-eval.scm foment.scm eccentric.scm r5rs_pitfall.scm unicode.scm srfi.scm
+	cd ../test ; ../unix/debug/foment -validate-heap r7rs.scm
 	cd ../test ; ../unix/release/foment runtests.scm r7rs.scm r7rs-eval.scm foment.scm eccentric.scm r5rs_pitfall.scm unicode.scm srfi.scm
 	cd ../test ; ../unix/release/foment r7rs.scm
 
 stress: all
-	cd ../test ; ../unix/debug/foment runtests.scm stress.scm r7rs.scm
+	cd ../test ; ../unix/debug/foment -validate-heap runtests.scm stress.scm r7rs.scm
 	cd ../test ; ../unix/release/foment runtests.scm stress.scm r7rs.scm
 
 chibi: all
-	cd ../test ; ../unix/debug/foment r7rs-tests.scm
+	cd ../test ; ../unix/debug/foment -validate-heap r7rs-tests.scm
 	cd ../test ; ../unix/release/foment r7rs-tests.scm
 
 debug:
