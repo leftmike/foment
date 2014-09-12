@@ -45,6 +45,7 @@ typedef enum
     SetVectorOpcode,
     GetGlobalOpcode,
     SetGlobalOpcode,
+    MakeBoxOpcode,
     GetBoxOpcode,
     SetBoxOpcode,
     DiscardResultOpcode, // Multiple values interacts with this opcode; use PopAStackOpcode instead

@@ -54,6 +54,9 @@ static FObject GPassMakeCall(FLambda * lam, FObject cdl, FObject op, int_t argc,
 
 static FObject GPassLetFormal(FLambda * lam, FObject cdl, FObject bd)
 {
+    if (AsFixnum(AsBinding(bd)->SetCount) > 0)
+        cdl = MakePair(MakeInstruction(MakeBoxOpcode, 0), cdl);
+
     if (lam->UseStack == TrueObject)
         cdl = MakePair(MakeInstruction(SetCStackOpcode,
                 AsFixnum(lam->SlotCount) - AsFixnum(AsBinding(bd)->Slot)), cdl);
@@ -369,10 +372,10 @@ static FObject GPassSetBang(FLambda * lam, FObject cdl, FReference * ref)
             FAssert(AsFixnum(bd->Slot) > 0);
 
             if (lam->UseStack == TrueObject)
-                cdl = MakePair(MakeInstruction(SetCStackOpcode,
+                cdl = MakePair(MakeInstruction(GetCStackOpcode,
                         AsFixnum(lam->SlotCount) - AsFixnum(bd->Slot)), cdl);
             else
-                cdl = MakePair(MakeInstruction(SetFrameOpcode, AsFixnum(bd->Slot)), cdl);
+                cdl = MakePair(MakeInstruction(GetFrameOpcode, AsFixnum(bd->Slot)), cdl);
         }
         else
         {
@@ -393,8 +396,11 @@ static FObject GPassSetBang(FLambda * lam, FObject cdl, FReference * ref)
                 cnt -= 1;
             }
 
-            cdl = MakePair(MakeInstruction(SetVectorOpcode, AsFixnum(bd->Slot)), cdl);
+            cdl = MakePair(MakeInstruction(GetVectorOpcode, AsFixnum(bd->Slot)), cdl);
         }
+
+        if (AsFixnum(AsBinding(bd)->SetCount) > 0)
+            cdl = MakePair(MakeInstruction(SetBoxOpcode, 0), cdl);
     }
     else
     {
@@ -827,6 +833,9 @@ static FObject GPassExpression(FLambda * lam, FObject cdl, FObject expr, FContFl
 
                 cdl = MakePair(MakeInstruction(GetVectorOpcode, AsFixnum(bd->Slot)), cdl);
             }
+
+            if (AsFixnum(AsBinding(bd)->SetCount) > 0)
+                cdl = MakePair(MakeInstruction(GetBoxOpcode, 0), cdl);
         }
         else
         {
@@ -960,6 +969,32 @@ FObject GPassLambda(FLambda * lam)
 
 //    lam->BodyIndex = MakeFixnum(ListLength(cdl));
     Modify(FLambda, lam, BodyIndex, MakeFixnum(ListLength(cdl)));
+
+    for (FObject flst = lam->Bindings; PairP(flst); flst = Rest(flst))
+    {
+        FAssert(BindingP(First(flst)));
+
+        FBinding * bd = AsBinding(First(flst));
+
+        if (AsFixnum(bd->SetCount) > 0)
+        {
+            if (lam->UseStack == TrueObject)
+            {
+                cdl = MakePair(MakeInstruction(GetCStackOpcode,
+                        AsFixnum(lam->SlotCount) - AsFixnum(bd->Slot)), cdl);
+                cdl = MakePair(MakeInstruction(MakeBoxOpcode, 0), cdl);
+                cdl = MakePair(MakeInstruction(SetCStackOpcode,
+                        AsFixnum(lam->SlotCount) - AsFixnum(bd->Slot)), cdl);
+            }
+            else
+            {
+                cdl = MakePair(MakeInstruction(GetFrameOpcode, AsFixnum(bd->Slot)), cdl);
+                cdl = MakePair(MakeInstruction(MakeBoxOpcode, 0), cdl);
+                cdl = MakePair(MakeInstruction(SetFrameOpcode, AsFixnum(bd->Slot)), cdl);
+            }
+        }
+    }
+
     cdl = GPassSequence(lam, cdl, lam->Body, TailCallFlag);
 
     FAssert(ProcedureP(lam->Procedure));
