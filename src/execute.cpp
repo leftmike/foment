@@ -180,6 +180,7 @@ static const char * Opcodes[] =
     "set-vector",
     "get-global",
     "set-global",
+    "make-box",
     "get-box",
     "set-box",
     "discard-result",
@@ -574,6 +575,11 @@ static FObject Execute(FThreadState * ts)
                 SetBox(AsGlobal(ts->AStack[ts->AStackPtr - 1])->Box,
                         ts->AStack[ts->AStackPtr - 2]);
                 ts->AStackPtr -= 2;
+                break;
+
+            case MakeBoxOpcode:
+                FAssert(ts->AStackPtr > 0);
+                ts->AStack[ts->AStackPtr - 1] = MakeBox(ts->AStack[ts->AStackPtr - 1]);
                 break;
 
             case GetBoxOpcode:
