@@ -392,7 +392,7 @@ static FObject MakeBufferedPort(FObject port)
         return(NoValueObject);
     }
 
-    FObject nport = MakeBinaryPort(AsGenericPort(port)->Name, port, bc,
+    FObject nport = MakeBinaryPort(AsGenericPort(port)->Name, HandOffPort(port), bc,
             InputPortOpenP(port) ? BufferedCloseInput : 0,
             OutputPortOpenP(port) ? BufferedCloseOutput : 0,
             OutputPortOpenP(port) ? BufferedFlushOutput : 0,
@@ -1013,6 +1013,31 @@ void WriteStringC(FObject port, const char * s)
     }
 }
 
+FObject HandOffPort(FObject port)
+{
+    FAssert(BinaryPortP(port) || TextualPortP(port));
+
+    FObject nport;
+
+    if (BinaryPortP(port))
+    {
+        nport = MakeObject(sizeof(FBinaryPort), BinaryPortTag);
+        memcpy(nport, port, sizeof(FBinaryPort));
+    }
+    else
+    {
+        nport = MakeObject(sizeof(FTextualPort), TextualPortTag);
+        memcpy(nport, port, sizeof(FTextualPort));
+    }
+
+    AsGenericPort(port)->Flags &= ~PORT_FLAG_INPUT_OPEN;
+    AsGenericPort(port)->Flags &= ~PORT_FLAG_OUTPUT_OPEN;
+    AsGenericPort(port)->Object = NoValueObject;
+    AsGenericPort(port)->Context = 0;
+
+    return(nport);
+}
+
 void CloseInput(FObject port)
 {
     FAssert(BinaryPortP(port) || TextualPortP(port));
@@ -1085,7 +1110,7 @@ static FObject MakeTranslatorPort(FObject port, FReadChFn rcfn, FCharReadyPFn cr
 {
     FAssert(BinaryPortP(port));
 
-    return(MakeTextualPort(AsGenericPort(port)->Name, port, 0,
+    return(MakeTextualPort(AsGenericPort(port)->Name, HandOffPort(port), 0,
             InputPortP(port) ? TranslatorCloseInput : 0,
             OutputPortP(port) ? TranslatorCloseOutput : 0,
             OutputPortP(port) ? TranslatorFlushOutput : 0,

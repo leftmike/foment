@@ -609,6 +609,7 @@ inline int_t PositioningPortP(FObject obj)
 
 // Binary and textual ports
 
+FObject HandOffPort(FObject port);
 void CloseInput(FObject port);
 void CloseOutput(FObject port);
 void FlushOutput(FObject port);
