@@ -523,9 +523,9 @@ static FObject GPassSpecialSyntax(FLambda * lam, FObject cdl, FObject expr, FCon
         cdl = MakePair(NoValueObject, cdl);
         return(GPassReturnValue(lam, cdl, cf));
     }
-    else if (ss == LetStarValuesSyntax)
+    else if (ss == LetValuesSyntax)
     {
-        // (let*-values ((<formals> <init>) ...) <body>)
+        // (let-values ((<formals> <init>) ...) <body>)
 
         cdl = GPassLetBindings(lam, cdl, First(Rest(expr)));
         return(GPassSequence(lam, cdl, Rest(Rest(expr)), cf));
