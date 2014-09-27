@@ -194,7 +194,7 @@ static void MPassSpecialSyntax(FMiddlePass * mp, FLambda * lam, FObject expr, in
     FObject ss = First(expr);
 
     FAssert(ss == QuoteSyntax || ss == IfSyntax || ss == SetBangSyntax
-            || ss == LetValuesSyntax || ss == LetrecSyntax
+            || ss == LetValuesSyntax || ss == LetrecValuesSyntax || ss == LetrecStarValuesSyntax
             || ss == CaseSyntax || ss == OrSyntax || ss == BeginSyntax
             || ss == SetBangValuesSyntax);
 
@@ -257,10 +257,11 @@ static void MPassSpecialSyntax(FMiddlePass * mp, FLambda * lam, FObject expr, in
 
         MPassExpression(mp, lam, Rest(Rest(expr)), 0);
     }
-    else if (ss == LetValuesSyntax || ss == LetrecSyntax)
+    else if (ss == LetValuesSyntax || ss == LetrecValuesSyntax || ss == LetrecStarValuesSyntax)
     {
         // (let-values ((<formals> <init>) ...) <body>)
-        // (letrec ((<formals> <init>) ...) <body>)
+        // (letrec-values ((<formals> <init>) ...) <body>)
+        // (letrec*-values ((<formals> <init>) ...) <body>)
 
         FAssert(PairP(Rest(expr)));
 
