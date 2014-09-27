@@ -25,6 +25,13 @@ Future:
     > (map #2 ’(1 2 3 4 5))
     (2 4 6 8 10)
 
+Compiler:
+-- add LetrecStarValues
+-- LetrecStar --> LetrecStarValues
+-- Letrec --> LetrecValues
+-- internal defines expand to LetrecStarValues rather than LetValues
+-- LetrecValues, LetrecStarValues, and LetValues all handled differently by the code generator
+
 Bugs:
 -- letrec: http://trac.sacrideo.us/wg/wiki/LetrecStar
 -- serialize loading libraries
