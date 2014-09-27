@@ -26,11 +26,9 @@ Future:
     (2 4 6 8 10)
 
 Compiler:
--- add LetrecStarValues
--- LetrecStar --> LetrecStarValues
--- Letrec --> LetrecValues
--- internal defines expand to LetrecStarValues rather than LetValues
--- LetrecValues, LetrecStarValues, and LetValues all handled differently by the code generator
+-- genpass: handle multiple values with LetrecValues correctly
+-- genpass: LetrecStarValues needs to be compiled correctly
+-- export letrec-values and letrec*-values from (foment base)
 
 Bugs:
 -- letrec: http://trac.sacrideo.us/wg/wiki/LetrecStar
