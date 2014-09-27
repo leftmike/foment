@@ -530,9 +530,16 @@ static FObject GPassSpecialSyntax(FLambda * lam, FObject cdl, FObject expr, FCon
         cdl = GPassLetBindings(lam, cdl, First(Rest(expr)));
         return(GPassSequence(lam, cdl, Rest(Rest(expr)), cf));
     }
-    else if (ss == LetrecSyntax)
+    else if (ss == LetrecStarValuesSyntax)
     {
-        // (letrec ((<formals> <init>) ...) <body>)
+        // (letrec*-values ((<formals> <init>) ...) <body>)
+
+        cdl = GPassLetBindings(lam, cdl, First(Rest(expr)));
+        return(GPassSequence(lam, cdl, Rest(Rest(expr)), cf));
+    }
+    else if (ss == LetrecValuesSyntax)
+    {
+        // (letrec-values ((<formals> <init>) ...) <body>)
 
         cdl = GPassLetrecBindings(lam, cdl, First(Rest(expr)));
         return(GPassSequence(lam, cdl, Rest(Rest(expr)), cf));

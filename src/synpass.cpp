@@ -578,16 +578,9 @@ static FObject SPassNamedLet(FObject enc, FObject se, FObject tag, FObject expr)
     LeaveScopeList(bs);
     LeaveScope(tb);
 
-    return(List(LetrecSyntax, List(List(List(tb), lambda)),
+    return(List(LetrecValuesSyntax, List(List(List(tb), lambda)),
             MakePair(MakeReference(tb, tag),
             SPassNamedLetInits(enc, se, First(Rest(Rest(expr)))))));
-
-/*    FObject ret = MakePair(MakePair(LetrecSyntax, MakePair(MakePair(
-            MakePair(MakePair(tb, EmptyListObject),
-                MakePair(lambda, EmptyListObject)), EmptyListObject),
-                MakePair(MakeReference(tb, tag), EmptyListObject))), GatherNamedLetInits(lb));
-
-    return(ret);*/
 }
 
 static FObject SPassLetStarToLet(FObject lb, FObject body)
@@ -618,19 +611,22 @@ static FObject SPassLet(FObject enc, FObject se, FObject ss, FObject expr, int_t
     else
         lb = SPassLetBindings(enc, se, ss, First(Rest(expr)), rf, vf);
 
+    FObject body = SPassBody(enc, se, ss, Rest(Rest(expr)));
     FObject ret;
+
     if (ss == LetSyntaxSyntax || ss == LetrecSyntaxSyntax)
-        ret = MakePair(BeginSyntax, SPassBody(enc, se, ss, Rest(Rest(expr))));
-    else if (rf == 0 && sf != 0)
+        ret = MakePair(BeginSyntax, body);
+    else if (rf != 0)
+        ret = MakePair(sf == 0 ? LetrecValuesSyntax : LetrecStarValuesSyntax, MakePair(lb, body));
+    else if (sf != 0)
     {
         FAssert(PairP(lb));
 
         ret  = MakePair(LetValuesSyntax, MakePair(MakePair(First(lb), EmptyListObject),
-                SPassLetStarToLet(Rest(lb), SPassBody(enc, se, ss, Rest(Rest(expr))))));
+                SPassLetStarToLet(Rest(lb), body)));
     }
     else
-        ret = MakePair(ss == LetrecSyntax ? LetrecSyntax : LetValuesSyntax,
-                MakePair(lb, SPassBody(enc, se, ss, Rest(Rest(expr)))));
+        ret = MakePair(LetValuesSyntax, MakePair(lb, body));
 
     LeaveLetScope(lb);
 
@@ -866,7 +862,7 @@ FObject SPassDo(FObject enc, FObject se, FObject expr)
 
     LeaveScopeList(bs);
 
-    return(MakePair(MakePair(LetrecSyntax, MakePair(
+    return(MakePair(MakePair(LetrecValuesSyntax, MakePair(
             MakePair(MakePair(MakePair(tb, EmptyListObject), MakePair(lambda, EmptyListObject)),
             EmptyListObject), MakePair(MakeReference(tb, tag), EmptyListObject))), inits));
 }
@@ -1137,6 +1133,18 @@ static FObject SPassSpecialSyntax(FObject enc, FObject se, FObject ss, FObject e
         // (let*-values ((<formals> <init>) ...) <body>)
 
         return(SPassLet(enc, se, ss, expr, 0, 1, 1));
+    }
+    else if (ss == LetrecValuesSyntax)
+    {
+        // (letrec-values ((<formals> <init>) ...) <body>)
+
+        return(SPassLet(enc, se, ss, expr, 1, 0, 1));
+    }
+    else if (ss == LetrecStarValuesSyntax)
+    {
+        // (letrec*-values ((<formals> <init>) ...) <body>)
+
+        return(SPassLet(enc, se, ss, expr, 1, 1, 1));
     }
     else if (ss == LetSyntaxSyntax)
     {
@@ -1671,7 +1679,7 @@ static FObject SPassBody(FObject enc, FObject se, FObject ss, FObject body)
         // Pass 3: expand inits and pair with bindings
 
         FObject lb = VariablesAndExpandInits(enc, se, dlst, bl);
-        ret = MakePair(MakePair(LetValuesSyntax,
+        ret = MakePair(MakePair(LetrecStarValuesSyntax,
                 MakePair(lb, SPassSequence(enc, se, ss, body, body))), EmptyListObject);
     }
 
