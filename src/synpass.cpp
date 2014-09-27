@@ -594,6 +594,17 @@ static FObject SPassLetStarToLet(FObject lb, FObject body)
             SPassLetStarToLet(Rest(lb), body))), EmptyListObject));
 }
 
+static FObject SPassLetStarToLet(FObject lb, FObject body)
+{
+    if (lb == EmptyListObject)
+        return(body);
+
+    FAssert(PairP(lb));
+
+    return(MakePair(MakePair(LetValuesSyntax, MakePair(MakePair(First(lb), EmptyListObject),
+            SPassLetStarToLet(Rest(lb), body))), EmptyListObject));
+}
+
 static FObject SPassLet(FObject enc, FObject se, FObject ss, FObject expr, int_t rf, int_t sf,
     int_t vf)
 {
@@ -615,18 +626,17 @@ static FObject SPassLet(FObject enc, FObject se, FObject ss, FObject expr, int_t
     FObject ret;
 
     if (ss == LetSyntaxSyntax || ss == LetrecSyntaxSyntax)
-        ret = MakePair(BeginSyntax, body);
-    else if (rf != 0)
-        ret = MakePair(sf == 0 ? LetrecValuesSyntax : LetrecStarValuesSyntax, MakePair(lb, body));
-    else if (sf != 0)
+        ret = MakePair(BeginSyntax, SPassBody(enc, se, ss, Rest(Rest(expr))));
+    else if (rf == 0 && sf != 0)
     {
         FAssert(PairP(lb));
 
         ret  = MakePair(LetValuesSyntax, MakePair(MakePair(First(lb), EmptyListObject),
-                SPassLetStarToLet(Rest(lb), body)));
+                SPassLetStarToLet(Rest(lb), SPassBody(enc, se, ss, Rest(Rest(expr))))));
     }
     else
-        ret = MakePair(LetValuesSyntax, MakePair(lb, body));
+        ret = MakePair(ss == LetrecSyntax ? LetrecSyntax : LetValuesSyntax,
+                MakePair(lb, SPassBody(enc, se, ss, Rest(Rest(expr)))));
 
     LeaveLetScope(lb);
 
@@ -1679,7 +1689,7 @@ static FObject SPassBody(FObject enc, FObject se, FObject ss, FObject body)
         // Pass 3: expand inits and pair with bindings
 
         FObject lb = VariablesAndExpandInits(enc, se, dlst, bl);
-        ret = MakePair(MakePair(LetrecStarValuesSyntax,
+        ret = MakePair(MakePair(LetValuesSyntax,
                 MakePair(lb, SPassSequence(enc, se, ss, body, body))), EmptyListObject);
     }
 
