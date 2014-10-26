@@ -571,7 +571,7 @@ static FObject SPassNamedLet(FObject enc, FObject se, FObject tag, FObject expr)
     // --> ((letrec ((tag (lambda (name ...) body1 body2 ...)))
     //         tag) val ...)
 
-    FObject lambda = MakeLambda(enc, NoValueObject, bs, NoValueObject);
+    FObject lambda = MakeLambda(enc, tag, bs, NoValueObject);
 //    AsLambda(lambda)->Body = SPassBody(lambda, se, LetSyntax, Rest(Rest(Rest(expr))));
     Modify(FLambda, lambda, Body, SPassBody(lambda, se, LetSyntax, Rest(Rest(Rest(expr)))));
 
@@ -804,7 +804,7 @@ FObject SPassDo(FObject enc, FObject se, FObject expr)
     FObject tb = MakeBinding(se, tag, FalseObject);
 
     EnterScopeList(bs);
-    FObject lambda = MakeLambda(enc, NoValueObject, bs, NoValueObject);
+    FObject lambda = MakeLambda(enc, First(expr), bs, NoValueObject);
 
     FObject stps = EmptyListObject;
 

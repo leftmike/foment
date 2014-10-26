@@ -274,6 +274,10 @@ static void WriteRecord(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
 {
     if (IdentifierP(obj))
         WriteGeneric(port, AsIdentifier(obj)->Symbol, df, wfn, ctx);
+    else if (BindingP(obj))
+        WriteGeneric(port, AsBinding(obj)->Identifier, df, wfn, ctx);
+    else if (ReferenceP(obj))
+        WriteGeneric(port, AsReference(obj)->Identifier, df, wfn, ctx);
     else
     {
         FObject rt = AsGenericRecord(obj)->Fields[0];
@@ -320,6 +324,21 @@ static void WriteRecord(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
         {
             WriteCh(port, ' ');
             wfn(port, AsEnvironment(obj)->Name, df, (void *) wfn, ctx);
+        }
+        else if (LambdaP(obj))
+        {
+            WriteCh(port, ' ');
+            WriteGeneric(port, AsLambda(obj)->Name, df, wfn, ctx);
+            WriteCh(port, ' ');
+            WriteGeneric(port, AsLambda(obj)->Bindings, df, wfn, ctx);
+            if (StringP(AsLambda(obj)->Filename) && FixnumP(AsLambda(obj)->LineNumber))
+            {
+                WriteCh(port, ' ');
+                WriteGeneric(port, AsLambda(obj)->Filename, 1, wfn, ctx);
+                WriteCh(port, '[');
+                WriteGeneric(port, AsLambda(obj)->LineNumber, df, wfn, ctx);
+                WriteCh(port, ']');
+            }
         }
         else
         {
@@ -483,6 +502,15 @@ static void WriteIndirectObject(FObject port, FObject obj, int_t df, FWriteFn wf
 
         if (AsProcedure(obj)->Reserved & PROCEDURE_FLAG_CONTINUATION)
             WriteStringC(port, " continuation");
+
+        if (StringP(AsProcedure(obj)->Filename) && FixnumP(AsProcedure(obj)->LineNumber))
+        {
+            WriteCh(port, ' ');
+            WriteGeneric(port, AsProcedure(obj)->Filename, 1, wfn, ctx);
+            WriteCh(port, '[');
+            WriteGeneric(port, AsProcedure(obj)->LineNumber, df, wfn, ctx);
+            WriteCh(port, ']');
+        }
 
 //        WriteCh(port, ' ');
 //        wfn(port, AsProcedure(obj)->Code, df, wfn, ctx);

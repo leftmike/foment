@@ -1056,13 +1056,15 @@ typedef struct
 {
     uint_t Reserved;
     FObject Name;
+    FObject Filename;
+    FObject LineNumber;
     FObject Code;
 } FProcedure;
 
 #define AsProcedure(obj) ((FProcedure *) (obj))
 #define ProcedureP(obj) (IndirectTag(obj) == ProcedureTag)
 
-FObject MakeProcedure(FObject nam, FObject cv, int_t ac, uint_t fl);
+FObject MakeProcedure(FObject nam, FObject fn, FObject ln, FObject cv, int_t ac, uint_t fl);
 
 #define MAXIMUM_ARG_COUNT 0xFFFF
 #define ProcedureArgCount(obj)\

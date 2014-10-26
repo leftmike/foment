@@ -81,6 +81,9 @@ typedef struct
 
     FObject Procedure;
     FObject BodyIndex;
+
+    FObject Filename;
+    FObject LineNumber;
 } FLambda;
 
 #define AsLambda(obj) ((FLambda *) (obj))

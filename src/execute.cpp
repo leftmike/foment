@@ -28,11 +28,13 @@ static FObject LastPrimitive = NoValueObject;
 
 // ---- Procedure ----
 
-FObject MakeProcedure(FObject nam, FObject cv, int_t ac, uint_t fl)
+FObject MakeProcedure(FObject nam, FObject fn, FObject ln, FObject cv, int_t ac, uint_t fl)
 {
     FProcedure * p = (FProcedure *) MakeObject(sizeof(FProcedure), ProcedureTag);
     p->Reserved = MakeLength(ac, ProcedureTag) | fl;
     p->Name = SyntaxToDatum(nam);
+    p->Filename = fn;
+    p->LineNumber = ln;
     p->Code = cv;
 
     return(p);
@@ -756,8 +758,8 @@ TailCallPrimitive:
                 v[0] = ts->AStack[ts->AStackPtr - 1];
                 v[1] = ts->AStack[ts->AStackPtr];
                 v[2] = MakeInstruction(TailCallProcOpcode, 0);
-                FObject proc = MakeProcedure(NoValueObject, MakeVector(3, v, NoValueObject), 0,
-                        PROCEDURE_FLAG_CLOSURE);
+                FObject proc = MakeProcedure(NoValueObject, NoValueObject, NoValueObject,
+                        MakeVector(3, v, NoValueObject), 0, PROCEDURE_FLAG_CLOSURE);
                 ts->AStack[ts->AStackPtr - 1] = proc;
                 break;
             }
@@ -1468,40 +1470,43 @@ void SetupExecute()
     v[1] = MakeInstruction(ReturnOpcode, 0);
     LibraryExport(R.BedrockLibrary,
             EnvironmentSetC(R.Bedrock, "values", MakeProcedure(StringCToSymbol("values"),
+            MakeStringC(__FILE__), MakeFixnum(__LINE__),
             MakeVector(2, v, NoValueObject), 1, PROCEDURE_FLAG_RESTARG)));
 
     v[0] = MakeInstruction(ApplyOpcode, 0);
     v[1] = MakeInstruction(TailCallOpcode, 0);
     LibraryExport(R.BedrockLibrary,
             EnvironmentSetC(R.Bedrock, "apply", MakeProcedure(StringCToSymbol("apply"),
+            MakeStringC(__FILE__), MakeFixnum(__LINE__),
             MakeVector(2, v, NoValueObject), 2, PROCEDURE_FLAG_RESTARG)));
 
     v[0] = MakeInstruction(SetArgCountOpcode, 0);
     v[1] = MakeInstruction(CallOpcode, 0);
     v[2] = MakeInstruction(ReturnFromOpcode, 0);
-    R.ExecuteThunk = MakeProcedure(NoValueObject, MakeVector(3, v, NoValueObject), 1, 0);
+    R.ExecuteThunk = MakeProcedure(NoValueObject, MakeStringC(__FILE__), MakeFixnum(__LINE__),
+            MakeVector(3, v, NoValueObject), 1, 0);
 
     // (%return <value>)
 
     v[0] = MakeInstruction(ReturnFromOpcode, 0);
     LibraryExport(R.BedrockLibrary,
             EnvironmentSetC(R.Bedrock, "%return",
-            MakeProcedure(StringCToSymbol("%return-from"), MakeVector(1, v, NoValueObject), 1,
-            0)));
+            MakeProcedure(StringCToSymbol("%return-from"), MakeStringC(__FILE__),
+            MakeFixnum(__LINE__), MakeVector(1, v, NoValueObject), 1, 0)));
 
     // (%capture-continuation <proc>)
 
     v[0] = MakeInstruction(CaptureContinuationOpcode, 0);
     LibraryExport(R.BedrockLibrary, EnvironmentSetC(R.Bedrock, "%capture-continuation",
             MakeProcedure(StringCToSymbol("%capture-continuation"),
-            MakeVector(1, v, NoValueObject), 1, 0)));
+            MakeStringC(__FILE__), MakeFixnum(__LINE__), MakeVector(1, v, NoValueObject), 1, 0)));
 
     // (%call-continuation <cont> <thunk>)
 
     v[0] = MakeInstruction(CallContinuationOpcode, 0);
     LibraryExport(R.BedrockLibrary, EnvironmentSetC(R.Bedrock, "%call-continuation",
             MakeProcedure(StringCToSymbol("%call-continuation"),
-            MakeVector(1, v, NoValueObject), 2, 0)));
+            MakeStringC(__FILE__), MakeFixnum(__LINE__), MakeVector(1, v, NoValueObject), 2, 0)));
 
     // (%mark-continuation <who> <key> <value> <thunk>)
 
@@ -1514,14 +1519,14 @@ void SetupExecute()
     v[6] = MakeInstruction(ReturnOpcode, 0);
     LibraryExport(R.BedrockLibrary,
             EnvironmentSetC(R.Bedrock, "%mark-continuation",
-            MakeProcedure(StringCToSymbol("%mark-continuation"), MakeVector(7, v, NoValueObject),
-            4, 0)));
+            MakeProcedure(StringCToSymbol("%mark-continuation"), MakeStringC(__FILE__),
+            MakeFixnum(__LINE__), MakeVector(7, v, NoValueObject), 4, 0)));
 
     // (%abort-dynamic <dynamic> <thunk>)
 
     v[0] = MakeInstruction(AbortOpcode, 0);
     LibraryExport(R.BedrockLibrary,
             EnvironmentSetC(R.Bedrock, "%abort-dynamic",
-            MakeProcedure(StringCToSymbol("%abort-dynamic"), MakeVector(1, v, NoValueObject),
-            2, 0)));
+            MakeProcedure(StringCToSymbol("%abort-dynamic"), MakeStringC(__FILE__),
+            MakeFixnum(__LINE__), MakeVector(1, v, NoValueObject), 2, 0)));
 }

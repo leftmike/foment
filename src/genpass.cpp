@@ -586,8 +586,8 @@ static FObject GPassCaseLambda(FCaseLambda * cl)
 
     FAssert(cases == EmptyListObject);
 
-    return(MakeProcedure(cl->Name, ListToVector(ReverseListModify(cdl)), AsFixnum(1),
-            PROCEDURE_FLAG_RESTARG));
+    return(MakeProcedure(cl->Name, NoValueObject, NoValueObject,
+            ListToVector(ReverseListModify(cdl)), AsFixnum(1), PROCEDURE_FLAG_RESTARG));
 }
 
 FObject GPassLambdaFrame(FLambda * lam, FObject cdl, FLambda * op)
@@ -677,7 +677,7 @@ static FObject GPassMakeCall(FLambda * lam, FObject cdl, FObject op, int_t argc,
 
         if (cases == EmptyListObject)
             RaiseExceptionC(R.Assertion, "case-lambda", "no matching case",
-                    List(expr, op, MakeFixnum(argc)));
+                    List(op, MakeFixnum(argc), expr));
     }
 
     if (LambdaP(op))
@@ -909,11 +909,11 @@ FObject GPassLambda(FLambda * lam)
     if (ProcedureP(lam->Procedure))
         return(lam->Procedure);
 
-//    lam->Procedure = MakeProcedure(lam->Name, NoValueObject, AsFixnum(lam->ArgCount),
-//            lam->RestArg);
+//    lam->Procedure = MakeProcedure(lam->Name, lam->Filename, lam->LineNumber, NoValueObject,
+//            AsFixnum(lam->ArgCount), lam->RestArg);
     Modify(FLambda, lam, Procedure,
-            MakeProcedure(lam->Name, NoValueObject, AsFixnum(lam->ArgCount),
-            lam->RestArg == TrueObject ? PROCEDURE_FLAG_RESTARG : 0));
+            MakeProcedure(lam->Name, lam->Filename, lam->LineNumber, NoValueObject,
+            AsFixnum(lam->ArgCount), lam->RestArg == TrueObject ? PROCEDURE_FLAG_RESTARG : 0));
 
     FObject cdl = EmptyListObject;
 

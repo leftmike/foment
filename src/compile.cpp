@@ -110,8 +110,8 @@ FObject WrapIdentifier(FObject id, FObject se)
 // ---- Lambda ----
 
 static const char * LambdaFieldsC[] = {"name", "bindings", "body", "rest-arg", "arg-count",
-    "escapes", "use-stack", "level", "slot-count", "middle-pass", "procedure", "body-index",
-    "may-inline"};
+    "escapes", "use-stack", "level", "slot-count", "middle-pass", "may-inline", "procedure",
+    "body-index", "filename", "line-number"};
 
 FObject MakeLambda(FObject enc, FObject nam, FObject bs, FObject body)
 {
@@ -135,6 +135,17 @@ FObject MakeLambda(FObject enc, FObject nam, FObject bs, FObject body)
 
     l->Procedure = NoValueObject;
     l->BodyIndex = NoValueObject;
+
+    if (IdentifierP(nam))
+    {
+        l->Filename = AsIdentifier(nam)->Filename;
+        l->LineNumber = AsIdentifier(nam)->LineNumber;
+    }
+    else
+    {
+        l->Filename = NoValueObject;
+        l->LineNumber = NoValueObject;
+    }
 
     return(l);
 }

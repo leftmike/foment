@@ -954,6 +954,10 @@ static void ScanChildren(FRaw raw, uint_t tag, int_t fcf)
     case ProcedureTag:
         if (ObjectP(AsProcedure(raw)->Name))
             ScanObject(&(AsProcedure(raw)->Name), fcf, mf);
+        if (ObjectP(AsProcedure(raw)->Filename))
+            ScanObject(&(AsProcedure(raw)->Filename), fcf, mf);
+        if (ObjectP(AsProcedure(raw)->LineNumber))
+            ScanObject(&(AsProcedure(raw)->LineNumber), fcf, mf);
         if (ObjectP(AsProcedure(raw)->Code))
             ScanObject(&(AsProcedure(raw)->Code), fcf, mf);
         break;
@@ -1540,6 +1544,8 @@ static void ValidateObject(FRaw raw, uint_t tag, uint_t sec, uint_t off, int ln)
 
     case ProcedureTag:
         ValidateSlot(raw, &AsProcedure(raw)->Name, tag, sec, off, ln, -1, "name");
+        ValidateSlot(raw, &AsProcedure(raw)->Filename, tag, sec, off, ln, -1, "filename");
+        ValidateSlot(raw, &AsProcedure(raw)->LineNumber, tag, sec, off, ln, -1, "line-number");
         ValidateSlot(raw, &AsProcedure(raw)->Code, tag, sec, off, ln, -1, "code");
         break;
 
