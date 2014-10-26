@@ -218,7 +218,7 @@ static FObject AddFormal(FObject se, FObject ss, FObject bs, FObject id, FObject
 
     if (IdentifierP(id) == 0)
         RaiseExceptionC(R.Syntax, SpecialSyntaxToName(ss),
-                "expected a symbol or a list of symbols for formals", List(form, id));
+                "expected a symbol or a list of symbols for formals", List(id, form));
 
     if (bs == EmptyListObject)
         return(MakePair(MakeBinding(se, id, ra), EmptyListObject));
@@ -297,7 +297,7 @@ static FObject AddBinding(FObject se, FObject ss, FObject bs, FObject id, FObjec
 
     if (IdentifierP(id) == 0)
         RaiseExceptionC(R.Syntax, SpecialSyntaxToName(ss),
-                "expected <variable> for each binding", List(form, id));
+                "expected <variable> for each binding", List(id, form));
 
     if (bs == EmptyListObject)
         return(MakePair(MakeBinding(se, id, FalseObject), EmptyListObject));
@@ -335,7 +335,7 @@ static FObject SPassLetVar(FObject se, FObject ss, FObject lb, FObject bs, FObje
 
         if (PairP(vi) == 0 || PairP(Rest(vi)) == 0 || Rest(Rest(vi)) != EmptyListObject)
             RaiseExceptionC(R.Syntax, SpecialSyntaxToName(ss),
-                    "expected (<formals> <init>) for each binding", List(lb, vi));
+                    "expected (<formals> <init>) for each binding", List(vi, lb));
 
         return(SPassFormals(se, ss, bs, First(vi), lb));
     }
@@ -345,7 +345,7 @@ static FObject SPassLetVar(FObject se, FObject ss, FObject lb, FObject bs, FObje
 
     if (PairP(vi) == 0 || PairP(Rest(vi)) == 0 || Rest(Rest(vi)) != EmptyListObject)
         RaiseExceptionC(R.Syntax, SpecialSyntaxToName(ss),
-                "expected (<variable> <init>) for each binding", List(lb, vi));
+                "expected (<variable> <init>) for each binding", List(vi, lb));
 
     return(AddBinding(se, ss, bs, First(vi), lb));
 }
@@ -362,7 +362,7 @@ static FObject SPassLetInit(FObject enc, FObject se, FObject ss, FObject lb, FOb
 
         if (SyntaxP(expr) == 0)
             RaiseExceptionC(R.Syntax, SpecialSyntaxToName(ss), "expected a transformer",
-                    List(lb, First(Rest(vi))));
+                    List(First(Rest(vi)), lb));
 
 //        AsBinding(bd)->Syntax = expr;
         Modify(FBinding, bd, Syntax, expr);
@@ -438,7 +438,7 @@ static FObject SPassLetBindings(FObject enc, FObject se, FObject ss, FObject lb,
 
     if (tlb != EmptyListObject)
         RaiseExceptionC(R.Syntax, SpecialSyntaxToName(ss), "expected a list of bindings",
-                List(lb, tlb));
+                List(lb));
 
     if (rf != 0)
         EnterScopeList(bs);
@@ -470,7 +470,7 @@ static FObject AddLetStarBinding(FObject se, FObject id, FObject form)
 
     if (IdentifierP(id) == 0)
         RaiseExceptionC(R.Syntax, "let*", "expected (<variable> <init>) for each binding",
-                List(form, id));
+                List(id, form));
 
     return(MakeBinding(se, id, FalseObject));
 }
@@ -483,7 +483,7 @@ static FObject SPassLetStarVarInit(FObject enc, FObject se, FObject ss, FObject 
 
     if (PairP(vi) == 0 || PairP(Rest(vi)) == 0 || Rest(Rest(vi)) != EmptyListObject)
         RaiseExceptionC(R.Syntax, SpecialSyntaxToName(ss),
-                "expected (<variable> <init>) for each binding", List(lb, vi));
+                "expected (<variable> <init>) for each binding", List(vi, lb));
 
     if (vf == 0)
     {
@@ -518,7 +518,7 @@ static FObject SPassLetStarBindings(FObject enc, FObject se, FObject ss, FObject
 
     if (tlb != EmptyListObject)
         RaiseExceptionC(R.Syntax, SpecialSyntaxToName(ss), "expected a list of bindings",
-                List(lb, tlb));
+                List(lb));
 
    return(ReverseListModify(nlb));
 }
@@ -534,7 +534,7 @@ static FObject SPassNamedLetFormals(FObject se, FObject lb)
         bs = SPassLetVar(se, LetSyntax, lb, bs, First(tlb), 0);
 
     if (tlb != EmptyListObject)
-        RaiseExceptionC(R.Syntax, "let", "expected a list of bindings", List(lb, tlb));
+        RaiseExceptionC(R.Syntax, "let", "expected a list of bindings", List(lb));
 
     return(bs);
 }
@@ -662,7 +662,7 @@ static FObject AddCaseDatum(FObject dtm, FObject dtms, FObject cse)
         FAssert(PairP(lst));
 
         if (EqvP(First(lst), dtm))
-            RaiseExceptionC(R.Syntax, "case", "duplicate datum", List(cse, dtm));
+            RaiseExceptionC(R.Syntax, "case", "duplicate datum", List(dtm, cse));
 
         if (Rest(lst) == EmptyListObject)
             break;
@@ -686,7 +686,7 @@ static FObject AddCaseDatumList(FObject dtml, FObject dtms, FObject cse, FObject
     }
 
     if (dtml != EmptyListObject)
-        RaiseExceptionC(R.Syntax, "case", "expected a proper list of datum", List(cse, cls));
+        RaiseExceptionC(R.Syntax, "case", "expected a proper list of datum", List(cls));
 
     return(dtms);
 }
@@ -706,19 +706,19 @@ static FObject SPassCaseClauses(FObject enc, FObject se, FObject clst, FObject c
         FObject cls = First(clst);
         if (PairP(cls) == 0)
             RaiseExceptionC(R.Syntax, "case", "expected a nonempty list for each clause",
-                    List(cse, cls));
+                    List(cls, cse));
 
         if (Rest(clst) == EmptyListObject && MatchReference(R.ElseReference, se, First(cls)))
         {
             if (PairP(Rest(cls)) == 0)
                 RaiseExceptionC(R.Syntax, "case",
-                        "expected at least one expression following else", List(cse, cls));
+                        "expected at least one expression following else", List(cls, cse));
 
             if (MatchReference(R.ArrowReference, se, First(Rest(cls))))
             {
                 if (PairP(Rest(Rest(cls))) == 0 || Rest(Rest(Rest(cls))) != EmptyListObject)
                     RaiseExceptionC(R.Syntax, "case", "expected (else => <expression>)",
-                            List(cse, cls));
+                            List(cls, cse));
 
                 rlst = MakePair(MakePair(ElseSyntax, MakePair(ArrowSyntax,
                         MakePair(SPassExpression(enc, se, First(Rest(Rest(cls)))),
@@ -733,7 +733,7 @@ static FObject SPassCaseClauses(FObject enc, FObject se, FObject clst, FObject c
             FObject dtml = SyntaxToDatum(First(cls));
             if (PairP(Rest(cls)) == 0 || PairP(dtml) == 0)
                 RaiseExceptionC(R.Syntax, "case", "expected ((<datum> ...) <expression> ...)",
-                        List(cse, cls));
+                        List(cls, cse));
 
             dtms = AddCaseDatumList(dtml, dtms, cse, cls);
 
@@ -741,7 +741,7 @@ static FObject SPassCaseClauses(FObject enc, FObject se, FObject clst, FObject c
             {
                 if (PairP(Rest(Rest(cls))) == 0 || Rest(Rest(Rest(cls))) != EmptyListObject)
                     RaiseExceptionC(R.Syntax, "case",
-                            "expected ((<datum> ...) => <expression>)", List(cse, cls));
+                            "expected ((<datum> ...) => <expression>)", List(cls, cse));
 
                 rlst = MakePair(MakePair(dtml, MakePair(ArrowSyntax,
                         MakePair(SPassExpression(enc, se, First(Rest(Rest(cls)))),
@@ -756,7 +756,7 @@ static FObject SPassCaseClauses(FObject enc, FObject se, FObject clst, FObject c
     }
 
     if (clst != EmptyListObject || rlst == EmptyListObject)
-        RaiseExceptionC(R.Syntax, "case", "expected a list of clauses", List(cse, clst));
+        RaiseExceptionC(R.Syntax, "case", "expected a list of clauses", List(cse));
 
     return(ReverseListModify(rlst));
 }
@@ -786,7 +786,7 @@ FObject SPassDo(FObject enc, FObject se, FObject expr)
 
         if (PairP(vis) == 0 || PairP(Rest(vis)) == 0 || (PairP(Rest(Rest(vis)))
                 && Rest(Rest(Rest(vis))) != EmptyListObject))
-            RaiseExceptionC(R.Syntax, "do", "expected (<var> <init> [<step>])", List(expr, vis));
+            RaiseExceptionC(R.Syntax, "do", "expected (<var> <init> [<step>])", List(vis, expr));
 
         bs = AddBinding(se, DoSyntax, bs, First(vis), vis);
         inits = MakePair(SPassExpression(enc, se, First(Rest(vis))), inits);
@@ -796,7 +796,7 @@ FObject SPassDo(FObject enc, FObject se, FObject expr)
 
     if (visl != EmptyListObject)
         RaiseExceptionC(R.Syntax, "do",
-                "expected a proper list of ((<var> <init> [<step>]) ...)", List(expr, visl));
+                "expected a proper list of ((<var> <init> [<step>]) ...)", List(expr));
 
     inits = ReverseListModify(inits);
 
@@ -860,7 +860,7 @@ static FObject SPassCaseLambda(FObject enc, FObject se, FObject expr, FObject cl
 
     if (PairP(clst) == 0 || PairP(First(clst)) == 0 || PairP(Rest(First(clst))) == 0)
         RaiseExceptionC(R.Syntax, "case-lambda",
-                "expected (case-lambda (<formals> <body>) ...)", List(expr, clst));
+                "expected (case-lambda (<formals> <body>) ...)", List(clst, expr));
 
     FObject cls = First(clst);
     return(MakePair(SPassLambda(enc, se, First(expr), First(cls), Rest(cls)),
@@ -892,7 +892,7 @@ static FObject SPassQuasiquote(FObject enc, FObject se, FObject expr, FObject tp
             {
                 if (PairP(Rest(tpl)) == 0 || Rest(Rest(tpl)) != EmptyListObject)
                     RaiseExceptionC(R.Syntax, "unquote", "expected (unquote <expression>)",
-                            List(expr, tpl));
+                            List(tpl, expr));
 
                 return(SPassExpression(enc, se, First(Rest(tpl))));
             }
@@ -912,7 +912,7 @@ static FObject SPassQuasiquote(FObject enc, FObject se, FObject expr, FObject tp
 
             if (PairP(Rest(ftpl)) == 0 || Rest(Rest(ftpl)) != EmptyListObject)
                 RaiseExceptionC(R.Syntax, "unquote-splicing",
-                        "expected (unquote-splicing <expression>)", List(expr, ftpl));
+                        "expected (unquote-splicing <expression>)", List(ftpl, expr));
 
             FObject rst = SPassQuasiquote(enc, se, expr, Rest(tpl), dpth);
             if (rst == Rest(tpl))
@@ -1005,12 +1005,12 @@ static FObject SPassSpecialSyntax(FObject enc, FObject se, FObject ss, FObject e
         if (SymbolP(var))
             var = MakeIdentifier(var);
         if (IdentifierP(var) == 0)
-            RaiseExceptionC(R.Syntax, "set!", "variable expected", List(expr, var));
+            RaiseExceptionC(R.Syntax, "set!", "variable expected", List(var, expr));
 
         FObject be = ResolveIdentifier(se, var);
         if (SyntaxBindingP(be, var))
             RaiseExceptionC(R.Syntax, "set!", "variable already bound to syntax",
-                    List(expr, var));
+                    List(var, expr));
 
         if (EnvironmentP(be) && AsEnvironment(be)->Interactive == FalseObject)
         {
@@ -1022,7 +1022,7 @@ static FObject SPassSpecialSyntax(FObject enc, FObject se, FObject ss, FObject e
                     || AsGlobal(gl)->State == GlobalImportedModified)
                 RaiseExceptionC(R.Syntax, "set!",
                         "imported variables may not be modified in libraries",
-                        List(expr, var));
+                        List(var, expr));
         }
 
         return(MakePair(SetBangSyntax, MakePair(MakeReference(be, var),
@@ -1046,12 +1046,12 @@ static FObject SPassSpecialSyntax(FObject enc, FObject se, FObject ss, FObject e
             if (SymbolP(var))
                 var = MakeIdentifier(var);
             if (IdentifierP(var) == 0)
-                RaiseExceptionC(R.Syntax, "set!-values", "variable expected", List(expr, var));
+                RaiseExceptionC(R.Syntax, "set!-values", "variable expected", List(var, expr));
 
             FObject be = ResolveIdentifier(se, var);
             if (SyntaxBindingP(be, var))
                 RaiseExceptionC(R.Syntax, "set!-values", "variable already bound to syntax",
-                        List(expr, var));
+                        List(var, expr));
 
             if (EnvironmentP(be) && AsEnvironment(be)->Interactive == FalseObject)
             {
@@ -1063,7 +1063,7 @@ static FObject SPassSpecialSyntax(FObject enc, FObject se, FObject ss, FObject e
                         || AsGlobal(gl)->State == GlobalImportedModified)
                     RaiseExceptionC(R.Syntax, "set!-values",
                             "imported variables may not be modified in libraries",
-                            List(expr, var));
+                            List(var, expr));
             }
 
             blst = MakePair(MakeReference(be, var), blst);
@@ -1191,7 +1191,7 @@ static FObject SPassSpecialSyntax(FObject enc, FObject se, FObject ss, FObject e
 
         if (StringP(First(Rest(expr))) == 0)
             RaiseExceptionC(R.Syntax, "syntax-error",
-                    "expected a string for the <message>", List(expr, First(Rest(expr))));
+                    "expected a string for the <message>", List(First(Rest(expr)), expr));
 
         char msg[128];
         StringToC(First(Rest(expr)), msg, sizeof(msg));
@@ -1250,7 +1250,7 @@ static FObject SPassOperands(FObject enc, FObject se, FObject opds, FObject form
         return(EmptyListObject);
 
     if (PairP(opds) == 0)
-        RaiseExceptionC(R.Syntax, "procedure-call", "expected list of operands", List(form, opds));
+        RaiseExceptionC(R.Syntax, "procedure-call", "expected list of operands", List(opds, form));
 
     return(MakePair(SPassExpression(enc, se, First(opds)),
             SPassOperands(enc, se, Rest(opds), form)));
@@ -1323,7 +1323,7 @@ static FObject SPassSequenceLast(FObject enc, FObject se, FObject ss, FObject fo
 
     if (PairP(seq) == 0)
         RaiseExceptionC(R.Syntax, SpecialSyntaxToName(ss), "expected list of expressions",
-                List(form, seq));
+                List(seq, form));
 
     return(MakePair(SPassExpression(enc, se, First(seq)),
             SPassSequenceLast(enc, se, ss, form, Rest(seq), last)));
@@ -1387,7 +1387,7 @@ static FObject GatherVariablesAndSyntax(FObject enc, FObject se, FObject dlst, F
             FObject trans = SPassExpression(enc, se, First(Rest(Rest(expr))));
             if (SyntaxP(trans) == 0)
                 RaiseExceptionC(R.Syntax, "define-syntax", "expected a transformer",
-                        List(expr, First(Rest(Rest(expr)))));
+                        List(First(Rest(Rest(expr))), expr));
 
 //            AsBinding(First(bs))->Syntax = trans;
             Modify(FBinding, First(bs), Syntax, trans);
@@ -1516,7 +1516,7 @@ static FObject AppendBegin(FObject ss, FObject begin, FObject body, FObject form
 
     if (PairP(begin) == 0)
         RaiseExceptionC(R.Syntax, SpecialSyntaxToName(ss), "begin must be a proper list",
-                List(form, begin));
+                List(begin, form));
 
     return(MakePair(First(begin), AppendBegin(ss, Rest(begin), body, form)));
 }
@@ -1707,13 +1707,13 @@ static int_t EvaluateFeatureRequirement(FObject se, FObject expr, FObject cls, F
 
     if (PairP(obj) == 0 || (IdentifierP(First(obj)) == 0 && SymbolP(First(obj)) == 0))
         RaiseExceptionC(R.Syntax, "cond-expand", "invalid feature requirement syntax",
-                List(expr, cls, obj));
+                List(obj, cls, expr));
 
     if (MatchReference(R.LibraryReference, se, First(obj)))
     {
         if (PairP(Rest(obj)) == 0 || Rest(Rest(obj)) != EmptyListObject)
             RaiseExceptionC(R.Syntax, "cond-expand", "expected (library <library name>)",
-                    List(expr, cls, obj));
+                    List(obj, cls, expr));
 
         FObject nam = LibraryName(First(Rest(obj)));
         if (PairP(nam) == 0)
@@ -1736,7 +1736,7 @@ static int_t EvaluateFeatureRequirement(FObject se, FObject expr, FObject cls, F
 
         if (lst != EmptyListObject)
             RaiseExceptionC(R.Syntax, "cond-expand",
-                    "expected a proper list of feature requirements", List(expr, cls, obj));
+                    "expected a proper list of feature requirements", List(obj, cls, expr));
 
         return(1);
     }
@@ -1754,7 +1754,7 @@ static int_t EvaluateFeatureRequirement(FObject se, FObject expr, FObject cls, F
 
         if (lst != EmptyListObject)
             RaiseExceptionC(R.Syntax, "cond-expand",
-                    "expected a proper list of feature requirements", List(expr, cls, obj));
+                    "expected a proper list of feature requirements", List(obj, cls, expr));
 
         return(0);
     }
@@ -1762,13 +1762,13 @@ static int_t EvaluateFeatureRequirement(FObject se, FObject expr, FObject cls, F
     {
         if (PairP(Rest(obj)) == 0 || Rest(Rest(obj)) != EmptyListObject)
             RaiseExceptionC(R.Syntax, "cond-expand", "expected (not <feature requirement>)",
-                    List(expr, cls, obj));
+                    List(obj, cls, expr));
 
         return(EvaluateFeatureRequirement(se, expr, cls, First(Rest(obj))) == 0);
     }
     else
         RaiseExceptionC(R.Syntax, "cond-expand", "invalid feature requirement syntax",
-                List(expr, cls, obj));
+                List(obj, cls, expr));
 
     return(0);
 }
@@ -1782,14 +1782,14 @@ FObject CondExpand(FObject se, FObject expr, FObject clst)
         if (PairP(cls) == 0)
             RaiseExceptionC(R.Syntax, "cond-expand",
                     "expected (<feature requirement> <expression> ...) for each clause",
-                    List(expr, clst));
+                    List(clst, expr));
 
         if ((IdentifierP(First(cls)) || SymbolP(First(cls)))
                 && MatchReference(R.ElseReference, se, First(cls)))
         {
             if (Rest(clst) != EmptyListObject)
                 RaiseExceptionC(R.Syntax, "cond-expand",
-                        "(else <expression> ..) must be the last clause", List(expr, clst, cls));
+                        "(else <expression> ..) must be the last clause", List(cls, clst, expr));
 
             return(Rest(cls));
         }
@@ -1802,7 +1802,7 @@ FObject CondExpand(FObject se, FObject expr, FObject clst)
 
     if (clst != EmptyListObject)
         RaiseExceptionC(R.Syntax, "cond-expand", "expected a proper list of clauses",
-                List(expr, clst));
+                List(expr));
 
     RaiseExceptionC(R.Syntax, "cond-expand", "no clauses match", List(expr));
 
