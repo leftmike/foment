@@ -29,6 +29,10 @@ Compiler:
 -- genpass: handle multiple values with LetrecValues correctly
 -- genpass: LetrecStarValues needs to be compiled correctly
 -- export letrec-values and letrec*-values from (foment base)
+-- make lambda formals like let bindings: list of list
+-- let bindings: split formals and inits into seperate lists
+-- remove constants from bindings lists
+-- pass all non-local references into each lambda: frames can go away
 
 Bugs:
 -- letrec: http://trac.sacrideo.us/wg/wiki/LetrecStar
