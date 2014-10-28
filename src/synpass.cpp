@@ -665,116 +665,6 @@ int_t MatchReference(FObject ref, FObject se, FObject expr)
             AsReference(ref)->Identifier));
 }
 
-static FObject AddCaseDatum(FObject dtm, FObject dtms, FObject cse)
-{
-    if (dtms == EmptyListObject)
-        return(MakePair(dtm, EmptyListObject));
-
-    FObject lst = dtms;
-    for (;;)
-    {
-        FAssert(PairP(lst));
-
-        if (EqvP(First(lst), dtm))
-            RaiseExceptionC(R.Syntax, "case", "duplicate datum", List(dtm, cse));
-
-        if (Rest(lst) == EmptyListObject)
-            break;
-
-        lst = Rest(lst);
-    }
-
-    FAssert(PairP(lst));
-//    AsPair(lst)->Rest = MakePair(dtm, EmptyListObject);
-    SetRest(lst, MakePair(dtm, EmptyListObject));
-
-    return(dtms);
-}
-
-static FObject AddCaseDatumList(FObject dtml, FObject dtms, FObject cse, FObject cls)
-{
-    while (PairP(dtml))
-    {
-        dtms = AddCaseDatum(First(dtml), dtms, cse);
-        dtml = Rest(dtml);
-    }
-
-    if (dtml != EmptyListObject)
-        RaiseExceptionC(R.Syntax, "case", "expected a proper list of datum", List(cls));
-
-    return(dtms);
-}
-
-static FObject SPassCaseClauses(FObject enc, FObject se, FObject clst, FObject cse)
-{
-    FObject rlst = EmptyListObject;
-    FObject dtms = EmptyListObject;
-
-    while (PairP(clst))
-    {
-        // ((<datum> ...) <expression> ...)
-        // ((<datum> ...) => <expression>)
-        // (else <expression> ...)
-        // (else => <expression>)
-
-        FObject cls = First(clst);
-        if (PairP(cls) == 0)
-            RaiseExceptionC(R.Syntax, "case", "expected a nonempty list for each clause",
-                    List(cls, cse));
-
-        if (Rest(clst) == EmptyListObject && MatchReference(R.ElseReference, se, First(cls)))
-        {
-            if (PairP(Rest(cls)) == 0)
-                RaiseExceptionC(R.Syntax, "case",
-                        "expected at least one expression following else", List(cls, cse));
-
-            if (MatchReference(R.ArrowReference, se, First(Rest(cls))))
-            {
-                if (PairP(Rest(Rest(cls))) == 0 || Rest(Rest(Rest(cls))) != EmptyListObject)
-                    RaiseExceptionC(R.Syntax, "case", "expected (else => <expression>)",
-                            List(cls, cse));
-
-                rlst = MakePair(MakePair(ElseSyntax, MakePair(ArrowSyntax,
-                        MakePair(SPassExpression(enc, se, First(Rest(Rest(cls)))),
-                        EmptyListObject))), rlst);
-            }
-            else
-                rlst = MakePair(MakePair(ElseSyntax,
-                        SPassSequence(enc, se, CaseSyntax, cse, Rest(cls))), rlst);
-        }
-        else
-        {
-            FObject dtml = SyntaxToDatum(First(cls));
-            if (PairP(Rest(cls)) == 0 || PairP(dtml) == 0)
-                RaiseExceptionC(R.Syntax, "case", "expected ((<datum> ...) <expression> ...)",
-                        List(cls, cse));
-
-            dtms = AddCaseDatumList(dtml, dtms, cse, cls);
-
-            if (MatchReference(R.ArrowReference, se, First(Rest(cls))))
-            {
-                if (PairP(Rest(Rest(cls))) == 0 || Rest(Rest(Rest(cls))) != EmptyListObject)
-                    RaiseExceptionC(R.Syntax, "case",
-                            "expected ((<datum> ...) => <expression>)", List(cls, cse));
-
-                rlst = MakePair(MakePair(dtml, MakePair(ArrowSyntax,
-                        MakePair(SPassExpression(enc, se, First(Rest(Rest(cls)))),
-                        EmptyListObject))), rlst);
-            }
-            else
-                rlst = MakePair(MakePair(dtml, SPassSequence(enc, se, CaseSyntax, cse, Rest(cls))),
-                        rlst);
-        }
-
-        clst = Rest(clst);
-    }
-
-    if (clst != EmptyListObject || rlst == EmptyListObject)
-        RaiseExceptionC(R.Syntax, "case", "expected a list of clauses", List(cse));
-
-    return(ReverseListModify(rlst));
-}
-
 FObject SPassDo(FObject enc, FObject se, FObject expr)
 {
     // (do ((var init [step]) ...) (test expr ...) cmd ...)
@@ -1157,17 +1047,6 @@ static FObject SPassSpecialSyntax(FObject enc, FObject se, FObject ss, FObject e
         // (letrec-syntax ((<keyword> <transformer>) ...) <body>)
 
         return(SPassLet(enc, se, ss, expr, 1, 0, 0));
-    }
-    else if (ss == CaseSyntax)
-    {
-        // (case <key> <clause> ...)
-
-        if (PairP(Rest(expr)) == 0)
-            RaiseExceptionC(R.Syntax, "case", "expected (case <test> <clause> ...)",
-                    List(expr));
-
-        return(MakePair(CaseSyntax, MakePair(SPassExpression(enc, se, First(Rest(expr))),
-                SPassCaseClauses(enc, se, Rest(Rest(expr)), expr))));
     }
     else if (ss == OrSyntax)
     {

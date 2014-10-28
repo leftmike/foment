@@ -41,53 +41,6 @@ static void MPassSequence(FMiddlePass * mp, FLambda * lam, FObject seq);
 static void MPassExpression(FMiddlePass * mp, FLambda * lam, FObject pair, int cf);
 static void MPassLambda(FMiddlePass * mp, FLambda * enc, FLambda * lam, int cf);
 
-static void MPassCase(FMiddlePass * mp, FLambda * lam, FObject clst)
-{
-    // (case <key> <clause> ...)
-
-    while (PairP(clst))
-    {
-        FObject cls = First(clst);
-        FAssert(PairP(cls));
-        FAssert(PairP(Rest(cls)));
-
-        if (First(cls) == ElseSyntax)
-        {
-            if (First(Rest(cls)) == ArrowSyntax)
-            {
-                // (else => <expression>)
-
-                FAssert(PairP(Rest(Rest(cls))));
-                FAssert(Rest(Rest(Rest(cls))) == EmptyListObject);
-
-                MPassExpression(mp, lam, Rest(Rest(cls)), 1);
-            }
-            else
-            {
-                // (else <expression> ...)
-
-                MPassSequence(mp, lam, Rest(cls));
-            }
-        }
-        else if (First(Rest(cls)) == ArrowSyntax)
-        {
-            // ((<datum> ...) => <expression>)
-
-            MPassExpression(mp, lam, Rest(Rest(cls)), 1);
-        }
-        else
-        {
-            // ((<datum> ...) <expression> ...)
-
-            MPassSequence(mp, lam, Rest(cls));
-        }
-
-        clst = Rest(clst);
-    }
-
-    FAssert(clst == EmptyListObject);
-}
-
 static void MPassLetFormals(FMiddlePass * mp, FLambda * lam, FObject lb)
 {
     while (PairP(lb))
@@ -195,8 +148,7 @@ static void MPassSpecialSyntax(FMiddlePass * mp, FLambda * lam, FObject expr, in
 
     FAssert(ss == QuoteSyntax || ss == IfSyntax || ss == SetBangSyntax
             || ss == LetValuesSyntax || ss == LetrecValuesSyntax || ss == LetrecStarValuesSyntax
-            || ss == CaseSyntax || ss == OrSyntax || ss == BeginSyntax
-            || ss == SetBangValuesSyntax);
+            || ss == OrSyntax || ss == BeginSyntax || ss == SetBangValuesSyntax);
 
     if (ss == IfSyntax)
     {
@@ -293,15 +245,6 @@ static void MPassSpecialSyntax(FMiddlePass * mp, FLambda * lam, FObject expr, in
         }
 
         MPassSequence(mp, lam, Rest(Rest(expr)));
-    }
-    else if (ss == CaseSyntax)
-    {
-        // (case <key> <clause> ...)
-
-        FAssert(PairP(Rest(expr)));
-
-        MPassExpression(mp, lam, Rest(expr), 0);
-        MPassCase(mp, lam, Rest(Rest(expr)));
     }
     else if (ss == OrSyntax || ss == BeginSyntax)
     {
