@@ -262,7 +262,7 @@
 ;; case
 
 (check-equal composite (case (* 2 3) ((2 3 5 7) 'prime) ((1 4 6 8 9) 'composite)))
-(check-equal c (case (car '(c d)) ((a) 'a) ((b) 'b)))
+(check-equal #f (eq? 'c (case (car '(c d)) ((a) 'a) ((b) 'b))))
 (check-equal vowel
     (case (car '(i d)) ((a e i o u) 'vowel) ((w y) 'semivowel) (else 'consonant)))
 (check-equal semivowel
@@ -281,7 +281,7 @@
 
 (check-equal composite
     (let ((ret (case (* 2 3) ((2 3 5 7) 'prime) ((1 4 6 8 9) 'composite)))) ret))
-(check-equal c (let ((ret (case (car '(c d)) ((a) 'a) ((b) 'b)))) ret))
+(check-equal #f (let ((ret (case (car '(c d)) ((a) 'a) ((b) 'b)))) (eq? ret 'c)))
 (check-equal vowel
     (let ((ret (case (car '(i d)) ((a e i o u) 'vowel) ((w y) 'semivowel) (else 'consonant))))
         ret))

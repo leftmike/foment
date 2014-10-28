@@ -106,7 +106,6 @@ static const char * SpecialSyntaxes[] =
     "letrec*-values",
     "let-syntax",
     "letrec-syntax",
-    "case",
     "or",
     "begin",
     "do",

@@ -29,10 +29,15 @@ Compiler:
 -- genpass: handle multiple values with LetrecValues correctly
 -- genpass: LetrecStarValues needs to be compiled correctly
 -- export letrec-values and letrec*-values from (foment base)
+-- usepass: uses, sets, and escape analysis
+-- cnstpass: inline constants
+-- cnstpass: remove constants from bindings lists
+-- inlpass: inline lambdas
+-- make Middle Four part of genpass
 -- make lambda formals like let bindings: list of list
 -- let bindings: split formals and inits into seperate lists
--- remove constants from bindings lists
 -- pass all non-local references into each lambda: frames can go away
+-- get rid of Level on FLambda
 
 Bugs:
 -- letrec: http://trac.sacrideo.us/wg/wiki/LetrecStar
@@ -330,29 +335,28 @@ const char * SpecialSyntaxToName(FObject obj);
 #define LetrecStarValuesSyntax MakeImmediate(11, SpecialSyntaxTag)
 #define LetSyntaxSyntax MakeImmediate(12, SpecialSyntaxTag)
 #define LetrecSyntaxSyntax MakeImmediate(13, SpecialSyntaxTag)
-#define CaseSyntax MakeImmediate(14, SpecialSyntaxTag)
-#define OrSyntax MakeImmediate(15, SpecialSyntaxTag)
-#define BeginSyntax MakeImmediate(16, SpecialSyntaxTag)
-#define DoSyntax MakeImmediate(17, SpecialSyntaxTag)
-#define SyntaxRulesSyntax MakeImmediate(18, SpecialSyntaxTag)
-#define SyntaxErrorSyntax MakeImmediate(19, SpecialSyntaxTag)
-#define IncludeSyntax MakeImmediate(20, SpecialSyntaxTag)
-#define IncludeCISyntax MakeImmediate(21, SpecialSyntaxTag)
-#define CondExpandSyntax MakeImmediate(22, SpecialSyntaxTag)
-#define CaseLambdaSyntax MakeImmediate(23, SpecialSyntaxTag)
-#define QuasiquoteSyntax MakeImmediate(24, SpecialSyntaxTag)
+#define OrSyntax MakeImmediate(14, SpecialSyntaxTag)
+#define BeginSyntax MakeImmediate(15, SpecialSyntaxTag)
+#define DoSyntax MakeImmediate(16, SpecialSyntaxTag)
+#define SyntaxRulesSyntax MakeImmediate(17, SpecialSyntaxTag)
+#define SyntaxErrorSyntax MakeImmediate(18, SpecialSyntaxTag)
+#define IncludeSyntax MakeImmediate(19, SpecialSyntaxTag)
+#define IncludeCISyntax MakeImmediate(20, SpecialSyntaxTag)
+#define CondExpandSyntax MakeImmediate(21, SpecialSyntaxTag)
+#define CaseLambdaSyntax MakeImmediate(22, SpecialSyntaxTag)
+#define QuasiquoteSyntax MakeImmediate(23, SpecialSyntaxTag)
 
-#define DefineSyntax MakeImmediate(25, SpecialSyntaxTag)
-#define DefineValuesSyntax MakeImmediate(26, SpecialSyntaxTag)
-#define DefineSyntaxSyntax MakeImmediate(27, SpecialSyntaxTag)
+#define DefineSyntax MakeImmediate(24, SpecialSyntaxTag)
+#define DefineValuesSyntax MakeImmediate(25, SpecialSyntaxTag)
+#define DefineSyntaxSyntax MakeImmediate(26, SpecialSyntaxTag)
 
-#define ElseSyntax MakeImmediate(28, SpecialSyntaxTag)
-#define ArrowSyntax MakeImmediate(29, SpecialSyntaxTag)
-#define UnquoteSyntax MakeImmediate(30, SpecialSyntaxTag)
-#define UnquoteSplicingSyntax MakeImmediate(31, SpecialSyntaxTag)
-#define EllipsisSyntax MakeImmediate(32, SpecialSyntaxTag)
-#define UnderscoreSyntax MakeImmediate(33, SpecialSyntaxTag)
-#define SetBangValuesSyntax MakeImmediate(34, SpecialSyntaxTag)
+#define ElseSyntax MakeImmediate(27, SpecialSyntaxTag)
+#define ArrowSyntax MakeImmediate(28, SpecialSyntaxTag)
+#define UnquoteSyntax MakeImmediate(29, SpecialSyntaxTag)
+#define UnquoteSplicingSyntax MakeImmediate(30, SpecialSyntaxTag)
+#define EllipsisSyntax MakeImmediate(31, SpecialSyntaxTag)
+#define UnderscoreSyntax MakeImmediate(32, SpecialSyntaxTag)
+#define SetBangValuesSyntax MakeImmediate(33, SpecialSyntaxTag)
 
 // ---- Instruction ----
 
