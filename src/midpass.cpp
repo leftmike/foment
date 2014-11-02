@@ -7,6 +7,501 @@ Foment
 #include "foment.hpp"
 #include "compile.hpp"
 
+void UPassLambda(FLambda * lam, int ef);
+static void UPassExpression(FObject expr, int ef);
+static void UPassSequence(FObject seq);
+static void UPassCaseLambda(FCaseLambda * cl, int ef);
+
+static void UPassBindingList(FObject flst)
+{
+    while (PairP(flst))
+    {
+        FAssert(BindingP(First(flst)));
+
+        FObject bd = First(flst);
+//        bd->UseCount = MakeFixnum(0);
+        Modify(FBinding, bd, UseCount, MakeFixnum(0));
+//        bd->SetCount = MakeFixnum(0);
+        Modify(FBinding, bd, SetCount, MakeFixnum(0));
+//        bd->Escapes = FalseObject;
+        Modify(FBinding, bd, Escapes, FalseObject);
+
+        flst = Rest(flst);
+    }
+
+    FAssert(flst == EmptyListObject);
+}
+
+static int ConstantP(FObject obj);
+
+static void UPassSpecialSyntax(FObject expr, int ef)
+{
+    FObject ss = First(expr);
+
+    FAssert(ss == QuoteSyntax || ss == IfSyntax || ss == SetBangSyntax
+            || ss == LetValuesSyntax || ss == LetrecValuesSyntax || ss == LetrecStarValuesSyntax
+            || ss == OrSyntax || ss == BeginSyntax || ss == SetBangValuesSyntax);
+
+    if (ss == IfSyntax)
+    {
+        // (if <test> <consequent> <alternate>)
+        // (if <test> <consequent>)
+
+        FAssert(PairP(Rest(expr)));
+        FAssert(PairP(Rest(Rest(expr))));
+
+        UPassExpression(First(Rest(expr)), 1);
+        UPassExpression(First(Rest(Rest(expr))), 1);
+
+        if (PairP(Rest(Rest(Rest(expr)))))
+        {
+            FAssert(Rest(Rest(Rest(Rest(expr)))) == EmptyListObject);
+
+            UPassExpression(First(Rest(Rest(Rest(expr)))), 1);
+        }
+        else
+        {
+            FAssert(Rest(Rest(Rest(expr))) == EmptyListObject);
+        }
+    }
+    else if (ss == SetBangSyntax)
+    {
+        // (set! <variable> <expression>)
+
+        FAssert(PairP(Rest(expr)));
+        FAssert(PairP(Rest(Rest(expr))));
+        FAssert(Rest(Rest(Rest(expr))) == EmptyListObject);
+        FAssert(ReferenceP(First(Rest(expr))));
+
+        FObject bd = AsReference(First(Rest(expr)))->Binding;
+        if (BindingP(bd))
+        {
+//            AsBinding(bd)->SetCount = MakeFixnum(AsFixnum(AsBinding(bd)->SetCount) + 1);
+            Modify(FBinding, bd, SetCount, MakeFixnum(AsFixnum(AsBinding(bd)->SetCount) + 1));
+        }
+
+        UPassExpression(First(Rest(Rest(expr))), 1);
+    }
+    else if (ss == SetBangValuesSyntax)
+    {
+        // (set!-values (<variable> ...) <expression>)
+
+        FAssert(PairP(Rest(expr)));
+        FAssert(PairP(Rest(Rest(expr))));
+        FAssert(Rest(Rest(Rest(expr))) == EmptyListObject);
+
+        FObject lst = First(Rest(expr));
+        while (lst != EmptyListObject)
+        {
+            FAssert(PairP(lst));
+            FAssert(ReferenceP(First(lst)));
+
+            FObject bd = AsReference(First(lst))->Binding;
+            if (BindingP(bd))
+            {
+//                AsBinding(bd)->SetCount = MakeFixnum(AsFixnum(AsBinding(bd)->SetCount) + 1);
+                Modify(FBinding, bd, SetCount, MakeFixnum(AsFixnum(AsBinding(bd)->SetCount) + 1));
+            }
+
+            lst = Rest(lst);
+        }
+
+        UPassExpression(First(Rest(Rest(expr))), 1);
+    }
+    else if (ss == LetValuesSyntax || ss == LetrecValuesSyntax || ss == LetrecStarValuesSyntax)
+    {
+        // (let-values ((<formals> <init>) ...) <body>)
+        // (letrec-values ((<formals> <init>) ...) <body>)
+        // (letrec*-values ((<formals> <init>) ...) <body>)
+
+        FAssert(PairP(Rest(expr)));
+
+        FObject lb = First(Rest(expr));
+        while (PairP(lb))
+        {
+            FObject vi = First(lb);
+
+            FAssert(PairP(vi));
+            FAssert(PairP(Rest(vi)));
+            FAssert(Rest(Rest(vi)) == EmptyListObject);
+
+            UPassBindingList(First(vi));
+            lb = Rest(lb);
+        }
+
+        FAssert(lb == EmptyListObject);
+
+        lb = First(Rest(expr));
+        while (PairP(lb))
+        {
+            FObject vi = First(lb);
+            UPassExpression(First(Rest(vi)), 1);
+            lb = Rest(lb);
+        }
+
+        UPassSequence(Rest(Rest(expr)));
+
+        lb = First(Rest(expr));
+        while (PairP(lb))
+        {
+            FObject vi = First(lb);
+
+            if (PairP(First(vi)) && Rest(First(vi)) == EmptyListObject
+                    && AsBinding(First(First(vi)))->RestArg == FalseObject)
+            {
+                FBinding * bd = AsBinding(First(First(vi)));
+                FObject init = First(Rest(vi));
+                if (LambdaP(init))
+                {
+//                    AsLambda(init)->Escapes = bd->Escapes;
+                    Modify(FLambda, init, Escapes, bd->Escapes);
+//                    AsLambda(init)->Name = bd->Identifier;
+                    Modify(FLambda, init, Name, bd->Identifier);
+                }
+                else if (CaseLambdaP(init))
+                {
+//                    AsCaseLambda(init)->Name = bd->Identifier;
+                    Modify(FCaseLambda, init, Name, bd->Identifier);
+//                    AsCaseLambda(init)->Escapes = bd->Escapes;
+                    Modify(FCaseLambda, init, Escapes, bd->Escapes);
+
+                    FObject cases = AsCaseLambda(init)->Cases;
+                    while (PairP(cases))
+                    {
+                        FAssert(LambdaP(First(cases)));
+
+//                        AsLambda(First(cases))->Name = bd->Identifier;
+                        Modify(FLambda, First(cases), Name, bd->Identifier);
+//                        AsLambda(First(cases))->Escapes = bd->Escapes;
+                        Modify(FLambda, First(cases), Escapes, bd->Escapes);
+
+                        cases = Rest(cases);
+                    }
+
+                    FAssert(cases == EmptyListObject);
+                }
+
+                if (AsFixnum(bd->SetCount) == 0 && ConstantP(init))
+                {
+//                    bd->Constant = init;
+                    Modify(FBinding, bd, Constant, init);
+                }
+            }
+
+            lb = Rest(lb);
+        }
+    }
+    else if (ss == OrSyntax || ss == BeginSyntax)
+    {
+        // (or <test> ...)
+        // (begin <expression> ...)
+
+        UPassSequence(Rest(expr));
+    }
+    else
+    {
+        // (quote <datum>)
+
+        FAssert(ss == QuoteSyntax);
+    }
+}
+
+static void UPassProcedureCall(FObject expr)
+{
+    FAssert(PairP(expr));
+    UPassExpression(First(expr), 0);
+
+    expr = Rest(expr);
+    while (expr != EmptyListObject)
+    {
+        FAssert(PairP(expr));
+        UPassExpression(First(expr), 1);
+        expr = Rest(expr);
+    }
+}
+
+static void UPassExpression(FObject expr, int ef)
+{
+    if (ReferenceP(expr))
+    {
+        FObject bd = AsReference(expr)->Binding;
+
+        if (BindingP(bd))
+        {
+            if (ef != 0)
+            {
+//                AsBinding(bd)->Escapes = TrueObject;
+                Modify(FBinding, bd, Escapes, TrueObject);
+            }
+
+//            AsBinding(bd)->UseCount = MakeFixnum(AsFixnum(AsBinding(bd)->UseCount) + 1);
+            Modify(FBinding, bd, UseCount, MakeFixnum(AsFixnum(AsBinding(bd)->UseCount) + 1));
+        }
+    }
+    else if (LambdaP(expr))
+        UPassLambda(AsLambda(expr), ef);
+    else if (CaseLambdaP(expr))
+        UPassCaseLambda(AsCaseLambda(expr), ef);
+    else if (PairP(expr))
+    {
+        if (SpecialSyntaxP(First(expr)))
+            UPassSpecialSyntax(expr, ef);
+        else
+            UPassProcedureCall(expr);
+    }
+    else
+    {
+        FAssert(IdentifierP(expr) == 0);
+        FAssert(SymbolP(expr) == 0);
+        FAssert(BindingP(expr) == 0);
+        FAssert(SpecialSyntaxP(expr) == 0);
+    }
+}
+
+static void UPassSequence(FObject seq)
+{
+    while (PairP(seq))
+    {
+        UPassExpression(First(seq), 1);
+        seq = Rest(seq);
+    }
+
+    FAssert(seq == EmptyListObject);
+}
+
+static void UPassCaseLambda(FCaseLambda * cl, int ef)
+{
+//    cl->Escapes = (ef != 0 ? TrueObject : FalseObject);
+    Modify(FCaseLambda, cl, Escapes, (ef != 0 ? TrueObject : FalseObject));
+
+    FObject cases = cl->Cases;
+
+    while (PairP(cases))
+    {
+        FAssert(LambdaP(First(cases)));
+
+        UPassLambda(AsLambda(First(cases)), ef);
+        cases = Rest(cases);
+    }
+
+    FAssert(cases == EmptyListObject);
+}
+
+void UPassLambda(FLambda * lam, int ef)
+{
+    if (lam->MiddlePass != MakeFixnum(1))
+    {
+//        lam->MiddlePass = MakeFixnum(1);
+        Modify(FLambda, lam, MiddlePass, MakeFixnum(1));
+
+//        lam->Escapes = (ef != 0 ? TrueObject : FalseObject);
+        Modify(FLambda, lam, Escapes, (ef != 0 ? TrueObject : FalseObject));
+
+        UPassBindingList(lam->Bindings);
+        UPassSequence(lam->Body);
+
+//        lam->MayInline = FalseObject;
+        Modify(FLambda, lam, MayInline, FalseObject);
+
+//        lam->ArgCount = MakeFixnum(ListLength(lam->Bindings));
+        Modify(FLambda, lam, ArgCount, MakeFixnum(ListLength(lam->Bindings)));
+    }
+}
+
+void CPassLambda(FLambda * lam);
+static FObject CPassExpression(FObject expr);
+static FObject CPassSequence(FObject seq);
+static void CPassCaseLambda(FCaseLambda * cl);
+
+static FObject CPassLetBindings(FObject lb)
+{
+    if (lb == EmptyListObject)
+        return(EmptyListObject);
+
+    FAssert(PairP(lb));
+
+    FObject vi = First(lb);
+
+    FAssert(PairP(vi));
+    FAssert(PairP(Rest(vi)));
+    FAssert(Rest(Rest(vi)) == EmptyListObject);
+
+    if (PairP(First(vi)))
+    {
+        FAssert(BindingP(First(First(vi))));
+
+        if (AsBinding(First(First(vi)))->Constant != NoValueObject)
+            return(CPassLetBindings(Rest(lb)));
+    }
+
+    return(MakePair(List(First(vi), CPassExpression(First(Rest(vi)))),
+            CPassLetBindings(Rest(lb))));
+}
+
+static FObject CPassSpecialSyntax(FObject expr)
+{
+    FObject ss = First(expr);
+
+    FAssert(ss == QuoteSyntax || ss == IfSyntax || ss == SetBangSyntax
+            || ss == LetValuesSyntax || ss == LetrecValuesSyntax || ss == LetrecStarValuesSyntax
+            || ss == OrSyntax || ss == BeginSyntax || ss == SetBangValuesSyntax);
+
+    if (ss == IfSyntax)
+    {
+        // (if <test> <consequent> <alternate>)
+        // (if <test> <consequent>)
+
+        FAssert(PairP(Rest(expr)));
+        FAssert(PairP(Rest(Rest(expr))));
+
+        if (PairP(Rest(Rest(Rest(expr)))))
+        {
+            FAssert(Rest(Rest(Rest(Rest(expr)))) == EmptyListObject);
+
+            return(List(First(expr),
+                    CPassExpression(First(Rest(expr))),
+                    CPassExpression(First(Rest(Rest(expr)))),
+                    CPassExpression(First(Rest(Rest(Rest(expr)))))));
+        }
+        else
+        {
+            FAssert(Rest(Rest(Rest(expr))) == EmptyListObject);
+
+            return(List(First(expr),
+                    CPassExpression(First(Rest(expr))),
+                    CPassExpression(First(Rest(Rest(expr))))));
+        }
+    }
+    else if (ss == SetBangSyntax || ss == SetBangValuesSyntax)
+    {
+        // (set! <variable> <expression>)
+        // (set!-values (<variable> ...) <expression>)
+
+        FAssert(PairP(Rest(expr)));
+        FAssert(PairP(Rest(Rest(expr))));
+        FAssert(Rest(Rest(Rest(expr))) == EmptyListObject);
+
+        return(List(First(expr), First(Rest(expr)),
+                CPassExpression(First(Rest(Rest(expr))))));
+    }
+    else if (ss == LetValuesSyntax || ss == LetrecValuesSyntax || ss == LetrecStarValuesSyntax)
+    {
+        // (let-values ((<formals> <init>) ...) <body>)
+        // (letrec-values ((<formals> <init>) ...) <body>)
+        // (letrec*-values ((<formals> <init>) ...) <body>)
+
+        FAssert(PairP(Rest(expr)));
+
+        return(MakePair(First(expr), MakePair(CPassLetBindings(First(Rest(expr))),
+                CPassSequence(Rest(Rest(expr))))));
+    }
+    else if (ss == OrSyntax || ss == BeginSyntax)
+    {
+        // (or <test> ...)
+        // (begin <expression> ...)
+
+        return(MakePair(First(expr), CPassSequence(Rest(expr))));
+    }
+    else
+    {
+        // (quote <datum>)
+
+        FAssert(ss == QuoteSyntax);
+
+        return(expr);
+    }
+}
+
+static FObject CPassExpression(FObject expr)
+{
+    if (ReferenceP(expr))
+    {
+        FObject bd = AsReference(expr)->Binding;
+
+        if (BindingP(bd))
+        {
+            if (AsBinding(bd)->Constant != NoValueObject)
+                return(CPassExpression(AsBinding(bd)->Constant));
+        }
+        else
+        {
+            FAssert(EnvironmentP(bd));
+
+            FObject gl = EnvironmentBind(bd, AsIdentifier(AsReference(expr)->Identifier)->Symbol);
+
+            FAssert(GlobalP(gl));
+
+            if (AsGlobal(gl)->Interactive == FalseObject && AsGlobal(gl)->State == GlobalImported)
+                return(Unbox(AsGlobal(gl)->Box));
+        }
+
+        return(expr);
+    }
+    else if (LambdaP(expr))
+    {
+        CPassLambda(AsLambda(expr));
+        return(expr);
+    }
+    else if (CaseLambdaP(expr))
+    {
+        CPassCaseLambda(AsCaseLambda(expr));
+        return(expr);
+    }
+    else if (PairP(expr))
+    {
+        if (SpecialSyntaxP(First(expr)))
+            return(CPassSpecialSyntax(expr));
+        else
+            return(CPassSequence(expr));
+    }
+    else
+    {
+        FAssert(IdentifierP(expr) == 0);
+        FAssert(SymbolP(expr) == 0);
+        FAssert(BindingP(expr) == 0);
+        FAssert(SpecialSyntaxP(expr) == 0);
+
+        return(expr);
+    }
+}
+
+static FObject CPassSequence(FObject seq)
+{
+    if (seq == EmptyListObject)
+        return(EmptyListObject);
+
+    FAssert(PairP(seq));
+
+    return(MakePair(CPassExpression(First(seq)), CPassSequence(Rest(seq))));
+}
+
+static void CPassCaseLambda(FCaseLambda * cl)
+{
+    FObject cases = cl->Cases;
+
+    while (PairP(cases))
+    {
+        FAssert(LambdaP(First(cases)));
+
+        CPassLambda(AsLambda(First(cases)));
+        cases = Rest(cases);
+    }
+
+    FAssert(cases == EmptyListObject);
+}
+
+void CPassLambda(FLambda * lam)
+{
+    if (lam->MiddlePass != MakeFixnum(2))
+    {
+//        lam->MiddlePass = MakeFixnum(2);
+        Modify(FLambda, lam, MiddlePass, MakeFixnum(2));
+
+//        lam->Body = CPassSequence(lam->Body);
+        Modify(FLambda, lam, Body, CPassSequence(lam->Body));
+    }
+}
+
 // ---- Common Middle Pass ----
 
 typedef void (*FLambdaFormalFn)(FLambda * lam, FBinding * bd);
@@ -796,7 +1291,7 @@ static void MFourLetFormal(FLambda * lam, FBinding * bd)
 
 static FMiddlePass MFour =
 {
-    MakeFixnum(5),
+    MakeFixnum(4),
     MFourLambdaFormal,
     MFourLambdaEnclosing,
     MFourLambdaBefore,
@@ -814,8 +1309,10 @@ static FMiddlePass MFour =
 
 void MPassLambda(FLambda * lam)
 {
-    MPassLambda(&MOne, lam);
-    MPassLambda(&MTwo, lam);
-    MPassLambda(&MThree, lam);
+    UPassLambda(lam, 1);
+    CPassLambda(lam);
+//    MPassLambda(&MOne, lam);
+//    MPassLambda(&MTwo, lam);
+//    MPassLambda(&MThree, lam);
     MPassLambda(&MFour, lam);
 }

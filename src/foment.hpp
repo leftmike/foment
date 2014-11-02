@@ -29,15 +29,12 @@ Compiler:
 -- genpass: handle multiple values with LetrecValues correctly
 -- genpass: LetrecStarValues needs to be compiled correctly
 -- export letrec-values and letrec*-values from (foment base)
--- usepass: uses, sets, and escape analysis
--- cnstpass: inline constants
--- cnstpass: remove constants from bindings lists
 -- inlpass: inline lambdas
--- make Middle Four part of genpass
--- make lambda formals like let bindings: list of list
--- let bindings: split formals and inits into seperate lists
+-- make Middle Four part of genpass or analpass
 -- pass all non-local references into each lambda: frames can go away
 -- get rid of Level on FLambda
+-- treat case-lambda like lambda and have an entry point to compile and to each pass
+-- make special syntax into an object so that can track location information
 
 Bugs:
 -- letrec: http://trac.sacrideo.us/wg/wiki/LetrecStar
