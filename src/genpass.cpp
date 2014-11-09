@@ -113,8 +113,9 @@ static FObject GPassLetBindings(FLambda * lam, FObject cdl, FObject lb)
             cdl = GPassExpression(lam, cdl, First(Rest(vi)), MultipleValuesFlag);
             cdl = GPassLetFormals(lam, cdl, First(vi), 1);
         }
-        else if (AsBinding(First(First(vi)))->Constant == NoValueObject)
+        else
         {
+            FAssert(AsBinding(First(First(vi)))->Constant == NoValueObject);
             FAssert(Rest(First(vi)) == EmptyListObject);
 
             cdl = GPassExpression(lam, cdl, First(Rest(vi)), SingleValueFlag);
@@ -139,12 +140,8 @@ static FObject GPassLetrecBindings(FLambda * lam, FObject cdl, FObject lrb)
 
         FAssert(Rest(First(vi)) == EmptyListObject);
         FAssert(AsBinding(First(First(vi)))->RestArg == FalseObject);
-
-        if (AsBinding(First(First(vi)))->Constant == NoValueObject)
-        {
-            cdl = GPassExpression(lam, cdl, First(Rest(vi)), SingleValueFlag);
-//            cdl = GPassLetFormal(lam, cdl, First(First(vi)));
-        }
+        FAssert(AsBinding(First(First(vi)))->Constant == NoValueObject);
+        cdl = GPassExpression(lam, cdl, First(Rest(vi)), SingleValueFlag);
 
         lb = Rest(lb);
     }
@@ -154,8 +151,9 @@ static FObject GPassLetrecBindings(FLambda * lam, FObject cdl, FObject lrb)
     {
         FObject vi = First(lb);
 
-        if (AsBinding(First(First(vi)))->Constant == NoValueObject)
-            cdl = GPassLetFormal(lam, cdl, First(First(vi)));
+        FAssert(AsBinding(First(First(vi)))->Constant == NoValueObject);
+
+        cdl = GPassLetFormal(lam, cdl, First(First(vi)));
 
         lb = Rest(lb);
     }
