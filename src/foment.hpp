@@ -30,7 +30,7 @@ Compiler:
 -- genpass: LetrecStarValues needs to be compiled correctly
 -- export letrec-values and letrec*-values from (foment base)
 -- inlpass: inline lambdas
--- make Middle Four part of genpass or analpass
+-- make Middle Four part of genpass or anapass
 -- pass all non-local references into each lambda: frames can go away
 -- get rid of Level on FLambda
 -- treat case-lambda like lambda and have an entry point to compile and to each pass
