@@ -502,6 +502,202 @@ void CPassLambda(FLambda * lam)
     }
 }
 
+void APassLambda(FLambda * enc, FLambda * lam);
+static void APassExpression(FLambda * lam, FObject expr);
+static void APassSequence(FLambda * lam, FObject seq);
+static void APassCaseLambda(FLambda * lam, FCaseLambda * cl);
+
+static void APassSpecialSyntax(FLambda * lam, FObject expr)
+{
+    FObject ss = First(expr);
+
+    FAssert(ss == QuoteSyntax || ss == IfSyntax || ss == SetBangSyntax
+            || ss == LetValuesSyntax || ss == LetrecValuesSyntax || ss == LetrecStarValuesSyntax
+            || ss == OrSyntax || ss == BeginSyntax || ss == SetBangValuesSyntax);
+
+    if (ss == IfSyntax)
+    {
+        // (if <test> <consequent> <alternate>)
+        // (if <test> <consequent>)
+
+        FAssert(PairP(Rest(expr)));
+        FAssert(PairP(Rest(Rest(expr))));
+
+        APassSequence(lam, Rest(expr));
+    }
+    else if (ss == SetBangSyntax || ss == SetBangValuesSyntax)
+    {
+        // (set! <variable> <expression>)
+        // (set!-values (<variable> ...) <expression>)
+
+        FAssert(PairP(Rest(expr)));
+        FAssert(PairP(Rest(Rest(expr))));
+        FAssert(Rest(Rest(Rest(expr))) == EmptyListObject);
+
+        APassExpression(lam, First(Rest(Rest(expr))));
+    }
+    else if (ss == LetValuesSyntax || ss == LetrecValuesSyntax || ss == LetrecStarValuesSyntax)
+    {
+        // (let-values ((<formals> <init>) ...) <body>)
+        // (letrec-values ((<formals> <init>) ...) <body>)
+        // (letrec*-values ((<formals> <init>) ...) <body>)
+
+        FAssert(PairP(Rest(expr)));
+
+        FObject lb = First(Rest(expr));
+        while (PairP(lb))
+        {
+            FObject vi = First(lb);
+
+            FAssert(PairP(vi));
+            FAssert(PairP(Rest(vi)));
+            FAssert(Rest(Rest(vi)) == EmptyListObject);
+
+            FObject flst = First(vi);
+            while (PairP(flst))
+            {
+                FAssert(BindingP(First(flst)));
+
+                FObject bd = First(flst);
+
+//                bd->Level = lam->Level;
+                Modify(FBinding, bd, Level, lam->Level);
+
+//                bd->Slot = lam->SlotCount;
+                Modify(FBinding, bd, Slot, lam->SlotCount);
+//                lam->SlotCount = MakeFixnum(AsFixnum(lam->SlotCount) + 1);
+                Modify(FLambda, lam, SlotCount, MakeFixnum(AsFixnum(lam->SlotCount) + 1));
+
+                flst = Rest(flst);
+            }
+
+            FAssert(flst == EmptyListObject);
+
+            lb = Rest(lb);
+        }
+
+        FAssert(lb == EmptyListObject);
+
+        lb = First(Rest(expr));
+        while (PairP(lb))
+        {
+            FObject vi = First(lb);
+            APassExpression(lam, First(Rest(vi)));
+            lb = Rest(lb);
+        }
+
+        APassSequence(lam, Rest(Rest(expr)));
+    }
+    else if (ss == OrSyntax || ss == BeginSyntax)
+    {
+        // (or <test> ...)
+        // (begin <expression> ...)
+
+        APassSequence(lam, Rest(expr));
+    }
+    else
+    {
+        // (quote <datum>)
+
+        FAssert(ss == QuoteSyntax);
+    }
+}
+
+static void APassExpression(FLambda * lam, FObject expr)
+{
+    if (LambdaP(expr))
+        APassLambda(lam, AsLambda(expr));
+    else if (CaseLambdaP(expr))
+        APassCaseLambda(lam, AsCaseLambda(expr));
+    else if (PairP(expr))
+    {
+        if (SpecialSyntaxP(First(expr)))
+            APassSpecialSyntax(lam, expr);
+        else
+            APassSequence(lam, expr);
+    }
+    else
+    {
+        FAssert(IdentifierP(expr) == 0);
+        FAssert(SymbolP(expr) == 0);
+        FAssert(BindingP(expr) == 0);
+        FAssert(SpecialSyntaxP(expr) == 0);
+    }
+}
+
+static void APassSequence(FLambda * lam, FObject seq)
+{
+    while (PairP(seq))
+    {
+        APassExpression(lam, First(seq));
+        seq = Rest(seq);
+    }
+
+    FAssert(seq == EmptyListObject);
+}
+
+static void APassCaseLambda(FLambda * lam, FCaseLambda * cl)
+{
+    FObject cases = cl->Cases;
+
+    while (PairP(cases))
+    {
+        FAssert(LambdaP(First(cases)));
+
+        APassLambda(lam, AsLambda(First(cases)));
+        cases = Rest(cases);
+    }
+
+    FAssert(cases == EmptyListObject);
+}
+
+void APassLambda(FLambda * enc, FLambda * lam)
+{
+    if (lam->MiddlePass != MakeFixnum(3))
+    {
+//        lam->MiddlePass = MakeFixnum(3);
+        Modify(FLambda, lam, MiddlePass, MakeFixnum(3));
+
+        if (enc != 0)
+        {
+//            enc->UseStack = FalseObject;
+            Modify(FLambda, enc, UseStack, FalseObject);
+        }
+
+//        lam->SlotCount = MakeFixnum(1); // Slot 0: reserved for enclosing frame.
+        Modify(FLambda, lam, SlotCount, MakeFixnum(1)); // Slot 0: reserved for enclosing frame.
+
+        FObject flst = lam->Bindings;
+        while (PairP(flst))
+        {
+            FAssert(BindingP(First(flst)));
+
+            FObject bd = First(flst);
+
+//            bd->Level = lam->Level;
+            Modify(FBinding, bd, Level, lam->Level);
+
+//            bd->Slot = MakeFixnum(AsFixnum(lam->ArgCount) - AsFixnum(lam->SlotCount) + 1);
+            Modify(FBinding, bd, Slot,
+                    MakeFixnum(AsFixnum(lam->ArgCount) - AsFixnum(lam->SlotCount) + 1));
+//            lam->SlotCount = MakeFixnum(AsFixnum(lam->SlotCount) + 1);
+            Modify(FLambda, lam, SlotCount, MakeFixnum(AsFixnum(lam->SlotCount) + 1));
+
+            if (AsBinding(bd)->RestArg == TrueObject)
+            {
+//                lam->RestArg = TrueObject;
+                Modify(FLambda, lam, RestArg, TrueObject);
+            }
+
+            flst = Rest(flst);
+        }
+
+        FAssert(flst == EmptyListObject);
+
+        APassSequence(lam, lam->Body);
+    }
+}
+
 // ---- Common Middle Pass ----
 
 typedef void (*FLambdaFormalFn)(FLambda * lam, FBinding * bd);
@@ -1311,8 +1507,9 @@ void MPassLambda(FLambda * lam)
 {
     UPassLambda(lam, 1);
     CPassLambda(lam);
+    APassLambda(0, lam);
 //    MPassLambda(&MOne, lam);
 //    MPassLambda(&MTwo, lam);
 //    MPassLambda(&MThree, lam);
-    MPassLambda(&MFour, lam);
+//    MPassLambda(&MFour, lam);
 }
