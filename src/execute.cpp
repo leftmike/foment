@@ -1156,7 +1156,7 @@ FObject ExecuteThunk(FObject op)
 
 void FailedExecute()
 {
-    printf("last opcode: %ld %s\n", LastOpcode,
+  printf("last opcode: %lu %s\n", (unsigned long) LastOpcode,
 	    LastOpcode < sizeof(Opcodes) / sizeof(char *)
             ? Opcodes[LastOpcode] : "unknown");
     WriteSimple(R.StandardOutput, LastPrimitive, 0);

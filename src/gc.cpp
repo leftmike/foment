@@ -1420,18 +1420,20 @@ static void ValidateSlot(FRaw raw, FObject * ref, uint_t tag, uint_t sec, uint_t
                 || SectionTable[sdx] == FlonumSectionTag) == 0)
         {
             printf("internal error: line: %d bad object %p in %s section offset: %lu\n",
-                    ln, raw, SectionName(SectionTable[SectionIndex(raw)]), SectionOffset(raw));
+                    ln, raw, SectionName(SectionTable[SectionIndex(raw)]),
+                    (unsigned long) SectionOffset(raw));
             if (vdx == -1)
                 printf("%s->%s = ", ObjectName(tag), slot);
             else
                 printf("len: %lu %s[%d] = ",
-                        tag == StringTag ? StringLength(raw) : ObjectLength(raw),
+                        (unsigned long) (tag == StringTag ? StringLength(raw) : ObjectLength(raw)),
                         ObjectName(tag), vdx);
             if (sdx >= UsedSections)
-                printf("%p sdx: %lu >= used sections: %lu\n", val, sdx, UsedSections);
+                printf("%p sdx: %lu >= used sections: %lu\n", val, (unsigned long) sdx,
+                        (unsigned long) UsedSections);
             else
                 printf("%p in %s section offset: %lu\n", val, SectionName(SectionTable[sdx]),
-                        SectionOffset(val));
+                        (unsigned long) SectionOffset(val));
 
             if (SectionTable[SectionIndex(raw)] == ZeroSectionTag)
             {
@@ -1484,7 +1486,8 @@ static void ValidateSlot(FRaw raw, FObject * ref, uint_t tag, uint_t sec, uint_t
                 || ImmediateP(val, ValuesCountTag)) == 0)
         {
             printf("internal error: line: %d bad object %p in %s section offset: %lu\n",
-                    ln, raw, SectionName(SectionTable[SectionIndex(raw)]), SectionOffset(raw));
+                    ln, raw, SectionName(SectionTable[SectionIndex(raw)]),
+                    (unsigned long) SectionOffset(raw));
             if (vdx == -1)
                 printf("%s->%s = ", ObjectName(tag), slot);
             else
