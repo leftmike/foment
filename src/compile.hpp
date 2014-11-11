@@ -76,7 +76,7 @@ typedef struct
     FObject UseStack; // Use a stack frame; otherwise, use a heap frame.
     FObject Level;
     FObject SlotCount;
-    FObject MiddlePass;
+    FObject CompilerPass;
     FObject MayInline;
 
     FObject Procedure;
@@ -178,8 +178,9 @@ FObject ExpandExpression(FObject enc, FObject se, FObject expr);
 FObject CondExpand(FObject se, FObject expr, FObject clst);
 FObject ReadInclude(FObject op, FObject lst, int_t cif);
 FObject SPassLambda(FObject enc, FObject se, FObject name, FObject formals, FObject body);
-void MPassLambda(FLambda * lam);
-
+void UPassLambda(FLambda * lam, int ef);
+void CPassLambda(FLambda * lam);
+void APassLambda(FLambda * enc, FLambda * lam);
 FObject GPassLambda(FLambda * lam);
 
 void SetupSyntaxRules();
