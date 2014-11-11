@@ -130,7 +130,7 @@ FObject MakeLambda(FObject enc, FObject nam, FObject bs, FObject body)
     l->UseStack = TrueObject;
     l->Level = LambdaP(enc) ? MakeFixnum(AsFixnum(AsLambda(enc)->Level) + 1) : MakeFixnum(1);
     l->SlotCount = MakeFixnum(-1);
-    l->MiddlePass = NoValueObject;
+    l->CompilerPass = NoValueObject;
     l->MayInline = MakeFixnum(0); // Number of procedure calls or FalseObject.
 
     l->Procedure = NoValueObject;
@@ -206,7 +206,9 @@ FObject CompileLambda(FObject env, FObject name, FObject formals, FObject body)
     FObject obj = SPassLambda(NoValueObject, MakeSyntacticEnv(env), name, formals, body);
     FAssert(LambdaP(obj));
 
-    MPassLambda(AsLambda(obj));
+    UPassLambda(AsLambda(obj), 1);
+    CPassLambda(AsLambda(obj));
+    APassLambda(0, AsLambda(obj));
     return(GPassLambda(AsLambda(obj)));
 }
 
@@ -330,6 +332,9 @@ void SetupCompile()
     R.UnderscoreReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("_")));
 
     R.TagSymbol = StringCToSymbol("tag");
+    R.UsePassSymbol = StringCToSymbol("use-pass");
+    R.ConstantPassSymbol = StringCToSymbol("constant-pass");
+    R.AnalysisPassSymbol = StringCToSymbol("analysis-pass");
     R.InteractionEnv = NoValueObject;
 
     SetupSyntaxRules();
