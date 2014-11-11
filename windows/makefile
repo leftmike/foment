@@ -105,7 +105,8 @@ debug\foment.exe: debug\foment.obj debug\gc.obj debug\syncthrd.obj debug\compile
         debug\synrules.obj debug\synpass.obj debug\midpass.obj debug\genpass.obj\
         debug\pairs.obj debug\unicode.obj debug\chars.obj debug\strings.obj debug\vectors.obj\
         debug\library.obj debug\execute.obj debug\numbers.obj debug\mini-gmp.obj debug\write.obj\
-        debug\read.obj debug\filesys.obj debug\main.obj debug\base.obj
+        debug\read.obj debug\filesys.obj debug\hashmap.obj debug\compare.obj debug\main.obj\
+        debug\base.obj
     link /nologo /subsystem:console /out:debug\foment.exe /debug /pdb:debug\foment.pdb $** $(LIBS)
 
 release\foment.exe: release\foment.obj release\gc.obj release\syncthrd.obj release\compile.obj\
@@ -113,7 +114,8 @@ release\foment.exe: release\foment.obj release\gc.obj release\syncthrd.obj relea
         release\genpass.obj release\pairs.obj release\unicode.obj release\chars.obj\
         release\strings.obj release\vectors.obj release\library.obj release\execute.obj\
         release\numbers.obj release\mini-gmp.obj release\write.obj release\read.obj\
-        release\filesys.obj release\main.obj release\base.obj
+        release\filesys.obj release\hashmap.obj release\compare.obj release\main.obj\
+        release\base.obj
 #    link /nologo /subsystem:console /out:release\foment.exe $**
     link /nologo /subsystem:console /out:release\foment.exe /debug /pdb:release\foment.pdb $**\
         $(LIBS)
@@ -145,6 +147,8 @@ debug\write.obj: ..\src\write.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\i
 debug\read.obj: ..\src\read.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
     ..\src\unicode.hpp
 debug\filesys.obj: ..\src\filesys.cpp ..\src\foment.hpp ..\src\unicode.hpp
+debug\hashmap.obj: ..\src\hashmap.cpp ..\src\foment.hpp
+debug\compare.obj: ..\src\compare.cpp ..\src\foment.hpp
 debug\main.obj: ..\src\main.cpp ..\src\foment.hpp
 debug\base.obj: debug\base.cpp
 
@@ -173,6 +177,8 @@ release\write.obj: ..\src\write.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src
 release\read.obj: ..\src\read.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
     ..\src\unicode.hpp
 release\filesys.obj: ..\src\filesys.cpp ..\src\foment.hpp ..\src\unicode.hpp
+release\hashmap.obj: ..\src\hashmap.cpp ..\src\foment.hpp
+release\compare.obj: ..\src\compare.cpp ..\src\foment.hpp
 release\main.obj: ..\src\main.cpp ..\src\foment.hpp
 release\base.obj: debug\base.cpp
 

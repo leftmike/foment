@@ -719,6 +719,8 @@ typedef FObject (*FWalkUpdateFn)(FObject key, FObject val, FObject ctx);
 typedef int_t (*FWalkDeleteFn)(FObject key, FObject val, FObject ctx);
 typedef void (*FWalkVisitFn)(FObject key, FObject val, FObject ctx);
 
+extern const char * HashtableFieldsC[3];
+
 typedef struct
 {
     FRecord Record;
@@ -1577,6 +1579,8 @@ void SetupPairs();
 void SetupCharacters();
 void SetupStrings();
 void SetupVectors();
+void SetupHashMaps();
+void SetupCompare();
 void SetupIO();
 void SetupFileSys();
 void SetupCompile();
