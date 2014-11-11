@@ -7,11 +7,18 @@ Foment
 #ifdef FOMENT_UNIX
 #include <sys/stat.h>
 #include <unistd.h>
-#include <alloca.h>
 #endif // FOMENT_UNIX
 #include <stdio.h>
 #include <string.h>
 #include "foment.hpp"
+
+#ifdef FOMENT_UNIX
+#ifdef FOMENT_BSD
+#include <stdlib.h>
+#else // FOMENT_BSD
+#include <alloca.h>
+#endif // FOMENT_BSD
+#endif // FOMENT_UNIX
 
 #ifdef FOMENT_WINDOWS
 #define StringLengthS(s) wcslen(s)
