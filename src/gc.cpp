@@ -391,6 +391,13 @@ static uint_t ObjectSize(FObject obj, uint_t tag)
 
         return(sizeof(FBignum));
 
+    case HashTreeTag:
+        FAssert(HashTreeP(obj));
+        FAssert(HashTreeLength(obj) >= 0);
+
+        len = sizeof(FHashTree) + sizeof(FObject) * (HashTreeLength(obj) - 1);
+        break;
+
     case GCFreeTag:
         return(ByteLength(obj));
 
@@ -536,7 +543,7 @@ static FObject MakeMature(uint_t len)
     return(((char *) FreeMature) + ByteLength(fo));
 }
 
-FObject MakeMatureObject(uint_t sz, const char * who)
+static FObject MakeMatureObject(uint_t sz, const char * who)
 {
     if (sz > MAXIMUM_OBJECT_LENGTH)
         RaiseExceptionC(R.Restriction, who, "length greater than maximum object length",
@@ -707,13 +714,16 @@ void ModifyVector(FObject obj, uint_t idx, FObject val)
     FAssert(VectorP(obj));
     FAssert(idx < VectorLength(obj));
 
-    AsVector(obj)->Vector[idx] = val;
-
-    if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0)
+    if (AsVector(obj)->Vector[idx] != val)
     {
-        EnterExclusive(&GCExclusive);
-        RecordBackRef(AsVector(obj)->Vector + idx, val);
-        LeaveExclusive(&GCExclusive);
+        AsVector(obj)->Vector[idx] = val;
+
+        if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0)
+        {
+            EnterExclusive(&GCExclusive);
+            RecordBackRef(AsVector(obj)->Vector + idx, val);
+            LeaveExclusive(&GCExclusive);
+        }
     }
 }
 
@@ -722,13 +732,16 @@ void ModifyObject(FObject obj, uint_t off, FObject val)
     FAssert(IndirectP(obj));
     FAssert(off % sizeof(FObject) == 0);
 
-    ((FObject *) obj)[off / sizeof(FObject)] = val;
-
-    if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0)
+    if (((FObject *) obj)[off / sizeof(FObject)] != val)
     {
-        EnterExclusive(&GCExclusive);
-        RecordBackRef(((FObject *) obj) + (off / sizeof(FObject)), val);
-        LeaveExclusive(&GCExclusive);
+        ((FObject *) obj)[off / sizeof(FObject)] = val;
+
+        if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0)
+        {
+            EnterExclusive(&GCExclusive);
+            RecordBackRef(((FObject *) obj) + (off / sizeof(FObject)), val);
+            LeaveExclusive(&GCExclusive);
+        }
     }
 }
 
@@ -736,13 +749,16 @@ void SetFirst(FObject obj, FObject val)
 {
     FAssert(PairP(obj));
 
-    AsPair(obj)->First = val;
-
-    if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0)
+    if (AsPair(obj)->First != val)
     {
-        EnterExclusive(&GCExclusive);
-        RecordBackRef(&(AsPair(obj)->First), val);
-        LeaveExclusive(&GCExclusive);
+        AsPair(obj)->First = val;
+
+        if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0)
+        {
+            EnterExclusive(&GCExclusive);
+            RecordBackRef(&(AsPair(obj)->First), val);
+            LeaveExclusive(&GCExclusive);
+        }
     }
 }
 
@@ -750,13 +766,16 @@ void SetRest(FObject obj, FObject val)
 {
     FAssert(PairP(obj));
 
-    AsPair(obj)->Rest = val;
-
-    if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0)
+    if (AsPair(obj)->Rest != val)
     {
-        EnterExclusive(&GCExclusive);
-        RecordBackRef(&(AsPair(obj)->Rest), val);
-        LeaveExclusive(&GCExclusive);
+        AsPair(obj)->Rest = val;
+
+        if (MatureP(obj) && ObjectP(val) && MatureP(val) == 0)
+        {
+            EnterExclusive(&GCExclusive);
+            RecordBackRef(&(AsPair(obj)->Rest), val);
+            LeaveExclusive(&GCExclusive);
+        }
     }
 }
 
@@ -764,13 +783,16 @@ void SetBox(FObject bx, FObject val)
 {
     FAssert(BoxP(bx));
 
-    AsBox(bx)->Value = val;
-
-    if (MatureP(bx) && ObjectP(val) && MatureP(val) == 0)
+    if (AsBox(bx)->Value != val)
     {
-        EnterExclusive(&GCExclusive);
-        RecordBackRef(&(AsBox(bx)->Value), val);
-        LeaveExclusive(&GCExclusive);
+        AsBox(bx)->Value = val;
+
+        if (MatureP(bx) && ObjectP(val) && MatureP(val) == 0)
+        {
+            EnterExclusive(&GCExclusive);
+            RecordBackRef(&(AsBox(bx)->Value), val);
+            LeaveExclusive(&GCExclusive);
+        }
     }
 }
 
@@ -1000,6 +1022,14 @@ static void ScanChildren(FRaw raw, uint_t tag, int_t fcf)
         break;
 
     case BignumTag:
+        break;
+
+    case HashTreeTag:
+        for (uint_t bdx = 0; bdx < HashTreeLength(raw); bdx++)
+        {
+            if (ObjectP(AsHashTree(raw)->Buckets[bdx]))
+                ScanObject(AsHashTree(raw)->Buckets + bdx, fcf, mf);
+        }
         break;
 
     default:
@@ -1349,6 +1379,9 @@ static const char * ObjectName(uint_t tag)
     case BignumTag:
         return("bignum");
 
+    case HashTreeTag:
+        return("hash-tree");
+
     case GCFreeTag:
         return("gc-free");
 
@@ -1584,6 +1617,11 @@ static void ValidateObject(FRaw raw, uint_t tag, uint_t sec, uint_t off, int ln)
         break;
 
     case BignumTag:
+        break;
+
+    case HashTreeTag:
+        for (uint_t bdx = 0; bdx < HashTreeLength(raw); bdx++)
+            ValidateSlot(raw, &AsHashTree(raw)->Buckets[bdx], tag, sec, off, ln, (int) bdx, 0);
         break;
 
     case GCFreeTag:

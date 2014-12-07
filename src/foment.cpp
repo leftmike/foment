@@ -184,7 +184,7 @@ Define("boolean=?", BooleanEqualPPrimitive)(int_t argc, FObject argv[])
 }
 
 // ---- Symbols ----
-
+#if 0
 static uint_t NextSymbolHash = 0;
 
 FObject StringToSymbol(FObject str)
@@ -208,12 +208,12 @@ FObject StringToSymbol(FObject str)
     FAssert(SymbolP(obj));
     return(obj);
 }
-
+#endif // 0
 FObject StringCToSymbol(const char * s)
 {
     return(StringToSymbol(MakeStringC(s)));
 }
-
+#if 0
 FObject StringLengthToSymbol(FCh * s, int_t sl)
 {
     FObject obj = HashtableStringRef(R.SymbolHashtable, s, sl, FalseObject);
@@ -233,7 +233,7 @@ FObject StringLengthToSymbol(FCh * s, int_t sl)
     FAssert(SymbolP(obj));
     return(obj);
 }
-
+#endif // 0
 FObject PrefixSymbol(FObject str, FObject sym)
 {
     FAssert(StringP(str));
@@ -534,8 +534,13 @@ Define("%set-features!", SetFeaturesPrimitive)(int_t argc, FObject argv[])
 
 FObject MakeBox(FObject val)
 {
+    return(MakeBox(val, 0));
+}
+
+FObject MakeBox(FObject val, uint_t idx)
+{
     FBox * bx = (FBox *) MakeObject(sizeof(FBox), BoxTag);
-    bx->Reserved = BoxTag;
+    bx->Index = MakeLength(idx, BoxTag);
     bx->Value = val;
 
     return(bx);
@@ -698,7 +703,7 @@ FObject MakeRecord(FObject rt)
 
 // ---- Primitives ----
 
-FObject MakePrimitive(FPrimitive * prim)
+static FObject MakePrimitive(FPrimitive * prim)
 {
     FPrimitive * p = (FPrimitive *) MakeObject(sizeof(FPrimitive), PrimitiveTag);
     memcpy(p, prim, sizeof(FPrimitive));
@@ -1079,6 +1084,8 @@ void SetupFoment(FThreadState * ts)
         rv[rdx] = NoValueObject;
 
     SetupCore(ts);
+
+    R.SymbolHashTree = MakeHashTree();
 
     FAssert(R.HashtableRecordType == NoValueObject);
     R.SymbolHashtable = MakeObject(sizeof(FHashtable), RecordTag);

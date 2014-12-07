@@ -15,8 +15,8 @@ static FVector * MakeVector(uint_t vl, const char * who, int_t * mf)
     FVector * nv = (FVector *) MakeObject(sizeof(FVector) + (vl - 1) * sizeof(FObject), VectorTag);
     if (nv == 0)
     {
-        nv = (FVector *) MakeMatureObject(sizeof(FVector) + (vl - 1) * sizeof(FObject), who);
-        nv->Length = MakeMatureLength(vl, VectorTag);
+        nv = (FVector *) MakePinnedObject(sizeof(FVector) + (vl - 1) * sizeof(FObject), who);
+        nv->Length = MakePinnedLength(vl, VectorTag);
         *mf = 1;
     }
     else
@@ -437,8 +437,8 @@ static FBytevector * MakeBytevector(uint_t vl, const char * who)
             BytevectorTag);
     if (nv == 0)
     {
-        nv = (FBytevector *) MakeMatureObject(sizeof(FBytevector) + (vl - 1) * sizeof(FByte), who);
-        nv->Length = MakeMatureLength(vl, BytevectorTag);
+        nv = (FBytevector *) MakePinnedObject(sizeof(FBytevector) + (vl - 1) * sizeof(FByte), who);
+        nv->Length = MakePinnedLength(vl, BytevectorTag);
     }
     else
         nv->Length = MakeLength(vl, BytevectorTag);

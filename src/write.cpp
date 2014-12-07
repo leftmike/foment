@@ -584,6 +584,17 @@ static void WriteIndirectObject(FObject port, FObject obj, int_t df, FWriteFn wf
         WriteCondition(port, obj, df);
         break;
 
+    case HashTreeTag:
+    {
+        FCh s[16];
+        int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+
+        WriteStringC(port, "#<hash-tree: ");
+        WriteString(port, s, sl);
+        WriteCh(port, '>');
+        break;
+    }
+
     default:
     {
         FCh s[16];

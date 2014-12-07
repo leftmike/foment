@@ -6,6 +6,73 @@ Foment
 
 #include "foment.hpp"
 
+// ---- Comparator ----
+
+static const char * ComparatorFieldsC[] = {"type-test-procedure", "equality-predicate",
+    "comparison-procedure", "hash-function"};
+
+FObject MakeComparator(FObject ttfn, FObject eqfn, FObject compfn, FObject hashfn)
+{
+    FAssert(sizeof(FComparator) == sizeof(ComparatorFieldsC) + sizeof(FRecord));
+
+    FComparator * comp = (FComparator *) MakeRecord(R.ComparatorRecordType);
+    comp->TypeTestFn = ttfn;
+    comp->EqualityFn = eqfn;
+    comp->ComparisonFn = compfn;
+    comp->HashFn = hashfn;
+
+    return(comp);
+}
+
+Define("make-comparator", MakeComparatorPrimitive)(int_t argc, FObject argv[])
+{
+    FourArgsCheck("make-comparator", argc);
+
+    return(MakeComparator(argv[0], argv[1], argv[2], argv[3]));
+}
+
+Define("comparator?", ComparatorPPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("comparator?", argc);
+
+    return(ComparatorP(argv[0]) ? TrueObject : FalseObject);
+}
+
+Define("comparator-type-test-procedure", ComparatorTypeTestProcedurePrimitive)(int_t argc,
+    FObject argv[])
+{
+    OneArgCheck("comparator-type-test-procedure", argc);
+    ComparatorArgCheck("comparator-type-test-procedure", argv[0]);
+
+    return(AsComparator(argv[0])->TypeTestFn);
+}
+
+Define("comparator-equality-predicate", ComparatorEqualityPredicatePrimitive)(int_t argc,
+    FObject argv[])
+{
+    OneArgCheck("comparator-equality-predicate", argc);
+    ComparatorArgCheck("comparator-equality-predicate", argv[0]);
+
+    return(AsComparator(argv[0])->EqualityFn);
+}
+
+Define("comparator-comparison-procedure", ComparatorComparisonProcedurePrimitive)(int_t argc,
+    FObject argv[])
+{
+    OneArgCheck("comparator-comparison-procedure", argc);
+    ComparatorArgCheck("comparator-comparison-procedure", argv[0]);
+
+    return(AsComparator(argv[0])->ComparisonFn);
+}
+
+Define("comparator-hash-function", ComparatorHashFunctionPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("comparator-hash-function", argc);
+    ComparatorArgCheck("comparator-hash-function", argv[0]);
+
+    return(AsComparator(argv[0])->HashFn);
+}
+
 // ---- Equivalence predicates ----
 
 int_t EqvP(FObject obj1, FObject obj2)
@@ -213,6 +280,13 @@ Define("equal?", EqualPPrimitive)(int_t argc, FObject argv[])
 
 static FPrimitive * Primitives[] =
 {
+    &MakeComparatorPrimitive,
+    &ComparatorPPrimitive,
+    &ComparatorTypeTestProcedurePrimitive,
+    &ComparatorEqualityPredicatePrimitive,
+    &ComparatorComparisonProcedurePrimitive,
+    &ComparatorHashFunctionPrimitive,
+
     &EqvPPrimitive,
     &EqPPrimitive,
     &EqualPPrimitive
@@ -220,6 +294,9 @@ static FPrimitive * Primitives[] =
 
 void SetupCompare()
 {
+    R.ComparatorRecordType = MakeRecordTypeC("comparator",
+            sizeof(ComparatorFieldsC) / sizeof(char *), ComparatorFieldsC);
+
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

@@ -25,6 +25,16 @@ Future:
     > (map #2 ’(1 2 3 4 5))
     (2 4 6 8 10)
 
+HashTree and Comparator:
+-- add comparator to MakeEqHashMap
+-- add comparators: Comparator
+-- add sets: HashSet
+-- add bags: HashBag
+-- add maps: HashMap
+-- get rid of StringToSymbol and StringLengthToSymbol in foment.cpp
+-- get rid of Hashtable type
+-- add tests of HashTree
+
 Compiler:
 -- genpass: handle multiple values with LetrecValues correctly
 -- genpass: LetrecStarValues needs to be compiled correctly
@@ -41,7 +51,6 @@ Bugs:
 -- serialize symbol table
 -- gc.cpp: AllocateSection failing is not handled by all callers
 -- ExecuteThunk does not check for CStack or AStack overflow
--- remove Hash from FSymbol (part of Reserved)
 -- r5rs_pitfall.scm: yin-yang does not terminate; see test2.scm and
    https://groups.google.com/forum/?fromgroups=#!topic/comp.lang.scheme/Fysq_Wplxsw
 -- exhaustively test unicode: char-alphabetic?, char-upcase, etc
@@ -172,6 +181,7 @@ typedef enum
     ExclusiveTag,
     ConditionTag,
     BignumTag,
+    HashTreeTag,
 
     // Invalid Tag
 
@@ -202,7 +212,6 @@ typedef enum
 // ---- Memory Management ----
 
 FObject MakeObject(uint_t sz, uint_t tag);
-FObject MakeMatureObject(uint_t len, const char * who);
 FObject MakePinnedObject(uint_t len, const char * who);
 
 #define RESERVED_BITS 8
@@ -220,8 +229,7 @@ FObject MakePinnedObject(uint_t len, const char * who);
 #define ByteLength(obj) ((*((uint_t *) (obj))) >> RESERVED_BITS)
 #define ObjectLength(obj) ((*((uint_t *) (obj))) >> RESERVED_BITS)
 #define MakeLength(len, tag) (((len) << RESERVED_BITS) | (tag))
-#define MakeMatureLength(len, tag) (((len) << RESERVED_BITS) | (tag) | RESERVED_MARK_BIT)
-#define MakePinnedLength(len, tag) MakeMatureLength((len), (tag))
+#define MakePinnedLength(len, tag) (((len) << RESERVED_BITS) | (tag) | RESERVED_MARK_BIT)
 
 inline FIndirectTag IndirectTag(FObject obj)
 {
@@ -420,11 +428,12 @@ FObject TConcRemove(FObject tconc);
 
 typedef struct
 {
-    uint_t Reserved;
+    uint_t Index;
     FObject Value;
 } FBox;
 
 FObject MakeBox(FObject val);
+FObject MakeBox(FObject val, uint_t idx);
 inline FObject Unbox(FObject bx)
 {
     FAssert(BoxP(bx));
@@ -433,6 +442,7 @@ inline FObject Unbox(FObject bx)
 }
 
 void SetBox(FObject bx, FObject val);
+#define BoxIndex(bx) ObjectLength(bx)
 
 // ---- Strings ----
 
@@ -747,6 +757,83 @@ void HashtableWalkUpdate(FObject ht, FWalkUpdateFn wfn, FObject ctx);
 void HashtableWalkDelete(FObject ht, FWalkDeleteFn wfn, FObject ctx);
 void HashtableWalkVisit(FObject ht, FWalkVisitFn wfn, FObject ctx);
 
+// ---- HashTree ----
+
+#define HashTreeP(obj) (IndirectTag(obj) == HashTreeTag)
+#define AsHashTree(obj) ((FHashTree *) (obj))
+
+typedef struct
+{
+    uint_t Length;
+    uint_t Bitmap;
+    FObject Buckets[1];
+} FHashTree;
+
+FObject MakeHashTree();
+
+#define HashTreeLength(obj) ObjectLength(obj)
+
+// ---- Comparator ----
+
+#define ComparatorP(obj) RecordP(obj, R.ComparatorRecordType)
+#define AsComparator(obj) ((FComparator *) (obj))
+
+typedef struct
+{
+    FRecord Record;
+    FObject TypeTestFn;
+    FObject EqualityFn;
+    FObject ComparisonFn;
+    FObject HashFn;
+} FComparator;
+
+FObject MakeComparator(FObject ttfn, FObject eqfn, FObject compfn, FObject hashfn);
+
+int_t EqP(FObject obj1, FObject obj2);
+int_t EqvP(FObject obj1, FObject obj2);
+int_t EqualP(FObject obj1, FObject obj2);
+
+uint_t EqHash(FObject obj);
+uint_t EqvHash(FObject obj);
+uint_t EqualHash(FObject obj);
+
+// ---- HashMap ----
+
+#define HashMapP(obj) RecordP(obj, R.HashMapRecordType)
+#define AsHashMap(obj) ((FHashMap *) (obj))
+
+typedef struct
+{
+    FRecord Record;
+    FObject HashTree;
+    FObject Comparator;
+    FObject Tracker;
+} FHashMap;
+
+FObject MakeHashMap(FObject comp);
+FObject HashMapRef(FObject hmap, FObject key, FObject def, FEquivFn eqfn, FHashFn hashfn);
+void HashMapSet(FObject hmap, FObject key, FObject val, FEquivFn eqfn, FHashFn hashfn);
+void HashMapDelete(FObject hmap, FObject key, FEquivFn eqfn, FHashFn hashfn);
+
+FObject MakeEqHashMap();
+FObject EqHashMapRef(FObject hmap, FObject key, FObject def);
+void EqHashMapSet(FObject hmap, FObject key, FObject val);
+void EqHashMapDelete(FObject hmap, FObject key);
+
+// ---- HashSet ----
+
+#define HashSetP(obj) RecordP(obj, R.HashSetRecordType)
+#define AsHashSet(obj) ((FHashSet *) (obj))
+
+typedef struct
+{
+    FRecord Record;
+    FObject HashTree;
+    FObject Comparator;
+} FHashSet;
+
+FObject MakeHashSet(FObject comp);
+
 // ---- Symbols ----
 
 #define SymbolP(obj) (IndirectTag(obj) == SymbolTag)
@@ -785,7 +872,6 @@ typedef struct
     static FPrimitive fn = {PrimitiveTag, fn ## Fn, name, __FILE__, __LINE__};\
     static FObject fn ## Fn
 
-FObject MakePrimitive(FPrimitive * prim);
 void DefinePrimitive(FObject env, FObject lib, FPrimitive * prim);
 
 // ---- Roots ----
@@ -800,9 +886,13 @@ typedef struct
     FObject LibraryExtensions;
     FObject EnvironmentVariables;
 
+    FObject SymbolHashTree;
     FObject SymbolHashtable;
 
     FObject HashtableRecordType;
+    FObject ComparatorRecordType;
+    FObject HashMapRecordType;
+    FObject HashSetRecordType;
     FObject ExceptionRecordType;
 
     FObject Assertion;
@@ -1542,6 +1632,18 @@ inline void EqHashtableArgCheck(const char * who, FObject obj)
         RaiseExceptionC(R.Assertion, who, "expected an eq-hashtable", List(obj));
 }
 
+inline void HashTreeArgCheck(const char * who, FObject obj)
+{
+    if (HashTreeP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a hash tree", List(obj));
+}
+
+inline void ComparatorArgCheck(const char * who, FObject obj)
+{
+    if (ComparatorP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a comparator", List(obj));
+}
+
 // ----------------
 
 extern uint_t InlineProcedures;
@@ -1554,14 +1656,6 @@ extern uint_t CollectionCount;
 FObject CompileProgram(FObject nam, FObject port);
 FObject Eval(FObject obj, FObject env);
 FObject GetInteractionEnv();
-
-int_t EqP(FObject obj1, FObject obj2);
-int_t EqvP(FObject obj1, FObject obj2);
-int_t EqualP(FObject obj1, FObject obj2);
-
-uint_t EqHash(FObject obj);
-uint_t EqvHash(FObject obj);
-uint_t EqualHash(FObject obj);
 
 FObject SyntaxToDatum(FObject obj);
 

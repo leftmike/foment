@@ -15,8 +15,8 @@ FObject MakeString(FCh * s, uint_t sl)
     FString * ns = (FString *) MakeObject(sizeof(FString) + sl * sizeof(FCh), StringTag);
     if (ns == 0)
     {
-        ns = (FString *) MakeMatureObject(sizeof(FString) + sl * sizeof(FCh), "make-string");
-        ns->Length = MakeMatureLength(sl, StringTag);
+        ns = (FString *) MakePinnedObject(sizeof(FString) + sl * sizeof(FCh), "make-string");
+        ns->Length = MakePinnedLength(sl, StringTag);
     }
     else
         ns->Length = MakeLength(sl, StringTag);

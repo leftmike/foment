@@ -375,9 +375,19 @@
         bit-count
         integer-length
         first-set-bit
-        arithmetic-shift
-        )
+        arithmetic-shift)
+    (export ;; (srfi 114)
+        make-comparator
+        comparator?
+        comparator-type-test-procedure
+        comparator-equality-predicate
+        comparator-comparison-procedure
+        comparator-hash-function)
     (export
+make-hash-tree
+hash-tree-ref
+hash-tree-set!
+hash-tree-delete
         make-ascii-port
         make-latin1-port
         make-utf8-port

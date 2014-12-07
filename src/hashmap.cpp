@@ -6,6 +6,666 @@ Foment
 
 #include "foment.hpp"
 
+// ---- Population Count ----
+//
+// popcount_3 from http://en.wikipedia.org/wiki/Hamming_weight#Efficient_implementation
+
+const uint64_t m1  = 0x5555555555555555; //binary: 0101...
+const uint64_t m2  = 0x3333333333333333; //binary: 00110011..
+const uint64_t m4  = 0x0f0f0f0f0f0f0f0f; //binary:  4 zeros,  4 ones ...
+const uint64_t h01 = 0x0101010101010101; //the sum of 256 to the power of 0,1,2,3...
+
+int PopulationCount(uint64_t x)
+{
+    x -= (x >> 1) & m1;             //put count of each 2 bits into those 2 bits
+    x = (x & m2) + ((x >> 2) & m2); //put count of each 4 bits into those 4 bits
+    x = (x + (x >> 4)) & m4;        //put count of each 8 bits into those 8 bits
+    return (x * h01)>>56;  //returns left 8 bits of x + (x<<8) + (x<<16) + (x<<24) + ...
+}
+
+// ---- Hash Tree ----
+//
+// The implementation uses hash array mapped tries;
+// see http://lampwww.epfl.ch/papers/idealhashtrees.pdf
+
+#define MAXIMUM_HASH_INDEX MAXIMUM_FIXNUM
+
+static FObject MakeHashTree(uint_t len, uint_t bm, FObject * bkts)
+{
+    FAssert(len == PopulationCount(bm));
+
+    FHashTree * ht = (FHashTree *) MakeObject(sizeof(FHashTree) + (len - 1) * sizeof(FObject),
+            HashTreeTag);
+    ht->Length = MakeLength(len, HashTreeTag);
+    ht->Bitmap = bm;
+
+    for (uint_t idx = 0; idx < len; idx++)
+        ht->Buckets[idx] = bkts[idx];
+
+    return(ht);
+}
+
+FObject MakeHashTree()
+{
+    return(MakeHashTree(0, 0, 0));
+}
+
+#ifdef FOMENT_64BIT
+#define INDEX_SHIFT 6
+#define INDEX_MASK 0x3F
+#endif // FOMENT_64BIT
+
+#ifdef FOMENT_32BIT
+#define INDEX_SHIFT 5
+#define INDEX_MASK 0x1F
+#endif // FOMENT_32BIT
+
+static inline uint_t ActualIndex(FObject htree, uint_t bdx)
+{
+    FAssert(HashTreeP(htree));
+
+    return(PopulationCount(AsHashTree(htree)->Bitmap & ((((uint_t) 1) << bdx) - 1)));
+}
+
+static inline uint_t BucketIndex(uint_t idx, uint_t dpth)
+{
+    FAssert(dpth < sizeof(uint_t) * 8 / INDEX_SHIFT);
+
+    return((idx >> (INDEX_SHIFT * dpth)) & INDEX_MASK);
+}
+
+static inline FObject GetBucket(FObject htree, uint_t bdx)
+{
+    FAssert(HashTreeP(htree));
+    FAssert(ActualIndex(htree, bdx) < HashTreeLength(htree));
+
+    return(AsHashTree(htree)->Buckets[ActualIndex(htree, bdx)]);
+}
+
+static inline uint_t BucketP(FObject htree, uint_t bdx)
+{
+    FAssert(HashTreeP(htree));
+
+    return(AsHashTree(htree)->Bitmap & (((uint_t) 1) << bdx));
+}
+
+static FObject HashTreeRef(FObject htree, uint_t idx, FObject nfnd)
+{
+    FAssert(HashTreeP(htree));
+    FAssert(idx <= MAXIMUM_HASH_INDEX);
+
+    uint_t dpth = 0;
+
+    for (;;)
+    {
+        uint_t bdx = BucketIndex(idx, dpth);
+        if (BucketP(htree, bdx) == 0)
+            return(nfnd);
+
+        FObject obj = GetBucket(htree, bdx);
+        if (BoxP(obj))
+        {
+            if (BoxIndex(obj) == idx)
+                return(Unbox(obj));
+            break;
+        }
+
+        FAssert(HashTreeP(obj));
+
+        htree = obj;
+        dpth += 1;
+
+        FAssert(dpth < sizeof(uint_t) * 8 / INDEX_SHIFT);
+    }
+
+    return(nfnd);
+}
+
+static FObject MakeHashTreeBuckets(uint_t dpth, FObject bx1, FObject bx2)
+{
+    FAssert(BoxIndex(bx1) != BoxIndex(bx2));
+
+    uint_t bdx1 = BucketIndex(BoxIndex(bx1), dpth);
+    uint_t bdx2 = BucketIndex(BoxIndex(bx2), dpth);
+    FObject bkts[2];
+
+    if (bdx1 == bdx2)
+    {
+        bkts[0] = MakeHashTreeBuckets(dpth + 1, bx1, bx2);
+        return(MakeHashTree(1, ((uint_t) 1) << bdx1, bkts));
+    }
+    else if (bdx1 > bdx2)
+    {
+        bkts[0] = bx2;
+        bkts[1] = bx1;
+    }
+    else
+    {
+        bkts[0] = bx1;
+        bkts[1] = bx2;
+    }
+
+    return(MakeHashTree(2, (((uint_t) 1) << bdx1) | (((uint_t) 1) << bdx2), bkts));
+}
+
+static FObject HashTreeSet(FObject htree, uint_t idx, uint_t dpth, FObject val)
+{
+#ifdef FOMENT_DEBUG
+    FObject otree = htree;
+#endif // FOMENT_DEBUG
+
+    FAssert(HashTreeP(htree));
+
+    uint_t bdx = BucketIndex(idx, dpth);
+    if (BucketP(htree, bdx) == 0)
+    {
+        FObject bkts[sizeof(uint_t) * 8];
+        uint_t udx = 0;
+
+        for (uint_t ndx = 0; ndx < sizeof(uint_t) * 8; ndx++)
+        {
+            if (BucketP(htree, ndx))
+            {
+                FAssert(ndx != bdx);
+
+                bkts[udx] = GetBucket(htree, ndx);
+                udx += 1;
+            }
+            else if (ndx == bdx)
+            {
+                bkts[udx] = MakeBox(val, idx);
+                udx += 1;
+            }
+        }
+
+        FAssert(udx == HashTreeLength(htree) + 1);
+
+        htree = MakeHashTree(udx, AsHashTree(htree)->Bitmap | (((uint_t) 1) << bdx), bkts);
+
+#ifdef FOMENT_DEBUG
+        for (uint_t ndx = 0; ndx < sizeof(uint_t) * 8; ndx++)
+        {
+            if (BucketP(htree, ndx))
+            {
+                if (ndx != bdx)
+                {
+                    FAssert(GetBucket(otree, ndx) == GetBucket(htree, ndx));
+                }
+                else
+                {
+                    FObject obj = GetBucket(htree, ndx);
+                    FAssert(BoxP(obj));
+                    FAssert(Unbox(obj) == val);
+                    FAssert(BoxIndex(obj) == idx);
+                    FAssert(BucketP(otree, ndx) == 0);
+                }
+            }
+            else
+            {
+                FAssert(BucketP(otree, ndx) == 0);
+            }
+        }
+#endif // FOMENT_DEBUG
+    }
+    else
+    {
+        FObject obj = GetBucket(htree, bdx);
+        if (BoxP(obj))
+        {
+            if (BoxIndex(obj) == idx)
+                SetBox(obj, val);
+            else
+                obj = MakeHashTreeBuckets(dpth + 1, obj, MakeBox(val, idx));
+        }
+        else
+        {
+            FAssert(HashTreeP(obj));
+
+            obj = HashTreeSet(obj, idx, dpth + 1, val);
+        }
+
+//        AsHashTree(htree)->Buckets[ActualIndex(htree, bdx)] = obj;
+        Modify(FHashTree, htree, Buckets[ActualIndex(htree, bdx)], obj);
+    }
+
+    return(htree);
+}
+
+static FObject HashTreeSet(FObject htree, uint_t idx, FObject val)
+{
+    FAssert(idx <= MAXIMUM_HASH_INDEX);
+
+    return(HashTreeSet(htree, idx, 0, val));
+}
+
+static FObject HashTreeDelete(FObject htree, uint_t idx, uint_t dpth)
+{
+#ifdef FOMENT_DEBUG
+    FObject otree = htree;
+#endif // FOMENT_DEBUG
+
+    FAssert(HashTreeP(htree));
+
+    uint_t bdx = BucketIndex(idx, dpth);
+    if (BucketP(htree, bdx))
+    {
+        FObject obj = GetBucket(htree, bdx);
+        if (BoxP(obj))
+        {
+            if (BoxIndex(obj) == idx)
+            {
+                if (dpth > 0)
+                {
+                    FAssert(HashTreeLength(htree) > 1);
+
+                    if (HashTreeLength(htree) == 2)
+                    {
+                        for (uint_t ndx = 0; ndx < sizeof(uint_t) * 8; ndx++)
+                            if (ndx != bdx && BucketP(htree, ndx))
+                                return(GetBucket(htree, ndx));
+
+                        FAssert(0);
+                    }
+                }
+
+                FObject bkts[sizeof(uint_t) * 8];
+                uint_t udx = 0;
+
+                for (uint_t ndx = 0; ndx < sizeof(uint_t) * 8; ndx++)
+                {
+                    if (ndx != bdx && BucketP(htree, ndx))
+                    {
+                        bkts[udx] = GetBucket(htree, ndx);
+                        udx += 1;
+                    }
+                }
+
+                htree = MakeHashTree(udx, AsHashTree(htree)->Bitmap & ~(((uint_t) 1) << bdx),
+                        bkts);
+#ifdef FOMENT_DEBUG
+                for (uint_t ndx = 0; ndx < sizeof(uint_t) * 8; ndx++)
+                {
+                    if (BucketP(htree, ndx))
+                    {
+                        FAssert(ndx != bdx);
+                        FAssert(GetBucket(otree, ndx) == GetBucket(htree, ndx));
+                    }
+                    else if (ndx != bdx)
+                    {
+                        FAssert(BucketP(otree, ndx) == 0);
+                    }
+                    else
+                    {
+                        FAssert(BucketP(otree, ndx));
+                    }
+                }
+#endif // FOMENT_DEBUG
+            }
+        }
+        else
+        {
+            FAssert(HashTreeP(obj));
+
+            obj = HashTreeDelete(obj, idx, dpth + 1);
+            if (BoxP(obj) && HashTreeLength(htree) == 1 && dpth > 0)
+                return(obj);
+
+//            AsHashTree(htree)->Buckets[ActualIndex(htree, bdx)] = obj;
+            Modify(FHashTree, htree, Buckets[ActualIndex(htree, bdx)], obj);
+        }
+    }
+
+    return(htree);
+}
+
+static FObject HashTreeDelete(FObject htree, uint_t idx)
+{
+    FAssert(idx <= MAXIMUM_HASH_INDEX);
+
+    return(HashTreeDelete(htree, idx, 0));
+}
+
+/*
+void WriteHashTree(FObject port, FObject htree)
+{
+    FCh s[16];
+    int_t sl = FixnumAsString((FFixnum) htree, s, 16);
+
+    FAssert(HashTreeP(htree));
+
+    WriteStringC(port, "#<hash-tree: ");
+    WriteString(port, s, sl);
+    WriteCh(port, ' ');
+
+    for (uint_t idx = 0; idx < sizeof(uint_t) * 8; idx++)
+    {
+        if (BucketP(htree, idx))
+        {
+            WriteCh(port, '[');
+            sl = FixnumAsString(idx, s, 10);
+            WriteString(port, s, sl);
+            WriteStringC(port, "] = ");
+            Write(port, GetBucket(htree, idx), 1);
+            WriteCh(port, ' ');
+        }
+    }
+
+    WriteCh(port, '>');
+}
+*/
+
+Define("make-hash-tree", MakeHashTreePrimitive)(int_t argc, FObject argv[])
+{
+    ZeroArgsCheck("make-hash-tree", argc);
+
+    return(MakeHashTree(0, 0, 0));
+}
+
+Define("hash-tree-ref", HashTreeRefPrimitive)(int_t argc, FObject argv[])
+{
+    ThreeArgsCheck("hash-tree-ref", argc);
+    HashTreeArgCheck("hash-tree-ref", argv[0]);
+    FixnumArgCheck("hash-tree-ref", argv[1]);
+
+    return(HashTreeRef(argv[0], AsFixnum(argv[1]), argv[2]));
+}
+
+Define("hash-tree-set!", HashTreeSetPrimitive)(int_t argc, FObject argv[])
+{
+    ThreeArgsCheck("hash-tree-set!", argc);
+    HashTreeArgCheck("hash-tree-set!", argv[0]);
+    FixnumArgCheck("hash-tree-set!", argv[1]);
+
+    return(HashTreeSet(argv[0], AsFixnum(argv[1]), argv[2]));
+}
+
+Define("hash-tree-delete", HashTreeDeletePrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("hash-tree-delete", argc);
+    HashTreeArgCheck("hash-tree-delete", argv[0]);
+    FixnumArgCheck("hash-tree-delete", argv[1]);
+
+    return(HashTreeDelete(argv[0], AsFixnum(argv[1])));
+}
+// ---- Symbols ----
+
+static uint_t NextSymbolHash = 0;
+
+FObject StringToSymbol(FObject str)
+{
+    FAssert(StringP(str));
+
+    uint_t idx = StringHash(str) % MAXIMUM_HASH_INDEX;
+    FObject lst = HashTreeRef(R.SymbolHashTree, idx, MakeFixnum(idx));
+    FObject obj = lst;
+
+    while (PairP(obj))
+    {
+        FAssert(SymbolP(First(obj)));
+
+        if (StringEqualP(AsSymbol(First(obj))->String, str))
+            return(First(obj));
+        obj = Rest(obj);
+    }
+
+    FSymbol * sym = (FSymbol *) MakeObject(sizeof(FSymbol), SymbolTag);
+    sym->Reserved = MakeLength(NextSymbolHash, SymbolTag);
+    sym->String = str;
+    NextSymbolHash = (NextSymbolHash + 1) % MAXIMUM_HASH_INDEX;
+
+    R.SymbolHashTree = HashTreeSet(R.SymbolHashTree, idx, MakePair(sym, lst));
+
+    return(sym);
+}
+
+FObject StringLengthToSymbol(FCh * s, int_t sl)
+{
+    uint_t idx = StringLengthHash(s, sl) % MAXIMUM_HASH_INDEX;
+    FObject lst = HashTreeRef(R.SymbolHashTree, idx, MakeFixnum(idx));
+    FObject obj = lst;
+
+    while (PairP(obj))
+    {
+        FAssert(SymbolP(First(obj)));
+
+        if (StringLengthEqualP(s, sl, AsSymbol(First(obj))->String))
+            return(First(obj));
+        obj = Rest(obj);
+    }
+
+    FSymbol * sym = (FSymbol *) MakeObject(sizeof(FSymbol), SymbolTag);
+    sym->Reserved = MakeLength(NextSymbolHash, SymbolTag);
+    sym->String = MakeString(s, sl);
+    NextSymbolHash = (NextSymbolHash + 1) % MAXIMUM_HASH_INDEX;
+
+    R.SymbolHashTree = HashTreeSet(R.SymbolHashTree, idx, MakePair(sym, lst));
+
+    return(sym);
+}
+
+// ---- Hash Map ----
+
+const char * HashMapFieldsC[3] = {"hash-tree", "comparator", "tracker"};
+
+static FObject MakeHashMap(FObject comp, FObject tracker)
+{
+    FAssert(sizeof(FHashMap) == sizeof(HashMapFieldsC) + sizeof(FRecord));
+
+    FHashMap * hmap = (FHashMap *) MakeRecord(R.HashMapRecordType);
+    hmap->HashTree = MakeHashTree();
+    hmap->Comparator = comp;
+    hmap->Tracker = tracker;
+
+    return(hmap);
+}
+
+FObject MakeHashMap(FObject comp)
+{
+    return(MakeHashMap(comp, NoValueObject));
+}
+
+FObject HashMapRef(FObject hmap, FObject key, FObject def, FEquivFn eqfn, FHashFn hashfn)
+{
+    FAssert(HashMapP(hmap));
+
+    uint_t idx = hashfn(key) % MAXIMUM_HASH_INDEX;
+    FObject lst = HashTreeRef(AsHashMap(hmap)->HashTree, idx, MakeFixnum(idx));
+
+    while (PairP(lst))
+    {
+        FAssert(PairP(First(lst)));
+
+        if (eqfn(First(First(lst)), key))
+            return(Rest(First(lst)));
+        lst = Rest(lst);
+    }
+
+    return(def);
+}
+
+void HashMapSet(FObject hmap, FObject key, FObject val, FEquivFn eqfn, FHashFn hashfn)
+{
+    FAssert(HashMapP(hmap));
+
+    uint_t idx = hashfn(key) % MAXIMUM_HASH_INDEX;
+    FObject slot = HashTreeRef(AsHashMap(hmap)->HashTree, idx, MakeFixnum(idx));
+    FObject lst = slot;
+
+    while (PairP(lst))
+    {
+        FAssert(PairP(First(lst)));
+
+        if (eqfn(First(First(lst)), key))
+        {
+            SetRest(First(lst), val);
+            return;
+        }
+        lst = Rest(lst);
+    }
+
+    FObject kvn = MakePair(MakePair(key, val), slot);
+    if (PairP(AsHashMap(hmap)->Tracker))
+        InstallTracker(key, kvn, AsHashMap(hmap)->Tracker);
+
+    HashTreeSet(AsHashMap(hmap)->HashTree, idx, kvn);
+}
+
+void HashMapDelete(FObject hmap, FObject key, FEquivFn eqfn, FHashFn hashfn)
+{
+    FAssert(HashMapP(hmap));
+
+    uint_t idx = hashfn(key) % MAXIMUM_HASH_INDEX;
+    FObject lst = HashTreeRef(AsHashMap(hmap)->HashTree, idx, MakeFixnum(idx));
+    FObject prev = NoValueObject;
+
+    while (PairP(lst))
+    {
+        FAssert(PairP(First(lst)));
+
+        if (eqfn(First(First(lst)), key))
+        {
+            if (PairP(prev))
+                SetRest(prev, Rest(lst));
+            else if (PairP(Rest(lst)))
+                HashTreeSet(AsHashMap(hmap)->HashTree, idx, Rest(lst));
+            else
+                HashTreeDelete(AsHashMap(hmap)->HashTree, idx);
+            break;
+        }
+        prev = lst;
+        lst = Rest(lst);
+    }
+}
+
+FObject MakeEqHashMap()
+{
+    return(MakeHashMap(NoValueObject, MakeTConc()));
+}
+
+static uint_t OldIndex(FObject kvn)
+{
+    while (PairP(kvn))
+        kvn = Rest(kvn);
+
+    FAssert(FixnumP(kvn));
+
+    return(AsFixnum(kvn));
+}
+
+static void RemoveOld(FObject hmap, FObject kvn, uint_t idx)
+{
+    FObject node = HashTreeRef(AsHashMap(hmap)->HashTree, idx, MakeFixnum(idx));
+    FObject prev = NoValueObject;
+
+    while (PairP(node))
+    {
+        if (node == kvn)
+        {
+            if (PairP(prev))
+                SetRest(prev, Rest(node));
+            else if (PairP(Rest(node)))
+                HashTreeSet(AsHashMap(hmap)->HashTree, idx, Rest(node));
+            else
+                HashTreeDelete(AsHashMap(hmap)->HashTree, idx);
+
+            return;
+        }
+
+        prev = node;
+        node = Rest(node);
+    }
+
+    FAssert(0);
+}
+
+#if 0
+static void CheckEqHashMap(FObject ht)
+{
+    FAssert(HashtableP(ht));
+    FAssert(VectorP(AsHashtable(ht)->Buckets));
+    uint_t len = VectorLength(AsHashtable(ht)->Buckets);
+
+    for (uint_t idx = 0; idx < len; idx++)
+    {
+        FObject node = AsVector(AsHashtable(ht)->Buckets)->Vector[idx];
+
+        while (PairP(node))
+        {
+            FAssert(PairP(First(node)));
+            FAssert(EqHash(First(First(node))) % len == idx);
+
+            node = Rest(node);
+        }
+
+        FAssert(FixnumP(node));
+        FAssert(AsFixnum(node) == (int_t) idx);
+    }
+}
+#endif // FOMENT_DEBUG
+
+static void EqHashMapRehash(FObject hmap, FObject tconc)
+{
+    FObject kvn;
+
+    while (TConcEmptyP(tconc) == 0)
+    {
+        kvn = TConcRemove(tconc);
+
+        FAssert(PairP(kvn));
+        FAssert(PairP(First(kvn)));
+
+        FObject key = First(First(kvn));
+        uint_t odx = OldIndex(kvn);
+        uint_t idx = EqHash(key) % MAXIMUM_HASH_INDEX;
+
+        if (idx != odx)
+        {
+            RemoveOld(hmap, kvn, odx);
+            SetRest(kvn, HashTreeRef(AsHashMap(hmap)->HashTree, idx, MakeFixnum(idx)));
+            HashTreeSet(AsHashMap(hmap)->HashTree, idx, kvn);
+        }
+
+        InstallTracker(key, kvn, AsHashMap(hmap)->Tracker);
+    }
+
+#ifdef FOMENT_DEBUG
+//    CheckEqHashtable(ht);
+#endif // FOMENT_DEBUG
+}
+
+FObject EqHashMapRef(FObject hmap, FObject key, FObject def)
+{
+    FAssert(HashMapP(hmap));
+    FAssert(PairP(AsHashMap(hmap)->Tracker));
+
+    if (TConcEmptyP(AsHashMap(hmap)->Tracker) == 0)
+        EqHashMapRehash(hmap, AsHashMap(hmap)->Tracker);
+
+    return(HashMapRef(hmap, key, def, EqP, EqHash));
+}
+
+void EqHashMapSet(FObject hmap, FObject key, FObject val)
+{
+    FAssert(HashMapP(hmap));
+    FAssert(PairP(AsHashMap(hmap)->Tracker));
+
+    if (TConcEmptyP(AsHashMap(hmap)->Tracker) == 0)
+        EqHashMapRehash(hmap, AsHashMap(hmap)->Tracker);
+
+    HashMapSet(hmap, key, val, EqP, EqHash);
+}
+
+void EqHashMapDelete(FObject hmap, FObject key)
+{
+    FAssert(HashMapP(hmap));
+    FAssert(PairP(AsHashMap(hmap)->Tracker));
+
+    if (TConcEmptyP(AsHashMap(hmap)->Tracker) == 0)
+        EqHashMapRehash(hmap, AsHashMap(hmap)->Tracker);
+
+    HashMapDelete(hmap, key, EqP, EqHash);
+}
+
 // ---- Hashtables ----
 
 uint_t EqHash(FObject obj)
@@ -521,6 +1181,11 @@ Define("eq-hashtable-delete", EqHashtableDeletePrimitive)(int_t argc, FObject ar
 
 static FPrimitive * Primitives[] =
 {
+    &MakeHashTreePrimitive,
+    &HashTreeRefPrimitive,
+    &HashTreeSetPrimitive,
+    &HashTreeDeletePrimitive,
+    
     &MakeEqHashtablePrimitive,
     &EqHashtableRefPrimitive,
     &EqHashtableSetPrimitive,
