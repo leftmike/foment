@@ -33,7 +33,6 @@ HashTree and Comparator:
 -- add maps: HashMap
 -- get rid of StringToSymbol and StringLengthToSymbol in foment.cpp
 -- get rid of Hashtable type
--- add tests of HashMap
 -- document make-hash-tree, hash-tree-set!, hash-tree-delete, hash-tree-ref, and hash-map-*
 
 Compiler:
@@ -726,9 +725,7 @@ inline int_t RecordP(FObject obj, FObject rt)
 
 typedef int_t (*FEquivFn)(FObject obj1, FObject obj2);
 typedef uint_t (*FHashFn)(FObject obj);
-typedef FObject (*FWalkUpdateFn)(FObject key, FObject val, FObject ctx);
-typedef int_t (*FWalkDeleteFn)(FObject key, FObject val, FObject ctx);
-typedef void (*FWalkVisitFn)(FObject key, FObject val, FObject ctx);
+typedef void (*FVisitFn)(FObject key, FObject val, FObject ctx);
 
 extern const char * HashtableFieldsC[3];
 
@@ -753,10 +750,7 @@ void EqHashtableSet(FObject ht, FObject key, FObject val);
 void EqHashtableDelete(FObject ht, FObject key);
 int_t EqHashtableContainsP(FObject ht, FObject key);
 
-uint_t HashtableSize(FObject ht);
-void HashtableWalkUpdate(FObject ht, FWalkUpdateFn wfn, FObject ctx);
-void HashtableWalkDelete(FObject ht, FWalkDeleteFn wfn, FObject ctx);
-void HashtableWalkVisit(FObject ht, FWalkVisitFn wfn, FObject ctx);
+void HashtableVisit(FObject ht, FVisitFn vfn, FObject ctx);
 
 // ---- HashTree ----
 
@@ -820,6 +814,7 @@ FObject MakeEqHashMap();
 FObject EqHashMapRef(FObject hmap, FObject key, FObject def);
 void EqHashMapSet(FObject hmap, FObject key, FObject val);
 void EqHashMapDelete(FObject hmap, FObject key);
+void EqHashMapVisit(FObject hmap, FVisitFn vfn, FObject ctx);
 
 // ---- HashSet ----
 

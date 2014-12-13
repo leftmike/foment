@@ -325,6 +325,26 @@ static FObject HashTreeDelete(FObject htree, uint_t idx)
     return(HashTreeDelete(htree, idx, 0));
 }
 
+typedef void (*FVisitBucketFn)(FObject obj, FVisitFn vfn, FObject ctx);
+
+static void HashTreeVisit(FObject htree, FVisitBucketFn vbfn, FVisitFn vfn, FObject ctx)
+{
+    FAssert(HashTreeP(htree));
+
+    for (uint_t bdx = 0; bdx < HashTreeLength(htree); bdx++)
+    {
+        FObject obj = AsHashTree(htree)->Buckets[bdx];
+        if (BoxP(obj))
+            vbfn(Unbox(obj), vfn, ctx);
+        else
+        {
+            FAssert(HashTreeP(obj));
+
+            HashTreeVisit(obj, vbfn, vfn, ctx);
+        }
+    }
+}
+
 /*
 void WriteHashTree(FObject port, FObject htree)
 {
@@ -459,12 +479,12 @@ static FObject MakeHashMap(FObject comp, FObject tracker)
     return(hmap);
 }
 
-FObject MakeHashMap(FObject comp)
+static FObject MakeHashMap(FObject comp)
 {
     return(MakeHashMap(comp, NoValueObject));
 }
 
-FObject HashMapRef(FObject hmap, FObject key, FObject def, FEquivFn eqfn, FHashFn hashfn)
+static FObject HashMapRef(FObject hmap, FObject key, FObject def, FEquivFn eqfn, FHashFn hashfn)
 {
     FAssert(HashMapP(hmap));
 
@@ -483,7 +503,7 @@ FObject HashMapRef(FObject hmap, FObject key, FObject def, FEquivFn eqfn, FHashF
     return(def);
 }
 
-void HashMapSet(FObject hmap, FObject key, FObject val, FEquivFn eqfn, FHashFn hashfn)
+static void HashMapSet(FObject hmap, FObject key, FObject val, FEquivFn eqfn, FHashFn hashfn)
 {
     FAssert(HashMapP(hmap));
 
@@ -511,7 +531,7 @@ void HashMapSet(FObject hmap, FObject key, FObject val, FEquivFn eqfn, FHashFn h
     Modify(FHashMap, hmap, HashTree, HashTreeSet(AsHashMap(hmap)->HashTree, idx, kvn));
 }
 
-void HashMapDelete(FObject hmap, FObject key, FEquivFn eqfn, FHashFn hashfn)
+static void HashMapDelete(FObject hmap, FObject key, FEquivFn eqfn, FHashFn hashfn)
 {
     FAssert(HashMapP(hmap));
 
@@ -544,6 +564,24 @@ void HashMapDelete(FObject hmap, FObject key, FEquivFn eqfn, FHashFn hashfn)
         prev = lst;
         lst = Rest(lst);
     }
+}
+
+static void VisitHashMapBucket(FObject lst, FVisitFn vfn, FObject ctx)
+{
+    while (PairP(lst))
+    {
+        FAssert(PairP(First(lst)));
+
+        vfn(First(First(lst)), Rest(First(lst)), ctx);
+        lst = Rest(lst);
+    }
+}
+
+static void HashMapVisit(FObject hmap, FVisitFn vfn, FObject ctx)
+{
+    FAssert(HashMapP(hmap));
+
+    HashTreeVisit(AsHashMap(hmap)->HashTree, VisitHashMapBucket, vfn, ctx);
 }
 
 FObject MakeEqHashMap()
@@ -687,6 +725,18 @@ void EqHashMapDelete(FObject hmap, FObject key)
 
     HashMapDelete(hmap, key, EqP, EqHash);
 }
+
+void EqHashMapVisit(FObject hmap, FVisitFn vfn, FObject ctx)
+{
+    FAssert(HashMapP(hmap));
+    FAssert(PairP(AsHashMap(hmap)->Tracker));
+
+    if (TConcEmptyP(AsHashMap(hmap)->Tracker) == 0)
+        EqHashMapRehash(hmap, AsHashMap(hmap)->Tracker);
+
+    HashMapVisit(hmap, vfn, ctx);
+}
+
 
 Define("make-eq-hash-map", MakeEqHashMapPrimitive)(int_t argc, FObject argv[])
 {
@@ -1103,18 +1153,7 @@ int_t EqHashtableContainsP(FObject ht, FObject key)
     return(HashtableContainsP(ht, key, EqP, EqHash));
 }
 
-uint_t HashtableSize(FObject ht)
-{
-    FAssert(HashtableP(ht));
-    FAssert(FixnumP(AsHashtable(ht)->Size));
-
-    if (TConcEmptyP(AsHashtable(ht)->Tracker) == 0)
-        EqHashtableRehash(ht, AsHashtable(ht)->Tracker);
-
-    return(AsFixnum(AsHashtable(ht)->Size));
-}
-
-void HashtableWalkUpdate(FObject ht, FWalkUpdateFn wfn, FObject ctx)
+void HashtableVisit(FObject ht, FVisitFn vfn, FObject ctx)
 {
     FAssert(HashtableP(ht));
 
@@ -1129,70 +1168,7 @@ void HashtableWalkUpdate(FObject ht, FWalkUpdateFn wfn, FObject ctx)
         {
             FAssert(PairP(First(lst)));
 
-            FObject val = wfn(First(First(lst)), Rest(First(lst)), ctx);
-            if (val != Rest(First(lst)))
-            {
-//                AsPair(First(lst))->Rest = val;
-                SetRest(First(lst), val);
-            }
-
-            lst = Rest(lst);
-        }
-    }
-}
-
-void HashtableWalkDelete(FObject ht, FWalkDeleteFn wfn, FObject ctx)
-{
-    FAssert(HashtableP(ht));
-
-    FObject bkts = AsHashtable(ht)->Buckets;
-    int_t len = VectorLength(bkts);
-
-    for (int_t idx = 0; idx < len; idx++)
-    {
-        FObject lst = AsVector(bkts)->Vector[idx];
-        FObject prev = NoValueObject;
-
-        while (PairP(lst))
-        {
-            FAssert(PairP(First(lst)));
-
-            if (wfn(First(First(lst)), Rest(First(lst)), ctx))
-            {
-                if (PairP(prev))
-                {
-//                    AsPair(prev)->Rest = Rest(lst);
-                    SetRest(prev, Rest(lst));
-                }
-                else
-                {
-//                    AsVector(bkts)->Vector[idx] = Rest(lst);
-                    ModifyVector(bkts, idx, Rest(lst));
-                }
-            }
-
-            prev = lst;
-            lst = Rest(lst);
-        }
-    }
-}
-
-void HashtableWalkVisit(FObject ht, FWalkVisitFn wfn, FObject ctx)
-{
-    FAssert(HashtableP(ht));
-
-    FObject bkts = AsHashtable(ht)->Buckets;
-    int_t len = VectorLength(bkts);
-
-    for (int_t idx = 0; idx < len; idx++)
-    {
-        FObject lst = AsVector(bkts)->Vector[idx];
-
-        while (PairP(lst))
-        {
-            FAssert(PairP(First(lst)));
-
-            wfn(First(First(lst)), Rest(First(lst)), ctx);
+            vfn(First(First(lst)), Rest(First(lst)), ctx);
             lst = Rest(lst);
         }
     }

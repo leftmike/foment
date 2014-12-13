@@ -1412,7 +1412,7 @@ Define("%find-mark", FindMarkPrimitive)(int_t argc, FObject argv[])
     return(FindMark(argv[0], argv[1]));
 }
 
-static void WalkVisit(FObject key, FObject val, FObject ht)
+static void Visit(FObject key, FObject val, FObject ht)
 {
     FAssert(ParameterP(key));
 
@@ -1425,7 +1425,7 @@ FObject CurrentParameters()
     FThreadState * ts = GetThreadState();
 
     if (HashtableP(ts->Parameters))
-        HashtableWalkVisit(ts->Parameters, WalkVisit, ht);
+        HashtableVisit(ts->Parameters, Visit, ht);
 
     return(ht);
 }

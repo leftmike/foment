@@ -1181,7 +1181,7 @@ static FObject CompileAkas(FObject env, FObject lst)
 
 static FObject UndefinedList;
 
-static void WalkVisit(FObject key, FObject val, FObject ctx)
+static void Visit(FObject key, FObject val, FObject ctx)
 {
     FAssert(GlobalP(val));
 
@@ -1209,7 +1209,7 @@ void CompileLibrary(FObject expr)
     FObject akalst = CompileAkas(env, body);
 
     UndefinedList = EmptyListObject;
-    HashtableWalkVisit(AsEnvironment(env)->Hashtable, WalkVisit, NoValueObject);
+    HashtableVisit(AsEnvironment(env)->Hashtable, Visit, NoValueObject);
     if (UndefinedList != EmptyListObject)
         RaiseExceptionC(R.Syntax, "define-library", "identifier(s) used but never defined",
                 List(UndefinedList, expr));
@@ -1323,7 +1323,7 @@ FObject CompileProgram(FObject nam, FObject port)
     FObject proc = CompileLambda(env, NoValueObject, EmptyListObject, ReverseListModify(body));
 
     UndefinedList = EmptyListObject;
-    HashtableWalkVisit(AsEnvironment(env)->Hashtable, WalkVisit, NoValueObject);
+    HashtableVisit(AsEnvironment(env)->Hashtable, Visit, NoValueObject);
     if (UndefinedList != EmptyListObject)
         RaiseExceptionC(R.Syntax, "program", "identifier(s) used but never defined",
                 List(UndefinedList, nam));

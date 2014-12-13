@@ -98,19 +98,21 @@ void WriteSharedObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void *
 {
     if (SharedObjectP(obj))
     {
-        FObject val = EqHashtableRef(ToWriteSharedCtx(ctx)->Hashtable, obj, FalseObject);
+        FObject val = EqHashtableRef(ToWriteSharedCtx(ctx)->Hashtable, obj, MakeFixnum(1));
 
-        if (BooleanP(val))
+        FAssert(FixnumP(val));
+
+        if (AsFixnum(val) > 0)
         {
-            if (val == TrueObject)
+            if (AsFixnum(val) > 1)
             {
-                ToWriteSharedCtx(ctx)->Label += 1;
+                ToWriteSharedCtx(ctx)->Label -= 1;
                 EqHashtableSet(ToWriteSharedCtx(ctx)->Hashtable, obj,
                         MakeFixnum(ToWriteSharedCtx(ctx)->Label));
 
                 WriteCh(port, '#');
                 FCh s[8];
-                int_t sl = FixnumAsString(ToWriteSharedCtx(ctx)->Label, s, 10);
+                int_t sl = FixnumAsString(- ToWriteSharedCtx(ctx)->Label, s, 10);
                 WriteString(port, s, sl);
                 WriteCh(port, '=');
             }
@@ -122,7 +124,7 @@ void WriteSharedObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void *
                 {
                     wfn(port, First(obj), df, (void *) wfn, ctx);
                     if (PairP(Rest(obj)) && EqHashtableRef(ToWriteSharedCtx(ctx)->Hashtable,
-                            Rest(obj), FalseObject) == FalseObject)
+                            Rest(obj), MakeFixnum(1)) == MakeFixnum(1))
                     {
                         WriteCh(port, ' ');
                         obj = Rest(obj);
@@ -146,22 +148,17 @@ void WriteSharedObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void *
         }
         else
         {
-            FAssert(FixnumP(val));
+            FAssert(FixnumP(val) && AsFixnum(val) < 1);
 
             WriteCh(port, '#');
             FCh s[8];
-            int_t sl = FixnumAsString(AsFixnum(val), s, 10);
+            int_t sl = FixnumAsString(- AsFixnum(val), s, 10);
             WriteString(port, s, sl);
             WriteCh(port, '#');
         }
     }
     else
         WriteGeneric(port, obj, df, wfn, ctx);
-}
-
-FObject WalkUpdate(FObject key, FObject val, FObject ctx)
-{
-    return(TrueObject);
 }
 
 void Write(FObject port, FObject obj, int_t df)
@@ -171,31 +168,17 @@ void Write(FObject port, FObject obj, int_t df)
     if (SharedObjectP(obj))
     {
         if (FindSharedObjects(ht, obj, 0, 1) == 0)
-        {
-            FAssert(HashtableSize(ht) == 0);
-
             WriteGeneric(port, obj, df, (FWriteFn) WriteGeneric, 0);
-        }
         else
         {
-            HashtableWalkUpdate(ht, WalkUpdate, NoValueObject);
-
             FWriteSharedCtx ctx;
             ctx.Hashtable = ht;
-            ctx.Label = -1;
+            ctx.Label = 1;
             WriteSharedObject(port, obj, df, (FWriteFn) WriteSharedObject, &ctx);
         }
     }
     else
         WriteGeneric(port, obj, df, (FWriteFn) WriteGeneric, 0);
-}
-
-int_t WalkDelete(FObject key, FObject val, FObject ctx)
-{
-    FAssert(FixnumP(val));
-    FAssert(AsFixnum(val) > 0);
-
-    return(AsFixnum(val) == 1);
 }
 
 void WriteShared(FObject port, FObject obj, int_t df)
@@ -208,12 +191,9 @@ void WriteShared(FObject port, FObject obj, int_t df)
             WriteGeneric(port, obj, df, (FWriteFn) WriteGeneric, 0);
         else
         {
-            HashtableWalkDelete(ht, WalkDelete, NoValueObject);
-            HashtableWalkUpdate(ht, WalkUpdate, NoValueObject);
-
             FWriteSharedCtx ctx;
             ctx.Hashtable = ht;
-            ctx.Label = -1;
+            ctx.Label = 1;
             WriteSharedObject(port, obj, df, (FWriteFn) WriteSharedObject, &ctx);
         }
     }
