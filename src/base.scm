@@ -441,6 +441,10 @@ hash-tree-delete
         eq-hashtable-ref
         eq-hashtable-set!
         eq-hashtable-delete
+        make-eq-hash-map
+        eq-hash-map-ref
+        eq-hash-map-set!
+        eq-hash-map-delete
         random
         no-value
         set!-values

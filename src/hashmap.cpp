@@ -504,10 +504,11 @@ void HashMapSet(FObject hmap, FObject key, FObject val, FEquivFn eqfn, FHashFn h
     }
 
     FObject kvn = MakePair(MakePair(key, val), slot);
-    if (PairP(AsHashMap(hmap)->Tracker))
+    if (PairP(AsHashMap(hmap)->Tracker) && ObjectP(key))
         InstallTracker(key, kvn, AsHashMap(hmap)->Tracker);
 
-    HashTreeSet(AsHashMap(hmap)->HashTree, idx, kvn);
+//    AsHashMap(hmap)->HashTree = HashTreeSet(AsHashMap(hmap)->HashTree, idx, kvn);
+    Modify(FHashMap, hmap, HashTree, HashTreeSet(AsHashMap(hmap)->HashTree, idx, kvn));
 }
 
 void HashMapDelete(FObject hmap, FObject key, FEquivFn eqfn, FHashFn hashfn)
@@ -527,9 +528,17 @@ void HashMapDelete(FObject hmap, FObject key, FEquivFn eqfn, FHashFn hashfn)
             if (PairP(prev))
                 SetRest(prev, Rest(lst));
             else if (PairP(Rest(lst)))
-                HashTreeSet(AsHashMap(hmap)->HashTree, idx, Rest(lst));
+            {
+//                AsHashMap(hmap)->HashTree = HashTreeSet(AsHashMap(hmap)->HashTree, idx,
+//                        Rest(lst));
+                Modify(FHashMap, hmap, HashTree, HashTreeSet(AsHashMap(hmap)->HashTree, idx,
+                        Rest(lst)));
+            }
             else
-                HashTreeDelete(AsHashMap(hmap)->HashTree, idx);
+            {
+//                AsHashMap(hmap)->HashTree = HashTreeDelete(AsHashMap(hmap)->HashTree, idx);
+                Modify(FHashMap, hmap, HashTree, HashTreeDelete(AsHashMap(hmap)->HashTree, idx));
+            }
             break;
         }
         prev = lst;
@@ -564,9 +573,17 @@ static void RemoveOld(FObject hmap, FObject kvn, uint_t idx)
             if (PairP(prev))
                 SetRest(prev, Rest(node));
             else if (PairP(Rest(node)))
-                HashTreeSet(AsHashMap(hmap)->HashTree, idx, Rest(node));
+            {
+//                AsHashMap(hmap)->HashTree = HashTreeSet(AsHashMap(hmap)->HashTree, idx,
+//                        Rest(node));
+                Modify(FHashMap, hmap, HashTree, HashTreeSet(AsHashMap(hmap)->HashTree, idx,
+                        Rest(node)));
+            }
             else
-                HashTreeDelete(AsHashMap(hmap)->HashTree, idx);
+            {
+//                AsHashMap(hmap)->HashTree = HashTreeDelete(AsHashMap(hmap)->HashTree, idx);
+                Modify(FHashMap, hmap, HashTree, HashTreeDelete(AsHashMap(hmap)->HashTree, idx));
+            }
 
             return;
         }
@@ -622,8 +639,13 @@ static void EqHashMapRehash(FObject hmap, FObject tconc)
         {
             RemoveOld(hmap, kvn, odx);
             SetRest(kvn, HashTreeRef(AsHashMap(hmap)->HashTree, idx, MakeFixnum(idx)));
-            HashTreeSet(AsHashMap(hmap)->HashTree, idx, kvn);
+
+//            AsHashMap(hmap)->HashTree = HashTreeSet(AsHashMap(hmap)->HashTree, idx,
+//                    Rest(lst));
+            Modify(FHashMap, hmap, HashTree, HashTreeSet(AsHashMap(hmap)->HashTree, idx, kvn));
         }
+
+        FAssert(ObjectP(key));
 
         InstallTracker(key, kvn, AsHashMap(hmap)->Tracker);
     }
@@ -664,6 +686,39 @@ void EqHashMapDelete(FObject hmap, FObject key)
         EqHashMapRehash(hmap, AsHashMap(hmap)->Tracker);
 
     HashMapDelete(hmap, key, EqP, EqHash);
+}
+
+Define("make-eq-hash-map", MakeEqHashMapPrimitive)(int_t argc, FObject argv[])
+{
+    ZeroArgsCheck("make-eq-hash-map", argc);
+
+    return(MakeEqHashMap());
+}
+
+Define("eq-hash-map-ref", EqHashMapRefPrimitive)(int_t argc, FObject argv[])
+{
+    ThreeArgsCheck("eq-hash-map-ref", argc);
+    EqHashMapArgCheck("eq-hash-map-ref", argv[0]);
+
+    return(EqHashMapRef(argv[0], argv[1], argv[2]));
+}
+
+Define("eq-hash-map-set!", EqHashMapSetPrimitive)(int_t argc, FObject argv[])
+{
+    ThreeArgsCheck("eq-hash-map-set!", argc);
+    EqHashMapArgCheck("eq-hash-map-set!", argv[0]);
+
+    EqHashMapSet(argv[0], argv[1], argv[2]);
+    return(NoValueObject);
+}
+
+Define("eq-hash-map-delete", EqHashMapDeletePrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("eq-hash-map-delete", argc);
+    EqHashMapArgCheck("eq-hash-map-delete", argv[0]);
+
+    EqHashMapDelete(argv[0], argv[1]);
+    return(NoValueObject);
 }
 
 // ---- Hashtables ----
@@ -850,7 +905,7 @@ void HashtableSet(FObject ht, FObject key, FObject val, FEquivFn efn, FHashFn hf
 
         FObject kvn = MakePair(MakePair(key, val),
                 AsVector(AsHashtable(ht)->Buckets)->Vector[idx]);
-        if (PairP(AsHashtable(ht)->Tracker))
+        if (PairP(AsHashtable(ht)->Tracker) && ObjectP(key))
             InstallTracker(key, kvn, AsHashtable(ht)->Tracker);
 
         ModifyVector(AsHashtable(ht)->Buckets, idx, kvn);
@@ -993,6 +1048,8 @@ static void EqHashtableRehash(FObject ht, FObject tconc)
             SetRest(kvn, AsVector(AsHashtable(ht)->Buckets)->Vector[idx]);
             ModifyVector(AsHashtable(ht)->Buckets, idx, kvn);
         }
+
+        FAssert(ObjectP(key));
 
         InstallTracker(key, kvn, AsHashtable(ht)->Tracker);
     }
@@ -1185,6 +1242,10 @@ static FPrimitive * Primitives[] =
     &HashTreeRefPrimitive,
     &HashTreeSetPrimitive,
     &HashTreeDeletePrimitive,
+    &MakeEqHashMapPrimitive,
+    &EqHashMapRefPrimitive,
+    &EqHashMapSetPrimitive,
+    &EqHashMapDeletePrimitive,
     
     &MakeEqHashtablePrimitive,
     &EqHashtableRefPrimitive,
@@ -1194,6 +1255,9 @@ static FPrimitive * Primitives[] =
 
 void SetupHashMaps()
 {
+    R.HashMapRecordType = MakeRecordTypeC("hash-map",
+            sizeof(HashMapFieldsC) / sizeof(char *), HashMapFieldsC);
+
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

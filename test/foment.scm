@@ -698,3 +698,103 @@
 
 (define obp (open-binary-input-file "output4.txt"))
 (check-equal #u8(0 1 2 3 4 5 6 7 8 9 34 1 56 3 4 5 6 7 8 9 123) (read-bytevector 1024 obp))
+
+;;
+;; hash trees
+;;
+
+(define ht (make-hash-tree))
+(define ht-size 100000)
+(define ht-v (make-vector ht-size #f))
+
+(define (test-ht-add n cnt max)
+    (if (< n max)
+        (let ((idx (random ht-size)))
+            (if (not (vector-ref ht-v idx))
+                (begin
+                    (vector-set! ht-v idx #t)
+                    (set! ht (hash-tree-set! ht idx idx))
+                    (test-ht-add (+ n 1) (+ cnt 1) max))
+                (test-ht-add (+ n 1) cnt max)))
+        cnt))
+
+(define (test-ht-delete n cnt max)
+    (if (< n max)
+        (let ((idx (random ht-size)))
+            (if (vector-ref ht-v idx)
+                (begin
+                    (vector-set! ht-v idx #f)
+                    (set! ht (hash-tree-delete ht idx))
+                    (test-ht-delete (+ n 1) (+ cnt 1) max))
+                (test-ht-delete (+ n 1) cnt max)))
+        cnt))
+
+(define (test-ht idx fnd)
+    (if (< idx ht-size)
+        (begin
+            (if (vector-ref ht-v idx)
+                (if (not (eq? (hash-tree-ref ht idx 'fail) idx))
+                    (begin
+                        (display "failed: (hash-tree-ref ht idx 'fail) got: ")
+                        (display (hash-tree-ref ht idx 'fail))
+                        (display " expected: ")
+                        (display idx)
+                        (newline))))
+            (test-ht (+ idx 1) (if (vector-ref ht-v idx) (+ fnd 1) fnd)))
+        fnd))
+
+(test-ht-add 0 0 (+ (random 30000) 30000))
+(test-ht 0 0)
+(test-ht-delete 0 0 60000)
+(test-ht 0 0)
+
+;;
+;; hash maps
+;;
+
+(define hmap (make-eq-hash-map))
+
+(define hmap-size 100000)
+(define hmap-v (make-vector hmap-size #f))
+
+(define (test-hmap-add n cnt max)
+    (if (< n max)
+        (let ((idx (random hmap-size)))
+            (if (not (vector-ref hmap-v idx))
+                (begin
+                    (vector-set! hmap-v idx #t)
+                    (eq-hash-map-set! hmap idx idx)
+                    (test-hmap-add (+ n 1) (+ cnt 1) max))
+                (test-hmap-add (+ n 1) cnt max)))
+        cnt))
+
+(define (test-hmap-delete n cnt max)
+    (if (< n max)
+        (let ((idx (random hmap-size)))
+            (if (vector-ref hmap-v idx)
+                (begin
+                    (vector-set! hmap-v idx #f)
+                    (eq-hash-map-delete hmap idx)
+                    (test-hmap-delete (+ n 1) (+ cnt 1) max))
+                (test-hmap-delete (+ n 1) cnt max)))
+        cnt))
+
+(define (test-hmap idx fnd)
+    (if (< idx hmap-size)
+        (begin
+            (if (vector-ref hmap-v idx)
+                (if (not (eq? (eq-hash-map-ref hmap idx 'fail) idx))
+                    (begin
+                        (display "failed: (hash-tree-ref ht idx 'fail) got: ")
+                        (display (hash-tree-ref ht idx 'fail))
+                        (display " expected: ")
+                        (display idx)
+                        (newline))))
+            (test-hmap (+ idx 1) (if (vector-ref hmap-v idx) (+ fnd 1) fnd)))
+        fnd))
+
+(test-hmap-add 0 0 (+ (random 30000) 30000))
+(test-hmap 0 0)
+(test-hmap-delete 0 0 60000)
+(test-hmap 0 0)
+

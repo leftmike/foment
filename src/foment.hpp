@@ -33,7 +33,8 @@ HashTree and Comparator:
 -- add maps: HashMap
 -- get rid of StringToSymbol and StringLengthToSymbol in foment.cpp
 -- get rid of Hashtable type
--- add tests of HashTree
+-- add tests of HashMap
+-- document make-hash-tree, hash-tree-set!, hash-tree-delete, hash-tree-ref, and hash-map-*
 
 Compiler:
 -- genpass: handle multiple values with LetrecValues correctly
@@ -1636,6 +1637,12 @@ inline void HashTreeArgCheck(const char * who, FObject obj)
 {
     if (HashTreeP(obj) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a hash tree", List(obj));
+}
+
+inline void EqHashMapArgCheck(const char * who, FObject obj)
+{
+    if (HashMapP(obj) == 0 || PairP(AsHashMap(obj)->Tracker) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected an eq-hash-map", List(obj));
 }
 
 inline void ComparatorArgCheck(const char * who, FObject obj)
