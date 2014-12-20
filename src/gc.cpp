@@ -43,6 +43,7 @@ typedef enum
     GuardianSectionTag
 } FSectionTag;
 
+void * SectionTableBase = 0;
 static unsigned char * SectionTable;
 static uint_t UsedSections;
 
@@ -2115,7 +2116,7 @@ void FailedGC()
 {
     if (GCHappening == 0)
         ValidateGC(__LINE__);
-    printf("section table: %p\n", SectionTable);
+    printf("SectionTable: %p\n", SectionTable);
 }
 
 void EnterWait()
@@ -2470,14 +2471,9 @@ void SetupCore(FThreadState * ts)
     FAssert(MAXIMUM_YOUNG_LENGTH <= SECTION_SIZE / 2);
 
 #ifdef FOMENT_WINDOWS
-#ifdef FOMENT_DEBUG
-    SectionTable = (unsigned char *) VirtualAlloc((LPVOID) 0, SECTION_SIZE * SECTION_SIZE,
-//    SectionTable = (unsigned char *) VirtualAlloc((LPVOID) 0x1000000, SECTION_SIZE * SECTION_SIZE,
+    SectionTable = (unsigned char *) VirtualAlloc(SectionTableBase, SECTION_SIZE * SECTION_SIZE,
             MEM_RESERVE, PAGE_READWRITE);
-#else // FOMENT_DEBUG
-    SectionTable = (unsigned char *) VirtualAlloc((LPVOID) 0, SECTION_SIZE * SECTION_SIZE,
-            MEM_RESERVE, PAGE_READWRITE);
-#endif // FOMENT_DEBUG
+
     FAssert(SectionTable != 0);
 
     VirtualAlloc(SectionTable, SECTION_SIZE, MEM_COMMIT, PAGE_READWRITE);

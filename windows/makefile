@@ -17,30 +17,30 @@ clean: debug release manual
 
 test: all
     cd ..\test
-    ..\windows\debug\foment -validate-heap runtests.scm r7rs.scm r7rs-eval.scm foment.scm\
+    ..\windows\debug\foment --validate-heap runtests.scm r7rs.scm r7rs-eval.scm foment.scm\
             eccentric.scm r5rs_pitfall.scm unicode.scm srfi.scm
-    ..\windows\debug\foment -validate-heap r7rs.scm
+    ..\windows\debug\foment --validate-heap r7rs.scm
     ..\windows\release\foment runtests.scm r7rs.scm r7rs-eval.scm foment.scm eccentric.scm\
             r5rs_pitfall.scm unicode.scm srfi.scm
     ..\windows\release\foment r7rs.scm
 
 stress: all
     cd ..\test
-    ..\windows\debug\foment -validate-heap runtests.scm stress.scm r7rs.scm
+    ..\windows\debug\foment --validate-heap runtests.scm stress.scm r7rs.scm
     ..\windows\release\foment runtests.scm stress.scm r7rs.scm
 
 chibi: all
     cd ..\test
-    ..\windows\debug\foment -validate-heap r7rs-tests.scm
+    ..\windows\debug\foment --validate-heap r7rs-tests.scm
     ..\windows\release\foment r7rs-tests.scm
 
 testsrfi: all
     cd ..\test
-    ..\windows\debug\foment -validate-heap runtests.scm srfi.scm
+    ..\windows\debug\foment --validate-heap runtests.scm srfi.scm
 
 testfoment: all
     cd ..\test
-    ..\windows\debug\foment -validate-heap runtests.scm foment.scm
+    ..\windows\debug\foment --validate-heap runtests.scm foment.scm
 
 debug:
     -mkdir debug

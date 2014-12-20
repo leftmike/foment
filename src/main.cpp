@@ -21,6 +21,7 @@ Foment
 #endif // FOMENT_UNIX
 
 #ifdef FOMENT_WINDOWS
+#include <wchar.h>
 #define StringLengthS(s) wcslen(s)
 #define StringCompareS(s1, s2) wcscmp(s1, L ## s2)
 #endif // FOMENT_WINDOWS
@@ -227,11 +228,29 @@ int main(int argc, char * argv[])
             InlineImports = 0;
             adx += 1;
         }
-        else if (StringCompareS(argv[adx], "-validate-heap") == 0)
+        else if (StringCompareS(argv[adx], "--validate-heap") == 0)
         {
             ValidateHeap = 1;
             adx += 1;
         }
+#ifdef FOMENT_WINDOWS
+        else if (StringCompareS(argv[adx], "--section-table") == 0)
+        {
+            adx += 1;
+
+            if (adx < argc)
+            {
+#ifdef FOMENT_32BIT
+                SectionTableBase = (void *) wcstol(argv[adx], 0, 16);
+#endif // FOMENT_32BIT
+#ifdef FOMENT_64BIT
+                SectionTableBase = (void *) _wcstoui64(argv[adx], 0, 16);
+#endif // FOMENT_64BIT
+
+                adx += 1;
+            }
+        }
+#endif // FOMENT_WINDOWS
         else
             break;
     }
@@ -314,8 +333,12 @@ int main(int argc, char * argv[])
             }
             else if (StringCompareS(argv[adx], "-no-inline-procedures") == 0
                     || StringCompareS(argv[adx], "-no-inline-imports") == 0
-                    || StringCompareS(argv[adx], "-validate-heap") == 0)
+                    || StringCompareS(argv[adx], "--validate-heap") == 0)
                 adx += 1;
+#ifdef FOMENT_WINDOWS
+            else if (StringCompareS(argv[adx], "--section-table") == 0)
+                adx += 2;
+#endif // FOMENT_WINDOWS
             else if (argv[adx][0] != '-')
                 return(ProgramMode(adx, argc, argv));
             else

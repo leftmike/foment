@@ -2,6 +2,8 @@
 
 Foment
 
+..\windows\debug\foment --section-table 000000025AC30000 runtests.scm r7rs.scm r7rs-eval.scm foment.scm eccentric.scmdebug\foment --section-table 1180000000 test3.scm
+
 To Do:
 
 Future:
@@ -33,9 +35,12 @@ HashTree and Comparator:
 -- add maps: HashMap
 -- get rid of StringToSymbol and StringLengthToSymbol in foment.cpp
 -- get rid of Hashtable type
--- document make-hash-tree, hash-tree-set!, hash-tree-delete, hash-tree-ref, and hash-map-*
+-- document make-hash-tree, hash-tree-set!, hash-tree-delete, hash-tree-ref, and eq-hash-map-*
+-- test eq-hash-map-set!
 
 Compiler:
+-- get rid of -no-inline-procedures and -no-inline-imports
+-- fix support for long long argument lists
 -- genpass: handle multiple values with LetrecValues correctly
 -- genpass: LetrecStarValues needs to be compiled correctly
 -- export letrec-values and letrec*-values from (foment base)
@@ -1651,6 +1656,10 @@ inline void ComparatorArgCheck(const char * who, FObject obj)
 extern uint_t InlineProcedures;
 extern uint_t InlineImports;
 extern uint_t ValidateHeap;
+
+#ifdef FOMENT_WINDOWS
+extern void * SectionTableBase;
+#endif // FOMENT_WINDOWS
 
 extern volatile uint_t BytesAllocated;
 extern uint_t CollectionCount;

@@ -704,7 +704,7 @@
 ;;
 
 (define ht (make-hash-tree))
-(define ht-size 100000)
+(define ht-size 10000)
 (define ht-v (make-vector ht-size #f))
 
 (define (test-ht-add n cnt max)
@@ -743,9 +743,9 @@
             (test-ht (+ idx 1) (if (vector-ref ht-v idx) (+ fnd 1) fnd)))
         fnd))
 
-(test-ht-add 0 0 (+ (random 30000) 30000))
+(test-ht-add 0 0 (+ (random 3000) 3000))
 (test-ht 0 0)
-(test-ht-delete 0 0 60000)
+(test-ht-delete 0 0 6000)
 (test-ht 0 0)
 
 ;;
@@ -754,27 +754,29 @@
 
 (define hmap (make-eq-hash-map))
 
-(define hmap-size 100000)
+(define hmap-size 10000)
 (define hmap-v (make-vector hmap-size #f))
 
 (define (test-hmap-add n cnt max)
     (if (< n max)
-        (let ((idx (random hmap-size)))
+        (let* ((idx (random hmap-size))
+                (key (string->symbol (number->string idx))))
             (if (not (vector-ref hmap-v idx))
                 (begin
                     (vector-set! hmap-v idx #t)
-                    (eq-hash-map-set! hmap idx idx)
+                    (eq-hash-map-set! hmap key idx)
                     (test-hmap-add (+ n 1) (+ cnt 1) max))
                 (test-hmap-add (+ n 1) cnt max)))
         cnt))
 
 (define (test-hmap-delete n cnt max)
     (if (< n max)
-        (let ((idx (random hmap-size)))
+        (let* ((idx (random hmap-size))
+                (key (string->symbol (number->string idx))))
             (if (vector-ref hmap-v idx)
                 (begin
                     (vector-set! hmap-v idx #f)
-                    (eq-hash-map-delete hmap idx)
+                    (eq-hash-map-delete hmap key)
                     (test-hmap-delete (+ n 1) (+ cnt 1) max))
                 (test-hmap-delete (+ n 1) cnt max)))
         cnt))
@@ -783,18 +785,19 @@
     (if (< idx hmap-size)
         (begin
             (if (vector-ref hmap-v idx)
-                (if (not (eq? (eq-hash-map-ref hmap idx 'fail) idx))
-                    (begin
-                        (display "failed: (hash-tree-ref ht idx 'fail) got: ")
-                        (display (hash-tree-ref ht idx 'fail))
-                        (display " expected: ")
-                        (display idx)
-                        (newline))))
+                (let ((key (string->symbol (number->string idx))))
+                    (if (not (eq? (eq-hash-map-ref hmap key 'fail) idx))
+                        (begin
+                            (display "failed: (hash-tree-ref ht idx 'fail) got: ")
+                            (display (hash-tree-ref ht key 'fail))
+                            (display " expected: ")
+                            (display idx)
+                            (newline)))))
             (test-hmap (+ idx 1) (if (vector-ref hmap-v idx) (+ fnd 1) fnd)))
         fnd))
 
-(test-hmap-add 0 0 (+ (random 30000) 30000))
+(test-hmap-add 0 0 (+ (random 3000) 3000))
 (test-hmap 0 0)
-(test-hmap-delete 0 0 60000)
+(test-hmap-delete 0 0 6000)
 (test-hmap 0 0)
 
