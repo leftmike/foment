@@ -781,6 +781,26 @@
                 (test-hmap-delete (+ n 1) cnt max)))
         cnt))
 
+(define (test-hmap-set1 n lst max)
+    (if (< n max)
+        (let* ((idx (random hmap-size))
+                (key (string->symbol (number->string idx))))
+            (if (not (vector-ref hmap-v idx))
+                (begin
+                    (vector-set! hmap-v idx #t)
+                    (eq-hash-map-set! hmap key #t)
+                    (test-hmap-set1 (+ n 1) (cons idx lst) max))
+                (test-hmap-set1 (+ n 1) lst max)))
+        lst))
+
+(define (test-hmap-set2 lst cnt)
+    (if (pair? lst)
+        (let* ((idx (car lst))
+                (key (string->symbol (number->string idx))))
+            (eq-hash-map-set! hmap key idx)
+            (test-hmap-set2 (cdr lst) (+ cnt 1)))
+        cnt))
+
 (define (test-hmap idx fnd)
     (if (< idx hmap-size)
         (begin
@@ -800,4 +820,5 @@
 (test-hmap 0 0)
 (test-hmap-delete 0 0 6000)
 (test-hmap 0 0)
-
+(test-hmap-set2 (test-hmap-set1 0 '() 3000) 0)
+(test-hmap 0 0)

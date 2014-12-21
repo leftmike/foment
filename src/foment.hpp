@@ -36,7 +36,6 @@ HashTree and Comparator:
 -- get rid of StringToSymbol and StringLengthToSymbol in foment.cpp
 -- get rid of Hashtable type
 -- document make-hash-tree, hash-tree-set!, hash-tree-delete, hash-tree-ref, and eq-hash-map-*
--- test eq-hash-map-set!
 
 Compiler:
 -- get rid of -no-inline-procedures and -no-inline-imports
