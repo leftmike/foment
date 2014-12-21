@@ -10,12 +10,11 @@ Foment
 #endif // FOMENT_UNIX
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "foment.hpp"
 
 #ifdef FOMENT_UNIX
-#ifdef FOMENT_BSD
-#include <stdlib.h>
-#else // FOMENT_BSD
+#ifndef FOMENT_BSD
 #include <alloca.h>
 #endif // FOMENT_BSD
 #endif // FOMENT_UNIX
@@ -251,6 +250,16 @@ int main(int argc, char * argv[])
             }
         }
 #endif // FOMENT_WINDOWS
+        else if (StringCompareS(argv[adx], "--random-seed") == 0)
+        {
+            adx += 1;
+
+            if (adx < argc)
+            {
+                RandomSeed = _wtoi(argv[adx]);
+                adx += 1;
+            }
+        }
         else
             break;
     }
@@ -339,6 +348,8 @@ int main(int argc, char * argv[])
             else if (StringCompareS(argv[adx], "--section-table") == 0)
                 adx += 2;
 #endif // FOMENT_WINDOWS
+            else if (StringCompareS(argv[adx], "--random-seed") == 0)
+                adx += 2;
             else if (argv[adx][0] != '-')
                 return(ProgramMode(adx, argc, argv));
             else

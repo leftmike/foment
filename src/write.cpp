@@ -22,7 +22,7 @@ void WriteGeneric(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx)
 
 typedef struct
 {
-    FObject Hashtable;
+    FObject HashMap;
     int_t Label;
 } FWriteSharedCtx;
 
@@ -33,27 +33,27 @@ inline int_t SharedObjectP(FObject obj)
     return(PairP(obj) || BoxP(obj) || VectorP(obj) || ProcedureP(obj) || GenericRecordP(obj));
 }
 
-uint_t FindSharedObjects(FObject ht, FObject obj, uint_t cnt, int_t cof)
+uint_t FindSharedObjects(FObject hmap, FObject obj, uint_t cnt, int_t cof)
 {
-    FAssert(HashtableP(ht));
+    FAssert(HashMapP(hmap));
 
 Again:
 
     if (SharedObjectP(obj))
     {
-        FObject val = EqHashtableRef(ht, obj, MakeFixnum(0));
+        FObject val = EqHashMapRef(hmap, obj, MakeFixnum(0));
 
         FAssert(FixnumP(val));
 
-        EqHashtableSet(ht, obj, MakeFixnum(AsFixnum(val) + 1));
+        EqHashMapSet(hmap, obj, MakeFixnum(AsFixnum(val) + 1));
 
         if (AsFixnum(val) == 0)
         {
             if (PairP(obj))
             {
-                cnt = FindSharedObjects(ht, First(obj), cnt, cof);
+                cnt = FindSharedObjects(hmap, First(obj), cnt, cof);
                 if (cof != 0)
-                    cnt = FindSharedObjects(ht, Rest(obj), cnt, cof);
+                    cnt = FindSharedObjects(hmap, Rest(obj), cnt, cof);
                 else
                 {
                     obj = Rest(obj);
@@ -61,30 +61,30 @@ Again:
                 }
             }
             else if (BoxP(obj))
-                cnt = FindSharedObjects(ht, Unbox(obj), cnt, cof);
+                cnt = FindSharedObjects(hmap, Unbox(obj), cnt, cof);
             else if (VectorP(obj))
             {
                 for (uint_t idx = 0; idx < VectorLength(obj); idx++)
-                    cnt = FindSharedObjects(ht, AsVector(obj)->Vector[idx], cnt, cof);
+                    cnt = FindSharedObjects(hmap, AsVector(obj)->Vector[idx], cnt, cof);
             }
             else if (ProcedureP(obj))
-                cnt = FindSharedObjects(ht, AsProcedure(obj)->Code, cnt, cof);
+                cnt = FindSharedObjects(hmap, AsProcedure(obj)->Code, cnt, cof);
             else
             {
                 FAssert(GenericRecordP(obj));
 
                 for (uint_t fdx = 0; fdx < RecordNumFields(obj); fdx++)
-                    cnt = FindSharedObjects(ht, AsGenericRecord(obj)->Fields[fdx], cnt, cof);
+                    cnt = FindSharedObjects(hmap, AsGenericRecord(obj)->Fields[fdx], cnt, cof);
             }
 
             if (cof)
             {
-                val = EqHashtableRef(ht, obj, MakeFixnum(0));
+                val = EqHashMapRef(hmap, obj, MakeFixnum(0));
                 FAssert(FixnumP(val));
                 FAssert(AsFixnum(val) > 0);
 
                 if (AsFixnum(val) == 1)
-                    EqHashtableDelete(ht, obj);
+                    EqHashMapDelete(hmap, obj);
             }
         }
         else
@@ -98,7 +98,7 @@ void WriteSharedObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void *
 {
     if (SharedObjectP(obj))
     {
-        FObject val = EqHashtableRef(ToWriteSharedCtx(ctx)->Hashtable, obj, MakeFixnum(1));
+        FObject val = EqHashMapRef(ToWriteSharedCtx(ctx)->HashMap, obj, MakeFixnum(1));
 
         FAssert(FixnumP(val));
 
@@ -107,7 +107,7 @@ void WriteSharedObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void *
             if (AsFixnum(val) > 1)
             {
                 ToWriteSharedCtx(ctx)->Label -= 1;
-                EqHashtableSet(ToWriteSharedCtx(ctx)->Hashtable, obj,
+                EqHashMapSet(ToWriteSharedCtx(ctx)->HashMap, obj,
                         MakeFixnum(ToWriteSharedCtx(ctx)->Label));
 
                 WriteCh(port, '#');
@@ -123,7 +123,7 @@ void WriteSharedObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void *
                 for (;;)
                 {
                     wfn(port, First(obj), df, (void *) wfn, ctx);
-                    if (PairP(Rest(obj)) && EqHashtableRef(ToWriteSharedCtx(ctx)->Hashtable,
+                    if (PairP(Rest(obj)) && EqHashMapRef(ToWriteSharedCtx(ctx)->HashMap,
                             Rest(obj), MakeFixnum(1)) == MakeFixnum(1))
                     {
                         WriteCh(port, ' ');
@@ -163,16 +163,16 @@ void WriteSharedObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void *
 
 void Write(FObject port, FObject obj, int_t df)
 {
-    FObject ht = MakeEqHashtable(23);
+    FObject hmap = MakeEqHashMap();
 
     if (SharedObjectP(obj))
     {
-        if (FindSharedObjects(ht, obj, 0, 1) == 0)
+        if (FindSharedObjects(hmap, obj, 0, 1) == 0)
             WriteGeneric(port, obj, df, (FWriteFn) WriteGeneric, 0);
         else
         {
             FWriteSharedCtx ctx;
-            ctx.Hashtable = ht;
+            ctx.HashMap = hmap;
             ctx.Label = 1;
             WriteSharedObject(port, obj, df, (FWriteFn) WriteSharedObject, &ctx);
         }
@@ -183,16 +183,16 @@ void Write(FObject port, FObject obj, int_t df)
 
 void WriteShared(FObject port, FObject obj, int_t df)
 {
-    FObject ht = MakeEqHashtable(23);
+    FObject hmap = MakeEqHashMap();
 
     if (SharedObjectP(obj))
     {
-        if (FindSharedObjects(ht, obj, 0, 0) == 0)
+        if (FindSharedObjects(hmap, obj, 0, 0) == 0)
             WriteGeneric(port, obj, df, (FWriteFn) WriteGeneric, 0);
         else
         {
             FWriteSharedCtx ctx;
-            ctx.Hashtable = ht;
+            ctx.HashMap = hmap;
             ctx.Label = 1;
             WriteSharedObject(port, obj, df, (FWriteFn) WriteSharedObject, &ctx);
         }

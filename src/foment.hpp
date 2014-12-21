@@ -2,8 +2,6 @@
 
 Foment
 
-..\windows\debug\foment --section-table 000000025AC30000 runtests.scm r7rs.scm r7rs-eval.scm foment.scm eccentric.scmdebug\foment --section-table 1180000000 test3.scm
-
 To Do:
 
 Future:
@@ -36,6 +34,8 @@ HashTree and Comparator:
 -- get rid of StringToSymbol and StringLengthToSymbol in foment.cpp
 -- get rid of Hashtable type
 -- document make-hash-tree, hash-tree-set!, hash-tree-delete, hash-tree-ref, and eq-hash-map-*
+-- change all Hashtable to HashMap
+-- change all ht to hmap
 
 Compiler:
 -- get rid of -no-inline-procedures and -no-inline-imports
@@ -819,6 +819,8 @@ FObject EqHashMapRef(FObject hmap, FObject key, FObject def);
 void EqHashMapSet(FObject hmap, FObject key, FObject val);
 void EqHashMapDelete(FObject hmap, FObject key);
 void EqHashMapVisit(FObject hmap, FVisitFn vfn, FObject ctx);
+
+extern const char * HashMapFieldsC[3];
 
 // ---- HashSet ----
 
@@ -1659,6 +1661,7 @@ extern uint_t ValidateHeap;
 #ifdef FOMENT_WINDOWS
 extern void * SectionTableBase;
 #endif // FOMENT_WINDOWS
+extern unsigned int RandomSeed;
 
 extern volatile uint_t BytesAllocated;
 extern uint_t CollectionCount;

@@ -130,12 +130,12 @@ static FObject SyntaxToDatum(FObject obj, FObject ht)
 
     if (LambdaP(obj))
     {
-        FObject val = EqHashtableRef(ht, obj, FalseObject);
+        FObject val = EqHashMapRef(ht, obj, FalseObject);
         if (PairP(val))
             return(val);
 
         val = MakePair(LambdaSyntax, NoValueObject);
-        EqHashtableSet(ht, obj, val);
+        EqHashMapSet(ht, obj, val);
         SetRest(val, MakePair(SyntaxToDatum(AsLambda(obj)->Bindings, ht),
                 SyntaxToDatum(AsLambda(obj)->Body, ht)));
 
@@ -144,12 +144,12 @@ static FObject SyntaxToDatum(FObject obj, FObject ht)
 
     if (PairP(obj))
     {
-        FObject val = EqHashtableRef(ht, obj, FalseObject);
+        FObject val = EqHashMapRef(ht, obj, FalseObject);
         if (PairP(val))
             return(val);
 
         val = MakePair(NoValueObject, NoValueObject);
-        EqHashtableSet(ht, obj, val);
+        EqHashMapSet(ht, obj, val);
         SetFirst(val, SyntaxToDatum(First(obj), ht));
         SetRest(val, SyntaxToDatum(Rest(obj), ht));
 
@@ -158,12 +158,12 @@ static FObject SyntaxToDatum(FObject obj, FObject ht)
 
     if (VectorP(obj))
     {
-        FObject vec = EqHashtableRef(ht, obj, FalseObject);
+        FObject vec = EqHashMapRef(ht, obj, FalseObject);
         if (VectorP(vec))
             return(vec);
 
         vec = MakeVector(VectorLength(obj), 0, FalseObject);
-        EqHashtableSet(ht, obj, vec);
+        EqHashMapSet(ht, obj, vec);
 
         for (uint_t idx = 0; idx < VectorLength(vec); idx++)
         {
@@ -179,7 +179,7 @@ static FObject SyntaxToDatum(FObject obj, FObject ht)
 
 FObject SyntaxToDatum(FObject obj)
 {
-    return(SyntaxToDatum(obj, MakeEqHashtable(31)));
+    return(SyntaxToDatum(obj, MakeEqHashMap()));
 }
 
 static int_t SyntaxP(FObject obj)

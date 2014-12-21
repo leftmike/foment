@@ -17,7 +17,7 @@ FObject MakeEnvironment(FObject nam, FObject ctv)
     FAssert(BooleanP(ctv));
 
     FEnvironment * env = (FEnvironment *) MakeRecord(R.EnvironmentRecordType);
-    env->Hashtable = MakeEqHashtable(67);
+    env->Hashtable = MakeEqHashMap();
     env->Name = nam;
     env->Interactive = ctv;
     env->Immutable = FalseObject;
@@ -39,11 +39,11 @@ FObject EnvironmentBind(FObject env, FObject sym)
     FAssert(EnvironmentP(env));
     FAssert(SymbolP(sym));
 
-    FObject gl = EqHashtableRef(AsEnvironment(env)->Hashtable, sym, FalseObject);
+    FObject gl = EqHashMapRef(AsEnvironment(env)->Hashtable, sym, FalseObject);
     if (gl == FalseObject)
     {
         gl = MakeGlobal(sym, AsEnvironment(env)->Name, AsEnvironment(env)->Interactive);
-        EqHashtableSet(AsEnvironment(env)->Hashtable, sym, gl);
+        EqHashMapSet(AsEnvironment(env)->Hashtable, sym, gl);
     }
 
     FAssert(GlobalP(gl));
@@ -56,7 +56,7 @@ FObject EnvironmentLookup(FObject env, FObject sym)
     FAssert(EnvironmentP(env));
     FAssert(SymbolP(sym));
 
-    return(EqHashtableRef(AsEnvironment(env)->Hashtable, sym, FalseObject));
+    return(EqHashMapRef(AsEnvironment(env)->Hashtable, sym, FalseObject));
 }
 
 // If the environment is interactive, a global will be defined. Otherwise, a global will be
@@ -133,7 +133,7 @@ FObject EnvironmentGet(FObject env, FObject symid)
 
     FAssert(SymbolP(symid));
 
-    FObject gl = EqHashtableRef(AsEnvironment(env)->Hashtable, symid, FalseObject);
+    FObject gl = EqHashMapRef(AsEnvironment(env)->Hashtable, symid, FalseObject);
     if (GlobalP(gl))
     {
         FAssert(BoxP(AsGlobal(gl)->Box));
@@ -161,7 +161,7 @@ static int_t EnvironmentImportGlobal(FObject env, FObject gl)
         Modify(FGlobal, ogl, State, AsGlobal(gl)->State);
     }
     else
-       EqHashtableSet(AsEnvironment(env)->Hashtable, AsGlobal(gl)->Name, gl);
+       EqHashMapSet(AsEnvironment(env)->Hashtable, AsGlobal(gl)->Name, gl);
 
    return(0);
 }
@@ -1209,7 +1209,7 @@ void CompileLibrary(FObject expr)
     FObject akalst = CompileAkas(env, body);
 
     UndefinedList = EmptyListObject;
-    HashtableVisit(AsEnvironment(env)->Hashtable, Visit, NoValueObject);
+    EqHashMapVisit(AsEnvironment(env)->Hashtable, Visit, NoValueObject);
     if (UndefinedList != EmptyListObject)
         RaiseExceptionC(R.Syntax, "define-library", "identifier(s) used but never defined",
                 List(UndefinedList, expr));
@@ -1323,7 +1323,7 @@ FObject CompileProgram(FObject nam, FObject port)
     FObject proc = CompileLambda(env, NoValueObject, EmptyListObject, ReverseListModify(body));
 
     UndefinedList = EmptyListObject;
-    HashtableVisit(AsEnvironment(env)->Hashtable, Visit, NoValueObject);
+    EqHashMapVisit(AsEnvironment(env)->Hashtable, Visit, NoValueObject);
     if (UndefinedList != EmptyListObject)
         RaiseExceptionC(R.Syntax, "program", "identifier(s) used but never defined",
                 List(UndefinedList, nam));

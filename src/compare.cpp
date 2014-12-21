@@ -119,22 +119,22 @@ static FObject EqualPFind(FObject obj)
 
 static int_t EqualPUnionFind(FObject ht, FObject objx, FObject objy)
 {
-    FObject bx = EqHashtableRef(ht, objx, FalseObject);
-    FObject by = EqHashtableRef(ht, objy, FalseObject);
+    FObject bx = EqHashMapRef(ht, objx, FalseObject);
+    FObject by = EqHashMapRef(ht, objy, FalseObject);
 
     if (bx == FalseObject)
     {
         if (by == FalseObject)
         {
             FObject nb = MakeBox(MakeFixnum(1));
-            EqHashtableSet(ht, objx, nb);
-            EqHashtableSet(ht, objy, nb);
+            EqHashMapSet(ht, objx, nb);
+            EqHashMapSet(ht, objy, nb);
         }
         else
         {
             FAssert(BoxP(by));
 
-            EqHashtableSet(ht, objx, EqualPFind(by));
+            EqHashMapSet(ht, objx, EqualPFind(by));
         }
     }
     else
@@ -142,7 +142,7 @@ static int_t EqualPUnionFind(FObject ht, FObject objx, FObject objy)
         FAssert(BoxP(bx));
 
         if (by == FalseObject)
-            EqHashtableSet(ht, objy, EqualPFind(bx));
+            EqHashMapSet(ht, objy, EqualPFind(bx));
         else
         {
             FAssert(BoxP(by));
@@ -252,7 +252,7 @@ static int_t EqualP(FObject ht, FObject obj1, FObject obj2)
 
 int_t EqualP(FObject obj1, FObject obj2)
 {
-    return(EqualP(MakeEqHashtable(31), obj1, obj2));
+    return(EqualP(MakeEqHashMap(), obj1, obj2));
 }
 
 Define("eqv?", EqvPPrimitive)(int_t argc, FObject argv[])

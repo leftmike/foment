@@ -53,6 +53,7 @@ static uint64_t GetMillisecondCount64()
 #endif // FOMENT_UNIX
 
 uint_t SetupComplete = 0;
+unsigned int RandomSeed = 0;
 
 uint_t InlineProcedures = 1;
 uint_t InlineImports = 1;
@@ -68,6 +69,7 @@ void FAssertFailed(const char * fn, int_t ln, const char * expr)
     {
         FailedGC();
         FailedExecute();
+        printf("RandomSeed: %u\n", RandomSeed);
     }
 
     ExitFoment();
@@ -1077,7 +1079,9 @@ void SetupFoment(FThreadState * ts)
     FixupUName(utsname.sysname);
 #endif // FOMENT_UNIX
 
-    srand((unsigned int) time(0));
+    if (RandomSeed == 0)
+        RandomSeed = (unsigned int) time(0);
+    srand(RandomSeed);
 
     FObject * rv = (FObject *) &R;
     for (uint_t rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
@@ -1109,6 +1113,8 @@ void SetupFoment(FThreadState * ts)
     ts->Parameters = MakeEqHashtable(0);
 
     SetupLibrary();
+    R.HashMapRecordType = MakeRecordTypeC("hash-map",
+            sizeof(HashMapFieldsC) / sizeof(char *), HashMapFieldsC);
     R.ExceptionRecordType = MakeRecordTypeC("exception",
             sizeof(ExceptionFieldsC) / sizeof(char *), ExceptionFieldsC);
     R.Assertion = StringCToSymbol("assertion-violation");
@@ -1131,11 +1137,11 @@ void SetupFoment(FThreadState * ts)
         LibraryExport(R.BedrockLibrary, EnvironmentSetC(R.Bedrock, SpecialSyntaxes[n],
                 MakeImmediate(n, SpecialSyntaxTag)));
 
+    SetupHashMaps();
     SetupPairs();
     SetupCharacters();
     SetupStrings();
     SetupVectors();
-    SetupHashMaps();
     SetupCompare();
     SetupIO();
     SetupFileSys();

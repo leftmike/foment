@@ -1248,9 +1248,6 @@ static FPrimitive * Primitives[] =
 
 void SetupHashMaps()
 {
-    R.HashMapRecordType = MakeRecordTypeC("hash-map",
-            sizeof(HashMapFieldsC) / sizeof(char *), HashMapFieldsC);
-
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }
