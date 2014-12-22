@@ -32,10 +32,8 @@ HashTree and Comparator:
 -- add bags: HashBag
 -- add maps: HashMap
 -- get rid of StringToSymbol and StringLengthToSymbol in foment.cpp
--- get rid of Hashtable type
 -- document make-hash-tree, hash-tree-set!, hash-tree-delete, hash-tree-ref, and eq-hash-map-*
--- change all Hashtable to HashMap
--- change all ht to hmap
+-- document eq-hashtable going away
 
 Compiler:
 -- get rid of -no-inline-procedures and -no-inline-imports
@@ -722,40 +720,6 @@ inline int_t RecordP(FObject obj, FObject rt)
 
 #define RecordNumFields(obj) ObjectLength(obj)
 
-// ---- Hashtables ----
-
-#define HashtableP(obj) RecordP(obj, R.HashtableRecordType)
-#define AsHashtable(obj) ((FHashtable *) (obj))
-
-typedef int_t (*FEquivFn)(FObject obj1, FObject obj2);
-typedef uint_t (*FHashFn)(FObject obj);
-typedef void (*FVisitFn)(FObject key, FObject val, FObject ctx);
-
-extern const char * HashtableFieldsC[3];
-
-typedef struct
-{
-    FRecord Record;
-    FObject Buckets; // Must be a vector.
-    FObject Size; // Number of keys.
-    FObject Tracker; // TConc used by EqHashtables to track movement of keys.
-} FHashtable;
-
-FObject MakeHashtable(int_t nb);
-FObject HashtableRef(FObject ht, FObject key, FObject def, FEquivFn efn, FHashFn hfn);
-FObject HashtableStringRef(FObject ht, FCh * s, int_t sl, FObject def);
-void HashtableSet(FObject ht, FObject key, FObject val, FEquivFn efn, FHashFn hfn);
-void HashtableDelete(FObject ht, FObject key, FEquivFn efn, FHashFn hfn);
-int_t HashtableContainsP(FObject ht, FObject key, FEquivFn efn, FHashFn hfn);
-
-FObject MakeEqHashtable(int_t nb);
-FObject EqHashtableRef(FObject ht, FObject key, FObject def);
-void EqHashtableSet(FObject ht, FObject key, FObject val);
-void EqHashtableDelete(FObject ht, FObject key);
-int_t EqHashtableContainsP(FObject ht, FObject key);
-
-void HashtableVisit(FObject ht, FVisitFn vfn, FObject ctx);
-
 // ---- HashTree ----
 
 #define HashTreeP(obj) (IndirectTag(obj) == HashTreeTag)
@@ -800,6 +764,10 @@ uint_t EqualHash(FObject obj);
 
 #define HashMapP(obj) RecordP(obj, R.HashMapRecordType)
 #define AsHashMap(obj) ((FHashMap *) (obj))
+
+typedef int_t (*FEquivFn)(FObject obj1, FObject obj2);
+typedef uint_t (*FHashFn)(FObject obj);
+typedef void (*FVisitFn)(FObject key, FObject val, FObject ctx);
 
 typedef struct
 {
@@ -889,9 +857,7 @@ typedef struct
     FObject EnvironmentVariables;
 
     FObject SymbolHashTree;
-    FObject SymbolHashtable;
 
-    FObject HashtableRecordType;
     FObject ComparatorRecordType;
     FObject HashMapRecordType;
     FObject HashSetRecordType;
@@ -1080,7 +1046,7 @@ typedef struct
 {
     FRecord Record;
     FObject Name;
-    FObject Hashtable;
+    FObject HashMap;
     FObject Interactive;
     FObject Immutable;
 } FEnvironment;
@@ -1626,12 +1592,6 @@ inline void TConcArgCheck(const char * who, FObject obj)
 {
     if (PairP(obj) == 0 || PairP(First(obj)) == 0 || PairP(Rest(obj)) == 0)
         RaiseExceptionC(R.Assertion, who, "expected a tconc", List(obj));
-}
-
-inline void EqHashtableArgCheck(const char * who, FObject obj)
-{
-    if (HashtableP(obj) == 0 || PairP(AsHashtable(obj)->Tracker) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected an eq-hashtable", List(obj));
 }
 
 inline void HashTreeArgCheck(const char * who, FObject obj)

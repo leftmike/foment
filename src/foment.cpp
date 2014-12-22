@@ -186,56 +186,12 @@ Define("boolean=?", BooleanEqualPPrimitive)(int_t argc, FObject argv[])
 }
 
 // ---- Symbols ----
-#if 0
-static uint_t NextSymbolHash = 0;
 
-FObject StringToSymbol(FObject str)
-{
-    FAssert(StringP(str));
-
-    FObject obj = HashtableRef(R.SymbolHashtable, str, FalseObject, StringEqualP, StringHash);
-    if (obj == FalseObject)
-    {
-        FSymbol * sym = (FSymbol *) MakeObject(sizeof(FSymbol), SymbolTag);
-        sym->Reserved = MakeLength(NextSymbolHash, SymbolTag);
-        sym->String = str;
-        NextSymbolHash += 1;
-        if (NextSymbolHash > MAXIMUM_OBJECT_LENGTH)
-            NextSymbolHash = 0;
-
-        obj = sym;
-        HashtableSet(R.SymbolHashtable, str, obj, StringEqualP, StringHash);
-    }
-
-    FAssert(SymbolP(obj));
-    return(obj);
-}
-#endif // 0
 FObject StringCToSymbol(const char * s)
 {
     return(StringToSymbol(MakeStringC(s)));
 }
-#if 0
-FObject StringLengthToSymbol(FCh * s, int_t sl)
-{
-    FObject obj = HashtableStringRef(R.SymbolHashtable, s, sl, FalseObject);
-    if (obj == FalseObject)
-    {
-        FSymbol * sym = (FSymbol *) MakeObject(sizeof(FSymbol), SymbolTag);
-        sym->Reserved = MakeLength(NextSymbolHash, SymbolTag);
-        sym->String = MakeString(s, sl);
-        NextSymbolHash += 1;
-        if (NextSymbolHash > MAXIMUM_OBJECT_LENGTH)
-            NextSymbolHash = 0;
 
-        obj = sym;
-        HashtableSet(R.SymbolHashtable, sym->String, obj, StringEqualP, StringHash);
-    }
-
-    FAssert(SymbolP(obj));
-    return(obj);
-}
-#endif // 0
 FObject PrefixSymbol(FObject str, FObject sym)
 {
     FAssert(StringP(str));
@@ -1091,30 +1047,12 @@ void SetupFoment(FThreadState * ts)
 
     R.SymbolHashTree = MakeHashTree();
 
-    FAssert(R.HashtableRecordType == NoValueObject);
-    R.SymbolHashtable = MakeObject(sizeof(FHashtable), RecordTag);
-
-    AsHashtable(R.SymbolHashtable)->Record.NumFields = RecordTag;
-    AsHashtable(R.SymbolHashtable)->Record.RecordType = R.HashtableRecordType;
-    AsHashtable(R.SymbolHashtable)->Buckets = MakeVector(941, 0, EmptyListObject);
-    AsHashtable(R.SymbolHashtable)->Size = MakeFixnum(0);
-    AsHashtable(R.SymbolHashtable)->Tracker = NoValueObject;
-
-    FAssert(HashtableP(R.SymbolHashtable));
-
-    R.HashtableRecordType = MakeRecordTypeC("hashtable",
-            sizeof(HashtableFieldsC) / sizeof(char *), HashtableFieldsC);
-    AsHashtable(R.SymbolHashtable)->Record.RecordType = R.HashtableRecordType;
-    AsHashtable(R.SymbolHashtable)->Record.NumFields =
-            MakeLength(RecordTypeNumFields(R.HashtableRecordType), RecordTag);
-
-    FAssert(HashtableP(R.SymbolHashtable));
-
-    ts->Parameters = MakeEqHashtable(0);
-
-    SetupLibrary();
     R.HashMapRecordType = MakeRecordTypeC("hash-map",
             sizeof(HashMapFieldsC) / sizeof(char *), HashMapFieldsC);
+
+    ts->Parameters = MakeEqHashMap();
+
+    SetupLibrary();
     R.ExceptionRecordType = MakeRecordTypeC("exception",
             sizeof(ExceptionFieldsC) / sizeof(char *), ExceptionFieldsC);
     R.Assertion = StringCToSymbol("assertion-violation");

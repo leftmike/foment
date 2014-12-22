@@ -437,10 +437,6 @@ hash-tree-delete
         full-error
         loaded-libraries
         library-path
-        make-eq-hashtable
-        eq-hashtable-ref
-        eq-hashtable-set!
-        eq-hashtable-delete
         make-eq-hash-map
         eq-hash-map-ref
         eq-hash-map-set!
@@ -859,24 +855,24 @@ hash-tree-delete
                 (letrec
                     ((parameter
                         (case-lambda
-                            (() (let ((stk (eq-hashtable-ref (%parameters) parameter '())))
+                            (() (let ((stk (eq-hash-map-ref (%parameters) parameter '())))
                                     (if (null? stk)
                                         init
                                         (car stk))))
                             ((val)
                                 (if (eq? val pop-parameter)
-                                    (eq-hashtable-set! (%parameters) parameter
-                                            (cdr (eq-hashtable-ref (%parameters)
+                                    (eq-hash-map-set! (%parameters) parameter
+                                            (cdr (eq-hash-map-ref (%parameters)
                                             parameter '()))) ;; used by parameterize
-                                    (let ((stk (eq-hashtable-ref (%parameters) parameter '())))
-                                        (eq-hashtable-set! (%parameters) parameter
+                                    (let ((stk (eq-hash-map-ref (%parameters) parameter '())))
+                                        (eq-hash-map-set! (%parameters) parameter
                                                 (cons (converter val)
                                                 (if (null? stk) '() (cdr stk)))))))
                             ((val key) ;; used by parameterize
                                 (if (eq? key push-parameter)
-                                    (eq-hashtable-set! (%parameters) parameter
+                                    (eq-hash-map-set! (%parameters) parameter
                                             (cons (converter val)
-                                            (eq-hashtable-ref (%parameters) parameter '())))
+                                            (eq-hash-map-ref (%parameters) parameter '())))
                                     (full-error 'assertion-violation '<parameter> #f
                                             "<parameter>: expected zero or one arguments")))
                             (val (full-error 'assertion-violation '<parameter> #f

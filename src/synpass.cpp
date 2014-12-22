@@ -109,7 +109,7 @@ FObject ResolveIdentifier(FObject se, FObject id)
     return(AsSyntacticEnv(se)->GlobalBindings);
 }
 
-static FObject SyntaxToDatum(FObject obj, FObject ht)
+static FObject SyntaxToDatum(FObject obj, FObject hm)
 {
     if (IdentifierP(obj))
         return(AsIdentifier(obj)->Symbol);
@@ -130,45 +130,45 @@ static FObject SyntaxToDatum(FObject obj, FObject ht)
 
     if (LambdaP(obj))
     {
-        FObject val = EqHashMapRef(ht, obj, FalseObject);
+        FObject val = EqHashMapRef(hm, obj, FalseObject);
         if (PairP(val))
             return(val);
 
         val = MakePair(LambdaSyntax, NoValueObject);
-        EqHashMapSet(ht, obj, val);
-        SetRest(val, MakePair(SyntaxToDatum(AsLambda(obj)->Bindings, ht),
-                SyntaxToDatum(AsLambda(obj)->Body, ht)));
+        EqHashMapSet(hm, obj, val);
+        SetRest(val, MakePair(SyntaxToDatum(AsLambda(obj)->Bindings, hm),
+                SyntaxToDatum(AsLambda(obj)->Body, hm)));
 
         return(val);
     }
 
     if (PairP(obj))
     {
-        FObject val = EqHashMapRef(ht, obj, FalseObject);
+        FObject val = EqHashMapRef(hm, obj, FalseObject);
         if (PairP(val))
             return(val);
 
         val = MakePair(NoValueObject, NoValueObject);
-        EqHashMapSet(ht, obj, val);
-        SetFirst(val, SyntaxToDatum(First(obj), ht));
-        SetRest(val, SyntaxToDatum(Rest(obj), ht));
+        EqHashMapSet(hm, obj, val);
+        SetFirst(val, SyntaxToDatum(First(obj), hm));
+        SetRest(val, SyntaxToDatum(Rest(obj), hm));
 
         return(val);
     }
 
     if (VectorP(obj))
     {
-        FObject vec = EqHashMapRef(ht, obj, FalseObject);
+        FObject vec = EqHashMapRef(hm, obj, FalseObject);
         if (VectorP(vec))
             return(vec);
 
         vec = MakeVector(VectorLength(obj), 0, FalseObject);
-        EqHashMapSet(ht, obj, vec);
+        EqHashMapSet(hm, obj, vec);
 
         for (uint_t idx = 0; idx < VectorLength(vec); idx++)
         {
-//            AsVector(vec)->Vector[idx] = SyntaxToDatum(AsVector(obj)->Vector[idx], ht);
-            ModifyVector(vec, idx, SyntaxToDatum(AsVector(obj)->Vector[idx], ht));
+//            AsVector(vec)->Vector[idx] = SyntaxToDatum(AsVector(obj)->Vector[idx], hm);
+            ModifyVector(vec, idx, SyntaxToDatum(AsVector(obj)->Vector[idx], hm));
         }
 
         return(vec);
