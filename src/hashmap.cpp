@@ -32,7 +32,7 @@ int PopulationCount(uint64_t x)
 
 static FObject MakeHashTree(uint_t len, uint_t bm, FObject * bkts)
 {
-    FAssert(len == PopulationCount(bm));
+  FAssert(len == (uint_t) PopulationCount(bm));
 
     FHashTree * ht = (FHashTree *) MakeObject(sizeof(FHashTree) + (len - 1) * sizeof(FObject),
             HashTreeTag);
@@ -482,11 +482,6 @@ static FObject MakeHashMap(FObject comp, FObject tracker)
     hmap->Tracker = tracker;
 
     return(hmap);
-}
-
-static FObject MakeHashMap(FObject comp)
-{
-    return(MakeHashMap(comp, NoValueObject));
 }
 
 static FObject HashMapRef(FObject hmap, FObject key, FObject def, FEquivFn eqfn, FHashFn hashfn)

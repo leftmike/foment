@@ -23,11 +23,13 @@ Foment
 #include <wchar.h>
 #define StringLengthS(s) wcslen(s)
 #define StringCompareS(s1, s2) wcscmp(s1, L ## s2)
+#define StringToInt(s) _wtoi(s)
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
 #define StringLengthS(s) strlen(s)
 #define StringCompareS(s1, s2) strcmp(s1, s2)
+#define StringToInt(s) atoi(s)
 #endif // FOMENT_UNIX
 
 static int Usage()
@@ -256,7 +258,7 @@ int main(int argc, char * argv[])
 
             if (adx < argc)
             {
-                RandomSeed = _wtoi(argv[adx]);
+                RandomSeed = StringToInt(argv[adx]);
                 adx += 1;
             }
         }

@@ -774,11 +774,6 @@ typedef struct
     FObject Tracker;
 } FHashMap;
 
-FObject MakeHashMap(FObject comp);
-FObject HashMapRef(FObject hmap, FObject key, FObject def, FEquivFn eqfn, FHashFn hashfn);
-void HashMapSet(FObject hmap, FObject key, FObject val, FEquivFn eqfn, FHashFn hashfn);
-void HashMapDelete(FObject hmap, FObject key, FEquivFn eqfn, FHashFn hashfn);
-
 FObject MakeEqHashMap();
 FObject EqHashMapRef(FObject hmap, FObject key, FObject def);
 void EqHashMapSet(FObject hmap, FObject key, FObject val);
