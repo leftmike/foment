@@ -2763,7 +2763,7 @@ Define("ceiling", CeilingPrimitive)(int_t argc, FObject argv[])
     {
         FObject ret = RatioDivide(argv[0]);
 
-        if (GenericSign(ret) > 0)
+        if (GenericSign(argv[0]) > 0)
             return(GenericAdd(ret, MakeFixnum(1)));
 
         return(ret);
