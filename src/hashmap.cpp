@@ -28,8 +28,6 @@ int PopulationCount(uint64_t x)
 // The implementation uses hash array mapped tries;
 // see http://lampwww.epfl.ch/papers/idealhashtrees.pdf
 
-#define MAXIMUM_HASH_INDEX MAXIMUM_FIXNUM
-
 static FObject MakeHashTree(uint_t len, uint_t bm, FObject * bkts)
 {
   FAssert(len == (uint_t) PopulationCount(bm));
@@ -386,6 +384,13 @@ Define("make-hash-tree", MakeHashTreePrimitive)(int_t argc, FObject argv[])
     return(MakeHashTree(0, 0, 0));
 }
 
+Define("hash-tree?", HashTreePPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("hash-tree?", argc);
+
+    return(HashTreeP(argv[0]) ? TrueObject : FalseObject);
+}
+
 Define("hash-tree-ref", HashTreeRefPrimitive)(int_t argc, FObject argv[])
 {
     ThreeArgsCheck("hash-tree-ref", argc);
@@ -412,6 +417,23 @@ Define("hash-tree-delete", HashTreeDeletePrimitive)(int_t argc, FObject argv[])
 
     return(HashTreeDelete(argv[0], AsFixnum(argv[1])));
 }
+
+Define("hash-tree-buckets", HashTreeBucketsPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("hash-tree-buckets", argc);
+    HashTreeArgCheck("hash-tree-buckets", argv[0]);
+
+    return(MakeVector(HashTreeLength(argv[0]), AsHashTree(argv[0])->Buckets, NoValueObject));
+}
+
+Define("hash-tree-bitmap", HashTreeBitmapPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("hash-tree-bitmap", argc);
+    HashTreeArgCheck("hash-tree-bitmap", argv[0]);
+
+    return(MakeIntegerU(AsHashTree(argv[0])->Bitmap));
+}
+
 // ---- Symbols ----
 
 static uint_t NextSymbolHash = 0;
@@ -428,7 +450,7 @@ FObject StringToSymbol(FObject str)
     {
         FAssert(SymbolP(First(obj)));
 
-        if (StringEqualP(AsSymbol(First(obj))->String, str))
+        if (StringCompare(AsSymbol(First(obj))->String, str) == 0)
             return(First(obj));
         obj = Rest(obj);
     }
@@ -470,16 +492,19 @@ FObject StringLengthToSymbol(FCh * s, int_t sl)
 
 // ---- Hash Map ----
 
-const char * HashMapFieldsC[3] = {"hash-tree", "comparator", "tracker"};
+static const char * HashMapFieldsC[4] = {"hash-tree", "comparator", "tracker", "size"};
 
 static FObject MakeHashMap(FObject comp, FObject tracker)
 {
     FAssert(sizeof(FHashMap) == sizeof(HashMapFieldsC) + sizeof(FRecord));
+    FAssert(ComparatorP(comp));
+    FAssert(tracker == NoValueObject || PairP(tracker));
 
     FHashMap * hmap = (FHashMap *) MakeRecord(R.HashMapRecordType);
     hmap->HashTree = MakeHashTree();
     hmap->Comparator = comp;
     hmap->Tracker = tracker;
+    hmap->Size = MakeFixnum(0);
 
     return(hmap);
 }
@@ -529,6 +554,11 @@ static void HashMapSet(FObject hmap, FObject key, FObject val, FEquivFn eqfn, FH
 
 //    AsHashMap(hmap)->HashTree = HashTreeSet(AsHashMap(hmap)->HashTree, idx, kvn);
     Modify(FHashMap, hmap, HashTree, HashTreeSet(AsHashMap(hmap)->HashTree, idx, kvn));
+
+    FAssert(FixnumP(AsHashMap(hmap)->Size));
+
+//    AsHashMap(hmap)->Size = MakeFixnum(AsFixnum(AsHashMap(hmap)->Size) + 1);
+    Modify(FHashMap, hmap, Size, MakeFixnum(AsFixnum(AsHashMap(hmap)->Size) + 1));
 }
 
 static void HashMapDelete(FObject hmap, FObject key, FEquivFn eqfn, FHashFn hashfn)
@@ -545,6 +575,12 @@ static void HashMapDelete(FObject hmap, FObject key, FEquivFn eqfn, FHashFn hash
 
         if (eqfn(First(First(lst)), key))
         {
+            FAssert(FixnumP(AsHashMap(hmap)->Size));
+            FAssert(AsFixnum(AsHashMap(hmap)->Size) > 0);
+
+//            AsHashMap(hmap)->Size = MakeFixnum(AsFixnum(AsHashMap(hmap)->Size) - 1);
+            Modify(FHashMap, hmap, Size, MakeFixnum(AsFixnum(AsHashMap(hmap)->Size) - 1));
+
             if (PairP(prev))
                 SetRest(prev, Rest(lst));
             else if (PairP(Rest(lst)))
@@ -586,7 +622,7 @@ static void HashMapVisit(FObject hmap, FVisitFn vfn, FObject ctx)
 
 FObject MakeEqHashMap()
 {
-    return(MakeHashMap(NoValueObject, MakeTConc()));
+    return(MakeHashMap(R.EqComparator, MakeTConc()));
 }
 
 static uint_t OldIndex(FObject kvn)
@@ -757,6 +793,13 @@ Define("make-eq-hash-map", MakeEqHashMapPrimitive)(int_t argc, FObject argv[])
     return(MakeEqHashMap());
 }
 
+Define("eq-hash-map?", EqHashMapPPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("eq-hash-map?", argc);
+
+    return((HashMapP(argv[0]) && PairP(AsHashMap(argv[0])->Tracker)) ? TrueObject : FalseObject);
+}
+
 Define("eq-hash-map-ref", EqHashMapRefPrimitive)(int_t argc, FObject argv[])
 {
     ThreeArgsCheck("eq-hash-map-ref", argc);
@@ -783,21 +826,100 @@ Define("eq-hash-map-delete", EqHashMapDeletePrimitive)(int_t argc, FObject argv[
     return(NoValueObject);
 }
 
+Define("make-hash-map", MakeHashMapPrimitive)(int_t argc, FObject argv[])
+{
+    ZeroOrOneArgsCheck("make-hash-map", argc);
+    if (argc == 1)
+        ComparatorArgCheck("make-hash-map", argv[0]);
+
+    return(MakeHashMap(argc == 1 ? argv[0] : R.DefaultComparator, NoValueObject));
+}
+
+Define("hash-map?", HashMapPPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("hash-map?", argc);
+
+    return(HashMapP(argv[0]) ? TrueObject : FalseObject);
+}
+
+Define("hash-map-tree-ref", HashMapTreeRefPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("hash-map-tree-ref", argc);
+    HashMapArgCheck("hash-map-tree-ref", argv[0]);
+
+    return(AsHashMap(argv[0])->HashTree);
+}
+
+Define("hash-map-tree-set!", HashMapTreeSetPrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("hash-map-tree-set!", argc);
+    HashMapArgCheck("hash-map-tree-set!", argv[0]);
+    HashTreeArgCheck("hash-map-tree-set!", argv[1]);
+
+//    AsHashMap(argv[0])->HashTree = argv[1];
+    Modify(FHashMap, argv[0], HashTree, argv[1]);
+    return(NoValueObject);
+}
+
+Define("hash-map-comparator", HashMapComparatorPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("hash-map-comparator", argc);
+    HashMapArgCheck("hash-map-comparator", argv[0]);
+
+    return(AsHashMap(argv[0])->Comparator);
+}
+
+Define("hash-map-size", HashMapSizePrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("hash-map-size", argc);
+    HashMapArgCheck("hash-map-size", argv[0]);
+
+    return(AsHashMap(argv[0])->Size);
+}
+
+Define("hash-map-size-set!", HashMapSizeSetPrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("hash-map-size-set!", argc);
+    HashMapArgCheck("hash-map-size-set!", argv[0]);
+    NonNegativeArgCheck("hash-map-size-set!", argv[1], 0);
+
+//    AsHashMap(argv[0])->Size = argv[1];
+    Modify(FHashMap, argv[0], Size, argv[1]);
+    return(NoValueObject);
+}
+
 // ---- Primitives ----
 
 static FPrimitive * Primitives[] =
 {
     &MakeHashTreePrimitive,
+    &HashTreePPrimitive,
     &HashTreeRefPrimitive,
     &HashTreeSetPrimitive,
     &HashTreeDeletePrimitive,
+    &HashTreeBucketsPrimitive,
+    &HashTreeBitmapPrimitive,
     &MakeEqHashMapPrimitive,
+    &EqHashMapPPrimitive,
     &EqHashMapRefPrimitive,
     &EqHashMapSetPrimitive,
-    &EqHashMapDeletePrimitive
+    &EqHashMapDeletePrimitive,
+    &MakeHashMapPrimitive,
+    &HashMapPPrimitive,
+    &HashMapTreeRefPrimitive,
+    &HashMapTreeSetPrimitive,
+    &HashMapComparatorPrimitive,
+    &HashMapSizePrimitive,
+    &HashMapSizeSetPrimitive
 };
 
 void SetupHashMaps()
+{
+    R.HashMapRecordType = MakeRecordTypeC("hash-map",
+            sizeof(HashMapFieldsC) / sizeof(char *), HashMapFieldsC);
+}
+
+void SetupHashMapPrims()
 {
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);

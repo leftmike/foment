@@ -283,7 +283,7 @@ static FYoungSection * AllocateYoung(FYoungSection * nxt, FSectionTag tag)
 #define OBJECT_ALIGNMENT 8
 const static uint_t Align[8] = {0, 7, 6, 5, 4, 3, 2, 1};
 
-static uint_t ObjectSize(FObject obj, uint_t tag)
+static uint_t ObjectSize(FObject obj, uint_t tag, int ln)
 {
     uint_t len;
 
@@ -403,7 +403,10 @@ static uint_t ObjectSize(FObject obj, uint_t tag)
         return(ByteLength(obj));
 
     default:
+#ifdef FOMENT_DEBUG
+        printf("Called From: %d\n", ln);
         FAssert(0);
+#endif // FOMENT_DEBUG
 
         return(0xFFFF);
     }
@@ -842,7 +845,7 @@ static void ScanObject(FObject * pobj, int_t fcf, int_t mf)
         if (GCTagP(AsForward(raw)))
         {
             uint_t tag = AsValue(AsForward(raw));
-            uint_t len = ObjectSize(raw, tag);
+            uint_t len = ObjectSize(raw, tag, __LINE__);
             FObject nobj = CopyObject(len, tag);
             memcpy(nobj, raw, len);
 
@@ -880,7 +883,7 @@ static void ScanObject(FObject * pobj, int_t fcf, int_t mf)
         if (GCTagP(AsForward(raw)))
         {
             uint_t tag = AsValue(AsForward(raw));
-            uint_t len = ObjectSize(raw, tag);
+            uint_t len = ObjectSize(raw, tag, __LINE__);
 
             FObject nobj;
             if (tag == PairTag || tag == RatioTag || tag == ComplexTag)
@@ -1089,7 +1092,7 @@ static void CleanScan(int_t fcf)
                 FObject obj = (FObject) (yh + 1);
 
                 ScanChildren(obj, tag, fcf);
-                ys->Scan += ObjectSize(obj, tag) + sizeof(FYoungHeader);
+                ys->Scan += ObjectSize(obj, tag, __LINE__) + sizeof(FYoungHeader);
             }
 
             ys = ys->Next;
@@ -1664,7 +1667,7 @@ static void ValidateSections(int ln)
 
                 ValidateObject(obj, tag, sdx, idx, ln);
 
-                idx += ObjectSize(obj, tag) + sizeof(FYoungHeader);
+                idx += ObjectSize(obj, tag, __LINE__) + sizeof(FYoungHeader);
             }
 
             sdx += 1;
@@ -1683,7 +1686,7 @@ static void ValidateSections(int ln)
                 FAssert(SectionIndex(obj) >= sdx && SectionIndex(obj) < sdx + cnt);
 
                 ValidateObject(obj, IndirectTag(obj), sdx, 0, ln);
-                obj = ((char *) obj) + ObjectSize(obj, IndirectTag(obj));
+                obj = ((char *) obj) + ObjectSize(obj, IndirectTag(obj), __LINE__);
             }
 
             sdx += cnt;
@@ -1876,7 +1879,7 @@ static void Collect(int_t fcf)
                 while (obj < ((char *) ms) + SECTION_SIZE * cnt)
                 {
                     ClearMark(obj);
-                    obj = ((char *) obj) + ObjectSize(obj, IndirectTag(obj));
+                    obj = ((char *) obj) + ObjectSize(obj, IndirectTag(obj), __LINE__);
                 }
 
                 sdx += cnt;
@@ -2034,19 +2037,20 @@ static void Collect(int_t fcf)
                         if (pfo == 0)
                         {
                             FFreeObject * fo = (FFreeObject *) obj;
-                            fo->Length = MakeLength(ObjectSize(obj, IndirectTag(obj)), GCFreeTag);
+                            fo->Length = MakeLength(ObjectSize(obj, IndirectTag(obj), __LINE__),
+                                    GCFreeTag);
                             fo->Next = FreeMature;
                             FreeMature = fo;
                             pfo = fo;
                         }
                         else
                             pfo->Length = MakeLength(ByteLength(pfo)
-                                    + ObjectSize(obj, IndirectTag(obj)), GCFreeTag);
+                                    + ObjectSize(obj, IndirectTag(obj), __LINE__), GCFreeTag);
                     }
                     else
                         pfo = 0;
 
-                    obj = ((char *) obj) + ObjectSize(obj, IndirectTag(obj));
+                    obj = ((char *) obj) + ObjectSize(obj, IndirectTag(obj), __LINE__);
                 }
 
                 sdx += cnt;

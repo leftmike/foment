@@ -1431,6 +1431,61 @@ static int_t GenericCompare(const char * who, FObject x1, FObject x2, int_t cf)
     return(ret == 0 ? GenericCompare(who, i1, i2, 0) : ret);
 }
 
+uint_t NumberHash(FObject z)
+{
+    switch(UnaryNumberOp(z))
+    {
+        case UOP_BIGRAT:
+            if (RatioP(z))
+                return(NumberHash(AsNumerator(z)) + (NumberHash(AsDenominator(z)) << 7));
+            else
+            {
+                FAssert(BignumP(z));
+
+                return(BignumRemainderFixnum(z, MAXIMUM_FIXNUM));
+            }
+
+        case UOP_COMPLEX:
+            return(NumberHash(AsReal(z)) + (NumberHash(AsImaginary(z)) << 7));
+
+        case UOP_FLOAT:
+            return((uint_t) AsFlonum(z));
+
+        case UOP_FIXED:
+            return(AsFixnum(z));
+    }
+
+    return(0);
+}
+
+int_t NumberCompare(FObject obj1, FObject obj2)
+{
+    int_t ret;
+
+    if (ComplexP(obj1) || ComplexP(obj2))
+    {
+        FObject r1 = ComplexP(obj1) ? AsReal(obj1) : obj1;
+        FObject i1 = ComplexP(obj1) ? AsImaginary(obj1) : MakeFixnum(0);
+        FObject r2 = ComplexP(obj2) ? AsReal(obj2) : obj2;
+        FObject i2 = ComplexP(obj2) ? AsImaginary(obj2) : MakeFixnum(0);
+
+        ret = GenericCompare(0, r1, r2, 0);
+        if (ret == 0)
+            ret = GenericCompare(0, i1, i2, 0);
+    }
+    else
+    {
+        FAssert(RealP(obj1));
+        FAssert(RealP(obj2));
+
+        ret = GenericCompare(0, obj1, obj2, 0);
+    }
+
+    if (ret == 0)
+        return(0);
+    return(ret < 0 ? -1 : 1);
+}
+
 static FObject GenericAdd(FObject z1, FObject z2)
 {
     if (BothNumberP(z1, z2))

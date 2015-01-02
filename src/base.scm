@@ -382,12 +382,10 @@
         comparator-type-test-procedure
         comparator-equality-predicate
         comparator-comparison-procedure
-        comparator-hash-function)
+        comparator-hash-function
+        comparator-comparison-procedure?
+        comparator-hash-function?)
     (export
-make-hash-tree
-hash-tree-ref
-hash-tree-set!
-hash-tree-delete
         make-ascii-port
         make-latin1-port
         make-utf8-port
@@ -437,10 +435,35 @@ hash-tree-delete
         full-error
         loaded-libraries
         library-path
+        make-hash-tree
+        hash-tree?
+        hash-tree-ref
+        hash-tree-set!
+        hash-tree-delete
+        hash-tree-buckets
+        hash-tree-bitmap
         make-eq-hash-map
+        eq-hash-map?
         eq-hash-map-ref
         eq-hash-map-set!
         eq-hash-map-delete
+        make-hash-map
+        hash-map?
+        hash-map-size
+        hash-map-ref
+        hash-map-set!
+        hash-map-delete!
+        hash-map-contains?
+        hash-map-update!
+        hash-map-copy
+        hash-map-keys
+        hash-map-entries
+        hash-map-comparator
+        hash-map-walk
+        hash-map-fold
+        hash-map->alist
+        alist->hash-map
+        alist->eq-hash-map
         random
         no-value
         set!-values
@@ -779,6 +802,122 @@ hash-tree-delete
                 (full-error 'assertion-violation 'vector-for-each #f
                         "vector-for-each: expected at least one argument")
                 (for-each proc 0 vectors)))
+
+        (define (make-default-equality compare)
+            (lambda (obj1 obj2)
+                (if (= (compare obj1 obj2) 0) #t #f)))
+
+        (define (make-comparator type-test equality compare hash)
+            (%make-comparator type-test
+                    (if (eq? equality #t) (make-default-equality compare) equality)
+                    compare hash))
+
+        (define (hash-map-ref hmap key default)
+            (let* ((comp (hash-map-comparator hmap))
+                    (equiv (comparator-equality-predicate comp))
+                    (hash (comparator-hash-function comp))
+                    (ret (assoc key (hash-tree-ref (hash-map-tree-ref hmap) (hash key) '()) equiv)))
+                (if (pair? ret)
+                    (cdr ret)
+                    default)))
+
+        (define (hash-map-set! hmap key val)
+            (let* ((comp (hash-map-comparator hmap))
+                    (equiv (comparator-equality-predicate comp))
+                    (htree (hash-map-tree-ref hmap))
+                    (idx ((comparator-hash-function comp) key))
+                    (bkt (hash-tree-ref htree idx '())))
+                (let find ((lst bkt))
+                    (if (pair? lst)
+                        (if (equiv (caar lst) key)
+                            (set-cdr! (car lst) val)
+                            (find (cdr lst)))
+                        (let ((kvn (cons (cons key val) bkt)))
+                            (hash-map-size-set! hmap (+ (hash-map-size hmap) 1))
+                            (hash-map-tree-set! hmap (hash-tree-set! htree idx kvn)))))))
+
+        (define (hash-map-delete! hmap key)
+            (let* ((comp (hash-map-comparator hmap))
+                    (equiv (comparator-equality-predicate comp))
+                    (htree (hash-map-tree-ref hmap))
+                    (idx ((comparator-hash-function comp) key))
+                    (bkt (hash-tree-ref htree idx '()))
+                    (prev #f))
+                (let find ((lst bkt))
+                    (if (pair? lst)
+                        (if (equiv (caar lst) key)
+                            (begin
+                                (hash-map-size-set! hmap (- (hash-map-size hmap) 1))
+                                (if (pair? prev)
+                                    (set-cdr! prev (cdr lst))
+                                    (if (pair? (cdr lst))
+                                        (hash-map-tree-set! hmap (hash-tree-set! htree idx (cdr lst)))
+                                        (hash-map-tree-set! hmap (hash-tree-delete htree idx)))))
+                            (find (cdr lst)))))))
+
+        (define not-found (cons #f #f))
+
+        (define (hash-map-contains? hmap key)
+            (if (eq? (hash-map-ref hmap key not-found) not-found) #f #t))
+
+        (define (hash-map-update! hmap key func default)
+            (hash-map-set! hmap key (func (hash-map-ref hmap key default))))
+
+        (define (hash-map-copy hmap)
+            (let ((copy (make-hash-map (hash-map-comparator hmap))))
+                (hash-map-walk hmap (lambda (key val) (hash-map-set! copy key val)))
+                copy))
+
+        (define (hash-map-keys hmap)
+            (let ((keys (make-vector (hash-map-size hmap))))
+                (hash-map-fold hmap (lambda (key val idx) (vector-set! keys idx key) (+ idx 1)) 0)
+                keys))
+
+        (define (hash-map-entries hmap)
+            (let ((keys (make-vector (hash-map-size hmap)))
+                    (vals (make-vector (hash-map-size hmap))))
+                (hash-map-fold hmap (lambda (key val idx)
+                                        (vector-set! keys idx key)
+                                        (vector-set! vals idx val)
+                                        (+ idx 1)) 0)
+                (values keys vals)))
+
+        (define (hash-map-walk hmap proc)
+            (hash-map-fold hmap (lambda (key val ignore) (proc key val) ignore) '()))
+
+        (define (hash-map-fold hmap func init)
+            (define (hash-tree-fold htree accum)
+                (buckets-fold (hash-tree-buckets htree) 0 accum))
+            (define (buckets-fold bkts idx accum)
+                (if (< idx (vector-length bkts))
+                    (let ((bkt (vector-ref bkts idx)))
+                        (buckets-fold bkts (+ idx 1)
+                                (if (hash-tree? bkt)
+                                    (hash-tree-fold bkt accum)
+                                    (bucket-fold (unbox bkt) accum))))
+                    accum))
+            (define (bucket-fold lst accum)
+                (if (pair? lst)
+                    (bucket-fold (cdr lst) (func (caar lst) (cdar lst) accum))
+                    accum))
+            (hash-tree-fold (hash-map-tree-ref hmap) init))
+
+        (define (hash-map->alist hmap)
+            (hash-map-fold hmap (lambda (key val accum) (cons (cons key val) accum)) '()))
+
+        (define (alist->hash-map alist . comp)
+            (let ((hmap (if (null? comp) (make-hash-map) (make-hash-map (car comp)))))
+                (for-each (lambda (kv)
+                                (if (not (hash-map-contains? hmap (car kv)))
+                                    (hash-map-set! hmap (car kv) (cdr kv)))) alist)
+                hmap))
+
+        (define (alist->eq-hash-map alist)
+            (let ((hmap (make-eq-hash-map)))
+                (for-each (lambda (kv)
+                                (if (not (hash-map-contains? hmap (car kv)))
+                                    (hash-map-set! hmap (car kv) (cdr kv)))) alist)
+                hmap))
 
         (define (read-error? obj)
             (and (error-object? obj) (eq? (error-object-who obj) 'read)))
@@ -2221,3 +2360,15 @@ hash-tree-delete
                 ((null? bs) acc)))
         (define (booleans->integer . bools)
             (list->integer bools))))
+
+(define-library (srfi 114)
+    (import (foment base))
+    (export
+        make-comparator
+        comparator?
+        comparator-type-test-procedure
+        comparator-equality-predicate
+        comparator-comparison-procedure
+        comparator-hash-function
+        comparator-comparison-procedure?
+        comparator-hash-function?))

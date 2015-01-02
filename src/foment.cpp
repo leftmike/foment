@@ -661,7 +661,7 @@ FObject MakeRecord(FObject rt)
 
 // ---- Primitives ----
 
-static FObject MakePrimitive(FPrimitive * prim)
+FObject MakePrimitive(FPrimitive * prim)
 {
     FPrimitive * p = (FPrimitive *) MakeObject(sizeof(FPrimitive), PrimitiveTag);
     memcpy(p, prim, sizeof(FPrimitive));
@@ -1047,8 +1047,8 @@ void SetupFoment(FThreadState * ts)
 
     R.SymbolHashTree = MakeHashTree();
 
-    R.HashMapRecordType = MakeRecordTypeC("hash-map",
-            sizeof(HashMapFieldsC) / sizeof(char *), HashMapFieldsC);
+    SetupHashMaps();
+    SetupCompare();
 
     ts->Parameters = MakeEqHashMap();
 
@@ -1069,18 +1069,18 @@ void SetupFoment(FThreadState * ts)
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 
-    R.NoValuePrimitiveObject = MakePrimitive(&NoValuePrimitive);
+    R.NoValuePrimitive = MakePrimitive(&NoValuePrimitive);
 
     for (uint_t n = 0; n < sizeof(SpecialSyntaxes) / sizeof(char *); n++)
         LibraryExport(R.BedrockLibrary, EnvironmentSetC(R.Bedrock, SpecialSyntaxes[n],
                 MakeImmediate(n, SpecialSyntaxTag)));
 
-    SetupHashMaps();
+    SetupHashMapPrims();
+    SetupComparePrims();
     SetupPairs();
     SetupCharacters();
     SetupStrings();
     SetupVectors();
-    SetupCompare();
     SetupIO();
     SetupFileSys();
     SetupCompile();

@@ -26,11 +26,15 @@ Future:
     (2 4 6 8 10)
 
 HashTree and Comparator:
--- add comparator to MakeEqHashMap
--- add comparators: Comparator
 -- add sets: HashSet
 -- add bags: HashBag
 -- add maps: HashMap
+-- add comparators in scheme
+-- document comparators
+-- document hash maps
+-- test comparators
+-- test hash maps
+-- make hash-map routines work with eq-hash-maps as well
 
 Compiler:
 -- get rid of -no-inline-procedures and -no-inline-imports
@@ -467,10 +471,10 @@ FObject FoldcaseString(FObject s);
 uint_t ByteLengthHash(char * b, uint_t bl);
 uint_t StringLengthHash(FCh * s, uint_t sl);
 uint_t StringHash(FObject obj);
-int_t StringEqualP(FObject obj1, FObject obj2);
 int_t StringLengthEqualP(FCh * s, int_t sl, FObject obj);
 int_t StringCEqualP(const char * s1, FCh * s2, int_t sl2);
-uint_t BytevectorHash(FObject obj);
+int_t StringCompare(FObject obj1, FObject obj2);
+int_t StringCiCompare(FObject obj1, FObject obj2);
 
 // ---- Vectors ----
 
@@ -503,6 +507,8 @@ typedef struct
 
 FObject MakeBytevector(uint_t vl);
 FObject U8ListToBytevector(FObject obj);
+uint_t BytevectorHash(FObject obj);
+int_t BytevectorCompare(FObject obj1, FObject obj2);
 
 #define BytevectorLength(obj) ByteLength(obj)
 
@@ -732,6 +738,7 @@ typedef struct
 FObject MakeHashTree();
 
 #define HashTreeLength(obj) ObjectLength(obj)
+#define MAXIMUM_HASH_INDEX MAXIMUM_FIXNUM
 
 // ---- Comparator ----
 
@@ -745,6 +752,8 @@ typedef struct
     FObject EqualityFn;
     FObject ComparisonFn;
     FObject HashFn;
+    FObject HasComparison;
+    FObject HasHash;
 } FComparator;
 
 FObject MakeComparator(FObject ttfn, FObject eqfn, FObject compfn, FObject hashfn);
@@ -754,8 +763,6 @@ int_t EqvP(FObject obj1, FObject obj2);
 int_t EqualP(FObject obj1, FObject obj2);
 
 uint_t EqHash(FObject obj);
-uint_t EqvHash(FObject obj);
-uint_t EqualHash(FObject obj);
 
 // ---- HashMap ----
 
@@ -772,6 +779,7 @@ typedef struct
     FObject HashTree;
     FObject Comparator;
     FObject Tracker;
+    FObject Size;
 } FHashMap;
 
 FObject MakeEqHashMap();
@@ -779,8 +787,6 @@ FObject EqHashMapRef(FObject hmap, FObject key, FObject def);
 void EqHashMapSet(FObject hmap, FObject key, FObject val);
 void EqHashMapDelete(FObject hmap, FObject key);
 void EqHashMapVisit(FObject hmap, FVisitFn vfn, FObject ctx);
-
-extern const char * HashMapFieldsC[3];
 
 // ---- HashSet ----
 
@@ -835,6 +841,7 @@ typedef struct
     static FObject fn ## Fn
 
 void DefinePrimitive(FObject env, FObject lib, FPrimitive * prim);
+FObject MakePrimitive(FPrimitive * prim);
 
 // ---- Roots ----
 
@@ -851,6 +858,12 @@ typedef struct
     FObject SymbolHashTree;
 
     FObject ComparatorRecordType;
+    FObject AnyPPrimitive;
+    FObject NoHashPrimitive;
+    FObject NoComparePrimitive;
+    FObject EqComparator;
+    FObject DefaultComparator;
+
     FObject HashMapRecordType;
     FObject HashSetRecordType;
     FObject ExceptionRecordType;
@@ -912,7 +925,7 @@ typedef struct
     FObject EnvironmentRecordType;
     FObject GlobalRecordType;
     FObject LibraryRecordType;
-    FObject NoValuePrimitiveObject;
+    FObject NoValuePrimitive;
     FObject LibraryStartupList;
 
     FObject WrongNumberOfArguments;
@@ -1028,6 +1041,8 @@ FObject ToExact(FObject n);
 FObject MakeInteger(int64_t n);
 FObject MakeIntegerU(uint64_t n);
 FObject MakeInteger(uint32_t high, uint32_t low);
+uint_t NumberHash(FObject obj);
+int_t NumberCompare(FObject obj1, FObject obj2);
 
 // ---- Environments ----
 
@@ -1592,6 +1607,12 @@ inline void HashTreeArgCheck(const char * who, FObject obj)
         RaiseExceptionC(R.Assertion, who, "expected a hash tree", List(obj));
 }
 
+inline void HashMapArgCheck(const char * who, FObject obj)
+{
+    if (HashMapP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a hash-map", List(obj));
+}
+
 inline void EqHashMapArgCheck(const char * who, FObject obj)
 {
     if (HashMapP(obj) == 0 || PairP(AsHashMap(obj)->Tracker) == 0)
@@ -1639,7 +1660,9 @@ void SetupCharacters();
 void SetupStrings();
 void SetupVectors();
 void SetupHashMaps();
+void SetupHashMapPrims();
 void SetupCompare();
+void SetupComparePrims();
 void SetupIO();
 void SetupFileSys();
 void SetupCompile();

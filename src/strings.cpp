@@ -253,37 +253,37 @@ uint_t StringHash(FObject obj)
     return(StringLengthHash(AsString(obj)->String, StringLength(obj)));
 }
 
-static int_t StringCompare(FString * str1, FString * str2)
-{
-    for (uint_t sdx = 0; sdx < StringLength(str1) && sdx < StringLength(str2); sdx++)
-        if (str1->String[sdx] != str2->String[sdx])
-            return((int_t) str1->String[sdx] - (int_t) str2->String[sdx]);
-
-    return(StringLength(str1) - StringLength(str2));
-}
-
-static int_t StringCiCompare(FString * str1, FString * str2)
-{
-    for (uint_t sdx = 0; sdx < StringLength(str1) && sdx < StringLength(str2); sdx++)
-    {
-        FCh ch1 = CharFoldcase(str1->String[sdx]);
-        FCh ch2 = CharFoldcase(str2->String[sdx]);
-
-        if (ch1 != ch2)
-            return((int_t) ch1 - (int_t) ch2);
-    }
-
-    return(StringLength(str1) - StringLength(str2));
-}
-
-int_t StringEqualP(FObject obj1, FObject obj2)
+int_t StringCompare(FObject obj1, FObject obj2)
 {
     FAssert(StringP(obj1));
     FAssert(StringP(obj2));
 
-    if (StringCompare(AsString(obj1), AsString(obj2)) == 0)
-        return(1);
-    return(0);
+    for (uint_t sdx = 0; sdx < StringLength(obj1) && sdx < StringLength(obj2); sdx++)
+        if (AsString(obj1)->String[sdx] != AsString(obj2)->String[sdx])
+            return(AsString(obj1)->String[sdx] < AsString(obj2)->String[sdx] ? -1 : 1);
+
+    if (StringLength(obj1) == StringLength(obj2))
+        return(0);
+    return(StringLength(obj1) < StringLength(obj2) ? -1 : 1);
+}
+
+int_t StringCiCompare(FObject obj1, FObject obj2)
+{
+    FAssert(StringP(obj1));
+    FAssert(StringP(obj2));
+
+    for (uint_t sdx = 0; sdx < StringLength(obj1) && sdx < StringLength(obj2); sdx++)
+    {
+        FCh ch1 = CharFoldcase(AsString(obj1)->String[sdx]);
+        FCh ch2 = CharFoldcase(AsString(obj2)->String[sdx]);
+
+        if (ch1 != ch2)
+            return(ch1 < ch2 ? -1 : 1);
+    }
+
+    if (StringLength(obj1) == StringLength(obj2))
+        return(0);
+    return(StringLength(obj1) < StringLength(obj2) ? -1 : 1);
 }
 
 int_t StringLengthEqualP(FCh * s, int_t sl, FObject obj)
@@ -387,7 +387,7 @@ Define("string=?", StringEqualPPrimitive)(int_t argc, FObject argv[])
     {
         StringArgCheck("string=?", argv[adx]);
 
-        if (StringCompare(AsString(argv[adx - 1]), AsString(argv[adx])) != 0)
+        if (StringCompare(argv[adx - 1], argv[adx]) != 0)
             return(FalseObject);
     }
 
@@ -403,7 +403,7 @@ Define("string<?", StringLessThanPPrimitive)(int_t argc, FObject argv[])
     {
         StringArgCheck("string<?", argv[adx]);
 
-        if (StringCompare(AsString(argv[adx - 1]), AsString(argv[adx])) >= 0)
+        if (StringCompare(argv[adx - 1], argv[adx]) >= 0)
             return(FalseObject);
     }
 
@@ -419,7 +419,7 @@ Define("string>?", StringGreaterThanPPrimitive)(int_t argc, FObject argv[])
     {
         StringArgCheck("string>?", argv[adx]);
 
-        if (StringCompare(AsString(argv[adx - 1]), AsString(argv[adx])) <= 0)
+        if (StringCompare(argv[adx - 1], argv[adx]) <= 0)
             return(FalseObject);
     }
 
@@ -435,7 +435,7 @@ Define("string<=?", StringLessThanEqualPPrimitive)(int_t argc, FObject argv[])
     {
         StringArgCheck("string<=?", argv[adx]);
 
-        if (StringCompare(AsString(argv[adx - 1]), AsString(argv[adx])) > 0)
+        if (StringCompare(argv[adx - 1], argv[adx]) > 0)
             return(FalseObject);
     }
 
@@ -451,7 +451,7 @@ Define("string>=?", StringGreaterThanEqualPPrimitive)(int_t argc, FObject argv[]
     {
         StringArgCheck("string>=?", argv[adx]);
 
-        if (StringCompare(AsString(argv[adx - 1]), AsString(argv[adx])) < 0)
+        if (StringCompare(argv[adx - 1], argv[adx]) < 0)
             return(FalseObject);
     }
 
@@ -467,7 +467,7 @@ Define("string-ci=?", StringCiEqualPPrimitive)(int_t argc, FObject argv[])
     {
         StringArgCheck("string-ci=?", argv[adx]);
 
-        if (StringCiCompare(AsString(argv[adx - 1]), AsString(argv[adx])) != 0)
+        if (StringCiCompare(argv[adx - 1], argv[adx]) != 0)
             return(FalseObject);
     }
 
@@ -483,7 +483,7 @@ Define("string-ci<?", StringCiLessThanPPrimitive)(int_t argc, FObject argv[])
     {
         StringArgCheck("string-ci<?", argv[adx]);
 
-        if (StringCiCompare(AsString(argv[adx - 1]), AsString(argv[adx])) >= 0)
+        if (StringCiCompare(argv[adx - 1], argv[adx]) >= 0)
             return(FalseObject);
     }
 
@@ -499,7 +499,7 @@ Define("string-ci>?", StringCiGreaterThanPPrimitive)(int_t argc, FObject argv[])
     {
         StringArgCheck("string-ci>?", argv[adx]);
 
-        if (StringCiCompare(AsString(argv[adx - 1]), AsString(argv[adx])) <= 0)
+        if (StringCiCompare(argv[adx - 1], argv[adx]) <= 0)
             return(FalseObject);
     }
 
@@ -515,7 +515,7 @@ Define("string-ci<=?", StringCiLessThanEqualPPrimitive)(int_t argc, FObject argv
     {
         StringArgCheck("string-ci<=?", argv[adx]);
 
-        if (StringCiCompare(AsString(argv[adx - 1]), AsString(argv[adx])) > 0)
+        if (StringCiCompare(argv[adx - 1], argv[adx]) > 0)
             return(FalseObject);
     }
 
@@ -531,7 +531,7 @@ Define("string-ci>=?", StringCiGreaterThanEqualPPrimitive)(int_t argc, FObject a
     {
         StringArgCheck("string-ci>=?", argv[adx]);
 
-        if (StringCiCompare(AsString(argv[adx - 1]), AsString(argv[adx])) < 0)
+        if (StringCiCompare(argv[adx - 1], argv[adx]) < 0)
             return(FalseObject);
     }
 

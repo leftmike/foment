@@ -832,7 +832,7 @@ static FObject CompileEvalExpr(FObject obj, FObject env, FObject body)
         {
             EnvironmentImport(env, obj);
             if (body != EmptyListObject)
-                body = MakePair(List(R.NoValuePrimitiveObject), body);
+                body = MakePair(List(R.NoValuePrimitive), body);
 
             return(body);
         }
@@ -1005,7 +1005,7 @@ FObject CompileEval(FObject obj, FObject env)
         R.LibraryStartupList = EmptyListObject;
     }
     else if (body == EmptyListObject)
-        return(R.NoValuePrimitiveObject);
+        return(R.NoValuePrimitive);
 
     return(CompileLambda(env, NoValueObject, EmptyListObject, body));
 }
@@ -1013,7 +1013,7 @@ FObject CompileEval(FObject obj, FObject env)
 FObject Eval(FObject obj, FObject env)
 {
     FObject proc = CompileEval(obj, env);
-    if (proc == R.NoValuePrimitiveObject)
+    if (proc == R.NoValuePrimitive)
         return(NoValueObject);
 
     FAssert(ProcedureP(proc));

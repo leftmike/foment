@@ -9,24 +9,39 @@ Foment
 // ---- Comparator ----
 
 static const char * ComparatorFieldsC[] = {"type-test-procedure", "equality-predicate",
-    "comparison-procedure", "hash-function"};
+    "comparison-procedure", "hash-function", "has-comparison", "has-hash"};
 
 FObject MakeComparator(FObject ttfn, FObject eqfn, FObject compfn, FObject hashfn)
 {
     FAssert(sizeof(FComparator) == sizeof(ComparatorFieldsC) + sizeof(FRecord));
+    FAssert(ttfn == TrueObject || ProcedureP(ttfn) || PrimitiveP(ttfn));
+    FAssert(ProcedureP(eqfn) || PrimitiveP(eqfn));
+    FAssert(compfn == FalseObject || ProcedureP(compfn) || PrimitiveP(compfn));
+    FAssert(hashfn == FalseObject || ProcedureP(hashfn) || PrimitiveP(hashfn));
+
 
     FComparator * comp = (FComparator *) MakeRecord(R.ComparatorRecordType);
-    comp->TypeTestFn = ttfn;
+    comp->TypeTestFn = (ttfn == TrueObject ? R.AnyPPrimitive : ttfn);
     comp->EqualityFn = eqfn;
-    comp->ComparisonFn = compfn;
-    comp->HashFn = hashfn;
+    comp->ComparisonFn = (compfn == FalseObject ? R.NoComparePrimitive : compfn);
+    comp->HashFn = (hashfn == FalseObject ? R.NoHashPrimitive : hashfn);
+    comp->HasComparison = (compfn == FalseObject ? FalseObject : TrueObject);
+    comp->HasHash = (hashfn == FalseObject ? FalseObject : TrueObject);
 
     return(comp);
 }
 
-Define("make-comparator", MakeComparatorPrimitive)(int_t argc, FObject argv[])
+Define("%make-comparator", MakeComparatorPrimitive)(int_t argc, FObject argv[])
 {
     FourArgsCheck("make-comparator", argc);
+
+    if (argv[0] != TrueObject)
+        ProcedureArgCheck("make-comparator", argv[0]);
+    ProcedureArgCheck("make-comparator", argv[1]);
+    if (argv[2] != FalseObject)
+        ProcedureArgCheck("make-comparator", argv[2]);
+    if (argv[3] != FalseObject)
+        ProcedureArgCheck("make-comparator", argv[3]);
 
     return(MakeComparator(argv[0], argv[1], argv[2], argv[3]));
 }
@@ -73,6 +88,46 @@ Define("comparator-hash-function", ComparatorHashFunctionPrimitive)(int_t argc, 
     return(AsComparator(argv[0])->HashFn);
 }
 
+Define("comparator-comparison-procedure?", ComparatorComparisonProcedurePPrimitive)(int_t argc,
+    FObject argv[])
+{
+    OneArgCheck("comparator-comparison-procedure?", argc);
+    ComparatorArgCheck("comparator-comparison-procedure?", argv[0]);
+
+    return(AsComparator(argv[0])->HasComparison);
+}
+
+Define("comparator-hash-function?", ComparatorHashFunctionPPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("comparator-hash-function?", argc);
+    ComparatorArgCheck("comparator-hash-function?", argv[0]);
+
+    return(AsComparator(argv[0])->HasHash);
+}
+
+Define("any?", AnyPPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("any?", argc);
+
+    return(TrueObject);
+}
+
+Define("no-hash", NoHashPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("no-hash", argc);
+
+    RaiseExceptionC(R.Assertion, "no-hash", "no hash function available", EmptyListObject);
+    return(NoValueObject);
+}
+
+Define("no-compare", NoComparePrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("no-compare", argc);
+
+    RaiseExceptionC(R.Assertion, "no-compare", "no compare function available", EmptyListObject);
+    return(NoValueObject);
+}
+
 // ---- Equivalence predicates ----
 
 int_t EqvP(FObject obj1, FObject obj2)
@@ -90,6 +145,12 @@ int_t EqP(FObject obj1, FObject obj2)
 
     return(0);
 }
+
+uint_t EqHash(FObject obj)
+{
+    return((uint_t) obj);
+}
+
 
 // ---- Equal ----
 //
@@ -230,7 +291,7 @@ static int_t EqualP(FObject hm, FObject obj1, FObject obj2)
         if (StringP(obj2) == 0)
             return(0);
 
-        return(StringEqualP(obj1, obj2));
+        return(StringCompare(obj1, obj2) == 0);
     }
 
     if (BytevectorP(obj1))
@@ -276,67 +337,297 @@ Define("equal?", EqualPPrimitive)(int_t argc, FObject argv[])
     return(EqualP(argv[0], argv[1]) ? TrueObject : FalseObject);
 }
 
-// ---- Hash Functions ----
-
-uint_t EqHash(FObject obj)
+Define("eq-hash", EqHashPrimitive)(int_t argc, FObject argv[])
 {
-    return((uint_t) obj);
+    OneArgCheck("eq-hash", argc);
+
+    return(MakeFixnum(EqHash(argv[0]) % MAXIMUM_HASH_INDEX));
 }
 
-uint_t EqvHash(FObject obj)
+// ---- Default Comparator ----
+
+typedef enum
 {
-    return(EqHash(obj));
+    EmptyListOrder,
+    PairOrder,
+    BooleanOrder,
+    CharacterOrder,
+    StringOrder,
+    SymbolOrder,
+    NumberOrder,
+    VectorOrder,
+    BytevectorOrder,
+    RecordTypeOrder,
+    RecordOrder,
+    HashTreeOrder,
+    BoxOrder,
+    UnknownOrder
+} FCompareOrder;
+
+static FCompareOrder CompareOrder(FObject obj)
+{
+    if (obj == EmptyListObject)
+        return(EmptyListOrder);
+    if (PairP(obj))
+        return(PairOrder);
+    if (BooleanP(obj))
+        return(BooleanOrder);
+    if (CharacterP(obj))
+        return(CharacterOrder);
+    if (StringP(obj))
+        return(StringOrder);
+    if (SymbolP(obj))
+        return(SymbolOrder);
+    if (NumberP(obj))
+        return(NumberOrder);
+    if (VectorP(obj))
+        return(VectorOrder);
+    if (BytevectorP(obj))
+        return(BytevectorOrder);
+    if (RecordTypeP(obj))
+        return(RecordTypeOrder);
+    if (GenericRecordP(obj))
+        return(RecordOrder);
+    if (HashTreeP(obj))
+        return(HashTreeOrder);
+    if (BoxP(obj))
+        return(BoxOrder);
+    return(UnknownOrder);
 }
 
-#define MaxHashDepth 128
-
-static uint_t DoEqualHash(FObject obj, int_t d)
+static int_t DefaultCompare(FObject obj1, FObject obj2)
 {
-    uint_t h;
+    if (obj1 == obj2)
+        return(0);
 
-    if (d >= MaxHashDepth)
+    FCompareOrder ord1 = CompareOrder(obj1);
+    FCompareOrder ord2 = CompareOrder(obj2);
+
+    if (ord1 < ord2)
+        return(-1);
+    if (ord1 > ord2)
+        return(1);
+
+    switch (ord1)
+    {
+    case EmptyListOrder:
+        FAssert(0);
+        break;
+
+    case PairOrder:
+    {
+        FAssert(PairP(obj1));
+        FAssert(PairP(obj2));
+
+        int_t ret = DefaultCompare(First(obj1), First(obj2));
+        if (ret == 0)
+            ret = DefaultCompare(Rest(obj1), Rest(obj2));
+        return(ret);
+    }
+
+    case BooleanOrder:
+    case CharacterOrder:
+        return(obj1 < obj2 ? -1 : 1);
+
+    case StringOrder:
+        return(StringCompare(obj1, obj2));
+
+    case SymbolOrder:
+        if (obj1 == obj2)
+            return(0);
+        return(StringCompare(AsSymbol(obj1)->String, AsSymbol(obj2)->String));
+
+    case NumberOrder:
+        return(NumberCompare(obj1, obj2));
+
+    case VectorOrder:
+        FAssert(VectorP(obj1));
+        FAssert(VectorP(obj2));
+
+        if (VectorLength(obj1) != VectorLength(obj2))
+            return(VectorLength(obj1) < VectorLength(obj2) ? -1 : 1);
+
+        for (uint_t vdx = 0; vdx < VectorLength(obj1); vdx++)
+        {
+            int_t ret = DefaultCompare(AsVector(obj1)->Vector[vdx], AsVector(obj2)->Vector[vdx]);
+            if (ret != 0)
+                return(ret);
+        }
+
+        return(0);
+
+    case BytevectorOrder:
+        return(BytevectorCompare(obj1, obj2));
+
+    case RecordTypeOrder:
+        FAssert(RecordTypeP(obj1));
+        FAssert(RecordTypeP(obj2));
+
+        if (RecordTypeNumFields(obj1) != RecordTypeNumFields(obj2))
+            return(RecordTypeNumFields(obj1) < RecordTypeNumFields(obj2) ? -1 : 1);
+
+        for (uint_t fdx = 0; fdx < RecordTypeNumFields(obj1); fdx++)
+        {
+            int_t ret = DefaultCompare(AsRecordType(obj1)->Fields[fdx],
+                    AsRecordType(obj2)->Fields[fdx]);
+            if (ret != 0)
+                return(ret);
+        }
+
+        return(0);
+
+    case RecordOrder:
+        FAssert(GenericRecordP(obj1));
+        FAssert(GenericRecordP(obj2));
+
+        if (RecordNumFields(obj1) != RecordNumFields(obj2))
+            return(RecordNumFields(obj1) < RecordNumFields(obj2) ? -1 : 1);
+
+        for (uint_t fdx = 0; fdx < RecordNumFields(obj1); fdx++)
+        {
+            int_t ret = DefaultCompare(AsGenericRecord(obj1)->Fields[fdx],
+                    AsGenericRecord(obj2)->Fields[fdx]);
+            if (ret != 0)
+                return(ret);
+        }
+
+        return(0);
+
+    case HashTreeOrder:
+        FAssert(HashTreeP(obj1));
+        FAssert(HashTreeP(obj2));
+
+        if (HashTreeLength(obj1) != HashTreeLength(obj2))
+            return(HashTreeLength(obj1) < HashTreeLength(obj2) ? -1 : 1);
+
+        if (AsHashTree(obj1)->Bitmap != AsHashTree(obj2)->Bitmap)
+            return(AsHashTree(obj1)->Bitmap < AsHashTree(obj2)->Bitmap ? -1 : 1);
+
+        for (uint_t bdx = 0; bdx < HashTreeLength(obj1); bdx++)
+        {
+            int_t ret = DefaultCompare(AsHashTree(obj1)->Buckets[bdx],
+                    AsHashTree(obj2)->Buckets[bdx]);
+            if (ret != 0)
+                return(ret);
+        }
+
+        return(0);
+
+    case BoxOrder:
+        FAssert(BoxP(obj1));
+        FAssert(BoxP(obj2));
+
+        return(DefaultCompare(Unbox(obj1), Unbox(obj2)));
+    }
+
+    return(0);
+}
+
+static int_t DefaultEquality(FObject obj1, FObject obj2)
+{
+    return(DefaultCompare(obj1, obj2) == 0);
+}
+
+#define MAX_HASH_DEPTH 16
+
+static uint_t DefaultHash(FObject obj, int_t dpth)
+{
+    if (ObjectP(obj) == 0)
+        return((uint_t) obj);
+
+    if (dpth > MAX_HASH_DEPTH)
         return(1);
 
     if (PairP(obj))
     {
-        h = 0;
-        for (int_t n = 0; n < MaxHashDepth; n++)
+        uint_t hash = 0;
+        for (int_t n = 0; n < MAX_HASH_DEPTH; n++)
         {
-            h += (h << 3);
-            h += DoEqualHash(First(obj), d + 1);
+            hash += (hash << 3);
+            hash += DefaultHash(First(obj), dpth + 1);
             obj = Rest(obj);
             if (PairP(obj) == 0)
             {
-                h += (h << 3);
-                h += DoEqualHash(obj, d + 1);
-                return(h);
+                hash += (hash << 3);
+                hash += DefaultHash(obj, dpth + 1);
+                return(hash);
             }
         }
-        return(h);
+        return(hash);
     }
-    else if (BoxP(obj))
-        return(DoEqualHash(Unbox(obj), d + 1));
     else if (StringP(obj))
         return(StringHash(obj));
+    else if (SymbolP(obj))
+        return(StringHash(AsSymbol(obj)->String));
+    else if (NumberP(obj))
+        return(NumberHash(obj));
     else if (VectorP(obj))
     {
-        if (VectorLength(obj) == 0)
-            return(1);
-
-        h = 0;
-        for (uint_t idx = 0; idx < VectorLength(obj) && idx < MaxHashDepth; idx++)
-            h += (h << 5) + DoEqualHash(AsVector(obj)->Vector[idx], d + 1);
-        return(h);
+        uint_t hash = VectorLength(obj) + 1;
+        for (uint_t idx = 0; idx < VectorLength(obj) && idx < MAX_HASH_DEPTH; idx++)
+            hash += (hash << 5) + DefaultHash(AsVector(obj)->Vector[idx], dpth + 1);
+        return(hash);
     }
     else if (BytevectorP(obj))
         return(BytevectorHash(obj));
+    else if (RecordTypeP(obj))
+    {
+        uint_t hash = RecordTypeNumFields(obj) + 1;
+        for (uint_t idx = 0; idx < RecordTypeNumFields(obj) && idx < MAX_HASH_DEPTH; idx++)
+            hash += (hash << 5) + DefaultHash(AsRecordType(obj)->Fields[idx], dpth + 1);
+        return(hash);
+    }
+    else if (GenericRecordP(obj))
+    {
+        uint_t hash = RecordNumFields(obj) + 1;
+        for (uint_t idx = 0; idx < RecordNumFields(obj) && idx < MAX_HASH_DEPTH; idx++)
+            hash += (hash << 5) + DefaultHash(AsGenericRecord(obj)->Fields[idx], dpth + 1);
+        return(hash);
+    }
+    else if (HashTreeP(obj))
+    {
+        uint_t hash = AsHashTree(obj)->Bitmap;
+        for (uint_t idx = 0; idx < HashTreeLength(obj) && idx < MAX_HASH_DEPTH; idx++)
+            hash += (hash << 5) + DefaultHash(AsHashTree(obj)->Buckets[idx], dpth + 1);
+        return(hash);
+    }
+    else if (BoxP(obj))
+        return(DefaultHash(Unbox(obj), dpth + 1));
 
-    return(EqHash(obj));
+    return(1);
 }
 
-uint_t EqualHash(FObject obj)
+static uint_t DefaultHash(FObject obj)
 {
-    return(DoEqualHash(obj, 0));
+    return(DefaultHash(obj, 0));
+}
+
+Define("default-type-test", DefaultTypeTestPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("default-type-test", argc);
+
+    return(CompareOrder(argv[0]) == UnknownOrder ? FalseObject : TrueObject);
+}
+
+Define("default-equality", DefaultEqualityPrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("default-equality", argc);
+
+    return(DefaultEquality(argv[0], argv[1]) ? TrueObject : FalseObject);
+}
+
+Define("default-hash", DefaultHashPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("default-hash", argc);
+
+    return(MakeFixnum(DefaultHash(argv[0]) % MAXIMUM_HASH_INDEX));
+}
+
+Define("default-compare", DefaultComparePrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("default-compare", argc);
+
+    return(MakeFixnum(DefaultCompare(argv[0], argv[1])));
 }
 
 // ---- Primitives ----
@@ -349,7 +640,8 @@ static FPrimitive * Primitives[] =
     &ComparatorEqualityPredicatePrimitive,
     &ComparatorComparisonProcedurePrimitive,
     &ComparatorHashFunctionPrimitive,
-
+    &ComparatorComparisonProcedurePPrimitive,
+    &ComparatorHashFunctionPPrimitive,
     &EqvPPrimitive,
     &EqPPrimitive,
     &EqualPPrimitive
@@ -360,6 +652,18 @@ void SetupCompare()
     R.ComparatorRecordType = MakeRecordTypeC("comparator",
             sizeof(ComparatorFieldsC) / sizeof(char *), ComparatorFieldsC);
 
+    R.AnyPPrimitive = MakePrimitive(&AnyPPrimitive);
+    R.NoHashPrimitive = MakePrimitive(&NoHashPrimitive);
+    R.NoComparePrimitive = MakePrimitive(&NoComparePrimitive);
+    R.EqComparator = MakeComparator(TrueObject, MakePrimitive(&EqPPrimitive), FalseObject,
+            MakePrimitive(&EqHashPrimitive));
+    R.DefaultComparator = MakeComparator(MakePrimitive(&DefaultTypeTestPrimitive),
+            MakePrimitive(&DefaultEqualityPrimitive), MakePrimitive(&DefaultComparePrimitive),
+            MakePrimitive(&DefaultHashPrimitive));
+}
+
+void SetupComparePrims()
+{
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }
