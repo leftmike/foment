@@ -384,7 +384,20 @@
         comparator-comparison-procedure
         comparator-hash-function
         comparator-comparison-procedure?
-        comparator-hash-function?)
+        comparator-hash-function?
+        boolean-comparator
+        char-comparator
+        string-comparator
+        default-comparator
+        
+string-hash
+string-compare
+string-ci-compare
+eq-hash
+char-ci-compare
+number-compare
+number-hash
+        )
     (export
         make-ascii-port
         make-latin1-port
@@ -816,7 +829,8 @@
             (let* ((comp (hash-map-comparator hmap))
                     (equiv (comparator-equality-predicate comp))
                     (hash (comparator-hash-function comp))
-                    (ret (assoc key (hash-tree-ref (hash-map-tree-ref hmap) (hash key) '()) equiv)))
+                    (ret (assoc key (hash-tree-ref (hash-map-tree-ref hmap) (hash key) '())
+                            equiv)))
                 (if (pair? ret)
                     (cdr ret)
                     default)))
@@ -2371,4 +2385,5 @@
         comparator-comparison-procedure
         comparator-hash-function
         comparator-comparison-procedure?
-        comparator-hash-function?))
+        comparator-hash-function?
+        default-comparator))

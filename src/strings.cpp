@@ -764,6 +764,32 @@ Define("string-fill!", StringFillPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
+Define("string-compare", StringComparePrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("string-compare", argc);
+    StringArgCheck("string-compare", argv[0]);
+    StringArgCheck("string-compare", argv[1]);
+
+    return(MakeFixnum(StringCompare(argv[0], argv[1])));
+}
+
+Define("string-ci-compare", StringCiComparePrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("string-ci-compare", argc);
+    StringArgCheck("string-ci-compare", argv[0]);
+    StringArgCheck("string-ci-compare", argv[1]);
+
+    return(MakeFixnum(StringCiCompare(argv[0], argv[1])));
+}
+
+Define("string-hash", StringHashPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("string-hash", argc);
+    StringArgCheck("string-hash", argv[0]);
+
+    return(MakeFixnum(StringHash(argv[0])));
+}
+
 static FPrimitive * Primitives[] =
 {
     &StringPPrimitive,
@@ -790,11 +816,17 @@ static FPrimitive * Primitives[] =
     &ListToStringPrimitive,
     &StringCopyPrimitive,
     &StringCopyModifyPrimitive,
-    &StringFillPrimitive
+    &StringFillPrimitive,
+    &StringComparePrimitive,
+    &StringCiComparePrimitive,
+    &StringHashPrimitive
 };
 
 void SetupStrings()
 {
+    DefineComparator("string-comparator", &StringPPrimitive, &StringEqualPPrimitive,
+            &StringComparePrimitive, &StringHashPrimitive);
+
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

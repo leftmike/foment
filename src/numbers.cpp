@@ -3353,6 +3353,23 @@ Define("arithmetic-shift", ArithmeticShiftPrimitive)(int_t argc, FObject argv[])
     return(BignumArithmeticShift(ToBignum(argv[0]), cnt));
 }
 
+Define("number-compare", NumberComparePrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("number-compare", argc);
+    NumberArgCheck("number-compare", argv[0]);
+    NumberArgCheck("number-compare", argv[1]);
+
+    return(MakeFixnum(NumberCompare(argv[0], argv[1])));
+}
+
+Define("number-hash", NumberHashPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("number-hash", argc);
+    NumberArgCheck("number-hash", argv[0]);
+
+    return(MakeFixnum(NumberHash(argv[0])));
+}
+
 static FPrimitive * Primitives[] =
 {
     &NumberPPrimitive,
@@ -3421,7 +3438,9 @@ static FPrimitive * Primitives[] =
     &BitCountPrimitive,
     &IntegerLengthPrimitive,
     &FirstSetBitPrimitive,
-    &ArithmeticShiftPrimitive
+    &ArithmeticShiftPrimitive,
+    &NumberComparePrimitive,
+    &NumberHashPrimitive
 };
 
 void SetupNumbers()

@@ -185,6 +185,17 @@ Define("boolean=?", BooleanEqualPPrimitive)(int_t argc, FObject argv[])
     return(TrueObject);
 }
 
+Define("boolean-compare", BooleanComparePrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("boolean-compare", argc);
+    BooleanArgCheck("boolean-compare", argv[0]);
+    BooleanArgCheck("boolean-compare", argv[1]);
+
+    if (argv[0] == argv[1])
+        return(MakeFixnum(0));
+    return(argv[0] < argv[1] ? MakeFixnum(-1) : MakeFixnum(1));
+}
+
 // ---- Symbols ----
 
 FObject StringCToSymbol(const char * s)
@@ -1088,6 +1099,9 @@ void SetupFoment(FThreadState * ts)
     SetupNumbers();
     SetupThreads();
     SetupGC();
+
+    DefineComparator("boolean-comparator", &BooleanPPrimitive, &BooleanEqualPPrimitive,
+            &BooleanComparePrimitive, &EqHashPrimitive);
 
     LibraryExport(R.BedrockLibrary,
             EnvironmentSetC(R.Bedrock, "%standard-input", R.StandardInput));

@@ -28,6 +28,8 @@ int PopulationCount(uint64_t x)
 // The implementation uses hash array mapped tries;
 // see http://lampwww.epfl.ch/papers/idealhashtrees.pdf
 
+#define HASH_MODULO (MAXIMUM_FIXNUM + 1)
+
 static FObject MakeHashTree(uint_t len, uint_t bm, FObject * bkts)
 {
   FAssert(len == (uint_t) PopulationCount(bm));
@@ -90,7 +92,7 @@ static inline uint_t BucketP(FObject htree, uint_t bdx)
 static FObject HashTreeRef(FObject htree, uint_t idx, FObject nfnd)
 {
     FAssert(HashTreeP(htree));
-    FAssert(idx < MAXIMUM_HASH_INDEX);
+    FAssert(idx < HASH_MODULO);
 
     uint_t dpth = 0;
 
@@ -233,7 +235,7 @@ static FObject HashTreeSet(FObject htree, uint_t idx, uint_t dpth, FObject val)
 
 static FObject HashTreeSet(FObject htree, uint_t idx, FObject val)
 {
-    FAssert(idx < MAXIMUM_HASH_INDEX);
+    FAssert(idx < HASH_MODULO);
 
     return(HashTreeSet(htree, idx, 0, val));
 }
@@ -323,7 +325,7 @@ static FObject HashTreeDelete(FObject htree, uint_t idx, uint_t dpth)
 
 static FObject HashTreeDelete(FObject htree, uint_t idx)
 {
-    FAssert(idx < MAXIMUM_HASH_INDEX);
+    FAssert(idx < HASH_MODULO);
 
     return(HashTreeDelete(htree, idx, 0));
 }
@@ -395,27 +397,27 @@ Define("hash-tree-ref", HashTreeRefPrimitive)(int_t argc, FObject argv[])
 {
     ThreeArgsCheck("hash-tree-ref", argc);
     HashTreeArgCheck("hash-tree-ref", argv[0]);
-    FixnumArgCheck("hash-tree-ref", argv[1]);
+    NonNegativeArgCheck("hash-tree-ref", argv[1], 1);
 
-    return(HashTreeRef(argv[0], AsFixnum(argv[1]), argv[2]));
+    return(HashTreeRef(argv[0], NumberHash(argv[1]) % HASH_MODULO, argv[2]));
 }
 
 Define("hash-tree-set!", HashTreeSetPrimitive)(int_t argc, FObject argv[])
 {
     ThreeArgsCheck("hash-tree-set!", argc);
     HashTreeArgCheck("hash-tree-set!", argv[0]);
-    FixnumArgCheck("hash-tree-set!", argv[1]);
+    NonNegativeArgCheck("hash-tree-set!", argv[1], 1);
 
-    return(HashTreeSet(argv[0], AsFixnum(argv[1]), argv[2]));
+    return(HashTreeSet(argv[0], NumberHash(argv[1]) % HASH_MODULO, argv[2]));
 }
 
 Define("hash-tree-delete", HashTreeDeletePrimitive)(int_t argc, FObject argv[])
 {
     TwoArgsCheck("hash-tree-delete", argc);
     HashTreeArgCheck("hash-tree-delete", argv[0]);
-    FixnumArgCheck("hash-tree-delete", argv[1]);
+    NonNegativeArgCheck("hash-tree-delete", argv[1], 1);
 
-    return(HashTreeDelete(argv[0], AsFixnum(argv[1])));
+    return(HashTreeDelete(argv[0], NumberHash(argv[1]) % HASH_MODULO));
 }
 
 Define("hash-tree-buckets", HashTreeBucketsPrimitive)(int_t argc, FObject argv[])
@@ -442,7 +444,7 @@ FObject StringToSymbol(FObject str)
 {
     FAssert(StringP(str));
 
-    uint_t idx = StringHash(str) % MAXIMUM_HASH_INDEX;
+    uint_t idx = StringHash(str) % HASH_MODULO;
     FObject lst = HashTreeRef(R.SymbolHashTree, idx, MakeFixnum(idx));
     FObject obj = lst;
 
@@ -458,7 +460,7 @@ FObject StringToSymbol(FObject str)
     FSymbol * sym = (FSymbol *) MakeObject(sizeof(FSymbol), SymbolTag);
     sym->Reserved = MakeLength(NextSymbolHash, SymbolTag);
     sym->String = str;
-    NextSymbolHash = (NextSymbolHash + 1) % MAXIMUM_HASH_INDEX;
+    NextSymbolHash = (NextSymbolHash + 1) % HASH_MODULO;
 
     R.SymbolHashTree = HashTreeSet(R.SymbolHashTree, idx, MakePair(sym, lst));
 
@@ -467,7 +469,7 @@ FObject StringToSymbol(FObject str)
 
 FObject StringLengthToSymbol(FCh * s, int_t sl)
 {
-    uint_t idx = StringLengthHash(s, sl) % MAXIMUM_HASH_INDEX;
+    uint_t idx = StringLengthHash(s, sl) % HASH_MODULO;
     FObject lst = HashTreeRef(R.SymbolHashTree, idx, MakeFixnum(idx));
     FObject obj = lst;
 
@@ -483,7 +485,7 @@ FObject StringLengthToSymbol(FCh * s, int_t sl)
     FSymbol * sym = (FSymbol *) MakeObject(sizeof(FSymbol), SymbolTag);
     sym->Reserved = MakeLength(NextSymbolHash, SymbolTag);
     sym->String = MakeString(s, sl);
-    NextSymbolHash = (NextSymbolHash + 1) % MAXIMUM_HASH_INDEX;
+    NextSymbolHash = (NextSymbolHash + 1) % HASH_MODULO;
 
     R.SymbolHashTree = HashTreeSet(R.SymbolHashTree, idx, MakePair(sym, lst));
 
@@ -513,7 +515,7 @@ static FObject HashMapRef(FObject hmap, FObject key, FObject def, FEquivFn eqfn,
 {
     FAssert(HashMapP(hmap));
 
-    uint_t idx = hashfn(key) % MAXIMUM_HASH_INDEX;
+    uint_t idx = hashfn(key) % HASH_MODULO;
     FObject lst = HashTreeRef(AsHashMap(hmap)->HashTree, idx, MakeFixnum(idx));
 
     while (PairP(lst))
@@ -532,7 +534,7 @@ static void HashMapSet(FObject hmap, FObject key, FObject val, FEquivFn eqfn, FH
 {
     FAssert(HashMapP(hmap));
 
-    uint_t idx = hashfn(key) % MAXIMUM_HASH_INDEX;
+    uint_t idx = hashfn(key) % HASH_MODULO;
     FObject slot = HashTreeRef(AsHashMap(hmap)->HashTree, idx, MakeFixnum(idx));
     FObject lst = slot;
 
@@ -565,7 +567,7 @@ static void HashMapDelete(FObject hmap, FObject key, FEquivFn eqfn, FHashFn hash
 {
     FAssert(HashMapP(hmap));
 
-    uint_t idx = hashfn(key) % MAXIMUM_HASH_INDEX;
+    uint_t idx = hashfn(key) % HASH_MODULO;
     FObject lst = HashTreeRef(AsHashMap(hmap)->HashTree, idx, MakeFixnum(idx));
     FObject prev = NoValueObject;
 
@@ -675,7 +677,7 @@ void CheckVisitBucket(FObject lst, uint_t idx, FVisitFn vfn, FObject ctx)
     while (PairP(lst))
     {
         FAssert(PairP(First(lst)));
-        FAssert(EqHash(First(First(lst))) % MAXIMUM_HASH_INDEX == idx);
+        FAssert(EqHash(First(First(lst))) % HASH_MODULO == idx);
 
         lst = Rest(lst);
     }
@@ -705,7 +707,7 @@ static void EqHashMapRehash(FObject hmap, FObject tconc)
 
         FObject key = First(First(kvn));
         uint_t odx = OldIndex(kvn);
-        uint_t idx = EqHash(key) % MAXIMUM_HASH_INDEX;
+        uint_t idx = EqHash(key) % HASH_MODULO;
 
         if (idx != odx)
         {

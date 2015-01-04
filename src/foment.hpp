@@ -30,11 +30,11 @@ HashTree and Comparator:
 -- add bags: HashBag
 -- add maps: HashMap
 -- add comparators in scheme
+-- don't export eq-hash, char-ci-compare, string-hash, string-ci-compare, string-compare,
+number-compare, number-hash
 -- document comparators
--- document hash maps
 -- test comparators
 -- test hash maps
--- make hash-map routines work with eq-hash-maps as well
 
 Compiler:
 -- get rid of -no-inline-procedures and -no-inline-imports
@@ -723,6 +723,29 @@ inline int_t RecordP(FObject obj, FObject rt)
 
 #define RecordNumFields(obj) ObjectLength(obj)
 
+// ---- Primitives ----
+
+#define PrimitiveP(obj) (IndirectTag(obj) == PrimitiveTag)
+#define AsPrimitive(obj) ((FPrimitive *) (obj))
+
+typedef FObject (*FPrimitiveFn)(int_t argc, FObject argv[]);
+typedef struct
+{
+    uint_t Reserved;
+    FPrimitiveFn PrimitiveFn;
+    const char * Name;
+    const char * Filename;
+    int_t LineNumber;
+} FPrimitive;
+
+#define Define(name, fn)\
+    static FObject fn ## Fn(int_t argc, FObject argv[]);\
+    FPrimitive fn = {PrimitiveTag, fn ## Fn, name, __FILE__, __LINE__};\
+    static FObject fn ## Fn
+
+void DefinePrimitive(FObject env, FObject lib, FPrimitive * prim);
+FObject MakePrimitive(FPrimitive * prim);
+
 // ---- HashTree ----
 
 #define HashTreeP(obj) (IndirectTag(obj) == HashTreeTag)
@@ -738,7 +761,6 @@ typedef struct
 FObject MakeHashTree();
 
 #define HashTreeLength(obj) ObjectLength(obj)
-#define MAXIMUM_HASH_INDEX MAXIMUM_FIXNUM
 
 // ---- Comparator ----
 
@@ -757,12 +779,15 @@ typedef struct
 } FComparator;
 
 FObject MakeComparator(FObject ttfn, FObject eqfn, FObject compfn, FObject hashfn);
+void DefineComparator(char * nam, FPrimitive * ttprim, FPrimitive * eqprim,
+    FPrimitive * compprim, FPrimitive * hashprim);
 
 int_t EqP(FObject obj1, FObject obj2);
 int_t EqvP(FObject obj1, FObject obj2);
 int_t EqualP(FObject obj1, FObject obj2);
 
 uint_t EqHash(FObject obj);
+extern FPrimitive EqHashPrimitive;
 
 // ---- HashMap ----
 
@@ -819,29 +844,6 @@ FObject StringLengthToSymbol(FCh * s, int_t sl);
 FObject PrefixSymbol(FObject str, FObject sym);
 
 #define SymbolHash(obj) ByteLength(obj)
-
-// ---- Primitives ----
-
-#define PrimitiveP(obj) (IndirectTag(obj) == PrimitiveTag)
-#define AsPrimitive(obj) ((FPrimitive *) (obj))
-
-typedef FObject (*FPrimitiveFn)(int_t argc, FObject argv[]);
-typedef struct
-{
-    uint_t Reserved;
-    FPrimitiveFn PrimitiveFn;
-    const char * Name;
-    const char * Filename;
-    int_t LineNumber;
-} FPrimitive;
-
-#define Define(name, fn)\
-    static FObject fn ## Fn(int_t argc, FObject argv[]);\
-    static FPrimitive fn = {PrimitiveTag, fn ## Fn, name, __FILE__, __LINE__};\
-    static FObject fn ## Fn
-
-void DefinePrimitive(FObject env, FObject lib, FPrimitive * prim);
-FObject MakePrimitive(FPrimitive * prim);
 
 // ---- Roots ----
 

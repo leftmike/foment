@@ -31,6 +31,15 @@ FObject MakeComparator(FObject ttfn, FObject eqfn, FObject compfn, FObject hashf
     return(comp);
 }
 
+void DefineComparator(char * nam, FPrimitive * ttprim, FPrimitive * eqprim,
+    FPrimitive * compprim, FPrimitive * hashprim)
+{
+    LibraryExport(R.BedrockLibrary, EnvironmentSetC(R.Bedrock, nam,
+            MakeComparator(ttprim == 0 ? TrueObject : MakePrimitive(ttprim),
+                    MakePrimitive(eqprim), compprim == 0 ? FalseObject : MakePrimitive(compprim),
+                    hashprim == 0 ? FalseObject : MakePrimitive(hashprim))));
+}
+
 Define("%make-comparator", MakeComparatorPrimitive)(int_t argc, FObject argv[])
 {
     FourArgsCheck("make-comparator", argc);
@@ -341,7 +350,7 @@ Define("eq-hash", EqHashPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("eq-hash", argc);
 
-    return(MakeFixnum(EqHash(argv[0]) % MAXIMUM_HASH_INDEX));
+    return(MakeFixnum(EqHash(argv[0])));
 }
 
 // ---- Default Comparator ----
@@ -620,7 +629,7 @@ Define("default-hash", DefaultHashPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("default-hash", argc);
 
-    return(MakeFixnum(DefaultHash(argv[0]) % MAXIMUM_HASH_INDEX));
+    return(MakeFixnum(DefaultHash(argv[0])));
 }
 
 Define("default-compare", DefaultComparePrimitive)(int_t argc, FObject argv[])
@@ -644,7 +653,8 @@ static FPrimitive * Primitives[] =
     &ComparatorHashFunctionPPrimitive,
     &EqvPPrimitive,
     &EqPPrimitive,
-    &EqualPPrimitive
+    &EqualPPrimitive,
+    &EqHashPrimitive
 };
 
 void SetupCompare()
@@ -664,6 +674,9 @@ void SetupCompare()
 
 void SetupComparePrims()
 {
+    LibraryExport(R.BedrockLibrary,
+            EnvironmentSetC(R.Bedrock, "default-comparator", R.DefaultComparator));
+
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

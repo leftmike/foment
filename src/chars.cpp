@@ -2,13 +2,6 @@
 
 Foment
 
-- char-upper-case?: [Uppercase] use DerivedCoreProperties.txt
-- char-lower-case?: [Lowercase] use DerivedCoreProperties.txt
-- char-upcase: use UnicodeData.txt
-- char-downcase: use UnicodeData.txt
-
-character range: 0x0000 to 0x10FFFF which is 21 bits
-
 */
 
 #include "foment.hpp"
@@ -277,6 +270,31 @@ Define("char-foldcase", CharFoldcasePrimitive)(int_t argc, FObject argv[])
     return(MakeCharacter(CharFoldcase(AsCharacter(argv[0]))));
 }
 
+Define("char-compare", CharComparePrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("char-compare", argc);
+    CharacterArgCheck("char-compare", argv[0]);
+    CharacterArgCheck("char-compare", argv[1]);
+
+    if (argv[0] == argv[1])
+        return(MakeFixnum(0));
+    return(AsCharacter(argv[0]) < AsCharacter(argv[1]) ? MakeFixnum(-1) : MakeFixnum(1));
+}
+
+Define("char-ci-compare", CharCiComparePrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("char-ci-compare", argc);
+    CharacterArgCheck("char-ci-compare", argv[0]);
+    CharacterArgCheck("char-ci-compare", argv[1]);
+
+    FCh ch0 = CharFoldcase(AsCharacter(argv[0]));
+    FCh ch1 = CharFoldcase(AsCharacter(argv[1]));
+
+    if (ch0 == ch1)
+        return(MakeFixnum(0));
+    return(ch0 < ch1 ? MakeFixnum(-1) : MakeFixnum(1));
+}
+
 static FPrimitive * Primitives[] =
 {
     &CharPPrimitive,
@@ -300,11 +318,15 @@ static FPrimitive * Primitives[] =
     &IntegerToCharPrimitive,
     &CharUpcasePrimitive,
     &CharDowncasePrimitive,
-    &CharFoldcasePrimitive
+    &CharFoldcasePrimitive,
+    &CharCiComparePrimitive
 };
 
 void SetupCharacters()
 {
+    DefineComparator("char-comparator", &CharPPrimitive, &CharEqualPPrimitive,
+            &CharComparePrimitive, &EqHashPrimitive);
+
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }

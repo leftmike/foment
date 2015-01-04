@@ -17,7 +17,7 @@
 (import (scheme time))
 (import (scheme write))
 
-(cond-expand ((library (chibi test)) (import (chibi test))) (else 'nothing))
+(cond-expand ((library (chibi test)) (import (chibi test))))
 
 (cond-expand
     (chibi
