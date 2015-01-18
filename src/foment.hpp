@@ -29,11 +29,6 @@ HashTree and Comparator:
 -- add sets: HashSet
 -- add bags: HashBag
 -- add maps: HashMap
--- add comparators in scheme
--- don't export eq-hash, char-ci-compare, string-hash, string-ci-compare, string-compare,
-number-compare, number-hash
--- document comparators
--- test comparators
 -- test hash maps
 
 Compiler:

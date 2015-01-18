@@ -388,16 +388,7 @@
         boolean-comparator
         char-comparator
         string-comparator
-        default-comparator
-        
-string-hash
-string-compare
-string-ci-compare
-eq-hash
-char-ci-compare
-number-compare
-number-hash
-        )
+        default-comparator)
     (export
         make-ascii-port
         make-latin1-port
@@ -448,6 +439,13 @@ number-hash
         full-error
         loaded-libraries
         library-path
+        string-hash
+        string-compare
+        string-ci-compare
+        eq-hash
+        char-ci-compare
+        number-compare
+        number-hash
         make-hash-tree
         hash-tree?
         hash-tree-ref
@@ -2378,12 +2376,525 @@ number-hash
 (define-library (srfi 114)
     (import (foment base))
     (export
-        make-comparator
         comparator?
+        comparator-comparison-procedure?
+        comparator-hash-function?
+        boolean-comparator
+        char-comparator
+        char-ci-comparator
+        string-comparator
+        string-ci-comparator
+        symbol-comparator
+        exact-integer-comparator
+        integer-comparator
+        rational-comparator
+        real-comparator
+        complex-comparator
+        number-comparator
+        pair-comparator
+        list-comparator
+        vector-comparator
+        bytevector-comparator
+        default-comparator
+        make-comparator
+        make-inexact-real-comparator
+        make-vector-comparator
+        make-bytevector-comparator
+        make-list-comparator
+        make-vectorwise-comparator
+        make-listwise-comparator
+        make-car-comparator
+        make-cdr-comparator
+        make-pair-comparator
+        make-improper-list-comparator
+        make-selecting-comparator
+        make-refining-comparator
+        make-reverse-comparator
+        make-debug-comparator
+        eq-comparator
+        eqv-comparator
+        equal-comparator
         comparator-type-test-procedure
         comparator-equality-predicate
         comparator-comparison-procedure
         comparator-hash-function
-        comparator-comparison-procedure?
-        comparator-hash-function?
-        default-comparator))
+        comparator-test-type
+        comparator-check-type
+        comparator-equal?
+        comparator-compare
+        comparator-hash
+        make-comparison<
+        make-comparison>
+        make-comparison<=
+        make-comparison>=
+        make-comparison=/<
+        make-comparison=/>
+        if3
+        if=?
+        if<?
+        if>?
+        if<=?
+        if>=?
+        if-not=?
+        =?
+        <?
+        >?
+        <=?
+        >=?
+        make=
+        make<
+        make>
+        make<=
+        make>=
+        in-open-interval?
+        in-closed-interval?
+        in-open-closed-interval?
+        in-closed-open-interval?
+        comparator-min
+        comparator-max)
+    (begin
+        (define char-ci-comparator
+            (make-comparator char? char-ci=? char-ci-compare
+                    (lambda (ch) (eq-hash (char-foldcase ch)))))
+
+        (define string-ci-comparator
+            (make-comparator string? string-ci=? string-ci-compare
+                    (lambda (str) (string-hash (string-foldcase str)))))
+
+        (define symbol-comparator
+            (make-comparator symbol? symbol=?
+                    (lambda (sym1 sym2)
+                        (string-compare (symbol->string sym1) (symbol->string sym2)))
+                    (lambda (sym) (string-hash (symbol->string sym)))))
+
+        (define exact-integer-comparator
+            (make-comparator exact-integer? = number-compare number-hash))
+
+        (define integer-comparator
+            (make-comparator integer? = number-compare number-hash))
+
+        (define rational-comparator
+            (make-comparator rational? = number-compare number-hash))
+
+        (define real-comparator
+            (make-comparator real? = number-compare number-hash))
+
+        (define complex-comparator
+            (make-comparator complex? = number-compare number-hash))
+
+        (define number-comparator
+            (make-comparator number? = number-compare number-hash))
+
+        (define (make-inexact-real-comparator epsilon rounding nan-handling)
+            (define rounded-to
+                (cond
+                    ((procedure? rounding) rounding)
+                    ((eq? rounding 'round) (lambda (x epsilon) (round (/ x epsilon))))
+                    ((eq? rounding 'ceiling) (lambda (x epsilon) (ceiling (/ x epsilon))))
+                    ((eq? rounding 'floor) (lambda (x epsilon) (floor (/ x epsilon))))
+                    ((eq? rounding 'truncate) (lambda (x epsilon) (truncate (/ x epsilon))))
+                    (else (full-error 'assertion-violation 'make-inexact-real-comparator #f
+                            "make-inexact-real-comparator: expected round, ceiling, floor, truncate, or a procedure"
+                            rounding))))
+            (define nan-compare
+                (cond
+                    ((procedure? nan-handling) (lambda (nan1 other) (nan-handling other)))
+                    ((eq? nan-handling 'error)
+                        (lambda (nan1 other)
+                            (full-error 'assertion-violation 'make-inexact-real-comparator #f
+                                "make-inexact-real-comparator: attempt to compare nan with non-nan"
+                                other)))
+                    ((eq? nan-handling 'min) (lambda (nan1 other) (if nan1 -1 1)))
+                    ((eq? nan-handling 'max) (lambda (nan1 other) (if nan1 1 -1)))
+                    (else
+                        (full-error 'assertion-violation 'make-inexact-real-comparator #f
+                            "make-inexact-real-comparator: expected error, min, max, or a procedure"
+                            nan-handling))))
+            (make-comparator (lambda (obj) (and (number? obj) (inexact? obj) (real? obj))) #t
+                (lambda (obj1 obj2)
+                    (cond
+                        ((and (nan? obj1) (nan? obj2)) 0)
+                        ((nan? obj1) (nan-compare #t obj2))
+                        ((nan? obj2) (nan-compare #f obj1))
+                        (else
+                            (number-compare (rounded-to obj1 epsilon) (rounded-to obj2 epsilon)))))
+                (lambda (obj)
+                    (if (nan? obj)
+                        0
+                        (number-hash (rounded-to obj epsilon))))))
+
+        (define hash-modulo (expt 2 27))
+
+        (define (make-listwise-comparator list? comparator null? car cdr)
+            (make-comparator list? #t
+                (letrec ((compare
+                    (lambda (obj1 obj2)
+                        (cond
+                            ((and (null? obj1) (null? obj2)) 0)
+                            ((null? obj1) -1)
+                            ((null? obj2) 1)
+                            (else
+                                (let ((result
+                                            (comparator-compare comparator (car obj1) (car obj2))))
+                                    (if (= result 0)
+                                        (compare (cdr obj1) (cdr obj2))
+                                        result)))))))
+                    compare)
+                (lambda (obj)
+                    (let hash ((obj obj) (result 5381))
+                        (if (null? obj)
+                            result
+                            (let* ((prod (modulo (* result 33) hash-modulo))
+                                    (sum (+ prod (comparator-hash comparator (car obj)))))
+                                (hash (cdr obj) sum)))))))
+
+        (define (make-list-comparator comparator)
+            (make-listwise-comparator (lambda (obj) (or (pair? obj) (null? obj)))
+                comparator null? car cdr))
+
+        (define list-comparator (make-list-comparator default-comparator))
+
+        (define (make-vectorwise-comparator vector? comparator vector-length vector-ref)
+            (make-comparator vector? #t
+                (lambda (obj1 obj2)
+                    (let* ((len1 (vector-length obj1))
+                            (len2 (vector-length obj2))
+                            (last-idx (- len1 1)))
+                        (cond
+                            ((< len1 len2) -1)
+                            ((> len1 len2) 1)
+                            ((= len1 0) 0)
+                            (else
+                                (let compare ((idx 0))
+                                    (let ((result
+                                            (comparator-compare comparator (vector-ref obj1 idx)
+                                                (vector-ref obj2 idx))))
+                                        (if (or (not (= result 0)) (= idx last-idx))
+                                            result
+                                            (compare (+ idx 1)))))))))
+                (lambda (obj)
+                    (let ((length (vector-length obj)))
+                        (let hash ((idx 0) (result 5381))
+                            (if (< idx length)
+                                (let* ((prod (modulo (* result 33) hash-modulo))
+                                        (sum (+ prod (comparator-hash comparator
+                                                (vector-ref obj idx)))))
+                                    (hash (+ idx 1) sum))
+                                result))))))
+
+        (define (make-vector-comparator comparator)
+            (make-vectorwise-comparator vector? comparator vector-length vector-ref))
+
+        (define vector-comparator (make-vector-comparator default-comparator))
+
+        (define (make-bytevector-comparator comparator)
+            (make-vectorwise-comparator bytevector? comparator bytevector-length
+                    bytevector-u8-ref))
+
+        (define bytevector-comparator (make-bytevector-comparator default-comparator))
+
+        (define (make-car-comparator comparator)
+            (make-comparator pair? #t
+                (lambda (obj1 obj2) (comparator-compare comparator (car obj1) (car obj2)))
+                (lambda (obj) (comparator-hash comparator (car obj)))))
+
+        (define (make-cdr-comparator comparator)
+            (make-comparator pair? #t
+                (lambda (obj1 obj2) (comparator-compare comparator (cdr obj1) (cdr obj2)))
+                (lambda (obj) (comparator-hash comparator (cdr obj)))))
+
+
+        (define (make-pair-comparator car-comparator cdr-comparator)
+            (make-comparator pair? #t
+                (lambda (obj1 obj2)
+                    (let ((result (comparator-compare car-comparator (car obj1) (car obj2))))
+                        (if (= result 0)
+                            (comparator-compare cdr-comparator (cdr obj1) (cdr obj2))
+                            result)))
+                (lambda (obj)
+                    (+ (comparator-hash car-comparator (car obj))
+                            (comparator-hash cdr-comparator (cdr obj))))))
+
+        (define pair-comparator (make-pair-comparator default-comparator default-comparator))
+
+        (define (make-improper-list-comparator comparator)
+            (let ((pair-comparator (make-pair-comparator comparator comparator)))
+                (make-comparator #t #t
+                    (lambda (obj1 obj2)
+                        (cond
+                            ((null? obj1) (if (null? obj2) 0 -1))
+                            ((null? obj2) 1)
+                            ((pair? obj1)
+                                (if (pair? obj2)
+                                    (comparator-compare pair-comparator obj1 obj2)
+                                    -1))
+                            (else (comparator-compare comparator obj1 obj2))))
+                    (lambda (obj)
+                        (cond
+                            ((null? obj) 0)
+                            ((pair? obj) (comparator-hash pair-comparator obj))
+                            (else (comparator-hash comparator obj)))))))
+
+        (define (make-comparators-type-test comparators)
+            (lambda (obj)
+                (let type-test ((lst comparators))
+                    (if (null? lst)
+                        #f
+                        (if (comparator-test-type (car lst) obj)
+                            #t
+                            (type-test (cdr lst)))))))
+
+        (define (make-comparators-hash which comparators)
+            (lambda (obj)
+                (let hash ((lst comparators))
+                    (if (null? lst)
+                        (full-error 'assertion-violation which #f
+                                (string-append (symbol->string which)
+                                        ": no matching comparator") obj comparators)
+                        (if (comparator-test-type (car lst) obj)
+                            (comparator-hash (car lst) obj)
+                            (hash (cdr lst)))))))
+
+        (define (make-selecting-comparator . comparators)
+            (make-comparator
+                (make-comparators-type-test comparators)
+                #t
+                (lambda (obj1 obj2)
+                    (let compare ((lst comparators))
+                        (if (null? lst)
+                            (full-error 'assertion-violation 'make-selecting-comparator #f
+                                "make-selecting-comparator: no matching comparator" obj1 obj2
+                                comparators)
+                            (if (and (comparator-test-type (car lst) obj1)
+                                        (comparator-test-type (car lst) obj2))
+                                (comparator-compare (car lst) obj1 obj2)
+                                (compare (cdr lst))))))
+                (make-comparators-hash 'make-selecting-comparator comparators)))
+
+        (define (make-refining-comparator . comparators)
+            (make-comparator
+                (make-comparators-type-test comparators)
+                #t
+                (lambda (obj1 obj2)
+                    (let compare ((lst comparators) (success #f))
+                        (if (null? lst)
+                            (if success
+                                0
+                                (full-error 'assertion-violation 'make-refining-comparator #f
+                                        "make-refining-comparator: no matching comparator" obj1
+                                        obj2 comparators))
+                            (if (and (comparator-test-type (car lst) obj1)
+                                        (comparator-test-type (car lst) obj2))
+                                (let ((result (comparator-compare (car lst) obj1 obj2)))
+                                    (if (= result 0)
+                                        (compare (cdr lst) #t)
+                                        result))
+                                (compare (cdr lst) success)))))
+                (make-comparators-hash 'make-refining-comparator comparators)))
+
+        (define (make-reverse-comparator comparator)
+            (make-comparator
+                (comparator-type-test-procedure comparator)
+                (comparator-equality-predicate comparator)
+                (lambda (obj1 obj2) (- (comparator-compare comparator obj1 obj2)))
+                (comparator-hash-function comparator)))
+
+        (define (make-debug-comparator comparator) comparator)
+
+        (define eq-comparator
+            (make-comparator #t eq? #f (comparator-hash-function default-comparator)))
+
+        (define eqv-comparator
+            (make-comparator #t eqv? #f (comparator-hash-function default-comparator)))
+
+        (define equal-comparator
+            (make-comparator #t equal? #f (comparator-hash-function default-comparator)))
+
+        (define (comparator-test-type comparator obj)
+            ((comparator-type-test-procedure comparator) obj))
+
+        (define (comparator-check-type comparator obj)
+            (if (not ((comparator-type-test-procedure comparator) obj))
+                (full-error 'assertion-violation 'comparator-check-type #f
+                        "comparator-check-type: wrong type" obj comparator)))
+
+        (define (comparator-equal? comparator obj1 obj2)
+            ((comparator-equality-predicate comparator) obj1 obj2))
+
+        (define (comparator-compare comparator obj1 obj2)
+            ((comparator-comparison-procedure comparator) obj1 obj2))
+
+        (define (comparator-hash comparator obj)
+            ((comparator-hash-function comparator) obj))
+
+        (define (make-comparison< <)
+            (lambda (obj1 obj2)
+                (cond
+                    ((< obj1 obj2) -1)
+                    ((< obj2 obj1) 1)
+                    (else 0))))
+
+        (define (make-comparison> >)
+            (lambda (obj1 obj2)
+                (cond
+                    ((> obj1 obj2) 1)
+                    ((> obj2 obj1) -1)
+                    (else 0))))
+
+        (define (make-comparison<= <=)
+            (lambda (obj1 obj2)
+                (if (<= obj1 obj2)
+                    (if (<= obj2 obj1) 0 -1) 1)))
+
+        (define (make-comparison>= >=)
+            (lambda (obj1 obj2)
+                (if (>= obj1 obj2)
+                    (if (>= obj2 obj1) 0 1) -1)))
+
+        (define (make-comparison=/< = <)
+            (lambda (obj1 obj2)
+                (cond
+                    ((= obj1 obj2) 0)
+                    ((< obj1 obj2) -1)
+                    (else 1))))
+
+        (define (make-comparison=/> = >)
+            (lambda (obj1 obj2)
+                (cond
+                    ((= obj1 obj2) 0)
+                    ((> obj1 obj2) 1)
+                    (else -1))))
+
+        (define-syntax if3
+            (syntax-rules ()
+                ((if3 expr less equal greater)
+                    (case expr
+                        ((-1) less)
+                        ((0) equal)
+                        ((1) greater)
+                        (else (full-error 'assertion-violation 'if3 #f "if3: expected -1, 0, or 1"
+                                expr))))))
+
+        (define-syntax if=?
+            (syntax-rules ()
+                ((if=? expr consequent) (if=? expr consequent (no-value)))
+                ((if=? expr consequent alternate) (if3 expr alternate consequent alternate))))
+
+        (define-syntax if<?
+            (syntax-rules ()
+                ((if<? expr consequent) (if<? expr consequent (no-value)))
+                ((if<? expr consequent alternate) (if3 expr consequent alternate alternate))))
+
+        (define-syntax if>?
+            (syntax-rules ()
+                ((if>? expr consequent) (if>? expr consequent (no-value)))
+                ((if>? expr consequent alternate) (if3 expr alternate alternate consequent))))
+
+        (define-syntax if<=?
+            (syntax-rules ()
+                ((if<=? expr consequent) (if<=? expr consequent (no-value)))
+                ((if<=? expr consequent alternate) (if3 expr consequent consequent alternate))))
+
+        (define-syntax if>=?
+            (syntax-rules ()
+                ((if>=? expr consequent) (if>=? expr consequent (no-value)))
+                ((if>=? expr consequent alternate) (if3 expr alternate consequent consequent))))
+
+        (define-syntax if-not=?
+            (syntax-rules ()
+                ((if-not=? expr consequent) (if-not=? expr consequent (no-value)))
+                ((if-not=? expr consequent alternate) (if3 expr consequent alternate consequent))))
+
+        (define (=? comparator obj1 obj2 . objs)
+            (if (comparator-equal? comparator obj1 obj2)
+                (if (null? objs)
+                    #t
+                    (apply =? comparator obj2 objs))
+                #f))
+
+        (define (<? comparator obj1 obj2 . objs)
+            (if (= (comparator-compare comparator obj1 obj2) -1)
+                (if (null? objs)
+                    #t
+                    (apply <? comparator obj2 objs))
+                #f))
+
+        (define (>? comparator obj1 obj2 . objs)
+            (if (= (comparator-compare comparator obj1 obj2) 1)
+                (if (null? objs)
+                    #t
+                    (apply >? comparator obj2 objs))
+                #f))
+
+        (define (<=? comparator obj1 obj2 . objs)
+            (if (= (comparator-compare comparator obj1 obj2) 1)
+                #f
+                (if (null? objs)
+                    #t
+                    (apply <=? comparator obj2 objs))))
+
+        (define (>=? comparator obj1 obj2 . objs)
+            (if (= (comparator-compare comparator obj1 obj2) -1)
+                #f
+                (if (null? objs)
+                    #t
+                    (apply >=? comparator obj2 objs))))
+
+        (define (make= comparator)
+            (lambda args (apply =? comparator args)))
+
+        (define (make< comparator)
+            (lambda args (apply <? comparator args)))
+
+        (define (make> comparator)
+            (lambda args (apply >? comparator args)))
+
+        (define (make<= comparator)
+            (lambda args (apply <=? comparator args)))
+
+        (define (make>= comparator)
+            (lambda args (apply >=? comparator args)))
+
+        (define in-open-interval?
+            (case-lambda
+                ((comparator obj1 obj2 obj3)
+                    (and (<? comparator obj1 obj2) (<? comparator obj2 obj3)))
+                ((obj1 obj2 obj3)
+                    (in-open-interval? default-comparator obj1 obj2 obj3))))
+
+        (define in-closed-interval?
+            (case-lambda
+                ((comparator obj1 obj2 obj3)
+                    (and (<=? comparator obj1 obj2) (<=? comparator obj2 obj3)))
+                ((obj1 obj2 obj3)
+                    (in-closed-interval? default-comparator obj1 obj2 obj3))))
+
+        (define in-open-closed-interval?
+            (case-lambda
+                ((comparator obj1 obj2 obj3)
+                    (and (<? comparator obj1 obj2) (<=? comparator obj2 obj3)))
+                ((obj1 obj2 obj3)
+                    (in-open-interval? default-comparator obj1 obj2 obj3))))
+
+        (define in-closed-open-interval?
+            (case-lambda
+                ((comparator obj1 obj2 obj3)
+                    (and (<=? comparator obj1 obj2) (<? comparator obj2 obj3)))
+                ((obj1 obj2 obj3)
+                    (in-open-interval? default-comparator obj1 obj2 obj3))))
+
+        (define comparator-min
+            (case-lambda
+                ((comparator obj1) obj1)
+                ((comparator obj1 obj2) (if (<? comparator obj1 obj2) obj1 obj2))
+                ((comparator obj1 obj2 . objs)
+                    (comparator-min comparator obj1
+                            (apply comparator-min comparator obj2 objs)))))
+
+        (define comparator-max
+            (case-lambda
+                ((comparator obj1) obj1)
+                ((comparator obj1 obj2) (if (>? comparator obj1 obj2) obj1 obj2))
+                ((comparator obj1 obj2 . objs)
+                    (comparator-max comparator obj1
+                            (apply comparator-max comparator obj2 objs)))))))
