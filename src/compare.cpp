@@ -350,7 +350,7 @@ Define("eq-hash", EqHashPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("eq-hash", argc);
 
-    return(MakeFixnum(EqHash(argv[0])));
+    return(MakeFixnum(EqHash(argv[0]) & MAXIMUM_FIXNUM));
 }
 
 // ---- Default Comparator ----
@@ -632,7 +632,7 @@ Define("default-hash", DefaultHashPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("default-hash", argc);
 
-    return(MakeFixnum(DefaultHash(argv[0])));
+    return(MakeFixnum(DefaultHash(argv[0]) & MAXIMUM_FIXNUM));
 }
 
 Define("default-compare", DefaultComparePrimitive)(int_t argc, FObject argv[])

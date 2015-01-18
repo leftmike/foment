@@ -749,10 +749,85 @@
 (test-ht 0 0)
 
 ;;
+;; eq hash maps
+;;
+
+(define eq-hmap (make-eq-hash-map))
+
+(define eq-hmap-size 10000)
+(define eq-hmap-v (make-vector eq-hmap-size #f))
+
+(define (test-hmap-add n cnt max)
+    (if (< n max)
+        (let* ((idx (random eq-hmap-size))
+                (key (string->symbol (number->string idx))))
+            (if (not (vector-ref eq-hmap-v idx))
+                (begin
+                    (vector-set! eq-hmap-v idx #t)
+                    (eq-hash-map-set! eq-hmap key idx)
+                    (test-hmap-add (+ n 1) (+ cnt 1) max))
+                (test-hmap-add (+ n 1) cnt max)))
+        cnt))
+
+(define (test-hmap-delete n cnt max)
+    (if (< n max)
+        (let* ((idx (random eq-hmap-size))
+                (key (string->symbol (number->string idx))))
+            (if (vector-ref eq-hmap-v idx)
+                (begin
+                    (vector-set! eq-hmap-v idx #f)
+                    (eq-hash-map-delete eq-hmap key)
+                    (test-hmap-delete (+ n 1) (+ cnt 1) max))
+                (test-hmap-delete (+ n 1) cnt max)))
+        cnt))
+
+(define (test-hmap-set1 n lst max)
+    (if (< n max)
+        (let* ((idx (random eq-hmap-size))
+                (key (string->symbol (number->string idx))))
+            (if (not (vector-ref eq-hmap-v idx))
+                (begin
+                    (vector-set! eq-hmap-v idx #t)
+                    (eq-hash-map-set! eq-hmap key #t)
+                    (test-hmap-set1 (+ n 1) (cons idx lst) max))
+                (test-hmap-set1 (+ n 1) lst max)))
+        lst))
+
+(define (test-hmap-set2 lst cnt)
+    (if (pair? lst)
+        (let* ((idx (car lst))
+                (key (string->symbol (number->string idx))))
+            (eq-hash-map-set! eq-hmap key idx)
+            (test-hmap-set2 (cdr lst) (+ cnt 1)))
+        cnt))
+
+(define (test-hmap idx fnd)
+    (if (< idx eq-hmap-size)
+        (begin
+            (if (vector-ref eq-hmap-v idx)
+                (let ((key (string->symbol (number->string idx))))
+                    (if (not (eq? (eq-hash-map-ref eq-hmap key 'fail) idx))
+                        (begin
+                            (display "failed: (eq-hash-map-ref eq-hmap key 'fail) got: ")
+                            (display (eq-hash-map-ref eq-hmap key 'fail))
+                            (display " expected: ")
+                            (display idx)
+                            (newline)))))
+            (test-hmap (+ idx 1) (if (vector-ref eq-hmap-v idx) (+ fnd 1) fnd)))
+        fnd))
+
+(test-hmap-add 0 0 (+ (random 3000) 3000))
+(test-hmap 0 0)
+(test-hmap-delete 0 0 6000)
+(test-hmap 0 0)
+(test-hmap-set2 (test-hmap-set1 0 '() 3000) 0)
+(test-hmap 0 0)
+
+;;
 ;; hash maps
 ;;
 
-(define hmap (make-eq-hash-map))
+(define hmap (make-hash-map))
 
 (define hmap-size 10000)
 (define hmap-v (make-vector hmap-size #f))
@@ -764,7 +839,7 @@
             (if (not (vector-ref hmap-v idx))
                 (begin
                     (vector-set! hmap-v idx #t)
-                    (eq-hash-map-set! hmap key idx)
+                    (hash-map-set! hmap key idx)
                     (test-hmap-add (+ n 1) (+ cnt 1) max))
                 (test-hmap-add (+ n 1) cnt max)))
         cnt))
@@ -776,7 +851,7 @@
             (if (vector-ref hmap-v idx)
                 (begin
                     (vector-set! hmap-v idx #f)
-                    (eq-hash-map-delete hmap key)
+                    (hash-map-delete! hmap key)
                     (test-hmap-delete (+ n 1) (+ cnt 1) max))
                 (test-hmap-delete (+ n 1) cnt max)))
         cnt))
@@ -788,7 +863,8 @@
             (if (not (vector-ref hmap-v idx))
                 (begin
                     (vector-set! hmap-v idx #t)
-                    (eq-hash-map-set! hmap key #t)
+                    (hash-map-set! hmap key #t)
+                    (hash-map-set! hmap key idx)
                     (test-hmap-set1 (+ n 1) (cons idx lst) max))
                 (test-hmap-set1 (+ n 1) lst max)))
         lst))
@@ -797,7 +873,7 @@
     (if (pair? lst)
         (let* ((idx (car lst))
                 (key (string->symbol (number->string idx))))
-            (eq-hash-map-set! hmap key idx)
+            (hash-map-set! hmap key idx)
             (test-hmap-set2 (cdr lst) (+ cnt 1)))
         cnt))
 
@@ -806,10 +882,10 @@
         (begin
             (if (vector-ref hmap-v idx)
                 (let ((key (string->symbol (number->string idx))))
-                    (if (not (eq? (eq-hash-map-ref hmap key 'fail) idx))
+                    (if (not (eq? (hash-map-ref hmap key 'fail) idx))
                         (begin
-                            (display "failed: (hash-tree-ref ht idx 'fail) got: ")
-                            (display (hash-tree-ref ht key 'fail))
+                            (display "failed: (hash-map-ref hmap key 'fail) got: ")
+                            (display (hash-map-ref hmap key 'fail))
                             (display " expected: ")
                             (display idx)
                             (newline)))))
@@ -817,8 +893,15 @@
         fnd))
 
 (test-hmap-add 0 0 (+ (random 3000) 3000))
-(test-hmap 0 0)
+(check-equal #t (= (test-hmap 0 0) (hash-map-size hmap)))
+(set! hmap (alist->hash-map (hash-map->alist hmap)))
 (test-hmap-delete 0 0 6000)
-(test-hmap 0 0)
 (test-hmap-set2 (test-hmap-set1 0 '() 3000) 0)
-(test-hmap 0 0)
+(check-equal #t (= (test-hmap 0 0) (hash-map-size hmap)))
+(check-equal #t (= (vector-length (hash-map-keys hmap)) (hash-map-size hmap)))
+
+(check-equal #t (hash-map? hmap))
+(check-equal #t (hash-map? eq-hmap))
+(check-equal #f (hash-map? #(1 2 3)))
+(check-equal #f (hash-map? '(1 2 3)))
+

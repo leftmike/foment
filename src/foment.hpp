@@ -28,8 +28,6 @@ Future:
 HashTree and Comparator:
 -- add sets: HashSet
 -- add bags: HashBag
--- add maps: HashMap
--- test hash maps
 
 Compiler:
 -- get rid of -no-inline-procedures and -no-inline-imports

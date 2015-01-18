@@ -3367,7 +3367,7 @@ Define("number-hash", NumberHashPrimitive)(int_t argc, FObject argv[])
     OneArgCheck("number-hash", argc);
     NumberArgCheck("number-hash", argv[0]);
 
-    return(MakeFixnum(NumberHash(argv[0])));
+    return(MakeFixnum(NumberHash(argv[0]) & MAXIMUM_FIXNUM));
 }
 
 static FPrimitive * Primitives[] =

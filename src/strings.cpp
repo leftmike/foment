@@ -787,7 +787,7 @@ Define("string-hash", StringHashPrimitive)(int_t argc, FObject argv[])
     OneArgCheck("string-hash", argc);
     StringArgCheck("string-hash", argv[0]);
 
-    return(MakeFixnum(StringHash(argv[0])));
+    return(MakeFixnum(StringHash(argv[0]) & MAXIMUM_FIXNUM));
 }
 
 static FPrimitive * Primitives[] =

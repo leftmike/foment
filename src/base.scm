@@ -853,9 +853,8 @@
                     (equiv (comparator-equality-predicate comp))
                     (htree (hash-map-tree-ref hmap))
                     (idx ((comparator-hash-function comp) key))
-                    (bkt (hash-tree-ref htree idx '()))
-                    (prev #f))
-                (let find ((lst bkt))
+                    (bkt (hash-tree-ref htree idx '())))
+                (let find ((lst bkt) (prev #f))
                     (if (pair? lst)
                         (if (equiv (caar lst) key)
                             (begin
@@ -863,9 +862,10 @@
                                 (if (pair? prev)
                                     (set-cdr! prev (cdr lst))
                                     (if (pair? (cdr lst))
-                                        (hash-map-tree-set! hmap (hash-tree-set! htree idx (cdr lst)))
+                                        (hash-map-tree-set! hmap
+                                                (hash-tree-set! htree idx (cdr lst)))
                                         (hash-map-tree-set! hmap (hash-tree-delete htree idx)))))
-                            (find (cdr lst)))))))
+                            (find (cdr lst) lst))))))
 
         (define not-found (cons #f #f))
 
