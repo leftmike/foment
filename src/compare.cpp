@@ -31,7 +31,7 @@ FObject MakeComparator(FObject ttfn, FObject eqfn, FObject compfn, FObject hashf
     return(comp);
 }
 
-void DefineComparator(char * nam, FPrimitive * ttprim, FPrimitive * eqprim,
+void DefineComparator(const char * nam, FPrimitive * ttprim, FPrimitive * eqprim,
     FPrimitive * compprim, FPrimitive * hashprim)
 {
     LibraryExport(R.BedrockLibrary, EnvironmentSetC(R.Bedrock, nam,
@@ -527,6 +527,9 @@ static int_t DefaultCompare(FObject obj1, FObject obj2)
         FAssert(BoxP(obj2));
 
         return(DefaultCompare(Unbox(obj1), Unbox(obj2)));
+
+    default:
+        return(0);
     }
 
     return(0);

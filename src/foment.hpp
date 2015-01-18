@@ -774,7 +774,7 @@ typedef struct
 } FComparator;
 
 FObject MakeComparator(FObject ttfn, FObject eqfn, FObject compfn, FObject hashfn);
-void DefineComparator(char * nam, FPrimitive * ttprim, FPrimitive * eqprim,
+void DefineComparator(const char * nam, FPrimitive * ttprim, FPrimitive * eqprim,
     FPrimitive * compprim, FPrimitive * hashprim);
 
 int_t EqP(FObject obj1, FObject obj2);
