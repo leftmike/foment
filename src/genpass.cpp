@@ -128,6 +128,20 @@ static FObject GPassLetBindings(FLambda * lam, FObject cdl, FObject lb)
     return(cdl);
 }
 
+static FObject GPassLetrecFormals(FLambda * lam, FObject cdl, FObject lb)
+{
+    if (PairP(lb)) {
+        cdl = GPassLetrecFormals(lam, cdl, Rest(lb));
+
+        FObject vi = First(lb);
+
+        FAssert(AsBinding(First(First(vi)))->Constant == NoValueObject);
+
+        cdl = GPassLetFormal(lam, cdl, First(First(vi)));
+    }
+    return(cdl);
+}
+
 static FObject GPassLetrecBindings(FLambda * lam, FObject cdl, FObject lrb)
 {
     // ((<formals> <init>) ...)
@@ -146,19 +160,7 @@ static FObject GPassLetrecBindings(FLambda * lam, FObject cdl, FObject lrb)
         lb = Rest(lb);
     }
 
-    lb = lrb;
-    while (PairP(lb))
-    {
-        FObject vi = First(lb);
-
-        FAssert(AsBinding(First(First(vi)))->Constant == NoValueObject);
-
-        cdl = GPassLetFormal(lam, cdl, First(First(vi)));
-
-        lb = Rest(lb);
-    }
-
-    return(cdl);
+    return(GPassLetrecFormals(lam, cdl, lrb));
 }
 
 static void SetJump(FObject tgt, FObject src, FOpcode op)
