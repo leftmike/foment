@@ -2634,7 +2634,7 @@ Define("floor-quotient", FloorQuotientPrimitive)(int_t argc, FObject argv[])
     if (GenericSign(argv[0]) * GenericSign(argv[1]) < 0)
         BignumAddFixnum(rbn, rbn, -1);
 
-    return(FlonumP(argv[0]) || FlonumP(argv[1]) ? ToInexact(rbn) : rbn);
+    return(FlonumP(argv[0]) || FlonumP(argv[1]) ? ToInexact(rbn) : Normalize(rbn));
 }
 
 Define("truncate-quotient", TruncateQuotientPrimitive)(int_t argc, FObject argv[])
@@ -2651,7 +2651,7 @@ Define("truncate-quotient", TruncateQuotientPrimitive)(int_t argc, FObject argv[
     FObject rbn = MakeBignum();
 
     BignumDivide(rbn, n, d);
-    return(FlonumP(argv[0]) || FlonumP(argv[1]) ? ToInexact(rbn) : rbn);
+    return(FlonumP(argv[0]) || FlonumP(argv[1]) ? ToInexact(rbn) : Normalize(rbn));
 }
 
 static FObject TruncateRemainder(FObject n, FObject d)
