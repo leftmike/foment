@@ -823,6 +823,62 @@
                     (if (eq? equality #t) (make-default-equality compare) equality)
                     compare hash))
 
+        (define (hash-ref htree comp key default)
+            (let* ((equiv (comparator-equality-predicate comp))
+                    (hash (comparator-hash-function comp))
+                    (ret (assoc key (hash-tree-ref htree (hash key) '()) equiv)))
+                (if (pair? ret)
+                    (cdr ret)
+                    default)))
+
+        (define (hash-set! htree comp size key val)
+            (let* ((equiv (comparator-equality-predicate comp))
+                    (idx ((comparator-hash-function comp) key))
+                    (bkt (hash-tree-ref htree idx '())))
+                (let find ((lst bkt))
+                    (if (pair? lst)
+                        (if (equiv (caar lst) key)
+                            (begin (set-cdr! (car lst) val) (values htree size))
+                            (find (cdr lst)))
+                        (let ((kvn (cons (cons key val) bkt)))
+                            (values (hash-tree-set! htree idx kvn) (+ size 1)))))))
+
+
+        (define (hash-delete! htree comp size key)
+            (let* ((equiv (comparator-equality-predicate comp))
+                    (idx ((comparator-hash-function comp) key))
+                    (bkt (hash-tree-ref htree idx '())))
+                (let find ((lst bkt) (prev #f))
+                    (if (pair? lst)
+                        (if (equiv (caar lst) key)
+                            (begin
+                                (if (pair? prev)
+                                    (begin
+                                        (set-cdr! prev (cdr lst))
+                                        (values htree (- size 1)))
+                                    (if (pair? (cdr lst))
+                                        (values (hash-tree-set! htree idx (cdr lst)) (- size 1))
+                                        (values (hash-tree-delete htree idx) (- size 1)))))
+                            (find (cdr lst) lst))
+                        (values htree size)))))
+
+        (define (hash-map-ref hmap key default)
+            (hash-ref (hash-map-tree-ref hmap) (hash-map-comparator hmap) key default))
+
+        (define (hash-map-set! hmap key val)
+            (let-values (((htree size)
+                            (hash-set! (hash-map-tree-ref hmap) (hash-map-comparator hmap)
+                                    (hash-map-size hmap) key val)))
+                (hash-map-size-set! hmap size)
+                (hash-map-tree-set! hmap htree)))
+
+        (define (hash-map-delete! hmap key)
+            (let-values (((htree size)
+                            (hash-delete! (hash-map-tree-ref hmap) (hash-map-comparator hmap)
+                                    (hash-map-size hmap) key)))
+                (hash-map-size-set! hmap size)
+                (hash-map-tree-set! hmap htree)))
+#|
         (define (hash-map-ref hmap key default)
             (let* ((comp (hash-map-comparator hmap))
                     (equiv (comparator-equality-predicate comp))
@@ -866,7 +922,7 @@
                                                 (hash-tree-set! htree idx (cdr lst)))
                                         (hash-map-tree-set! hmap (hash-tree-delete htree idx)))))
                             (find (cdr lst) lst))))))
-
+|#
         (define not-found (cons #f #f))
 
         (define (hash-map-contains? hmap key)

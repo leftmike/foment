@@ -816,6 +816,7 @@ typedef struct
     FRecord Record;
     FObject HashTree;
     FObject Comparator;
+    FObject Size;
 } FHashSet;
 
 FObject MakeHashSet(FObject comp);
