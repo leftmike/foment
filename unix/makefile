@@ -4,15 +4,19 @@
 
 CCDEBUG = -c -ggdb -Wall -DFOMENT_DEBUG -DFOMENT_UNIX
 CCRELEASE = -c -Wall -DFOMENT_UNIX
+CCPROFILE = -pg $(CCRELEASE)
 
 all: debug release debug/foment release/foment
+
+prof: profile profile/foment
 
 install: all
 	sudo cp debug/foment /usr/local/bin
 
-clean: debug release
+clean: debug release profile
 	-rm debug/*
 	-rm release/*
+	-rm profile/*
 
 test: all
 	cd ../test ; ../unix/debug/foment --validate-heap runtests.scm r7rs.scm r7rs-eval.scm foment.scm eccentric.scm r5rs_pitfall.scm unicode.scm srfi.scm
@@ -34,6 +38,9 @@ debug:
 release:
 	-mkdir release
 
+profile:
+	-mkdir profile
+
 debug/base.cpp: debug/txt2cpp ../src/base.scm makefile
 	debug/txt2cpp ../src/base.scm debug/base.cpp BaseCode
 
@@ -52,6 +59,14 @@ release/foment: release/foment.o release/gc.o release/syncthrd.o release/compile
 		release/mini-gmp.o release/write.o release/read.o release/filesys.o\
 		release/hashmap.o release/compare.o release/main.o release/base.o
 	g++ -o release/foment $^ -lpthread
+
+profile/foment: profile/foment.o profile/gc.o profile/syncthrd.o profile/compile.o profile/io.o\
+		profile/synrules.o profile/synpass.o profile/midpass.o profile/genpass.o\
+		profile/pairs.o profile/unicode.o profile/chars.o profile/strings.o\
+		profile/vectors.o profile/library.o profile/execute.o profile/numbers.o\
+		profile/mini-gmp.o profile/write.o profile/read.o profile/filesys.o\
+		profile/hashmap.o profile/compare.o profile/main.o profile/base.o
+	g++ -pg -o profile/foment $^ -lpthread
 
 debug/foment.o: ../src/foment.cpp ../src/foment.hpp ../src/unicode.hpp
 debug/gc.o: ../src/gc.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp
@@ -134,6 +149,18 @@ release/%.o: ../src/%.c
 
 release/%.o: debug/%.cpp
 	cc $(CCRELEASE) -I ../src -o $@ $<
+
+profile/%.o: %.cpp
+	cc $(CCPROFILE) -I ../src -o $@ $<
+
+profile/%.o: ../src/%.cpp
+	cc $(CCPROFILE) -I ../src -o $@ $<
+
+profile/%.o: ../src/%.c
+	cc $(CCPROFILE) -I ../src -o $@ $<
+
+profile/%.o: debug/%.cpp
+	cc $(CCPROFILE) -I ../src -o $@ $<
 
 debug/txt2cpp: ../src/txt2cpp.cpp
 	g++ $(CCDEBUG) ../src/txt2cpp.cpp -o debug/txt2cpp.o
