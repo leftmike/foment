@@ -4,6 +4,9 @@ Foment
 
 */
 
+#ifdef FOMENT_WINDOWS
+#include <intrin.h>
+#endif // FOMENT_WINDOWS
 #include "foment.hpp"
 
 // ---- Population Count ----
@@ -23,6 +26,15 @@ const uint64_t h01 = 0x0101010101010101; //the sum of 256 to the power of 0,1,2,
 #define PopulationCount(x) __builtin_popcount(x)
 #endif
 #endif // FOMENT_UNIX
+
+#ifdef FOMENT_WINDOWS
+#ifdef FOMENT_64BIT
+#define PopulationCount(x) __popcnt64(x)
+#endif
+#ifdef FOMENT_32BIT
+#define PopulationCount(x) __popcnt(x)
+#endif
+#endif // FOMENT_WINDOWS
 
 #ifndef PopulationCount
 int PopulationCount(uint64_t x)
