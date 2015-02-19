@@ -16,6 +16,11 @@ Foment
 #endif // __APPLE__
 #endif // FOMENT_UNIX
 
+#ifdef FOMENT_BSD
+#include <stdlib.h>
+#else // FOMENT_BSD
+#include <malloc.h>
+#endif // FOMENT_BSD
 #include <stdio.h>
 #include <string.h>
 #include "foment.hpp"

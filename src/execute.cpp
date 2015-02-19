@@ -288,7 +288,7 @@ static void GrowStack(FThreadState * ts, int_t sz)
 
     FObject *as = (FObject *) malloc(ts->StackSize * sizeof(FObject) * cnt);
     if (as == 0)
-        RaiseException(R.Assertion, "foment", "out of memory", EmptyListObject);
+        RaiseExceptionC(R.Assertion, "foment", "out of memory", EmptyListObject);
 
     ts->StackSize *= cnt;
     FObject *cs = as + ts->StackSize - 1;
