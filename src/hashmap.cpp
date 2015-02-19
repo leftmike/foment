@@ -51,7 +51,13 @@ int PopulationCount(uint64_t x)
 // The implementation uses hash array mapped tries;
 // see http://lampwww.epfl.ch/papers/idealhashtrees.pdf
 
+#ifdef FOMENT_64BIT
 #define HASH_MODULO (MAXIMUM_FIXNUM + 1)
+#endif // FOMENT_64BIT
+
+#ifdef FOMENT_32BIT
+#define HASH_MODULO (MAXIMUM_OBJECT_LENGTH + 1)
+#endif // FOMENT_32BIT
 
 static FObject MakeHashTree(uint_t len, uint_t bm, FObject * bkts)
 {
