@@ -816,10 +816,14 @@ typedef struct
     FRecord Record;
     FObject HashTree;
     FObject Comparator;
+    FObject Tracker;
     FObject Size;
 } FHashSet;
 
-FObject MakeHashSet(FObject comp);
+FObject MakeEqHashSet();
+int_t EqHashSetContainsP(FObject hset, FObject elem);
+void EqHashSetAdjoin(FObject hset, FObject elem);
+void EqHashSetDelete(FObject hset, FObject elem);
 
 // ---- Symbols ----
 
