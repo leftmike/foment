@@ -31,7 +31,6 @@ HashTree and Comparator:
 
 Compiler:
 -- get rid of -no-inline-procedures and -no-inline-imports
--- fix support for long long argument lists
 -- genpass: handle multiple values with LetrecValues correctly
 -- genpass: LetrecStarValues needs to be compiled correctly
 -- export letrec-values and letrec*-values from (foment base)
@@ -42,11 +41,10 @@ Compiler:
 -- make special syntax into an object so that can track location information
 
 Bugs:
+-- make test segfault on unix32
 -- letrec: http://trac.sacrideo.us/wg/wiki/LetrecStar
 -- serialize loading libraries
 -- serialize symbol table
--- gc.cpp: AllocateSection failing is not handled by all callers
--- ExecuteThunk does not check for CStack or AStack overflow
 -- r5rs_pitfall.scm: yin-yang does not terminate; see test2.scm and
    https://groups.google.com/forum/?fromgroups=#!topic/comp.lang.scheme/Fysq_Wplxsw
 -- exhaustively test unicode: char-alphabetic?, char-upcase, etc

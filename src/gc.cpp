@@ -250,7 +250,7 @@ static void * AllocateSection(uint_t cnt, FSectionTag tag)
     }
 
     if (UsedSections + cnt > MaximumSections)
-        return(0);
+        RaiseExceptionC(R.Assertion, "foment", "out of memory", List(MakeFixnum(tag)));
 
     sdx = UsedSections;
     UsedSections += cnt;
@@ -549,9 +549,6 @@ static FObject MakeMature(uint_t len)
     }
 
     fo = (FFreeObject *) AllocateSection(cnt, MatureSectionTag);
-    if (fo == 0)
-        return(0);
-
     fo->Next = 0;
     fo->Length = MakeLength(SECTION_SIZE * cnt - len, GCFreeTag);
     FreeMature = fo;
@@ -574,8 +571,6 @@ static FObject MakeMatureObject(uint_t sz, const char * who)
     EnterExclusive(&GCExclusive);
     FObject obj = MakeMature(len);
     LeaveExclusive(&GCExclusive);
-    if (obj == 0)
-        RaiseExceptionC(R.Assertion, who, "out of memory", EmptyListObject);
 
     BytesAllocated += len;
 
