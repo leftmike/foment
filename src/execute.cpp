@@ -95,41 +95,6 @@ typedef struct
 
 static const char * ContinuationFieldsC[] = {"cstack-ptr", "cstack", "astack-ptr", "astack"};
 
-//#define YIN_YANG
-// This would make yin-yang work, but then other continuation tests are broken. Otherwise,
-// all of the continuation tests work except for yin-yang.
-//
-#ifdef YIN_YANG
-static FObject UpdateFrame(FObject old, FObject * pmap)
-{
-    FObject map = *pmap;
-
-    while (PairP(map))
-    {
-        FAssert(PairP(First(map)));
-
-        if (First(First(map)) == old)
-            return(Rest(First(map)));
-
-        map = Rest(map);
-    }
-
-    FAssert(VectorP(old));
-
-    FObject nw = MakeVector(VectorLength(old), AsVector(old)->Vector, NoValueObject);
-
-    *pmap = MakePair(MakePair(old, nw), *pmap);
-/*
-    if (VectorP(AsVector(nw)->Vector[0]))
-    {
-//        AsVector(nw)->Vector[0] = UpdateFrame(AsVector(nw)->Vector[0], pmap);
-        ModifyVector(nw, 0, UpdateFrame(AsVector(nw)->Vector[0], pmap));
-    }
-*/
-    return(nw);
-}
-#endif // YIN_YANG
-
 static FObject MakeContinuation(FObject cdx, FObject cv, FObject adx, FObject av)
 {
     FAssert(sizeof(FContinuation) == sizeof(ContinuationFieldsC) + sizeof(FRecord));
@@ -143,19 +108,6 @@ static FObject MakeContinuation(FObject cdx, FObject cv, FObject adx, FObject av
     cont->CStack = cv;
     cont->AStackPtr = adx;
     cont->AStack = av;
-#ifdef YIN_YANG
-    FObject map = EmptyListObject;
-
-    FAssert(VectorLength(cv) == AsFixnum(cdx));
-    for (int_t idx = 0; idx < AsFixnum(cdx); idx++)
-    {
-        if (VectorP(AsVector(cv)->Vector[idx]))
-        {
-//            AsVector(cv)->Vector[idx] = UpdateFrame(AsVector(cv)->Vector[idx], &map);
-            ModifyVector(cv, idx, UpdateFrame(AsVector(cv)->Vector[idx], &map));
-        }
-    }
-#endif // YIN_YANG
     return(cont);
 }
 
@@ -326,6 +278,29 @@ static int_t PrepareHandler(FThreadState * ts, FObject hdlr, FObject key, FObjec
     }
 
     return(0);
+}
+
+static void GrowStack(FThreadState * ts, int_t sz)
+{
+    int_t cnt = 2;
+    while (sz > ts->StackSize * cnt)
+        cnt *= 2;
+
+    FObject *as = (FObject *) malloc(ts->StackSize * sizeof(FObject) * cnt);
+    if (as == 0)
+        RaiseException(R.Assertion, "foment", "out of memory", EmptyListObject);
+
+    ts->StackSize *= cnt;
+    FObject *cs = as + ts->StackSize - 1;
+
+    for (int_t adx = 0; adx < ts->AStackPtr; adx++)
+        as[adx] = ts->AStack[adx];
+    for (int_t cdx = 0; cdx < ts->CStackPtr; cdx++)
+        cs[- cdx] = ts->CStack[- cdx];
+
+    free(ts->AStack);
+    ts->AStack = as;
+    ts->CStack = cs;
 }
 
 static FObject Execute(FThreadState * ts)
@@ -641,6 +616,9 @@ static FObject Execute(FThreadState * ts)
                 if (ProcedureP(op))
                 {
 CallProcedure:
+                    if (ts->CStackPtr + ts->AStackPtr > ts->StackSize - 512)
+                        GrowStack(ts, ts->StackSize * 2);
+
                     ts->CStack[- ts->CStackPtr] = ts->Proc;
                     ts->CStackPtr += 1;
                     ts->CStack[- ts->CStackPtr] = MakeFixnum(ts->IP);
@@ -916,6 +894,10 @@ TailCallPrimitive:
                 ts->ArgCount -= 2;
                 ts->AStackPtr -= 2;
 
+                int_t ll = ListLength("apply", lst);
+                if (ts->CStackPtr + ts->AStackPtr + ll > ts->StackSize - 512)
+                    GrowStack(ts, ts->CStackPtr + ts->AStackPtr + ll);
+
                 FObject ptr = lst;
                 while (PairP(ptr))
                 {
@@ -923,6 +905,8 @@ TailCallPrimitive:
                     ts->AStackPtr += 1;
                     ts->ArgCount += 1;
                     ptr = Rest(ptr);
+
+                    FAssert(ts->CStackPtr + ts->AStackPtr <= ts->StackSize - 512);
                 }
 
                 if (ptr != EmptyListObject)
@@ -1013,17 +997,6 @@ TailCallPrimitive:
                 FObject * cs = ts->CStack - ts->CStackPtr + 1;
                 for (int_t cdx = 0; cdx < ts->CStackPtr; cdx++)
                     cs[cdx] = AsVector(AsContinuation(cont)->CStack)->Vector[cdx];
-#ifdef YIN_YANG
-                FObject map = EmptyListObject;
-
-                for (int_t cdx = 0; cdx < ts->CStackPtr; cdx++)
-                {
-                    if (VectorP(cs[cdx]))
-                    {
-                        cs[cdx] = UpdateFrame(cs[cdx], &map);
-                    }
-                }
-#endif // YIN_YANG
                 ts->ArgCount = 0;
                 goto TailCall;
             }

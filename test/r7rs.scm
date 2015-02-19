@@ -4176,6 +4176,8 @@
 (check-error (assertion-violation apply) (apply + '(1 2 . 3)))
 (check-error (assertion-violation apply) (apply + 1))
 
+(check-equal 1000000 (apply + (make-list 1000000 1)))
+
 ;; map
 
 (check-equal (b e h) (map cadr '((a b) (d e) (g h))))

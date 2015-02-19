@@ -38,20 +38,26 @@ typedef enum
     FlonumSectionTag,
     BackRefSectionTag,
     ScanSectionTag,
-    StackSectionTag,
     TrackerSectionTag,
     GuardianSectionTag
 } FSectionTag;
-
-void * SectionTableBase = 0;
-static unsigned char * SectionTable;
-static uint_t UsedSections;
 
 #define SECTION_SIZE (1024 * 16)
 #define SectionIndex(ptr) ((((uint_t) (ptr)) - ((uint_t) SectionTable)) >> 14)
 #define SectionPointer(sdx) ((unsigned char *) (((sdx) << 14) + ((uint_t) SectionTable)))
 #define SectionOffset(ptr) (((uint_t) (ptr)) & 0x3FFF)
 #define SectionBase(ptr) ((unsigned char *) (((uint_t) (ptr)) & ~0x3FFF))
+
+void * SectionTableBase = 0;
+static unsigned char * SectionTable;
+static uint_t UsedSections;
+
+#ifdef FOMENT_64BIT
+static uint_t MaximumSections = SECTION_SIZE * 32; // 4 gigabype heap
+#endif // FOMENT_64BIT
+#ifdef FOMENT_32BIT
+static uint_t MaximumSections = SECTION_SIZE * 8; // 1 gigabyte heap
+#endif // FOMENT_32BIT
 
 static inline int_t MatureP(FObject obj)
 {
@@ -238,7 +244,7 @@ static void * AllocateSection(uint_t cnt, FSectionTag tag)
         }
     }
 
-    if (UsedSections + cnt > SECTION_SIZE)
+    if (UsedSections + cnt > MaximumSections)
         return(0);
 
     sdx = UsedSections;
@@ -1428,9 +1434,6 @@ static const char * SectionName(uint_t sdx)
     case ScanSectionTag:
         return("scan");
 
-    case StackSectionTag:
-        return("stack");
-
     case TrackerSectionTag:
         return("tracker");
 
@@ -1647,8 +1650,7 @@ static void ValidateSections(int ln)
                 SectionTable[sdx] == OneSectionTag || SectionTable[sdx] == MatureSectionTag ||
                 SectionTable[sdx] == TwoSlotSectionTag || SectionTable[sdx] == FlonumSectionTag ||
                 SectionTable[sdx] == BackRefSectionTag || SectionTable[sdx] == ScanSectionTag ||
-                SectionTable[sdx] == StackSectionTag || SectionTable[sdx] == TrackerSectionTag ||
-                SectionTable[sdx] == GuardianSectionTag);
+                SectionTable[sdx] == TrackerSectionTag || SectionTable[sdx] == GuardianSectionTag);
 
         if (SectionTable[sdx] == ZeroSectionTag || SectionTable[sdx] == OneSectionTag)
         {
@@ -2335,9 +2337,9 @@ void EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms)
     ts->ActiveZero = 0;
     ts->ObjectsSinceLast = 0;
     ts->UsedRoots = 0;
-    ts->StackSize = SECTION_SIZE / sizeof(FObject);
+    ts->StackSize = 1024 * 16;
     ts->AStackPtr = 0;
-    ts->AStack = (FObject *) AllocateSection(1, StackSectionTag);
+    ts->AStack = (FObject *) malloc(ts->StackSize * sizeof(FObject));
     ts->CStackPtr = 0;
     ts->CStack = ts->AStack + ts->StackSize - 1;
     ts->Proc = NoValueObject;
@@ -2405,11 +2407,7 @@ uint_t LeaveThread(FThreadState * ts)
     }
 
     FAssert(ts->AStack != 0);
-    FAssert((ts->StackSize * sizeof(FObject)) % SECTION_SIZE == 0);
-
-    int_t cnt = (ts->StackSize * sizeof(FObject)) / SECTION_SIZE;
-    for (int_t sdx = 0; sdx < cnt; sdx++)
-        FreeSection(ts->AStack + sdx * (SECTION_SIZE / sizeof(FObject)));
+    free(ts->AStack);
 
     ts->AStack = 0;
     ts->CStack = 0;
@@ -2474,41 +2472,47 @@ void SetupCore(FThreadState * ts)
     FAssert(TWOSLOTS_PER_SECTION % 8 == 0);
     FAssert(MAXIMUM_YOUNG_LENGTH <= SECTION_SIZE / 2);
 
+    FAssert(MaximumSections % SECTION_SIZE == 0);
+    FAssert(MaximumSections >= SECTION_SIZE);
+
 #ifdef FOMENT_WINDOWS
-    SectionTable = (unsigned char *) VirtualAlloc(SectionTableBase, SECTION_SIZE * SECTION_SIZE,
+    SectionTable = (unsigned char *) VirtualAlloc(SectionTableBase, SECTION_SIZE * MaximumSections,
             MEM_RESERVE, PAGE_READWRITE);
 
     FAssert(SectionTable != 0);
 
-    VirtualAlloc(SectionTable, SECTION_SIZE, MEM_COMMIT, PAGE_READWRITE);
+    VirtualAlloc(SectionTable, MaximumSections, MEM_COMMIT, PAGE_READWRITE);
 
     TlsIndex = TlsAlloc();
     FAssert(TlsIndex != TLS_OUT_OF_INDEXES);
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-    SectionTable = (unsigned char *) mmap(0, (SECTION_SIZE + 1) * SECTION_SIZE, PROT_NONE,
+    SectionTable = (unsigned char *) mmap(0, (SECTION_SIZE + 1) * MaximumSections, PROT_NONE,
             MAP_PRIVATE | MAP_ANONYMOUS, -1 ,0);
     FAssert(SectionTable != 0);
 
     if (SectionTable != SectionBase(SectionTable))
       SectionTable += (SECTION_SIZE - SectionOffset(SectionTable));
 
-    mprotect(SectionTable, SECTION_SIZE, PROT_READ | PROT_WRITE);
+    mprotect(SectionTable, MaximumSections, PROT_READ | PROT_WRITE);
 
     pthread_key_create(&ThreadKey, 0);
 #endif // FOMENT_UNIX
 
     FAssert(SectionTable == SectionBase(SectionTable));
 
-    for (uint_t sdx = 0; sdx < SECTION_SIZE; sdx++)
+    for (uint_t sdx = 0; sdx < MaximumSections; sdx++)
         SectionTable[sdx] = HoleSectionTag;
 
     FAssert(SectionIndex(SectionTable) == 0);
 
-    UsedSections = 1;
-
-    SectionTable[0] = TableSectionTag;
+    UsedSections = 0;
+    while (UsedSections < MaximumSections / SECTION_SIZE)
+    {
+        SectionTable[UsedSections] = TableSectionTag;
+        UsedSections += 1;
+    }
 
     BackRefSections = AllocateBackRefSection(0);
     BackRefSectionCount = 1;
@@ -2656,7 +2660,6 @@ Define("dump-gc", DumpGCPrimitive)(int_t argc, FObject argv[])
         case FlonumSectionTag: printf("Flonum\n"); break;
         case BackRefSectionTag: printf("BackRef\n"); break;
         case ScanSectionTag: printf("Scan\n"); break;
-        case StackSectionTag: printf("Stack\n"); break;
         case TrackerSectionTag: printf("Tracker\n"); break;
         case GuardianSectionTag: printf("Guardian\n"); break;
         default: printf("Unknown\n"); break;
