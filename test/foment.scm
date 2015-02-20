@@ -900,8 +900,68 @@
 (check-equal #t (= (test-hmap 0 0) (hash-map-size hmap)))
 (check-equal #t (= (vector-length (hash-map-keys hmap)) (hash-map-size hmap)))
 
+(set! hmap (hash-map-copy hmap))
+(check-equal #t (= (test-hmap 0 0) (hash-map-size hmap)))
+
 (check-equal #t (hash-map? hmap))
 (check-equal #t (hash-map? eq-hmap))
 (check-equal #f (hash-map? #(1 2 3)))
 (check-equal #f (hash-map? '(1 2 3)))
 
+;;
+;; eq hash sets
+;;
+
+(define eq-hset (make-eq-hash-set))
+
+(check-error (assertion-violation make-eq-hash-set) (make-eq-hash-set 123))
+
+(check-equal #t (eq-hash-set? eq-hset))
+(check-equal #t (hash-set? eq-hset))
+(check-equal #f (eq-hash-set? (make-eq-hash-map)))
+(check-equal #f (eq-hash-set? (make-hash-map)))
+
+(check-error (assertion-violation eq-hash-set?) (eq-hash-set?))
+(check-error (assertion-violation eq-hash-set?) (eq-hash-set? 123 456))
+
+(check-equal #f (eq-hash-set-contains? eq-hset 123))
+(eq-hash-set-adjoin! eq-hset 123)
+(check-equal #t (eq-hash-set-contains? eq-hset 123))
+
+(define p (cons 1 2))
+(check-equal #f (eq-hash-set-contains? eq-hset p))
+(eq-hash-set-adjoin! eq-hset p)
+(check-equal #t (eq-hash-set-contains? eq-hset p))
+(check-equal #f (eq-hash-set-contains? eq-hset (cons 1 2)))
+
+(define s "abcdefg")
+(check-equal #f (eq-hash-set-contains? eq-hset s))
+(eq-hash-set-adjoin! eq-hset s)
+(check-equal #t (eq-hash-set-contains? eq-hset s))
+(check-equal #f (eq-hash-set-contains? eq-hset "abcdefg"))
+
+(eq-hash-set-adjoin! eq-hset)
+(eq-hash-set-adjoin! eq-hset 'abc 'def 'ghi 'jkl)
+(check-equal #t (eq-hash-set-contains? eq-hset 'abc))
+(check-equal #t (eq-hash-set-contains? eq-hset 'def))
+(check-equal #t (eq-hash-set-contains? eq-hset 'ghi))
+(check-equal #t (eq-hash-set-contains? eq-hset 'jkl))
+
+(eq-hash-set-delete! eq-hset)
+(check-equal #t (eq-hash-set-contains? eq-hset 123))
+(eq-hash-set-delete! eq-hset 123)
+(check-equal #f (eq-hash-set-contains? eq-hset 123))
+
+(eq-hash-set-delete! eq-hset 'abc 'def 'ghi 'jkl)
+(check-equal #f (eq-hash-set-contains? eq-hset 'abc))
+(check-equal #f (eq-hash-set-contains? eq-hset 'def))
+(check-equal #f (eq-hash-set-contains? eq-hset 'ghi))
+(check-equal #f (eq-hash-set-contains? eq-hset 'jkl))
+
+(check-error (assertion-violation eq-hash-set-contains?) (eq-hash-set-contains? eq-hset))
+(check-error (assertion-violation eq-hash-set-contains?) (eq-hash-set-contains? 123 456))
+(check-error (assertion-violation eq-hash-set-contains?) (eq-hash-set-contains? eq-hset 123 456))
+(check-error (assertion-violation eq-hash-set-adjoin!) (eq-hash-set-adjoin!))
+(check-error (assertion-violation eq-hash-set-adjoin!) (eq-hash-set-adjoin! 123))
+(check-error (assertion-violation eq-hash-set-delete!) (eq-hash-set-delete!))
+(check-error (assertion-violation eq-hash-set-delete!) (eq-hash-set-delete! 123))

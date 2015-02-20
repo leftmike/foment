@@ -61,7 +61,7 @@ int PopulationCount(uint64_t x)
 
 static FObject MakeHashTree(uint_t len, uint_t bm, FObject * bkts)
 {
-  FAssert(len == (uint_t) PopulationCount(bm));
+    FAssert(len == (uint_t) PopulationCount(bm));
 
     FHashTree * ht = (FHashTree *) MakeObject(sizeof(FHashTree) + (len - 1) * sizeof(FObject),
             HashTreeTag);
@@ -379,6 +379,29 @@ static void HashTreeVisit(FObject htree, FVisitBucketFn vbfn, FVisitFn vfn, FObj
     }
 }
 
+static FObject HashTreeCopy(FObject htree)
+{
+    FAssert(HashTreeP(htree));
+
+    FObject bkts[sizeof(uint_t) * 8];
+    uint_t bdx;
+
+    for (bdx = 0; bdx < HashTreeLength(htree); bdx++)
+    {
+        FObject obj = AsHashTree(htree)->Buckets[bdx];
+        if (BoxP(obj))
+            bkts[bdx] = MakeBox(Unbox(obj), BoxIndex(obj));
+        else
+        {
+            FAssert(HashTreeP(obj));
+
+            bkts[bdx] = HashTreeCopy(obj);
+        }
+    }
+
+    return(MakeHashTree(HashTreeLength(htree), AsHashTree(htree)->Bitmap, bkts));
+}
+
 /*
 void WriteHashTree(FObject port, FObject htree)
 {
@@ -449,12 +472,21 @@ Define("hash-tree-delete", HashTreeDeletePrimitive)(int_t argc, FObject argv[])
     return(HashTreeDelete(argv[0], NumberHash(argv[1]) % HASH_MODULO));
 }
 
-Define("hash-tree-buckets", HashTreeBucketsPrimitive)(int_t argc, FObject argv[])
+Define("hash-buckets-ref", HashBucketsRefPrimitive)(int_t argc, FObject argv[])
 {
-    OneArgCheck("hash-tree-buckets", argc);
-    HashTreeArgCheck("hash-tree-buckets", argv[0]);
+    TwoArgsCheck("hash-buckets-ref", argc);
+    HashTreeArgCheck("hash-buckets-ref", argv[0]);
+    IndexArgCheck("hash-buckets-ref", argv[1], HashTreeLength(argv[0]));
 
-    return(MakeVector(HashTreeLength(argv[0]), AsHashTree(argv[0])->Buckets, NoValueObject));
+    return(AsHashTree(argv[0])->Buckets[AsFixnum(argv[1])]);
+}
+
+Define("hash-buckets-length", HashBucketsLengthPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("hash-buckets-length!", argc);
+    HashTreeArgCheck("hash-buckets-length", argv[0]);
+
+    return(MakeFixnum(HashTreeLength(argv[0])));
 }
 
 Define("hash-tree-bitmap", HashTreeBitmapPrimitive)(int_t argc, FObject argv[])
@@ -463,6 +495,14 @@ Define("hash-tree-bitmap", HashTreeBitmapPrimitive)(int_t argc, FObject argv[])
     HashTreeArgCheck("hash-tree-bitmap", argv[0]);
 
     return(MakeIntegerU(AsHashTree(argv[0])->Bitmap));
+}
+
+Define("hash-tree-copy", HashTreeCopyPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("hash-tree-copy", argc);
+    HashTreeArgCheck("hash-tree-copy", argv[0]);
+
+    return(HashTreeCopy(argv[0]));
 }
 
 // ---- Symbols ----
@@ -1105,8 +1145,10 @@ static FPrimitive * Primitives[] =
     &HashTreeRefPrimitive,
     &HashTreeSetPrimitive,
     &HashTreeDeletePrimitive,
-    &HashTreeBucketsPrimitive,
+    &HashBucketsRefPrimitive,
+    &HashBucketsLengthPrimitive,
     &HashTreeBitmapPrimitive,
+    &HashTreeCopyPrimitive,
     &HashContainerTreeRefPrimitive,
     &HashContainerTreeSetPrimitive,
     &HashContainerComparatorPrimitive,

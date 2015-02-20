@@ -27,10 +27,6 @@ Future:
 
 HashTree and Comparator:
 -- add sets: HashSet
--- document: make-eq-hash-set, eq-hash-set?, eq-hash-set-contains?, eq-hash-set-adjoint!,
-   eq-hash-set-delete!
--- test: make-eq-hash-set, eq-hash-set?, eq-hash-set-contains?, eq-hash-set-adjoint!,
-   eq-hash-set-delete!
 -- add bags: HashBag
 
 Compiler:
