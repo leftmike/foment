@@ -540,12 +540,13 @@ static FObject MakeHashMap(FObject comp, FObject tracker)
     return(hmap);
 }
 
-static FObject HashMapRef(FObject hmap, FObject key, FObject def, FEquivFn eqfn, FHashFn hashfn)
+static FObject HashContainerRef(FObject hcontain, FObject key, FObject def, FEquivFn eqfn,
+    FHashFn hashfn)
 {
-    FAssert(HashMapP(hmap));
+    FAssert(HashContainerP(hcontain));
 
     uint_t idx = hashfn(key) % HASH_MODULO;
-    FObject lst = HashTreeRef(AsHashMap(hmap)->HashTree, idx, MakeFixnum(idx));
+    FObject lst = HashTreeRef(AsHashContainer(hcontain)->HashTree, idx, MakeFixnum(idx));
 
     while (PairP(lst))
     {
@@ -559,12 +560,13 @@ static FObject HashMapRef(FObject hmap, FObject key, FObject def, FEquivFn eqfn,
     return(def);
 }
 
-static void HashMapSet(FObject hmap, FObject key, FObject val, FEquivFn eqfn, FHashFn hashfn)
+static void HashContainerSet(FObject hcontain, FObject key, FObject val, FEquivFn eqfn,
+    FHashFn hashfn)
 {
-    FAssert(HashMapP(hmap));
+    FAssert(HashContainerP(hcontain));
 
     uint_t idx = hashfn(key) % HASH_MODULO;
-    FObject slot = HashTreeRef(AsHashMap(hmap)->HashTree, idx, MakeFixnum(idx));
+    FObject slot = HashTreeRef(AsHashContainer(hcontain)->HashTree, idx, MakeFixnum(idx));
     FObject lst = slot;
 
     while (PairP(lst))
@@ -580,24 +582,27 @@ static void HashMapSet(FObject hmap, FObject key, FObject val, FEquivFn eqfn, FH
     }
 
     FObject kvn = MakePair(MakePair(key, val), slot);
-    if (PairP(AsHashMap(hmap)->Tracker) && ObjectP(key))
-        InstallTracker(key, kvn, AsHashMap(hmap)->Tracker);
+    if (PairP(AsHashContainer(hcontain)->Tracker) && ObjectP(key))
+        InstallTracker(key, kvn, AsHashContainer(hcontain)->Tracker);
 
-//    AsHashMap(hmap)->HashTree = HashTreeSet(AsHashMap(hmap)->HashTree, idx, kvn);
-    Modify(FHashMap, hmap, HashTree, HashTreeSet(AsHashMap(hmap)->HashTree, idx, kvn));
+//    AsHashContainer(hcontain)->HashTree =
+//            HashTreeSet(AsHashContainer(hcontain)->HashTree, idx, kvn);
+    Modify(FHashContainer, hcontain, HashTree,
+            HashTreeSet(AsHashContainer(hcontain)->HashTree, idx, kvn));
 
-    FAssert(FixnumP(AsHashMap(hmap)->Size));
+    FAssert(FixnumP(AsHashContainer(hcontain)->Size));
 
-//    AsHashMap(hmap)->Size = MakeFixnum(AsFixnum(AsHashMap(hmap)->Size) + 1);
-    Modify(FHashMap, hmap, Size, MakeFixnum(AsFixnum(AsHashMap(hmap)->Size) + 1));
+//    AsHashContainer(hcontain)->Size = MakeFixnum(AsFixnum(AsHashContainer(hcontain)->Size) + 1);
+    Modify(FHashContainer, hcontain, Size,
+            MakeFixnum(AsFixnum(AsHashContainer(hcontain)->Size) + 1));
 }
 
-static void HashMapDelete(FObject hmap, FObject key, FEquivFn eqfn, FHashFn hashfn)
+static void HashContainerDelete(FObject hcontain, FObject key, FEquivFn eqfn, FHashFn hashfn)
 {
-    FAssert(HashMapP(hmap));
+    FAssert(HashContainerP(hcontain));
 
     uint_t idx = hashfn(key) % HASH_MODULO;
-    FObject lst = HashTreeRef(AsHashMap(hmap)->HashTree, idx, MakeFixnum(idx));
+    FObject lst = HashTreeRef(AsHashContainer(hcontain)->HashTree, idx, MakeFixnum(idx));
     FObject prev = NoValueObject;
 
     while (PairP(lst))
@@ -606,25 +611,29 @@ static void HashMapDelete(FObject hmap, FObject key, FEquivFn eqfn, FHashFn hash
 
         if (eqfn(First(First(lst)), key))
         {
-            FAssert(FixnumP(AsHashMap(hmap)->Size));
-            FAssert(AsFixnum(AsHashMap(hmap)->Size) > 0);
+            FAssert(FixnumP(AsHashContainer(hcontain)->Size));
+            FAssert(AsFixnum(AsHashContainer(hcontain)->Size) > 0);
 
-//            AsHashMap(hmap)->Size = MakeFixnum(AsFixnum(AsHashMap(hmap)->Size) - 1);
-            Modify(FHashMap, hmap, Size, MakeFixnum(AsFixnum(AsHashMap(hmap)->Size) - 1));
+//            AsHashContainer(hcontain)->Size =
+//                    MakeFixnum(AsFixnum(AsHashContainer(hcontain)->Size) - 1);
+            Modify(FHashContainer, hcontain, Size,
+                    MakeFixnum(AsFixnum(AsHashContainer(hcontain)->Size) - 1));
 
             if (PairP(prev))
                 SetRest(prev, Rest(lst));
             else if (PairP(Rest(lst)))
             {
-//                AsHashMap(hmap)->HashTree = HashTreeSet(AsHashMap(hmap)->HashTree, idx,
-//                        Rest(lst));
-                Modify(FHashMap, hmap, HashTree, HashTreeSet(AsHashMap(hmap)->HashTree, idx,
-                        Rest(lst)));
+//                AsHashContainer(hcontain)->HashTree =
+//                        HashTreeSet(AsHashContainer(hcontain)->HashTree, idx, Rest(lst));
+                Modify(FHashContainer, hcontain, HashTree,
+                        HashTreeSet(AsHashContainer(hcontain)->HashTree, idx, Rest(lst)));
             }
             else
             {
-//                AsHashMap(hmap)->HashTree = HashTreeDelete(AsHashMap(hmap)->HashTree, idx);
-                Modify(FHashMap, hmap, HashTree, HashTreeDelete(AsHashMap(hmap)->HashTree, idx));
+//                AsHashContainer(hcontain)->HashTree =
+//                        HashTreeDelete(AsHashContainer(hcontain)->HashTree, idx);
+                Modify(FHashContainer, hcontain, HashTree,
+                        HashTreeDelete(AsHashContainer(hcontain)->HashTree, idx));
             }
             break;
         }
@@ -633,7 +642,7 @@ static void HashMapDelete(FObject hmap, FObject key, FEquivFn eqfn, FHashFn hash
     }
 }
 
-static void VisitHashMapBucket(FObject lst, uint_t idx, FVisitFn vfn, FObject ctx)
+static void VisitHashContainerBucket(FObject lst, uint_t idx, FVisitFn vfn, FObject ctx)
 {
     while (PairP(lst))
     {
@@ -644,11 +653,11 @@ static void VisitHashMapBucket(FObject lst, uint_t idx, FVisitFn vfn, FObject ct
     }
 }
 
-static void HashMapVisit(FObject hmap, FVisitFn vfn, FObject ctx)
+static void HashContainerVisit(FObject hcontain, FVisitFn vfn, FObject ctx)
 {
-    FAssert(HashMapP(hmap));
+    FAssert(HashContainerP(hcontain));
 
-    HashTreeVisit(AsHashMap(hmap)->HashTree, VisitHashMapBucket, vfn, ctx);
+    HashTreeVisit(AsHashContainer(hcontain)->HashTree, VisitHashContainerBucket, vfn, ctx);
 }
 
 FObject MakeEqHashMap()
@@ -666,9 +675,9 @@ static uint_t OldIndex(FObject kvn)
     return(AsFixnum(kvn));
 }
 
-static void RemoveOld(FObject hmap, FObject kvn, uint_t idx)
+static void RemoveOld(FObject hcontain, FObject kvn, uint_t idx)
 {
-    FObject node = HashTreeRef(AsHashMap(hmap)->HashTree, idx, MakeFixnum(idx));
+    FObject node = HashTreeRef(AsHashContainer(hcontain)->HashTree, idx, MakeFixnum(idx));
     FObject prev = NoValueObject;
 
     while (PairP(node))
@@ -679,15 +688,17 @@ static void RemoveOld(FObject hmap, FObject kvn, uint_t idx)
                 SetRest(prev, Rest(node));
             else if (PairP(Rest(node)))
             {
-//                AsHashMap(hmap)->HashTree = HashTreeSet(AsHashMap(hmap)->HashTree, idx,
-//                        Rest(node));
-                Modify(FHashMap, hmap, HashTree, HashTreeSet(AsHashMap(hmap)->HashTree, idx,
-                        Rest(node)));
+//                AsHashContainer(hcontain)->HashTree =
+//                        HashTreeSet(AsHashContainer(hcontain)->HashTree, idx, Rest(node));
+                Modify(FHashContainer, hcontain, HashTree,
+                        HashTreeSet(AsHashContainer(hcontain)->HashTree, idx, Rest(node)));
             }
             else
             {
-//                AsHashMap(hmap)->HashTree = HashTreeDelete(AsHashMap(hmap)->HashTree, idx);
-                Modify(FHashMap, hmap, HashTree, HashTreeDelete(AsHashMap(hmap)->HashTree, idx));
+//                AsHashContainer(hcontain)->HashTree =
+//                        HashTreeDelete(AsHashContainer(hcontain)->HashTree, idx);
+                Modify(FHashContainer, hcontain, HashTree,
+                        HashTreeDelete(AsHashContainer(hcontain)->HashTree, idx));
             }
 
             return;
@@ -715,15 +726,15 @@ void CheckVisitBucket(FObject lst, uint_t idx, FVisitFn vfn, FObject ctx)
     FAssert(AsFixnum(lst) == (int_t) idx);
 }
 
-static void CheckEqHashMap(FObject hmap)
+static void CheckEqHashContainer(FObject hcontain)
 {
-    FAssert(HashMapP(hmap));
+    FAssert(HashContainerP(hcontain));
 
-    HashTreeVisit(AsHashMap(hmap)->HashTree, CheckVisitBucket, 0, 0);
+    HashTreeVisit(AsHashContainer(hcontain)->HashTree, CheckVisitBucket, 0, 0);
 }
 #endif // FOMENT_DEBUG
 
-static void EqHashMapRehash(FObject hmap, FObject tconc)
+static void EqHashContainerRehash(FObject hcontain, FObject tconc)
 {
     FObject kvn;
 
@@ -740,36 +751,37 @@ static void EqHashMapRehash(FObject hmap, FObject tconc)
 
         if (idx != odx)
         {
-            RemoveOld(hmap, kvn, odx);
-            SetRest(kvn, HashTreeRef(AsHashMap(hmap)->HashTree, idx, MakeFixnum(idx)));
+            RemoveOld(hcontain, kvn, odx);
+            SetRest(kvn, HashTreeRef(AsHashContainer(hcontain)->HashTree, idx, MakeFixnum(idx)));
 
-//            AsHashMap(hmap)->HashTree = HashTreeSet(AsHashMap(hmap)->HashTree, idx,
-//                    Rest(lst));
-            Modify(FHashMap, hmap, HashTree, HashTreeSet(AsHashMap(hmap)->HashTree, idx, kvn));
+//            AsHashContainer(hcontain)->HashTree =
+//                    HashTreeSet(AsHashContainer(hcontain)->HashTree, idx, Rest(lst));
+            Modify(FHashContainer, hcontain, HashTree,
+                    HashTreeSet(AsHashContainer(hcontain)->HashTree, idx, kvn));
         }
 
         FAssert(ObjectP(key));
 
-        InstallTracker(key, kvn, AsHashMap(hmap)->Tracker);
+        InstallTracker(key, kvn, AsHashContainer(hcontain)->Tracker);
     }
 
 #ifdef FOMENT_DEBUG
-    CheckEqHashMap(hmap);
+    CheckEqHashContainer(hcontain);
 #endif // FOMENT_DEBUG
 }
 
 FObject EqHashMapRef(FObject hmap, FObject key, FObject def)
 {
     FAssert(HashMapP(hmap));
-    FAssert(PairP(AsHashMap(hmap)->Tracker));
+    FAssert(PairP(AsHashContainer(hmap)->Tracker));
 
-    if (TConcEmptyP(AsHashMap(hmap)->Tracker) == 0)
-        EqHashMapRehash(hmap, AsHashMap(hmap)->Tracker);
+    if (TConcEmptyP(AsHashContainer(hmap)->Tracker) == 0)
+        EqHashContainerRehash(hmap, AsHashContainer(hmap)->Tracker);
 
-    FObject ret = HashMapRef(hmap, key, def, EqP, EqHash);
+    FObject ret = HashContainerRef(hmap, key, def, EqP, EqHash);
 
 #ifdef FOMENT_DEBUG
-    CheckEqHashMap(hmap);
+    CheckEqHashContainer(hmap);
 #endif // FOMENT_DEBUG
 
     return(ret);
@@ -778,44 +790,43 @@ FObject EqHashMapRef(FObject hmap, FObject key, FObject def)
 void EqHashMapSet(FObject hmap, FObject key, FObject val)
 {
     FAssert(HashMapP(hmap));
-    FAssert(PairP(AsHashMap(hmap)->Tracker));
+    FAssert(PairP(AsHashContainer(hmap)->Tracker));
 
-    if (TConcEmptyP(AsHashMap(hmap)->Tracker) == 0)
-        EqHashMapRehash(hmap, AsHashMap(hmap)->Tracker);
+    if (TConcEmptyP(AsHashContainer(hmap)->Tracker) == 0)
+        EqHashContainerRehash(hmap, AsHashContainer(hmap)->Tracker);
 
-    HashMapSet(hmap, key, val, EqP, EqHash);
+    HashContainerSet(hmap, key, val, EqP, EqHash);
 
 #ifdef FOMENT_DEBUG
-    CheckEqHashMap(hmap);
+    CheckEqHashContainer(hmap);
 #endif // FOMENT_DEBUG
 }
 
 void EqHashMapDelete(FObject hmap, FObject key)
 {
     FAssert(HashMapP(hmap));
-    FAssert(PairP(AsHashMap(hmap)->Tracker));
+    FAssert(PairP(AsHashContainer(hmap)->Tracker));
 
-    if (TConcEmptyP(AsHashMap(hmap)->Tracker) == 0)
-        EqHashMapRehash(hmap, AsHashMap(hmap)->Tracker);
+    if (TConcEmptyP(AsHashContainer(hmap)->Tracker) == 0)
+        EqHashContainerRehash(hmap, AsHashContainer(hmap)->Tracker);
 
-    HashMapDelete(hmap, key, EqP, EqHash);
+    HashContainerDelete(hmap, key, EqP, EqHash);
 
 #ifdef FOMENT_DEBUG
-    CheckEqHashMap(hmap);
+    CheckEqHashContainer(hmap);
 #endif // FOMENT_DEBUG
 }
 
 void EqHashMapVisit(FObject hmap, FVisitFn vfn, FObject ctx)
 {
     FAssert(HashMapP(hmap));
-    FAssert(PairP(AsHashMap(hmap)->Tracker));
+    FAssert(PairP(AsHashContainer(hmap)->Tracker));
 
-    if (TConcEmptyP(AsHashMap(hmap)->Tracker) == 0)
-        EqHashMapRehash(hmap, AsHashMap(hmap)->Tracker);
+    if (TConcEmptyP(AsHashContainer(hmap)->Tracker) == 0)
+        EqHashContainerRehash(hmap, AsHashContainer(hmap)->Tracker);
 
-    HashMapVisit(hmap, vfn, ctx);
+    HashContainerVisit(hmap, vfn, ctx);
 }
-
 
 Define("make-eq-hash-map", MakeEqHashMapPrimitive)(int_t argc, FObject argv[])
 {
@@ -828,7 +839,8 @@ Define("eq-hash-map?", EqHashMapPPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("eq-hash-map?", argc);
 
-    return((HashMapP(argv[0]) && PairP(AsHashMap(argv[0])->Tracker)) ? TrueObject : FalseObject);
+    return((HashMapP(argv[0]) &&
+            PairP(AsHashContainer(argv[0])->Tracker)) ? TrueObject : FalseObject);
 }
 
 Define("eq-hash-map-ref", EqHashMapRefPrimitive)(int_t argc, FObject argv[])
@@ -873,49 +885,49 @@ Define("hash-map?", HashMapPPrimitive)(int_t argc, FObject argv[])
     return(HashMapP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("hash-map-tree-ref", HashMapTreeRefPrimitive)(int_t argc, FObject argv[])
+Define("hash-container-tree-ref", HashContainerTreeRefPrimitive)(int_t argc, FObject argv[])
 {
-    OneArgCheck("hash-map-tree-ref", argc);
-    HashMapArgCheck("hash-map-tree-ref", argv[0]);
+    OneArgCheck("hash-container-tree-ref", argc);
+    HashContainerArgCheck("hash-container-tree-ref", argv[0]);
 
-    return(AsHashMap(argv[0])->HashTree);
+    return(AsHashContainer(argv[0])->HashTree);
 }
 
-Define("hash-map-tree-set!", HashMapTreeSetPrimitive)(int_t argc, FObject argv[])
+Define("hash-container-tree-set!", HashContainerTreeSetPrimitive)(int_t argc, FObject argv[])
 {
-    TwoArgsCheck("hash-map-tree-set!", argc);
-    HashMapArgCheck("hash-map-tree-set!", argv[0]);
-    HashTreeArgCheck("hash-map-tree-set!", argv[1]);
+    TwoArgsCheck("hash-container-tree-set!", argc);
+    HashContainerArgCheck("hash-container-tree-set!", argv[0]);
+    HashTreeArgCheck("hash-container-tree-set!", argv[1]);
 
-//    AsHashMap(argv[0])->HashTree = argv[1];
-    Modify(FHashMap, argv[0], HashTree, argv[1]);
+//    AsHashContainer(argv[0])->HashTree = argv[1];
+    Modify(FHashContainer, argv[0], HashTree, argv[1]);
     return(NoValueObject);
 }
 
-Define("hash-map-comparator", HashMapComparatorPrimitive)(int_t argc, FObject argv[])
+Define("hash-container-comparator", HashContainerComparatorPrimitive)(int_t argc, FObject argv[])
 {
-    OneArgCheck("hash-map-comparator", argc);
-    HashMapArgCheck("hash-map-comparator", argv[0]);
+    OneArgCheck("hash-container-comparator", argc);
+    HashContainerArgCheck("hash-container-comparator", argv[0]);
 
-    return(AsHashMap(argv[0])->Comparator);
+    return(AsHashContainer(argv[0])->Comparator);
 }
 
-Define("hash-map-size", HashMapSizePrimitive)(int_t argc, FObject argv[])
+Define("hash-container-size", HashContainerSizePrimitive)(int_t argc, FObject argv[])
 {
-    OneArgCheck("hash-map-size", argc);
-    HashMapArgCheck("hash-map-size", argv[0]);
+    OneArgCheck("hash-container-size", argc);
+    HashContainerArgCheck("hash-container-size", argv[0]);
 
-    return(AsHashMap(argv[0])->Size);
+    return(AsHashContainer(argv[0])->Size);
 }
 
-Define("hash-map-size-set!", HashMapSizeSetPrimitive)(int_t argc, FObject argv[])
+Define("hash-container-size-set!", HashContainerSizeSetPrimitive)(int_t argc, FObject argv[])
 {
-    TwoArgsCheck("hash-map-size-set!", argc);
-    HashMapArgCheck("hash-map-size-set!", argv[0]);
-    NonNegativeArgCheck("hash-map-size-set!", argv[1], 0);
+    TwoArgsCheck("hash-container-size-set!", argc);
+    HashContainerArgCheck("hash-container-size-set!", argv[0]);
+    NonNegativeArgCheck("hash-container-size-set!", argv[1], 0);
 
-//    AsHashMap(argv[0])->Size = argv[1];
-    Modify(FHashMap, argv[0], Size, argv[1]);
+//    AsHashContainer(argv[0])->Size = argv[1];
+    Modify(FHashContainer, argv[0], Size, argv[1]);
     return(NoValueObject);
 }
 
@@ -937,20 +949,20 @@ static FPrimitive * Primitives[] =
     &EqHashMapDeletePrimitive,
     &MakeHashMapPrimitive,
     &HashMapPPrimitive,
-    &HashMapTreeRefPrimitive,
-    &HashMapTreeSetPrimitive,
-    &HashMapComparatorPrimitive,
-    &HashMapSizePrimitive,
-    &HashMapSizeSetPrimitive
+    &HashContainerTreeRefPrimitive,
+    &HashContainerTreeSetPrimitive,
+    &HashContainerComparatorPrimitive,
+    &HashContainerSizePrimitive,
+    &HashContainerSizeSetPrimitive
 };
 
-void SetupHashMaps()
+void SetupHashContainers()
 {
     R.HashMapRecordType = MakeRecordTypeC("hash-map",
             sizeof(HashMapFieldsC) / sizeof(char *), HashMapFieldsC);
 }
 
-void SetupHashMapPrims()
+void SetupHashContainerPrims()
 {
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);

@@ -460,7 +460,7 @@
         eq-hash-map-delete
         make-hash-map
         hash-map?
-        hash-map-size
+        (rename hash-container-size hash-map-size)
         hash-map-ref
         hash-map-set!
         hash-map-delete!
@@ -469,7 +469,7 @@
         hash-map-copy
         hash-map-keys
         hash-map-entries
-        hash-map-comparator
+        (rename hash-container-comparator hash-map-comparator)
         hash-map-walk
         hash-map-fold
         hash-map->alist
@@ -863,36 +863,38 @@
                         (values htree size)))))
 
         (define (hash-map-ref hmap key default)
-            (hash-ref (hash-map-tree-ref hmap) (hash-map-comparator hmap) key default))
+            (hash-ref (hash-container-tree-ref hmap) (hash-container-comparator hmap) key default))
 
         (define (hash-map-set! hmap key val)
-            (let-values (((htree size)
-                            (hash-set! (hash-map-tree-ref hmap) (hash-map-comparator hmap)
-                                    (hash-map-size hmap) key val)))
-                (hash-map-size-set! hmap size)
-                (hash-map-tree-set! hmap htree)))
+            (let-values
+                    (((htree size) (hash-set! (hash-container-tree-ref hmap)
+                                           (hash-container-comparator hmap)
+                                           (hash-container-size hmap) key val)))
+                (hash-container-size-set! hmap size)
+                (hash-container-tree-set! hmap htree)))
 
         (define (hash-map-delete! hmap key)
-            (let-values (((htree size)
-                            (hash-delete! (hash-map-tree-ref hmap) (hash-map-comparator hmap)
-                                    (hash-map-size hmap) key)))
-                (hash-map-size-set! hmap size)
-                (hash-map-tree-set! hmap htree)))
+            (let-values
+                (((htree size) (hash-delete! (hash-container-tree-ref hmap)
+                                       (hash-container-comparator hmap)
+                                       (hash-container-size hmap) key)))
+                (hash-container-size-set! hmap size)
+                (hash-container-tree-set! hmap htree)))
 #|
         (define (hash-map-ref hmap key default)
-            (let* ((comp (hash-map-comparator hmap))
+            (let* ((comp (hash-container-comparator hmap))
                     (equiv (comparator-equality-predicate comp))
                     (hash (comparator-hash-function comp))
-                    (ret (assoc key (hash-tree-ref (hash-map-tree-ref hmap) (hash key) '())
+                    (ret (assoc key (hash-tree-ref (hash-container-tree-ref hmap) (hash key) '())
                             equiv)))
                 (if (pair? ret)
                     (cdr ret)
                     default)))
 
         (define (hash-map-set! hmap key val)
-            (let* ((comp (hash-map-comparator hmap))
+            (let* ((comp (hash-container-comparator hmap))
                     (equiv (comparator-equality-predicate comp))
-                    (htree (hash-map-tree-ref hmap))
+                    (htree (hash-container-tree-ref hmap))
                     (idx ((comparator-hash-function comp) key))
                     (bkt (hash-tree-ref htree idx '())))
                 (let find ((lst bkt))
@@ -901,26 +903,26 @@
                             (set-cdr! (car lst) val)
                             (find (cdr lst)))
                         (let ((kvn (cons (cons key val) bkt)))
-                            (hash-map-size-set! hmap (+ (hash-map-size hmap) 1))
-                            (hash-map-tree-set! hmap (hash-tree-set! htree idx kvn)))))))
+                            (hash-container-size-set! hmap (+ (hash-container-size hmap) 1))
+                            (hash-container-tree-set! hmap (hash-tree-set! htree idx kvn)))))))
 
         (define (hash-map-delete! hmap key)
-            (let* ((comp (hash-map-comparator hmap))
+            (let* ((comp (hash-container-comparator hmap))
                     (equiv (comparator-equality-predicate comp))
-                    (htree (hash-map-tree-ref hmap))
+                    (htree (hash-container-tree-ref hmap))
                     (idx ((comparator-hash-function comp) key))
                     (bkt (hash-tree-ref htree idx '())))
                 (let find ((lst bkt) (prev #f))
                     (if (pair? lst)
                         (if (equiv (caar lst) key)
                             (begin
-                                (hash-map-size-set! hmap (- (hash-map-size hmap) 1))
+                                (hash-container-size-set! hmap (- (hash-container-size hmap) 1))
                                 (if (pair? prev)
                                     (set-cdr! prev (cdr lst))
                                     (if (pair? (cdr lst))
-                                        (hash-map-tree-set! hmap
+                                        (hash-container-tree-set! hmap
                                                 (hash-tree-set! htree idx (cdr lst)))
-                                        (hash-map-tree-set! hmap (hash-tree-delete htree idx)))))
+                                        (hash-container-tree-set! hmap (hash-tree-delete htree idx)))))
                             (find (cdr lst) lst))))))
 |#
         (define not-found (cons #f #f))
@@ -932,18 +934,18 @@
             (hash-map-set! hmap key (func (hash-map-ref hmap key default))))
 
         (define (hash-map-copy hmap)
-            (let ((copy (make-hash-map (hash-map-comparator hmap))))
+            (let ((copy (make-hash-map (hash-container-comparator hmap))))
                 (hash-map-walk hmap (lambda (key val) (hash-map-set! copy key val)))
                 copy))
 
         (define (hash-map-keys hmap)
-            (let ((keys (make-vector (hash-map-size hmap))))
+            (let ((keys (make-vector (hash-container-size hmap))))
                 (hash-map-fold hmap (lambda (key val idx) (vector-set! keys idx key) (+ idx 1)) 0)
                 keys))
 
         (define (hash-map-entries hmap)
-            (let ((keys (make-vector (hash-map-size hmap)))
-                    (vals (make-vector (hash-map-size hmap))))
+            (let ((keys (make-vector (hash-container-size hmap)))
+                    (vals (make-vector (hash-container-size hmap))))
                 (hash-map-fold hmap (lambda (key val idx)
                                         (vector-set! keys idx key)
                                         (vector-set! vals idx val)
@@ -968,7 +970,7 @@
                 (if (pair? lst)
                     (bucket-fold (cdr lst) (func (caar lst) (cdar lst) accum))
                     accum))
-            (hash-tree-fold (hash-map-tree-ref hmap) init))
+            (hash-tree-fold (hash-container-tree-ref hmap) init))
 
         (define (hash-map->alist hmap)
             (hash-map-fold hmap (lambda (key val accum) (cons (cons key val) accum)) '()))

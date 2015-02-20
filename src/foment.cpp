@@ -1058,7 +1058,7 @@ void SetupFoment(FThreadState * ts)
 
     R.SymbolHashTree = MakeHashTree();
 
-    SetupHashMaps();
+    SetupHashContainers();
     SetupCompare();
 
     ts->Parameters = MakeEqHashMap();
@@ -1086,7 +1086,7 @@ void SetupFoment(FThreadState * ts)
         LibraryExport(R.BedrockLibrary, EnvironmentSetC(R.Bedrock, SpecialSyntaxes[n],
                 MakeImmediate(n, SpecialSyntaxTag)));
 
-    SetupHashMapPrims();
+    SetupHashContainerPrims();
     SetupComparePrims();
     SetupPairs();
     SetupCharacters();

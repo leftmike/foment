@@ -780,14 +780,10 @@ int_t EqualP(FObject obj1, FObject obj2);
 uint_t EqHash(FObject obj);
 extern FPrimitive EqHashPrimitive;
 
-// ---- HashMap ----
+// ---- HashContainer ----
 
-#define HashMapP(obj) RecordP(obj, R.HashMapRecordType)
-#define AsHashMap(obj) ((FHashMap *) (obj))
-
-typedef int_t (*FEquivFn)(FObject obj1, FObject obj2);
-typedef uint_t (*FHashFn)(FObject obj);
-typedef void (*FVisitFn)(FObject key, FObject val, FObject ctx);
+#define HashContainerP(obj) (HashMapP(obj) || HashSetP(obj) || HashBagP(obj))
+#define AsHashContainer(obj) ((FHashContainer *) (obj))
 
 typedef struct
 {
@@ -796,7 +792,17 @@ typedef struct
     FObject Comparator;
     FObject Tracker;
     FObject Size;
-} FHashMap;
+} FHashContainer;
+
+// ---- HashMap ----
+
+#define HashMapP(obj) RecordP(obj, R.HashMapRecordType)
+
+typedef int_t (*FEquivFn)(FObject obj1, FObject obj2);
+typedef uint_t (*FHashFn)(FObject obj);
+typedef void (*FVisitFn)(FObject key, FObject val, FObject ctx);
+
+typedef FHashContainer FHashMap;
 
 FObject MakeEqHashMap();
 FObject EqHashMapRef(FObject hmap, FObject key, FObject def);
@@ -807,21 +813,19 @@ void EqHashMapVisit(FObject hmap, FVisitFn vfn, FObject ctx);
 // ---- HashSet ----
 
 #define HashSetP(obj) RecordP(obj, R.HashSetRecordType)
-#define AsHashSet(obj) ((FHashSet *) (obj))
 
-typedef struct
-{
-    FRecord Record;
-    FObject HashTree;
-    FObject Comparator;
-    FObject Tracker;
-    FObject Size;
-} FHashSet;
+typedef FHashContainer FHashSet;
 
 FObject MakeEqHashSet();
 int_t EqHashSetContainsP(FObject hset, FObject elem);
 void EqHashSetAdjoin(FObject hset, FObject elem);
 void EqHashSetDelete(FObject hset, FObject elem);
+
+// ---- HashBag ----
+
+#define HashBagP(obj) RecordP(obj, R.HashBagRecordType)
+
+typedef FHashContainer FHashBag;
 
 // ---- Symbols ----
 
@@ -864,6 +868,7 @@ typedef struct
 
     FObject HashMapRecordType;
     FObject HashSetRecordType;
+    FObject HashBagRecordType;
     FObject ExceptionRecordType;
 
     FObject Assertion;
@@ -1605,6 +1610,12 @@ inline void HashTreeArgCheck(const char * who, FObject obj)
         RaiseExceptionC(R.Assertion, who, "expected a hash tree", List(obj));
 }
 
+inline void HashContainerArgCheck(const char * who, FObject obj)
+{
+    if (HashContainerP(obj) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected a hash-map, hash-set, or hash-bag", List(obj));
+}
+
 inline void HashMapArgCheck(const char * who, FObject obj)
 {
     if (HashMapP(obj) == 0)
@@ -1613,7 +1624,7 @@ inline void HashMapArgCheck(const char * who, FObject obj)
 
 inline void EqHashMapArgCheck(const char * who, FObject obj)
 {
-    if (HashMapP(obj) == 0 || PairP(AsHashMap(obj)->Tracker) == 0)
+    if (HashMapP(obj) == 0 || PairP(AsHashContainer(obj)->Tracker) == 0)
         RaiseExceptionC(R.Assertion, who, "expected an eq-hash-map", List(obj));
 }
 
@@ -1657,8 +1668,8 @@ void SetupPairs();
 void SetupCharacters();
 void SetupStrings();
 void SetupVectors();
-void SetupHashMaps();
-void SetupHashMapPrims();
+void SetupHashContainers();
+void SetupHashContainerPrims();
 void SetupCompare();
 void SetupComparePrims();
 void SetupIO();
