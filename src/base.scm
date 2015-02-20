@@ -475,6 +475,15 @@
         hash-map->alist
         alist->hash-map
         alist->eq-hash-map
+        make-hash-set
+        hash-set?
+        make-eq-hash-set
+        eq-hash-set?
+        eq-hash-set-contains?
+        eq-hash-set-adjoin!
+        eq-hash-set-delete!
+        make-hash-bag
+        hash-bag?
         random
         no-value
         set!-values

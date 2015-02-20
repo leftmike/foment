@@ -521,24 +521,7 @@ FObject StringLengthToSymbol(FCh * s, int_t sl)
     return(sym);
 }
 
-// ---- Hash Map ----
-
-static const char * HashMapFieldsC[4] = {"hash-tree", "comparator", "tracker", "size"};
-
-static FObject MakeHashMap(FObject comp, FObject tracker)
-{
-    FAssert(sizeof(FHashMap) == sizeof(HashMapFieldsC) + sizeof(FRecord));
-    FAssert(ComparatorP(comp));
-    FAssert(tracker == NoValueObject || PairP(tracker));
-
-    FHashMap * hmap = (FHashMap *) MakeRecord(R.HashMapRecordType);
-    hmap->HashTree = MakeHashTree();
-    hmap->Comparator = comp;
-    hmap->Tracker = tracker;
-    hmap->Size = MakeFixnum(0);
-
-    return(hmap);
-}
+// ---- Hash Container ----
 
 static FObject HashContainerRef(FObject hcontain, FObject key, FObject def, FEquivFn eqfn,
     FHashFn hashfn)
@@ -660,11 +643,6 @@ static void HashContainerVisit(FObject hcontain, FVisitFn vfn, FObject ctx)
     HashTreeVisit(AsHashContainer(hcontain)->HashTree, VisitHashContainerBucket, vfn, ctx);
 }
 
-FObject MakeEqHashMap()
-{
-    return(MakeHashMap(R.EqComparator, MakeTConc()));
-}
-
 static uint_t OldIndex(FObject kvn)
 {
     while (PairP(kvn))
@@ -770,119 +748,64 @@ static void EqHashContainerRehash(FObject hcontain, FObject tconc)
 #endif // FOMENT_DEBUG
 }
 
-FObject EqHashMapRef(FObject hmap, FObject key, FObject def)
+static FObject EqHashContainerRef(FObject hcontain, FObject key, FObject def, FEquivFn eqfn,
+    FHashFn hashfn)
 {
-    FAssert(HashMapP(hmap));
-    FAssert(PairP(AsHashContainer(hmap)->Tracker));
+    FAssert(HashContainerP(hcontain));
+    FAssert(PairP(AsHashContainer(hcontain)->Tracker));
 
-    if (TConcEmptyP(AsHashContainer(hmap)->Tracker) == 0)
-        EqHashContainerRehash(hmap, AsHashContainer(hmap)->Tracker);
+    if (TConcEmptyP(AsHashContainer(hcontain)->Tracker) == 0)
+        EqHashContainerRehash(hcontain, AsHashContainer(hcontain)->Tracker);
 
-    FObject ret = HashContainerRef(hmap, key, def, EqP, EqHash);
+    FObject ret = HashContainerRef(hcontain, key, def, EqP, EqHash);
 
 #ifdef FOMENT_DEBUG
-    CheckEqHashContainer(hmap);
+    CheckEqHashContainer(hcontain);
 #endif // FOMENT_DEBUG
 
     return(ret);
 }
 
-void EqHashMapSet(FObject hmap, FObject key, FObject val)
+static void EqHashContainerSet(FObject hcontain, FObject key, FObject val, FEquivFn eqfn,
+    FHashFn hashfn)
 {
-    FAssert(HashMapP(hmap));
-    FAssert(PairP(AsHashContainer(hmap)->Tracker));
+    FAssert(HashContainerP(hcontain));
+    FAssert(PairP(AsHashContainer(hcontain)->Tracker));
 
-    if (TConcEmptyP(AsHashContainer(hmap)->Tracker) == 0)
-        EqHashContainerRehash(hmap, AsHashContainer(hmap)->Tracker);
+    if (TConcEmptyP(AsHashContainer(hcontain)->Tracker) == 0)
+        EqHashContainerRehash(hcontain, AsHashContainer(hcontain)->Tracker);
 
-    HashContainerSet(hmap, key, val, EqP, EqHash);
+    HashContainerSet(hcontain, key, val, EqP, EqHash);
 
 #ifdef FOMENT_DEBUG
-    CheckEqHashContainer(hmap);
+    CheckEqHashContainer(hcontain);
 #endif // FOMENT_DEBUG
 }
 
-void EqHashMapDelete(FObject hmap, FObject key)
+static void EqHashContainerDelete(FObject hcontain, FObject key, FEquivFn eqfn, FHashFn hashfn)
 {
-    FAssert(HashMapP(hmap));
-    FAssert(PairP(AsHashContainer(hmap)->Tracker));
+    FAssert(HashContainerP(hcontain));
+    FAssert(PairP(AsHashContainer(hcontain)->Tracker));
 
-    if (TConcEmptyP(AsHashContainer(hmap)->Tracker) == 0)
-        EqHashContainerRehash(hmap, AsHashContainer(hmap)->Tracker);
+    if (TConcEmptyP(AsHashContainer(hcontain)->Tracker) == 0)
+        EqHashContainerRehash(hcontain, AsHashContainer(hcontain)->Tracker);
 
-    HashContainerDelete(hmap, key, EqP, EqHash);
+    HashContainerDelete(hcontain, key, EqP, EqHash);
 
 #ifdef FOMENT_DEBUG
-    CheckEqHashContainer(hmap);
+    CheckEqHashContainer(hcontain);
 #endif // FOMENT_DEBUG
 }
 
-void EqHashMapVisit(FObject hmap, FVisitFn vfn, FObject ctx)
+static void EqHashContainerVisit(FObject hcontain, FVisitFn vfn, FObject ctx)
 {
-    FAssert(HashMapP(hmap));
-    FAssert(PairP(AsHashContainer(hmap)->Tracker));
+    FAssert(HashContainerP(hcontain));
+    FAssert(PairP(AsHashContainer(hcontain)->Tracker));
 
-    if (TConcEmptyP(AsHashContainer(hmap)->Tracker) == 0)
-        EqHashContainerRehash(hmap, AsHashContainer(hmap)->Tracker);
+    if (TConcEmptyP(AsHashContainer(hcontain)->Tracker) == 0)
+        EqHashContainerRehash(hcontain, AsHashContainer(hcontain)->Tracker);
 
-    HashContainerVisit(hmap, vfn, ctx);
-}
-
-Define("make-eq-hash-map", MakeEqHashMapPrimitive)(int_t argc, FObject argv[])
-{
-    ZeroArgsCheck("make-eq-hash-map", argc);
-
-    return(MakeEqHashMap());
-}
-
-Define("eq-hash-map?", EqHashMapPPrimitive)(int_t argc, FObject argv[])
-{
-    OneArgCheck("eq-hash-map?", argc);
-
-    return((HashMapP(argv[0]) &&
-            PairP(AsHashContainer(argv[0])->Tracker)) ? TrueObject : FalseObject);
-}
-
-Define("eq-hash-map-ref", EqHashMapRefPrimitive)(int_t argc, FObject argv[])
-{
-    ThreeArgsCheck("eq-hash-map-ref", argc);
-    EqHashMapArgCheck("eq-hash-map-ref", argv[0]);
-
-    return(EqHashMapRef(argv[0], argv[1], argv[2]));
-}
-
-Define("eq-hash-map-set!", EqHashMapSetPrimitive)(int_t argc, FObject argv[])
-{
-    ThreeArgsCheck("eq-hash-map-set!", argc);
-    EqHashMapArgCheck("eq-hash-map-set!", argv[0]);
-
-    EqHashMapSet(argv[0], argv[1], argv[2]);
-    return(NoValueObject);
-}
-
-Define("eq-hash-map-delete", EqHashMapDeletePrimitive)(int_t argc, FObject argv[])
-{
-    TwoArgsCheck("eq-hash-map-delete", argc);
-    EqHashMapArgCheck("eq-hash-map-delete", argv[0]);
-
-    EqHashMapDelete(argv[0], argv[1]);
-    return(NoValueObject);
-}
-
-Define("make-hash-map", MakeHashMapPrimitive)(int_t argc, FObject argv[])
-{
-    ZeroOrOneArgsCheck("make-hash-map", argc);
-    if (argc == 1)
-        ComparatorArgCheck("make-hash-map", argv[0]);
-
-    return(MakeHashMap(argc == 1 ? argv[0] : R.DefaultComparator, NoValueObject));
-}
-
-Define("hash-map?", HashMapPPrimitive)(int_t argc, FObject argv[])
-{
-    OneArgCheck("hash-map?", argc);
-
-    return(HashMapP(argv[0]) ? TrueObject : FalseObject);
+    HashContainerVisit(hcontain, vfn, ctx);
 }
 
 Define("hash-container-tree-ref", HashContainerTreeRefPrimitive)(int_t argc, FObject argv[])
@@ -931,6 +854,248 @@ Define("hash-container-size-set!", HashContainerSizeSetPrimitive)(int_t argc, FO
     return(NoValueObject);
 }
 
+// ---- Hash Map ----
+
+static const char * HashContainerFieldsC[4] = {"hash-tree", "comparator", "tracker", "size"};
+
+static FObject MakeHashMap(FObject comp, FObject tracker)
+{
+    FAssert(sizeof(FHashMap) == sizeof(HashContainerFieldsC) + sizeof(FRecord));
+    FAssert(ComparatorP(comp));
+    FAssert(tracker == NoValueObject || PairP(tracker));
+
+    FHashMap * hmap = (FHashMap *) MakeRecord(R.HashMapRecordType);
+    hmap->HashTree = MakeHashTree();
+    hmap->Comparator = comp;
+    hmap->Tracker = tracker;
+    hmap->Size = MakeFixnum(0);
+
+    return(hmap);
+}
+
+Define("make-hash-map", MakeHashMapPrimitive)(int_t argc, FObject argv[])
+{
+    ZeroOrOneArgsCheck("make-hash-map", argc);
+    if (argc == 1)
+        ComparatorArgCheck("make-hash-map", argv[0]);
+
+    return(MakeHashMap(argc == 1 ? argv[0] : R.DefaultComparator, NoValueObject));
+}
+
+Define("hash-map?", HashMapPPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("hash-map?", argc);
+
+    return(HashMapP(argv[0]) ? TrueObject : FalseObject);
+}
+
+FObject MakeEqHashMap()
+{
+    return(MakeHashMap(R.EqComparator, MakeTConc()));
+}
+
+FObject EqHashMapRef(FObject hmap, FObject key, FObject def)
+{
+    FAssert(HashMapP(hmap));
+
+    return(EqHashContainerRef(hmap, key, def, EqP, EqHash));
+}
+
+void EqHashMapSet(FObject hmap, FObject key, FObject val)
+{
+    FAssert(HashMapP(hmap));
+
+    EqHashContainerSet(hmap, key, val, EqP, EqHash);
+}
+
+void EqHashMapDelete(FObject hmap, FObject key)
+{
+    FAssert(HashMapP(hmap));
+
+    EqHashContainerDelete(hmap, key, EqP, EqHash);
+}
+
+void EqHashMapVisit(FObject hmap, FVisitFn vfn, FObject ctx)
+{
+    FAssert(HashMapP(hmap));
+
+    EqHashContainerVisit(hmap, vfn, ctx);
+}
+
+Define("make-eq-hash-map", MakeEqHashMapPrimitive)(int_t argc, FObject argv[])
+{
+    ZeroArgsCheck("make-eq-hash-map", argc);
+
+    return(MakeEqHashMap());
+}
+
+Define("eq-hash-map?", EqHashMapPPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("eq-hash-map?", argc);
+
+    return((HashMapP(argv[0]) &&
+            PairP(AsHashContainer(argv[0])->Tracker)) ? TrueObject : FalseObject);
+}
+
+Define("eq-hash-map-ref", EqHashMapRefPrimitive)(int_t argc, FObject argv[])
+{
+    ThreeArgsCheck("eq-hash-map-ref", argc);
+    EqHashMapArgCheck("eq-hash-map-ref", argv[0]);
+
+    return(EqHashMapRef(argv[0], argv[1], argv[2]));
+}
+
+Define("eq-hash-map-set!", EqHashMapSetPrimitive)(int_t argc, FObject argv[])
+{
+    ThreeArgsCheck("eq-hash-map-set!", argc);
+    EqHashMapArgCheck("eq-hash-map-set!", argv[0]);
+
+    EqHashMapSet(argv[0], argv[1], argv[2]);
+    return(NoValueObject);
+}
+
+Define("eq-hash-map-delete", EqHashMapDeletePrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("eq-hash-map-delete", argc);
+    EqHashMapArgCheck("eq-hash-map-delete", argv[0]);
+
+    EqHashMapDelete(argv[0], argv[1]);
+    return(NoValueObject);
+}
+
+// ---- Hash Set ----
+
+static FObject MakeHashSet(FObject comp, FObject tracker)
+{
+    FAssert(sizeof(FHashSet) == sizeof(HashContainerFieldsC) + sizeof(FRecord));
+    FAssert(ComparatorP(comp));
+    FAssert(tracker == NoValueObject || PairP(tracker));
+
+    FHashSet * hset = (FHashSet *) MakeRecord(R.HashSetRecordType);
+    hset->HashTree = MakeHashTree();
+    hset->Comparator = comp;
+    hset->Tracker = tracker;
+    hset->Size = MakeFixnum(0);
+
+    return(hset);
+}
+
+Define("make-hash-set", MakeHashSetPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("make-hash-set", argc);
+    ComparatorArgCheck("make-hash-set", argv[0]);
+
+    return(MakeHashSet(argv[0], NoValueObject));
+}
+
+Define("hash-set?", HashSetPPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("hash-set?", argc);
+
+    return(HashSetP(argv[0]) ? TrueObject : FalseObject);
+}
+
+FObject MakeEqHashSet()
+{
+    return(MakeHashSet(R.EqComparator, MakeTConc()));
+}
+
+int_t EqHashSetContainsP(FObject hset, FObject elem)
+{
+    FAssert(HashSetP(hset));
+
+    return(EqHashContainerRef(hset, elem, FalseObject, EqP, EqHash) == TrueObject);
+}
+
+void EqHashSetAdjoin(FObject hset, FObject elem)
+{
+    FAssert(HashSetP(hset));
+
+    EqHashContainerSet(hset, elem, TrueObject, EqP, EqHash);
+}
+
+void EqHashSetDelete(FObject hset, FObject elem)
+{
+    FAssert(HashSetP(hset));
+
+    EqHashContainerDelete(hset, elem, EqP, EqHash);
+}
+
+Define("make-eq-hash-set", MakeEqHashSetPrimitive)(int_t argc, FObject argv[])
+{
+    ZeroArgsCheck("make-eq-hash-set", argc);
+
+    return(MakeEqHashSet());
+}
+
+Define("eq-hash-set?", EqHashSetPPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("eq-hash-set?", argc);
+
+    return((HashSetP(argv[0]) &&
+            PairP(AsHashContainer(argv[0])->Tracker)) ? TrueObject : FalseObject);
+}
+
+Define("eq-hash-set-contains?", EqHashSetContainsPPrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("eq-hash-set-contains?", argc);
+    EqHashSetArgCheck("eq-hash-set-contains?", argv[0]);
+
+    return(EqHashSetContainsP(argv[0], argv[1]) ? TrueObject : FalseObject);
+}
+
+Define("eq-hash-set-adjoin!", EqHashSetAdjoinPrimitive)(int_t argc, FObject argv[])
+{
+    AtLeastOneArgCheck("eq-hash-set-adjoin!", argc);
+    EqHashSetArgCheck("eq-hash-set-adjoin!", argv[0]);
+
+    for (int_t adx = 1; adx < argc; adx++)
+        EqHashSetAdjoin(argv[0], argv[adx]);
+    return(NoValueObject);
+}
+
+Define("eq-hash-set-delete!", EqHashSetDeletePrimitive)(int_t argc, FObject argv[])
+{
+    AtLeastOneArgCheck("eq-hash-set-delete!", argc);
+    EqHashSetArgCheck("eq-hash-set-delete!", argv[0]);
+
+    for (int_t adx = 1; adx < argc; adx++)
+        EqHashSetDelete(argv[0], argv[adx]);
+    return(NoValueObject);
+}
+
+// ---- Hash Bag ----
+
+static FObject MakeHashBag(FObject comp, FObject tracker)
+{
+    FAssert(sizeof(FHashBag) == sizeof(HashContainerFieldsC) + sizeof(FRecord));
+    FAssert(ComparatorP(comp));
+    FAssert(tracker == NoValueObject || PairP(tracker));
+
+    FHashBag * hbag = (FHashBag *) MakeRecord(R.HashBagRecordType);
+    hbag->HashTree = MakeHashTree();
+    hbag->Comparator = comp;
+    hbag->Tracker = tracker;
+    hbag->Size = MakeFixnum(0);
+
+    return(hbag);
+}
+
+Define("make-hash-bag", MakeHashBagPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("make-hash-bag", argc);
+    ComparatorArgCheck("make-hash-bag", argv[0]);
+
+    return(MakeHashBag(argv[0], NoValueObject));
+}
+
+Define("hash-bag?", HashBagPPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("hash-bag?", argc);
+
+    return(HashBagP(argv[0]) ? TrueObject : FalseObject);
+}
+
 // ---- Primitives ----
 
 static FPrimitive * Primitives[] =
@@ -942,24 +1107,37 @@ static FPrimitive * Primitives[] =
     &HashTreeDeletePrimitive,
     &HashTreeBucketsPrimitive,
     &HashTreeBitmapPrimitive,
+    &HashContainerTreeRefPrimitive,
+    &HashContainerTreeSetPrimitive,
+    &HashContainerComparatorPrimitive,
+    &HashContainerSizePrimitive,
+    &HashContainerSizeSetPrimitive,
+    &MakeHashMapPrimitive,
+    &HashMapPPrimitive,
     &MakeEqHashMapPrimitive,
     &EqHashMapPPrimitive,
     &EqHashMapRefPrimitive,
     &EqHashMapSetPrimitive,
     &EqHashMapDeletePrimitive,
-    &MakeHashMapPrimitive,
-    &HashMapPPrimitive,
-    &HashContainerTreeRefPrimitive,
-    &HashContainerTreeSetPrimitive,
-    &HashContainerComparatorPrimitive,
-    &HashContainerSizePrimitive,
-    &HashContainerSizeSetPrimitive
+    &MakeHashSetPrimitive,
+    &HashSetPPrimitive,
+    &MakeEqHashSetPrimitive,
+    &EqHashSetPPrimitive,
+    &EqHashSetContainsPPrimitive,
+    &EqHashSetAdjoinPrimitive,
+    &EqHashSetDeletePrimitive,
+    &MakeHashBagPrimitive,
+    &HashBagPPrimitive
 };
 
 void SetupHashContainers()
 {
     R.HashMapRecordType = MakeRecordTypeC("hash-map",
-            sizeof(HashMapFieldsC) / sizeof(char *), HashMapFieldsC);
+            sizeof(HashContainerFieldsC) / sizeof(char *), HashContainerFieldsC);
+    R.HashSetRecordType = MakeRecordTypeC("hash-set",
+            sizeof(HashContainerFieldsC) / sizeof(char *), HashContainerFieldsC);
+    R.HashBagRecordType = MakeRecordTypeC("hash-bag",
+            sizeof(HashContainerFieldsC) / sizeof(char *), HashContainerFieldsC);
 }
 
 void SetupHashContainerPrims()

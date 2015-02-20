@@ -48,7 +48,7 @@ debug/foment: debug/foment.o debug/gc.o debug/syncthrd.o debug/compile.o debug/i
 		debug/synrules.o debug/synpass.o debug/midpass.o debug/genpass.o\
 		debug/pairs.o debug/unicode.o debug/chars.o debug/strings.o debug/vectors.o\
 		debug/library.o debug/execute.o debug/numbers.o	debug/mini-gmp.o debug/write.o\
-		debug/read.o debug/filesys.o debug/hashmap.o debug/compare.o debug/main.o\
+		debug/read.o debug/filesys.o debug/hcontain.o debug/compare.o debug/main.o\
 		debug/base.o
 	g++ -o debug/foment $^ -lpthread
 
@@ -57,7 +57,7 @@ release/foment: release/foment.o release/gc.o release/syncthrd.o release/compile
 		release/pairs.o release/unicode.o release/chars.o release/strings.o\
 		release/vectors.o release/library.o release/execute.o release/numbers.o\
 		release/mini-gmp.o release/write.o release/read.o release/filesys.o\
-		release/hashmap.o release/compare.o release/main.o release/base.o
+		release/hcontain.o release/compare.o release/main.o release/base.o
 	g++ -o release/foment $^ -lpthread
 
 profile/foment: profile/foment.o profile/gc.o profile/syncthrd.o profile/compile.o profile/io.o\
@@ -65,7 +65,7 @@ profile/foment: profile/foment.o profile/gc.o profile/syncthrd.o profile/compile
 		profile/pairs.o profile/unicode.o profile/chars.o profile/strings.o\
 		profile/vectors.o profile/library.o profile/execute.o profile/numbers.o\
 		profile/mini-gmp.o profile/write.o profile/read.o profile/filesys.o\
-		profile/hashmap.o profile/compare.o profile/main.o profile/base.o
+		profile/hcontain.o profile/compare.o profile/main.o profile/base.o
 	g++ -pg -o profile/foment $^ -lpthread
 
 debug/foment.o: ../src/foment.cpp ../src/foment.hpp ../src/unicode.hpp
@@ -92,7 +92,7 @@ debug/write.o: ../src/write.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.
 debug/read.o: ../src/read.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
 	../src/unicode.hpp
 debug/filesys.o: ../src/filesys.cpp ../src/foment.hpp ../src/unicode.hpp
-debug/hashmap.o: ../src/hashmap.cpp ../src/foment.hpp
+debug/hcontain.o: ../src/hcontain.cpp ../src/foment.hpp
 debug/compare.o: ../src/compare.cpp ../src/foment.hpp
 debug/main.o: ../src/main.cpp ../src/foment.hpp
 debug/base.o: debug/base.cpp
@@ -121,7 +121,7 @@ release/write.o: ../src/write.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/i
 release/read.o: ../src/read.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
 	../src/unicode.hpp
 release/filesys.o: ../src/filesys.cpp ../src/foment.hpp ../src/unicode.hpp
-release/hashmap.o: ../src/hashmap.cpp ../src/foment.hpp
+release/hcontain.o: ../src/hcontain.cpp ../src/foment.hpp
 release/compare.o: ../src/compare.cpp ../src/foment.hpp
 release/main.o: ../src/main.cpp ../src/foment.hpp
 release/base.o: debug/base.cpp

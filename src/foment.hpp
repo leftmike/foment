@@ -27,6 +27,10 @@ Future:
 
 HashTree and Comparator:
 -- add sets: HashSet
+-- document: make-eq-hash-set, eq-hash-set?, eq-hash-set-contains?, eq-hash-set-adjoint!,
+   eq-hash-set-delete!
+-- test: make-eq-hash-set, eq-hash-set?, eq-hash-set-contains?, eq-hash-set-adjoint!,
+   eq-hash-set-delete!
 -- add bags: HashBag
 
 Compiler:
@@ -1616,16 +1620,16 @@ inline void HashContainerArgCheck(const char * who, FObject obj)
         RaiseExceptionC(R.Assertion, who, "expected a hash-map, hash-set, or hash-bag", List(obj));
 }
 
-inline void HashMapArgCheck(const char * who, FObject obj)
-{
-    if (HashMapP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a hash-map", List(obj));
-}
-
 inline void EqHashMapArgCheck(const char * who, FObject obj)
 {
     if (HashMapP(obj) == 0 || PairP(AsHashContainer(obj)->Tracker) == 0)
         RaiseExceptionC(R.Assertion, who, "expected an eq-hash-map", List(obj));
+}
+
+inline void EqHashSetArgCheck(const char * who, FObject obj)
+{
+    if (HashSetP(obj) == 0 || PairP(AsHashContainer(obj)->Tracker) == 0)
+        RaiseExceptionC(R.Assertion, who, "expected an eq-hash-set", List(obj));
 }
 
 inline void ComparatorArgCheck(const char * who, FObject obj)
