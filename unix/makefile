@@ -1,7 +1,6 @@
 #
 # Foment
 #
-#
 
 CCDEBUG = -c -ggdb -Wall -DFOMENT_DEBUG -DFOMENT_UNIX
 CCRELEASE = -c -Wall -DFOMENT_UNIX
