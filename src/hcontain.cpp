@@ -13,11 +13,6 @@ Foment
 //
 // popcount_3 from http://en.wikipedia.org/wiki/Hamming_weight#Efficient_implementation
 
-const uint64_t m1  = 0x5555555555555555; //binary: 0101...
-const uint64_t m2  = 0x3333333333333333; //binary: 00110011..
-const uint64_t m4  = 0x0f0f0f0f0f0f0f0f; //binary:  4 zeros,  4 ones ...
-const uint64_t h01 = 0x0101010101010101; //the sum of 256 to the power of 0,1,2,3...
-
 #ifdef FOMENT_UNIX
 #ifdef FOMENT_64BIT
 #define PopulationCount(x) __builtin_popcountl(x)
@@ -37,6 +32,11 @@ const uint64_t h01 = 0x0101010101010101; //the sum of 256 to the power of 0,1,2,
 #endif // FOMENT_WINDOWS
 
 #ifndef PopulationCount
+const uint64_t m1  = 0x5555555555555555; //binary: 0101...
+const uint64_t m2  = 0x3333333333333333; //binary: 00110011..
+const uint64_t m4  = 0x0f0f0f0f0f0f0f0f; //binary:  4 zeros,  4 ones ...
+const uint64_t h01 = 0x0101010101010101; //the sum of 256 to the power of 0,1,2,3...
+
 int PopulationCount(uint64_t x)
 {
     x -= (x >> 1) & m1;             //put count of each 2 bits into those 2 bits

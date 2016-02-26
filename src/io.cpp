@@ -392,7 +392,8 @@ static FObject MakeBufferedPort(FObject port)
         return(NoValueObject);
     }
 
-    FObject nport = MakeBinaryPort(AsGenericPort(port)->Name, HandOffPort(port), bc,
+    port = HandOffPort(port);
+    FObject nport = MakeBinaryPort(AsGenericPort(port)->Name, port, bc,
             InputPortOpenP(port) ? BufferedCloseInput : 0,
             OutputPortOpenP(port) ? BufferedCloseOutput : 0,
             OutputPortOpenP(port) ? BufferedFlushOutput : 0,
@@ -1110,7 +1111,8 @@ static FObject MakeTranslatorPort(FObject port, FReadChFn rcfn, FCharReadyPFn cr
 {
     FAssert(BinaryPortP(port));
 
-    return(MakeTextualPort(AsGenericPort(port)->Name, HandOffPort(port), 0,
+    port = HandOffPort(port);
+    return(MakeTextualPort(AsGenericPort(port)->Name, port, 0,
             InputPortP(port) ? TranslatorCloseInput : 0,
             OutputPortP(port) ? TranslatorCloseOutput : 0,
             OutputPortP(port) ? TranslatorFlushOutput : 0,
@@ -1870,7 +1872,7 @@ static void ConSaveHistory(FConsoleInput * ci, FObject fn)
         }
         catch (FObject obj)
         {
-            ((FObject) obj);
+//            ((FObject) obj);
         }
     }
 }
@@ -1889,7 +1891,7 @@ static void ConLoadHistory(FConsoleInput * ci, FObject fn)
         }
         catch (FObject obj)
         {
-            ((FObject) obj);
+//            ((FObject) obj);
         }
     }
 }
@@ -2181,7 +2183,7 @@ static void ConGetInfo(FConsoleInput * ci)
     int_t x;
     int_t y;
 
-    ((int_t) ret);
+//    ((int_t) ret);
 
     ret = ConGetCursor(&x, &y);
 

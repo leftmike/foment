@@ -24,12 +24,15 @@ q: rational
 #endif // FOMENT_BSD
 
 #ifdef FOMENT_WINDOWS
-#define finite _finite
+#define isfinite _finite
 #define isnan _isnan
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
 #define sprintf_s snprintf
+#ifndef isfinite
+#define isfinite finite
+#endif // isfinite
 #endif // FOMENT_UNIX
 
 static int_t GenericCompare(const char * who, FObject x1, FObject x2, int_t cf);
@@ -53,7 +56,7 @@ static inline double64_t Truncate(double64_t n)
 int_t IntegerP(FObject obj)
 {
     if (FlonumP(obj))
-        return(finite(AsFlonum(obj)) && AsFlonum(obj) == Truncate(AsFlonum(obj)));
+        return(isfinite(AsFlonum(obj)) && AsFlonum(obj) == Truncate(AsFlonum(obj)));
 
     return(FixnumP(obj) || BignumP(obj));
 }
@@ -568,7 +571,7 @@ FObject ToExact(FObject n)
     {
         double64_t d = AsFlonum(n);
 
-        if (isnan(d) || finite(d) == 0)
+        if (isnan(d) || isfinite(d) == 0)
             RaiseExceptionC(R.Assertion, "exact", "expected a finite number", List(n));
 
         if (d == Truncate(d))
@@ -1102,7 +1105,7 @@ static int_t NeedImaginaryPlusSignP(FObject n)
     else if (RatioP(n))
         return(NeedImaginaryPlusSignP(AsRatio(n)->Numerator));
     else if (FlonumP(n))
-        return(isnan(AsFlonum(n)) == 0 && finite(AsFlonum(n)) != 0 && AsFlonum(n) >= 0.0);
+        return(isnan(AsFlonum(n)) == 0 && isfinite(AsFlonum(n)) != 0 && AsFlonum(n) >= 0.0);
 
     FAssert(BignumP(n));
 
@@ -1150,7 +1153,7 @@ static void WriteNumber(FObject port, FObject obj, FFixnum rdx)
 
         if (isnan(d))
             WriteStringC(port, "+nan.0");
-        else if (finite(d) == 0)
+        else if (isfinite(d) == 0)
             WriteStringC(port, d > 0 ? "+inf.0" : "-inf.0");
         else
         {
@@ -1200,7 +1203,7 @@ FObject NumberToString(FObject obj, FFixnum rdx)
 
         if (isnan(d))
             return(MakeStringC("+nan.0"));
-        else if (finite(d) == 0)
+        else if (isfinite(d) == 0)
             return(MakeStringC(d > 0 ? "+inf.0" : "-inf.0"));
         else
         {
@@ -2260,7 +2263,7 @@ Define("real?", RealPPrimitive)(int_t argc, FObject argv[])
 int_t RationalP(FObject obj)
 {
     if (FlonumP(obj))
-        return((isnan(AsFlonum(obj)) || finite(AsFlonum(obj)) == 0) ? 0 : 1);
+        return((isnan(AsFlonum(obj)) || isfinite(AsFlonum(obj)) == 0) ? 0 : 1);
 
     return(RealP(obj));
 }
@@ -2318,13 +2321,13 @@ Define("finite?", FinitePPrimitive)(int_t argc, FObject argv[])
     NumberArgCheck("finite?", argv[0]);
 
     if (FlonumP(argv[0]))
-        return(finite(AsFlonum(argv[0])) ? TrueObject : FalseObject);
+        return(isfinite(AsFlonum(argv[0])) ? TrueObject : FalseObject);
     else if (ComplexP(argv[0]) && FlonumP(AsReal(argv[0])))
     {
         FAssert(FlonumP(AsImaginary(argv[0])));
 
-        return((finite(AsFlonum(AsReal(argv[0])))
-                && finite(AsFlonum(AsImaginary(argv[0])))) ? TrueObject : FalseObject);
+        return((isfinite(AsFlonum(AsReal(argv[0])))
+                && isfinite(AsFlonum(AsImaginary(argv[0])))) ? TrueObject : FalseObject);
     }
 
     return(TrueObject);
@@ -2332,7 +2335,7 @@ Define("finite?", FinitePPrimitive)(int_t argc, FObject argv[])
 
 static inline int_t InfiniteP(double64_t d)
 {
-    return(isnan(d) == 0 && finite(d) == 0);
+    return(isnan(d) == 0 && isfinite(d) == 0);
 }
 
 Define("infinite?", InfinitePPrimitive)(int_t argc, FObject argv[])

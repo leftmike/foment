@@ -119,6 +119,7 @@ static FObject MakeSyntaxRule(int_t nv, FObject vars, FObject pat, FObject tpl)
     return(sr);
 }
 
+#if 0
 static FObject PatternToList(FObject cpat)
 {
     if (PairP(cpat))
@@ -154,6 +155,7 @@ static FObject TemplateToList(FObject ctpl)
 
     return(ctpl);
 }
+#endif // 0
 
 // ----------------
 
@@ -766,6 +768,7 @@ static FObject ExpandTemplateRepeat(FObject tse, FObject use, FObject ctpl, int_
     return(ret);
 }
 
+#if 0
 static FObject CopyWrapValue(FObject se, FObject val)
 {
     FAssert(SymbolP(val) == 0);
@@ -778,6 +781,7 @@ static FObject CopyWrapValue(FObject se, FObject val)
 
     return(val);
 }
+#endif // 0
 
 static FObject ExpandTemplate(FObject tse, FObject use, FObject ctpl, int_t nv, FObject vals[],
     FObject expr)

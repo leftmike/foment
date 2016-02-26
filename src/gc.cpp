@@ -16,7 +16,7 @@ Foment
 #endif // __APPLE__
 #endif // FOMENT_UNIX
 
-#ifdef FOMENT_BSD
+#if defined(FOMENT_BSD) || defined(__APPLE__)
 #include <stdlib.h>
 #else // FOMENT_BSD
 #include <malloc.h>
@@ -71,10 +71,12 @@ static inline int_t MatureP(FObject obj)
     return(st == MatureSectionTag || st == TwoSlotSectionTag || st == FlonumSectionTag);
 }
 
+#ifdef FOMENT_DEBUG
 static inline FSectionTag SectionTag(FObject obj)
 {
     return((FSectionTag) SectionTable[SectionIndex(obj)]);
 }
+#endif // FOMENT_DEBUG
 
 #define MAXIMUM_YOUNG_LENGTH (1024 * 4)
 
