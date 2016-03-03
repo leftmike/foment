@@ -99,7 +99,7 @@
 (enter-exclusive e2)
 (run-thread (lambda () (enter-exclusive e2)))
 
-(define run #f)
+(set! run #f)
 
 (run-thread (lambda () (define (recur n) (recur (+ n 1))) (recur 0)))
 (run-thread (lambda () (define (recur n) (recur (+ n 1))) (recur 0)))

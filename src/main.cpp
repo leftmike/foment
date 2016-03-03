@@ -24,12 +24,16 @@ Foment
 #define StringLengthS(s) wcslen(s)
 #define StringCompareS(s1, s2) wcscmp(s1, L ## s2)
 #define StringToInt(s) _wtoi(s)
+#define HexStringToInt32(s) wcstol(s, 0, 16)
+#define HexStringToInt64(s) _wcstoui64(s, 0, 16);
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
 #define StringLengthS(s) strlen(s)
 #define StringCompareS(s1, s2) strcmp(s1, s2)
 #define StringToInt(s) atoi(s)
+#define HexStringToInt32(s) strtol(s, 0, 16)
+#define HexStringToInt64(s) strtoll(s, 0, 16);
 #endif // FOMENT_UNIX
 
 static int Usage()
@@ -234,7 +238,6 @@ int main(int argc, char * argv[])
             ValidateHeap = 1;
             adx += 1;
         }
-#ifdef FOMENT_WINDOWS
         else if (StringCompareS(argv[adx], "--section-table") == 0)
         {
             adx += 1;
@@ -242,16 +245,15 @@ int main(int argc, char * argv[])
             if (adx < argc)
             {
 #ifdef FOMENT_32BIT
-                SectionTableBase = (void *) wcstol(argv[adx], 0, 16);
+                SectionTableBase = (void *) HexStringToInt32(argv[adx]);
 #endif // FOMENT_32BIT
 #ifdef FOMENT_64BIT
-                SectionTableBase = (void *) _wcstoui64(argv[adx], 0, 16);
+                SectionTableBase = (void *) HexStringToInt64(argv[adx]);
 #endif // FOMENT_64BIT
 
                 adx += 1;
             }
         }
-#endif // FOMENT_WINDOWS
         else if (StringCompareS(argv[adx], "--random-seed") == 0)
         {
             adx += 1;
@@ -346,10 +348,8 @@ int main(int argc, char * argv[])
                     || StringCompareS(argv[adx], "-no-inline-imports") == 0
                     || StringCompareS(argv[adx], "--validate-heap") == 0)
                 adx += 1;
-#ifdef FOMENT_WINDOWS
             else if (StringCompareS(argv[adx], "--section-table") == 0)
                 adx += 2;
-#endif // FOMENT_WINDOWS
             else if (StringCompareS(argv[adx], "--random-seed") == 0)
                 adx += 2;
             else if (argv[adx][0] != '-')

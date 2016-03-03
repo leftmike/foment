@@ -1640,9 +1640,7 @@ extern uint_t InlineProcedures;
 extern uint_t InlineImports;
 extern uint_t ValidateHeap;
 
-#ifdef FOMENT_WINDOWS
 extern void * SectionTableBase;
-#endif // FOMENT_WINDOWS
 extern unsigned int RandomSeed;
 
 extern volatile uint_t BytesAllocated;

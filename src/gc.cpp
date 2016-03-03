@@ -1516,7 +1516,7 @@ static void ValidateSlot(FRaw raw, FObject * ref, uint_t tag, uint_t sec, uint_t
                 brs = brs->Next;
             }
 
-            printf("internal error: missing back reference: tag: %d object: %p\n",
+            printf("internal error: missing back reference: tag: 0x%x object: %p\n",
                     PairP(raw) ? (int) PairTag : (int) IndirectTag(raw), raw);
         }
     }
@@ -2490,17 +2490,24 @@ void SetupCore(FThreadState * ts)
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-    SectionTable = (unsigned char *) mmap(0, (SECTION_SIZE + 1) * MaximumSections, PROT_NONE,
-            MAP_PRIVATE | MAP_ANONYMOUS, -1 ,0);
+    SectionTable = (unsigned char *) mmap(SectionTableBase, (SECTION_SIZE + 1) * MaximumSections,
+            PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS |
+            (SectionTableBase == 0 ? 0 : MAP_FIXED), -1 ,0);
+
     FAssert(SectionTable != 0);
 
     if (SectionTable != SectionBase(SectionTable))
-      SectionTable += (SECTION_SIZE - SectionOffset(SectionTable));
+        SectionTable += (SECTION_SIZE - SectionOffset(SectionTable));
+
+    FAssert(SectionTable != 0);
 
     mprotect(SectionTable, MaximumSections, PROT_READ | PROT_WRITE);
 
     pthread_key_create(&ThreadKey, 0);
 #endif // FOMENT_UNIX
+
+    if (SectionTableBase != 0)
+        printf("SectionTable: %p\n", SectionTable);
 
     FAssert(SectionTable == SectionBase(SectionTable));
 

@@ -65,14 +65,17 @@ void FAssertFailed(const char * fn, int_t ln, const char * expr)
 {
     printf("FAssert: %s (%d)%s\n", expr, (int) ln, fn);
 
-    if (ValidateHeap)
+    if (SetupComplete)
     {
-        FailedGC();
-        FailedExecute();
-        printf("RandomSeed: %u\n", RandomSeed);
+        if (ValidateHeap)
+        {
+            FailedGC();
+            FailedExecute();
+            printf("RandomSeed: %u\n", RandomSeed);
+        }
+        ExitFoment();
     }
 
-    ExitFoment();
     exit(1);
 }
 
@@ -80,13 +83,16 @@ void FMustBeFailed(const char * fn, int_t ln, const char * expr)
 {
     printf("FMustBe: %s (%d)%s\n", expr, (int) ln, fn);
 
-    if (ValidateHeap)
+    if (SetupComplete)
     {
-        FailedGC();
-        FailedExecute();
+        if (ValidateHeap)
+        {
+            FailedGC();
+            FailedExecute();
+        }
+        ExitFoment();
     }
 
-    ExitFoment();
     exit(1);
 }
 
