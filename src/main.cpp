@@ -235,7 +235,7 @@ int main(int argc, char * argv[])
         }
         else if (StringCompareS(argv[adx], "--validate-heap") == 0)
         {
-            ValidateHeap = 1;
+            ValidateHeapFlag = 1;
             adx += 1;
         }
         else if (StringCompareS(argv[adx], "--section-table") == 0)
@@ -284,7 +284,7 @@ int main(int argc, char * argv[])
         printf("Unexpected exception: SetupFoment: %p\n", obj);
         WriteSimple(R.StandardOutput, obj, 0);
 
-        if (ValidateHeap)
+        if (ValidateHeapFlag)
         {
             FailedGC();
             FailedExecute();
@@ -374,7 +374,7 @@ int main(int argc, char * argv[])
         WriteSimple(R.StandardOutput, obj, 0);
         WriteCh(R.StandardOutput, '\n');
 
-        if (ValidateHeap)
+        if (ValidateHeapFlag)
         {
             FailedGC();
             FailedExecute();

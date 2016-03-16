@@ -57,7 +57,7 @@ unsigned int RandomSeed = 0;
 
 uint_t InlineProcedures = 1;
 uint_t InlineImports = 1;
-uint_t ValidateHeap = 0;
+uint_t ValidateHeapFlag = 0;
 
 FRoots R;
 
@@ -67,7 +67,7 @@ void FAssertFailed(const char * fn, int_t ln, const char * expr)
 
     if (SetupComplete)
     {
-        if (ValidateHeap)
+        if (ValidateHeapFlag)
         {
             FailedGC();
             FailedExecute();
@@ -85,7 +85,7 @@ void FMustBeFailed(const char * fn, int_t ln, const char * expr)
 
     if (SetupComplete)
     {
-        if (ValidateHeap)
+        if (ValidateHeapFlag)
         {
             FailedGC();
             FailedExecute();

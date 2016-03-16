@@ -1823,6 +1823,71 @@ void ValidateGC(int ln)
     }
 }
 
+static void ValidateObject(FObject obj)
+{
+
+}
+
+static void ValidateThreadState(FThreadState * ts)
+{
+/*    FAssert(ObjectP(ts->Thread));
+    ScanObject(&(ts->Thread), fcf, 0);
+
+    for (FAlive * ap = ts->AliveList; ap != 0; ap = ap->Next)
+        if (ObjectP(*ap->Pointer))
+            ScanObject(ap->Pointer, fcf, 0);
+
+    for (uint_t rdx = 0; rdx < ts->UsedRoots; rdx++)
+        if (ObjectP(*ts->Roots[rdx]))
+            ScanObject(ts->Roots[rdx], fcf, 0);
+
+    for (int_t adx = 0; adx < ts->AStackPtr; adx++)
+        if (ObjectP(ts->AStack[adx]))
+            ScanObject(ts->AStack + adx, fcf, 0);
+
+    for (int_t cdx = 0; cdx < ts->CStackPtr; cdx++)
+        if (ObjectP(ts->CStack[- cdx]))
+            ScanObject(ts->CStack - cdx, fcf, 0);
+
+    if (ObjectP(ts->Proc))
+        ScanObject(&ts->Proc, fcf, 0);
+    if (ObjectP(ts->Frame))
+        ScanObject(&ts->Frame, fcf, 0);
+    if (ObjectP(ts->DynamicStack))
+        ScanObject(&ts->DynamicStack, fcf, 0);
+    if (ObjectP(ts->Parameters))
+        ScanObject(&ts->Parameters, fcf, 0);
+
+    for (int_t idx = 0; idx < INDEX_PARAMETERS; idx++)
+        if (ObjectP(ts->IndexParameters[idx]))
+            ScanObject(ts->IndexParameters + idx, fcf, 0);
+
+    if (ObjectP(ts->NotifyObject))
+        ScanObject(&ts->NotifyObject, fcf, 0);
+*/
+}
+
+void ValidateHeap(FThreadState * ts)
+{
+    FObject * rv = (FObject *) &R;
+    for (uint_t rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
+        if (ObjectP(rv[rdx]))
+            ValidateObject(rv + rdx);
+
+    if (ts != 0)
+        ValidateThreadState(ts);
+    else
+    {
+        ts = Threads;
+        while (ts != 0)
+        {
+            ValidateThreadState(ts);
+            ts = ts->Next;
+        }
+    }
+    
+}
+
 static void Collect(int_t fcf)
 {
 /*    if (fcf)
@@ -1830,7 +1895,7 @@ static void Collect(int_t fcf)
     else
         printf("Partial Collection...");*/
 
-    if (ValidateHeap)
+    if (ValidateHeapFlag)
         ValidateGC(__LINE__);
 
     CollectionCount += 1;
@@ -2115,7 +2180,7 @@ static void Collect(int_t fcf)
         FreeTracker(trkr);
     }
 
-//    if (ValidateHeap)
+//    if (ValidateHeapFlag)
 //        ValidateGC(__LINE__);
 //    printf("Done.\n");
 }

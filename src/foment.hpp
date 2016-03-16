@@ -1638,7 +1638,7 @@ inline void ComparatorArgCheck(const char * who, FObject obj)
 
 extern uint_t InlineProcedures;
 extern uint_t InlineImports;
-extern uint_t ValidateHeap;
+extern uint_t ValidateHeapFlag;
 
 extern void * SectionTableBase;
 extern unsigned int RandomSeed;
