@@ -64,6 +64,27 @@ static uint_t MaximumSections = SECTION_SIZE * 32; // 4 gigabype heap
 static uint_t MaximumSections = SECTION_SIZE * 8; // 1 gigabyte heap
 #endif // FOMENT_32BIT
 
+static unsigned char * WalkMarks = 0;
+static uint_t WalkMarksSize = SECTION_SIZE * MaximumSections / 64;
+
+static inline void SetWalkMark(FObject obj)
+{
+    FMustBe(((unsigned char *) obj) >= SectionTable);
+    FMustBe(((unsigned char *) obj) < SectionTable + SECTION_SIZE * MaximumSections);
+
+    uint_t idx = (((unsigned char *) obj) - SectionTable) >> 3;
+    WalkMarks[idx / 8] |= (1 << (idx % 8));
+}
+
+static inline int WalkMarkP(FObject obj)
+{
+    FMustBe(((unsigned char *) obj) >= SectionTable);
+    FMustBe(((unsigned char *) obj) < SectionTable + SECTION_SIZE * MaximumSections);
+
+    uint_t idx = (((unsigned char *) obj) - SectionTable) >> 3;
+    return(WalkMarks[idx / 8] & (1 << (idx % 8)));
+}
+
 static inline int_t MatureP(FObject obj)
 {
     unsigned char st = SectionTable[SectionIndex(obj)];
@@ -71,12 +92,10 @@ static inline int_t MatureP(FObject obj)
     return(st == MatureSectionTag || st == TwoSlotSectionTag || st == FlonumSectionTag);
 }
 
-#ifdef FOMENT_DEBUG
 static inline FSectionTag SectionTag(FObject obj)
 {
     return((FSectionTag) SectionTable[SectionIndex(obj)]);
 }
-#endif // FOMENT_DEBUG
 
 #define MAXIMUM_YOUNG_LENGTH (1024 * 4)
 
@@ -509,6 +528,8 @@ static FObject CopyObject(uint_t len, uint_t tag)
     FAssert(AsValue(yh->Forward) == tag);
     FAssert(GCTagP(yh->Forward));
     FAssert(SectionTable[SectionIndex(obj)] == OneSectionTag);
+
+    FAssert((((uint_t) (obj)) & 0x7) == 0);
 
     return(obj);
 }
@@ -1329,7 +1350,6 @@ static FTracker * CollectTrackers(FTracker * trkrs, int_t fcf)
 
     return(moved);
 }
-
 static const char * ObjectName(uint_t tag)
 {
     switch (tag)
@@ -1823,80 +1843,539 @@ void ValidateGC(int ln)
     }
 }
 
-static void ValidateObject(FObject obj)
+static const char * RootNames[] =
 {
+    "bedrock",
+    "bedrock-library",
+    "features",
+    "command-line",
+    "library-path",
+    "library-extensions",
+    "environment-variables",
 
+    "symbol-hash-tree",
+
+    "comparator-record-type",
+    "anyp-primitive",
+    "no-hash-primitive",
+    "no-compare-primitive",
+    "eq-comparator",
+    "default-comparator",
+
+    "hash-map-record-type",
+    "hash-set-record-type",
+    "hash-bag-record-type",
+    "exception-record-type",
+
+    "assertion",
+    "restriction",
+    "lexical",
+    "syntax",
+    "error",
+
+    "loaded-libraries",
+
+    "syntactic-env-record-type",
+    "binding-record-type",
+    "identifier-record-type",
+    "lambda-record-type",
+    "case-lambda-record-type",
+    "inline-variable-record-type",
+    "reference-record-type",
+
+    "else-reference",
+    "arrow-reference",
+    "library-reference",
+    "and-reference",
+    "or-reference",
+    "not-reference",
+    "quasiquote-reference",
+    "unquote-reference",
+    "unquote-splicing-reference",
+    "cons-reference",
+    "append-reference",
+    "list-to-vector-reference",
+    "ellipsis-reference",
+    "underscore-reference",
+
+    "tag-symbol",
+    "use-pass-symbol",
+    "constant-pass-symbol",
+    "analysis-pass-symbol",
+    "interaction-env",
+
+    "standard-input",
+    "standard-output",
+    "standard-error",
+    "quote-symbol",
+    "quasiquote-symbol",
+    "unquote-symbol",
+    "unquote-splicing-symbol",
+    "file-error-symbol",
+    "current-symbol",
+    "end-symbol",
+
+    "syntax-rules-record-type",
+    "pattern-variable-record-type",
+    "pattern-repeat-record-type",
+    "template-repeat-record-type",
+    "syntax-rule-record-type",
+
+    "environment-record-type",
+    "global-record-type",
+    "library-record-type",
+    "no-value-primitive",
+    "library-startup-list",
+
+    "wrong-number-of-arguments",
+    "not-callable",
+    "unexpected-number-of-values",
+    "undefined-message",
+    "execute-thunk",
+    "raise-handler",
+    "notify-handler",
+    "interactive-thunk",
+    "exception-handler-symbol",
+    "notify-handler-symbol",
+    "sig-int-symbol",
+
+    "dynamic-record-type",
+    "continuation-record-type",
+
+    "cleanup-tconc",
+
+    "define-library-symbol",
+    "import-symbol",
+    "include-library-declarations-symbol",
+    "cond-expand-symbol",
+    "export-symbol",
+    "begin-symbol",
+    "include-symbol",
+    "include-ci-symbol",
+    "only-symbol",
+    "except-symbol",
+    "prefix-symbol",
+    "rename-symbol",
+    "aka-symbol",
+
+    "datum-reference-record-type"
+};
+
+typedef struct
+{
+    const char * From;
+    int_t Index;
+    int_t Repeat;
+    FObject Previous;
+} FWalkStack;
+
+#define WALK_STACK_SIZE (1024 * 8)
+static uint_t WalkStackPtr;
+static FWalkStack WalkStack[WALK_STACK_SIZE];
+
+static void PrintString(FObject obj)
+{
+    FMustBe(StringP(obj));
+
+    for (int_t idx = 0; idx < StringLength(obj); idx++)
+        putc(AsString(obj)->String[idx], stdout);
 }
 
-static void ValidateThreadState(FThreadState * ts)
+static void PrintWalkStack()
 {
-/*    FAssert(ObjectP(ts->Thread));
-    ScanObject(&(ts->Thread), fcf, 0);
+    for (uint_t idx = 0; idx < WalkStackPtr; idx++)
+    {
+        if (WalkStack[idx].Index >= 0)
+            printf("%s[%lld]", WalkStack[idx].From, WalkStack[idx].Index);
+        else
+            printf("%s", WalkStack[idx].From);
 
-    for (FAlive * ap = ts->AliveList; ap != 0; ap = ap->Next)
-        if (ObjectP(*ap->Pointer))
-            ScanObject(ap->Pointer, fcf, 0);
+        FObject obj = WalkStack[idx].Previous;
+        if (TextualPortP(obj) || BinaryPortP(obj))
+            obj = AsGenericPort(obj)->Name;
+        else if (ProcedureP(obj))
+            obj = AsProcedure(obj)->Name;
+        else if (RecordTypeP(obj))
+            obj = AsRecordType(obj)->Fields[0];
+        else if (GenericRecordP(obj))
+        {
+            FMustBe(RecordTypeP(AsGenericRecord(obj)->Fields[0]));
+
+            obj = AsRecordType(AsGenericRecord(obj)->Fields[0])->Fields[0];
+        }
+
+        if (SymbolP(obj))
+            obj = AsSymbol(obj)->String;
+
+        if (StringP(obj))
+        {
+            printf(" ");
+            PrintString(obj);
+        }
+
+        if (WalkStack[WalkStackPtr].Repeat > 1)
+            printf(" (repeats %lld times)", WalkStack[WalkStackPtr].Repeat);
+        printf("\n");
+    }
+}
+
+const static char * PairDotRest = "pair.rest";
+static int_t WalkCount;
+static int_t WalkTooDeep;
+
+static void WalkObject(FObject obj, const char * from, FObject prev = NoValueObject, int_t idx = -1)
+{
+    if (WalkStackPtr == WALK_STACK_SIZE)
+    {
+        WalkTooDeep += 1;
+        return;
+    }
+
+    WalkStack[WalkStackPtr].From = from;
+    WalkStack[WalkStackPtr].Index = idx;
+    WalkStack[WalkStackPtr].Repeat = 1;
+    WalkStack[WalkStackPtr].Previous = prev;
+    WalkStackPtr += 1;
+
+Again:
+    if (ObjectP(obj))
+    {
+        if (WalkMarkP(obj))
+            goto Done;
+        SetWalkMark(obj);
+        WalkCount += 1;
+
+        FMustBe(WalkMarkP(obj));
+
+        if (FullGCRequired == 0 && ObjectP(prev) && MatureP(prev) && MatureP(obj) == 0)
+        {
+            FBackRefSection * brs = BackRefSections;
+            int_t brf = 0;
+
+            while (brs != 0)
+            {
+                for (uint_t idx = 0; idx < brs->Used; idx++)
+                {
+                    uint_t tag;
+                    if (PairP(prev))
+                        tag = PairTag;
+                    else if (RatioP(prev))
+                        tag = RatioTag;
+                    else if (ComplexP(prev))
+                        tag = ComplexTag;
+                    else if (FlonumP(prev))
+                        tag = FlonumTag;
+                    else
+                        tag = IndirectTag(prev);
+
+                    uint_t sz = ObjectSize(prev, tag, __LINE__);
+                    if (brs->BackRef[idx].Ref >= AsRaw(prev)
+                            && (char *) brs->BackRef[idx].Ref < ((char *) AsRaw(prev)) + sz
+                            && brs->BackRef[idx].Value == obj)
+                    {
+                        brf = 1;
+                        break;
+                    }
+                }
+
+                brs = brs->Next;
+            }
+
+            if (brf == 0)
+            {
+                PrintWalkStack();
+                printf("prev: %p obj: %p\n", prev, obj);
+                printf("SectionTable: %p\n", SectionTable);
+            }
+            FMustBe(brf);
+        }
+    }
+
+    switch (((FImmediate) (obj)) & 0x7)
+    {
+    case 0x00: // IndirectP(obj)
+    {
+        if (!(SectionTag(obj) == ZeroSectionTag || SectionTag(obj) == OneSectionTag
+                || SectionTag(obj) == MatureSectionTag))
+        {
+            printf("obj: %p SectionTag(obj): %d IndirectTag(%d %x)\n", obj, SectionTag(obj),
+                    IndirectTag(obj), IndirectTag(obj));
+            PrintWalkStack();
+            printf("prev: %p obj: %p\n", prev, obj);
+        }
+        FMustBe(SectionTag(obj) == ZeroSectionTag || SectionTag(obj) == OneSectionTag
+                || SectionTag(obj) == MatureSectionTag);
+
+        switch (IndirectTag(obj))
+        {
+        case BoxTag:
+            WalkObject(AsBox(obj)->Value, "box", obj);
+            break;
+
+        case StringTag:
+            break;
+
+        case VectorTag:
+            for (uint_t vdx = 0; vdx < VectorLength(obj); vdx++)
+                WalkObject(AsVector(obj)->Vector[vdx], "vector", obj, vdx);
+            break;
+
+        case BytevectorTag:
+            break;
+
+        case BinaryPortTag:
+        case TextualPortTag:
+            WalkObject(AsGenericPort(obj)->Name, "port.name", obj);
+            WalkObject(AsGenericPort(obj)->Object, "port.object", obj);
+            break;
+
+        case ProcedureTag:
+            WalkObject(AsProcedure(obj)->Name, "procedure.name", obj);
+            WalkObject(AsProcedure(obj)->Filename, "procedure.filename", obj);
+            WalkObject(AsProcedure(obj)->LineNumber, "procedure.line-number", obj);
+            WalkObject(AsProcedure(obj)->Code, "procedure.code", obj);
+            break;
+
+        case SymbolTag:
+            WalkObject(AsSymbol(obj)->String, "symbol.string", obj);
+            break;
+
+        case RecordTypeTag:
+            for (uint_t fdx = 0; fdx < RecordTypeNumFields(obj); fdx++)
+                WalkObject(AsRecordType(obj)->Fields[fdx], "record-type.fields", obj, fdx);
+            break;
+
+        case RecordTag:
+            for (uint_t fdx = 0; fdx < RecordNumFields(obj); fdx++)
+                WalkObject(AsGenericRecord(obj)->Fields[fdx], "record.fields", obj, fdx);
+            break;
+
+        case PrimitiveTag:
+            break;
+
+        case ThreadTag:
+            WalkObject(AsThread(obj)->Result, "thread.result", obj);
+            WalkObject(AsThread(obj)->Thunk, "thread.thunk", obj);
+            WalkObject(AsThread(obj)->Parameters, "thread.parameters", obj);
+            WalkObject(AsThread(obj)->IndexParameters, "thread.index-parameters", obj);
+            break;
+
+        case ExclusiveTag:
+            break;
+
+        case ConditionTag:
+            break;
+
+        case BignumTag:
+            break;
+
+        case HashTreeTag:
+            for (uint_t bdx = 0; bdx < HashTreeLength(obj); bdx++)
+                WalkObject(AsHashTree(obj)->Buckets[bdx], "hash-tree.buckets", obj, bdx);
+            break;
+
+        default:
+            PrintWalkStack();
+            FMustBe(0);
+            break;
+        }
+        break;
+    }
+
+    case PairTag: // 0bxxxxx001
+        FMustBe(PairP(obj));
+
+        FMustBe(SectionTag(obj) == ZeroSectionTag || SectionTag(obj) == OneSectionTag
+                || SectionTag(obj) == TwoSlotSectionTag);
+
+        WalkObject(AsPair(obj)->First, "pair.first", obj);
+
+        FMustBe(WalkStackPtr > 0);
+
+        if (WalkStack[WalkStackPtr - 1].From == PairDotRest)
+        {
+            WalkStack[WalkStackPtr - 1].Repeat += 1;
+            prev = obj;
+            obj = AsPair(obj)->Rest;
+            goto Again;
+        }
+        else
+            WalkObject(AsPair(obj)->Rest, PairDotRest, obj);
+        break;
+
+    case UnusedTag: // 0bxxxxx010
+        PrintWalkStack();
+        FMustBe(0);
+        break;
+
+    case DoNotUse: // 0bxxxxx011
+        switch (((FImmediate) (obj)) & 0x7F)
+        {
+        case CharacterTag: // 0bx0001011
+        case MiscellaneousTag: // 0bx0011011
+        case SpecialSyntaxTag: // 0bx0101011
+        case InstructionTag: // 0bx0111011
+        case ValuesCountTag: // 0bx1001011
+            break;
+
+        case UnusedTag2: // 0bx1011011
+            PrintWalkStack();
+            FMustBe(0);
+            break;
+
+        case UnusedTag3: // 0bx1101011
+            PrintWalkStack();
+            FMustBe(0);
+            break;
+
+        case GCTagTag: // 0bx1111011
+            PrintWalkStack();
+            FMustBe(0);
+            break;
+        }
+        break;
+
+    case RatioTag: // 0bxxxxx100
+        FMustBe(RatioP(obj));
+
+        FMustBe(SectionTag(obj) == ZeroSectionTag || SectionTag(obj) == OneSectionTag
+                || SectionTag(obj) == TwoSlotSectionTag);
+
+        WalkObject(AsRatio(obj)->Numerator, "ratio.numerator", obj);
+        WalkObject(AsRatio(obj)->Denominator, "ratio.denominator", obj);
+        break;
+
+    case ComplexTag: // 0bxxxxx101
+        FMustBe(ComplexP(obj));
+
+        FMustBe(SectionTag(obj) == ZeroSectionTag || SectionTag(obj) == OneSectionTag
+                || SectionTag(obj) == TwoSlotSectionTag);
+
+        WalkObject(AsComplex(obj)->Real, "complex.real", obj);
+        WalkObject(AsComplex(obj)->Imaginary, "complex.imaginary", obj);
+        break;
+
+    case FlonumTag: // 0bxxxxx110
+        FMustBe(SectionTag(obj) == ZeroSectionTag || SectionTag(obj) == OneSectionTag
+                || SectionTag(obj) == FlonumSectionTag);
+        break;
+
+    case FixnumTag: // 0bxxxx0111
+        break;
+    }
+
+Done:
+    FMustBe(WalkStackPtr > 0);
+    WalkStackPtr -= 1;
+}
+
+static void WalkThreadState(FThreadState * ts)
+{
+    WalkObject(ts->Thread, "thread-state.thread");
+
+    uint_t idx = 0;
+    for (FAlive * ap = ts->AliveList; ap != 0; ap = ap->Next, idx++)
+        WalkObject(*ap->Pointer, "thread-state.alive-list", NoValueObject, idx);
 
     for (uint_t rdx = 0; rdx < ts->UsedRoots; rdx++)
-        if (ObjectP(*ts->Roots[rdx]))
-            ScanObject(ts->Roots[rdx], fcf, 0);
+        WalkObject(*ts->Roots[rdx], "thread-state.roots", NoValueObject, rdx);
 
     for (int_t adx = 0; adx < ts->AStackPtr; adx++)
-        if (ObjectP(ts->AStack[adx]))
-            ScanObject(ts->AStack + adx, fcf, 0);
+        WalkObject(ts->AStack[adx], "thread-state.astack", NoValueObject, adx);
 
     for (int_t cdx = 0; cdx < ts->CStackPtr; cdx++)
-        if (ObjectP(ts->CStack[- cdx]))
-            ScanObject(ts->CStack - cdx, fcf, 0);
+        WalkObject(ts->CStack[- cdx], "thread-state.cstack", NoValueObject, cdx);
 
-    if (ObjectP(ts->Proc))
-        ScanObject(&ts->Proc, fcf, 0);
-    if (ObjectP(ts->Frame))
-        ScanObject(&ts->Frame, fcf, 0);
-    if (ObjectP(ts->DynamicStack))
-        ScanObject(&ts->DynamicStack, fcf, 0);
-    if (ObjectP(ts->Parameters))
-        ScanObject(&ts->Parameters, fcf, 0);
+    WalkObject(ts->Proc, "thread-state.proc");
+    WalkObject(ts->Frame, "thread-state.frame");
+    WalkObject(ts->DynamicStack, "thread-state.dynamic-stack");
+    WalkObject(ts->Parameters, "thread-state.parameters");
 
     for (int_t idx = 0; idx < INDEX_PARAMETERS; idx++)
-        if (ObjectP(ts->IndexParameters[idx]))
-            ScanObject(ts->IndexParameters + idx, fcf, 0);
+        WalkObject(ts->IndexParameters[idx], "thread-state.index-parameters", NoValueObject, idx);
 
-    if (ObjectP(ts->NotifyObject))
-        ScanObject(&ts->NotifyObject, fcf, 0);
-*/
+    WalkObject(ts->NotifyObject, "thread-state.notify-object");
 }
 
-void ValidateHeap(FThreadState * ts)
+/*
+-- after GC, test for objects pointing to genzero
+*/
+
+void WalkHeap(const char * fn, int ln)
 {
+    FMustBe(sizeof(RootNames) == sizeof(FRoots));
+
+    if (VerboseFlag)
+        printf("WalkHeap: %s(%d)\n", fn, ln);
+    WalkCount = 0;
+    WalkTooDeep = 0;
+
+    memset(WalkMarks, 0, WalkMarksSize);
+    WalkStackPtr = 0;
+
     FObject * rv = (FObject *) &R;
     for (uint_t rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
-        if (ObjectP(rv[rdx]))
-            ValidateObject(rv + rdx);
+        WalkObject(rv[rdx], RootNames[rdx]);
 
+    FThreadState * ts = 0;
     if (ts != 0)
-        ValidateThreadState(ts);
+        WalkThreadState(ts);
     else
     {
         ts = Threads;
         while (ts != 0)
         {
-            ValidateThreadState(ts);
+            WalkThreadState(ts);
             ts = ts->Next;
         }
     }
+
+    FTracker * track = YoungTrackers;
+    while (track)
+    {
+        WalkObject(track->Object, "tracker.object");
+        WalkObject(track->Return, "tracker.return");
+        WalkObject(track->TConc, "tracker.tconc");
+
+        track = track->Next;
+    }
+
+    FGuardian * guard = YoungGuardians;
+    while (guard)
+    {
+        WalkObject(guard->Object, "guardian.object");
+        WalkObject(guard->TConc, "guardian.tconc");
+
+        guard = guard->Next;
+    }
+
+    guard = MatureGuardians;
+    while (guard)
+    {
+        WalkObject(guard->Object, "guardian.object");
+        WalkObject(guard->TConc, "guardian.tconc");
+
+        guard = guard->Next;
+    }
     
+    if (WalkTooDeep > 0)
+        printf("WalkHeap: %d object too deep to walk\n", (int) WalkTooDeep);
+    if (VerboseFlag)
+        printf("WalkHeap: %d active objects\n", (int) WalkCount);
 }
 
 static void Collect(int_t fcf)
 {
-/*    if (fcf)
-        printf("Full Collection...");
-    else
-        printf("Partial Collection...");*/
+    if (VerboseFlag)
+    {
+        if (fcf)
+            printf("Full Collection...\n");
+        else
+            printf("Partial Collection...\n");
+    }
 
-    if (ValidateHeapFlag)
-        ValidateGC(__LINE__);
+    if (CheckHeapFlag)
+        WalkHeap(__FILE__, __LINE__);
 
     CollectionCount += 1;
     GCRequired = 0;
@@ -2180,15 +2659,16 @@ static void Collect(int_t fcf)
         FreeTracker(trkr);
     }
 
-//    if (ValidateHeapFlag)
-//        ValidateGC(__LINE__);
-//    printf("Done.\n");
+    if (CheckHeapFlag)
+        WalkHeap(__FILE__, __LINE__);
+    if (VerboseFlag)
+        printf("Collection Done.\n");
 }
 
 void FailedGC()
 {
     if (GCHappening == 0)
-        ValidateGC(__LINE__);
+        WalkHeap(__FILE__, __LINE__);
     printf("SectionTable: %p\n", SectionTable);
 }
 
@@ -2329,6 +2809,8 @@ void InstallGuardian(FObject obj, FObject tconc)
 
 void InstallTracker(FObject obj, FObject ret, FObject tconc)
 {
+    EnterExclusive(&GCExclusive);
+
     FAssert(ObjectP(obj));
     FAssert(PairP(tconc));
     FAssert(PairP(First(tconc)));
@@ -2336,6 +2818,8 @@ void InstallTracker(FObject obj, FObject ret, FObject tconc)
 
     if (MatureP(obj) == 0)
         YoungTrackers = MakeTracker(YoungTrackers, obj, ret, tconc);
+
+    LeaveExclusive(&GCExclusive);
 }
 
 FAlive::FAlive(FObject * ptr)
@@ -2546,7 +3030,7 @@ void SetupCore(FThreadState * ts)
     SectionTable = (unsigned char *) VirtualAlloc(SectionTableBase, SECTION_SIZE * MaximumSections,
             MEM_RESERVE, PAGE_READWRITE);
 
-    FAssert(SectionTable != 0);
+    FMustBe(SectionTable != 0);
 
     VirtualAlloc(SectionTable, MaximumSections, MEM_COMMIT, PAGE_READWRITE);
 
@@ -2559,12 +3043,12 @@ void SetupCore(FThreadState * ts)
             PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS |
             (SectionTableBase == 0 ? 0 : MAP_FIXED), -1 ,0);
 
-    FAssert(SectionTable != 0);
+    FMustBe(SectionTable != 0);
 
     if (SectionTable != SectionBase(SectionTable))
         SectionTable += (SECTION_SIZE - SectionOffset(SectionTable));
 
-    FAssert(SectionTable != 0);
+    FMustBe(SectionTable != 0);
 
     mprotect(SectionTable, MaximumSections, PROT_READ | PROT_WRITE);
 
@@ -2620,6 +3104,14 @@ void SetupCore(FThreadState * ts)
     ts->Thread = MakeThread(h, NoValueObject, NoValueObject, NoValueObject);
 
     R.CleanupTConc = MakeTConc();
+
+    if (CheckHeapFlag)
+    {
+        WalkMarks = (unsigned char *) malloc(WalkMarksSize);
+        FMustBe(WalkMarks != 0);
+
+        WalkHeap(__FILE__, __LINE__);
+    }
 }
 
 Define("install-guardian", InstallGuardianPrimitive)(int_t argc, FObject argv[])

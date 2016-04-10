@@ -233,9 +233,14 @@ int main(int argc, char * argv[])
             InlineImports = 0;
             adx += 1;
         }
-        else if (StringCompareS(argv[adx], "--validate-heap") == 0)
+        else if (StringCompareS(argv[adx], "--check-heap") == 0)
         {
-            ValidateHeapFlag = 1;
+            CheckHeapFlag = 1;
+            adx += 1;
+        }
+        else if (StringCompareS(argv[adx], "--verbose") == 0)
+        {
+            VerboseFlag = 1;
             adx += 1;
         }
         else if (StringCompareS(argv[adx], "--section-table") == 0)
@@ -284,7 +289,7 @@ int main(int argc, char * argv[])
         printf("Unexpected exception: SetupFoment: %p\n", obj);
         WriteSimple(R.StandardOutput, obj, 0);
 
-        if (ValidateHeapFlag)
+        if (CheckHeapFlag)
         {
             FailedGC();
             FailedExecute();
@@ -346,7 +351,8 @@ int main(int argc, char * argv[])
             }
             else if (StringCompareS(argv[adx], "-no-inline-procedures") == 0
                     || StringCompareS(argv[adx], "-no-inline-imports") == 0
-                    || StringCompareS(argv[adx], "--validate-heap") == 0)
+                    || StringCompareS(argv[adx], "--check-heap") == 0
+                    || StringCompareS(argv[adx], "--verbose") == 0)
                 adx += 1;
             else if (StringCompareS(argv[adx], "--section-table") == 0)
                 adx += 2;
@@ -374,7 +380,7 @@ int main(int argc, char * argv[])
         WriteSimple(R.StandardOutput, obj, 0);
         WriteCh(R.StandardOutput, '\n');
 
-        if (ValidateHeapFlag)
+        if (CheckHeapFlag)
         {
             FailedGC();
             FailedExecute();

@@ -4,11 +4,21 @@ Foment
 
 To Do:
 
+Heap and Threads:
+-- used --check-heap when testing release builds
+-- use common header on all indirect objects: no type specific code in gc.cpp
+-- don't special case pair, ratio, and complex
+-- put footer on objects and check that hasn't changed
+-- support different collectors
+-- add a simple mark and sweep collector
+-- redo thread management around collecting
+
 Future:
 -- Windows: $(APPDATA)\Foment\Libraries
 -- Unix: $(HOME)/.local/foment/lib
 -- don't load all builtin libraries at startup
 -- on unix, if gmp is available, use it instead of mini-gmp
+-- replace mini-gmp
 -- increase maximum/minimum fixnum on 64bit
 -- some mature segments are compacted during a full collection; ie. mark-compact
 -- inline primitives in GPassExpression
@@ -137,7 +147,7 @@ typedef enum
     PairTag = 0x01,          // 0bxxxxx001
     UnusedTag = 0x02,        // 0bxxxxx010
     DoNotUse = 0x03,         // 0bxxxxx011
-    RatioTag = 0x04,        // 0bxxxxx100
+    RatioTag = 0x04,         // 0bxxxxx100
     ComplexTag = 0x05,       // 0bxxxxx101
     FlonumTag = 0x06,        // 0bxxxxx110
 
@@ -239,6 +249,7 @@ extern volatile int_t GCRequired;
 void EnterWait();
 void LeaveWait();
 
+void WalkHeap(const char * fn, int ln);
 void Collect();
 #define CheckForGC() if (GCRequired) Collect()
 
@@ -276,7 +287,6 @@ public:
     ~FDontWait();
 };
 
-void ValidateGC(int ln);
 void FailedGC();
 void FailedExecute();
 
@@ -1638,7 +1648,8 @@ inline void ComparatorArgCheck(const char * who, FObject obj)
 
 extern uint_t InlineProcedures;
 extern uint_t InlineImports;
-extern uint_t ValidateHeapFlag;
+extern uint_t CheckHeapFlag;
+extern uint_t VerboseFlag;
 
 extern void * SectionTableBase;
 extern unsigned int RandomSeed;

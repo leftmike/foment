@@ -755,7 +755,9 @@ static FObject ReadList(FObject port, FObject * pdlhm)
         return(obj);
     }
 
-    return(MakePair(obj, ReadList(port, pdlhm)));
+    FObject lst = ReadList(port, pdlhm);
+    return(MakePair(obj, lst));
+//    return(MakePair(obj, ReadList(port, pdlhm)));
 }
 
 static FObject ResolveReference(FObject port, FObject ref, FObject dlhm)

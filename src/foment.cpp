@@ -57,7 +57,8 @@ unsigned int RandomSeed = 0;
 
 uint_t InlineProcedures = 1;
 uint_t InlineImports = 1;
-uint_t ValidateHeapFlag = 0;
+uint_t CheckHeapFlag = 0;
+uint_t VerboseFlag = 0;
 
 FRoots R;
 
@@ -67,7 +68,7 @@ void FAssertFailed(const char * fn, int_t ln, const char * expr)
 
     if (SetupComplete)
     {
-        if (ValidateHeapFlag)
+        if (CheckHeapFlag || VerboseFlag)
         {
             FailedGC();
             FailedExecute();
@@ -85,10 +86,11 @@ void FMustBeFailed(const char * fn, int_t ln, const char * expr)
 
     if (SetupComplete)
     {
-        if (ValidateHeapFlag)
+        if (CheckHeapFlag || VerboseFlag)
         {
             FailedGC();
             FailedExecute();
+            printf("RandomSeed: %u\n", RandomSeed);
         }
         ExitFoment();
     }
@@ -1169,7 +1171,11 @@ void SetupFoment(FThreadState * ts)
 
     R.LibraryExtensions = List(MakeStringC("sld"), MakeStringC("scm"));
 
+    if (CheckHeapFlag)
+        WalkHeap(__FILE__, __LINE__);
     SetupScheme();
+    if (CheckHeapFlag)
+        WalkHeap(__FILE__, __LINE__);
 
     SetupComplete = 1;
 }
