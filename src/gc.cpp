@@ -143,7 +143,7 @@ uint_t CollectionCount = 0;
 static uint_t PartialCount = 0;
 static uint_t PartialPerFull = 4;
 static uint_t TriggerBytes = SECTION_SIZE * 8;
-static uint_t TriggerObjects = TriggerBytes / (sizeof(FPair) * 8);
+static uint_t TriggerObjects = TriggerBytes / (sizeof(FObject) * 16);
 static uint_t MaximumBackRefFraction = 128;
 
 int_t volatile GCRequired;
@@ -322,11 +322,16 @@ static uint_t ObjectSize(FObject obj, uint_t tag, int ln)
     switch (tag)
     {
     case PairTag:
+        FAssert(PairP(obj));
+
+        len = sizeof(FPair);
+        break;
+
     case RatioTag:
     case ComplexTag:
-        FAssert(sizeof(FPair) % OBJECT_ALIGNMENT == 0);
+        FAssert(sizeof(FRatio) % OBJECT_ALIGNMENT == 0);
 
-        return(sizeof(FPair));
+        return(sizeof(FRatio));
 
     case FlonumTag:
         FAssert(sizeof(FFlonum) % OBJECT_ALIGNMENT == 0);
@@ -878,9 +883,7 @@ static void ScanObject(FObject * pobj, int_t fcf, int_t mf)
             FObject nobj = CopyObject(len, tag);
             memcpy(nobj, raw, len);
 
-            if (tag == PairTag)
-                nobj = PairObject(nobj);
-            else if (tag == RatioTag)
+            if (tag == RatioTag)
                 nobj = RatioObject(nobj);
             else if (tag == ComplexTag)
                 nobj = ComplexObject(nobj);
@@ -915,7 +918,7 @@ static void ScanObject(FObject * pobj, int_t fcf, int_t mf)
             uint_t len = ObjectSize(raw, tag, __LINE__);
 
             FObject nobj;
-            if (tag == PairTag || tag == RatioTag || tag == ComplexTag)
+            if (tag == RatioTag || tag == ComplexTag)
             {
                 nobj = MakeMatureTwoSlot();
                 SetTwoSlotMark(nobj);
@@ -930,9 +933,7 @@ static void ScanObject(FObject * pobj, int_t fcf, int_t mf)
 
             memcpy(nobj, raw, len);
 
-            if (tag == PairTag)
-                nobj = PairObject(nobj);
-            else if (tag == RatioTag)
+            if (tag == RatioTag)
                 nobj = RatioObject(nobj);
             else if (tag == ComplexTag)
                 nobj = ComplexObject(nobj);
@@ -961,8 +962,6 @@ static void ScanChildren(FRaw raw, uint_t tag, int_t fcf)
     switch (tag)
     {
     case PairTag:
-    case RatioTag:
-    case ComplexTag:
     {
         FPair * pr = (FPair *) raw;
 
@@ -970,6 +969,18 @@ static void ScanChildren(FRaw raw, uint_t tag, int_t fcf)
             ScanObject(&pr->First, fcf, mf);
         if (ObjectP(pr->Rest))
             ScanObject(&pr->Rest, fcf, mf);
+        break;
+    }
+
+    case RatioTag:
+    case ComplexTag:
+    {
+        FRatio * ratio = (FRatio *) raw;
+
+        if (ObjectP(ratio->Numerator))
+            ScanObject(&ratio->Numerator, fcf, mf);
+        if (ObjectP(ratio->Denominator))
+            ScanObject(&ratio->Denominator, fcf, mf);
         break;
     }
 
@@ -1093,9 +1104,7 @@ static void CleanScan(int_t fcf)
 
             FAssert(ObjectP(obj));
 
-            if (PairP(obj))
-                ScanChildren(AsRaw(obj), PairTag, fcf);
-            else if (RatioP(obj))
+            if (RatioP(obj))
                 ScanChildren(AsRaw(obj), RatioTag, fcf);
             else if (ComplexP(obj))
                 ScanChildren(AsRaw(obj), ComplexTag, fcf);
@@ -1565,9 +1574,7 @@ Again:
                 for (uint_t idx = 0; idx < brs->Used; idx++)
                 {
                     uint_t tag;
-                    if (PairP(prev))
-                        tag = PairTag;
-                    else if (RatioP(prev))
+                    if (RatioP(prev))
                         tag = RatioTag;
                     else if (ComplexP(prev))
                         tag = ComplexTag;
@@ -1618,6 +1625,22 @@ Again:
         {
         case BoxTag:
             WalkObject(AsBox(obj)->Value, "box", obj);
+            break;
+
+        case PairTag:
+            WalkObject(AsPair(obj)->First, "pair.first", obj);
+
+            FMustBe(WalkStackPtr > 0);
+
+            if (WalkStack[WalkStackPtr - 1].From == PairDotRest)
+            {
+                WalkStack[WalkStackPtr - 1].Repeat += 1;
+                prev = obj;
+                obj = AsPair(obj)->Rest;
+                goto Again;
+            }
+            else
+                WalkObject(AsPair(obj)->Rest, PairDotRest, obj);
             break;
 
         case StringTag:
@@ -1690,28 +1713,12 @@ Again:
         break;
     }
 
-    case PairTag: // 0bxxxxx001
-        FMustBe(PairP(obj));
-
-        FMustBe(SectionTag(obj) == ZeroSectionTag || SectionTag(obj) == OneSectionTag
-                || SectionTag(obj) == TwoSlotSectionTag);
-
-        WalkObject(AsPair(obj)->First, "pair.first", obj);
-
-        FMustBe(WalkStackPtr > 0);
-
-        if (WalkStack[WalkStackPtr - 1].From == PairDotRest)
-        {
-            WalkStack[WalkStackPtr - 1].Repeat += 1;
-            prev = obj;
-            obj = AsPair(obj)->Rest;
-            goto Again;
-        }
-        else
-            WalkObject(AsPair(obj)->Rest, PairDotRest, obj);
+    case UnusedTag1: // 0bxxxxx001
+        PrintWalkStack();
+        FMustBe(0);
         break;
 
-    case UnusedTag: // 0bxxxxx010
+    case UnusedTag2: // 0bxxxxx010
         PrintWalkStack();
         FMustBe(0);
         break;
@@ -1726,12 +1733,12 @@ Again:
         case ValuesCountTag: // 0bx1001011
             break;
 
-        case UnusedTag2: // 0bx1011011
+        case UnusedTag3: // 0bx1011011
             PrintWalkStack();
             FMustBe(0);
             break;
 
-        case UnusedTag3: // 0bx1101011
+        case UnusedTag4: // 0bx1101011
             PrintWalkStack();
             FMustBe(0);
             break;
@@ -2490,7 +2497,6 @@ void SetupCore(FThreadState * ts)
     FAssert(sizeof(FFixnum) <= sizeof(FImmediate));
     FAssert(sizeof(FCh) <= sizeof(FImmediate));
     FAssert(sizeof(FTwoSlot) == sizeof(FObject) * 2);
-    FAssert(sizeof(FPair) == sizeof(FTwoSlot));
     FAssert(sizeof(FRatio) == sizeof(FTwoSlot));
     FAssert(sizeof(FComplex) == sizeof(FTwoSlot));
     FAssert(sizeof(FYoungHeader) == OBJECT_ALIGNMENT);

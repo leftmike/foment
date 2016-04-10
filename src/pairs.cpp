@@ -11,14 +11,11 @@ Foment
 FObject MakePair(FObject first, FObject rest)
 {
     FPair * pair = (FPair *) MakeObject(sizeof(FPair), PairTag);
+    pair->Unused = MakeLength(2, PairTag);
     pair->First = first;
     pair->Rest = rest;
 
-    FObject obj = PairObject(pair);
-    FAssert(PairP(obj));
-    FAssert(AsPair(obj) == pair);
-
-    return(obj);
+    return(pair);
 }
 
 int_t ListLength(FObject lst)

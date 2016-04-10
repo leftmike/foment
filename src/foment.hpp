@@ -8,7 +8,7 @@ Heap and Threads:
 -- use --check-heap when testing release builds
 -- after GC, test for objects pointing to genzero
 -- use common header on all indirect objects: no type specific code in gc.cpp
--- don't special case pair, ratio, and complex
+-- don't special case pair, ratio, flonum, and complex
 -- put footer on objects and check that hasn't changed
 -- support different collectors
 -- add a simple mark and sweep collector
@@ -146,8 +146,8 @@ typedef enum
 {
     // Direct Types
 
-    PairTag = 0x01,          // 0bxxxxx001
-    UnusedTag = 0x02,        // 0bxxxxx010
+    UnusedTag1 = 0x01,       // 0bxxxxx001
+    UnusedTag2 = 0x02,       // 0bxxxxx010
     DoNotUse = 0x03,         // 0bxxxxx011
     RatioTag = 0x04,         // 0bxxxxx100
     ComplexTag = 0x05,       // 0bxxxxx101
@@ -160,8 +160,8 @@ typedef enum
     SpecialSyntaxTag = 0x2B, // 0bx0101011
     InstructionTag = 0x3B,   // 0bx0111011
     ValuesCountTag = 0x4B,   // 0bx1001011
-    UnusedTag2 = 0x5B,       // 0bx1011011
-    UnusedTag3 = 0x6B,       // 0bx1101011
+    UnusedTag3 = 0x5B,       // 0bx1011011
+    UnusedTag4 = 0x6B,       // 0bx1101011
 
     // Used by garbage collector.
 
@@ -173,6 +173,7 @@ typedef enum
     // Indirect Types
 
     BoxTag = 0x07,
+    PairTag,
     StringTag,
     VectorTag,
     BytevectorTag,
@@ -378,12 +379,12 @@ const char * SpecialSyntaxToName(FObject obj);
 
 // ---- Pairs ----
 
-#define PairP(obj) ((((FImmediate) (obj)) & 0x7) == PairTag)
-#define AsPair(obj) ((FPair *) (((char *) (obj)) - PairTag))
-#define PairObject(pair) ((FObject) (((char *) (pair)) + PairTag))
+#define PairP(obj) (IndirectTag(obj) == PairTag)
+#define AsPair(obj) ((FPair *) (obj))
 
 typedef struct
 {
+    uint_t Unused;
     FObject First;
     FObject Rest;
 } FPair;
