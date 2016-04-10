@@ -265,6 +265,7 @@
 
 (check-equal "e5" (number->string (reverse-bit-field #xa7 0 8) 16))
 
+#|
 ;;
 ;; ---- SRFI 114: Comparators ----
 ;;
@@ -640,3 +641,4 @@
 (check-equal #f (>=? char-comparator #\a #\b))
 (check-equal #f (>=? char-comparator #\b #\a #\b))
 
+|#

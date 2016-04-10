@@ -1805,10 +1805,6 @@ static void WalkThreadState(FThreadState * ts)
     WalkObject(ts->NotifyObject, "thread-state.notify-object");
 }
 
-/*
--- after GC, test for objects pointing to genzero
-*/
-
 void WalkHeap(const char * fn, int ln)
 {
     FMustBe(sizeof(RootNames) == sizeof(FRoots));

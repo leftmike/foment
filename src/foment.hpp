@@ -5,7 +5,8 @@ Foment
 To Do:
 
 Heap and Threads:
--- used --check-heap when testing release builds
+-- use --check-heap when testing release builds
+-- after GC, test for objects pointing to genzero
 -- use common header on all indirect objects: no type specific code in gc.cpp
 -- don't special case pair, ratio, and complex
 -- put footer on objects and check that hasn't changed
@@ -36,6 +37,7 @@ Future:
     (2 4 6 8 10)
 
 HashTree and Comparator:
+-- replace srfi 114 with srfi 128
 -- add sets: HashSet
 -- add bags: HashBag
 

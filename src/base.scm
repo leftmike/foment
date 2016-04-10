@@ -376,6 +376,7 @@
         integer-length
         first-set-bit
         arithmetic-shift)
+#|
     (export ;; (srfi 114)
         make-comparator
         comparator?
@@ -389,6 +390,7 @@
         char-comparator
         string-comparator
         default-comparator)
+|#
     (export
         make-ascii-port
         make-latin1-port
@@ -2404,7 +2406,7 @@
                 ((null? bs) acc)))
         (define (booleans->integer . bools)
             (list->integer bools))))
-
+#|
 (define-library (srfi 114)
     (aka (comparators))
     (import (foment base))
@@ -2931,3 +2933,4 @@
                 ((comparator obj1 obj2 . objs)
                     (comparator-max comparator obj1
                             (apply comparator-max comparator obj2 objs)))))))
+|#
