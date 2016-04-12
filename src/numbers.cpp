@@ -1219,21 +1219,11 @@ FObject NumberToString(FObject obj, FFixnum rdx)
     return(GetOutputString(port));
 }
 
-/*
-This code assumes a very specific layout of immediate type tags: Fixnums, Ratios, Complex,
-and Flonum all have immediate type tags with 0x4 set. No other immediate type tags have 0x4 set.
-
-In determining the operation, Bignums and Ratios end up together. Both have 0x0 as their
-low two bits.
-*/
 static inline int_t BothNumberP(FObject z1, FObject z2)
 {
-//    return(((((FImmediate) (z1)) & 0x4) + (((FImmediate) (z2)) & 0x4)) == 0x8 ||
-//            (NumberP(z1) && NumberP(z2)));
     return(NumberP(z1) && NumberP(z2));
 }
 
-//#define BinaryNumberOp(z1, z2) ((((FImmediate) (z1)) & 0x3) << 2) | (((FImmediate) (z2)) & 0x3)
 static inline int_t BinaryNumberOp(FObject z1, FObject z2)
 {
     int_t op;
@@ -1274,7 +1264,6 @@ static const int_t BOP_FIXED_COMPLEX = 0xD;   // 0b1101
 static const int_t BOP_FIXED_FLOAT = 0xE;     // 0b1110
 static const int_t BOP_FIXED_FIXED = 0xF;     // 0b1111
 
-//#define UnaryNumberOp(z) (((FImmediate) (z)) & 0x3)
 static inline int_t UnaryNumberOp(FObject z)
 {
     int_t op;

@@ -8,13 +8,13 @@ Heap and Threads:
 -- use --check-heap when testing release builds
 -- after GC, test for objects pointing to genzero
 -- use common header on all indirect objects: no type specific code in gc.cpp
--- number.cpp: make NumberP, BinaryNumberOp, and UnaryNumberOp faster
 -- put footer on objects and check that it hasn't changed
 -- support different collectors
 -- add a simple mark and sweep collector
 -- redo thread management around collecting
 
 Future:
+-- number.cpp: make NumberP, BinaryNumberOp, and UnaryNumberOp faster
 -- Windows: $(APPDATA)\Foment\Libraries
 -- Unix: $(HOME)/.local/foment/lib
 -- don't load all builtin libraries at startup
@@ -131,17 +131,6 @@ void FMustBeFailed(const char * fn, int_t ln, const char * expr);
 #define FMustBe(expr)\
     if (! (expr)) FMustBeFailed(__FILE__, __LINE__, #expr)
 
-/*
-Be very very careful changing direct type tags. The number code assumes that 0x4 will only
-be set for Ratio, Complex, Flonum, and Fixnum. This allows for a fast test for numbers:
-(obj & 0x4) and for two numbers: ((obj1 & 0x4) + (obj2 & 0x4)) == 0x8.
-
-The low two bits of the direct type tags for numbers are used for a fast dispatch to the
-correct arthmetic operation: Ratio is 0x0, Complex is 0x1, Flonum is 0x2, and Fixnum is 0x3.
-The operation can be found by: ((obj1 & 0x3) << 2) | (obj2 & 0x3).
-
-See numbers.cpp.
-*/
 typedef enum
 {
     // Direct Types
@@ -172,7 +161,11 @@ typedef enum
 {
     // Indirect Types
 
-    BoxTag = 0x07,
+    BignumTag = 0x01, // fix order of tags in gc.cpp
+    RatioTag,
+    ComplexTag,
+    FlonumTag,
+    BoxTag,
     PairTag,
     StringTag,
     VectorTag,
@@ -187,10 +180,6 @@ typedef enum
     ThreadTag,
     ExclusiveTag,
     ConditionTag,
-    BignumTag,
-    RatioTag,
-    ComplexTag,
-    FlonumTag,
     HashTreeTag,
 
     // Invalid Tag
@@ -1038,12 +1027,20 @@ int_t FixnumAsString(FFixnum n, FCh * s, FFixnum rdx);
 
 inline int_t NumberP(FObject obj)
 {
-    return(FixnumP(obj) || BignumP(obj) || RatioP(obj) || FlonumP(obj) || ComplexP(obj));
+    if (FixnumP(obj))
+        return(1);
+
+    FIndirectTag tag = IndirectTag(obj);
+    return(tag == BignumTag || tag == RatioTag || tag == FlonumTag || tag == ComplexTag);
 }
 
 inline int_t RealP(FObject obj)
 {
-    return(FixnumP(obj) || BignumP(obj) || RatioP(obj) || FlonumP(obj));
+    if (FixnumP(obj))
+        return(1);
+
+    FIndirectTag tag = IndirectTag(obj);
+    return(tag == BignumTag || tag == RatioTag || tag == FlonumTag);
 }
 
 int_t IntegerP(FObject obj);
