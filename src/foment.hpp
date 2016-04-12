@@ -9,7 +9,6 @@ Heap and Threads:
 -- after GC, test for objects pointing to genzero
 -- use common header on all indirect objects: no type specific code in gc.cpp
 -- number.cpp: make NumberP, BinaryNumberOp, and UnaryNumberOp faster
--- don't special case ratio, flonum, and complex
 -- put footer on objects and check that it hasn't changed
 -- support different collectors
 -- add a simple mark and sweep collector

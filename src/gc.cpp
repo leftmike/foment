@@ -39,8 +39,6 @@ typedef enum
     ZeroSectionTag, // Generation Zero
     OneSectionTag, // Generation One
     MatureSectionTag,
-    TwoSlotSectionTag,
-    FlonumSectionTag,
     BackRefSectionTag,
     ScanSectionTag,
     TrackerSectionTag,
@@ -87,9 +85,7 @@ static inline int WalkMarkP(FObject obj)
 
 static inline int_t MatureP(FObject obj)
 {
-    unsigned char st = SectionTable[SectionIndex(obj)];
-
-    return(st == MatureSectionTag || st == TwoSlotSectionTag || st == FlonumSectionTag);
+    return(SectionTable[SectionIndex(obj)] == MatureSectionTag);
 }
 
 static inline FSectionTag SectionTag(FObject obj)
@@ -108,33 +104,7 @@ typedef struct _FFreeObject
     struct _FFreeObject * Next;
 } FFreeObject;
 
-typedef struct
-{
-    FObject One;
-    FObject Two;
-} FTwoSlot;
-
 static FFreeObject * FreeMature = 0;
-static FTwoSlot * FreeTwoSlots = 0;
-static FTwoSlot * FreeFlonums = 0;
-
-#define TWOSLOTS_PER_SECTION (SECTION_SIZE * 8 / (sizeof(FTwoSlot) * 8 + 1))
-#define TWOSLOT_MB_SIZE (TWOSLOTS_PER_SECTION / 8)
-#define TWOSLOT_MB_OFFSET (SECTION_SIZE - TWOSLOT_MB_SIZE)
-
-static inline uint_t TwoSlotMarkP(FRaw raw)
-{
-    uint_t idx = SectionOffset(raw) / sizeof(FTwoSlot);
-
-    return((SectionBase(raw) + TWOSLOT_MB_OFFSET)[idx / 8] & (1 << (idx % 8)));
-}
-
-static inline void SetTwoSlotMark(FRaw raw)
-{
-    uint_t idx = SectionOffset(raw) / sizeof(FTwoSlot);
-
-    (SectionBase(raw) + TWOSLOT_MB_OFFSET)[idx / 8] |= (1 << (idx % 8));
-}
 
 volatile uint_t BytesAllocated = 0;
 static volatile uint_t BytesSinceLast = 0;
@@ -172,8 +142,6 @@ static inline int_t AliveP(FObject obj)
 
     if (st == MatureSectionTag)
         return(MarkP(obj));
-    else if (st == TwoSlotSectionTag || st == FlonumSectionTag)
-        return(TwoSlotMarkP(obj));
     return(GCTagP(AsForward(obj)) == 0);
 }
 
@@ -619,52 +587,6 @@ FObject MakePinnedObject(uint_t len, const char * who)
     return(MakeMatureObject(len, who));
 }
 
-static FObject MakeMatureTwoSlot()
-{
-    if (FreeTwoSlots == 0)
-    {
-        unsigned char * tss = (unsigned char *) AllocateSection(1, TwoSlotSectionTag);
-
-        for (uint_t idx = 0; idx < TWOSLOT_MB_SIZE; idx++)
-            (tss + TWOSLOT_MB_OFFSET)[idx] = 0;
-
-        FTwoSlot * ts = (FTwoSlot *) tss;
-
-        for (uint_t idx = 0; idx < TWOSLOT_MB_OFFSET / sizeof(FTwoSlot); idx++)
-        {
-            ts->One = FreeTwoSlots;
-            FreeTwoSlots = ts;
-            ts += 1;
-        }
-    }
-
-    FObject obj = (FObject) FreeTwoSlots;
-    FreeTwoSlots = (FTwoSlot *) FreeTwoSlots->One;
-
-    SetTwoSlotMark(obj);
-    return(obj);
-}
-
-static FObject MakeMatureFlonum()
-{
-    if (FreeFlonums == 0)
-    {
-        FTwoSlot * ts = (FTwoSlot *) AllocateSection(1, FlonumSectionTag);
-
-        for (uint_t idx = 0; idx < TWOSLOT_MB_OFFSET / sizeof(FTwoSlot); idx++)
-        {
-            ts->One = FreeFlonums;
-            FreeFlonums = ts;
-            ts += 1;
-        }
-    }
-
-    FObject obj = (FObject) FreeFlonums;
-    FreeFlonums = (FTwoSlot *) FreeFlonums->One;
-
-    return(obj);
-}
-
 void PushRoot(FObject * rt)
 {
     FThreadState * ts = GetThreadState();
@@ -867,19 +789,6 @@ static void ScanObject(FObject * pobj, int_t fcf, int_t mf)
             SetMark(raw);
             AddToScan(*pobj);
         }
-    }
-    else if (SectionTable[sdx] == TwoSlotSectionTag)
-    {
-        if (fcf && TwoSlotMarkP(raw) == 0)
-        {
-            SetTwoSlotMark(raw);
-            AddToScan(*pobj);
-        }
-    }
-    else if (SectionTable[sdx] == FlonumSectionTag)
-    {
-        if (fcf && TwoSlotMarkP(raw) == 0)
-            SetTwoSlotMark(raw);
     }
     else if (SectionTable[sdx] == ZeroSectionTag)
     {
@@ -1898,16 +1807,6 @@ static void Collect(int_t fcf)
 
                 sdx += cnt;
             }
-            else if (SectionTable[sdx] == TwoSlotSectionTag
-                    || SectionTable[sdx] == FlonumSectionTag)
-            {
-                unsigned char * tss = (unsigned char *) SectionPointer(sdx);
-
-                for (uint_t idx = 0; idx < TWOSLOT_MB_SIZE; idx++)
-                    (tss + TWOSLOT_MB_OFFSET)[idx] = 0;
-
-                sdx += 1;
-            }
             else
                 sdx += 1;
         }
@@ -2027,8 +1926,6 @@ static void Collect(int_t fcf)
 
     if (fcf)
     {
-        FreeTwoSlots = 0;
-        FreeFlonums = 0;
         FreeMature = 0;
 
         uint_t sdx = 0;
@@ -2068,39 +1965,6 @@ static void Collect(int_t fcf)
                 }
 
                 sdx += cnt;
-            }
-            else if (SectionTable[sdx] == TwoSlotSectionTag
-                    || SectionTable[sdx] == FlonumSectionTag)
-            {
-                unsigned char * tss = (unsigned char *) SectionPointer(sdx);
-
-                for (uint_t idx = 0; idx < TWOSLOT_MB_OFFSET / (sizeof(FTwoSlot) * 8); idx++)
-                    if ((tss + TWOSLOT_MB_OFFSET)[idx] != 0xFF)
-                    {
-                        FTwoSlot * ts = (FTwoSlot *) (tss + sizeof(FTwoSlot) * idx * 8);
-                        for (uint_t bdx = 0; bdx < 8; bdx++)
-                        {
-                            if (TwoSlotMarkP(ts) == 0)
-                            {
-                                if (SectionTable[sdx] == TwoSlotSectionTag)
-                                {
-                                    ts->One = FreeTwoSlots;
-                                    FreeTwoSlots = ts;
-                                }
-                                else
-                                {
-                                    FAssert(SectionTable[sdx] == FlonumSectionTag);
-
-                                    ts->One = FreeFlonums;
-                                    FreeFlonums = ts;
-                                }
-                            }
-
-                            ts += 1;
-                        }
-                    }
-
-                sdx += 1;
             }
             else
                 sdx += 1;
@@ -2451,7 +2315,6 @@ void SetupCore(FThreadState * ts)
     FAssert(sizeof(FObject) == sizeof(char *));
     FAssert(sizeof(FFixnum) <= sizeof(FImmediate));
     FAssert(sizeof(FCh) <= sizeof(FImmediate));
-    FAssert(sizeof(FTwoSlot) == sizeof(FObject) * 2);
     FAssert(sizeof(FYoungHeader) == OBJECT_ALIGNMENT);
 
 #ifdef FOMENT_DEBUG
@@ -2482,8 +2345,6 @@ void SetupCore(FThreadState * ts)
 #endif // FOMENT_DEBUG
 
     FAssert(SECTION_SIZE == 1024 * 16);
-    FAssert(TWOSLOT_MB_OFFSET / (sizeof(FTwoSlot) * 8) <= TWOSLOT_MB_SIZE);
-    FAssert(TWOSLOTS_PER_SECTION % 8 == 0);
     FAssert(MAXIMUM_YOUNG_LENGTH <= SECTION_SIZE / 2);
 
     FAssert(MaximumSections % SECTION_SIZE == 0);
@@ -2685,8 +2546,6 @@ Define("dump-gc", DumpGCPrimitive)(int_t argc, FObject argv[])
         case ZeroSectionTag: printf("Zero\n"); break;
         case OneSectionTag: printf("One\n"); break;
         case MatureSectionTag: printf("Mature\n"); break;
-        case TwoSlotSectionTag: printf("TwoSlot\n"); break;
-        case FlonumSectionTag: printf("Flonum\n"); break;
         case BackRefSectionTag: printf("BackRef\n"); break;
         case ScanSectionTag: printf("Scan\n"); break;
         case TrackerSectionTag: printf("Tracker\n"); break;
