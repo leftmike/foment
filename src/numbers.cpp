@@ -68,7 +68,6 @@ int_t NonNegativeExactIntegerP(FObject obj, int_t bf)
 
 static FObject MakeBignum()
 {
-//    FBignum * bn = (FBignum *) MakePinnedObject(sizeof(FBignum), "make-bignum");
     FBignum * bn = (FBignum *) MakeObject(sizeof(FBignum), BignumTag);
     bn->Reserved = BignumTag;
     mpz_init(bn->MPInteger);
@@ -80,7 +79,6 @@ static FObject MakeBignum()
 
 static FObject MakeBignum(FFixnum n)
 {
-//    FBignum * bn = (FBignum *) MakePinnedObject(sizeof(FBignum), "make-bignum");
     FBignum * bn = (FBignum *) MakeObject(sizeof(FBignum), BignumTag);
     bn->Reserved = BignumTag;
     mpz_init_set_si(bn->MPInteger, (long) n);
@@ -92,7 +90,6 @@ static FObject MakeBignum(FFixnum n)
 
 static FObject MakeBignum(double64_t d)
 {
-//    FBignum * bn = (FBignum *) MakePinnedObject(sizeof(FBignum), "make-bignum");
     FBignum * bn = (FBignum *) MakeObject(sizeof(FBignum), BignumTag);
     bn->Reserved = BignumTag;
     mpz_init_set_d(bn->MPInteger, d);
@@ -106,7 +103,6 @@ static FObject MakeBignum(FObject n)
 {
     FAssert(BignumP(n));
 
-//    FBignum * bn = (FBignum *) MakePinnedObject(sizeof(FBignum), "make-bignum");
     FBignum * bn = (FBignum *) MakeObject(sizeof(FBignum), BignumTag);
     bn->Reserved = BignumTag;
     mpz_init_set(bn->MPInteger, AsBignum(n));
@@ -376,13 +372,12 @@ inline static FObject BignumArithmeticShift(FObject bn, FFixnum cnt)
 FObject MakeFlonum(double64_t dbl)
 {
     FFlonum * flo = (FFlonum *) MakeObject(sizeof(FFlonum), FlonumTag);
+    flo->Unused = FlonumTag;
     flo->Double = dbl;
 
-    FObject obj = FlonumObject(flo);
-    FAssert(FlonumP(obj));
-    FAssert(isnan(dbl) || AsFlonum(obj) == dbl);
+    FAssert(isnan(dbl) || AsFlonum(flo) == dbl);
 
-    return(obj);
+    return(flo);
 }
 
 inline static FObject Abs(FObject n)
@@ -465,14 +460,11 @@ static FObject MakeRatio(FObject nmr, FObject dnm)
     FAssert(GenericSign(dnm) > 0);
 
     FRatio * rat = (FRatio *) MakeObject(sizeof(FRatio), RatioTag);
+    rat->Unused = RatioTag;
     rat->Numerator = Normalize(nmr);
     rat->Denominator = Normalize(dnm);
 
-    FObject obj = RatioObject(rat);
-    FAssert(RatioP(obj));
-    FAssert(AsRatio(obj) == rat);
-
-    return(obj);
+    return(rat);
 }
 
 static FObject RatioDivide(FObject obj)
@@ -505,14 +497,11 @@ static FObject MakeComplex(FObject rl, FObject img)
         img = ToInexact(img);
 
     FComplex * cmplx = (FComplex *) MakeObject(sizeof(FComplex), ComplexTag);
+    cmplx->Unused = ComplexTag;
     cmplx->Real = rl;
     cmplx->Imaginary = img;
 
-    FObject obj = ComplexObject(cmplx);
-    FAssert(ComplexP(obj));
-    FAssert(AsComplex(obj) == cmplx);
-
-    return(obj);
+    return(cmplx);
 }
 
 static inline FObject MakeComplex(double64_t rl, double64_t img)
@@ -1239,11 +1228,34 @@ low two bits.
 */
 static inline int_t BothNumberP(FObject z1, FObject z2)
 {
-    return(((((FImmediate) (z1)) & 0x4) + (((FImmediate) (z2)) & 0x4)) == 0x8 ||
-            (NumberP(z1) && NumberP(z2)));
+//    return(((((FImmediate) (z1)) & 0x4) + (((FImmediate) (z2)) & 0x4)) == 0x8 ||
+//            (NumberP(z1) && NumberP(z2)));
+    return(NumberP(z1) && NumberP(z2));
 }
 
-#define BinaryNumberOp(z1, z2) ((((FImmediate) (z1)) & 0x3) << 2) | (((FImmediate) (z2)) & 0x3)
+//#define BinaryNumberOp(z1, z2) ((((FImmediate) (z1)) & 0x3) << 2) | (((FImmediate) (z2)) & 0x3)
+static inline int_t BinaryNumberOp(FObject z1, FObject z2)
+{
+    int_t op;
+
+    if (ComplexP(z1))
+        op = 0x1 << 2;
+    else if (FlonumP(z1))
+        op = 0x2 << 2;
+    else if (FixnumP(z1))
+        op = 0x3 << 2;
+    else
+        op = 0;
+
+    if (ComplexP(z2))
+        op |= 0x1;
+    else if (FlonumP(z2))
+        op |= 0x2;
+    else if (FixnumP(z2))
+        op |= 0x3;
+
+    return(op);
+}
 
 static const int_t BOP_BIGRAT_BIGRAT = 0x0;   // 0b0000
 static const int_t BOP_BIGRAT_COMPLEX = 0x1;  // 0b0001
@@ -1262,7 +1274,22 @@ static const int_t BOP_FIXED_COMPLEX = 0xD;   // 0b1101
 static const int_t BOP_FIXED_FLOAT = 0xE;     // 0b1110
 static const int_t BOP_FIXED_FIXED = 0xF;     // 0b1111
 
-#define UnaryNumberOp(z) (((FImmediate) (z)) & 0x3)
+//#define UnaryNumberOp(z) (((FImmediate) (z)) & 0x3)
+static inline int_t UnaryNumberOp(FObject z)
+{
+    int_t op;
+
+    if (ComplexP(z))
+        op = 0x1;
+    else if (FlonumP(z))
+        op = 0x2;
+    else if (FixnumP(z))
+        op = 0x3;
+    else
+        op = 0;
+
+    return(op);
+}
 
 static const int_t UOP_BIGRAT = 0x0;  // 0b0000
 static const int_t UOP_COMPLEX = 0x1; // 0b0001

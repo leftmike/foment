@@ -328,15 +328,22 @@ static uint_t ObjectSize(FObject obj, uint_t tag, int ln)
         break;
 
     case RatioTag:
-    case ComplexTag:
-        FAssert(sizeof(FRatio) % OBJECT_ALIGNMENT == 0);
+        FAssert(RatioP(obj));
 
-        return(sizeof(FRatio));
+        len = sizeof(FRatio);
+        break;
+
+    case ComplexTag:
+        FAssert(ComplexP(obj));
+
+        len = sizeof(FComplex);
+        break;
 
     case FlonumTag:
-        FAssert(sizeof(FFlonum) % OBJECT_ALIGNMENT == 0);
+        FAssert(FlonumP(obj));
 
-        return(sizeof(FFlonum));
+        len = sizeof(FFlonum);
+        break;
 
     case BoxTag:
         FAssert(BoxP(obj));
@@ -883,13 +890,6 @@ static void ScanObject(FObject * pobj, int_t fcf, int_t mf)
             FObject nobj = CopyObject(len, tag);
             memcpy(nobj, raw, len);
 
-            if (tag == RatioTag)
-                nobj = RatioObject(nobj);
-            else if (tag == ComplexTag)
-                nobj = ComplexObject(nobj);
-            else if (tag == FlonumTag)
-                nobj = FlonumObject(nobj);
-
             AsForward(raw) = nobj;
             *pobj = nobj;
 
@@ -916,32 +916,10 @@ static void ScanObject(FObject * pobj, int_t fcf, int_t mf)
         {
             uint_t tag = AsValue(AsForward(raw));
             uint_t len = ObjectSize(raw, tag, __LINE__);
-
-            FObject nobj;
-            if (tag == RatioTag || tag == ComplexTag)
-            {
-                nobj = MakeMatureTwoSlot();
-                SetTwoSlotMark(nobj);
-            }
-            else if (tag == FlonumTag)
-            {
-                nobj = MakeMatureFlonum();
-                SetTwoSlotMark(nobj);
-            }
-            else
-                nobj = MakeMature(len);
+            FObject nobj = MakeMature(len);
 
             memcpy(nobj, raw, len);
-
-            if (tag == RatioTag)
-                nobj = RatioObject(nobj);
-            else if (tag == ComplexTag)
-                nobj = ComplexObject(nobj);
-            else if (tag == FlonumTag)
-                nobj = FlonumObject(nobj);
-            else
-                SetMark(nobj);
-
+            SetMark(nobj);
             AddToScan(nobj);
 
             AsForward(raw) = nobj;
@@ -962,6 +940,8 @@ static void ScanChildren(FRaw raw, uint_t tag, int_t fcf)
     switch (tag)
     {
     case PairTag:
+    case RatioTag:
+    case ComplexTag:
     {
         FPair * pr = (FPair *) raw;
 
@@ -969,18 +949,6 @@ static void ScanChildren(FRaw raw, uint_t tag, int_t fcf)
             ScanObject(&pr->First, fcf, mf);
         if (ObjectP(pr->Rest))
             ScanObject(&pr->Rest, fcf, mf);
-        break;
-    }
-
-    case RatioTag:
-    case ComplexTag:
-    {
-        FRatio * ratio = (FRatio *) raw;
-
-        if (ObjectP(ratio->Numerator))
-            ScanObject(&ratio->Numerator, fcf, mf);
-        if (ObjectP(ratio->Denominator))
-            ScanObject(&ratio->Denominator, fcf, mf);
         break;
     }
 
@@ -1103,17 +1071,9 @@ static void CleanScan(int_t fcf)
             FObject obj = ScanSections->Scan[ScanSections->Used];
 
             FAssert(ObjectP(obj));
+            FAssert(IndirectP(obj));
 
-            if (RatioP(obj))
-                ScanChildren(AsRaw(obj), RatioTag, fcf);
-            else if (ComplexP(obj))
-                ScanChildren(AsRaw(obj), ComplexTag, fcf);
-            else if (FlonumP(obj) == 0)
-            {
-                FAssert(IndirectP(obj));
-
-                ScanChildren(obj, IndirectTag(obj), fcf);
-            }
+            ScanChildren(obj, IndirectTag(obj), fcf);
         }
 
         FYoungSection * ys = GenerationOne;
@@ -1573,17 +1533,9 @@ Again:
             {
                 for (uint_t idx = 0; idx < brs->Used; idx++)
                 {
-                    uint_t tag;
-                    if (RatioP(prev))
-                        tag = RatioTag;
-                    else if (ComplexP(prev))
-                        tag = ComplexTag;
-                    else if (FlonumP(prev))
-                        tag = FlonumTag;
-                    else
-                        tag = IndirectTag(prev);
-
+                    uint_t tag = IndirectTag(prev);
                     uint_t sz = ObjectSize(prev, tag, __LINE__);
+
                     if (brs->BackRef[idx].Ref >= AsRaw(prev)
                             && (char *) brs->BackRef[idx].Ref < ((char *) AsRaw(prev)) + sz
                             && brs->BackRef[idx].Value == obj)
@@ -1700,6 +1652,19 @@ Again:
         case BignumTag:
             break;
 
+        case RatioTag:
+            WalkObject(AsRatio(obj)->Numerator, "ratio.numerator", obj);
+            WalkObject(AsRatio(obj)->Denominator, "ratio.denominator", obj);
+            break;
+
+        case ComplexTag:
+            WalkObject(AsComplex(obj)->Real, "complex.real", obj);
+            WalkObject(AsComplex(obj)->Imaginary, "complex.imaginary", obj);
+            break;
+
+        case FlonumTag:
+            break;
+
         case HashTreeTag:
             for (uint_t bdx = 0; bdx < HashTreeLength(obj); bdx++)
                 WalkObject(AsHashTree(obj)->Buckets[bdx], "hash-tree.buckets", obj, bdx);
@@ -1733,12 +1698,12 @@ Again:
         case ValuesCountTag: // 0bx1001011
             break;
 
-        case UnusedTag3: // 0bx1011011
+        case UnusedTag6: // 0bx1011011
             PrintWalkStack();
             FMustBe(0);
             break;
 
-        case UnusedTag4: // 0bx1101011
+        case UnusedTag7: // 0bx1101011
             PrintWalkStack();
             FMustBe(0);
             break;
@@ -1750,29 +1715,19 @@ Again:
         }
         break;
 
-    case RatioTag: // 0bxxxxx100
-        FMustBe(RatioP(obj));
-
-        FMustBe(SectionTag(obj) == ZeroSectionTag || SectionTag(obj) == OneSectionTag
-                || SectionTag(obj) == TwoSlotSectionTag);
-
-        WalkObject(AsRatio(obj)->Numerator, "ratio.numerator", obj);
-        WalkObject(AsRatio(obj)->Denominator, "ratio.denominator", obj);
+    case UnusedTag3: // 0bxxxxx100
+        PrintWalkStack();
+        FMustBe(0);
         break;
 
-    case ComplexTag: // 0bxxxxx101
-        FMustBe(ComplexP(obj));
-
-        FMustBe(SectionTag(obj) == ZeroSectionTag || SectionTag(obj) == OneSectionTag
-                || SectionTag(obj) == TwoSlotSectionTag);
-
-        WalkObject(AsComplex(obj)->Real, "complex.real", obj);
-        WalkObject(AsComplex(obj)->Imaginary, "complex.imaginary", obj);
+    case UnusedTag4: // 0bxxxxx101
+        PrintWalkStack();
+        FMustBe(0);
         break;
 
-    case FlonumTag: // 0bxxxxx110
-        FMustBe(SectionTag(obj) == ZeroSectionTag || SectionTag(obj) == OneSectionTag
-                || SectionTag(obj) == FlonumSectionTag);
+    case UnusedTag5: // 0bxxxxx110
+        PrintWalkStack();
+        FMustBe(0);
         break;
 
     case FixnumTag: // 0bxxxx0111
@@ -2497,8 +2452,6 @@ void SetupCore(FThreadState * ts)
     FAssert(sizeof(FFixnum) <= sizeof(FImmediate));
     FAssert(sizeof(FCh) <= sizeof(FImmediate));
     FAssert(sizeof(FTwoSlot) == sizeof(FObject) * 2);
-    FAssert(sizeof(FRatio) == sizeof(FTwoSlot));
-    FAssert(sizeof(FComplex) == sizeof(FTwoSlot));
     FAssert(sizeof(FYoungHeader) == OBJECT_ALIGNMENT);
 
 #ifdef FOMENT_DEBUG

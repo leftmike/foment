@@ -8,8 +8,9 @@ Heap and Threads:
 -- use --check-heap when testing release builds
 -- after GC, test for objects pointing to genzero
 -- use common header on all indirect objects: no type specific code in gc.cpp
--- don't special case pair, ratio, flonum, and complex
--- put footer on objects and check that hasn't changed
+-- number.cpp: make NumberP, BinaryNumberOp, and UnaryNumberOp faster
+-- don't special case ratio, flonum, and complex
+-- put footer on objects and check that it hasn't changed
 -- support different collectors
 -- add a simple mark and sweep collector
 -- redo thread management around collecting
@@ -149,9 +150,9 @@ typedef enum
     UnusedTag1 = 0x01,       // 0bxxxxx001
     UnusedTag2 = 0x02,       // 0bxxxxx010
     DoNotUse = 0x03,         // 0bxxxxx011
-    RatioTag = 0x04,         // 0bxxxxx100
-    ComplexTag = 0x05,       // 0bxxxxx101
-    FlonumTag = 0x06,        // 0bxxxxx110
+    UnusedTag3 = 0x04,       // 0bxxxxx100
+    UnusedTag4 = 0x05,       // 0bxxxxx101
+    UnusedTag5 = 0x06,       // 0bxxxxx110
 
     FixnumTag = 0x07,        // 0bxxxx0111
 
@@ -160,8 +161,8 @@ typedef enum
     SpecialSyntaxTag = 0x2B, // 0bx0101011
     InstructionTag = 0x3B,   // 0bx0111011
     ValuesCountTag = 0x4B,   // 0bx1001011
-    UnusedTag3 = 0x5B,       // 0bx1011011
-    UnusedTag4 = 0x6B,       // 0bx1101011
+    UnusedTag6 = 0x5B,       // 0bx1011011
+    UnusedTag7 = 0x6B,       // 0bx1101011
 
     // Used by garbage collector.
 
@@ -188,6 +189,9 @@ typedef enum
     ExclusiveTag,
     ConditionTag,
     BignumTag,
+    RatioTag,
+    ComplexTag,
+    FlonumTag,
     HashTreeTag,
 
     // Invalid Tag
@@ -982,12 +986,15 @@ extern FRoots R;
 
 // ---- Flonums ----
 
-#define FlonumP(obj) ((((FImmediate) (obj)) & 0x7) == FlonumTag)
-#define AsFlonum(obj) ((FFlonum *) (((char *) (obj)) - FlonumTag))->Double
-#define FlonumObject(flo) ((FObject) (((char *) (flo)) + FlonumTag))
+#define FlonumP(obj) (IndirectTag(obj) == FlonumTag)
+#define AsFlonum(obj) (((FFlonum *) (obj))->Double)
 
 typedef struct
 {
+    uint_t Unused;
+#ifdef FOMENT_32BIT
+    uint_t Padding;
+#endif // FOMENT_32BIT
     double64_t Double;
 } FFlonum;
 
@@ -999,24 +1006,24 @@ FObject MakeFlonum(double64_t dbl);
 
 // ---- Ratios ----
 
-#define RatioP(obj) ((((FImmediate) (obj)) & 0x7) == RatioTag)
-#define AsRatio(obj) ((FRatio *) (((char *) (obj)) - RatioTag))
-#define RatioObject(rat) ((FObject) (((char *) (rat)) + RatioTag))
+#define RatioP(obj) (IndirectTag(obj) == RatioTag)
+#define AsRatio(obj) ((FRatio *) (obj))
 
 typedef struct
 {
+    uint_t Unused;
     FObject Numerator;
     FObject Denominator;
 } FRatio;
 
 // ---- Complex ----
 
-#define ComplexP(obj) ((((FImmediate) (obj)) & 0x7) == ComplexTag)
-#define AsComplex(obj) ((FComplex *) (((char *) (obj)) - ComplexTag))
-#define ComplexObject(cmplx) ((FObject) (((char *) (cmplx)) + ComplexTag))
+#define ComplexP(obj) (IndirectTag(obj) == ComplexTag)
+#define AsComplex(obj) ((FComplex *) (obj))
 
 typedef struct
 {
+    uint_t Unused;
     FObject Real;
     FObject Imaginary;
 } FComplex;
