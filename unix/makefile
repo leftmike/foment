@@ -19,18 +19,32 @@ clean: debug release profile
 	-rm profile/*
 
 test: all
-	cd ../test ; ../unix/debug/foment --check-heap runtests.scm r7rs.scm r7rs-eval.scm foment.scm eccentric.scm r5rs_pitfall.scm unicode.scm srfi.scm
-	cd ../test ; ../unix/debug/foment --check-heap r7rs.scm
+	cd ../test ; ../unix/debug/foment runtests.scm r7rs.scm r7rs-eval.scm foment.scm eccentric.scm r5rs_pitfall.scm unicode.scm srfi.scm
+	cd ../test ; ../unix/debug/foment r7rs.scm
 	cd ../test ; ../unix/release/foment runtests.scm r7rs.scm r7rs-eval.scm foment.scm eccentric.scm r5rs_pitfall.scm unicode.scm srfi.scm
 	cd ../test ; ../unix/release/foment r7rs.scm
 
+check-test: all
+	cd ../test ; ../unix/debug/foment --check-heap runtests.scm r7rs.scm r7rs-eval.scm foment.scm eccentric.scm r5rs_pitfall.scm unicode.scm srfi.scm
+	cd ../test ; ../unix/debug/foment --check-heap r7rs.scm
+	cd ../test ; ../unix/release/foment --check-heap runtests.scm r7rs.scm r7rs-eval.scm foment.scm eccentric.scm r5rs_pitfall.scm unicode.scm srfi.scm
+	cd ../test ; ../unix/release/foment --check-heap r7rs.scm
+
 stress: all
-	cd ../test ; ../unix/debug/foment --check-heap runtests.scm stress.scm r7rs.scm
+	cd ../test ; ../unix/debug/foment runtests.scm stress.scm r7rs.scm
 	cd ../test ; ../unix/release/foment runtests.scm stress.scm r7rs.scm
 
+check-stress: all
+	cd ../test ; ../unix/debug/foment --check-heap runtests.scm stress.scm r7rs.scm
+	cd ../test ; ../unix/release/foment --check-heap runtests.scm stress.scm r7rs.scm
+
 chibi: all
-	cd ../test ; ../unix/debug/foment --check-heap r7rs-tests.scm
+	cd ../test ; ../unix/debug/foment r7rs-tests.scm
 	cd ../test ; ../unix/release/foment r7rs-tests.scm
+
+check-chibi: all
+	cd ../test ; ../unix/debug/foment --check-heap r7rs-tests.scm
+	cd ../test ; ../unix/release/foment --check-heap r7rs-tests.scm
 
 debug:
 	-mkdir debug

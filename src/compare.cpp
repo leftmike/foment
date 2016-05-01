@@ -509,8 +509,8 @@ static int_t DefaultCompare(FObject obj1, FObject obj2)
         if (HashTreeLength(obj1) != HashTreeLength(obj2))
             return(HashTreeLength(obj1) < HashTreeLength(obj2) ? -1 : 1);
 
-        if (AsHashTree(obj1)->Bitmap != AsHashTree(obj2)->Bitmap)
-            return(AsHashTree(obj1)->Bitmap < AsHashTree(obj2)->Bitmap ? -1 : 1);
+        if (HashTreeBitmap(obj1) != HashTreeBitmap(obj2))
+            return(HashTreeBitmap(obj1) < HashTreeBitmap(obj2) ? -1 : 1);
 
         for (uint_t bdx = 0; bdx < HashTreeLength(obj1); bdx++)
         {
@@ -598,7 +598,7 @@ static uint_t DefaultHash(FObject obj, int_t dpth)
     }
     else if (HashTreeP(obj))
     {
-        uint_t hash = AsHashTree(obj)->Bitmap;
+        uint_t hash = HashTreeBitmap(obj);
         for (uint_t idx = 0; idx < HashTreeLength(obj) && idx < MAX_HASH_DEPTH; idx++)
             hash += (hash << 5) + DefaultHash(AsHashTree(obj)->Buckets[idx], dpth + 1);
         return(hash);

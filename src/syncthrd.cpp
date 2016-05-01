@@ -25,13 +25,12 @@ Foment
 
 FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms, FObject idxprms)
 {
-    FThread * thrd = (FThread *) MakeObject(sizeof(FThread), ThreadTag);
-    thrd->Reserved = MakeLength(0, ThreadTag);
+    FThread * thrd = (FThread *) MakeObject(ThreadTag, sizeof(FThread), 4, "run-thread");
     thrd->Result = NoValueObject;
-    thrd->Handle = h;
     thrd->Thunk = thnk;
     thrd->Parameters = prms;
     thrd->IndexParameters = idxprms;
+    thrd->Handle = h;
 
     return(thrd);
 }
@@ -63,12 +62,11 @@ void InitializeExclusive(OSExclusive * ose)
 
 static FObject MakeExclusive()
 {
-    FExclusive * e = (FExclusive *) MakePinnedObject(sizeof(FExclusive), "make-exclusive");
-    e->Reserved = MakePinnedLength(0, ExclusiveTag);
-
+    FExclusive * e = (FExclusive *) MakeObject(ExclusiveTag, sizeof(FExclusive), 0,
+            "make-exclusive", 1);
     InitializeExclusive(&e->Exclusive);
-
     InstallGuardian(e, R.CleanupTConc);
+
     return(e);
 }
 
@@ -88,10 +86,10 @@ void WriteExclusive(FObject port, FObject obj, int_t df)
 
 static FObject MakeCondition()
 {
-    FCondition * c = (FCondition *) MakePinnedObject(sizeof(FCondition), "make-condition");
-    c->Reserved = MakePinnedLength(0, ConditionTag);
-
+    FCondition * c = (FCondition *) MakeObject(ConditionTag, sizeof(FCondition), 0,
+            "make-condition", 1);
     InitializeCondition(&c->Condition);
+
     return(c);
 }
 
@@ -144,16 +142,17 @@ static void FomentThread(FObject obj)
 
     FAssert(ThreadP(obj));
 
-    EnterThread(&ts, obj, AsThread(obj)->Parameters, AsThread(obj)->IndexParameters);
-
-    FAssert(ts.Thread == obj);
-    FAssert(ThreadP(ts.Thread));
-
-    AsThread(ts.Thread)->Parameters = NoValueObject;
-    AsThread(ts.Thread)->IndexParameters = NoValueObject;
-
     try
     {
+        if (EnterThread(&ts, obj, AsThread(obj)->Parameters, AsThread(obj)->IndexParameters) == 0)
+            RaiseExceptionC(R.Assertion, "foment", "out of memory", EmptyListObject);
+
+        FAssert(ts.Thread == obj);
+        FAssert(ThreadP(ts.Thread));
+
+        AsThread(ts.Thread)->Parameters = NoValueObject;
+        AsThread(ts.Thread)->IndexParameters = NoValueObject;
+
         if (ProcedureP(AsThread(ts.Thread)->Thunk))
         {
 //            AsThread(ts.Thread)->Result = ExecuteThunk(AsThread(ts.Thread)->Thunk);

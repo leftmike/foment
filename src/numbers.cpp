@@ -68,10 +68,8 @@ int_t NonNegativeExactIntegerP(FObject obj, int_t bf)
 
 static FObject MakeBignum()
 {
-    FBignum * bn = (FBignum *) MakeObject(sizeof(FBignum), BignumTag);
-    bn->Reserved = BignumTag;
+    FBignum * bn = (FBignum *) MakeObject(BignumTag, sizeof(FBignum), 0, "%make-bignum");
     mpz_init(bn->MPInteger);
-
     InstallGuardian(bn, R.CleanupTConc);
 
     return(bn);
@@ -79,10 +77,8 @@ static FObject MakeBignum()
 
 static FObject MakeBignum(FFixnum n)
 {
-    FBignum * bn = (FBignum *) MakeObject(sizeof(FBignum), BignumTag);
-    bn->Reserved = BignumTag;
+    FBignum * bn = (FBignum *) MakeObject(BignumTag, sizeof(FBignum), 0, "%make-bignum");
     mpz_init_set_si(bn->MPInteger, (long) n);
-
     InstallGuardian(bn, R.CleanupTConc);
 
     return(bn);
@@ -90,10 +86,8 @@ static FObject MakeBignum(FFixnum n)
 
 static FObject MakeBignum(double64_t d)
 {
-    FBignum * bn = (FBignum *) MakeObject(sizeof(FBignum), BignumTag);
-    bn->Reserved = BignumTag;
+    FBignum * bn = (FBignum *) MakeObject(BignumTag, sizeof(FBignum), 0, "%make-bignum");
     mpz_init_set_d(bn->MPInteger, d);
-
     InstallGuardian(bn, R.CleanupTConc);
 
     return(bn);
@@ -103,10 +97,8 @@ static FObject MakeBignum(FObject n)
 {
     FAssert(BignumP(n));
 
-    FBignum * bn = (FBignum *) MakeObject(sizeof(FBignum), BignumTag);
-    bn->Reserved = BignumTag;
+    FBignum * bn = (FBignum *) MakeObject(BignumTag, sizeof(FBignum), 0, "%make-bignum");
     mpz_init_set(bn->MPInteger, AsBignum(n));
-
     InstallGuardian(bn, R.CleanupTConc);
 
     return(bn);
@@ -371,8 +363,7 @@ inline static FObject BignumArithmeticShift(FObject bn, FFixnum cnt)
 
 FObject MakeFlonum(double64_t dbl)
 {
-    FFlonum * flo = (FFlonum *) MakeObject(sizeof(FFlonum), FlonumTag);
-    flo->Unused = FlonumTag;
+    FFlonum * flo = (FFlonum *) MakeObject(FlonumTag, sizeof(FFlonum), 0, "%make-flonum");
     flo->Double = dbl;
 
     FAssert(isnan(dbl) || AsFlonum(flo) == dbl);
@@ -459,8 +450,7 @@ static FObject MakeRatio(FObject nmr, FObject dnm)
 
     FAssert(GenericSign(dnm) > 0);
 
-    FRatio * rat = (FRatio *) MakeObject(sizeof(FRatio), RatioTag);
-    rat->Unused = RatioTag;
+    FRatio * rat = (FRatio *) MakeObject(RatioTag, sizeof(FRatio), 2, "%make-ratio");
     rat->Numerator = Normalize(nmr);
     rat->Denominator = Normalize(dnm);
 
@@ -496,8 +486,7 @@ static FObject MakeComplex(FObject rl, FObject img)
     else if (FlonumP(rl))
         img = ToInexact(img);
 
-    FComplex * cmplx = (FComplex *) MakeObject(sizeof(FComplex), ComplexTag);
-    cmplx->Unused = ComplexTag;
+    FComplex * cmplx = (FComplex *) MakeObject(ComplexTag, sizeof(FComplex), 2, "%make-complex");
     cmplx->Real = rl;
     cmplx->Imaginary = img;
 

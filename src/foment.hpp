@@ -3,14 +3,24 @@
 Foment
 
 To Do:
-
-Heap and Threads:
--- use --check-heap when testing release builds
--- after GC, test for objects pointing to genzero
--- use common header on all indirect objects: no type specific code in gc.cpp
--- put footer on objects and check that it hasn't changed
--- support different collectors
--- add a simple mark and sweep collector
+-- config options
+    -- FCollectorType CollectorType
+    -- MaximumStackSize
+    -- MaximumBabiesSize
+    -- MaximumKidsSize
+    -- MaximumAdultsSize
+    -- TriggerBytes
+    -- TriggerObjects
+    -- PartialPerFull
+-- cleanup ImmediateTags
+-- turn back on thread tests in foment.scm
+-- CheckObject: check back references from mature objects
+-- Kids and Adults
+-- three collectors
+    -- null
+    -- mark and sweep
+    -- generational + mark and sweep
+-- after GC, test for objects pointing to Babies
 -- redo thread management around collecting
 
 Future:
@@ -151,10 +161,7 @@ typedef enum
     ValuesCountTag = 0x4B,   // 0bx1001011
     UnusedTag6 = 0x5B,       // 0bx1011011
     UnusedTag7 = 0x6B,       // 0bx1101011
-
-    // Used by garbage collector.
-
-    GCTagTag = 0x7B         // 0bx1111011
+    UnusedTag8 = 0x7B        // 0bx1111011
 } FDirectTag;
 
 typedef enum
@@ -184,15 +191,10 @@ typedef enum
 
     // Invalid Tag
 
-    BadDogTag,
-
-    // Used by garbage collector.
-
-    GCFreeTag = 0x1F
+    BadDogTag
 } FIndirectTag;
 
-#define IndirectP(obj) ((((FImmediate) (obj)) & 0x7) == 0x0)
-#define ObjectP(obj) ((((FImmediate) (obj)) & 0x3) != 0x3)
+#define ObjectP(obj) ((((FImmediate) (obj)) & 0x7) == 0x0)
 
 #define ImmediateTag(obj) (((FImmediate) (obj)) & 0x7F)
 #define ImmediateP(obj, it) (ImmediateTag((obj)) == it)
@@ -210,29 +212,71 @@ typedef enum
 
 // ---- Memory Management ----
 
-FObject MakeObject(uint_t sz, uint_t tag);
-FObject MakePinnedObject(uint_t len, const char * who);
+typedef enum
+{
+    NullCollector,
+    MarkSweepCollector,
+    GenerationalCollector
+} FCollectorType;
 
-#define RESERVED_BITS 8
-#define RESERVED_TAGMASK 0x7F
-#define RESERVED_MARK_BIT 0x80
+typedef struct
+{
+    uint_t TopUsed;
+    uint_t BottomUsed;
+    uint_t MaximumSize;
+    void * Base;
+} FMemRegion;
 
-#ifdef FOMENT_32BIT
-#define MAXIMUM_OBJECT_LENGTH 0xFFFFFF
-#endif // FOMENT_32BIT
+void * InitializeMemRegion(FMemRegion * mrgn, uint_t max);
+void DeleteMemRegion(FMemRegion * mrgn);
+int_t GrowMemRegionUp(FMemRegion * mrgn, uint_t sz);
+int_t GrowMemRegionDown(FMemRegion * mrgn, uint_t sz);
 
-#ifdef FOMENT_64BIT
-#define MAXIMUM_OBJECT_LENGTH 0xFFFFFFFFFFFFFF
-#endif // FOMENT_64BIT
+#define OBJHDR_SIZE_MASK 0x1FFFFFFF
+#define OBJHDR_GEN_MASK 0x60000000
+#define OBJHDR_MARK_FORWARD 0x80000000
+#define OBJHDR_GEN_BABIES 0x00000000
+#define OBJHDR_GEN_KIDS 0x20000000
+#define OBJHDR_GEN_ADULTS 0x40000000
+#define OBJHDR_GEN_UNUSED 0x60000000
 
-#define ByteLength(obj) ((*((uint_t *) (obj))) >> RESERVED_BITS)
-#define ObjectLength(obj) ((*((uint_t *) (obj))) >> RESERVED_BITS)
-#define MakeLength(len, tag) (((len) << RESERVED_BITS) | (tag))
-#define MakePinnedLength(len, tag) (((len) << RESERVED_BITS) | (tag) | RESERVED_MARK_BIT)
+#define OBJHDR_SLOT_COUNT_MASK 0x03FFFFFF
+#define OBJHDR_TAG_SHIFT 26
+#define OBJHDR_TAG_MASK 0x0000001F
+#define OBJHDR_CHECK_MARK 0x80000000
+
+typedef struct
+{
+    union
+    {
+        uint32_t FlagsAndSize;
+        uint32_t Flags;
+    };
+    union
+    {
+        uint32_t TagAndSlotCount;
+        uint32_t CheckMark;
+    };
+
+    uint_t Size() {return(FlagsAndSize & OBJHDR_SIZE_MASK);}
+    uint_t SlotCount() {return(TagAndSlotCount & OBJHDR_SLOT_COUNT_MASK);}
+    uint_t Tag() {return((TagAndSlotCount >> OBJHDR_TAG_SHIFT) & OBJHDR_TAG_MASK);}
+} FObjHdr;
+
+inline FObjHdr * AsObjHdr(FObject obj)
+{
+    FAssert(ObjectP(obj));
+
+    return(((FObjHdr *) obj) - 1);
+}
+
+#define ByteLength(obj) (AsObjHdr(obj)->Size())
+
+FObject MakeObject(uint_t tag, uint_t sz, uint_t sc, const char * who, int_t pf = 0);
 
 inline FIndirectTag IndirectTag(FObject obj)
 {
-    return((FIndirectTag) (IndirectP(obj) ? *((uint_t *) (obj)) & RESERVED_TAGMASK : 0));
+    return((FIndirectTag) (ObjectP(obj) ? AsObjHdr(obj)->Tag() : 0));
 }
 
 void PushRoot(FObject * rt);
@@ -244,9 +288,14 @@ extern volatile int_t GCRequired;
 void EnterWait();
 void LeaveWait();
 
-void WalkHeap(const char * fn, int ln);
+void CheckHeap(const char * fn, int ln);
 void Collect();
 #define CheckForGC() if (GCRequired) Collect()
+
+inline int_t MatureP(FObject obj)
+{
+    return(ObjectP(obj) && (AsObjHdr(obj)->Flags & OBJHDR_GEN_MASK) == OBJHDR_GEN_ADULTS);
+}
 
 void ModifyVector(FObject obj, uint_t idx, FObject val);
 
@@ -281,9 +330,6 @@ public:
     FDontWait();
     ~FDontWait();
 };
-
-void FailedGC();
-void FailedExecute();
 
 //
 // ---- Immediate Types ----
@@ -376,7 +422,6 @@ const char * SpecialSyntaxToName(FObject obj);
 
 typedef struct
 {
-    uint_t Unused;
     FObject First;
     FObject Rest;
 } FPair;
@@ -427,8 +472,8 @@ FObject TConcRemove(FObject tconc);
 
 typedef struct
 {
-    uint_t Index;
     FObject Value;
+    uint_t Index;
 } FBox;
 
 FObject MakeBox(FObject val);
@@ -441,7 +486,7 @@ inline FObject Unbox(FObject bx)
 }
 
 void SetBox(FObject bx, FObject val);
-#define BoxIndex(bx) ObjectLength(bx)
+#define BoxIndex(bx) (AsBox(bx)->Index)
 
 // ---- Strings ----
 
@@ -450,7 +495,6 @@ void SetBox(FObject bx, FObject val);
 
 typedef struct
 {
-    uint_t Length;
     FCh String[1];
 } FString;
 
@@ -460,7 +504,14 @@ FObject MakeStringC(const char * s);
 FObject MakeStringS(FChS * ss);
 FObject MakeStringS(FChS * ss, uint_t ssl);
 
-#define StringLength(obj) ByteLength(obj)
+inline uint_t StringLength(FObject obj)
+{
+    FAssert(StringP(obj));
+    FAssert(ByteLength(obj) % sizeof(FCh) == 0);
+    FAssert(ByteLength(obj) >= sizeof(FCh));
+
+    return((ByteLength(obj) / sizeof(FCh)) - 1);
+}
 
 void StringToC(FObject s, char * b, int_t bl);
 FObject FoldcaseString(FObject s);
@@ -479,7 +530,6 @@ int_t StringCiCompare(FObject obj1, FObject obj2);
 
 typedef struct
 {
-    uint_t Length;
     FObject Vector[1];
 } FVector;
 
@@ -487,7 +537,7 @@ FObject MakeVector(uint_t vl, FObject * v, FObject obj);
 FObject ListToVector(FObject obj);
 FObject VectorToList(FObject vec);
 
-#define VectorLength(obj) ObjectLength(obj)
+#define VectorLength(obj) (AsObjHdr(obj)->SlotCount())
 
 // ---- Bytevectors ----
 
@@ -497,7 +547,6 @@ FObject VectorToList(FObject vec);
 typedef unsigned char FByte;
 typedef struct
 {
-    uint_t Length;
     FByte Vector[1];
 } FBytevector;
 
@@ -510,18 +559,18 @@ int_t BytevectorCompare(FObject obj1, FObject obj2);
 
 // ---- Ports ----
 
-#define PORT_FLAG_INPUT              0x80000000
-#define PORT_FLAG_INPUT_OPEN         0x40000000
-#define PORT_FLAG_OUTPUT             0x20000000
-#define PORT_FLAG_OUTPUT_OPEN        0x10000000
-#define PORT_FLAG_STRING_OUTPUT      0x08000000
-#define PORT_FLAG_BYTEVECTOR_OUTPUT  0x04000000
-#define PORT_FLAG_FOLDCASE           0x02000000
-#define PORT_FLAG_WANT_IDENTIFIERS   0x01000000
-#define PORT_FLAG_CONSOLE            0x00800000
-#define PORT_FLAG_SOCKET             0x00400000
-#define PORT_FLAG_BUFFERED           0x00200000
-#define PORT_FLAG_POSITIONING        0x00100000
+#define PORT_FLAG_INPUT              0x800
+#define PORT_FLAG_INPUT_OPEN         0x400
+#define PORT_FLAG_OUTPUT             0x200
+#define PORT_FLAG_OUTPUT_OPEN        0x100
+#define PORT_FLAG_STRING_OUTPUT      0x080
+#define PORT_FLAG_BYTEVECTOR_OUTPUT  0x040
+#define PORT_FLAG_FOLDCASE           0x020
+#define PORT_FLAG_WANT_IDENTIFIERS   0x010
+#define PORT_FLAG_CONSOLE            0x008
+#define PORT_FLAG_SOCKET             0x004
+#define PORT_FLAG_BUFFERED           0x002
+#define PORT_FLAG_POSITIONING        0x001
 
 typedef enum
 {
@@ -538,9 +587,9 @@ typedef void (*FSetPositionFn)(FObject port, int64_t pos, FPositionFrom frm);
 
 typedef struct
 {
-    uint_t Flags;
     FObject Name;
     FObject Object;
+    uint_t Flags;
     void * Context;
     FCloseInputFn CloseInputFn;
     FCloseOutputFn CloseOutputFn;
@@ -683,7 +732,6 @@ void WriteSimple(FObject port, FObject obj, int_t df);
 
 typedef struct
 {
-    uint_t NumFields;
     FObject Fields[1];
 } FRecordType;
 
@@ -691,7 +739,7 @@ FObject MakeRecordType(FObject nam, uint_t nf, FObject flds[]);
 FObject MakeRecordTypeC(const char * nam, uint_t nf, const char * flds[]);
 
 #define RecordTypeName(obj) AsRecordType(obj)->Fields[0]
-#define RecordTypeNumFields(obj) ObjectLength(obj)
+#define RecordTypeNumFields(obj) (AsObjHdr(obj)->SlotCount())
 
 // ---- Records ----
 
@@ -700,13 +748,11 @@ FObject MakeRecordTypeC(const char * nam, uint_t nf, const char * flds[]);
 
 typedef struct
 {
-    uint_t NumFields; // RecordType is include in the number of fields.
     FObject RecordType;
 } FRecord;
 
 typedef struct
 {
-    uint_t NumFields;
     FObject Fields[1];
 } FGenericRecord;
 
@@ -717,7 +763,7 @@ inline int_t RecordP(FObject obj, FObject rt)
     return(GenericRecordP(obj) && AsGenericRecord(obj)->Fields[0] == rt);
 }
 
-#define RecordNumFields(obj) ObjectLength(obj)
+#define RecordNumFields(obj) (AsObjHdr(obj)->SlotCount())
 
 // ---- Primitives ----
 
@@ -727,7 +773,6 @@ inline int_t RecordP(FObject obj, FObject rt)
 typedef FObject (*FPrimitiveFn)(int_t argc, FObject argv[]);
 typedef struct
 {
-    uint_t Reserved;
     FPrimitiveFn PrimitiveFn;
     const char * Name;
     const char * Filename;
@@ -736,7 +781,7 @@ typedef struct
 
 #define Define(name, fn)\
     static FObject fn ## Fn(int_t argc, FObject argv[]);\
-    FPrimitive fn = {PrimitiveTag, fn ## Fn, name, __FILE__, __LINE__};\
+    FPrimitive fn = {fn ## Fn, name, __FILE__, __LINE__};\
     static FObject fn ## Fn
 
 void DefinePrimitive(FObject env, FObject lib, FPrimitive * prim);
@@ -749,14 +794,13 @@ FObject MakePrimitive(FPrimitive * prim);
 
 typedef struct
 {
-    uint_t Length;
-    uint_t Bitmap;
     FObject Buckets[1];
 } FHashTree;
 
-FObject MakeHashTree();
+FObject MakeHashTree(const char * who);
 
-#define HashTreeLength(obj) ObjectLength(obj)
+#define HashTreeLength(obj) (AsObjHdr(obj)->SlotCount())
+#define HashTreeBitmap(obj) (* ((uint_t *) (AsHashTree(obj)->Buckets + HashTreeLength(obj))))
 
 // ---- Comparator ----
 
@@ -839,16 +883,14 @@ typedef FHashContainer FHashBag;
 
 typedef struct
 {
-    uint_t Reserved;
     FObject String;
+    uint_t Hash;
 } FSymbol;
 
 FObject StringToSymbol(FObject str);
 FObject StringCToSymbol(const char * s);
 FObject StringLengthToSymbol(FCh * s, int_t sl);
 FObject PrefixSymbol(FObject str, FObject sym);
-
-#define SymbolHash(obj) ByteLength(obj)
 
 // ---- Roots ----
 
@@ -979,10 +1021,6 @@ extern FRoots R;
 
 typedef struct
 {
-    uint_t Unused;
-#ifdef FOMENT_32BIT
-    uint_t Padding;
-#endif // FOMENT_32BIT
     double64_t Double;
 } FFlonum;
 
@@ -999,7 +1037,6 @@ FObject MakeFlonum(double64_t dbl);
 
 typedef struct
 {
-    uint_t Unused;
     FObject Numerator;
     FObject Denominator;
 } FRatio;
@@ -1011,7 +1048,6 @@ typedef struct
 
 typedef struct
 {
-    uint_t Unused;
     FObject Real;
     FObject Imaginary;
 } FComplex;
@@ -1154,11 +1190,12 @@ FObject WrapIdentifier(FObject id, FObject se);
 
 typedef struct
 {
-    uint_t Reserved;
     FObject Name;
     FObject Filename;
     FObject LineNumber;
     FObject Code;
+    uint16_t ArgCount;
+    uint8_t Flags;
 } FProcedure;
 
 #define AsProcedure(obj) ((FProcedure *) (obj))
@@ -1166,14 +1203,10 @@ typedef struct
 
 FObject MakeProcedure(FObject nam, FObject fn, FObject ln, FObject cv, int_t ac, uint_t fl);
 
-#define MAXIMUM_ARG_COUNT 0xFFFF
-#define ProcedureArgCount(obj)\
-    ((int_t) ((AsProcedure(obj)->Reserved >> RESERVED_BITS) & MAXIMUM_ARG_COUNT))
-
-#define PROCEDURE_FLAG_CLOSURE      0x80000000
-#define PROCEDURE_FLAG_PARAMETER    0x40000000
-#define PROCEDURE_FLAG_CONTINUATION 0x20000000
-#define PROCEDURE_FLAG_RESTARG      0x10000000
+#define PROCEDURE_FLAG_CLOSURE      0x8
+#define PROCEDURE_FLAG_PARAMETER    0x4
+#define PROCEDURE_FLAG_CONTINUATION 0x2
+#define PROCEDURE_FLAG_RESTARG      0x1
 
 // ---- Threads ----
 
@@ -1243,13 +1276,16 @@ typedef struct _FThreadState
     FAlive * AliveList;
     uint_t DontWait;
 
-    FYoungSection * ActiveZero;
     uint_t ObjectsSinceLast;
+    uint_t BytesSinceLast;
 
-    uint_t UsedRoots;
+    uint_t RootsUsed;
     FObject * Roots[12];
 
-    int_t StackSize;
+    FMemRegion Babies;
+    uint_t BabiesUsed;
+
+    FMemRegion Stack;
     int_t AStackPtr;
     FObject * AStack;
     int_t CStackPtr;
@@ -1671,13 +1707,13 @@ FObject SyntaxToDatum(FObject obj);
 
 FObject ExecuteThunk(FObject op);
 
-void SetupFoment(FThreadState * ts);
+int_t SetupFoment(FThreadState * ts);
 extern uint_t SetupComplete;
 void ExitFoment();
 
 // ---- Do Not Call Directly ----
 
-void SetupCore(FThreadState * ts);
+int_t SetupCore(FThreadState * ts);
 void SetupLibrary();
 void SetupPairs();
 void SetupCharacters();

@@ -10,30 +10,20 @@ Foment
 
 // ---- Vectors ----
 
-static FVector * MakeVector(uint_t vl, const char * who, int_t * mf)
+static inline FVector * MakeVector(uint_t vl, const char * who)
 {
-    FVector * nv = (FVector *) MakeObject(sizeof(FVector) + (vl - 1) * sizeof(FObject), VectorTag);
-    if (nv == 0)
-    {
-        nv = (FVector *) MakePinnedObject(sizeof(FVector) + (vl - 1) * sizeof(FObject), who);
-        nv->Length = MakePinnedLength(vl, VectorTag);
-        *mf = 1;
-    }
-    else
-        nv->Length = MakeLength(vl, VectorTag);
-
-    return(nv);
+    return((FVector *) MakeObject(VectorTag, sizeof(FVector) + (vl - 1) * sizeof(FObject), vl,
+            who));
 }
 
 FObject MakeVector(uint_t vl, FObject * v, FObject obj)
 {
-    int_t mf = 0;
-    FVector * nv = MakeVector(vl, "make-vector", &mf);
+    FVector * nv = MakeVector(vl, "make-vector");
 
     uint_t idx;
     if (v == 0)
     {
-        if (mf && ObjectP(obj))
+        if (MatureP(nv) && ObjectP(obj))
             for (idx = 0; idx < vl; idx++)
                 ModifyVector(nv, idx, obj);
         else
@@ -42,7 +32,7 @@ FObject MakeVector(uint_t vl, FObject * v, FObject obj)
     }
     else
     {
-        if (mf)
+        if (MatureP(nv))
             for (idx = 0; idx < vl; idx++)
                 ModifyVector(nv, idx, v[idx]);
         else
@@ -56,11 +46,10 @@ FObject MakeVector(uint_t vl, FObject * v, FObject obj)
 
 FObject ListToVector(FObject obj)
 {
-    int_t mf = 0;
     uint_t vl = ListLength("list->vector", obj);
-    FVector * nv = MakeVector(vl, "list->vector", &mf);
+    FVector * nv = MakeVector(vl, "list->vector");
 
-    if (mf)
+    if (MatureP(nv))
         for (uint_t idx = 0; idx < vl; idx++)
         {
             ModifyVector(nv, idx, First(obj));
@@ -105,10 +94,9 @@ Define("make-vector", MakeVectorPrimitive)(int_t argc, FObject argv[])
 
 Define("vector", VectorPrimitive)(int_t argc, FObject argv[])
 {
-    int_t mf = 0;
-    FObject v = MakeVector(argc, "vector", &mf);
+    FObject v = MakeVector(argc, "vector");
 
-    if (mf)
+    if (MatureP(v))
     {
         for (int_t adx = 0; adx < argc; adx++)
             ModifyVector(v, adx, argv[adx]);
@@ -270,9 +258,7 @@ Define("string->vector", StringToVectorPrimitive)(int_t argc, FObject argv[])
 
     FAssert(end >= strt);
 
-    int_t mf = 0;
-    FObject v = MakeVector(end - strt, "string->vector", &mf);
-
+    FObject v = MakeVector(end - strt, "string->vector");
     for (FFixnum idx = 0; idx < end - strt; idx ++)
         AsVector(v)->Vector[idx] = MakeCharacter(AsString(argv[0])->String[idx + strt]);
 
@@ -376,8 +362,7 @@ Define("vector-append", VectorAppendPrimitive)(int_t argc, FObject argv[])
         len += VectorLength(argv[adx]);
     }
 
-    int_t mf = 0;
-    FObject v = MakeVector(len, "vector-append", &mf);
+    FObject v = MakeVector(len, "vector-append");
     int_t idx = 0;
 
     for (int_t adx = 0; adx < argc; adx++)
@@ -431,20 +416,10 @@ Define("vector-fill!", VectorFillPrimitive)(int_t argc, FObject argv[])
 
 // ---- Bytevectors ----
 
-static FBytevector * MakeBytevector(uint_t vl, const char * who)
+static inline FBytevector * MakeBytevector(uint_t vl, const char * who)
 {
-    FBytevector * nv = (FBytevector *) MakeObject(sizeof(FBytevector) + (vl - 1) * sizeof(FByte),
-            BytevectorTag);
-    if (nv == 0)
-    {
-        nv = (FBytevector *) MakePinnedObject(sizeof(FBytevector) + (vl - 1) * sizeof(FByte), who);
-        nv->Length = MakePinnedLength(vl, BytevectorTag);
-    }
-    else
-        nv->Length = MakeLength(vl, BytevectorTag);
-
-    FAssert(BytevectorLength(nv) == vl);
-    return(nv);
+    return((FBytevector *) MakeObject(BytevectorTag,
+            sizeof(FBytevector) + (vl - 1) * sizeof(FByte), 0, who));
 }
 
 FObject MakeBytevector(uint_t vl)

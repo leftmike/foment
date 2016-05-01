@@ -23,19 +23,18 @@ Foment
 #include "execute.hpp"
 #include "syncthrd.hpp"
 
-static uint_t LastOpcode;
-static FObject LastPrimitive = NoValueObject;
-
 // ---- Procedure ----
 
 FObject MakeProcedure(FObject nam, FObject fn, FObject ln, FObject cv, int_t ac, uint_t fl)
 {
-    FProcedure * p = (FProcedure *) MakeObject(sizeof(FProcedure), ProcedureTag);
-    p->Reserved = MakeLength(ac, ProcedureTag) | fl;
+    FProcedure * p = (FProcedure *) MakeObject(ProcedureTag, sizeof(FProcedure), 4,
+            "%make-procedure");
     p->Name = SyntaxToDatum(nam);
     p->Filename = fn;
     p->LineNumber = ln;
     p->Code = cv;
+    p->ArgCount = ac;
+    p->Flags = fl;
 
     return(p);
 }
@@ -280,29 +279,6 @@ static int_t PrepareHandler(FThreadState * ts, FObject hdlr, FObject key, FObjec
     return(0);
 }
 
-static void GrowStack(FThreadState * ts, int_t sz)
-{
-    int_t cnt = 2;
-    while (sz > ts->StackSize * cnt)
-        cnt *= 2;
-
-    FObject *as = (FObject *) malloc(ts->StackSize * sizeof(FObject) * cnt);
-    if (as == 0)
-        RaiseExceptionC(R.Assertion, "foment", "out of memory", EmptyListObject);
-
-    ts->StackSize *= cnt;
-    FObject *cs = as + ts->StackSize - 1;
-
-    for (int_t adx = 0; adx < ts->AStackPtr; adx++)
-        as[adx] = ts->AStack[adx];
-    for (int_t cdx = 0; cdx < ts->CStackPtr; cdx++)
-        cs[- cdx] = ts->CStack[- cdx];
-
-    free(ts->AStack);
-    ts->AStack = as;
-    ts->CStack = cs;
-}
-
 static FObject Execute(FThreadState * ts)
 {
     FObject op;
@@ -337,8 +313,6 @@ static FObject Execute(FThreadState * ts)
         else
         {
 //printf("%s.%d %d %d\n", Opcodes[InstructionOpcode(obj)], InstructionArg(obj), ts->CStackPtr, ts->AStackPtr);
-            LastOpcode = InstructionOpcode(obj);
-
             switch (InstructionOpcode(obj))
             {
             case CheckCountOpcode:
@@ -616,8 +590,18 @@ static FObject Execute(FThreadState * ts)
                 if (ProcedureP(op))
                 {
 CallProcedure:
-                    if (ts->CStackPtr + ts->AStackPtr > ts->StackSize - 512)
-                        GrowStack(ts, ts->StackSize * 2);
+                    if (ts->AStackPtr + 128 > ts->Stack.BottomUsed / sizeof(FObject)
+                        || ts->CStackPtr + 128 > ts->Stack.TopUsed / sizeof(FObject))
+                    {
+                        if (GrowMemRegionUp(&ts->Stack,
+                                (ts->AStackPtr + 128) * sizeof(FObject)) == 0)
+                            RaiseExceptionC(R.Assertion, "foment", "out of memory",
+                                    EmptyListObject);
+                        if (GrowMemRegionDown(&ts->Stack,
+                                (ts->CStackPtr + 128) * sizeof(FObject)) == 0)
+                            RaiseExceptionC(R.Assertion, "foment", "out of memory",
+                                    EmptyListObject);
+                    }
 
                     ts->CStack[- ts->CStackPtr] = ts->Proc;
                     ts->CStackPtr += 1;
@@ -635,7 +619,6 @@ CallProcedure:
 CallPrimitive:
                     FAssert(ts->AStackPtr >= ts->ArgCount);
 
-                    LastPrimitive = op;
                     FObject ret = AsPrimitive(op)->PrimitiveFn(ts->ArgCount,
                             ts->AStack + ts->AStackPtr - ts->ArgCount);
                     ts->AStackPtr -= ts->ArgCount;
@@ -895,8 +878,16 @@ TailCallPrimitive:
                 ts->AStackPtr -= 2;
 
                 int_t ll = ListLength("apply", lst);
-                if (ts->CStackPtr + ts->AStackPtr + ll > ts->StackSize - 512)
-                    GrowStack(ts, ts->CStackPtr + ts->AStackPtr + ll);
+                if (ts->CStackPtr + 128 > ts->Stack.TopUsed / sizeof(FObject)
+                        || ts->AStackPtr + ll + 128 > ts->Stack.BottomUsed / sizeof(FObject))
+                {
+                    if (GrowMemRegionUp(&ts->Stack,
+                            (ts->AStackPtr + ll + 128) * sizeof(FObject)) == 0)
+                        RaiseExceptionC(R.Assertion, "foment", "out of memory", EmptyListObject);
+                    if (GrowMemRegionDown(&ts->Stack,
+                            (ts->CStackPtr + 128) * sizeof(FObject)) == 0)
+                        RaiseExceptionC(R.Assertion, "foment", "out of memory", EmptyListObject);
+                }
 
                 FObject ptr = lst;
                 while (PairP(ptr))
@@ -906,7 +897,7 @@ TailCallPrimitive:
                     ts->ArgCount += 1;
                     ptr = Rest(ptr);
 
-                    FAssert(ts->CStackPtr + ts->AStackPtr <= ts->StackSize - 512);
+                    FAssert(ts->AStackPtr <= ts->Stack.BottomUsed / sizeof(FObject));
                 }
 
                 if (ptr != EmptyListObject)
@@ -932,9 +923,9 @@ TailCallPrimitive:
 
                     FAssert(ProcedureP(prc));
 
-                    if (((AsProcedure(prc)->Reserved & PROCEDURE_FLAG_RESTARG)
-                            && ts->ArgCount + 1 >= ProcedureArgCount(prc))
-                            || ProcedureArgCount(prc) == ts->ArgCount)
+                    if (((AsProcedure(prc)->Flags & PROCEDURE_FLAG_RESTARG)
+                            && ts->ArgCount + 1 >= AsProcedure(prc)->ArgCount)
+                            || AsProcedure(prc)->ArgCount == ts->ArgCount)
                     {
                         ts->Proc = prc;
                         FAssert(VectorP(AsProcedure(ts->Proc)->Code));
@@ -1127,15 +1118,6 @@ FObject ExecuteThunk(FObject op)
     }
 }
 
-void FailedExecute()
-{
-  printf("last opcode: %lu %s\n", (unsigned long) LastOpcode,
-	    LastOpcode < sizeof(Opcodes) / sizeof(char *)
-            ? Opcodes[LastOpcode] : "unknown");
-    WriteSimple(R.StandardOutput, LastPrimitive, 0);
-    printf("\n");
-}
-
 Define("procedure?", ProcedurePPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("procedure?", argc);
@@ -1293,7 +1275,7 @@ Define("%bytes-allocated", BytesAllocatedPrimitive)(int_t argc, FObject argv[])
     return(MakeFixnum(ba));
 }
 
-#define ParameterP(obj) (ProcedureP(obj) && AsProcedure(obj)->Reserved & PROCEDURE_FLAG_PARAMETER)
+#define ParameterP(obj) (ProcedureP(obj) && (AsProcedure(obj)->Flags & PROCEDURE_FLAG_PARAMETER))
 
 Define("%dynamic-stack", DynamicStackPrimitive)(int_t argc, FObject argv[])
 {
@@ -1341,7 +1323,7 @@ Define("%procedure->parameter", ProcedureToParameterPrimitive)(int_t argc, FObje
     FMustBe(argc == 1);
     FMustBe(ProcedureP(argv[0]));
 
-    AsProcedure(argv[0])->Reserved |= PROCEDURE_FLAG_PARAMETER;
+    AsProcedure(argv[0])->Flags |= PROCEDURE_FLAG_PARAMETER;
 
     return(NoValueObject);
 }

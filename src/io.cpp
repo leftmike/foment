@@ -65,9 +65,9 @@ FObject MakeBinaryPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn,
     FAssert(cifn != 0 || cofn != 0);
     FAssert((gpfn == 0 && spfn == 0) || (gpfn != 0 && spfn != 0));
 
-    FBinaryPort * port = (FBinaryPort *) MakeObject(sizeof(FBinaryPort), BinaryPortTag);
-    port->Generic.Flags = BinaryPortTag
-            | (cifn != 0 ? (PORT_FLAG_INPUT | PORT_FLAG_INPUT_OPEN) : 0)
+    FBinaryPort * port = (FBinaryPort *) MakeObject(BinaryPortTag, sizeof(FBinaryPort), 2,
+            "%make-binary-port");
+    port->Generic.Flags = (cifn != 0 ? (PORT_FLAG_INPUT | PORT_FLAG_INPUT_OPEN) : 0)
             | (cofn != 0 ? (PORT_FLAG_OUTPUT | PORT_FLAG_OUTPUT_OPEN) : 0)
             | (gpfn != 0 ? PORT_FLAG_POSITIONING : 0);
     port->Generic.Name = nam;
@@ -806,9 +806,9 @@ FObject MakeTextualPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn
     FAssert(cifn != 0 || cofn != 0);
     FAssert((gpfn == 0 && spfn == 0) || (gpfn != 0 && spfn != 0));
 
-    FTextualPort * port = (FTextualPort *) MakeObject(sizeof(FTextualPort), TextualPortTag);
-    port->Generic.Flags = TextualPortTag
-            | (cifn != 0 ? (PORT_FLAG_INPUT | PORT_FLAG_INPUT_OPEN) : 0)
+    FTextualPort * port = (FTextualPort *) MakeObject(TextualPortTag, sizeof(FTextualPort), 2,
+            "%make-textual-port");
+    port->Generic.Flags = (cifn != 0 ? (PORT_FLAG_INPUT | PORT_FLAG_INPUT_OPEN) : 0)
             | (cofn != 0 ? (PORT_FLAG_OUTPUT | PORT_FLAG_OUTPUT_OPEN) : 0)
             | (gpfn != 0 ? PORT_FLAG_POSITIONING : 0);
     port->Generic.Name = nam;
@@ -1022,12 +1022,12 @@ FObject HandOffPort(FObject port)
 
     if (BinaryPortP(port))
     {
-        nport = MakeObject(sizeof(FBinaryPort), BinaryPortTag);
+        nport = MakeObject(BinaryPortTag, sizeof(FBinaryPort), 2, "%make-translator-port");
         memcpy(nport, port, sizeof(FBinaryPort));
     }
     else
     {
-        nport = MakeObject(sizeof(FTextualPort), TextualPortTag);
+        nport = MakeObject(TextualPortTag, sizeof(FTextualPort), 2, "%make-translator-port");
         memcpy(nport, port, sizeof(FTextualPort));
     }
 

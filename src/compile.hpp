@@ -96,7 +96,6 @@ FObject MakeLambda(FObject enc, FObject nam, FObject bs, FObject body);
 typedef struct
 {
     FRecord Record;
-
     FObject Cases;
     FObject Name;
     FObject Escapes;
@@ -112,7 +111,6 @@ FObject MakeCaseLambda(FObject cases);
 typedef struct
 {
     FRecord Record;
-
     FObject Index;
 } FInlineVariable;
 

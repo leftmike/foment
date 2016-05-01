@@ -28,6 +28,1449 @@ Foment
 #include "io.hpp"
 #include "numbers.hpp"
 
+#define PAGE_SIZE 4096
+
+#define MAXIMUM_OBJECT_LENGTH OBJHDR_SIZE_MASK
+#define MAXIMUM_SLOT_COUNT OBJHDR_SLOT_COUNT_MASK
+
+#define OBJECT_ALIGNMENT 8
+const static uint_t Align[8] = {0, 7, 6, 5, 4, 3, 2, 1};
+
+FCollectorType CollectorType = NullCollector;
+uint_t MaximumStackSize = 1024 * 1024 * 4 * sizeof(FObject);
+uint_t MaximumBabiesSize = 0;
+uint_t TriggerObjects = 1024 * 16;
+uint_t TriggerBytes = TriggerObjects * (sizeof(FPair) + sizeof(FObjHdr));
+
+volatile uint_t BytesAllocated = 0;
+volatile int_t GCRequired;
+OSExclusive GCExclusive;
+volatile uint_t TotalThreads;
+FThreadState * Threads;
+
+#ifdef FOMENT_WINDOWS
+unsigned int TlsIndex;
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+pthread_key_t ThreadKey;
+#endif // FOMENT_UNIX
+
+#define FOMENT_OBJFTR 1
+
+#ifdef FOMENT_OBJFTR
+#define OBJFTR_FEET 0xDEADFEE7
+
+typedef struct
+{
+    uint32_t Feet[2];
+} FObjFtr;
+#endif // FOMENT_OBJFTR
+
+int_t MatureObjectP(FObject obj)
+{
+    return(0);
+//    return(ObjectP(obj) && MatureP(obj));
+}
+
+static inline uint_t RoundToPageSize(uint_t cnt)
+{
+    if (cnt % PAGE_SIZE != 0)
+    {
+        cnt += PAGE_SIZE - (cnt % PAGE_SIZE);
+
+        FAssert(cnt % PAGE_SIZE == 0);
+    }
+
+    return(cnt);
+}
+
+void * InitializeMemRegion(FMemRegion * mrgn, uint_t max)
+{
+    mrgn->TopUsed = 0;
+    mrgn->BottomUsed = 0;
+    mrgn->MaximumSize = RoundToPageSize(max);
+#ifdef FOMENT_WINDOWS
+    mrgn->Base = VirtualAlloc(0, mrgn->MaximumSize, MEM_RESERVE, PAGE_READWRITE);
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+    mrgn->Base = mmap(0, mrgn->MaximumSize, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+#endif // FOMENT_UNIX
+    return(mrgn->Base);
+}
+
+void DeleteMemRegion(FMemRegion * mrgn)
+{
+    FAssert(mrgn->Base != 0);
+    FAssert(mrgn->MaximumSize % PAGE_SIZE == 0);
+    FAssert(mrgn->MaximumSize > 0);
+
+#ifdef FOMENT_WINDOWS
+    VirtualFree(mrgn->Base, 0, MEM_RELEASE);
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+    munmap(mrgn->Base, mrgn->MaximumSize);
+#endif // FOMENT_UNIX
+
+    mrgn->Base = 0;
+}
+
+int_t GrowMemRegionUp(FMemRegion * mrgn, uint_t sz)
+{
+    FAssert(mrgn->Base != 0);
+    FAssert(mrgn->TopUsed % PAGE_SIZE == 0);
+    FAssert(mrgn->BottomUsed % PAGE_SIZE == 0);
+    FAssert(mrgn->MaximumSize % PAGE_SIZE == 0);
+    FAssert(mrgn->TopUsed <= mrgn->MaximumSize);
+    FAssert(mrgn->BottomUsed <= mrgn->MaximumSize);
+    FAssert(mrgn->BottomUsed + mrgn->TopUsed <= mrgn->MaximumSize);
+
+    if (sz > mrgn->BottomUsed)
+    {
+        sz = RoundToPageSize(sz);
+        if (sz > mrgn->MaximumSize - mrgn->TopUsed)
+            return(0);
+
+#ifdef FOMENT_WINDOWS
+        if (VirtualAlloc(((uint8_t *) mrgn->Base) + mrgn->BottomUsed, sz - mrgn->BottomUsed,
+                MEM_COMMIT, PAGE_READWRITE) == 0)
+            return(0);
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+        if (mprotect(((uint8_t *) mrgn->Base) + mrgn->BottomUsed, sz - mrgn->BottomUsed,
+                PROT_READ | PROT_WRITE) != 0)
+            return(0);
+#endif // FOMENT_UNIX
+
+        mrgn->BottomUsed = sz;
+    }
+
+    return(1);
+}
+
+int_t GrowMemRegionDown(FMemRegion * mrgn, uint_t sz)
+{
+    FAssert(mrgn->Base != 0);
+    FAssert(mrgn->TopUsed % PAGE_SIZE == 0);
+    FAssert(mrgn->BottomUsed % PAGE_SIZE == 0);
+    FAssert(mrgn->MaximumSize % PAGE_SIZE == 0);
+    FAssert(mrgn->TopUsed <= mrgn->MaximumSize);
+    FAssert(mrgn->BottomUsed <= mrgn->MaximumSize);
+    FAssert(mrgn->BottomUsed + mrgn->TopUsed <= mrgn->MaximumSize);
+
+    if (sz > mrgn->TopUsed)
+    {
+        sz = RoundToPageSize(sz);
+        if (sz > mrgn->MaximumSize - mrgn->BottomUsed)
+            return(0);
+
+#ifdef FOMENT_WINDOWS
+        if (VirtualAlloc(((uint8_t *) mrgn->Base) + (mrgn->MaximumSize - sz), sz - mrgn->TopUsed,
+                MEM_COMMIT, PAGE_READWRITE) == 0)
+            return(0);
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+        if (mprotect(((uint8_t *) mrgn->Base) + (mrgn->MaximumSize - sz), sz - mrgn->TopUsed,
+                PROT_READ | PROT_WRITE) != 0)
+            return(0);
+#endif // FOMENT_UNIX
+
+        mrgn->TopUsed = sz;
+    }
+
+    return(1);
+}
+
+static inline void SetCheckMark(FObject obj)
+{
+    AsObjHdr(obj)->CheckMark |= OBJHDR_CHECK_MARK;
+}
+
+static inline void ClearCheckMark(FObjHdr * oh)
+{
+    oh->CheckMark &= ~OBJHDR_CHECK_MARK;
+}
+
+static inline int CheckMarkP(FObject obj)
+{
+    return(AsObjHdr(obj)->CheckMark & OBJHDR_CHECK_MARK);
+}
+
+static inline uint_t ObjectLength(uint_t sz)
+{
+    uint_t len = sz;
+    len += Align[len % OBJECT_ALIGNMENT];
+
+    FAssert(len >= sz);
+    FAssert(len % OBJECT_ALIGNMENT == 0);
+
+    if (len == 0)
+        len = OBJECT_ALIGNMENT;
+
+    FAssert(len >= sizeof(FObject));
+
+    len += sizeof(FObjHdr);
+
+    FAssert(len % OBJECT_ALIGNMENT == 0);
+
+#ifdef FOMENT_OBJFTR
+    len += sizeof(FObjFtr);
+
+    FAssert(len % OBJECT_ALIGNMENT == 0);
+#endif // FOMENT_OBJFTR
+
+    return(len);
+}
+
+#ifdef FOMENT_OBJFTR
+FObjFtr * AsObjFtr(FObjHdr * oh)
+{
+    return(((FObjFtr *) (((char *) oh) + ObjectLength(oh->Size()))) - 1);
+}
+#endif // FOMENT_OBJFTR
+
+FObject MakeObject(uint_t tag, uint_t sz, uint_t sc, const char * who, int_t pf)
+{
+    FAssert(tag > 0);
+    FAssert(tag < BadDogTag);
+    FAssert(sz >= sizeof(FObject) * sc);
+
+    if (sz > MAXIMUM_OBJECT_LENGTH)
+        RaiseExceptionC(R.Restriction, who, "object too big", EmptyListObject);
+    if (sc > MAXIMUM_SLOT_COUNT)
+        RaiseExceptionC(R.Restriction, who, "too many slots", EmptyListObject);
+
+    uint_t len = ObjectLength(sz);
+    FThreadState * ts = GetThreadState();
+
+    if (ts->BabiesUsed + len > ts->Babies.BottomUsed)
+    {
+        if (ts->BabiesUsed + len > ts->Babies.MaximumSize)
+            RaiseExceptionC(R.Assertion, who, "babies too small; increase maximum-babies-size",
+                    EmptyListObject);
+
+        uint_t gsz = PAGE_SIZE * 8;
+        if (len > gsz)
+            gsz = len;
+        if (gsz > ts->Babies.MaximumSize - ts->Babies.BottomUsed)
+            gsz = ts->Babies.MaximumSize - ts->Babies.BottomUsed;
+
+        if (GrowMemRegionUp(&ts->Babies, ts->Babies.BottomUsed + gsz) == 0)
+            RaiseExceptionC(R.Assertion, who, "babies: out of memory", EmptyListObject);
+    }
+
+    FObjHdr * oh = (FObjHdr *) (((char *) ts->Babies.Base) + ts->BabiesUsed);
+    oh->FlagsAndSize = sz;
+    oh->TagAndSlotCount = (tag << OBJHDR_TAG_SHIFT) | sc;
+
+    ts->BabiesUsed += len;
+    BytesAllocated += len;
+    ts->ObjectsSinceLast += 1;
+    ts->BytesSinceLast += len;
+
+    if (ts->ObjectsSinceLast > TriggerObjects || ts->BytesSinceLast > TriggerBytes)
+        GCRequired = 1;
+
+#ifdef FOMENT_OBJFTR
+    FObjFtr * of = AsObjFtr(oh);
+    of->Feet[0] = OBJFTR_FEET;
+    of->Feet[1] = OBJFTR_FEET;
+#endif // FOMENT_OBJFTR
+
+    return(oh + 1);
+/*
+    FObject obj = 0;
+
+    if (pf == 0)
+        obj = MakeObject(tag, sz, sc);
+    if (obj == 0)
+        obj = MakeMatureObject(tag, sz, sc, who);
+    return(obj);
+*/
+}
+
+void PushRoot(FObject * rt)
+{
+    FThreadState * ts = GetThreadState();
+
+    ts->RootsUsed += 1;
+
+    FAssert(ts->RootsUsed < sizeof(ts->Roots) / sizeof(FObject *));
+
+    ts->Roots[ts->RootsUsed - 1] = rt;
+}
+
+void PopRoot()
+{
+    FThreadState * ts = GetThreadState();
+
+    FAssert(ts->RootsUsed > 0);
+
+    ts->RootsUsed -= 1;
+}
+
+void ClearRoots()
+{
+    FThreadState * ts = GetThreadState();
+
+    ts->RootsUsed = 0;
+}
+
+void ModifyVector(FObject obj, uint_t idx, FObject val)
+{
+    FAssert(VectorP(obj));
+    FAssert(idx < VectorLength(obj));
+
+    AsVector(obj)->Vector[idx] = val;
+}
+
+void ModifyObject(FObject obj, uint_t off, FObject val)
+{
+    FAssert(ObjectP(obj));
+    FAssert(off % sizeof(FObject) == 0);
+
+    ((FObject *) obj)[off / sizeof(FObject)] = val;
+}
+
+void SetFirst(FObject obj, FObject val)
+{
+    FAssert(PairP(obj));
+
+    AsPair(obj)->First = val;
+}
+
+void SetRest(FObject obj, FObject val)
+{
+    FAssert(PairP(obj));
+
+    AsPair(obj)->Rest = val;
+}
+
+void SetBox(FObject bx, FObject val)
+{
+    FAssert(BoxP(bx));
+
+    AsBox(bx)->Value = val;
+}
+
+static const char * RootNames[] =
+{
+    "bedrock",
+    "bedrock-library",
+    "features",
+    "command-line",
+    "library-path",
+    "library-extensions",
+    "environment-variables",
+
+    "symbol-hash-tree",
+
+    "comparator-record-type",
+    "anyp-primitive",
+    "no-hash-primitive",
+    "no-compare-primitive",
+    "eq-comparator",
+    "default-comparator",
+
+    "hash-map-record-type",
+    "hash-set-record-type",
+    "hash-bag-record-type",
+    "exception-record-type",
+
+    "assertion",
+    "restriction",
+    "lexical",
+    "syntax",
+    "error",
+
+    "loaded-libraries",
+
+    "syntactic-env-record-type",
+    "binding-record-type",
+    "identifier-record-type",
+    "lambda-record-type",
+    "case-lambda-record-type",
+    "inline-variable-record-type",
+    "reference-record-type",
+
+    "else-reference",
+    "arrow-reference",
+    "library-reference",
+    "and-reference",
+    "or-reference",
+    "not-reference",
+    "quasiquote-reference",
+    "unquote-reference",
+    "unquote-splicing-reference",
+    "cons-reference",
+    "append-reference",
+    "list-to-vector-reference",
+    "ellipsis-reference",
+    "underscore-reference",
+
+    "tag-symbol",
+    "use-pass-symbol",
+    "constant-pass-symbol",
+    "analysis-pass-symbol",
+    "interaction-env",
+
+    "standard-input",
+    "standard-output",
+    "standard-error",
+    "quote-symbol",
+    "quasiquote-symbol",
+    "unquote-symbol",
+    "unquote-splicing-symbol",
+    "file-error-symbol",
+    "current-symbol",
+    "end-symbol",
+
+    "syntax-rules-record-type",
+    "pattern-variable-record-type",
+    "pattern-repeat-record-type",
+    "template-repeat-record-type",
+    "syntax-rule-record-type",
+
+    "environment-record-type",
+    "global-record-type",
+    "library-record-type",
+    "no-value-primitive",
+    "library-startup-list",
+
+    "wrong-number-of-arguments",
+    "not-callable",
+    "unexpected-number-of-values",
+    "undefined-message",
+    "execute-thunk",
+    "raise-handler",
+    "notify-handler",
+    "interactive-thunk",
+    "exception-handler-symbol",
+    "notify-handler-symbol",
+    "sig-int-symbol",
+
+    "dynamic-record-type",
+    "continuation-record-type",
+
+    "cleanup-tconc",
+
+    "define-library-symbol",
+    "import-symbol",
+    "include-library-declarations-symbol",
+    "cond-expand-symbol",
+    "export-symbol",
+    "begin-symbol",
+    "include-symbol",
+    "include-ci-symbol",
+    "only-symbol",
+    "except-symbol",
+    "prefix-symbol",
+    "rename-symbol",
+    "aka-symbol",
+
+    "datum-reference-record-type"
+};
+
+typedef struct
+{
+    int_t Index;
+    int_t Repeat;
+    FObject Object;
+} FCheckStack;
+
+#define WALK_STACK_SIZE (1024 * 8)
+static uint_t CheckStackPtr;
+static FCheckStack CheckStack[WALK_STACK_SIZE];
+static const char * CheckFrom;
+
+static const char * IndirectTagString[] =
+{
+    0,
+    "bignum",
+    "ratio",
+    "complex",
+    "flonum",
+    "box",
+    "pair",
+    "string",
+    "vector",
+    "bytevector",
+    "binary-port",
+    "textual-port",
+    "procedure",
+    "symbol",
+    "record-type",
+    "record",
+    "primitive",
+    "thread",
+    "exclusive",
+    "condition",
+    "hash-tree"
+};
+
+static const char * WhereFrom(FObject obj, int_t * idx)
+{
+    const char * from;
+
+    if (ObjectP(obj))
+    {
+        switch (IndirectTag(obj))
+        {
+        case BoxTag:
+            FMustBe(*idx == 0);
+            from = "box";
+            *idx = -1;
+            break;
+
+        case PairTag:
+            if (*idx == 0)
+                from = "pair.first";
+            else
+            {
+                FMustBe(*idx == 1);
+                from = "pair.rest";
+            }
+            *idx = -1;
+            break;
+
+        case BinaryPortTag:
+        case TextualPortTag:
+            if (*idx == 0)
+                from = "port.name";
+            else
+            {
+                FMustBe(*idx == 1);
+                from = "port.object";
+            }
+            *idx = -1;
+            break;
+
+        case ProcedureTag:
+            if (*idx == 0)
+                from = "procedure.name";
+            else if (*idx == 1)
+                from = "procedure.filename";
+            else if (*idx == 2)
+                from = "procedure.line-number";
+            else
+            {
+                FMustBe(*idx == 3);
+                from = "procedure.code";
+            }
+            *idx = -1;
+            break;
+
+        case SymbolTag:
+            FMustBe(*idx == 0);
+            from = "symbol.string";
+            *idx = -1;
+            break;
+
+        case RecordTypeTag:
+            from = "record-type.fields";
+            break;
+
+        case RecordTag:
+            from = "record.fields";
+            break;
+
+        case ThreadTag:
+            if (*idx == 0)
+                from = "thread.result";
+            else if (*idx == 1)
+                from = "thread.thunk";
+            else if (*idx == 2)
+                from = "thread.parameters";
+            else
+            {
+                FMustBe(*idx == 3);
+                from = "thread.index-parameters";
+            }
+            *idx = -1;
+            break;
+
+        case RatioTag:
+            if (*idx == 0)
+                from = "ratio.numerator";
+            else
+            {
+                FMustBe(*idx == 1);
+                from = "ratio.denominator";
+            }
+            *idx = -1;
+            break;
+
+        case ComplexTag:
+            if (*idx == 0)
+                from = "complex.real";
+            else
+            {
+                FMustBe(*idx == 1);
+                from = "complex.imaginary";
+            }
+            *idx = -1;
+            break;
+
+        case HashTreeTag:
+            from = "hash-tree.buckets";
+            break;
+
+        default:
+            if (IndirectTag(obj) > 0 && IndirectTag(obj) < BadDogTag)
+                from = IndirectTagString[IndirectTag(obj)];
+            else
+                from = "unknown";
+            break;
+        }
+    }
+    else
+        from = "unknown";
+
+    return(from);
+}
+
+static void PrintObjectString(FObject obj)
+{
+    if (TextualPortP(obj) || BinaryPortP(obj))
+        obj = AsGenericPort(obj)->Name;
+    else if (ProcedureP(obj))
+        obj = AsProcedure(obj)->Name;
+    else if (RecordTypeP(obj))
+        obj = AsRecordType(obj)->Fields[0];
+    else if (GenericRecordP(obj))
+    {
+        FMustBe(RecordTypeP(AsGenericRecord(obj)->Fields[0]));
+
+        obj = AsRecordType(AsGenericRecord(obj)->Fields[0])->Fields[0];
+    }
+
+    if (SymbolP(obj))
+        obj = AsSymbol(obj)->String;
+
+    if (StringP(obj))
+    {
+        printf(" ");
+
+        for (int_t idx = 0; idx < StringLength(obj); idx++)
+            putc(AsString(obj)->String[idx], stdout);
+    }
+}
+
+static void PrintCheckStack()
+{
+    FMustBe(CheckStackPtr > 0);
+
+    const char * from = CheckFrom;
+    int_t idx = CheckStack[0].Index;
+
+    for (uint_t cdx = 0; cdx < CheckStackPtr - 1; cdx++)
+    {
+        if (idx >= 0)
+            printf("%s[%lld]", from, idx);
+        else
+            printf("%s", from);
+
+        idx = CheckStack[cdx + 1].Index;
+        from = WhereFrom(CheckStack[cdx].Object, &idx);
+        PrintObjectString(CheckStack[cdx].Object);
+
+        if (CheckStack[cdx].Repeat > 1)
+            printf(" (repeats %lld times)", CheckStack[cdx].Repeat);
+        printf("\n");
+    }
+
+    FObject obj = CheckStack[CheckStackPtr - 1].Object;
+    if (ObjectP(obj))
+    {
+        if (IndirectTag(obj) > 0 && IndirectTag(obj) < BadDogTag)
+        {
+            printf("%s: %p", IndirectTagString[IndirectTag(obj)], obj);
+            PrintObjectString(obj);
+        }
+        else
+            printf("unknown: %p tag: %x", obj, IndirectTag(obj));
+    }
+    else
+        printf("unknown: %p", obj);
+    printf("\n");
+}
+
+static int_t CheckCount;
+static int_t CheckTooDeep;
+
+static int_t ValidAddress(FObjHdr * oh)
+{
+    uint_t len = ObjectLength(oh->Size());
+    FThreadState * ts = Threads;
+    void * strt = oh;
+    void * end = ((char *) oh) + len;
+
+    while (ts != 0)
+    {
+        if (strt >= ts->Babies.Base && strt < ((char *) ts->Babies.Base) + ts->Babies.BottomUsed)
+        {
+            if (end > ((char *) ts->Babies.Base) + ts->Babies.BottomUsed)
+                return(0);
+            return(1);
+        }
+
+        ts = ts->Next;
+    }
+
+    return(0);
+}
+
+static void CheckObject(FObject obj, int_t idx)
+{
+    if (CheckStackPtr == WALK_STACK_SIZE)
+    {
+        CheckTooDeep += 1;
+        return;
+    }
+
+    CheckStack[CheckStackPtr].Index = idx;
+    CheckStack[CheckStackPtr].Repeat = 1;
+    CheckStack[CheckStackPtr].Object = obj;
+    CheckStackPtr += 1;
+
+Again:
+    switch (((FImmediate) (obj)) & 0x7)
+    {
+    case 0x00: // ObjectP(obj)
+    {
+        if (CheckMarkP(obj))
+            goto Done;
+        SetCheckMark(obj);
+        CheckCount += 1;
+
+        FObjHdr * oh = AsObjHdr(obj);
+        FMustBe(CheckMarkP(obj));
+        FMustBe(ValidAddress(oh));
+        FMustBe(IndirectTag(obj) > 0 && IndirectTag(obj) < BadDogTag);
+        FMustBe(oh->Size() >= oh->SlotCount() * sizeof(FObject));
+
+#ifdef FOMENT_OBJFTR
+        FObjFtr * of = AsObjFtr(oh);
+
+        FMustBe(of->Feet[0] == OBJFTR_FEET);
+        FMustBe(of->Feet[1] == OBJFTR_FEET);
+#endif // FOMENT_OBJFTR
+
+        if (PairP(obj))
+        {
+            CheckObject(AsPair(obj)->First, 0);
+
+            FMustBe(CheckStackPtr > 0);
+
+            if (CheckStackPtr > 1 && PairP(CheckStack[CheckStackPtr - 2].Object)
+                    && CheckStack[CheckStackPtr - 2].Index == 1)
+            {
+                CheckStack[CheckStackPtr - 1].Repeat += 1;
+                obj = AsPair(obj)->Rest;
+                goto Again;
+            }
+            else
+                CheckObject(AsPair(obj)->Rest, 1);
+        }
+        else if (AsObjHdr(obj)->SlotCount() > 0)
+        {
+            for (uint_t idx = 0; idx < AsObjHdr(obj)->SlotCount(); idx++)
+                CheckObject(((FObject *) obj)[idx], idx);
+        }
+        break;
+    }
+
+    case UnusedTag1: // 0bxxxxx001
+    case UnusedTag2: // 0bxxxxx010
+        PrintCheckStack();
+        FMustBe(0);
+        break;
+
+    case DoNotUse: // 0bxxxxx011
+        switch (((FImmediate) (obj)) & 0x7F)
+        {
+        case CharacterTag: // 0bx0001011
+        case MiscellaneousTag: // 0bx0011011
+        case SpecialSyntaxTag: // 0bx0101011
+        case InstructionTag: // 0bx0111011
+        case ValuesCountTag: // 0bx1001011
+            break;
+
+        case UnusedTag6: // 0bx1011011
+        case UnusedTag7: // 0bx1101011
+        case UnusedTag8: // 0bx1111011
+            PrintCheckStack();
+            FMustBe(0);
+            break;
+        }
+        break;
+
+    case UnusedTag3: // 0bxxxxx100
+    case UnusedTag4: // 0bxxxxx101
+    case UnusedTag5: // 0bxxxxx110
+        PrintCheckStack();
+        FMustBe(0);
+        break;
+
+    case FixnumTag: // 0bxxxx0111
+        break;
+    }
+
+Done:
+    FMustBe(CheckStackPtr > 0);
+    CheckStackPtr -= 1;
+}
+
+static void CheckRoot(FObject obj, const char * from, int_t idx)
+{
+    CheckFrom = from;
+    CheckObject(obj, idx);
+}
+
+static void CheckThreadState(FThreadState * ts)
+{
+    CheckRoot(ts->Thread, "thread-state.thread", -1);
+
+    uint_t idx = 0;
+    for (FAlive * ap = ts->AliveList; ap != 0; ap = ap->Next, idx++)
+        CheckRoot(*ap->Pointer, "thread-state.alive-list", idx);
+
+    for (uint_t rdx = 0; rdx < ts->RootsUsed; rdx++)
+        CheckRoot(*ts->Roots[rdx], "thread-state.roots", rdx);
+
+    for (int_t adx = 0; adx < ts->AStackPtr; adx++)
+        CheckRoot(ts->AStack[adx], "thread-state.astack", adx);
+
+    for (int_t cdx = 0; cdx < ts->CStackPtr; cdx++)
+        CheckRoot(ts->CStack[- cdx], "thread-state.cstack", cdx);
+
+    CheckRoot(ts->Proc, "thread-state.proc", -1);
+    CheckRoot(ts->Frame, "thread-state.frame", -1);
+    CheckRoot(ts->DynamicStack, "thread-state.dynamic-stack", -1);
+    CheckRoot(ts->Parameters, "thread-state.parameters", -1);
+
+    for (int_t idx = 0; idx < INDEX_PARAMETERS; idx++)
+        CheckRoot(ts->IndexParameters[idx], "thread-state.index-parameters", idx);
+
+    CheckRoot(ts->NotifyObject, "thread-state.notify-object", -1);
+}
+
+void CheckMemRegion(FMemRegion * mrgn, uint_t used, uint32_t gen)
+{
+    FObjHdr * oh = (FObjHdr *) mrgn->Base;
+    uint_t cnt = 0;
+
+    while (cnt < used)
+    {
+        FMustBe(cnt + sizeof(FObjHdr) <= mrgn->BottomUsed);
+        uint_t sz = oh->Size();
+        uint_t len = ObjectLength(sz);
+
+        FMustBe(len >= sz + sizeof(FObjHdr));
+        FMustBe(len % OBJECT_ALIGNMENT == 0);
+
+#ifdef FOMENT_OBJFTR
+        FMustBe(len >= sz + sizeof(FObjHdr) + sizeof(FObjFtr));
+#endif // FOMENT_OBJFTR
+
+        FMustBe(cnt + len <= mrgn->BottomUsed);
+
+#ifdef FOMENT_OBJFTR
+        FObjFtr * of = AsObjFtr(oh);
+
+        FMustBe(of->Feet[0] == OBJFTR_FEET);
+        FMustBe(of->Feet[1] == OBJFTR_FEET);
+#endif // FOMENT_OBJFTR
+
+        FMustBe((oh->Flags & OBJHDR_GEN_MASK) == gen);
+        FMustBe(gen == OBJHDR_GEN_ADULTS || (oh->Flags & OBJHDR_MARK_FORWARD) == 0);
+        FMustBe(oh->SlotCount() * sizeof(FObject) <= oh->Size());
+        FMustBe(oh->Tag() > 0 && oh->Tag() < BadDogTag);
+
+        ClearCheckMark(oh);
+        oh = (FObjHdr *) (((char *) oh) + len);
+        cnt += len;
+    }
+
+}
+
+void CheckHeap(const char * fn, int ln)
+{
+    EnterExclusive(&GCExclusive);
+
+    FMustBe(sizeof(RootNames) == sizeof(FRoots));
+    FMustBe(sizeof(IndirectTagString) / sizeof(char *) == BadDogTag);
+
+    if (VerboseFlag)
+        printf("CheckHeap: %s(%d)\n", fn, ln);
+    CheckCount = 0;
+    CheckTooDeep = 0;
+    CheckStackPtr = 0;
+
+    FThreadState * ts = Threads;
+    while (ts != 0)
+    {
+        CheckMemRegion(&ts->Babies, ts->BabiesUsed, OBJHDR_GEN_BABIES);
+        ts = ts->Next;
+    }
+
+    FObject * rv = (FObject *) &R;
+    for (uint_t rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
+        CheckRoot(rv[rdx], RootNames[rdx], -1);
+
+    ts = Threads;
+    while (ts != 0)
+    {
+        CheckThreadState(ts);
+        ts = ts->Next;
+    }
+
+#if 0
+    FTracker * track = YoungTrackers;
+    while (track)
+    {
+        CheckRoot(track->Object, "tracker.object");
+        CheckRoot(track->Return, "tracker.return");
+        CheckRoot(track->TConc, "tracker.tconc");
+
+        track = track->Next;
+    }
+
+    FGuardian * guard = YoungGuardians;
+    while (guard)
+    {
+        CheckRoot(guard->Object, "guardian.object");
+        CheckRoot(guard->TConc, "guardian.tconc");
+
+        guard = guard->Next;
+    }
+
+    guard = MatureGuardians;
+    while (guard)
+    {
+        CheckRoot(guard->Object, "guardian.object");
+        CheckRoot(guard->TConc, "guardian.tconc");
+
+        guard = guard->Next;
+    }
+#endif // 0
+    
+    if (CheckTooDeep > 0)
+        printf("CheckHeap: %d object too deep to walk\n", (int) CheckTooDeep);
+    if (VerboseFlag)
+        printf("CheckHeap: %d active objects\n", (int) CheckCount);
+
+    LeaveExclusive(&GCExclusive);
+}
+
+void EnterWait()
+{
+    
+}
+
+void LeaveWait()
+{
+    
+}
+
+void Collect()
+{
+    FThreadState * ts = Threads;
+    while (ts != 0)
+    {
+        ts->ObjectsSinceLast = 0;
+        ts->BytesSinceLast = 0;
+        ts = ts->Next;
+    }
+    GCRequired = 0;
+
+    if (CheckHeapFlag)
+        CheckHeap(__FILE__, __LINE__);
+    
+}
+
+void InstallGuardian(FObject obj, FObject tconc)
+{
+    
+}
+
+void InstallTracker(FObject obj, FObject ret, FObject tconc)
+{
+    
+}
+
+FAlive::FAlive(FObject * ptr)
+{
+    FThreadState * ts = GetThreadState();
+
+    Next = ts->AliveList;
+    ts->AliveList = this;
+    Pointer = ptr;
+}
+
+FAlive::~FAlive()
+{
+    FThreadState * ts = GetThreadState();
+
+    FAssert(ts->AliveList == this);
+
+    ts->AliveList = Next;
+}
+
+FDontWait::FDontWait()
+{
+    FThreadState * ts = GetThreadState();
+    ts->DontWait += 1;
+}
+
+FDontWait::~FDontWait()
+{
+    FThreadState * ts = GetThreadState();
+
+    FAssert(ts->DontWait > 0);
+
+    ts->DontWait -= 1;
+}
+
+int_t EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms)
+{
+    memset(ts, 0, sizeof(FThreadState));
+
+#ifdef FOMENT_WINDOWS
+    FAssert(TlsGetValue(TlsIndex) == 0);
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    FAssert(pthread_getspecific(ThreadKey) == 0);
+#endif // FOMENT_UNIX
+
+    SetThreadState(ts);
+
+    EnterExclusive(&GCExclusive);
+    FAssert(TotalThreads > 0);
+
+    if (Threads == 0)
+        ts->Next = 0;
+    else
+    {
+        ts->Next = Threads;
+        Threads->Previous = ts;
+    }
+
+    ts->Previous = 0;
+    Threads = ts;
+    LeaveExclusive(&GCExclusive);
+
+    ts->Thread = thrd;
+    ts->AliveList = 0;
+    ts->DontWait = 0;
+    ts->ObjectsSinceLast = 0;
+    ts->BytesSinceLast = 0;
+    ts->RootsUsed = 0;
+
+    if (CollectorType == NullCollector || CollectorType == GenerationalCollector)
+    {
+        if (InitializeMemRegion(&ts->Babies, MaximumBabiesSize) == 0)
+            goto Failed;
+        if (GrowMemRegionUp(&ts->Babies, PAGE_SIZE * 8) == 0)
+            goto Failed;
+        ts->BabiesUsed = 0;
+    }
+
+    if (InitializeMemRegion(&ts->Stack, MaximumStackSize) == 0)
+        goto Failed;
+
+    if (GrowMemRegionUp(&ts->Stack, PAGE_SIZE) == 0
+            || GrowMemRegionDown(&ts->Stack, PAGE_SIZE) == 0)
+        goto Failed;
+
+    ts->AStackPtr = 0;
+    ts->AStack = (FObject *) ts->Stack.Base;
+    ts->CStackPtr = 0;
+    ts->CStack = ts->AStack + (ts->Stack.MaximumSize / sizeof(FObject)) - 1;
+    ts->Proc = NoValueObject;
+    ts->Frame = NoValueObject;
+    ts->IP = -1;
+    ts->ArgCount = -1;
+    ts->DynamicStack = EmptyListObject;
+    ts->Parameters = prms;
+    ts->NotifyObject = NoValueObject;
+
+    if (VectorP(idxprms))
+    {
+        FAssert(VectorLength(idxprms) == INDEX_PARAMETERS);
+
+        for (int_t idx = 0; idx < INDEX_PARAMETERS; idx++)
+            ts->IndexParameters[idx] = AsVector(idxprms)->Vector[idx];
+    }
+    else
+        for (int_t idx = 0; idx < INDEX_PARAMETERS; idx++)
+            ts->IndexParameters[idx] = NoValueObject;
+
+    ts->NotifyFlag = 0;
+    return(1);
+
+Failed:
+    if (ts->Babies.Base != 0)
+        DeleteMemRegion(&ts->Babies);
+    if (ts->Stack.Base != 0)
+        DeleteMemRegion(&ts->Stack);
+    return(0);
+}
+
+uint_t LeaveThread(FThreadState * ts)
+{
+    FAssert(ts == GetThreadState());
+    SetThreadState(0);
+
+    FAssert(ThreadP(ts->Thread));
+
+    if (AsThread(ts->Thread)->Handle != 0)
+    {
+#ifdef FOMENT_WINDOWS
+        CloseHandle(AsThread(ts->Thread)->Handle);
+#endif // FOMENT_WINDOWS
+        AsThread(ts->Thread)->Handle = 0;
+    }
+
+    EnterExclusive(&GCExclusive);
+    FAssert(TotalThreads > 0);
+    TotalThreads -= 1;
+
+    uint_t tt = TotalThreads;
+
+    FAssert(Threads != 0);
+
+    if (Threads == ts)
+    {
+        Threads = ts->Next;
+        if (Threads != 0)
+        {
+            FAssert(TotalThreads > 0);
+
+            Threads->Previous = 0;
+        }
+    }
+    else
+    {
+        if (ts->Next != 0)
+            ts->Next->Previous = ts->Previous;
+
+        FAssert(ts->Previous != 0);
+        ts->Previous->Next = ts->Next;
+    }
+
+    FAssert(ts->Stack.Base != 0);
+    DeleteMemRegion(&ts->Stack);
+
+    ts->AStack = 0;
+    ts->CStack = 0;
+    ts->Thread = NoValueObject;
+
+    LeaveExclusive(&GCExclusive);
+#if 0
+    WakeCondition(&ReadyCondition); // Just in case a collection is pending.
+#endif // 0
+
+    return(tt);
+}
+
+int_t SetupCore(FThreadState * ts)
+{
+    FAssert(sizeof(FObject) == sizeof(int_t));
+    FAssert(sizeof(FObject) == sizeof(uint_t));
+    FAssert(sizeof(FObject) == sizeof(FImmediate));
+    FAssert(sizeof(FObject) == sizeof(char *));
+    FAssert(sizeof(FFixnum) <= sizeof(FImmediate));
+    FAssert(sizeof(FCh) <= sizeof(FImmediate));
+    FAssert(sizeof(FObjHdr) % OBJECT_ALIGNMENT == 0);
+    FAssert(sizeof(FObjHdr) >= OBJECT_ALIGNMENT);
+    FAssert(OBJHDR_SIZE_MASK >= OBJHDR_SLOT_COUNT_MASK * sizeof(FObject));
+    FAssert(sizeof(FObject) <= OBJECT_ALIGNMENT);
+
+#ifdef FOMENT_DEBUG
+    if (strcmp(FOMENT_MEMORYMODEL, "ilp32") == 0)
+    {
+        FAssert(sizeof(int) == 4);
+        FAssert(sizeof(long) == 4);
+        FAssert(sizeof(void *) == 4);
+    }
+    else if (strcmp(FOMENT_MEMORYMODEL, "lp64") == 0)
+    {
+        FAssert(sizeof(int) == 4);
+        FAssert(sizeof(long) == 8);
+        FAssert(sizeof(void *) == 8);
+    }
+    else if (strcmp(FOMENT_MEMORYMODEL, "llp64") == 0)
+    {
+        FAssert(sizeof(int) == 4);
+        FAssert(sizeof(long) == 4);
+//#ifdef FOMENT_WINDOWS
+        FAssert(sizeof(long long) == 8);
+//#endif // FOMENT_WINDOWS
+        FAssert(sizeof(void *) == 8);
+    }
+#endif // FOMENT_DEBUG
+
+    if (CollectorType == NullCollector && MaximumBabiesSize == 0)
+        MaximumBabiesSize = 1024 * 1024 * 128;
+    if (CollectorType == GenerationalCollector && MaximumBabiesSize == 0)
+        MaximumBabiesSize = 1024 * 1024 * 2;
+
+#ifdef FOMENT_WINDOWS
+    TlsIndex = TlsAlloc();
+    FAssert(TlsIndex != TLS_OUT_OF_INDEXES);
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    pthread_key_create(&ThreadKey, 0);
+#endif // FOMENT_UNIX
+
+    InitializeExclusive(&GCExclusive);
+    TotalThreads = 1;
+    GCRequired = 0;
+
+#ifdef FOMENT_WINDOWS
+    HANDLE h = OpenThread(STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x3FF, 0,
+            GetCurrentThreadId());
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    pthread_t h = pthread_self();
+#endif // FOMENT_UNIX
+
+    if (EnterThread(ts, NoValueObject, NoValueObject, NoValueObject) == 0)
+        return(0);
+    ts->Thread = MakeThread(h, NoValueObject, NoValueObject, NoValueObject);
+
+    R.CleanupTConc = MakeTConc();
+
+    if (CheckHeapFlag)
+        CheckHeap(__FILE__, __LINE__);
+
+    return(1);
+}
+
+Define("install-guardian", InstallGuardianPrimitive)(int_t argc, FObject argv[])
+{
+    // (install-guardian <obj> <tconc>)
+
+    TwoArgsCheck("install-guardian", argc);
+    TConcArgCheck("install-guardian", argv[1]);
+
+    if (ObjectP(argv[0]))
+        InstallGuardian(argv[0], argv[1]);
+
+    return(NoValueObject);
+}
+
+Define("install-tracker", InstallTrackerPrimitive)(int_t argc, FObject argv[])
+{
+    // (install-tracker <obj> <ret> <tconc>)
+
+    ThreeArgsCheck("install-tracker", argc);
+    TConcArgCheck("install-tracker", argv[2]);
+
+    if (ObjectP(argv[0]))
+        InstallTracker(argv[0], argv[1], argv[2]);
+
+    return(NoValueObject);
+}
+
+Define("collect", CollectPrimitive)(int_t argc, FObject argv[])
+{
+    // (collect [<full>])
+
+    ZeroOrOneArgsCheck("collect", argc);
+
+    EnterExclusive(&GCExclusive);
+    GCRequired = 1;
+    LeaveExclusive(&GCExclusive);
+
+    CheckForGC();
+    return(NoValueObject);
+}
+
+static FPrimitive * Primitives[] =
+{
+    &InstallGuardianPrimitive,
+    &InstallTrackerPrimitive,
+    &CollectPrimitive
+};
+
+void SetupGC()
+{
+    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+        DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
+}
+
+#if 0
+// Original Code
+
+#define PAGE_SIZE 4096
+
+#define MAXIMUM_OBJECT_LENGTH OBJHDR_SIZE_MASK
+#define MAXIMUM_SLOT_COUNT OBJHDR_SLOT_COUNT_MASK
+
+#define OBJECT_ALIGNMENT 8
+const static uint_t Align[8] = {0, 7, 6, 5, 4, 3, 2, 1};
+
+FCollectorType CollectorType = NullCollector;
+uint_t MaximumStackSize = 1024 * 1024 * 4 * sizeof(FObject);
+uint_t MaximumBabiesSize = 0;
+
+volatile uint_t BytesAllocated = 0;
+volatile int_t GCRequired;
+OSExclusive GCExclusive;
+volatile uint_t TotalThreads;
+FThreadState * Threads;
+
+#ifdef FOMENT_WINDOWS
+unsigned int TlsIndex;
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+pthread_key_t ThreadKey;
+#endif // FOMENT_UNIX
+
+#define FOMENT_OBJFTR 1
+#define OBJFTR_FEET 0xDEADFEE7
+
+typedef struct
+{
+    uint32_t Feet[2];
+} FObjFtr;
+
+int_t MatureObjectP(FObject obj)
+{
+    return(0);
+//    return(ObjectP(obj) && MatureP(obj));
+}
+
+static inline uint_t RoundToPageSize(uint_t cnt)
+{
+    if (cnt % PAGE_SIZE != 0)
+    {
+        cnt += PAGE_SIZE - (cnt % PAGE_SIZE);
+
+        FAssert(cnt % PAGE_SIZE == 0);
+    }
+
+    return(cnt);
+}
+
+void * InitializeMemRegion(FMemRegion * mrgn, uint_t max)
+{
+    mrgn->TopUsed = 0;
+    mrgn->BottomUsed = 0;
+    mrgn->MaximumSize = RoundToPageSize(max);
+#ifdef FOMENT_WINDOWS
+    mrgn->Base = VirtualAlloc(0, mrgn->MaximumSize, MEM_RESERVE, PAGE_READWRITE);
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+    mrgn->Base = mmap(0, mrgn->MaximumSize, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+#endif // FOMENT_UNIX
+    return(mrgn->Base);
+}
+
+void DeleteMemRegion(FMemRegion * mrgn)
+{
+    FAssert(mrgn->Base != 0);
+    FAssert(mrgn->MaximumSize % PAGE_SIZE == 0);
+    FAssert(mrgn->MaximumSize > 0);
+
+#ifdef FOMENT_WINDOWS
+    VirtualFree(mrgn->Base, 0, MEM_RELEASE);
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+    munmap(mrgn->Base, mrgn->MaximumSize);
+#endif // FOMENT_UNIX
+
+    mrgn->Base = 0;
+}
+
+int_t GrowMemRegionUp(FMemRegion * mrgn, uint_t sz)
+{
+    FAssert(mrgn->Base != 0);
+    FAssert(mrgn->TopUsed % PAGE_SIZE == 0);
+    FAssert(mrgn->BottomUsed % PAGE_SIZE == 0);
+    FAssert(mrgn->MaximumSize % PAGE_SIZE == 0);
+    FAssert(mrgn->TopUsed <= mrgn->MaximumSize);
+    FAssert(mrgn->BottomUsed <= mrgn->MaximumSize);
+    FAssert(mrgn->BottomUsed + mrgn->TopUsed <= mrgn->MaximumSize);
+
+    if (sz > mrgn->BottomUsed)
+    {
+        sz = RoundToPageSize(sz);
+        if (sz > mrgn->MaximumSize - mrgn->TopUsed)
+            return(0);
+
+#ifdef FOMENT_WINDOWS
+        if (VirtualAlloc(((uint8_t *) mrgn->Base) + mrgn->BottomUsed, sz - mrgn->BottomUsed,
+                MEM_COMMIT, PAGE_READWRITE) == 0)
+            return(0);
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+        if (mprotect(((uint8_t *) mrgn->Base) + mrgn->BottomUsed, sz - mrgn->BottomUsed,
+                PROT_READ | PROT_WRITE) != 0)
+            return(0);
+#endif // FOMENT_UNIX
+
+        mrgn->BottomUsed = sz;
+    }
+
+    return(1);
+}
+
+int_t GrowMemRegionDown(FMemRegion * mrgn, uint_t sz)
+{
+    FAssert(mrgn->Base != 0);
+    FAssert(mrgn->TopUsed % PAGE_SIZE == 0);
+    FAssert(mrgn->BottomUsed % PAGE_SIZE == 0);
+    FAssert(mrgn->MaximumSize % PAGE_SIZE == 0);
+    FAssert(mrgn->TopUsed <= mrgn->MaximumSize);
+    FAssert(mrgn->BottomUsed <= mrgn->MaximumSize);
+    FAssert(mrgn->BottomUsed + mrgn->TopUsed <= mrgn->MaximumSize);
+
+    if (sz > mrgn->TopUsed)
+    {
+        sz = RoundToPageSize(sz);
+        if (sz > mrgn->MaximumSize - mrgn->BottomUsed)
+            return(0);
+
+#ifdef FOMENT_WINDOWS
+        if (VirtualAlloc(((uint8_t *) mrgn->Base) + (mrgn->MaximumSize - sz), sz - mrgn->TopUsed,
+                MEM_COMMIT, PAGE_READWRITE) == 0)
+            return(0);
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+        if (mprotect(((uint8_t *) mrgn->Base) + (mrgn->MaximumSize - sz), sz - mrgn->TopUsed,
+                PROT_READ | PROT_WRITE) != 0)
+            return(0);
+#endif // FOMENT_UNIX
+
+        mrgn->TopUsed = sz;
+    }
+
+    return(1);
+}
+
+static inline void SetCheckMark(FObject obj)
+{
+    AsObjHdr(obj)->CheckMark |= OBJHDR_CHECK_MARK;
+}
+
+static inline void ClearCheckMark(FObjHdr * oh)
+{
+    oh->CheckMark &= ~OBJHDR_CHECK_MARK;
+}
+
+static inline int CheckMarkP(FObject obj)
+{
+    return(AsObjHdr(obj)->CheckMark & OBJHDR_CHECK_MARK);
+}
+
+#if 0
 typedef void * FRaw;
 #define AsRaw(obj) ((FRaw) (((uint_t) (obj)) & ~0x7))
 
@@ -62,30 +1505,10 @@ static uint_t MaximumSections = SECTION_SIZE * 32; // 4 gigabype heap
 static uint_t MaximumSections = SECTION_SIZE * 8; // 1 gigabyte heap
 #endif // FOMENT_32BIT
 
-static unsigned char * WalkMarks = 0;
-static uint_t WalkMarksSize = SECTION_SIZE * MaximumSections / 64;
-
-static inline void SetWalkMark(FObject obj)
-{
-    FMustBe(((unsigned char *) obj) >= SectionTable);
-    FMustBe(((unsigned char *) obj) < SectionTable + SECTION_SIZE * MaximumSections);
-
-    uint_t idx = (((unsigned char *) obj) - SectionTable) >> 3;
-    WalkMarks[idx / 8] |= (1 << (idx % 8));
-}
-
-static inline int WalkMarkP(FObject obj)
-{
-    FMustBe(((unsigned char *) obj) >= SectionTable);
-    FMustBe(((unsigned char *) obj) < SectionTable + SECTION_SIZE * MaximumSections);
-
-    uint_t idx = (((unsigned char *) obj) - SectionTable) >> 3;
-    return(WalkMarks[idx / 8] & (1 << (idx % 8)));
-}
-
 static inline int_t MatureP(FObject obj)
 {
-    return(SectionTable[SectionIndex(obj)] == MatureSectionTag);
+    return(0);
+//    return(SectionTable[SectionIndex(obj)] == MatureSectionTag);
 }
 
 static inline FSectionTag SectionTag(FObject obj)
@@ -94,6 +1517,8 @@ static inline FSectionTag SectionTag(FObject obj)
 }
 
 #define MAXIMUM_YOUNG_LENGTH (1024 * 4)
+
+#define MakeLength(len, tag) (len)
 
 static FYoungSection * GenerationZero;
 static FYoungSection * GenerationOne;
@@ -106,7 +1531,6 @@ typedef struct _FFreeObject
 
 static FFreeObject * FreeMature = 0;
 
-volatile uint_t BytesAllocated = 0;
 static volatile uint_t BytesSinceLast = 0;
 static uint_t ObjectsSinceLast = 0;
 uint_t CollectionCount = 0;
@@ -116,7 +1540,6 @@ static uint_t TriggerBytes = SECTION_SIZE * 8;
 static uint_t TriggerObjects = TriggerBytes / (sizeof(FObject) * 16);
 static uint_t MaximumBackRefFraction = 128;
 
-int_t volatile GCRequired;
 static volatile int_t FullGCRequired;
 
 #define GCTagP(obj) ImmediateP(obj, GCTagTag)
@@ -131,9 +1554,26 @@ typedef struct
 #endif // FOMENT_32BIT
 } FYoungHeader;
 
-#define MarkP(obj) (*((uint_t *) (obj)) & RESERVED_MARK_BIT)
-#define SetMark(obj) *((uint_t *) (obj)) |= RESERVED_MARK_BIT
-#define ClearMark(obj) *((uint_t *) (obj)) &= ~RESERVED_MARK_BIT
+inline int_t MarkP(FObject obj)
+{
+    FAssert(ObjectP(obj));
+
+    return(AsObjHdr(obj)->Flags & OBJHDR_FLAG_ONE);
+}
+
+inline void SetMark(FObject obj)
+{
+    FAssert(ObjectP(obj));
+
+    AsObjHdr(obj)->Flags |= OBJHDR_FLAG_ONE;
+}
+
+inline void ClearMark(FObject obj)
+{
+    FAssert(ObjectP(obj));
+
+    AsObjHdr(obj)->Flags &= ~OBJHDR_FLAG_ONE;
+}
 
 static inline int_t AliveP(FObject obj)
 {
@@ -192,23 +1632,12 @@ static FGuardian * YoungGuardians = 0;
 static FGuardian * MatureGuardians = 0;
 static FGuardian * FreeGuardians = 0;
 
-#ifdef FOMENT_WINDOWS
-unsigned int TlsIndex;
-#endif // FOMENT_WINDOWS
-
-#ifdef FOMENT_UNIX
-pthread_key_t ThreadKey;
-#endif // FOMENT_UNIX
-
-OSExclusive GCExclusive;
 static OSCondition ReadyCondition;
 static OSCondition DoneCondition;
 
 static volatile int_t GCHappening;
-volatile uint_t TotalThreads;
 static volatile uint_t WaitThreads;
 static volatile uint_t CollectThreads;
-FThreadState * Threads;
 
 static uint_t Sizes[1024 * 8];
 
@@ -279,9 +1708,6 @@ static FYoungSection * AllocateYoung(FYoungSection * nxt, FSectionTag tag)
     ns->Scan = sizeof(FYoungSection);
     return(ns);
 }
-
-#define OBJECT_ALIGNMENT 8
-const static uint_t Align[8] = {0, 7, 6, 5, 4, 3, 2, 1};
 
 static uint_t ObjectSize(FObject obj, uint_t tag, int ln)
 {
@@ -428,8 +1854,12 @@ static uint_t ObjectSize(FObject obj, uint_t tag, int ln)
 }
 
 // Allocate a new object in GenerationZero.
-FObject MakeObject(uint_t sz, uint_t tag)
+static FObject MakeObject(uint_t tag, uint_t sz, uint_t sc)
 {
+    FAssert(tag > 0);
+    FAssert(tag < BadDogTag);
+    FAssert(sz >= sizeof(FObject) * sc);
+
     uint_t len = sz;
     len += Align[len % OBJECT_ALIGNMENT];
 
@@ -581,39 +2011,107 @@ static FObject MakeMatureObject(uint_t sz, const char * who)
 
     return(obj);
 }
+#endif // 0
 
-FObject MakePinnedObject(uint_t len, const char * who)
+FObject MakeObject(uint_t tag, uint_t sz, uint_t sc, const char * who, int_t pf)
 {
-    return(MakeMatureObject(len, who));
+    FAssert(tag > 0);
+    FAssert(tag < BadDogTag);
+    FAssert(sz >= sizeof(FObject) * sc);
+
+    if (sz > MAXIMUM_OBJECT_LENGTH)
+        RaiseExceptionC(R.Restriction, who, "object too big", EmptyListObject);
+    if (sc > MAXIMUM_SLOT_COUNT)
+        RaiseExceptionC(R.Restriction, who, "too many slots", EmptyListObject);
+
+    uint_t len = sz;
+    len += Align[len % OBJECT_ALIGNMENT];
+
+    FAssert(len >= sz);
+    FAssert(len % OBJECT_ALIGNMENT == 0);
+
+    len += sizeof(FObjHdr);
+
+    FAssert(len % OBJECT_ALIGNMENT == 0);
+
+#ifdef FOMENT_OBJFTR
+    len += sizeof(FObjFtr);
+
+    FAssert(len % OBJECT_ALIGNMENT == 0);
+#endif // FOMENT_OBJFTR
+
+    FThreadState * ts = GetThreadState();
+
+    if (ts->BabiesUsed + len > ts->Babies.BottomUsed)
+    {
+        if (ts->BabiesUsed + len > ts->Babies.MaximumSize)
+            RaiseExceptionC(R.Assertion, who, "babies too small; increase maximum-babies-size",
+                    EmptyListObject);
+
+        uint_t gsz = PAGE_SIZE * 8;
+        if (len > gsz)
+            gsz = len;
+        if (gsz > ts->Babies.MaximumSize - ts->Babies.BottomUsed)
+            gsz = ts->Babies.MaximumSize - ts->Babies.BottomUsed;
+
+        if (GrowMemRegionUp(&ts->Babies, ts->Babies.BottomUsed + gsz) == 0)
+            RaiseExceptionC(R.Assertion, who, "babies: out of memory", EmptyListObject);
+    }
+
+    FObjHdr * oh = (FObjHdr *) (((char *) ts->Babies.Base) + ts->BabiesUsed);
+    oh->FlagsAndSize = sz;
+    oh->TagAndSlotCount = (tag << OBJHDR_TAG_SHIFT) | sc;
+
+    ts->BabiesUsed += len;
+    BytesAllocated += len;
+    ts->ObjectsSinceLast += 1;
+
+#ifdef FOMENT_OBJFTR
+    FObjFtr * of = ((FObjFtr *) (((char *) oh) + len)) - 1;
+    of->Feet[0] = OBJFTR_FEET;
+    of->Feet[1] = OBJFTR_FEET;
+#endif // FOMENT_OBJFTR
+
+    return(oh + 1);
+/*
+    FObject obj = 0;
+
+    if (pf == 0)
+        obj = MakeObject(tag, sz, sc);
+    if (obj == 0)
+        obj = MakeMatureObject(tag, sz, sc, who);
+    return(obj);
+*/
 }
 
 void PushRoot(FObject * rt)
 {
     FThreadState * ts = GetThreadState();
 
-    ts->UsedRoots += 1;
+    ts->RootsUsed += 1;
 
-    FAssert(ts->UsedRoots < sizeof(ts->Roots) / sizeof(FObject *));
+    FAssert(ts->RootsUsed < sizeof(ts->Roots) / sizeof(FObject *));
 
-    ts->Roots[ts->UsedRoots - 1] = rt;
+    ts->Roots[ts->RootsUsed - 1] = rt;
 }
 
 void PopRoot()
 {
     FThreadState * ts = GetThreadState();
 
-    FAssert(ts->UsedRoots > 0);
+    FAssert(ts->RootsUsed > 0);
 
-    ts->UsedRoots -= 1;
+    ts->RootsUsed -= 1;
 }
 
 void ClearRoots()
 {
     FThreadState * ts = GetThreadState();
 
-    ts->UsedRoots = 0;
+    ts->RootsUsed = 0;
 }
 
+#if 0
 static FBackRefSection * AllocateBackRefSection(FBackRefSection * nxt)
 {
     FBackRefSection * brs = (FBackRefSection *) AllocateSection(1, BackRefSectionTag);
@@ -675,12 +2173,16 @@ static void RecordBackRef(FObject * ref, FObject val)
         BackRefSections->Used += 1;
     }
 }
+#endif // 0
 
 void ModifyVector(FObject obj, uint_t idx, FObject val)
 {
     FAssert(VectorP(obj));
     FAssert(idx < VectorLength(obj));
 
+    AsVector(obj)->Vector[idx] = val;
+
+#if 0
     if (AsVector(obj)->Vector[idx] != val)
     {
         AsVector(obj)->Vector[idx] = val;
@@ -692,13 +2194,17 @@ void ModifyVector(FObject obj, uint_t idx, FObject val)
             LeaveExclusive(&GCExclusive);
         }
     }
+#endif // 0
 }
 
 void ModifyObject(FObject obj, uint_t off, FObject val)
 {
-    FAssert(IndirectP(obj));
+    FAssert(ObjectP(obj));
     FAssert(off % sizeof(FObject) == 0);
 
+    ((FObject *) obj)[off / sizeof(FObject)] = val;
+
+#if 0
     if (((FObject *) obj)[off / sizeof(FObject)] != val)
     {
         ((FObject *) obj)[off / sizeof(FObject)] = val;
@@ -710,12 +2216,16 @@ void ModifyObject(FObject obj, uint_t off, FObject val)
             LeaveExclusive(&GCExclusive);
         }
     }
+#endif // 0
 }
 
 void SetFirst(FObject obj, FObject val)
 {
     FAssert(PairP(obj));
 
+    AsPair(obj)->First = val;
+
+#if 0
     if (AsPair(obj)->First != val)
     {
         AsPair(obj)->First = val;
@@ -727,12 +2237,16 @@ void SetFirst(FObject obj, FObject val)
             LeaveExclusive(&GCExclusive);
         }
     }
+#endif // 0
 }
 
 void SetRest(FObject obj, FObject val)
 {
     FAssert(PairP(obj));
 
+    AsPair(obj)->Rest = val;
+
+#if 0
     if (AsPair(obj)->Rest != val)
     {
         AsPair(obj)->Rest = val;
@@ -744,12 +2258,16 @@ void SetRest(FObject obj, FObject val)
             LeaveExclusive(&GCExclusive);
         }
     }
+#endif // 0
 }
 
 void SetBox(FObject bx, FObject val)
 {
     FAssert(BoxP(bx));
 
+    AsBox(bx)->Value = val;
+
+#if 0
     if (AsBox(bx)->Value != val)
     {
         AsBox(bx)->Value = val;
@@ -761,8 +2279,10 @@ void SetBox(FObject bx, FObject val)
             LeaveExclusive(&GCExclusive);
         }
     }
+#endif // 0
 }
 
+#if 0
 static void AddToScan(FObject obj)
 {
     if (ScanSections->Used == ((SECTION_SIZE - sizeof(FScanSection)) / sizeof(FObject)) + 1)
@@ -980,7 +2500,6 @@ static void CleanScan(int_t fcf)
             FObject obj = ScanSections->Scan[ScanSections->Used];
 
             FAssert(ObjectP(obj));
-            FAssert(IndirectP(obj));
 
             ScanChildren(obj, IndirectTag(obj), fcf);
         }
@@ -1228,6 +2747,7 @@ static FTracker * CollectTrackers(FTracker * trkrs, int_t fcf)
 
     return(moved);
 }
+#endif // 0
 
 static const char * RootNames[] =
 {
@@ -1349,251 +2869,291 @@ static const char * RootNames[] =
 
 typedef struct
 {
-    const char * From;
     int_t Index;
     int_t Repeat;
-    FObject Previous;
-} FWalkStack;
+    FObject Object;
+} FCheckStack;
 
 #define WALK_STACK_SIZE (1024 * 8)
-static uint_t WalkStackPtr;
-static FWalkStack WalkStack[WALK_STACK_SIZE];
+static uint_t CheckStackPtr;
+static FCheckStack CheckStack[WALK_STACK_SIZE];
+static const char * CheckFrom;
 
-static void PrintString(FObject obj)
+static const char * IndirectTagString[] =
 {
-    FMustBe(StringP(obj));
+    0,
+    "bignum",
+    "ratio",
+    "complex",
+    "flonum",
+    "box",
+    "pair",
+    "string",
+    "vector",
+    "bytevector",
+    "binary-port",
+    "textual-port",
+    "procedure",
+    "symbol",
+    "record-type",
+    "record",
+    "primitive",
+    "thread",
+    "exclusive",
+    "condition",
+    "hash-tree"
+};
 
-    for (int_t idx = 0; idx < StringLength(obj); idx++)
-        putc(AsString(obj)->String[idx], stdout);
-}
-
-static void PrintWalkStack()
+static const char * WhereFrom(FObject obj, int_t * idx)
 {
-    for (uint_t idx = 0; idx < WalkStackPtr; idx++)
-    {
-        if (WalkStack[idx].Index >= 0)
-            printf("%s[%lld]", WalkStack[idx].From, WalkStack[idx].Index);
-        else
-            printf("%s", WalkStack[idx].From);
+    const char * from;
 
-        FObject obj = WalkStack[idx].Previous;
-        if (TextualPortP(obj) || BinaryPortP(obj))
-            obj = AsGenericPort(obj)->Name;
-        else if (ProcedureP(obj))
-            obj = AsProcedure(obj)->Name;
-        else if (RecordTypeP(obj))
-            obj = AsRecordType(obj)->Fields[0];
-        else if (GenericRecordP(obj))
-        {
-            FMustBe(RecordTypeP(AsGenericRecord(obj)->Fields[0]));
-
-            obj = AsRecordType(AsGenericRecord(obj)->Fields[0])->Fields[0];
-        }
-
-        if (SymbolP(obj))
-            obj = AsSymbol(obj)->String;
-
-        if (StringP(obj))
-        {
-            printf(" ");
-            PrintString(obj);
-        }
-
-        if (WalkStack[WalkStackPtr].Repeat > 1)
-            printf(" (repeats %lld times)", WalkStack[WalkStackPtr].Repeat);
-        printf("\n");
-    }
-}
-
-const static char * PairDotRest = "pair.rest";
-static int_t WalkCount;
-static int_t WalkTooDeep;
-
-static void WalkObject(FObject obj, const char * from, FObject prev = NoValueObject, int_t idx = -1)
-{
-    if (WalkStackPtr == WALK_STACK_SIZE)
-    {
-        WalkTooDeep += 1;
-        return;
-    }
-
-    WalkStack[WalkStackPtr].From = from;
-    WalkStack[WalkStackPtr].Index = idx;
-    WalkStack[WalkStackPtr].Repeat = 1;
-    WalkStack[WalkStackPtr].Previous = prev;
-    WalkStackPtr += 1;
-
-Again:
     if (ObjectP(obj))
     {
-        if (WalkMarkP(obj))
-            goto Done;
-        SetWalkMark(obj);
-        WalkCount += 1;
-
-        FMustBe(WalkMarkP(obj));
-
-        if (FullGCRequired == 0 && ObjectP(prev) && MatureP(prev) && MatureP(obj) == 0)
-        {
-            FBackRefSection * brs = BackRefSections;
-            int_t brf = 0;
-
-            while (brs != 0)
-            {
-                for (uint_t idx = 0; idx < brs->Used; idx++)
-                {
-                    uint_t tag = IndirectTag(prev);
-                    uint_t sz = ObjectSize(prev, tag, __LINE__);
-
-                    if (brs->BackRef[idx].Ref >= AsRaw(prev)
-                            && (char *) brs->BackRef[idx].Ref < ((char *) AsRaw(prev)) + sz
-                            && brs->BackRef[idx].Value == obj)
-                    {
-                        brf = 1;
-                        break;
-                    }
-                }
-
-                brs = brs->Next;
-            }
-
-            if (brf == 0)
-            {
-                PrintWalkStack();
-                printf("prev: %p obj: %p\n", prev, obj);
-                printf("SectionTable: %p\n", SectionTable);
-            }
-            FMustBe(brf);
-        }
-    }
-
-    switch (((FImmediate) (obj)) & 0x7)
-    {
-    case 0x00: // IndirectP(obj)
-    {
-        if (!(SectionTag(obj) == ZeroSectionTag || SectionTag(obj) == OneSectionTag
-                || SectionTag(obj) == MatureSectionTag))
-        {
-            printf("obj: %p SectionTag(obj): %d IndirectTag(%d %x)\n", obj, SectionTag(obj),
-                    IndirectTag(obj), IndirectTag(obj));
-            PrintWalkStack();
-            printf("prev: %p obj: %p\n", prev, obj);
-        }
-        FMustBe(SectionTag(obj) == ZeroSectionTag || SectionTag(obj) == OneSectionTag
-                || SectionTag(obj) == MatureSectionTag);
-
         switch (IndirectTag(obj))
         {
         case BoxTag:
-            WalkObject(AsBox(obj)->Value, "box", obj);
+            FMustBe(*idx == 0);
+            from = "box";
+            *idx = -1;
             break;
 
         case PairTag:
-            WalkObject(AsPair(obj)->First, "pair.first", obj);
-
-            FMustBe(WalkStackPtr > 0);
-
-            if (WalkStack[WalkStackPtr - 1].From == PairDotRest)
-            {
-                WalkStack[WalkStackPtr - 1].Repeat += 1;
-                prev = obj;
-                obj = AsPair(obj)->Rest;
-                goto Again;
-            }
+            if (*idx == 0)
+                from = "pair.first";
             else
-                WalkObject(AsPair(obj)->Rest, PairDotRest, obj);
-            break;
-
-        case StringTag:
-            break;
-
-        case VectorTag:
-            for (uint_t vdx = 0; vdx < VectorLength(obj); vdx++)
-                WalkObject(AsVector(obj)->Vector[vdx], "vector", obj, vdx);
-            break;
-
-        case BytevectorTag:
+            {
+                FMustBe(*idx == 1);
+                from = "pair.rest";
+            }
+            *idx = -1;
             break;
 
         case BinaryPortTag:
         case TextualPortTag:
-            WalkObject(AsGenericPort(obj)->Name, "port.name", obj);
-            WalkObject(AsGenericPort(obj)->Object, "port.object", obj);
+            if (*idx == 0)
+                from = "port.name";
+            else
+            {
+                FMustBe(*idx == 1);
+                from = "port.object";
+            }
+            *idx = -1;
             break;
 
         case ProcedureTag:
-            WalkObject(AsProcedure(obj)->Name, "procedure.name", obj);
-            WalkObject(AsProcedure(obj)->Filename, "procedure.filename", obj);
-            WalkObject(AsProcedure(obj)->LineNumber, "procedure.line-number", obj);
-            WalkObject(AsProcedure(obj)->Code, "procedure.code", obj);
+            if (*idx == 0)
+                from = "procedure.name";
+            else if (*idx == 1)
+                from = "procedure.filename";
+            else if (*idx == 2)
+                from = "procedure.line-number";
+            else
+            {
+                FMustBe(*idx == 3);
+                from = "procedure.code";
+            }
+            *idx = -1;
             break;
 
         case SymbolTag:
-            WalkObject(AsSymbol(obj)->String, "symbol.string", obj);
+            FMustBe(*idx == 0);
+            from = "symbol.string";
+            *idx = -1;
             break;
 
         case RecordTypeTag:
-            for (uint_t fdx = 0; fdx < RecordTypeNumFields(obj); fdx++)
-                WalkObject(AsRecordType(obj)->Fields[fdx], "record-type.fields", obj, fdx);
+            from = "record-type.fields";
             break;
 
         case RecordTag:
-            for (uint_t fdx = 0; fdx < RecordNumFields(obj); fdx++)
-                WalkObject(AsGenericRecord(obj)->Fields[fdx], "record.fields", obj, fdx);
-            break;
-
-        case PrimitiveTag:
+            from = "record.fields";
             break;
 
         case ThreadTag:
-            WalkObject(AsThread(obj)->Result, "thread.result", obj);
-            WalkObject(AsThread(obj)->Thunk, "thread.thunk", obj);
-            WalkObject(AsThread(obj)->Parameters, "thread.parameters", obj);
-            WalkObject(AsThread(obj)->IndexParameters, "thread.index-parameters", obj);
-            break;
-
-        case ExclusiveTag:
-            break;
-
-        case ConditionTag:
-            break;
-
-        case BignumTag:
+            if (*idx == 0)
+                from = "thread.result";
+            else if (*idx == 1)
+                from = "thread.thunk";
+            else if (*idx == 2)
+                from = "thread.parameters";
+            else
+            {
+                FMustBe(*idx == 3);
+                from = "thread.index-parameters";
+            }
+            *idx = -1;
             break;
 
         case RatioTag:
-            WalkObject(AsRatio(obj)->Numerator, "ratio.numerator", obj);
-            WalkObject(AsRatio(obj)->Denominator, "ratio.denominator", obj);
+            if (*idx == 0)
+                from = "ratio.numerator";
+            else
+            {
+                FMustBe(*idx == 1);
+                from = "ratio.denominator";
+            }
+            *idx = -1;
             break;
 
         case ComplexTag:
-            WalkObject(AsComplex(obj)->Real, "complex.real", obj);
-            WalkObject(AsComplex(obj)->Imaginary, "complex.imaginary", obj);
-            break;
-
-        case FlonumTag:
+            if (*idx == 0)
+                from = "complex.real";
+            else
+            {
+                FMustBe(*idx == 1);
+                from = "complex.imaginary";
+            }
+            *idx = -1;
             break;
 
         case HashTreeTag:
-            for (uint_t bdx = 0; bdx < HashTreeLength(obj); bdx++)
-                WalkObject(AsHashTree(obj)->Buckets[bdx], "hash-tree.buckets", obj, bdx);
+            from = "hash-tree.buckets";
             break;
 
         default:
-            PrintWalkStack();
-            FMustBe(0);
+            if (IndirectTag(obj) > 0 && IndirectTag(obj) < BadDogTag)
+                from = IndirectTagString[IndirectTag(obj)];
+            else
+                from = "unknown";
             break;
+        }
+    }
+    else
+        from = "unknown";
+
+    return(from);
+}
+
+static void PrintObjectString(FObject obj)
+{
+    if (TextualPortP(obj) || BinaryPortP(obj))
+        obj = AsGenericPort(obj)->Name;
+    else if (ProcedureP(obj))
+        obj = AsProcedure(obj)->Name;
+    else if (RecordTypeP(obj))
+        obj = AsRecordType(obj)->Fields[0];
+    else if (GenericRecordP(obj))
+    {
+        FMustBe(RecordTypeP(AsGenericRecord(obj)->Fields[0]));
+
+        obj = AsRecordType(AsGenericRecord(obj)->Fields[0])->Fields[0];
+    }
+
+    if (SymbolP(obj))
+        obj = AsSymbol(obj)->String;
+
+    if (StringP(obj))
+    {
+        printf(" ");
+
+        for (int_t idx = 0; idx < StringLength(obj); idx++)
+            putc(AsString(obj)->String[idx], stdout);
+    }
+}
+
+static void PrintCheckStack()
+{
+    FMustBe(CheckStackPtr > 0);
+
+    const char * from = CheckFrom;
+    int_t idx = CheckStack[0].Index;
+
+    for (uint_t cdx = 0; cdx < CheckStackPtr - 1; cdx++)
+    {
+        if (idx >= 0)
+            printf("%s[%lld]", from, idx);
+        else
+            printf("%s", from);
+
+        idx = CheckStack[cdx + 1].Index;
+        from = WhereFrom(CheckStack[cdx].Object, &idx);
+        PrintObjectString(CheckStack[cdx].Object);
+
+        if (CheckStack[cdx].Repeat > 1)
+            printf(" (repeats %lld times)", CheckStack[cdx].Repeat);
+        printf("\n");
+    }
+
+    FObject obj = CheckStack[CheckStackPtr - 1].Object;
+    if (ObjectP(obj))
+    {
+        if (IndirectTag(obj) > 0 && IndirectTag(obj) < BadDogTag)
+        {
+            printf("%s: %p", IndirectTagString[IndirectTag(obj)], obj);
+            PrintObjectString(obj);
+        }
+        else
+            printf("unknown: %p tag: %x", obj, IndirectTag(obj));
+    }
+    else
+        printf("unknown: %p", obj);
+    printf("\n");
+}
+
+static int_t CheckCount;
+static int_t CheckTooDeep;
+
+static void CheckObject(FObject obj, int_t idx)
+{
+    if (CheckStackPtr == WALK_STACK_SIZE)
+    {
+        CheckTooDeep += 1;
+        return;
+    }
+
+    CheckStack[CheckStackPtr].Index = idx;
+    CheckStack[CheckStackPtr].Repeat = 1;
+    CheckStack[CheckStackPtr].Object = obj;
+    CheckStackPtr += 1;
+
+Again:
+    switch (((FImmediate) (obj)) & 0x7)
+    {
+    case 0x00: // ObjectP(obj)
+    {
+        if (CheckMarkP(obj))
+            goto Done;
+        SetCheckMark(obj);
+        CheckCount += 1;
+
+        FMustBe(CheckMarkP(obj));
+
+        
+        
+        // static inline uint_t ObjectLength(uint_t sz) and use everywhere
+        // FObjFtr * AsObjFtr(FObjHdr * oh)
+        // validate slot count, tags, etc
+        
+        
+
+        if (PairP(obj))
+        {
+            CheckObject(AsPair(obj)->First, 0);
+
+            FMustBe(CheckStackPtr > 0);
+
+            if (CheckStackPtr > 1 && PairP(CheckStack[CheckStackPtr - 2].Object)
+                    && CheckStack[CheckStackPtr - 2].Index == 1)
+            {
+                CheckStack[CheckStackPtr - 1].Repeat += 1;
+                obj = AsPair(obj)->Rest;
+                goto Again;
+            }
+            else
+                CheckObject(AsPair(obj)->Rest, 1);
+        }
+        else if (AsObjHdr(obj)->SlotCount() > 0)
+        {
+            for (uint_t idx = 0; idx < AsObjHdr(obj)->SlotCount(); idx++)
+                CheckObject(((FObject *) obj)[idx], idx);
         }
         break;
     }
 
     case UnusedTag1: // 0bxxxxx001
-        PrintWalkStack();
-        FMustBe(0);
-        break;
-
     case UnusedTag2: // 0bxxxxx010
-        PrintWalkStack();
+        PrintCheckStack();
         FMustBe(0);
         break;
 
@@ -1608,34 +3168,18 @@ Again:
             break;
 
         case UnusedTag6: // 0bx1011011
-            PrintWalkStack();
-            FMustBe(0);
-            break;
-
         case UnusedTag7: // 0bx1101011
-            PrintWalkStack();
-            FMustBe(0);
-            break;
-
-        case GCTagTag: // 0bx1111011
-            PrintWalkStack();
+        case UnusedTag8: // 0bx1111011
+            PrintCheckStack();
             FMustBe(0);
             break;
         }
         break;
 
     case UnusedTag3: // 0bxxxxx100
-        PrintWalkStack();
-        FMustBe(0);
-        break;
-
     case UnusedTag4: // 0bxxxxx101
-        PrintWalkStack();
-        FMustBe(0);
-        break;
-
     case UnusedTag5: // 0bxxxxx110
-        PrintWalkStack();
+        PrintCheckStack();
         FMustBe(0);
         break;
 
@@ -1644,73 +3188,127 @@ Again:
     }
 
 Done:
-    FMustBe(WalkStackPtr > 0);
-    WalkStackPtr -= 1;
+    FMustBe(CheckStackPtr > 0);
+    CheckStackPtr -= 1;
 }
 
-static void WalkThreadState(FThreadState * ts)
+static void CheckRoot(FObject obj, const char * from, int_t idx)
 {
-    WalkObject(ts->Thread, "thread-state.thread");
+    CheckFrom = from;
+    CheckObject(obj, idx);
+}
+
+static void CheckThreadState(FThreadState * ts)
+{
+    CheckRoot(ts->Thread, "thread-state.thread", -1);
 
     uint_t idx = 0;
     for (FAlive * ap = ts->AliveList; ap != 0; ap = ap->Next, idx++)
-        WalkObject(*ap->Pointer, "thread-state.alive-list", NoValueObject, idx);
+        CheckRoot(*ap->Pointer, "thread-state.alive-list", idx);
 
-    for (uint_t rdx = 0; rdx < ts->UsedRoots; rdx++)
-        WalkObject(*ts->Roots[rdx], "thread-state.roots", NoValueObject, rdx);
+    for (uint_t rdx = 0; rdx < ts->RootsUsed; rdx++)
+        CheckRoot(*ts->Roots[rdx], "thread-state.roots", rdx);
 
     for (int_t adx = 0; adx < ts->AStackPtr; adx++)
-        WalkObject(ts->AStack[adx], "thread-state.astack", NoValueObject, adx);
+        CheckRoot(ts->AStack[adx], "thread-state.astack", adx);
 
     for (int_t cdx = 0; cdx < ts->CStackPtr; cdx++)
-        WalkObject(ts->CStack[- cdx], "thread-state.cstack", NoValueObject, cdx);
+        CheckRoot(ts->CStack[- cdx], "thread-state.cstack", cdx);
 
-    WalkObject(ts->Proc, "thread-state.proc");
-    WalkObject(ts->Frame, "thread-state.frame");
-    WalkObject(ts->DynamicStack, "thread-state.dynamic-stack");
-    WalkObject(ts->Parameters, "thread-state.parameters");
+    CheckRoot(ts->Proc, "thread-state.proc", -1);
+    CheckRoot(ts->Frame, "thread-state.frame", -1);
+    CheckRoot(ts->DynamicStack, "thread-state.dynamic-stack", -1);
+    CheckRoot(ts->Parameters, "thread-state.parameters", -1);
 
     for (int_t idx = 0; idx < INDEX_PARAMETERS; idx++)
-        WalkObject(ts->IndexParameters[idx], "thread-state.index-parameters", NoValueObject, idx);
+        CheckRoot(ts->IndexParameters[idx], "thread-state.index-parameters", idx);
 
-    WalkObject(ts->NotifyObject, "thread-state.notify-object");
+    CheckRoot(ts->NotifyObject, "thread-state.notify-object", -1);
 }
 
-void WalkHeap(const char * fn, int ln)
+void CheckMemRegion(FMemRegion * mrgn, uint_t used, uint32_t gen)
 {
+    FObjHdr * oh = (FObjHdr *) mrgn->Base;
+    uint_t cnt = 0;
+
+    while (cnt < used)
+    {
+        FMustBe(cnt + sizeof(FObjHdr) <= mrgn->BottomUsed);
+        uint_t sz = oh->Size();
+        uint_t len = sz;
+        len += Align[len % OBJECT_ALIGNMENT];
+
+        FMustBe(len >= sz);
+        FMustBe(len % OBJECT_ALIGNMENT == 0);
+
+        len += sizeof(FObjHdr);
+
+        FMustBe(len % OBJECT_ALIGNMENT == 0);
+
+#ifdef FOMENT_OBJFTR
+        len += sizeof(FObjFtr);
+
+        FMustBe(len % OBJECT_ALIGNMENT == 0);
+#endif // FOMENT_OBJFTR
+
+        FMustBe(cnt + len <= mrgn->BottomUsed);
+
+#ifdef FOMENT_OBJFTR
+        FObjFtr * of = ((FObjFtr *) (((char *) oh) + len)) - 1;
+
+        FMustBe(of->Feet[0] == OBJFTR_FEET);
+        FMustBe(of->Feet[1] == OBJFTR_FEET);
+#endif // FOMENT_OBJFTR
+
+        FMustBe((oh->Flags & OBJHDR_GEN_MASK) == gen);
+        FMustBe(gen == OBJHDR_GEN_ADULTS || (oh->Flags & OBJHDR_MARK_FORWARD) == 0);
+        FMustBe(oh->SlotCount() * sizeof(FObject) <= oh->Size());
+        FMustBe(oh->Tag() > 0 && oh->Tag() < BadDogTag);
+
+        ClearCheckMark(oh);
+        oh = (FObjHdr *) (((char *) oh) + len);
+        cnt += len;
+    }
+
+}
+
+void CheckHeap(const char * fn, int ln)
+{
+    FThreadState * ts;
+
     FMustBe(sizeof(RootNames) == sizeof(FRoots));
 
     if (VerboseFlag)
-        printf("WalkHeap: %s(%d)\n", fn, ln);
-    WalkCount = 0;
-    WalkTooDeep = 0;
+        printf("CheckHeap: %s(%d)\n", fn, ln);
+    CheckCount = 0;
+    CheckTooDeep = 0;
+    CheckStackPtr = 0;
 
-    memset(WalkMarks, 0, WalkMarksSize);
-    WalkStackPtr = 0;
+    ts = Threads;
+    while (ts != 0)
+    {
+        CheckMemRegion(&ts->Babies, ts->BabiesUsed, OBJHDR_GEN_BABIES);
+        ts = ts->Next;
+    }
 
     FObject * rv = (FObject *) &R;
     for (uint_t rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
-        WalkObject(rv[rdx], RootNames[rdx]);
+        CheckRoot(rv[rdx], RootNames[rdx], -1);
 
-    FThreadState * ts = 0;
-    if (ts != 0)
-        WalkThreadState(ts);
-    else
+    ts = Threads;
+    while (ts != 0)
     {
-        ts = Threads;
-        while (ts != 0)
-        {
-            WalkThreadState(ts);
-            ts = ts->Next;
-        }
+        CheckThreadState(ts);
+        ts = ts->Next;
     }
 
+#if 0
     FTracker * track = YoungTrackers;
     while (track)
     {
-        WalkObject(track->Object, "tracker.object");
-        WalkObject(track->Return, "tracker.return");
-        WalkObject(track->TConc, "tracker.tconc");
+        CheckRoot(track->Object, "tracker.object");
+        CheckRoot(track->Return, "tracker.return");
+        CheckRoot(track->TConc, "tracker.tconc");
 
         track = track->Next;
     }
@@ -1718,8 +3316,8 @@ void WalkHeap(const char * fn, int ln)
     FGuardian * guard = YoungGuardians;
     while (guard)
     {
-        WalkObject(guard->Object, "guardian.object");
-        WalkObject(guard->TConc, "guardian.tconc");
+        CheckRoot(guard->Object, "guardian.object");
+        CheckRoot(guard->TConc, "guardian.tconc");
 
         guard = guard->Next;
     }
@@ -1727,18 +3325,20 @@ void WalkHeap(const char * fn, int ln)
     guard = MatureGuardians;
     while (guard)
     {
-        WalkObject(guard->Object, "guardian.object");
-        WalkObject(guard->TConc, "guardian.tconc");
+        CheckRoot(guard->Object, "guardian.object");
+        CheckRoot(guard->TConc, "guardian.tconc");
 
         guard = guard->Next;
     }
+#endif // 0
     
-    if (WalkTooDeep > 0)
-        printf("WalkHeap: %d object too deep to walk\n", (int) WalkTooDeep);
+    if (CheckTooDeep > 0)
+        printf("CheckHeap: %d object too deep to walk\n", (int) CheckTooDeep);
     if (VerboseFlag)
-        printf("WalkHeap: %d active objects\n", (int) WalkCount);
+        printf("CheckHeap: %d active objects\n", (int) CheckCount);
 }
 
+#if 0
 static void Collect(int_t fcf)
 {
     if (VerboseFlag)
@@ -1750,7 +3350,7 @@ static void Collect(int_t fcf)
     }
 
     if (CheckHeapFlag)
-        WalkHeap(__FILE__, __LINE__);
+        CheckHeap(__FILE__, __LINE__);
 
     CollectionCount += 1;
     GCRequired = 0;
@@ -1827,7 +3427,7 @@ static void Collect(int_t fcf)
             if (ObjectP(*ap->Pointer))
                 ScanObject(ap->Pointer, fcf, 0);
 
-        for (uint_t rdx = 0; rdx < ts->UsedRoots; rdx++)
+        for (uint_t rdx = 0; rdx < ts->RootsUsed; rdx++)
             if (ObjectP(*ts->Roots[rdx]))
                 ScanObject(ts->Roots[rdx], fcf, 0);
 
@@ -1990,7 +3590,7 @@ static void Collect(int_t fcf)
     }
 
     if (CheckHeapFlag)
-        WalkHeap(__FILE__, __LINE__);
+        CheckHeap(__FILE__, __LINE__);
     if (VerboseFlag)
         printf("Collection Done.\n");
 }
@@ -1998,12 +3598,14 @@ static void Collect(int_t fcf)
 void FailedGC()
 {
     if (GCHappening == 0)
-        WalkHeap(__FILE__, __LINE__);
+        CheckHeap(__FILE__, __LINE__);
     printf("SectionTable: %p\n", SectionTable);
 }
+#endif // 0
 
 void EnterWait()
 {
+#if 0
     if (GetThreadState()->DontWait == 0)
     {
 #ifdef FOMENT_STRESSWAIT
@@ -2017,10 +3619,12 @@ void EnterWait()
             WakeCondition(&ReadyCondition);
         LeaveExclusive(&GCExclusive);
     }
+#endif // 0
 }
 
 void LeaveWait()
 {
+#if 0
     if (GetThreadState()->DontWait == 0)
     {
         EnterExclusive(&GCExclusive);
@@ -2040,10 +3644,12 @@ void LeaveWait()
 
         LeaveExclusive(&GCExclusive);
     }
+#endif // 0
 }
 
 void Collect()
 {
+#if 0
     EnterExclusive(&GCExclusive);
     FAssert(GCRequired);
 
@@ -2118,10 +3724,12 @@ void Collect()
         CollectThreads -= 1;
         LeaveExclusive(&GCExclusive);
     }
+#endif // 0
 }
 
 void InstallGuardian(FObject obj, FObject tconc)
 {
+#if 0
     EnterExclusive(&GCExclusive);
 
     FAssert(ObjectP(obj));
@@ -2135,10 +3743,12 @@ void InstallGuardian(FObject obj, FObject tconc)
         YoungGuardians = MakeGuardian(YoungGuardians, obj, tconc);
 
     LeaveExclusive(&GCExclusive);
+#endif // 0
 }
 
 void InstallTracker(FObject obj, FObject ret, FObject tconc)
 {
+#if 0
     EnterExclusive(&GCExclusive);
 
     FAssert(ObjectP(obj));
@@ -2150,6 +3760,7 @@ void InstallTracker(FObject obj, FObject ret, FObject tconc)
         YoungTrackers = MakeTracker(YoungTrackers, obj, ret, tconc);
 
     LeaveExclusive(&GCExclusive);
+#endif // 0
 }
 
 FAlive::FAlive(FObject * ptr)
@@ -2185,8 +3796,10 @@ FDontWait::~FDontWait()
     ts->DontWait -= 1;
 }
 
-void EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms)
+int_t EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms)
 {
+    memset(ts, 0, sizeof(FThreadState));
+
 #ifdef FOMENT_WINDOWS
     FAssert(TlsGetValue(TlsIndex) == 0);
 #endif // FOMENT_WINDOWS
@@ -2217,12 +3830,28 @@ void EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms)
     ts->DontWait = 0;
     ts->ActiveZero = 0;
     ts->ObjectsSinceLast = 0;
-    ts->UsedRoots = 0;
-    ts->StackSize = 1024 * 16;
+    ts->RootsUsed = 0;
+
+    if (CollectorType == NullCollector || CollectorType == GenerationalCollector)
+    {
+        if (InitializeMemRegion(&ts->Babies, MaximumBabiesSize) == 0)
+            goto Failed;
+        if (GrowMemRegionUp(&ts->Babies, PAGE_SIZE * 8) == 0)
+            goto Failed;
+        ts->BabiesUsed = 0;
+    }
+
+    if (InitializeMemRegion(&ts->Stack, MaximumStackSize) == 0)
+        goto Failed;
+
+    if (GrowMemRegionUp(&ts->Stack, PAGE_SIZE) == 0
+            || GrowMemRegionDown(&ts->Stack, PAGE_SIZE) == 0)
+        goto Failed;
+
     ts->AStackPtr = 0;
-    ts->AStack = (FObject *) malloc(ts->StackSize * sizeof(FObject));
+    ts->AStack = (FObject *) ts->Stack.Base;
     ts->CStackPtr = 0;
-    ts->CStack = ts->AStack + ts->StackSize - 1;
+    ts->CStack = ts->AStack + (ts->Stack.MaximumSize / sizeof(FObject)) - 1;
     ts->Proc = NoValueObject;
     ts->Frame = NoValueObject;
     ts->IP = -1;
@@ -2243,6 +3872,14 @@ void EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms)
             ts->IndexParameters[idx] = NoValueObject;
 
     ts->NotifyFlag = 0;
+    return(1);
+
+Failed:
+    if (ts->Babies.Base != 0)
+        DeleteMemRegion(&ts->Babies);
+    if (ts->Stack.Base != 0)
+        DeleteMemRegion(&ts->Stack);
+    return(0);
 }
 
 uint_t LeaveThread(FThreadState * ts)
@@ -2287,27 +3924,31 @@ uint_t LeaveThread(FThreadState * ts)
         ts->Previous->Next = ts->Next;
     }
 
-    FAssert(ts->AStack != 0);
-    free(ts->AStack);
+    FAssert(ts->Stack.Base != 0);
+    DeleteMemRegion(&ts->Stack);
 
     ts->AStack = 0;
     ts->CStack = 0;
     ts->Thread = NoValueObject;
 
+#if 0
     if (ts->ActiveZero != 0)
     {
         ts->ActiveZero->Next = GenerationZero;
         GenerationZero = ts->ActiveZero;
         ts->ActiveZero = 0;
     }
+#endif // 0
 
     LeaveExclusive(&GCExclusive);
+#if 0
     WakeCondition(&ReadyCondition); // Just in case a collection is pending.
+#endif // 0
 
     return(tt);
 }
 
-void SetupCore(FThreadState * ts)
+int_t SetupCore(FThreadState * ts)
 {
     FAssert(sizeof(FObject) == sizeof(int_t));
     FAssert(sizeof(FObject) == sizeof(uint_t));
@@ -2315,12 +3956,11 @@ void SetupCore(FThreadState * ts)
     FAssert(sizeof(FObject) == sizeof(char *));
     FAssert(sizeof(FFixnum) <= sizeof(FImmediate));
     FAssert(sizeof(FCh) <= sizeof(FImmediate));
-    FAssert(sizeof(FYoungHeader) == OBJECT_ALIGNMENT);
+    FAssert(sizeof(FObjHdr) % OBJECT_ALIGNMENT == 0);
+    FAssert(sizeof(FObjHdr) >= OBJECT_ALIGNMENT);
+    FAssert(OBJHDR_SIZE_MASK >= OBJHDR_SLOT_COUNT_MASK * sizeof(FObject));
 
 #ifdef FOMENT_DEBUG
-    uint_t len = MakeLength(MAXIMUM_OBJECT_LENGTH, GCFreeTag);
-    FAssert(ByteLength(&len) == MAXIMUM_OBJECT_LENGTH);
-
     if (strcmp(FOMENT_MEMORYMODEL, "ilp32") == 0)
     {
         FAssert(sizeof(int) == 4);
@@ -2344,41 +3984,47 @@ void SetupCore(FThreadState * ts)
     }
 #endif // FOMENT_DEBUG
 
-    FAssert(SECTION_SIZE == 1024 * 16);
-    FAssert(MAXIMUM_YOUNG_LENGTH <= SECTION_SIZE / 2);
-
-    FAssert(MaximumSections % SECTION_SIZE == 0);
-    FAssert(MaximumSections >= SECTION_SIZE);
+    if (CollectorType == NullCollector && MaximumBabiesSize == 0)
+        MaximumBabiesSize = 1024 * 1024 * 128;
+    if (CollectorType == GenerationalCollector && MaximumBabiesSize == 0)
+        MaximumBabiesSize = 1024 * 1024 * 2;
 
 #ifdef FOMENT_WINDOWS
+#if 0
     SectionTable = (unsigned char *) VirtualAlloc(SectionTableBase, SECTION_SIZE * MaximumSections,
             MEM_RESERVE, PAGE_READWRITE);
 
-    FMustBe(SectionTable != 0);
+    if (SectionTable == 0)
+        return(0);
 
     VirtualAlloc(SectionTable, MaximumSections, MEM_COMMIT, PAGE_READWRITE);
+#endif // 0
 
     TlsIndex = TlsAlloc();
     FAssert(TlsIndex != TLS_OUT_OF_INDEXES);
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
+#if 0
     SectionTable = (unsigned char *) mmap(SectionTableBase, (SECTION_SIZE + 1) * MaximumSections,
             PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS |
             (SectionTableBase == 0 ? 0 : MAP_FIXED), -1 ,0);
 
-    FMustBe(SectionTable != 0);
+    if (SectionTable == 0)
+        return(0);
 
     if (SectionTable != SectionBase(SectionTable))
         SectionTable += (SECTION_SIZE - SectionOffset(SectionTable));
 
-    FMustBe(SectionTable != 0);
+    FAssert(SectionTable != 0);
 
     mprotect(SectionTable, MaximumSections, PROT_READ | PROT_WRITE);
+#endif // 0
 
     pthread_key_create(&ThreadKey, 0);
 #endif // FOMENT_UNIX
 
+#if 0
     if (SectionTableBase != 0)
         printf("SectionTable: %p\n", SectionTable);
 
@@ -2400,17 +4046,24 @@ void SetupCore(FThreadState * ts)
     BackRefSectionCount = 1;
 
     ScanSections = AllocateScanSection(0);
+#endif // 0
 
     InitializeExclusive(&GCExclusive);
+
+#if 0
     InitializeCondition(&ReadyCondition);
     InitializeCondition(&DoneCondition);
+#endif // 0
 
     TotalThreads = 1;
+
+#if 0
     WaitThreads = 0;
     Threads = 0;
     GCRequired = 1;
     GCHappening = 0;
     FullGCRequired = 0;
+#endif // 0
 
 #ifdef FOMENT_WINDOWS
     HANDLE h = OpenThread(STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x3FF, 0,
@@ -2421,21 +4074,21 @@ void SetupCore(FThreadState * ts)
     pthread_t h = pthread_self();
 #endif // FOMENT_UNIX
 
+#if 0
     for (uint_t idx = 0; idx < sizeof(Sizes) / sizeof(uint_t); idx++)
         Sizes[idx] = 0;
+#endif // 0
 
-    EnterThread(ts, NoValueObject, NoValueObject, NoValueObject);
+    if (EnterThread(ts, NoValueObject, NoValueObject, NoValueObject) == 0)
+        return(0);
     ts->Thread = MakeThread(h, NoValueObject, NoValueObject, NoValueObject);
 
     R.CleanupTConc = MakeTConc();
 
     if (CheckHeapFlag)
-    {
-        WalkMarks = (unsigned char *) malloc(WalkMarksSize);
-        FMustBe(WalkMarks != 0);
+        CheckHeap(__FILE__, __LINE__);
 
-        WalkHeap(__FILE__, __LINE__);
-    }
+    return(1);
 }
 
 Define("install-guardian", InstallGuardianPrimitive)(int_t argc, FObject argv[])
@@ -2472,14 +4125,17 @@ Define("collect", CollectPrimitive)(int_t argc, FObject argv[])
 
     EnterExclusive(&GCExclusive);
     GCRequired = 1;
+#if 0
     if (argc > 0 && argv[0] != FalseObject)
         FullGCRequired = 1;
+#endif // 0
     LeaveExclusive(&GCExclusive);
 
     CheckForGC();
     return(NoValueObject);
 }
 
+#if 0
 Define("partial-per-full", PartialPerFullPrimitive)(int_t argc, FObject argv[])
 {
     // (partial-per-full [<val>])
@@ -2565,16 +4221,19 @@ Define("dump-gc", DumpGCPrimitive)(int_t argc, FObject argv[])
 
     return(NoValueObject);
 }
+#endif // 0
 
 static FPrimitive * Primitives[] =
 {
     &InstallGuardianPrimitive,
     &InstallTrackerPrimitive,
-    &CollectPrimitive,
+    &CollectPrimitive
+#if 0
     &PartialPerFullPrimitive,
     &TriggerBytesPrimitive,
     &TriggerObjectsPrimitive,
     &DumpGCPrimitive
+#endif // 0
 };
 
 void SetupGC()
@@ -2582,3 +4241,4 @@ void SetupGC()
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }
+#endif // 0

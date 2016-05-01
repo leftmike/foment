@@ -336,7 +336,7 @@ static void WriteRecord(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
     }
 }
 
-static void WriteIndirectObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx)
+static void WriteObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx)
 {
     switch (IndirectTag(obj))
     {
@@ -474,13 +474,13 @@ static void WriteIndirectObject(FObject port, FObject obj, int_t df, FWriteFn wf
             wfn(port, AsProcedure(obj)->Name, df, (void *) wfn, ctx);
         }
 
-        if (AsProcedure(obj)->Reserved & PROCEDURE_FLAG_CLOSURE)
+        if (AsProcedure(obj)->Flags & PROCEDURE_FLAG_CLOSURE)
             WriteStringC(port, " closure");
 
-        if (AsProcedure(obj)->Reserved & PROCEDURE_FLAG_PARAMETER)
+        if (AsProcedure(obj)->Flags & PROCEDURE_FLAG_PARAMETER)
             WriteStringC(port, " parameter");
 
-        if (AsProcedure(obj)->Reserved & PROCEDURE_FLAG_CONTINUATION)
+        if (AsProcedure(obj)->Flags & PROCEDURE_FLAG_CONTINUATION)
             WriteStringC(port, " continuation");
 
         if (StringP(AsProcedure(obj)->Filename) && FixnumP(AsProcedure(obj)->LineNumber))
@@ -630,8 +630,8 @@ void WriteGeneric(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx)
     }
     else if (PairP(obj))
         WritePair(port, obj, df, wfn, ctx);
-    else if (IndirectP(obj))
-        WriteIndirectObject(port, obj, df, wfn, ctx);
+    else if (ObjectP(obj))
+        WriteObject(port, obj, df, wfn, ctx);
     else if (obj == EmptyListObject)
         WriteStringC(port, "()");
     else if (obj == FalseObject)

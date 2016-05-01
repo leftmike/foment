@@ -51,22 +51,15 @@ int PopulationCount(uint64_t x)
 // The implementation uses hash array mapped tries;
 // see http://lampwww.epfl.ch/papers/idealhashtrees.pdf
 
-#ifdef FOMENT_64BIT
 #define HASH_MODULO (MAXIMUM_FIXNUM + 1)
-#endif // FOMENT_64BIT
 
-#ifdef FOMENT_32BIT
-#define HASH_MODULO (MAXIMUM_OBJECT_LENGTH + 1)
-#endif // FOMENT_32BIT
-
-static FObject MakeHashTree(uint_t len, uint_t bm, FObject * bkts)
+static FObject MakeHashTree(uint_t len, uint_t bm, FObject * bkts, const char * who)
 {
     FAssert(len == (uint_t) PopulationCount(bm));
 
-    FHashTree * ht = (FHashTree *) MakeObject(sizeof(FHashTree) + (len - 1) * sizeof(FObject),
-            HashTreeTag);
-    ht->Length = MakeLength(len, HashTreeTag);
-    ht->Bitmap = bm;
+    FHashTree * ht = (FHashTree *) MakeObject(HashTreeTag,
+            sizeof(uint_t) + len * sizeof(FObject), len, who);
+    HashTreeBitmap(ht) = bm;
 
     for (uint_t idx = 0; idx < len; idx++)
         ht->Buckets[idx] = bkts[idx];
@@ -74,9 +67,9 @@ static FObject MakeHashTree(uint_t len, uint_t bm, FObject * bkts)
     return(ht);
 }
 
-FObject MakeHashTree()
+FObject MakeHashTree(const char * who)
 {
-    return(MakeHashTree(0, 0, 0));
+    return(MakeHashTree(0, 0, 0, who));
 }
 
 #ifdef FOMENT_64BIT
@@ -93,7 +86,7 @@ static inline uint_t ActualIndex(FObject htree, uint_t bdx)
 {
     FAssert(HashTreeP(htree));
 
-    return(PopulationCount(AsHashTree(htree)->Bitmap & ((((uint_t) 1) << bdx) - 1)));
+    return(PopulationCount(HashTreeBitmap(htree) & ((((uint_t) 1) << bdx) - 1)));
 }
 
 static inline uint_t BucketIndex(uint_t idx, uint_t dpth)
@@ -115,7 +108,7 @@ static inline uint_t BucketP(FObject htree, uint_t bdx)
 {
     FAssert(HashTreeP(htree));
 
-    return(AsHashTree(htree)->Bitmap & (((uint_t) 1) << bdx));
+    return(HashTreeBitmap(htree) & (((uint_t) 1) << bdx));
 }
 
 static FObject HashTreeRef(FObject htree, uint_t idx, FObject nfnd)
@@ -163,7 +156,7 @@ static FObject MakeHashTreeBuckets(uint_t dpth, FObject bx1, FObject bx2)
     if (bdx1 == bdx2)
     {
         bkts[0] = MakeHashTreeBuckets(dpth + 1, bx1, bx2);
-        return(MakeHashTree(1, ((uint_t) 1) << bdx1, bkts));
+        return(MakeHashTree(1, ((uint_t) 1) << bdx1, bkts, "hash-tree-set!"));
     }
     else if (bdx1 > bdx2)
     {
@@ -176,7 +169,8 @@ static FObject MakeHashTreeBuckets(uint_t dpth, FObject bx1, FObject bx2)
         bkts[1] = bx2;
     }
 
-    return(MakeHashTree(2, (((uint_t) 1) << bdx1) | (((uint_t) 1) << bdx2), bkts));
+    return(MakeHashTree(2, (((uint_t) 1) << bdx1) | (((uint_t) 1) << bdx2), bkts,
+            "hash-tree-set!"));
 }
 
 static FObject HashTreeSet(FObject htree, uint_t idx, uint_t dpth, FObject val)
@@ -211,7 +205,8 @@ static FObject HashTreeSet(FObject htree, uint_t idx, uint_t dpth, FObject val)
 
         FAssert(udx == HashTreeLength(htree) + 1);
 
-        htree = MakeHashTree(udx, AsHashTree(htree)->Bitmap | (((uint_t) 1) << bdx), bkts);
+        htree = MakeHashTree(udx, HashTreeBitmap(htree) | (((uint_t) 1) << bdx), bkts,
+                "hash-tree-set!");
 
 #ifdef FOMENT_DEBUG
         for (uint_t ndx = 0; ndx < sizeof(uint_t) * 8; ndx++)
@@ -314,8 +309,8 @@ static FObject HashTreeDelete(FObject htree, uint_t idx, uint_t dpth)
                     }
                 }
 
-                htree = MakeHashTree(udx, AsHashTree(htree)->Bitmap & ~(((uint_t) 1) << bdx),
-                        bkts);
+                htree = MakeHashTree(udx, HashTreeBitmap(htree) & ~(((uint_t) 1) << bdx),
+                        bkts, "hash-tree-delete");
 #ifdef FOMENT_DEBUG
                 for (uint_t ndx = 0; ndx < sizeof(uint_t) * 8; ndx++)
                 {
@@ -399,7 +394,7 @@ static FObject HashTreeCopy(FObject htree)
         }
     }
 
-    return(MakeHashTree(HashTreeLength(htree), AsHashTree(htree)->Bitmap, bkts));
+    return(MakeHashTree(HashTreeLength(htree), HashTreeBitmap(htree), bkts, "hash-tree-copy"));
 }
 
 /*
@@ -435,7 +430,7 @@ Define("make-hash-tree", MakeHashTreePrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("make-hash-tree", argc);
 
-    return(MakeHashTree(0, 0, 0));
+    return(MakeHashTree(0, 0, 0, "make-hash-tree"));
 }
 
 Define("hash-tree?", HashTreePPrimitive)(int_t argc, FObject argv[])
@@ -494,7 +489,7 @@ Define("hash-tree-bitmap", HashTreeBitmapPrimitive)(int_t argc, FObject argv[])
     OneArgCheck("hash-tree-bitmap", argc);
     HashTreeArgCheck("hash-tree-bitmap", argv[0]);
 
-    return(MakeIntegerU(AsHashTree(argv[0])->Bitmap));
+    return(MakeIntegerU(HashTreeBitmap(argv[0])));
 }
 
 Define("hash-tree-copy", HashTreeCopyPrimitive)(int_t argc, FObject argv[])
@@ -526,9 +521,9 @@ FObject StringToSymbol(FObject str)
         obj = Rest(obj);
     }
 
-    FSymbol * sym = (FSymbol *) MakeObject(sizeof(FSymbol), SymbolTag);
-    sym->Reserved = MakeLength(NextSymbolHash, SymbolTag);
+    FSymbol * sym = (FSymbol *) MakeObject(SymbolTag, sizeof(FSymbol), 1, "string->symbol");
     sym->String = str;
+    sym->Hash = NextSymbolHash;
     NextSymbolHash = (NextSymbolHash + 1) % HASH_MODULO;
 
     R.SymbolHashTree = HashTreeSet(R.SymbolHashTree, idx, MakePair(sym, lst));
@@ -551,9 +546,9 @@ FObject StringLengthToSymbol(FCh * s, int_t sl)
         obj = Rest(obj);
     }
 
-    FSymbol * sym = (FSymbol *) MakeObject(sizeof(FSymbol), SymbolTag);
-    sym->Reserved = MakeLength(NextSymbolHash, SymbolTag);
+    FSymbol * sym = (FSymbol *) MakeObject(SymbolTag, sizeof(FSymbol), 1, "string->symbol");
     sym->String = MakeString(s, sl);
+    sym->Hash = NextSymbolHash;
     NextSymbolHash = (NextSymbolHash + 1) % HASH_MODULO;
 
     R.SymbolHashTree = HashTreeSet(R.SymbolHashTree, idx, MakePair(sym, lst));
@@ -905,7 +900,7 @@ static FObject MakeHashMap(FObject comp, FObject tracker)
     FAssert(tracker == NoValueObject || PairP(tracker));
 
     FHashMap * hmap = (FHashMap *) MakeRecord(R.HashMapRecordType);
-    hmap->HashTree = MakeHashTree();
+    hmap->HashTree = MakeHashTree("make-hash-map");
     hmap->Comparator = comp;
     hmap->Tracker = tracker;
     hmap->Size = MakeFixnum(0);
@@ -1012,7 +1007,7 @@ static FObject MakeHashSet(FObject comp, FObject tracker)
     FAssert(tracker == NoValueObject || PairP(tracker));
 
     FHashSet * hset = (FHashSet *) MakeRecord(R.HashSetRecordType);
-    hset->HashTree = MakeHashTree();
+    hset->HashTree = MakeHashTree("make-hash-set");
     hset->Comparator = comp;
     hset->Tracker = tracker;
     hset->Size = MakeFixnum(0);
@@ -1113,7 +1108,7 @@ static FObject MakeHashBag(FObject comp, FObject tracker)
     FAssert(tracker == NoValueObject || PairP(tracker));
 
     FHashBag * hbag = (FHashBag *) MakeRecord(R.HashBagRecordType);
-    hbag->HashTree = MakeHashTree();
+    hbag->HashTree = MakeHashTree("make-hash-bag");
     hbag->Comparator = comp;
     hbag->Tracker = tracker;
     hbag->Size = MakeFixnum(0);

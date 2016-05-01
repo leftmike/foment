@@ -12,14 +12,8 @@ Foment
 
 FObject MakeString(FCh * s, uint_t sl)
 {
-    FString * ns = (FString *) MakeObject(sizeof(FString) + sl * sizeof(FCh), StringTag);
-    if (ns == 0)
-    {
-        ns = (FString *) MakePinnedObject(sizeof(FString) + sl * sizeof(FCh), "make-string");
-        ns->Length = MakePinnedLength(sl, StringTag);
-    }
-    else
-        ns->Length = MakeLength(sl, StringTag);
+    FString * ns = (FString *) MakeObject(StringTag, sizeof(FString) + sl * sizeof(FCh), 0,
+        "make-string");
     ns->String[sl] = 0;
 
     if (s != 0)

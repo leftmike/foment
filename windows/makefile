@@ -17,28 +17,47 @@ clean: debug release manual
 
 test: all
     cd ..\test
-    ..\windows\debug\foment --check-heap runtests.scm r7rs.scm r7rs-eval.scm foment.scm\
+    ..\windows\debug\foment runtests.scm r7rs.scm r7rs-eval.scm foment.scm\
             eccentric.scm r5rs_pitfall.scm unicode.scm srfi.scm
-    ..\windows\debug\foment --check-heap r7rs.scm
+    ..\windows\debug\foment r7rs.scm
     ..\windows\release\foment runtests.scm r7rs.scm r7rs-eval.scm foment.scm eccentric.scm\
             r5rs_pitfall.scm unicode.scm srfi.scm
     ..\windows\release\foment r7rs.scm
 
+check-test: all
+    cd ..\test
+    ..\windows\debug\foment --check-heap runtests.scm r7rs.scm r7rs-eval.scm foment.scm\
+            eccentric.scm r5rs_pitfall.scm unicode.scm srfi.scm
+    ..\windows\debug\foment --check-heap r7rs.scm
+    ..\windows\release\foment --check-heap runtests.scm r7rs.scm r7rs-eval.scm foment.scm\
+            eccentric.scm r5rs_pitfall.scm unicode.scm srfi.scm
+    ..\windows\release\foment --check-heap r7rs.scm
+
 stress: all
     cd ..\test
-    ..\windows\debug\foment --check-heap runtests.scm stress.scm r7rs.scm
+    ..\windows\debug\foment runtests.scm stress.scm r7rs.scm
     ..\windows\release\foment runtests.scm stress.scm r7rs.scm
+
+check-stress: all
+    cd ..\test
+    ..\windows\debug\foment --check-heap runtests.scm stress.scm r7rs.scm
+    ..\windows\release\foment --check-heap runtests.scm stress.scm r7rs.scm
 
 chibi: all
     cd ..\test
-    ..\windows\debug\foment --check-heap r7rs-tests.scm
+    ..\windows\debug\foment r7rs-tests.scm
     ..\windows\release\foment r7rs-tests.scm
 
-testsrfi: all
+check-chibi: all
+    cd ..\test
+    ..\windows\debug\foment --check-heap r7rs-tests.scm
+    ..\windows\release\foment --check-heap r7rs-tests.scm
+
+test-srfi: all
     cd ..\test
     ..\windows\debug\foment --check-heap runtests.scm srfi.scm
 
-testfoment: all
+test-foment: all
     cd ..\test
     ..\windows\debug\foment --check-heap runtests.scm foment.scm
 

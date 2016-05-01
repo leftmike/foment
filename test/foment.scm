@@ -239,6 +239,7 @@
 (check-equal 20 (*k2*))
 (check-equal 2 (p2))
 
+#|
 ;;
 ;; guardians
 ;;
@@ -377,7 +378,7 @@
 (check-equal #f (t))
 (collect)
 (check-equal #f (t))
-
+|#
 ;;
 ;; Collector and Back References
 ;;

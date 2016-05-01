@@ -13,7 +13,6 @@ Foment
 
 typedef struct
 {
-    uint_t Reserved;
     mpz_t MPInteger;
 } FBignum;
 

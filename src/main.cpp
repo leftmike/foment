@@ -243,22 +243,6 @@ int main(int argc, char * argv[])
             VerboseFlag = 1;
             adx += 1;
         }
-        else if (StringCompareS(argv[adx], "--section-table") == 0)
-        {
-            adx += 1;
-
-            if (adx < argc)
-            {
-#ifdef FOMENT_32BIT
-                SectionTableBase = (void *) HexStringToInt32(argv[adx]);
-#endif // FOMENT_32BIT
-#ifdef FOMENT_64BIT
-                SectionTableBase = (void *) HexStringToInt64(argv[adx]);
-#endif // FOMENT_64BIT
-
-                adx += 1;
-            }
-        }
         else if (StringCompareS(argv[adx], "--random-seed") == 0)
         {
             adx += 1;
@@ -277,23 +261,19 @@ int main(int argc, char * argv[])
 
     try
     {
-        SetupFoment(&ts);
+        if (SetupFoment(&ts) == 0)
+        {
+            printf("SetupFoment: out of memory\n");
+            return(1);
+        }
 
         if (pdx > 0)
-        {
             AddToLibraryPath(argv[pdx]);
-        }
     }
     catch (FObject obj)
     {
         printf("Unexpected exception: SetupFoment: %p\n", obj);
         WriteSimple(R.StandardOutput, obj, 0);
-
-        if (CheckHeapFlag)
-        {
-            FailedGC();
-            FailedExecute();
-        }
         return(1);
     }
 
@@ -354,8 +334,6 @@ int main(int argc, char * argv[])
                     || StringCompareS(argv[adx], "--check-heap") == 0
                     || StringCompareS(argv[adx], "--verbose") == 0)
                 adx += 1;
-            else if (StringCompareS(argv[adx], "--section-table") == 0)
-                adx += 2;
             else if (StringCompareS(argv[adx], "--random-seed") == 0)
                 adx += 2;
             else if (argv[adx][0] != '-')
@@ -379,12 +357,6 @@ int main(int argc, char * argv[])
             WriteStringC(R.StandardOutput, "exception: ");
         WriteSimple(R.StandardOutput, obj, 0);
         WriteCh(R.StandardOutput, '\n');
-
-        if (CheckHeapFlag)
-        {
-            FailedGC();
-            FailedExecute();
-        }
         return(-1);
     }
 }

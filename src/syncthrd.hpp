@@ -140,14 +140,13 @@ inline void DeleteCondition(OSCondition * osc)
 
 #define AsThread(obj) ((FThread *) (obj))
 
-typedef struct _FThread
+typedef struct
 {
-    uint_t Reserved;
-    OSThreadHandle Handle;
     FObject Result;
     FObject Thunk;
     FObject Parameters;
     FObject IndexParameters;
+    OSThreadHandle Handle;
 } FThread;
 
 FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms, FObject idxprms);
@@ -159,7 +158,6 @@ void ThreadExit(FObject obj);
 
 typedef struct
 {
-    uint_t Reserved;
     OSExclusive Exclusive;
 } FExclusive;
 
@@ -169,7 +167,6 @@ typedef struct
 
 typedef struct
 {
-    uint_t Reserved;
     OSCondition Condition;
 } FCondition;
 
@@ -211,7 +208,7 @@ extern volatile uint_t TotalThreads;
 extern FThreadState * Threads;
 extern OSExclusive GCExclusive;
 
-void EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms);
+int_t EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms);
 uint_t LeaveThread(FThreadState * ts);
 
 inline FObject IndexParameter(uint_t idx)

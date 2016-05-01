@@ -410,10 +410,6 @@
         default-prompt-handler
         current-continuation-marks
         collect
-        partial-per-full
-        trigger-bytes
-        trigger-objects
-        dump-gc
         make-guardian
         make-tracker
         make-exclusive

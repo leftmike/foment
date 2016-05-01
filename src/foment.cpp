@@ -62,40 +62,29 @@ uint_t VerboseFlag = 0;
 
 FRoots R;
 
-void FAssertFailed(const char * fn, int_t ln, const char * expr)
+static void Failed()
 {
-    printf("FAssert: %s (%d)%s\n", expr, (int) ln, fn);
 
     if (SetupComplete)
     {
         if (CheckHeapFlag || VerboseFlag)
-        {
-            FailedGC();
-            FailedExecute();
             printf("RandomSeed: %u\n", RandomSeed);
-        }
         ExitFoment();
     }
 
     exit(1);
 }
 
+void FAssertFailed(const char * fn, int_t ln, const char * expr)
+{
+    printf("FAssert: %s (%d)%s\n", expr, (int) ln, fn);
+    Failed();
+}
+
 void FMustBeFailed(const char * fn, int_t ln, const char * expr)
 {
     printf("FMustBe: %s (%d)%s\n", expr, (int) ln, fn);
-
-    if (SetupComplete)
-    {
-        if (CheckHeapFlag || VerboseFlag)
-        {
-            FailedGC();
-            FailedExecute();
-            printf("RandomSeed: %u\n", RandomSeed);
-        }
-        ExitFoment();
-    }
-
-    exit(1);
+    Failed();
 }
 
 // ---- Immediates ----
@@ -516,9 +505,9 @@ FObject MakeBox(FObject val)
 
 FObject MakeBox(FObject val, uint_t idx)
 {
-    FBox * bx = (FBox *) MakeObject(sizeof(FBox), BoxTag);
-    bx->Index = MakeLength(idx, BoxTag);
+    FBox * bx = (FBox *) MakeObject(BoxTag, sizeof(FBox), 1, "box");
     bx->Value = val;
+    bx->Index = idx;
 
     return(bx);
 }
@@ -529,9 +518,8 @@ FObject MakeRecordType(FObject nam, uint_t nf, FObject flds[])
 {
     FAssert(SymbolP(nam));
 
-    FRecordType * rt = (FRecordType *) MakeObject(sizeof(FRecordType) + sizeof(FObject) * nf,
-            RecordTypeTag);
-    rt->NumFields = MakeLength(nf + 1, RecordTypeTag);
+    FRecordType * rt = (FRecordType *) MakeObject(RecordTypeTag,
+            sizeof(FRecordType) + sizeof(FObject) * nf, nf + 1, "%make-record-type");
     rt->Fields[0] = nam;
 
     for (uint_t fdx = 1; fdx <= nf; fdx++)
@@ -667,9 +655,8 @@ FObject MakeRecord(FObject rt)
 
     uint_t nf = RecordTypeNumFields(rt);
 
-    FGenericRecord * r = (FGenericRecord *) MakeObject(
-            sizeof(FGenericRecord) + sizeof(FObject) * (nf - 1), RecordTag);
-    r->NumFields = MakeLength(nf, RecordTag);
+    FGenericRecord * r = (FGenericRecord *) MakeObject(RecordTag,
+            sizeof(FGenericRecord) + sizeof(FObject) * (nf - 1), nf, "%make-record");
     r->Fields[0] = rt;
 
     for (uint_t fdx = 1; fdx < nf; fdx++)
@@ -682,7 +669,8 @@ FObject MakeRecord(FObject rt)
 
 FObject MakePrimitive(FPrimitive * prim)
 {
-    FPrimitive * p = (FPrimitive *) MakeObject(sizeof(FPrimitive), PrimitiveTag);
+    FPrimitive * p = (FPrimitive *) MakeObject(PrimitiveTag, sizeof(FPrimitive), 0,
+            "%make-primitive");
     memcpy(p, prim, sizeof(FPrimitive));
 
     return(p);
@@ -1037,7 +1025,7 @@ static void FixupUName(char * s)
 }
 #endif // FOMENT_UNIX
 
-void SetupFoment(FThreadState * ts)
+int_t SetupFoment(FThreadState * ts)
 {
 #ifdef FOMENT_WINDOWS
     StartingTicks = GetTickCount64();
@@ -1062,9 +1050,10 @@ void SetupFoment(FThreadState * ts)
     for (uint_t rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
         rv[rdx] = NoValueObject;
 
-    SetupCore(ts);
+    if (SetupCore(ts) == 0)
+        return(0);
 
-    R.SymbolHashTree = MakeHashTree();
+    R.SymbolHashTree = MakeHashTree("%setup-foment");
 
     SetupHashContainers();
     SetupCompare();
@@ -1172,10 +1161,11 @@ void SetupFoment(FThreadState * ts)
     R.LibraryExtensions = List(MakeStringC("sld"), MakeStringC("scm"));
 
     if (CheckHeapFlag)
-        WalkHeap(__FILE__, __LINE__);
+        CheckHeap(__FILE__, __LINE__);
     SetupScheme();
     if (CheckHeapFlag)
-        WalkHeap(__FILE__, __LINE__);
+        CheckHeap(__FILE__, __LINE__);
 
     SetupComplete = 1;
+    return(1);
 }
