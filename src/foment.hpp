@@ -12,7 +12,6 @@ To Do:
     -- TriggerBytes
     -- TriggerObjects
     -- PartialPerFull
--- cleanup ImmediateTags
 -- turn back on thread tests in foment.scm
 -- CheckObject: check back references from mature objects
 -- Kids and Adults
@@ -145,23 +144,13 @@ typedef enum
 {
     // Direct Types
 
-    UnusedTag1 = 0x01,       // 0bxxxxx001
-    UnusedTag2 = 0x02,       // 0bxxxxx010
-    DoNotUse = 0x03,         // 0bxxxxx011
-    UnusedTag3 = 0x04,       // 0bxxxxx100
-    UnusedTag4 = 0x05,       // 0bxxxxx101
-    UnusedTag5 = 0x06,       // 0bxxxxx110
-
-    FixnumTag = 0x07,        // 0bxxxx0111
-
-    CharacterTag = 0x0B,     // 0bx0001011
-    MiscellaneousTag = 0x1B, // 0bx0011011
-    SpecialSyntaxTag = 0x2B, // 0bx0101011
-    InstructionTag = 0x3B,   // 0bx0111011
-    ValuesCountTag = 0x4B,   // 0bx1001011
-    UnusedTag6 = 0x5B,       // 0bx1011011
-    UnusedTag7 = 0x6B,       // 0bx1101011
-    UnusedTag8 = 0x7B        // 0bx1111011
+    FixnumTag = 0x01,
+    CharacterTag = 0x02,
+    MiscellaneousTag = 0x03,
+    SpecialSyntaxTag = 0x04,
+    InstructionTag = 0x05,
+    ValuesCountTag = 0x06,
+    UnusedTag = 0x07
 } FDirectTag;
 
 typedef enum
@@ -196,18 +185,18 @@ typedef enum
 
 #define ObjectP(obj) ((((FImmediate) (obj)) & 0x7) == 0x0)
 
-#define ImmediateTag(obj) (((FImmediate) (obj)) & 0x7F)
+#define ImmediateTag(obj) (((FImmediate) (obj)) & 0x7)
 #define ImmediateP(obj, it) (ImmediateTag((obj)) == it)
 #define MakeImmediate(val, it)\
-    ((FObject *) ((((FImmediate) (val)) << 7) | (it & 0x7F)))
-#define AsValue(obj) (((FImmediate) (obj)) >> 7)
+    ((FObject *) ((((FImmediate) (val)) << 3) | (it & 0x7)))
+#define AsValue(obj) (((FImmediate) (obj)) >> 3)
 
-#define FixnumP(obj) ((((FImmediate) (obj)) & 0xF) == FixnumTag)
+#define FixnumP(obj) ImmediateP(obj, FixnumTag)
 #define MakeFixnum(n)\
-    ((FObject *) ((((FFixnum) (n)) << 4) | (FixnumTag & 0xF)))
-#define AsFixnum(obj) (((FFixnum) (obj)) >> 4)
+    ((FObject *) ((((FFixnum) (n)) << 3) | (FixnumTag & 0x7)))
+#define AsFixnum(obj) (((FFixnum) (obj)) >> 3)
 
-#define MAXIMUM_FIXNUM ((((FFixnum) 1) << (sizeof(int32_t) * 8 - 5)) - 1)
+#define MAXIMUM_FIXNUM ((((FFixnum) 1) << (sizeof(int32_t) * 8 - 4)) - 1)
 #define MINIMUM_FIXNUM (- MAXIMUM_FIXNUM)
 
 // ---- Memory Management ----

@@ -734,7 +734,7 @@ static void CheckObject(FObject obj, int_t idx)
     CheckStackPtr += 1;
 
 Again:
-    switch (((FImmediate) (obj)) & 0x7)
+    switch (ImmediateTag(obj))
     {
     case 0x00: // ObjectP(obj)
     {
@@ -780,39 +780,17 @@ Again:
         break;
     }
 
-    case UnusedTag1: // 0bxxxxx001
-    case UnusedTag2: // 0bxxxxx010
+    case FixnumTag: // 0x01
+    case CharacterTag: // 0x02
+    case MiscellaneousTag: // 0x03
+    case SpecialSyntaxTag: // 0x04
+    case InstructionTag: // 0x05
+    case ValuesCountTag: // 0x06
+        break;
+
+    case UnusedTag: // 0x07
         PrintCheckStack();
         FMustBe(0);
-        break;
-
-    case DoNotUse: // 0bxxxxx011
-        switch (((FImmediate) (obj)) & 0x7F)
-        {
-        case CharacterTag: // 0bx0001011
-        case MiscellaneousTag: // 0bx0011011
-        case SpecialSyntaxTag: // 0bx0101011
-        case InstructionTag: // 0bx0111011
-        case ValuesCountTag: // 0bx1001011
-            break;
-
-        case UnusedTag6: // 0bx1011011
-        case UnusedTag7: // 0bx1101011
-        case UnusedTag8: // 0bx1111011
-            PrintCheckStack();
-            FMustBe(0);
-            break;
-        }
-        break;
-
-    case UnusedTag3: // 0bxxxxx100
-    case UnusedTag4: // 0bxxxxx101
-    case UnusedTag5: // 0bxxxxx110
-        PrintCheckStack();
-        FMustBe(0);
-        break;
-
-    case FixnumTag: // 0bxxxx0111
         break;
     }
 
