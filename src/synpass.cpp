@@ -1753,7 +1753,6 @@ FObject ReadInclude(FObject op, FObject lst, int_t cif)
     if (PairP(lst) == 0)
         return(EmptyListObject);
 
-    FDontWait dw;
     FObject ret = EmptyListObject;
     FObject src = IdentifierP(op) ? AsIdentifier(op)->Filename : NoValueObject;
 

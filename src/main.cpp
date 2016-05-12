@@ -171,8 +171,6 @@ static int ProgramMode(int adx, int argc, FChS * argv[])
 
     FObject port;
     {
-        FDontWait dw;
-
         port = OpenInputFile(nam);
         if (TextualPortP(port) == 0)
         {

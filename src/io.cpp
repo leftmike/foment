@@ -523,9 +523,9 @@ static uint_t HandleReadBytes(FObject port, void * b, uint_t bl)
     DWORD nr;
     HANDLE h = (HANDLE) AsGenericPort(port)->Context;
 
-    EnterWait();
+//    EnterWait();
     BOOL ret = ReadFile(h, b, (DWORD) bl, &nr, 0);
-    LeaveWait();
+//    LeaveWait();
 
     return(ret == 0 ? 0 : nr);
 }
@@ -633,9 +633,9 @@ static uint_t FileDescReadBytes(FObject port, void * b, uint_t bl)
 
     int_t fd = (int_t) AsGenericPort(port)->Context;
 
-    EnterWait();
+//    EnterWait();
     int_t br = read(fd, b, bl);
-    LeaveWait();
+//    LeaveWait();
 
     return(br <= 0 ? 0 : br);
 }

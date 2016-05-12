@@ -366,7 +366,6 @@ static int_t EqualToSymbol(FObject obj, FObject sym)
 
 static FObject LoadLibrary(FObject nam)
 {
-    FDontWait dw;
     FObject lp = R.LibraryPath;
 
     while (PairP(lp))
@@ -1255,7 +1254,6 @@ FObject CompileProgram(FObject nam, FObject port)
 
     WantIdentifiersPort(port, 1);
 
-    FDontWait dw;
     FObject env = MakeEnvironment(nam, FalseObject);
     FObject prog = EmptyListObject;
     FObject body = EmptyListObject;

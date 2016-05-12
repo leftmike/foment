@@ -3,24 +3,26 @@
 Foment
 
 To Do:
--- config options
-    -- FCollectorType CollectorType
+-- config options: some are fixed; some are modifiable
+    -- (config), (config <option>), (config <option> <new-value>)
+    -- FCollectorType CollectorType: (collector . none, mark-sweep, generational)
     -- MaximumStackSize
     -- MaximumBabiesSize
+    -- MaximumGenerationalBaby
     -- MaximumKidsSize
     -- MaximumAdultsSize
     -- TriggerBytes
     -- TriggerObjects
     -- PartialPerFull
--- turn back on thread tests in foment.scm
+-- turn back on thread, guardian, and tracker tests in foment.scm ==> should be features
 -- CheckObject: check back references from mature objects
+-- CheckHeap: check Adults
 -- Kids and Adults
 -- three collectors
-    -- null
+    -- none
     -- mark and sweep
     -- generational + mark and sweep
 -- after GC, test for objects pointing to Babies
--- redo thread management around collecting
 
 Future:
 -- number.cpp: make NumberP, BinaryNumberOp, and UnaryNumberOp faster
@@ -177,10 +179,8 @@ typedef enum
     ExclusiveTag,
     ConditionTag,
     HashTreeTag,
-
-    // Invalid Tag
-
-    BadDogTag
+    FreeTag, // Only on Adult Generation
+    BadDogTag // Invalid Tag
 } FIndirectTag;
 
 #define ObjectP(obj) ((((FImmediate) (obj)) & 0x7) == 0x0)
@@ -203,7 +203,7 @@ typedef enum
 
 typedef enum
 {
-    NullCollector,
+    NoCollector,
     MarkSweepCollector,
     GenerationalCollector
 } FCollectorType;
@@ -250,6 +250,8 @@ typedef struct
     uint_t Size() {return(FlagsAndSize & OBJHDR_SIZE_MASK);}
     uint_t SlotCount() {return(TagAndSlotCount & OBJHDR_SLOT_COUNT_MASK);}
     uint_t Tag() {return((TagAndSlotCount >> OBJHDR_TAG_SHIFT) & OBJHDR_TAG_MASK);}
+    FObject * Slots() {return((FObject *) (this + 1));}
+    uint_t Generation() {return(Flags & OBJHDR_GEN_MASK);}
 } FObjHdr;
 
 inline FObjHdr * AsObjHdr(FObject obj)
@@ -278,8 +280,8 @@ void EnterWait();
 void LeaveWait();
 
 void CheckHeap(const char * fn, int ln);
-void Collect();
-#define CheckForGC() if (GCRequired) Collect()
+void ReadyForGC();
+#define CheckForGC() if (GCRequired) ReadyForGC()
 
 inline int_t MatureP(FObject obj)
 {
@@ -310,14 +312,6 @@ public:
 
     FAlive * Next;
     FObject * Pointer;
-};
-
-class FDontWait
-{
-public:
-
-    FDontWait();
-    ~FDontWait();
 };
 
 //
@@ -1263,7 +1257,6 @@ typedef struct _FThreadState
     FObject Thread;
 
     FAlive * AliveList;
-    uint_t DontWait;
 
     uint_t ObjectsSinceLast;
     uint_t BytesSinceLast;

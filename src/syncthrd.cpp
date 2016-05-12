@@ -216,26 +216,26 @@ Define("run-thread", RunThreadPrimitive)(int_t argc, FObject argv[])
         RaiseExceptionC(R.Assertion, "run-thread", "CreateThread failed", List(MakeFixnum(ec)));
     }
 
-    EnterExclusive(&GCExclusive);
+    EnterExclusive(&ThreadsExclusive);
     TotalThreads += 1;
-    LeaveExclusive(&GCExclusive);
+    LeaveExclusive(&ThreadsExclusive);
 
     AsThread(thrd)->Handle = h;
     ResumeThread(h);
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-    EnterExclusive(&GCExclusive);
+    EnterExclusive(&ThreadsExclusive);
     TotalThreads += 1;
-    LeaveExclusive(&GCExclusive);
+    LeaveExclusive(&ThreadsExclusive);
 
     pthread_t pt;
     int ret = pthread_create(&pt, 0, StartThread, thrd);
     if (ret != 0)
     {
-        EnterExclusive(&GCExclusive);
+        EnterExclusive(&ThreadsExclusive);
         TotalThreads -= 1;
-        LeaveExclusive(&GCExclusive);
+        LeaveExclusive(&ThreadsExclusive);
 
         RaiseExceptionC(R.Assertion, "run-thread", "pthread_create failed", List(MakeFixnum(ret)));
     }
@@ -410,7 +410,7 @@ Define("condition-wake-all", ConditionWakeAllPrimitive)(int_t argc, FObject argv
 static void InterruptThread(FObject thrd);
 void NotifyThread(FObject thrd, FObject obj)
 {
-    EnterExclusive(&GCExclusive);
+    EnterExclusive(&ThreadsExclusive);
 
     FThreadState * ts = Threads;
     while (ts != 0)
@@ -427,12 +427,12 @@ void NotifyThread(FObject thrd, FObject obj)
         ts = ts->Next;
     }
 
-    LeaveExclusive(&GCExclusive);
+    LeaveExclusive(&ThreadsExclusive);
 }
 
 void NotifyBroadcast(FObject obj)
 {
-    EnterExclusive(&GCExclusive);
+    EnterExclusive(&ThreadsExclusive);
 
     FThreadState * ts = Threads;
     while (ts != 0)
@@ -444,7 +444,7 @@ void NotifyBroadcast(FObject obj)
         ts = ts->Next;
     }
 
-    LeaveExclusive(&GCExclusive);
+    LeaveExclusive(&ThreadsExclusive);
 }
 
 #define NOTIFY_EXIT 0

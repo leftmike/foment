@@ -206,7 +206,7 @@ inline void SetThreadState(FThreadState * ts)
 
 extern volatile uint_t TotalThreads;
 extern FThreadState * Threads;
-extern OSExclusive GCExclusive;
+extern OSExclusive ThreadsExclusive;
 
 int_t EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms);
 uint_t LeaveThread(FThreadState * ts);
