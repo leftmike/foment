@@ -16,10 +16,6 @@ Foment
 #include <stdio.h>
 #include "foment.hpp"
 
-#ifndef FOMENT_BSD
-#include <malloc.h>
-#endif // FOMENT_BSD
-
 #include "execute.hpp"
 #include "syncthrd.hpp"
 

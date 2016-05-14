@@ -1124,6 +1124,10 @@ int_t SetupFoment(FThreadState * ts)
     R.Features = MakePair(StringCToSymbol(OSName()), R.Features);
     R.Features = MakePair(StringCToSymbol(LittleEndianP() ? "little-endian" : "big-endian"),
             R.Features);
+    if (CollectorType == MarkSweepCollector || CollectorType == GenerationalCollector)
+        R.Features = MakePair(StringCToSymbol("guardians"), R.Features);
+    if (CollectorType == GenerationalCollector)
+        R.Features = MakePair(StringCToSymbol("trackers"), R.Features);
 
     R.LibraryPath = EmptyListObject;
 

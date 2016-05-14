@@ -14,15 +14,15 @@ To Do:
     -- TriggerBytes
     -- TriggerObjects
     -- PartialPerFull
--- turn back on thread, guardian, and tracker tests in foment.scm ==> should be features
+-- check trackers
 -- CheckObject: check back references from mature objects
--- CheckHeap: check Adults
--- Kids and Adults
+-- Kids
 -- three collectors
     -- none
     -- mark and sweep
     -- generational + mark and sweep
 -- after GC, test for objects pointing to Babies
+-- Use extra generation for immortal objects which are precompiled libraries
 
 Future:
 -- number.cpp: make NumberP, BinaryNumberOp, and UnaryNumberOp faster
@@ -207,6 +207,8 @@ typedef enum
     MarkSweepCollector,
     GenerationalCollector
 } FCollectorType;
+
+extern FCollectorType CollectorType;
 
 typedef struct
 {

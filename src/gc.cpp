@@ -91,6 +91,15 @@ typedef struct
 #define OBJECT_HDRFTR_LENGTH sizeof(FObjHdr)
 #endif // FOMENT_OBJFTR
 
+typedef struct _Guardian
+{
+    struct _Guardian * Next;
+    FObject Object;
+    FObject TConc;
+} FGuardian;
+
+static FGuardian * Guardians;
+
 static inline uint_t RoundToPageSize(uint_t cnt)
 {
     if (cnt % PAGE_SIZE != 0)
@@ -1054,6 +1063,15 @@ void CheckHeap(const char * fn, int ln)
         ts = ts->Next;
     }
 
+    FGuardian * grd = Guardians;
+    while (grd)
+    {
+        CheckRoot(grd->Object, "guardian.object", -1);
+        CheckRoot(grd->TConc, "guardian.tconc", -1);
+
+        grd = grd->Next;
+    }
+
 #if 0
     FTracker * track = YoungTrackers;
     while (track)
@@ -1063,24 +1081,6 @@ void CheckHeap(const char * fn, int ln)
         CheckRoot(track->TConc, "tracker.tconc");
 
         track = track->Next;
-    }
-
-    FGuardian * guard = YoungGuardians;
-    while (guard)
-    {
-        CheckRoot(guard->Object, "guardian.object");
-        CheckRoot(guard->TConc, "guardian.tconc");
-
-        guard = guard->Next;
-    }
-
-    guard = MatureGuardians;
-    while (guard)
-    {
-        CheckRoot(guard->Object, "guardian.object");
-        CheckRoot(guard->TConc, "guardian.tconc");
-
-        guard = guard->Next;
     }
 #endif // 0
     
@@ -1130,6 +1130,76 @@ Again:
             goto Again;
         }
     }
+}
+
+static FGuardian * CollectGuardians()
+{
+    FGuardian * final = 0;
+    FGuardian * maybe = Guardians;
+
+    Guardians = 0;
+    for (;;)
+    {
+        FGuardian * mlst = maybe;
+        maybe = 0;
+        FGuardian * pending = 0;
+
+        while (mlst)
+        {
+            FGuardian * grd = mlst;
+            mlst = mlst->Next;
+
+            if (MarkP(AsObjHdr(grd->TConc)))
+            {
+                if (MarkP(AsObjHdr(grd->Object)))
+                {
+                    grd->Next = Guardians;
+                    Guardians = grd;
+
+                    LiveObject(&grd->Object);
+                    LiveObject(&grd->TConc);
+                }
+                else
+                {
+                    grd->Next = pending;
+                    pending = grd;
+                }
+            }
+            else
+            {
+                grd->Next = maybe;
+                maybe = grd;
+            }
+        }
+
+        if (pending == 0)
+            break;
+
+        while (pending)
+        {
+            FGuardian * grd = pending;
+            pending = pending->Next;
+
+            FAssert(MarkP(AsObjHdr(grd->TConc)));
+
+            grd->Next = final;
+            final = grd;
+            LiveObject(&grd->Object);
+            LiveObject(&grd->TConc);
+        }
+    }
+
+    while (maybe)
+    {
+        FAssert(MarkP(AsObjHdr(maybe->Object)) == 0);
+        FAssert(MarkP(AsObjHdr(maybe->TConc)) == 0);
+
+        FGuardian * grd = maybe;
+        maybe = maybe->Next;
+        free(grd);
+    }
+
+    return(final);
 }
 
 static void Collect()
@@ -1185,6 +1255,10 @@ static void Collect()
         ts = ts->Next;
     }
 
+    FGuardian * final = CollectGuardians();
+    
+    // Trackers
+    
     BigFreeAdults = 0;
     for (int_t idx = 0; idx < FREE_ADULTS; idx++)
         FreeAdults[idx] = 0;
@@ -1223,9 +1297,37 @@ static void Collect()
         }
         oh = (FObjHdr *) (((char *) oh) + len);
     }
-    
-    // Guardians and trackers
-    
+
+    while (final != 0)
+    {
+        FGuardian * grd = final;
+        final = final->Next;
+
+        TConcAdd(grd->TConc, grd->Object);
+        free(grd);
+    }
+
+    while (TConcEmptyP(R.CleanupTConc) == 0)
+    {
+        FObject obj = TConcRemove(R.CleanupTConc);
+
+        if (ExclusiveP(obj))
+            DeleteExclusive(&AsExclusive(obj)->Exclusive);
+        else if (ConditionP(obj))
+            DeleteCondition(&AsCondition(obj)->Condition);
+        else if (BinaryPortP(obj) || TextualPortP(obj))
+        {
+            CloseInput(obj);
+            CloseOutput(obj);
+        }
+        else if (BignumP(obj))
+            DeleteBignum(obj);
+        else
+        {
+            FAssert(0);
+        }
+    }
+
     if (VerboseFlag)
         printf("Collection Done\n");
 
@@ -1293,12 +1395,33 @@ void ReadyForGC()
 
 void InstallGuardian(FObject obj, FObject tconc)
 {
-    
+    if (CollectorType != NoCollector)
+    {
+        EnterExclusive(&GCExclusive);
+
+        FAssert(ObjectP(obj));
+        FAssert(PairP(tconc));
+        FAssert(PairP(First(tconc)));
+        FAssert(PairP(Rest(tconc)));
+
+        FGuardian * grd = (FGuardian *) malloc(sizeof(FGuardian));
+        if (grd == 0)
+            RaiseExceptionC(R.Assertion, "install-guardian", "out of memory", EmptyListObject);
+
+        grd->Object = obj;
+        grd->TConc = tconc;
+        grd->Next = Guardians;
+        Guardians = grd;
+        LeaveExclusive(&GCExclusive);
+    }
 }
 
 void InstallTracker(FObject obj, FObject ret, FObject tconc)
 {
-    
+    if (CollectorType == GenerationalCollector)
+    {
+        
+    }
 }
 
 FAlive::FAlive(FObject * ptr)
