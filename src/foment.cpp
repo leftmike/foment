@@ -53,10 +53,8 @@ static uint64_t GetMillisecondCount64()
 #endif // FOMENT_UNIX
 
 uint_t SetupComplete = 0;
-unsigned int RandomSeed = 0;
+uint_t RandomSeed = 0;
 
-uint_t InlineProcedures = 1;
-uint_t InlineImports = 1;
 uint_t CheckHeapFlag = 0;
 uint_t VerboseFlag = 0;
 
@@ -68,7 +66,7 @@ static void Failed()
     if (SetupComplete)
     {
         if (CheckHeapFlag || VerboseFlag)
-            printf("RandomSeed: %u\n", RandomSeed);
+            printf("RandomSeed: %llu\n", RandomSeed);
         ExitFoment();
     }
 
@@ -1096,6 +1094,7 @@ int_t SetupFoment(FThreadState * ts)
     SetupNumbers();
     SetupThreads();
     SetupGC();
+    SetupMain();
 
     DefineComparator("boolean-comparator", &BooleanPPrimitive, &BooleanEqualPPrimitive,
             &BooleanComparePrimitive, &EqHashPrimitive);

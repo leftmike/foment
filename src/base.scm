@@ -548,7 +548,9 @@
         delete-directory
         list-directory
         current-directory
-        build-path)
+        build-path
+        config
+        set-config!)
     (cond-expand
         (unix
             (export
@@ -1513,19 +1515,23 @@
 
         (define (handle-command-line lst env)
             (if (not (null? lst))
-                (cond
-                    ((and (string=? "-p" (car lst)) (not (null? (cdr lst))))
+                (let ((cmd (car lst)))
+                    (cond
+                        ((and (or (string=? cmd "-p") (string=? cmd "--print"))
+                                (not (null? (cdr lst))))
                             (write (eval (read (open-input-string (cadr lst))) env))
                             (newline)
                             (handle-command-line (cddr lst) env))
-                    ((and (string=? "-e" (car lst)) (not (null? (cdr lst))))
+                        ((and (or (string=? cmd "-e") (string=? cmd "--eval")
+                                (string=? cmd "--evaluate")) (not (null? (cdr lst))))
                             (eval (read (open-input-string (cadr lst))) env)
                             (handle-command-line (cddr lst) env))
-                    ((and (string=? "-l" (car lst)) (not (null? (cdr lst))))
+                        ((and (or (string=? cmd "-l") (string=? cmd "--load"))
+                                (not (null? (cdr lst))))
                             (load (cadr lst) env)
                             (handle-command-line (cddr lst) env))
-                    (else
-                        (handle-command-line (cdr lst) env)))))
+                        (else
+                            (handle-command-line (cdr lst) env))))))
 
         (define history-file
             (cond-expand

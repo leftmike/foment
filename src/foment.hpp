@@ -7,15 +7,13 @@ To Do:
 -- add -- to separate options from arguments to the program
 -- config options: some are fixed; some are modifiable
     -- (config), (config <option>), (config <option> <new-value>)
-    -- FCollectorType CollectorType: (collector . none, mark-sweep, generational)
-    -- MaximumStackSize
-    -- MaximumBabiesSize
-    -- MaximumGenerationalBaby
-    -- MaximumKidsSize
-    -- MaximumAdultsSize
-    -- TriggerBytes
-    -- TriggerObjects
-    -- PartialPerFull
+-- check for -- to separate foment arguments from program arguments like gdb
+-- fail if see unknown arguments
+-- use ConfigOptions to process command line arguments
+-- SetConfig and AnytimeConfig need to be handled late on the command line
+-- FAssert(cfg->Type != SetConfig || cfg->When != AnytimeConfig);
+-- update documenation of config and command line options
+
 ----
 
 procedure: `(partial-per-full)`
@@ -354,6 +352,15 @@ public:
     FAlive * Next;
     FObject * Pointer;
 };
+
+extern uint_t MaximumStackSize;
+extern uint_t MaximumBabiesSize;
+extern uint_t MaximumKidsSize;
+extern uint_t MaximumAdultsSize;
+extern uint_t MaximumGenerationalBaby;
+extern uint_t TriggerObjects;
+extern uint_t TriggerBytes;
+extern uint_t PartialPerFull;
 
 //
 // ---- Immediate Types ----
@@ -1407,6 +1414,12 @@ inline void ZeroOrOneArgsCheck(const char * who, int_t argc)
         RaiseExceptionC(R.Assertion, who, "expected zero or one arguments", EmptyListObject);
 }
 
+inline void ZeroToTwoArgsCheck(const char * who, int_t argc)
+{
+    if (argc > 2)
+        RaiseExceptionC(R.Assertion, who, "expected zero to two arguments", EmptyListObject);
+}
+
 inline void OneOrTwoArgsCheck(const char * who, int_t argc)
 {
     if (argc < 1 || argc > 2)
@@ -1711,13 +1724,11 @@ inline void ComparatorArgCheck(const char * who, FObject obj)
 
 // ----------------
 
-extern uint_t InlineProcedures;
-extern uint_t InlineImports;
 extern uint_t CheckHeapFlag;
 extern uint_t VerboseFlag;
 
 extern void * SectionTableBase;
-extern unsigned int RandomSeed;
+extern uint_t RandomSeed;
 
 extern volatile uint_t BytesAllocated;
 extern uint_t CollectionCount;
@@ -1753,6 +1764,7 @@ void SetupExecute();
 void SetupNumbers();
 void SetupThreads();
 void SetupGC();
+void SetupMain();
 
 void WriteSpecialSyntax(FObject port, FObject obj, int_t df);
 void WriteInstruction(FObject port, FObject obj, int_t df);

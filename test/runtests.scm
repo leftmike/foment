@@ -6,8 +6,8 @@
 
 (import (foment base))
 
-(write (features))
-(newline)
+(write (features)) (newline)
+(write (config)) (newline)
 
 (define pass-count 0)
 (define fail-count 0)

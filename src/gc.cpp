@@ -39,10 +39,8 @@ const static uint_t Align[8] = {0, 7, 6, 5, 4, 3, 2, 1};
 FCollectorType CollectorType = MarkSweepCollector;
 uint_t MaximumStackSize = 1024 * 1024 * 4 * sizeof(FObject);
 uint_t MaximumBabiesSize = 0;
+uint_t MaximumKidsSize = 0;
 uint_t MaximumGenerationalBaby = 1024 * 64;
-
-uint_t TriggerObjects = 1024 * 16;
-uint_t TriggerBytes = TriggerObjects * (sizeof(FPair) + sizeof(FObjHdr));
 
 #ifdef FOMENT_64BIT
 uint_t MaximumAdultsSize = 1024 * 1024 * 1024 * 4UL;
@@ -50,6 +48,10 @@ uint_t MaximumAdultsSize = 1024 * 1024 * 1024 * 4UL;
 #ifdef FOMENT_32BIT
 uint_t MaximumAdultsSize = 1024 * 1024 * 1024;
 #endif // FOMENT_32BIT
+
+uint_t TriggerObjects = 1024 * 16;
+uint_t TriggerBytes = TriggerObjects * (sizeof(FPair) + sizeof(FObjHdr));
+uint_t PartialPerFull = 4;
 
 volatile uint_t BytesAllocated = 0;
 volatile int_t GCRequired = 0;
