@@ -5,8 +5,7 @@ Foment
 To Do:
 -- pull options from FOMENT_OPTIONS environment variable
 -- update documenation: MemoryManagement APIs and Internals
--- make test-all: run all tests using all three collectors
--- make check-test-all: run all check tests using all three collectors
+-- Windows: make test-all: run all tests using all three collectors
 -- CheckObject: check back references from mature objects
 -- Kids
 -- generational + mark and sweep

@@ -2,6 +2,9 @@
 # Foment
 #
 
+TEST_OPTIONS = --check-heap
+TEST_BUILD = debug
+
 CCDEBUG = -c -ggdb -Wall -DFOMENT_DEBUG -DFOMENT_UNIX
 CCRELEASE = -c -Wall -DFOMENT_UNIX
 CCPROFILE = -pg $(CCRELEASE)
@@ -18,33 +21,31 @@ clean: debug release profile
 	-rm release/*
 	-rm profile/*
 
-test: all
-	cd ../test ; ../unix/debug/foment runtests.scm r7rs.scm r7rs-eval.scm foment.scm eccentric.scm r5rs_pitfall.scm unicode.scm srfi.scm
-	cd ../test ; ../unix/debug/foment r7rs.scm
-	cd ../test ; ../unix/release/foment runtests.scm r7rs.scm r7rs-eval.scm foment.scm eccentric.scm r5rs_pitfall.scm unicode.scm srfi.scm
-	cd ../test ; ../unix/release/foment r7rs.scm
+test: all foment-test stress-test chibi-test
 
-check-test: all
-	cd ../test ; ../unix/debug/foment --check-heap runtests.scm r7rs.scm r7rs-eval.scm foment.scm eccentric.scm r5rs_pitfall.scm unicode.scm srfi.scm
-	cd ../test ; ../unix/debug/foment --check-heap r7rs.scm
-	cd ../test ; ../unix/release/foment --check-heap runtests.scm r7rs.scm r7rs-eval.scm foment.scm eccentric.scm r5rs_pitfall.scm unicode.scm srfi.scm
-	cd ../test ; ../unix/release/foment --check-heap r7rs.scm
+test-all: all
+	$(MAKE) test TEST_BUILD=debug TEST_OPTIONS=--no-collector
+	$(MAKE) test TEST_BUILD=release TEST_OPTIONS=--no-collector
+	$(MAKE) test TEST_BUILD=debug TEST_OPTIONS=--mark-sweep
+	$(MAKE) test TEST_BUILD=release TEST_OPTIONS=--mark-sweep
+	$(MAKE) test TEST_BUILD=debug TEST_OPTIONS=--generational
+	$(MAKE) test TEST_BUILD=release TEST_OPTIONS=--generational
+	$(MAKE) test TEST_BUILD=debug "TEST_OPTIONS=--no-collector --check-heap"
+	$(MAKE) test TEST_BUILD=release "TEST_OPTIONS=--no-collector --check-heap"
+	$(MAKE) test TEST_BUILD=debug "TEST_OPTIONS=--mark-sweep --check-heap"
+	$(MAKE) test TEST_BUILD=release "TEST_OPTIONS=--mark-sweep --check-heap"
+	$(MAKE) test TEST_BUILD=debug "TEST_OPTIONS=--generational --check-heap"
+	$(MAKE) test TEST_BUILD=release "TEST_OPTIONS=--generational --check-heap"
 
-stress: all
-	cd ../test ; ../unix/debug/foment runtests.scm stress.scm r7rs.scm
-	cd ../test ; ../unix/release/foment runtests.scm stress.scm r7rs.scm
+foment-test: all
+	cd ../test ; ../unix/$(TEST_BUILD)/foment $(TEST_OPTIONS) runtests.scm r7rs.scm r7rs-eval.scm foment.scm eccentric.scm r5rs_pitfall.scm unicode.scm srfi.scm
+	cd ../test ; ../unix/$(TEST_BUILD)/foment $(TEST_OPTIONS) r7rs.scm
 
-check-stress: all
-	cd ../test ; ../unix/debug/foment --check-heap runtests.scm stress.scm r7rs.scm
-	cd ../test ; ../unix/release/foment --check-heap runtests.scm stress.scm r7rs.scm
+stress-test: all
+	cd ../test ; ../unix/$(TEST_BUILD)/foment $(TEST_OPTIONS) runtests.scm stress.scm r7rs.scm
 
-chibi: all
-	cd ../test ; ../unix/debug/foment r7rs-tests.scm
-	cd ../test ; ../unix/release/foment r7rs-tests.scm
-
-check-chibi: all
-	cd ../test ; ../unix/debug/foment --check-heap r7rs-tests.scm
-	cd ../test ; ../unix/release/foment --check-heap r7rs-tests.scm
+chibi-test: all
+	cd ../test ; ../unix/$(TEST_BUILD)/foment $(TEST_OPTIONS) r7rs-tests.scm
 
 debug:
 	-mkdir debug
