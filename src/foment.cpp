@@ -60,9 +60,8 @@ uint_t VerboseFlag = 0;
 
 FRoots R;
 
-static void Failed()
+void ErrorExitFoment()
 {
-
     if (SetupComplete)
     {
         if (CheckHeapFlag || VerboseFlag)
@@ -76,13 +75,13 @@ static void Failed()
 void FAssertFailed(const char * fn, int_t ln, const char * expr)
 {
     printf("FAssert: %s (%d)%s\n", expr, (int) ln, fn);
-    Failed();
+    ErrorExitFoment();
 }
 
 void FMustBeFailed(const char * fn, int_t ln, const char * expr)
 {
     printf("FMustBe: %s (%d)%s\n", expr, (int) ln, fn);
-    Failed();
+    ErrorExitFoment();
 }
 
 // ---- Immediates ----

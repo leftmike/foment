@@ -282,15 +282,12 @@ Define("%exit", ExitPrimitive)(int_t argc, FObject argv[])
     ZeroOrOneArgsCheck("exit", argc);
 
     ExitFoment();
-
     if (argc == 0 || argv[0] == TrueObject)
         exit(0);
-
     if (FixnumP(argv[0]))
         exit((int) AsFixnum(argv[0]));
 
     exit(-1);
-
     return(NoValueObject);
 }
 

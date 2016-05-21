@@ -3,8 +3,10 @@
 Foment
 
 To Do:
+-- pull options from FOMENT_OPTIONS environment variable
 -- update documenation: MemoryManagement APIs and Internals
--- check trackers
+-- make test-all: run all tests using all three collectors
+-- make check-test-all: run all check tests using all three collectors
 -- CheckObject: check back references from mature objects
 -- Kids
 -- generational + mark and sweep
@@ -12,6 +14,9 @@ To Do:
 -- Use extra generation for immortal objects which are precompiled libraries
 
 Future:
+-- internal symbols etc as immortal objects created at compile time
+-- features, command-line, full-command-line, interactive options,
+    environment-variables, etc passed to scheme as a single assoc list
 -- number.cpp: make NumberP, BinaryNumberOp, and UnaryNumberOp faster
 -- Windows: $(APPDATA)\Foment\Libraries
 -- Unix: $(HOME)/.local/foment/lib
@@ -1696,6 +1701,7 @@ FObject ExecuteThunk(FObject op);
 int_t SetupFoment(FThreadState * ts);
 extern uint_t SetupComplete;
 void ExitFoment();
+void ErrorExitFoment();
 
 // ---- Do Not Call Directly ----
 
