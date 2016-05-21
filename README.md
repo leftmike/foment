@@ -7,7 +7,7 @@
 * Full Unicode including reading and writing unicode characters to the console. Files in UTF-8 and UTF-16 encoding can be read and written.
 * The system is built around a compiler and VM. There is support for prompts and continuation marks.
 * Network support.
-* Editing at the REPL including () matching.
+* Editing at the REPL including ( ) matching.
 * Portable: Windows, Mac OS X, Linux, and FreeBSD.
 * 32 bit and 64 bit.
 * SRFI 106: Basic socket interface.

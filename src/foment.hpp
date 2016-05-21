@@ -3,61 +3,11 @@
 Foment
 
 To Do:
--- cleanup command line argument handling
--- add -- to separate options from arguments to the program
--- config options: some are fixed; some are modifiable
-    -- (config), (config <option>), (config <option> <new-value>)
--- check for -- to separate foment arguments from program arguments like gdb
--- fail if see unknown arguments
--- use ConfigOptions to process command line arguments
--- SetConfig and AnytimeConfig need to be handled late on the command line
--- FAssert(cfg->Type != SetConfig || cfg->When != AnytimeConfig);
--- update documenation of config and command line options
-
-----
-
-procedure: `(partial-per-full)`
-<br> procedure: `(partial-per-full` _val_`)`
-
-`partial-per-full` is the number of partial collections performed for every full collection.
-If _val_ is specified, it specifies a new value for `partial-per-full`.
-_val_ must be a non-negative fixnum. A value of zero means that every
-collection is a full collection. The current value of `partial-per-full` is returned.
-
-----
-
-procedure: `(trigger-bytes)`
-<br> procedure: `(trigger-bytes` _val_`)`
-
-`trigger-bytes` is the number of bytes allocated since the last collection before
-triggering another collection.
-If _val_ is specified, it specifies a new value for `trigger-bytes`.
-_val_ must be a non-negative fixnum. The current value of `trigger-bytes` is
-returned.
-
-Many more bytes than `trigger-bytes` may be allocated before a collection actually occurs.
-
-----
-
-procedure: `(trigger-objects)`
-<br> procedure: `(trigger-objects` _val_`)`
-
-`trigger-objects` is the number of objects allocated since the last collection before
-triggering another collection.
-If _val_ is specified, it specifies a new value for `trigger-objects`.
-_val_ must be a non-negative fixnum. The current value of `trigger-objects` is
-returned.
-
-Many more objects than `trigger-objects` may be allocated before a collection actually occurs.
-
 -- update documenation: MemoryManagement APIs and Internals
 -- check trackers
 -- CheckObject: check back references from mature objects
 -- Kids
--- three collectors
-    -- none
-    -- mark and sweep
-    -- generational + mark and sweep
+-- generational + mark and sweep
 -- after GC, test for objects pointing to Babies
 -- Use extra generation for immortal objects which are precompiled libraries
 
@@ -931,6 +881,8 @@ typedef struct
     FObject BedrockLibrary;
     FObject Features;
     FObject CommandLine;
+    FObject FullCommandLine;
+    FObject InteractiveOptions;
     FObject LibraryPath;
     FObject LibraryExtensions;
     FObject EnvironmentVariables;

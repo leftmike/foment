@@ -397,6 +397,13 @@ Define("command-line", CommandLinePrimitive)(int_t argc, FObject argv[])
     return(R.CommandLine);
 }
 
+Define("full-command-line", FullCommandLinePrimitive)(int_t argc, FObject argv[])
+{
+    ZeroArgsCheck("full-command-line", argc);
+
+    return(R.FullCommandLine);
+}
+
 static void GetEnvironmentVariables()
 {
 #ifdef FOMENT_WINDOWS
@@ -921,6 +928,7 @@ static FPrimitive * Primitives[] =
     &ErrorObjectIrritantsPrimitive,
     &FullErrorPrimitive,
     &CommandLinePrimitive,
+    &FullCommandLinePrimitive,
     &GetEnvironmentVariablePrimitive,
     &GetEnvironmentVariablesPrimitive,
     &CurrentSecondPrimitive,

@@ -550,7 +550,8 @@
         current-directory
         build-path
         config
-        set-config!)
+        set-config!
+        full-command-line)
     (cond-expand
         (unix
             (export
@@ -1513,25 +1514,19 @@
                 (lambda (abort) (abort)))
             (repl env exit))
 
-        (define (handle-command-line lst env)
+        (define (handle-interactive-options lst env)
             (if (not (null? lst))
-                (let ((cmd (car lst)))
+                (let ((cmd (caar lst))
+                        (arg (cdar lst)))
                     (cond
-                        ((and (or (string=? cmd "-p") (string=? cmd "--print"))
-                                (not (null? (cdr lst))))
-                            (write (eval (read (open-input-string (cadr lst))) env))
-                            (newline)
-                            (handle-command-line (cddr lst) env))
-                        ((and (or (string=? cmd "-e") (string=? cmd "--eval")
-                                (string=? cmd "--evaluate")) (not (null? (cdr lst))))
-                            (eval (read (open-input-string (cadr lst))) env)
-                            (handle-command-line (cddr lst) env))
-                        ((and (or (string=? cmd "-l") (string=? cmd "--load"))
-                                (not (null? (cdr lst))))
-                            (load (cadr lst) env)
-                            (handle-command-line (cddr lst) env))
-                        (else
-                            (handle-command-line (cdr lst) env))))))
+                        ((eq? cmd 'print)
+                            (write (eval (read (open-input-string arg)) env))
+                            (newline))
+                        ((eq? cmd 'eval)
+                            (eval (read (open-input-string arg)) env))
+                        ((eq? cmd 'load)
+                         (load arg env)))
+                    (handle-interactive-options (cdr lst) env))))
 
         (define history-file
             (cond-expand
@@ -1546,7 +1541,7 @@
                     (display " (debug)"))
                 (newline))
             (let ((env (interaction-environment)))
-                (handle-command-line (cdr (command-line)) env)
+                (handle-interactive-options (%interactive-options) env)
                 (call-with-current-continuation
                     (lambda (exit)
                         (set-ctrl-c-notify! 'broadcast)

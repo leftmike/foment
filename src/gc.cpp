@@ -511,6 +511,7 @@ static const char * RootNames[] =
     "bedrock-library",
     "features",
     "command-line",
+    "full-command-line",
     "library-path",
     "library-extensions",
     "environment-variables",
