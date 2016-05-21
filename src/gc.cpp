@@ -512,6 +512,7 @@ static const char * RootNames[] =
     "features",
     "command-line",
     "full-command-line",
+    "interactive-options",
     "library-path",
     "library-extensions",
     "environment-variables",
