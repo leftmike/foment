@@ -492,33 +492,6 @@ FObject MakeObject(uint_t tag, uint_t sz, uint_t sc, const char * who, int_t pf)
     return(oh + 1);
 }
 
-void PushRoot(FObject * rt)
-{
-    FThreadState * ts = GetThreadState();
-
-    ts->RootsUsed += 1;
-
-    FAssert(ts->RootsUsed < sizeof(ts->Roots) / sizeof(FObject *));
-
-    ts->Roots[ts->RootsUsed - 1] = rt;
-}
-
-void PopRoot()
-{
-    FThreadState * ts = GetThreadState();
-
-    FAssert(ts->RootsUsed > 0);
-
-    ts->RootsUsed -= 1;
-}
-
-void ClearRoots()
-{
-    FThreadState * ts = GetThreadState();
-
-    ts->RootsUsed = 0;
-}
-
 void ModifyVector(FObject obj, uint_t idx, FObject val)
 {
     FAssert(VectorP(obj));
@@ -1024,9 +997,6 @@ static void CheckThreadState(FThreadState * ts)
     for (FAlive * ap = ts->AliveList; ap != 0; ap = ap->Next, idx++)
         CheckRoot(*ap->Pointer, "thread-state.alive-list", idx);
 
-    for (uint_t rdx = 0; rdx < ts->RootsUsed; rdx++)
-        CheckRoot(*ts->Roots[rdx], "thread-state.roots", rdx);
-
     for (int_t adx = 0; adx < ts->AStackPtr; adx++)
         CheckRoot(ts->AStack[adx], "thread-state.astack", adx);
 
@@ -1343,9 +1313,6 @@ static void Collect()
         for (FAlive * ap = ts->AliveList; ap != 0; ap = ap->Next)
             LiveObject(ap->Pointer);
 
-        for (uint_t rdx = 0; rdx < ts->RootsUsed; rdx++)
-            LiveObject(ts->Roots[rdx]);
-
         for (int_t adx = 0; adx < ts->AStackPtr; adx++)
             LiveObject(ts->AStack + adx);
 
@@ -1617,7 +1584,6 @@ int_t EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms
     ts->AliveList = 0;
     ts->ObjectsSinceLast = 0;
     ts->BytesSinceLast = 0;
-    ts->RootsUsed = 0;
 
     if (CollectorType == NoCollector || CollectorType == GenerationalCollector)
     {

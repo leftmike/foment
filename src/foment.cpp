@@ -976,7 +976,7 @@ static void SetupScheme()
 
     port = MakeStringCInputPort(BaseCode);
     WantIdentifiersPort(port, 1);
-    PushRoot(&port);
+    FAlive ap(&port);
 
     for (;;)
     {
@@ -986,8 +986,6 @@ static void SetupScheme()
             break;
         Eval(obj, R.Bedrock);
     }
-
-    PopRoot();
 }
 
 static const char * FeaturesC[] =
