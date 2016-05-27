@@ -240,11 +240,11 @@ typedef struct
         uint32_t CheckMark;
     };
 
-    uint_t Size() {return(FlagsAndSize & OBJHDR_SIZE_MASK);}
-    uint_t SlotCount() {return(TagAndSlotCount & OBJHDR_SLOT_COUNT_MASK);}
-    uint_t Tag() {return((TagAndSlotCount >> OBJHDR_TAG_SHIFT) & OBJHDR_TAG_MASK);}
+    uint32_t Size() {return(FlagsAndSize & OBJHDR_SIZE_MASK);}
+    uint32_t SlotCount() {return(TagAndSlotCount & OBJHDR_SLOT_COUNT_MASK);}
+    uint32_t Tag() {return((TagAndSlotCount >> OBJHDR_TAG_SHIFT) & OBJHDR_TAG_MASK);}
     FObject * Slots() {return((FObject *) (this + 1));}
-    uint_t Generation() {return(Flags & OBJHDR_GEN_MASK);}
+    uint32_t Generation() {return(Flags & OBJHDR_GEN_MASK);}
 } FObjHdr;
 
 inline FObjHdr * AsObjHdr(FObject obj)

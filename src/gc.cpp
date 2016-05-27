@@ -874,8 +874,37 @@ static void PrintCheckStack()
     printf("\n");
 }
 
+static int_t CheckFailedCount;
 static int_t CheckCount;
 static int_t CheckTooDeep;
+
+static void FCheckFailed(const char * fn, int_t ln, const char * expr, FObjHdr * oh)
+{
+    int idx;
+
+    CheckFailedCount += 1;
+    if (CheckFailedCount > 10)
+        return;
+
+    printf("\nFCheck: %s (%d)%s\n", expr, (int) ln, fn);
+
+    uint32_t len = ObjectLength(oh->Size());
+    printf("len: %d size: %d slots: %d tag: %d gen: 0x%x", len, oh->Size(), oh->SlotCount(),
+            oh->Tag(), oh->Generation());
+    if (MarkP(oh))
+        printf("forward/mark");
+    for (idx = 0; idx < len && idx < 64; idx++)
+        printf(" %x", ((uint8_t *) oh)[idx]);
+    if (idx < len)
+        printf(" ... (%d more)", len - idx);
+    printf("\n");
+
+    if (CheckStackPtr > 0)
+        PrintCheckStack();
+}
+
+#define FCheck(expr, oh)\
+    if (! (expr)) FCheckFailed(__FILE__, __LINE__, #expr, oh)
 
 static int_t ValidAddress(FObjHdr * oh)
 {
@@ -927,17 +956,17 @@ Again:
         CheckCount += 1;
 
         FObjHdr * oh = AsObjHdr(obj);
-        FMustBe(CheckMarkP(obj));
-        FMustBe(ValidAddress(oh));
-        FMustBe(IndirectTag(obj) > 0 && IndirectTag(obj) < BadDogTag);
-        FMustBe(IndirectTag(obj) != FreeTag);
-        FMustBe(oh->Size() >= oh->SlotCount() * sizeof(FObject));
+        FCheck(CheckMarkP(obj), oh);
+        FCheck(ValidAddress(oh), oh);
+        FCheck(IndirectTag(obj) > 0 && IndirectTag(obj) < BadDogTag, oh);
+        FCheck(IndirectTag(obj) != FreeTag, oh);
+        FCheck(oh->Size() >= oh->SlotCount() * sizeof(FObject), oh);
 
 #ifdef FOMENT_OBJFTR
         FObjFtr * of = AsObjFtr(oh);
 
-        FMustBe(of->Feet[0] == OBJFTR_FEET);
-        FMustBe(of->Feet[1] == OBJFTR_FEET);
+        FCheck(of->Feet[0] == OBJFTR_FEET, oh);
+        FCheck(of->Feet[1] == OBJFTR_FEET, oh);
 #endif // FOMENT_OBJFTR
 
         if (PairP(obj))
@@ -1014,44 +1043,43 @@ static void CheckThreadState(FThreadState * ts)
     CheckRoot(ts->NotifyObject, "thread-state.notify-object", -1);
 }
 
-void CheckMemRegion(FMemRegion * mrgn, uint_t used, uint_t gen)
+static void CheckMemRegion(FMemRegion * mrgn, uint_t used, uint_t gen)
 {
     FObjHdr * oh = (FObjHdr *) mrgn->Base;
     uint_t cnt = 0;
 
     while (cnt < used)
     {
-        FMustBe(cnt + sizeof(FObjHdr) <= mrgn->BottomUsed);
+        FCheck(cnt + sizeof(FObjHdr) <= mrgn->BottomUsed, oh);
         uint_t sz = oh->Size();
         uint_t len = ObjectLength(sz);
 
-        FMustBe(len >= sz + sizeof(FObjHdr));
-        FMustBe(len % OBJECT_ALIGNMENT == 0);
+        FCheck(len >= sz + sizeof(FObjHdr), oh);
+        FCheck(len % OBJECT_ALIGNMENT == 0, oh);
 
 #ifdef FOMENT_OBJFTR
-        FMustBe(len >= sz + sizeof(FObjHdr) + sizeof(FObjFtr));
+        FCheck(len >= sz + sizeof(FObjHdr) + sizeof(FObjFtr), oh);
 #endif // FOMENT_OBJFTR
 
-        FMustBe(cnt + len <= mrgn->BottomUsed);
+        FCheck(cnt + len <= mrgn->BottomUsed, oh);
 
 #ifdef FOMENT_OBJFTR
         FObjFtr * of = AsObjFtr(oh);
 
-        FMustBe(of->Feet[0] == OBJFTR_FEET);
-        FMustBe(of->Feet[1] == OBJFTR_FEET);
+        FCheck(of->Feet[0] == OBJFTR_FEET, oh);
+        FCheck(of->Feet[1] == OBJFTR_FEET, oh);
 #endif // FOMENT_OBJFTR
 
-        FMustBe(oh->Generation() == gen);
-        FMustBe(gen == OBJHDR_GEN_ADULTS || (oh->Flags & OBJHDR_MARK_FORWARD) == 0);
-        FMustBe(oh->SlotCount() * sizeof(FObject) <= oh->Size());
-        FMustBe(oh->Tag() > 0 && oh->Tag() < BadDogTag);
-        FMustBe(oh->Tag() != FreeTag || oh->Generation() == OBJHDR_GEN_ADULTS);
+        FCheck(oh->Generation() == gen, oh);
+        FCheck(gen == OBJHDR_GEN_ADULTS || (oh->Flags & OBJHDR_MARK_FORWARD) == 0, oh);
+        FCheck(oh->SlotCount() * sizeof(FObject) <= oh->Size(), oh);
+        FCheck(oh->Tag() > 0 && oh->Tag() < BadDogTag, oh);
+        FCheck(oh->Tag() != FreeTag || oh->Generation() == OBJHDR_GEN_ADULTS, oh);
 
         ClearCheckMark(oh);
         oh = (FObjHdr *) (((char *) oh) + len);
         cnt += len;
     }
-
 }
 
 void CheckHeap(const char * fn, int ln)
@@ -1063,6 +1091,8 @@ void CheckHeap(const char * fn, int ln)
 
     if (VerboseFlag)
         printf("CheckHeap: %s(%d)\n", fn, ln);
+
+    CheckFailedCount = 0;
     CheckCount = 0;
     CheckTooDeep = 0;
     CheckStackPtr = 0;
@@ -1112,6 +1142,9 @@ void CheckHeap(const char * fn, int ln)
     if (VerboseFlag)
         printf("CheckHeap: %d active objects\n", (int) CheckCount);
 
+    if (CheckFailedCount > 0)
+        printf("CheckHeap: %s(%d)\n", fn, ln);
+    FMustBe(CheckFailedCount == 0);
     LeaveExclusive(&GCExclusive);
 }
 
