@@ -6,9 +6,8 @@ To Do:
 -- update documenation: MemoryManagement APIs and Internals
 -- Windows: make test-all: run all tests using all three collectors
 -- CheckObject: check back references from mature objects
--- Kids
--- generational + mark and sweep
--- after GC, test for objects pointing to Babies
+-- partial GC
+-- after partial GC, test for objects pointing to Babies
 -- Use extra generation for immortal objects which are precompiled libraries
 
 Future:

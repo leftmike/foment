@@ -70,6 +70,15 @@ static uint_t AdultsUsed;
 static FObjHdr * BigFreeAdults;
 static FObjHdr * FreeAdults[FREE_ADULTS];
 
+typedef struct
+{
+    FMemRegion MemRegion;
+    uint_t Used;
+} FMemSpace;
+
+static FMemSpace Kids[2];
+static FMemSpace * ActiveKids;
+
 #ifdef FOMENT_WINDOWS
 unsigned int TlsIndex;
 #endif // FOMENT_WINDOWS
@@ -330,6 +339,29 @@ static FObjHdr * MakeBaby(uint_t len, uint_t tag, uint_t sz, uint_t sc, const ch
 
     oh->FlagsAndSize = sz;
     oh->TagAndSlotCount = (tag << OBJHDR_TAG_SHIFT) | sc;
+
+    return(oh);
+}
+
+static FObjHdr * AllocateKid(uint_t len)
+{
+    if (ActiveKids->Used + len > ActiveKids->MemRegion.BottomUsed)
+    {
+        if (ActiveKids->Used + len > ActiveKids->MemRegion.MaximumSize)
+            return(0);
+
+        uint_t gsz = PAGE_SIZE * 8;
+        if (len > gsz)
+            gsz = len;
+        if (gsz > ActiveKids->MemRegion.MaximumSize - ActiveKids->MemRegion.BottomUsed)
+            gsz = ActiveKids->MemRegion.MaximumSize - ActiveKids->MemRegion.BottomUsed;
+
+        if (GrowMemRegionUp(&ActiveKids->MemRegion, ActiveKids->MemRegion.BottomUsed + gsz) == 0)
+            return(0);
+    }
+
+    FObjHdr * oh = (FObjHdr *) (((char *) ActiveKids->MemRegion.Base) + ActiveKids->Used);
+    ActiveKids->Used += len;
 
     return(oh);
 }
@@ -893,6 +925,7 @@ static void FCheckFailed(const char * fn, int_t ln, const char * expr, FObjHdr *
             oh->Tag(), oh->Generation());
     if (MarkP(oh))
         printf("forward/mark");
+    printf(" |");
     for (idx = 0; idx < len && idx < 64; idx++)
         printf(" %x", ((uint8_t *) oh)[idx]);
     if (idx < len)
@@ -927,6 +960,11 @@ static int_t ValidAddress(FObjHdr * oh)
 
     if (Adults.Base != 0 && strt >= Adults.Base && strt < ((char *) Adults.Base + AdultsUsed)
             && end <= ((char *) Adults.Base) + AdultsUsed)
+        return(1);
+
+    if (ActiveKids != 0 && strt >= ActiveKids->MemRegion.Base
+            && strt < ((char *) ActiveKids->MemRegion.Base + ActiveKids->Used)
+            && end <= ((char *) ActiveKids->MemRegion.Base) + ActiveKids->Used)
         return(1);
 
     return(0);
@@ -1163,7 +1201,7 @@ Again:
     FObjHdr * oh = AsObjHdr(*pobj);
     uint_t gen = oh->Generation();
 
-    if (gen == OBJHDR_GEN_BABIES)
+    if (gen == OBJHDR_GEN_BABIES || gen == OBJHDR_GEN_KIDS)
     {
         if (ForwardP(oh))
         {
@@ -1172,22 +1210,27 @@ Again:
         }
 
         uint_t len = ObjectLength(oh->Size());
-        FObjHdr * noh = AllocateAdult(len, 0);
+        FObjHdr * noh = 0;
 
-        memcpy(noh, oh, len);
-        SetGeneration(noh, OBJHDR_GEN_ADULTS);
-        SetMark(noh);
+        if (gen == OBJHDR_GEN_BABIES && ActiveKids != 0)
+        {
+            noh = AllocateKid(len);
+            memcpy(noh, oh, len);
+            SetGeneration(noh, OBJHDR_GEN_KIDS);
+        }
+
+        if (noh == 0)
+        {
+            noh = AllocateAdult(len, 0);
+            memcpy(noh, oh, len);
+            SetGeneration(noh, OBJHDR_GEN_ADULTS);
+            SetMark(noh);
+        }
 
         SetForward(oh);
         oh->Slots()[0] = noh + 1;
         *pobj = noh + 1;
         oh = noh;
-    }
-    else if (gen == OBJHDR_GEN_KIDS)
-    {
-        
-        FAssert(0);
-        
     }
     else
     {
@@ -1332,6 +1375,19 @@ static void Collect()
     {
         ClearMark(oh);
         oh = (FObjHdr *) (((char *) oh) + ObjectLength(oh->Size()));
+    }
+
+    if (ActiveKids != 0)
+    {
+        if (ActiveKids == &Kids[0])
+            ActiveKids = &Kids[1];
+        else
+        {
+            FAssert(ActiveKids == &Kids[1]);
+
+            ActiveKids = &Kids[0];
+        }
+        ActiveKids->Used = 0;
     }
 
     FObject * rv = (FObject *) &R;
@@ -1738,6 +1794,7 @@ int_t SetupCore(FThreadState * ts)
     FAssert(sizeof(FObject) <= OBJECT_ALIGNMENT);
     FAssert(Adults.Base == 0);
     FAssert(AdultsUsed == 0);
+    FAssert(ActiveKids == 0);
 
 #ifdef FOMENT_DEBUG
     if (strcmp(FOMENT_MEMORYMODEL, "ilp32") == 0)
@@ -1767,8 +1824,23 @@ int_t SetupCore(FThreadState * ts)
         MaximumBabiesSize = 1024 * 1024 * 128;
     if (CollectorType == MarkSweepCollector && MaximumBabiesSize != 0)
         MaximumBabiesSize = 0;
-    if (CollectorType == GenerationalCollector && MaximumBabiesSize == 0)
-        MaximumBabiesSize = 1024 * 1024 * 64;
+    if (CollectorType == GenerationalCollector)
+    {
+        if (MaximumBabiesSize == 0)
+            MaximumBabiesSize = 1024 * 1024 * 64;
+        if (MaximumKidsSize == 0)
+            MaximumKidsSize = MaximumBabiesSize * 8;
+
+        if (InitializeMemRegion(&Kids[0].MemRegion, MaximumKidsSize) == 0)
+            return(0);
+        if (InitializeMemRegion(&Kids[1].MemRegion, MaximumKidsSize) == 0)
+            return(0);
+        if (GrowMemRegionUp(&Kids[0].MemRegion, PAGE_SIZE * 8) == 0)
+            return(0);
+        if (GrowMemRegionUp(&Kids[1].MemRegion, PAGE_SIZE * 8) == 0)
+            return(0);
+        ActiveKids = &Kids[0];
+    }
     if (CollectorType == MarkSweepCollector || CollectorType == GenerationalCollector)
     {
         FAssert(BigFreeAdults == 0);
