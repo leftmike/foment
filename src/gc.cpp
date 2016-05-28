@@ -921,8 +921,11 @@ static void FCheckFailed(const char * fn, int_t ln, const char * expr, FObjHdr *
     printf("\nFCheck: %s (%d)%s\n", expr, (int) ln, fn);
 
     uint32_t len = ObjectLength(oh->Size());
-    printf("len: %d size: %d slots: %d tag: %d gen: 0x%x", len, oh->Size(), oh->SlotCount(),
-            oh->Tag(), oh->Generation());
+    const char * tag = "unknown";
+    if (oh->Tag() > 0 && oh->Tag() < BadDogTag)
+        tag = IndirectTagString[oh->Tag()];
+    printf("len: %d size: %d slots: %d tag: %s gen: 0x%x", len, oh->Size(), oh->SlotCount(),
+            tag, oh->Generation());
     if (MarkP(oh))
         printf("forward/mark");
     printf(" |");
