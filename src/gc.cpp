@@ -314,7 +314,7 @@ static FObjHdr * MakeBaby(uint_t len, uint_t tag, uint_t sz, uint_t sc, const ch
     if (ts->BabiesUsed + len > ts->Babies.BottomUsed)
     {
         if (ts->BabiesUsed + len > ts->Babies.MaximumSize)
-            RaiseExceptionC(R.Assertion, who, "babies too small; increase maximum-babies-size",
+            RaiseExceptionC(Assertion, who, "babies too small; increase maximum-babies-size",
                     EmptyListObject);
 
         uint_t gsz = PAGE_SIZE * 8;
@@ -324,7 +324,7 @@ static FObjHdr * MakeBaby(uint_t len, uint_t tag, uint_t sz, uint_t sc, const ch
             gsz = ts->Babies.MaximumSize - ts->Babies.BottomUsed;
 
         if (GrowMemRegionUp(&ts->Babies, ts->Babies.BottomUsed + gsz) == 0)
-            RaiseExceptionC(R.Assertion, who, "babies: out of memory", EmptyListObject);
+            RaiseExceptionC(Assertion, who, "babies: out of memory", EmptyListObject);
     }
 
     FObjHdr * oh = (FObjHdr *) (((char *) ts->Babies.Base) + ts->BabiesUsed);
@@ -426,7 +426,7 @@ static FObjHdr * AllocateAdult(uint_t len, const char * who)
                 }
 
                 LeaveExclusive(&GCExclusive);
-                RaiseExceptionC(R.Assertion, who, "adults too small; increase maximum-adults-size",
+                RaiseExceptionC(Assertion, who, "adults too small; increase maximum-adults-size",
                         EmptyListObject);
             }
 
@@ -444,7 +444,7 @@ static FObjHdr * AllocateAdult(uint_t len, const char * who)
                 }
 
                 LeaveExclusive(&GCExclusive);
-                RaiseExceptionC(R.Assertion, who, "adults: out of memory", EmptyListObject);
+                RaiseExceptionC(Assertion, who, "adults: out of memory", EmptyListObject);
             }
         }
 
@@ -478,9 +478,9 @@ FObject MakeObject(uint_t tag, uint_t sz, uint_t sc, const char * who, int_t pf)
     FAssert(sz >= sizeof(FObject) * sc);
 
     if (len > MAXIMUM_OBJECT_LENGTH)
-        RaiseExceptionC(R.Restriction, who, "object too big", EmptyListObject);
+        RaiseExceptionC(Restriction, who, "object too big", EmptyListObject);
     if (sc > MAXIMUM_SLOT_COUNT)
-        RaiseExceptionC(R.Restriction, who, "too many slots", EmptyListObject);
+        RaiseExceptionC(Restriction, who, "too many slots", EmptyListObject);
 
     if (CollectorType == GenerationalCollector)
     {
@@ -579,12 +579,6 @@ static const char * RootNames[] =
     "hash-set-record-type",
     "hash-bag-record-type",
     "exception-record-type",
-
-    "assertion",
-    "restriction",
-    "lexical",
-    "syntax",
-    "error",
 
     "loaded-libraries",
 
@@ -1549,7 +1543,7 @@ void InstallGuardian(FObject obj, FObject tconc)
 
         FGuardian * grd = (FGuardian *) malloc(sizeof(FGuardian));
         if (grd == 0)
-            RaiseExceptionC(R.Assertion, "install-guardian", "out of memory", EmptyListObject);
+            RaiseExceptionC(Assertion, "install-guardian", "out of memory", EmptyListObject);
 
         grd->Object = obj;
         grd->TConc = tconc;
@@ -1576,7 +1570,7 @@ void InstallTracker(FObject obj, FObject ret, FObject tconc)
             FTracker * trkr = (FTracker *) malloc(sizeof(FTracker));
 
             if (trkr == 0)
-                RaiseExceptionC(R.Assertion, "install-guardian", "out of memory", EmptyListObject);
+                RaiseExceptionC(Assertion, "install-guardian", "out of memory", EmptyListObject);
 
             trkr->Object = obj;
             trkr->Return = ret;

@@ -447,10 +447,10 @@ Define("set-config!", SetConfigPrimitive)(int_t argc, FObject argv[])
     }
 
     if (cfg == 0)
-        RaiseExceptionC(R.Assertion, "set-config!", "expected a config option", List(argv[0]));
+        RaiseExceptionC(Assertion, "set-config!", "expected a config option", List(argv[0]));
 
     if (cfg->When != AnytimeConfig)
-        RaiseExceptionC(R.Assertion, "set-config!", "option may not be configured now",
+        RaiseExceptionC(Assertion, "set-config!", "option may not be configured now",
                 List(argv[0]));
 
     switch (cfg->Type)
@@ -471,7 +471,7 @@ Define("set-config!", SetConfigPrimitive)(int_t argc, FObject argv[])
         break;
 
     default:
-        RaiseExceptionC(R.Assertion, "set-config!", "option may not be configured now",
+        RaiseExceptionC(Assertion, "set-config!", "option may not be configured now",
                 List(argv[0]));
         break;
     }

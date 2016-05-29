@@ -704,7 +704,7 @@ Define("string-copy!", StringCopyModifyPrimitive)(int_t argc, FObject argv[])
     }
 
     if ((FFixnum) StringLength(argv[0]) - AsFixnum(argv[1]) < end - strt)
-        RaiseExceptionC(R.Assertion, "string-copy!", "expected a valid index", List(argv[1]));
+        RaiseExceptionC(Assertion, "string-copy!", "expected a valid index", List(argv[1]));
 
     FAssert(end >= strt);
 

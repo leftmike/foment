@@ -528,7 +528,7 @@ static FObject GPassMakeCall(FLambda * lam, FObject cdl, FObject op, int_t argc,
         }
 
         if (cases == EmptyListObject)
-            RaiseExceptionC(R.Assertion, "case-lambda", "no matching case",
+            RaiseExceptionC(Assertion, "case-lambda", "no matching case",
                     List(op, MakeFixnum(argc), expr));
     }
 
@@ -541,7 +541,7 @@ static FObject GPassMakeCall(FLambda * lam, FObject cdl, FObject op, int_t argc,
                 FAssert(AsFixnum(AsLambda(op)->ArgCount) > 0);
 
                 if (argc < AsFixnum(AsLambda(op)->ArgCount) - 1)
-                    RaiseException(R.Assertion, lam->Name == NoValueObject ? lam : lam->Name,
+                    RaiseException(Assertion, lam->Name == NoValueObject ? lam : lam->Name,
                             WrongNumberOfArguments, List(expr));
                 else if (argc < AsFixnum(AsLambda(op)->ArgCount))
                 {
@@ -556,7 +556,7 @@ static FObject GPassMakeCall(FLambda * lam, FObject cdl, FObject op, int_t argc,
                 }
             }
             else if (AsFixnum(AsLambda(op)->ArgCount) != argc)
-                RaiseException(R.Assertion, lam->Name == NoValueObject ? lam : lam->Name,
+                RaiseException(Assertion, lam->Name == NoValueObject ? lam : lam->Name,
                         WrongNumberOfArguments, List(expr));
             else if (AsLambda(op) == lam && cf == TailCallFlag && lam->UseStack == TrueObject)
             {

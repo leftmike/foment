@@ -125,7 +125,7 @@ Define("no-hash", NoHashPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("no-hash", argc);
 
-    RaiseExceptionC(R.Assertion, "no-hash", "no hash function available", EmptyListObject);
+    RaiseExceptionC(Assertion, "no-hash", "no hash function available", EmptyListObject);
     return(NoValueObject);
 }
 
@@ -133,7 +133,7 @@ Define("no-compare", NoComparePrimitive)(int_t argc, FObject argv[])
 {
     TwoArgsCheck("no-compare", argc);
 
-    RaiseExceptionC(R.Assertion, "no-compare", "no compare function available", EmptyListObject);
+    RaiseExceptionC(Assertion, "no-compare", "no compare function available", EmptyListObject);
     return(NoValueObject);
 }
 

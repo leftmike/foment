@@ -331,7 +331,7 @@ Define("vector-copy!", VectorCopyModifyPrimitive)(int_t argc, FObject argv[])
     }
 
     if ((FFixnum) VectorLength(argv[0]) - AsFixnum(argv[1]) < end - strt)
-        RaiseExceptionC(R.Assertion, "vector-copy!", "expected a valid index", List(argv[1]));
+        RaiseExceptionC(Assertion, "vector-copy!", "expected a valid index", List(argv[1]));
 
     FAssert(end >= strt);
 
@@ -436,7 +436,7 @@ FObject U8ListToBytevector(FObject obj)
     {
         if (FixnumP(First(obj)) == 0 || AsFixnum(First(obj)) > 0xFF
                 || AsFixnum(First(obj)) < 0)
-            RaiseExceptionC(R.Assertion, "u8-list->bytevector", "not a byte", List(First(obj)));
+            RaiseExceptionC(Assertion, "u8-list->bytevector", "not a byte", List(First(obj)));
         nv->Vector[idx] = (FByte) AsFixnum(First(obj));
         obj = Rest(obj);
     }
@@ -611,7 +611,7 @@ Define("bytevector-copy!", BytevectorCopyModifyPrimitive)(int_t argc, FObject ar
     }
 
     if ((FFixnum) BytevectorLength(argv[0]) - AsFixnum(argv[1]) < end - strt)
-        RaiseExceptionC(R.Assertion, "bytevector-copy!", "expected a valid index", List(argv[1]));
+        RaiseExceptionC(Assertion, "bytevector-copy!", "expected a valid index", List(argv[1]));
 
     FAssert(end >= strt);
 

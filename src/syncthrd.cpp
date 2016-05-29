@@ -145,7 +145,7 @@ static void FomentThread(FObject obj)
     try
     {
         if (EnterThread(&ts, obj, AsThread(obj)->Parameters, AsThread(obj)->IndexParameters) == 0)
-            RaiseExceptionC(R.Assertion, "foment", "out of memory", EmptyListObject);
+            RaiseExceptionC(Assertion, "foment", "out of memory", EmptyListObject);
 
         FAssert(ts.Thread == obj);
         FAssert(ThreadP(ts.Thread));
@@ -213,7 +213,7 @@ Define("run-thread", RunThreadPrimitive)(int_t argc, FObject argv[])
     if (h == 0)
     {
         unsigned int ec = GetLastError();
-        RaiseExceptionC(R.Assertion, "run-thread", "CreateThread failed", List(MakeFixnum(ec)));
+        RaiseExceptionC(Assertion, "run-thread", "CreateThread failed", List(MakeFixnum(ec)));
     }
 
     EnterExclusive(&ThreadsExclusive);
@@ -237,7 +237,7 @@ Define("run-thread", RunThreadPrimitive)(int_t argc, FObject argv[])
         TotalThreads -= 1;
         LeaveExclusive(&ThreadsExclusive);
 
-        RaiseExceptionC(R.Assertion, "run-thread", "pthread_create failed", List(MakeFixnum(ret)));
+        RaiseExceptionC(Assertion, "run-thread", "pthread_create failed", List(MakeFixnum(ret)));
     }
 #endif // FOMENT_UNIX
 
@@ -463,7 +463,7 @@ Define("set-ctrl-c-notify!", SetCtrlCNotifyPrimitive)(int_t argc, FObject argv[]
     else if (argv[0] == StringCToSymbol("broadcast"))
         SigIntNotify = NOTIFY_BROADCAST;
     else
-        RaiseExceptionC(R.Assertion, "set-ctrl-c-notify!", "expected exit, ignore, or broadcast",
+        RaiseExceptionC(Assertion, "set-ctrl-c-notify!", "expected exit, ignore, or broadcast",
                 List(argv[0]));
 
     return(NoValueObject);

@@ -99,7 +99,7 @@ static FCh ReadStringHexChar(FObject port)
     for (;;)
     {
         if (ReadCh(port, &ch) == 0)
-            RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading string",
+            RaiseExceptionC(Lexical, "read", "unexpected end-of-file reading string",
                     List(port));
 
         if (ch == ';')
@@ -108,7 +108,7 @@ static FCh ReadStringHexChar(FObject port)
         s[sl] = ch;
         sl += 1;
         if (sl == sizeof(s) / sizeof(FCh))
-            RaiseExceptionC(R.Lexical, "read",
+            RaiseExceptionC(Lexical, "read",
                     "missing ; to terminate \\x<hex-value> in string", List(port));
     }
 
@@ -119,7 +119,7 @@ static FCh ReadStringHexChar(FObject port)
         s[0] = '\\';
         s[1] = 'x';
 
-        RaiseExceptionC(R.Lexical, "read", "expected a valid hexidecimal value for a character",
+        RaiseExceptionC(Lexical, "read", "expected a valid hexidecimal value for a character",
                 List(port, MakeString(s, sl)));
     }
 
@@ -190,7 +190,7 @@ Again:
                 ch = ReadStringHexChar(port);
                 break;
             default:
-                RaiseExceptionC(R.Lexical, "read", "unexpected character following \\",
+                RaiseExceptionC(Lexical, "read", "unexpected character following \\",
                         List(port, MakeCharacter(ch)));
             }
         }
@@ -204,7 +204,7 @@ Again:
             {
                 if (s != sb)
                     free(s);
-                RaiseExceptionC(R.Restriction, "read", "string too long", List(port));
+                RaiseExceptionC(Restriction, "read", "string too long", List(port));
             }
 
             memcpy(ns, s, msl * sizeof(FCh));
@@ -223,7 +223,7 @@ Again:
 UnexpectedEof:
     if (s != sb)
         free(s);
-    RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading string", List(port));
+    RaiseExceptionC(Lexical, "read", "unexpected end-of-file reading string", List(port));
     return(NoValueObject);
 }
 
@@ -248,14 +248,14 @@ static FObject ReadNumber(FObject port, FCh * s, int_t sdx, FFixnum rdx, int_t d
         s[sdx] = ch;
         sdx += 1;
         if (sdx == MAXIMUM_NUMBER)
-            RaiseExceptionC(R.Restriction, "read", "number too long", List(port));
+            RaiseExceptionC(Restriction, "read", "number too long", List(port));
 
         ReadCh(port, &ch);
     }
 
     FObject n = StringToNumber(s, sdx, rdx);
     if (n == FalseObject)
-        RaiseExceptionC(R.Lexical, "read", "expected a valid number",
+        RaiseExceptionC(Lexical, "read", "expected a valid number",
                 List(port, MakeString(s, sdx)));
 
     return(n);
@@ -272,7 +272,7 @@ static int_t ReadName(FObject port, FCh ch, FCh * s)
         s[sl] = ch;
         sl += 1;
         if (sl == MAXIMUM_NAME)
-            RaiseExceptionC(R.Restriction, "read", "name too long", List(port));
+            RaiseExceptionC(Restriction, "read", "name too long", List(port));
 
         if (PeekCh(port, &ch) == 0)
             break;
@@ -306,7 +306,7 @@ static FObject ReadIdentifier(FObject port, FCh * s, int_t sdx, int_t mbnf)
         s[sdx] = ch;
         sdx += 1;
         if (sdx == MAXIMUM_IDENTIFIER)
-            RaiseExceptionC(R.Restriction, "read", "symbol too long", List(port));
+            RaiseExceptionC(Restriction, "read", "symbol too long", List(port));
 
         ReadCh(port, &ch);
     }
@@ -333,7 +333,7 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
     FCh ch;
 
     if (ReadCh(port, &ch) == 0)
-        RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading #", List(port));
+        RaiseExceptionC(Lexical, "read", "unexpected end-of-file reading #", List(port));
 
     if (ch == 't' || ch == 'f')
     {
@@ -347,7 +347,7 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
         if (StringCEqualP("f", s, sl) || StringCEqualP("false", s, sl))
             return(FalseObject);
 
-        RaiseExceptionC(R.Lexical, "read", "unexpected character(s) following #",
+        RaiseExceptionC(Lexical, "read", "unexpected character(s) following #",
                 List(port, MakeString(s, sl)));
     }
     else if (ch == '\\')
@@ -355,7 +355,7 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
         FCh s[MAXIMUM_NAME];
 
         if (ReadCh(port, &ch) == 0)
-            RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading #\\", List(port));
+            RaiseExceptionC(Lexical, "read", "unexpected end-of-file reading #\\", List(port));
 
         if (IdentifierInitialP(ch) == 0)
             return(MakeCharacter(ch));
@@ -371,7 +371,7 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
 
             FObject n = StringToNumber(s + 1, sl - 1, 16);
             if (FixnumP(n) == 0 || AsFixnum(n) < 0)
-                RaiseExceptionC(R.Lexical, "read", "expected #\\x<hex value>",
+                RaiseExceptionC(Lexical, "read", "expected #\\x<hex value>",
                         List(port, MakeString(s, sl)));
 
             return(MakeCharacter(AsFixnum(n)));
@@ -404,7 +404,7 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
         if (StringCEqualP("tab", s, sl))
             return(MakeCharacter(0x0009));
 
-        RaiseExceptionC(R.Lexical, "read", "unexpected character name",
+        RaiseExceptionC(Lexical, "read", "unexpected character name",
                 List(port, MakeString(s, sl)));
     }
     else if (ch == 'b' || ch == 'B' || ch == 'o' || ch == 'O' || ch == 'd' || ch == 'D'
@@ -421,7 +421,7 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
             ReadCh(port, &ch);
 
             if (PeekCh(port, &ch) == 0)
-                RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading number",
+                RaiseExceptionC(Lexical, "read", "unexpected end-of-file reading number",
                         List(port));
 
             if (ch == 'b' || ch == 'B' || ch == 'o' || ch == 'O' || ch == 'd' || ch == 'D'
@@ -437,7 +437,7 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
                 sdx += 1;
             }
             else
-                RaiseExceptionC(R.Lexical, "read", "unexpected character following #",
+                RaiseExceptionC(Lexical, "read", "unexpected character following #",
                         List(port, MakeCharacter(ch)));
         }
 
@@ -448,16 +448,16 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
     else if (ch == 'u')
     {
         if (ReadCh(port, &ch) == 0)
-            RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading bytevector",
+            RaiseExceptionC(Lexical, "read", "unexpected end-of-file reading bytevector",
                     List(port));
         if (ch != '8')
-            RaiseExceptionC(R.Lexical, "read", "expected #\\u8(", List(port));
+            RaiseExceptionC(Lexical, "read", "expected #\\u8(", List(port));
 
         if (ReadCh(port, &ch) == 0)
-            RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading bytevector",
+            RaiseExceptionC(Lexical, "read", "unexpected end-of-file reading bytevector",
                     List(port));
         if (ch != '(')
-            RaiseExceptionC(R.Lexical, "read", "expected #\\u8(", List(port));
+            RaiseExceptionC(Lexical, "read", "expected #\\u8(", List(port));
         return(U8ListToBytevector(ReadList(port, pdlhm)));
     }
     else if (ch == ';')
@@ -474,7 +474,7 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
         while (lvl > 0)
         {
             if (ReadCh(port, &ch) == 0)
-                RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file in block comment",
+                RaiseExceptionC(Lexical, "read", "unexpected end-of-file in block comment",
                         List(port));
 
             if (pch == '#' && ch == '|')
@@ -492,10 +492,10 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
         FCh s[MAXIMUM_NAME];
 
         if (ReadCh(port, &ch) == 0)
-            RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading #!", List(port));
+            RaiseExceptionC(Lexical, "read", "unexpected end-of-file reading #!", List(port));
 
         if (IdentifierInitialP(ch) == 0)
-            RaiseExceptionC(R.Lexical, "read", "unexpected character following #!",
+            RaiseExceptionC(Lexical, "read", "unexpected character following #!",
                     List(port, MakeCharacter(ch)));
 
         int_t sl = ReadName(port, ch, s);
@@ -505,7 +505,7 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
         else if (StringCEqualP("no-fold-case", s, sl))
             FoldcasePort(port, 0);
         else
-            RaiseExceptionC(R.Lexical, "read", "unknown directive #!<name>",
+            RaiseExceptionC(Lexical, "read", "unknown directive #!<name>",
                     List(port, MakeString(s, sl)));
 
         return(Read(port, eaf, rlf, pdlhm));
@@ -517,11 +517,11 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
         FObject n = ReadNumber(port, s, 1, 10, 1);
 
         if (FixnumP(n) == 0)
-            RaiseExceptionC(R.Lexical, "read", "expected an integer for <n>: #<n>= and #<n>#",
+            RaiseExceptionC(Lexical, "read", "expected an integer for <n>: #<n>= and #<n>#",
                     List(port));
 
         if (ReadCh(port, &ch) == 0)
-            RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading #<n>= or #<n>#",
+            RaiseExceptionC(Lexical, "read", "unexpected end-of-file reading #<n>= or #<n>#",
                     List(port));
 
         if (ch == '=')
@@ -532,7 +532,7 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
                 *pdlhm = MakeEqHashMap();
 
             if (EqHashMapRef(*pdlhm, n, NotFoundObject) != NotFoundObject)
-                RaiseExceptionC(R.Lexical, "read", "duplicate datum label", List(port, n));
+                RaiseExceptionC(Lexical, "read", "duplicate datum label", List(port, n));
 
             EqHashMapSet(*pdlhm, n, obj);
             return(obj);
@@ -540,11 +540,11 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
         else if (ch == '#')
             return(MakeDatumReference(n));
 
-        RaiseExceptionC(R.Lexical, "read", "expected #<n>= or #<n>#", List(port,
+        RaiseExceptionC(Lexical, "read", "expected #<n>= or #<n>#", List(port,
                 MakeCharacter(ch)));
     }
 
-    RaiseExceptionC(R.Lexical, "read", "unexpected character following #",
+    RaiseExceptionC(Lexical, "read", "unexpected character following #",
             List(port, MakeCharacter(ch)));
 
     return(NoValueObject);
@@ -599,12 +599,12 @@ static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
             case ')':
                 if (rlf)
                     return(EolObject);
-                RaiseExceptionC(R.Lexical, "read", "unexpected )", List(port));
+                RaiseExceptionC(Lexical, "read", "unexpected )", List(port));
                 break;
 
             case '.':
                 if (PeekCh(port, &ch) == 0)
-                    RaiseExceptionC(R.Lexical, "read",
+                    RaiseExceptionC(Lexical, "read",
                             "unexpected end-of-file reading dot", List(port));
 
                 if (DotSubsequentP(ch))
@@ -622,7 +622,7 @@ static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
 
                 if (rlf)
                     return(DotObject);
-                RaiseExceptionC(R.Lexical, "read", "unexpected dotted pair", List(port));
+                RaiseExceptionC(Lexical, "read", "unexpected dotted pair", List(port));
                 break;
 
             case '\'':
@@ -645,7 +645,7 @@ static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
             case ',':
             {
                 if (PeekCh(port, &ch) == 0)
-                    RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading unquote",
+                    RaiseExceptionC(Lexical, "read", "unexpected end-of-file reading unquote",
                             List(port));
 
                 FObject sym = UnquoteSymbol;
@@ -680,7 +680,7 @@ static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
                     ReadCh(port, &ch2);
 
                     if (PeekCh(port, &pch) == 0)
-                        RaiseExceptionC(R.Lexical, "read",
+                        RaiseExceptionC(Lexical, "read",
                                 "unexpected end-of-file reading identifier or number",
                                 List(port));
 
@@ -722,7 +722,7 @@ static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
                 }
 
                 if (WhitespaceP(ch) == 0)
-                    RaiseExceptionC(R.Lexical, "read", "unexpected character",
+                    RaiseExceptionC(Lexical, "read", "unexpected character",
                             List(port, MakeCharacter(ch)));
                 break;
             }
@@ -732,7 +732,7 @@ static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
 Eof:
 
     if (eaf == 0)
-        RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading list or vector",
+        RaiseExceptionC(Lexical, "read", "unexpected end-of-file reading list or vector",
                 List(port));
     return(EndOfFileObject);
 }
@@ -751,7 +751,7 @@ static FObject ReadList(FObject port, FObject * pdlhm)
         obj = Read(port, 0, 0, pdlhm);
 
         if (Read(port, 0, 1, pdlhm) != EolObject)
-            RaiseExceptionC(R.Lexical, "read", "bad dotted pair", List(port));
+            RaiseExceptionC(Lexical, "read", "bad dotted pair", List(port));
         return(obj);
     }
 
@@ -767,7 +767,7 @@ static FObject ResolveReference(FObject port, FObject ref, FObject dlhm)
 
     FObject obj = EqHashMapRef(dlhm, AsDatumReference(ref)->Label, NotFoundObject);
     if (obj == NotFoundObject)
-        RaiseExceptionC(R.Lexical, "read", "datum reference to unknown label",
+        RaiseExceptionC(Lexical, "read", "datum reference to unknown label",
                 List(port, AsDatumReference(ref)->Label));
 
     return(obj);
@@ -939,7 +939,7 @@ Define("read-bytevector", ReadBytevectorPrimitive)(int_t argc, FObject argv[])
     {
         ptr = (FByte *) malloc(bvl);
         if (ptr == 0)
-            RaiseExceptionC(R.Restriction, "read-bytevector!", "insufficient memory",
+            RaiseExceptionC(Restriction, "read-bytevector!", "insufficient memory",
                     List(argv[0]));
     }
 
@@ -994,7 +994,7 @@ Define("read-bytevector!", ReadBytevectorModifyPrimitive)(int_t argc, FObject ar
     {
         ptr = (FByte *) malloc(end - strt);
         if (ptr == 0)
-            RaiseExceptionC(R.Restriction, "read-bytevector", "insufficient memory",
+            RaiseExceptionC(Restriction, "read-bytevector", "insufficient memory",
                     List(MakeFixnum(end - strt)));
     }
 

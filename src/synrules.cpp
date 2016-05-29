@@ -185,15 +185,15 @@ static FObject CopyLiterals(FObject se, FObject obj, FObject ellip)
     while (obj != EmptyListObject)
     {
         if (PairP(obj) == 0 || (IdentifierP(First(obj)) == 0 && SymbolP(First(obj)) == 0))
-            RaiseExceptionC(R.Syntax, "syntax-rules",
+            RaiseExceptionC(Syntax, "syntax-rules",
                     "expected list of identifiers for literals", List(obj, form));
 
         if (MatchReference(ellip, se, First(obj)))
-            RaiseExceptionC(R.Syntax, "syntax-rules",
+            RaiseExceptionC(Syntax, "syntax-rules",
                     "<ellipsis> is not allowed as a literal", List(First(obj), form));
 
         if (ReferenceP(LiteralFind(se, lits, First(obj))))
-            RaiseExceptionC(R.Syntax, "syntax-rules", "duplicate literal", List(First(obj), form));
+            RaiseExceptionC(Syntax, "syntax-rules", "duplicate literal", List(First(obj), form));
 
         FObject id = First(obj);
         if (SymbolP(id))
@@ -231,7 +231,7 @@ static FObject CompilePatternVariables(FObject se, FObject form, FObject lits, F
         pat = VectorToList(pat);
 
     if (PairP(pat) && MatchReference(ellip, se, First(pat)))
-        RaiseExceptionC(R.Syntax, "syntax-rules",
+        RaiseExceptionC(Syntax, "syntax-rules",
                 "<ellipsis> must not start list pattern or vector pattern",
                 List(pat, form));
 
@@ -241,7 +241,7 @@ static FObject CompilePatternVariables(FObject se, FObject form, FObject lits, F
         if (PairP(Rest(pat)) && MatchReference(ellip, se, First(Rest(pat))))
         {
             if (ef)
-                RaiseExceptionC(R.Syntax, "syntax-rules",
+                RaiseExceptionC(Syntax, "syntax-rules",
                         "more than one <ellipsis> in a list pattern or vector pattern",
                         List(pat, form));
 
@@ -266,7 +266,7 @@ static FObject CompilePatternVariables(FObject se, FObject form, FObject lits, F
                 && MatchReference(R.UnderscoreReference, se, pat) == 0)
         {
             if (PatternVariableP(PatternVariableFind(se, pvars, pat)))
-                RaiseExceptionC(R.Syntax, "syntax-rules",
+                RaiseExceptionC(Syntax, "syntax-rules",
                         "duplicate pattern variable", List(pat, form));
 
             if (ReferenceP(LiteralFind(se, lits, pat)) == 0)
@@ -420,7 +420,7 @@ static FObject CompileTemplate(FObject se, FObject form, FObject pvars, FObject 
         if (qea != 0 && MatchReference(ellip, se, First(tpl)))
         {
             if (PairP(Rest(tpl)) == 0 || Rest(Rest(tpl)) != EmptyListObject)
-                RaiseExceptionC(R.Syntax, "syntax-rules",
+                RaiseExceptionC(Syntax, "syntax-rules",
                         "expected (<ellipsis> <template>) or (... <template> <ellipsis> ...)",
                         List(tpl, form));
 
@@ -451,7 +451,7 @@ static FObject CompileTemplate(FObject se, FObject form, FObject pvars, FObject 
             for (int_t rc = 0; rc < AsFixnum(AsTemplateRepeat(tr)->RepeatCount); rc++)
                 if (AsVector(AsTemplateRepeat(tr)->Variables)->Vector[rc]
                         == EmptyListObject)
-                    RaiseExceptionC(R.Syntax, "syntax-rules",
+                    RaiseExceptionC(Syntax, "syntax-rules",
                             "missing repeated pattern variable for <ellipsis> in template",
                             List(tpl, form));
 
@@ -480,7 +480,7 @@ static FObject CompileTemplate(FObject se, FObject form, FObject pvars, FObject 
             if (AsFixnum(AsPatternVariable(var)->RepeatDepth) > 0)
             {
                 if (trs == EmptyListObject || AddVarToTemplateRepeat(var, trs) == 0)
-                    RaiseExceptionC(R.Syntax, "syntax-rules",
+                    RaiseExceptionC(Syntax, "syntax-rules",
                             "missing <ellipsis> needed to repeat pattern variable in template",
                             List(tpl, form));
             }
@@ -502,12 +502,12 @@ static FObject CompileRule(FObject se, FObject form, FObject lits, FObject rule,
 
     if (PairP(rule) == 0 || PairP(Rest(rule)) == 0
             || Rest(Rest(rule)) != EmptyListObject)
-        RaiseExceptionC(R.Syntax, "syntax-rules",
+        RaiseExceptionC(Syntax, "syntax-rules",
                 "expected (<pattern> <template>) for syntax rule", List(rule, form));
 
     FObject pat = First(rule);
     if (PairP(pat) == 0 || (IdentifierP(First(pat)) == 0 && SymbolP(First(pat)) == 0))
-        RaiseExceptionC(R.Syntax, "syntax-rules",
+        RaiseExceptionC(Syntax, "syntax-rules",
                 "pattern must be list starting with a symbol", List(pat, rule));
 
     FObject pvars = ReverseListModify(CompilePatternVariables(se, pat, lits, Rest(pat), ellip,
@@ -515,7 +515,7 @@ static FObject CompileRule(FObject se, FObject form, FObject lits, FObject rule,
     AssignVariableIndexes(pvars, 0);
 
     if (ListLength(pvars) > MaxPatternVars)
-        RaiseExceptionC(R.Restriction, "syntax-rules", "too many pattern variables", List(rule));
+        RaiseExceptionC(Restriction, "syntax-rules", "too many pattern variables", List(rule));
 
     FObject cpat = CompilePattern(se, lits, pvars, ellip, Rest(pat));
     FObject tpl = CompileTemplate(se, First(Rest(rule)), pvars, ellip, First(Rest(rule)),
@@ -549,7 +549,7 @@ FObject CompileSyntaxRules(FObject se, FObject obj)
         ellip = R.EllipsisReference;
 
     if (PairP(Rest(obj)) == 0)
-        RaiseExceptionC(R.Syntax, "syntax-rules", "missing literals", List(form));
+        RaiseExceptionC(Syntax, "syntax-rules", "missing literals", List(form));
 
     // (<literal> ...)
 
@@ -560,11 +560,11 @@ FObject CompileSyntaxRules(FObject se, FObject obj)
     while (rules != EmptyListObject)
     {
         if (PairP(rules) == 0)
-            RaiseExceptionC(R.Syntax, "syntax-rules", "expected a list of rules", List(form));
+            RaiseExceptionC(Syntax, "syntax-rules", "expected a list of rules", List(form));
 
         if (PairP(First(rules)) == 0 || PairP(Rest(First(rules))) == 0
                 || Rest(Rest(First(rules))) != EmptyListObject)
-            RaiseExceptionC(R.Syntax, "syntax-rules", "expected (<pattern> <template>) for a rule",
+            RaiseExceptionC(Syntax, "syntax-rules", "expected (<pattern> <template>) for a rule",
                     List(First(rules), form));
 
         nr = MakePair(CompileRule(se, form, lits, First(rules), ellip), nr);
@@ -758,7 +758,7 @@ static FObject ExpandTemplateRepeat(FObject tse, FObject use, FObject ctpl, int_
         FAssert(idx >= 0 && idx < MaxPatternVars);
 
         if (vals[idx] != EmptyListObject)
-            RaiseExceptionC(R.Syntax, "syntax-rules",
+            RaiseExceptionC(Syntax, "syntax-rules",
                     "<ellipsis> match counts differ in template expansion", List(expr));
 
         vars = Rest(vars);
@@ -839,7 +839,7 @@ FObject ExpandSyntaxRules(FObject se, FObject sr, FObject expr)
         rules = Rest(rules);
     }
 
-    RaiseExceptionC(R.Syntax, "syntax-rules", "unable to match pattern", List(sr, expr));
+    RaiseExceptionC(Syntax, "syntax-rules", "unable to match pattern", List(sr, expr));
     return(NoValueObject);
 }
 

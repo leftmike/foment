@@ -412,7 +412,7 @@ static FObject LoadLibrary(FObject nam)
                         break;
 
                     if (PairP(obj) == 0 || EqualToSymbol(First(obj), DefineLibrarySymbol) == 0)
-                        RaiseExceptionC(R.Syntax, "define-library", "expected a library",
+                        RaiseExceptionC(Syntax, "define-library", "expected a library",
                                 List(libfn, obj));
 
                     CompileLibrary(obj);
@@ -572,14 +572,14 @@ static FObject DoImportSet(FObject env, FObject is, FObject form)
     // (rename <import-set> (<identifier1> <identifier2>) ...)
 
     if (PairP(is) == 0 || (IdentifierP(First(is)) == 0 && SymbolP(First(is)) == 0))
-        RaiseExceptionC(R.Syntax, "import", "expected a list starting with an identifier",
+        RaiseExceptionC(Syntax, "import", "expected a list starting with an identifier",
                 List(is, form));
 
     if (EqualToSymbol(First(is), OnlySymbol))
     {
         FObject ilst = DoOnlyOrExcept(env, is, 1);
         if (ilst == NoValueObject)
-            RaiseExceptionC(R.Syntax, "import",
+            RaiseExceptionC(Syntax, "import",
                     "expected (only <import-set> <identifier> ...)", List(is, form));
 
         return(ilst);
@@ -588,7 +588,7 @@ static FObject DoImportSet(FObject env, FObject is, FObject form)
     {
         FObject ilst = DoOnlyOrExcept(env, is, 0);
         if (ilst == NoValueObject)
-            RaiseExceptionC(R.Syntax, "import",
+            RaiseExceptionC(Syntax, "import",
                     "expected (except <import-set> <identifier> ...)", List(is, form));
 
         return(ilst);
@@ -598,7 +598,7 @@ static FObject DoImportSet(FObject env, FObject is, FObject form)
         if (PairP(Rest(is)) == 0 || PairP(Rest(Rest(is))) == 0
                 || Rest(Rest(Rest(is))) != EmptyListObject ||
                 (IdentifierP(First(Rest(Rest(is)))) == 0 && SymbolP(First(Rest(Rest(is)))) == 0))
-            RaiseExceptionC(R.Syntax, "import",
+            RaiseExceptionC(Syntax, "import",
                     "expected (prefix <import-set> <identifier>)", List(is, form));
 
         FObject prfx;
@@ -624,7 +624,7 @@ static FObject DoImportSet(FObject env, FObject is, FObject form)
     else if (EqualToSymbol(First(is), RenameSymbol))
     {
         if (PairP(Rest(is)) == 0)
-            RaiseExceptionC(R.Syntax, "import",
+            RaiseExceptionC(Syntax, "import",
                     "expected (rename <import-set> (<identifier> <identifier>) ...)",
                     List(is, form));
 
@@ -636,7 +636,7 @@ static FObject DoImportSet(FObject env, FObject is, FObject form)
             if (PairP(rnm) == 0 || PairP(Rest(rnm)) == 0 || Rest(Rest(rnm)) != EmptyListObject
                     || (IdentifierP(First(rnm)) == 0 && SymbolP(First(rnm)) == 0)
                     || (IdentifierP(First(Rest(rnm))) == 0 && SymbolP(First(Rest(rnm))) == 0))
-                RaiseExceptionC(R.Syntax, "import",
+                RaiseExceptionC(Syntax, "import",
                         "expected (rename <import-set> (<identifier> <identifier>) ...)",
                         List(is, form));
 
@@ -644,7 +644,7 @@ static FObject DoImportSet(FObject env, FObject is, FObject form)
         }
 
         if (rlst != EmptyListObject)
-            RaiseExceptionC(R.Syntax, "import",
+            RaiseExceptionC(Syntax, "import",
                     "expected (rename <import-set> (<identifier> <identifier>) ...)",
                     List(is, form));
 
@@ -670,13 +670,13 @@ static FObject DoImportSet(FObject env, FObject is, FObject form)
 
     FObject nam = LibraryName(is);
     if (PairP(nam) == 0)
-        RaiseExceptionC(R.Syntax, "import",
+        RaiseExceptionC(Syntax, "import",
                 "library name must be a list of symbols and/or integers", List(is));
 
     FObject lib = FindOrLoadLibrary(nam);
 
     if (LibraryP(lib) == 0)
-        RaiseExceptionC(R.Syntax, "import", "library not found", List(nam, form));
+        RaiseExceptionC(Syntax, "import", "library not found", List(nam, form));
 
     FObject ilst = EmptyListObject;
     FObject elst = AsLibrary(lib)->Exports;
@@ -705,7 +705,7 @@ void EnvironmentImportSet(FObject env, FObject is, FObject form)
         FAssert(GlobalP(First(ilst)));
 
         if (EnvironmentImportGlobal(env, First(ilst)))
-            RaiseExceptionC(R.Syntax, "import", "expected an undefined identifier",
+            RaiseExceptionC(Syntax, "import", "expected an undefined identifier",
                     List(AsGlobal(First(ilst))->Name, form));
 
         ilst = Rest(ilst);
@@ -738,7 +738,7 @@ static FObject ExpandLibraryDeclarations(FObject env, FObject lst, FObject body)
     {
         if (PairP(First(lst)) == 0 || (IdentifierP(First(First(lst))) == 0
                 && SymbolP(First(First(lst))) == 0))
-            RaiseExceptionC(R.Syntax, "define-library",
+            RaiseExceptionC(Syntax, "define-library",
                     "expected a library declaration", List(First(lst)));
 
         FObject form = First(lst);
@@ -758,7 +758,7 @@ static FObject ExpandLibraryDeclarations(FObject env, FObject lst, FObject body)
                 && EqualToSymbol(First(form), BeginSymbol) == 0
                 && EqualToSymbol(First(form), IncludeSymbol) == 0
                 && EqualToSymbol(First(form), IncludeCISymbol) == 0)
-            RaiseExceptionC(R.Syntax, "define-library",
+            RaiseExceptionC(Syntax, "define-library",
                     "expected a library declaration", List(First(lst)));
         else
             body = MakePair(form, body);
@@ -767,7 +767,7 @@ static FObject ExpandLibraryDeclarations(FObject env, FObject lst, FObject body)
     }
 
     if (lst != EmptyListObject)
-        RaiseExceptionC(R.Syntax, "define-library",
+        RaiseExceptionC(Syntax, "define-library",
                 "expected a proper list of library declarations", List(lst));
 
     return(body);
@@ -793,7 +793,7 @@ static FObject CompileEvalBegin(FObject obj, FObject env, FObject body, FObject 
         if (ss == BeginSyntax)
             return(body);
 
-        RaiseExceptionC(R.Syntax, SpecialSyntaxToName(ss),
+        RaiseExceptionC(Syntax, SpecialSyntaxToName(ss),
                 "expected at least one expression", List(form));
     }
 
@@ -805,7 +805,7 @@ static FObject CompileEvalBegin(FObject obj, FObject env, FObject body, FObject 
     }
 
     if (obj != EmptyListObject)
-        RaiseExceptionC(R.Syntax, SpecialSyntaxToName(ss),
+        RaiseExceptionC(Syntax, SpecialSyntaxToName(ss),
                 "expected a proper list", List(form));
 
     return(body);
@@ -861,11 +861,11 @@ static FObject CompileEvalExpr(FObject obj, FObject env, FObject body)
             FAssert(EnvironmentP(env));
 
             if (AsEnvironment(env)->Immutable == TrueObject)
-                RaiseExceptionC(R.Assertion, "define",
+                RaiseExceptionC(Assertion, "define",
                         "environment is immutable", List(env, obj));
 
             if (PairP(Rest(obj)) == 0)
-                RaiseExceptionC(R.Syntax, "define",
+                RaiseExceptionC(Syntax, "define",
                         "expected a variable or list beginning with a variable", List(obj));
 
             if (IdentifierP(First(Rest(obj))) || SymbolP(First(Rest(obj))))
@@ -875,7 +875,7 @@ static FObject CompileEvalExpr(FObject obj, FObject env, FObject body)
                     // (define <variable>)
 
                     if (EnvironmentDefine(env, First(Rest(obj)), NoValueObject))
-                        RaiseExceptionC(R.Syntax, "define",
+                        RaiseExceptionC(Syntax, "define",
                                 "imported variables may not be redefined in libraries",
                                 List(First(Rest(obj)), obj));
 
@@ -885,11 +885,11 @@ static FObject CompileEvalExpr(FObject obj, FObject env, FObject body)
                 // (define <variable> <expression>)
 
                 if (PairP(Rest(Rest(obj))) == 0 || Rest(Rest(Rest(obj))) != EmptyListObject)
-                    RaiseExceptionC(R.Syntax, "define",
+                    RaiseExceptionC(Syntax, "define",
                             "expected (define <variable> <expression>)", List(obj));
 
                 if (EnvironmentDefine(env, First(Rest(obj)), NoValueObject))
-                    RaiseExceptionC(R.Syntax, "define",
+                    RaiseExceptionC(Syntax, "define",
                             "imported variables may not be redefined in libraries",
                             List(First(Rest(obj)), obj));
 
@@ -903,13 +903,13 @@ static FObject CompileEvalExpr(FObject obj, FObject env, FObject body)
 
                 if (PairP(First(Rest(obj))) == 0 || (IdentifierP(First(First(Rest(obj)))) == 0
                         && SymbolP(First(First(Rest(obj)))) == 0))
-                    RaiseExceptionC(R.Syntax, "define",
+                    RaiseExceptionC(Syntax, "define",
                             "expected a list beginning with a variable", List(obj));
 
                 if (EnvironmentDefine(env, First(First(Rest(obj))),
                         CompileLambda(env, First(First(Rest(obj))), Rest(First(Rest(obj))),
                         Rest(Rest(obj)))))
-                    RaiseExceptionC(R.Syntax, "define",
+                    RaiseExceptionC(Syntax, "define",
                             "imported variables may not be redefined in libraries",
                             List(First(First(Rest(obj))), obj));
 
@@ -923,25 +923,25 @@ static FObject CompileEvalExpr(FObject obj, FObject env, FObject body)
             FAssert(EnvironmentP(env));
 
             if (AsEnvironment(env)->Immutable == TrueObject)
-                RaiseExceptionC(R.Assertion, "define-values",
+                RaiseExceptionC(Assertion, "define-values",
                         "environment is immutable", List(env, obj));
 
             if (PairP(Rest(obj)) == 0
                     || (PairP(First(Rest(obj))) == 0 && First(Rest(obj)) != EmptyListObject)
                     || PairP(Rest(Rest(obj))) == 0 || Rest(Rest(Rest(obj))) != EmptyListObject)
-                RaiseExceptionC(R.Syntax, "define-values",
+                RaiseExceptionC(Syntax, "define-values",
                         "expected (define-values (<variable> ...) <expression>)", List(obj));
 
             FObject lst = First(Rest(obj));
             while (PairP(lst))
             {
                 if (IdentifierP(First(lst)) == 0 && SymbolP(First(lst)) == 0)
-                    RaiseExceptionC(R.Syntax, "define-values",
+                    RaiseExceptionC(Syntax, "define-values",
                             "expected (define-values (<variable> ...) <expression>)",
                             List(First(lst), obj));
 
                 if (EnvironmentDefine(env, First(lst), NoValueObject))
-                    RaiseExceptionC(R.Syntax, "define-values",
+                    RaiseExceptionC(Syntax, "define-values",
                             "imported variables may not be redefined in libraries",
                             List(First(lst), obj));
 
@@ -949,7 +949,7 @@ static FObject CompileEvalExpr(FObject obj, FObject env, FObject body)
             }
 
             if (lst != EmptyListObject)
-                RaiseExceptionC(R.Syntax, "define-values", "expected a list of variables",
+                RaiseExceptionC(Syntax, "define-values", "expected a list of variables",
                         List(obj));
 
             return(MakePair(List(SetBangValuesSyntax, First(Rest(obj)), First(Rest(Rest(obj)))),
@@ -962,23 +962,23 @@ static FObject CompileEvalExpr(FObject obj, FObject env, FObject body)
             FAssert(EnvironmentP(env));
 
             if (AsEnvironment(env)->Immutable == TrueObject)
-                RaiseExceptionC(R.Assertion, "define",
+                RaiseExceptionC(Assertion, "define",
                         "environment is immutable", List(env, obj));
 
             if (PairP(Rest(obj)) == 0 || PairP(Rest(Rest(obj))) == 0
                     || Rest(Rest(Rest(obj))) != EmptyListObject
                     || (IdentifierP(First(Rest(obj))) == 0 && SymbolP(First(Rest(obj))) == 0))
-                RaiseExceptionC(R.Syntax, "define-syntax",
+                RaiseExceptionC(Syntax, "define-syntax",
                         "expected (define-syntax <keyword> <transformer>)",
                         List(obj));
 
             FObject trans = CompileTransformer(First(Rest(Rest(obj))), env);
             if (SyntaxRulesP(trans) == 0)
-                RaiseExceptionC(R.Syntax, "define-syntax",
+                RaiseExceptionC(Syntax, "define-syntax",
                         "expected a transformer", List(trans, obj));
 
             if (EnvironmentDefine(env, First(Rest(obj)), trans))
-                RaiseExceptionC(R.Syntax, "define",
+                RaiseExceptionC(Syntax, "define",
                         "imported variables may not be redefined in libraries",
                         List(First(Rest(obj)), obj));
 
@@ -1094,7 +1094,7 @@ static FObject CompileExports(FObject env, FObject lst)
                         && SymbolP(First(Rest(Rest(spec)))) == 0)
                         || Rest(Rest(Rest(spec))) != EmptyListObject
                         || EqualToSymbol(First(spec), RenameSymbol) == 0))
-                    RaiseExceptionC(R.Syntax, "export",
+                    RaiseExceptionC(Syntax, "export",
                             "expected an identifier or (rename <id1> <id2>)",
                             List(spec, form));
 
@@ -1114,11 +1114,11 @@ static FObject CompileExports(FObject env, FObject lst)
 
                 FObject gl = EnvironmentLookup(env, lid);
                 if (GlobalP(gl) == 0)
-                    RaiseExceptionC(R.Syntax, "export", "identifier is undefined",
+                    RaiseExceptionC(Syntax, "export", "identifier is undefined",
                             List(lid, form));
 
                 if (GlobalP(Assq(eid, elst)))
-                    RaiseExceptionC(R.Syntax, "export", "identifier already exported",
+                    RaiseExceptionC(Syntax, "export", "identifier already exported",
                             List(eid, form));
 
                 elst = MakePair(MakePair(eid, gl), elst);
@@ -1126,7 +1126,7 @@ static FObject CompileExports(FObject env, FObject lst)
             }
 
             if (especs != EmptyListObject)
-                RaiseExceptionC(R.Syntax, "export", "expected a proper list of exports",
+                RaiseExceptionC(Syntax, "export", "expected a proper list of exports",
                         List(form));
         }
         else
@@ -1162,11 +1162,11 @@ static FObject CompileAkas(FObject env, FObject lst)
         if (EqualToSymbol(First(form), AkaSymbol))
         {
             if (PairP(Rest(form)) == 0 || Rest(Rest(form)) != EmptyListObject)
-                RaiseExceptionC(R.Syntax, "aka", "expected (aka <library-name>)", List(form));
+                RaiseExceptionC(Syntax, "aka", "expected (aka <library-name>)", List(form));
 
             FObject ln = LibraryName(First(Rest(form)));
             if (PairP(ln) == 0)
-                RaiseExceptionC(R.Syntax, "aka",
+                RaiseExceptionC(Syntax, "aka",
                         "library name must be a list of symbols and/or integers",
                         List(First(Rest(form))));
 
@@ -1204,12 +1204,12 @@ static void Visit(FObject key, FObject val, FObject ctx)
 void CompileLibrary(FObject expr)
 {
     if (PairP(Rest(expr)) == 0)
-        RaiseExceptionC(R.Syntax, "define-library", "expected a library name",
+        RaiseExceptionC(Syntax, "define-library", "expected a library name",
                 List(expr));
 
     FObject ln = LibraryName(First(Rest(expr)));
     if (PairP(ln) == 0)
-        RaiseExceptionC(R.Syntax, "define-library",
+        RaiseExceptionC(Syntax, "define-library",
                 "library name must be a list of symbols and/or integers", List(First(Rest(expr))));
 
     FObject env = MakeEnvironment(ln, FalseObject);
@@ -1223,7 +1223,7 @@ void CompileLibrary(FObject expr)
     UndefinedList = EmptyListObject;
     EqHashMapVisit(AsEnvironment(env)->HashMap, Visit, NoValueObject);
     if (UndefinedList != EmptyListObject)
-        RaiseExceptionC(R.Syntax, "define-library", "identifier(s) used but never defined",
+        RaiseExceptionC(Syntax, "define-library", "identifier(s) used but never defined",
                 List(UndefinedList, expr));
 
     FObject lib = MakeLibrary(ln, exports, proc);
@@ -1336,7 +1336,7 @@ FObject CompileProgram(FObject nam, FObject port)
     UndefinedList = EmptyListObject;
     EqHashMapVisit(AsEnvironment(env)->HashMap, Visit, NoValueObject);
     if (UndefinedList != EmptyListObject)
-        RaiseExceptionC(R.Syntax, "program", "identifier(s) used but never defined",
+        RaiseExceptionC(Syntax, "program", "identifier(s) used but never defined",
                 List(UndefinedList, nam));
 
     return(proc);

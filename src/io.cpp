@@ -1834,7 +1834,7 @@ static void ConSetHistory(FConsoleInput * ci, FObject lst)
             break;
 
         if (PairP(lst) == 0 || StringP(First(lst)) == 0)
-            RaiseExceptionC(R.Assertion, "set-console-input-history!",
+            RaiseExceptionC(Assertion, "set-console-input-history!",
                     "expected a list of strings", List(frm, lst));
 
         FObject bv;
@@ -2847,7 +2847,7 @@ Define("open-binary-input-file", OpenBinaryInputFilePrimitive)(int_t argc, FObje
     FObject port = OpenBinaryInputFile(argv[0]);
 
     if (BinaryPortP(port) == 0)
-        RaiseExceptionC(R.Assertion, "open-binary-input-file", FileErrorSymbol,
+        RaiseExceptionC(Assertion, "open-binary-input-file", FileErrorSymbol,
                 "unable to open file for input", List(argv[0]));
 
     return(port);
@@ -2861,7 +2861,7 @@ Define("open-binary-output-file", OpenBinaryOutputFilePrimitive)(int_t argc, FOb
     FObject port = OpenBinaryOutputFile(argv[0]);
 
     if (BinaryPortP(port) == 0)
-        RaiseExceptionC(R.Assertion, "open-binary-output-file", FileErrorSymbol,
+        RaiseExceptionC(Assertion, "open-binary-output-file", FileErrorSymbol,
                 "unable to open file for output", List(argv[0]));
 
     return(port);
@@ -3090,7 +3090,7 @@ Define("set-port-position!", SetPortPositionPrimitive)(int_t argc, FObject argv[
         else if (argv[2] == EndSymbol)
             frm = FromEnd;
         else
-            RaiseExceptionC(R.Assertion, "set-port-position!",
+            RaiseExceptionC(Assertion, "set-port-position!",
                     "expected begin, current, or end", List(argv[2]));
     }
 
@@ -3164,7 +3164,7 @@ Define("make-socket", MakeSocketPrimitive)(int_t argc, FObject argv[])
 
     SOCKET s = socket((int) AsFixnum(argv[0]), (int) AsFixnum(argv[1]), (int) AsFixnum(argv[2]));
     if (s == INVALID_SOCKET)
-        RaiseExceptionC(R.Assertion, "make-socket", "creating a socket failed",
+        RaiseExceptionC(Assertion, "make-socket", "creating a socket failed",
                 List(argv[0], argv[1], argv[2], LastSocketError()));
 
     return(MakeSocketPort(s));
@@ -3194,7 +3194,7 @@ static void GetAddressInformation(const char * who, addrinfoW ** res, FObject no
 
     if (GetAddrInfoW((FCh16 *) AsBytevector(nn)->Vector, (FCh16 *) AsBytevector(sn)->Vector,
             &hts, res) != 0)
-        RaiseExceptionC(R.Assertion, who, "GetAddrInfoW failed",
+        RaiseExceptionC(Assertion, who, "GetAddrInfoW failed",
                 List(node, svc, afam, sdmn, prot, LastSocketError()));
 #endif // FOMENT_WINDOWS
 
@@ -3205,7 +3205,7 @@ static void GetAddressInformation(const char * who, addrinfoW ** res, FObject no
     if (getaddrinfo(StringLength(node) == 0 ? 0 : (char *) AsBytevector(nn)->Vector,
             StringLength(svc) == 0 ? 0 : (char *) AsBytevector(sn)->Vector,
             &hts, res) != 0)
-        RaiseExceptionC(R.Assertion, who, "GetAddrInfoW failed",
+        RaiseExceptionC(Assertion, who, "GetAddrInfoW failed",
                 List(node, svc, afam, sdmn, prot, LastSocketError()));
 #endif // FOMENT_UNIX
 }
@@ -3222,7 +3222,7 @@ Define("bind-socket", BindSocketPrimitive)(int_t argc, FObject argv[])
             MakeFixnum(0), argv[5]);
 
     if (bind((SOCKET) AsGenericPort(argv[0])->Context, res->ai_addr, (int) res->ai_addrlen) != 0)
-        RaiseExceptionC(R.Assertion, "bind-socket", "bind failed",
+        RaiseExceptionC(Assertion, "bind-socket", "bind failed",
                 List(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
                 LastSocketError()));
 
@@ -3245,7 +3245,7 @@ Define("listen-socket", ListenSocketPrimitive)(int_t argc, FObject argv[])
     }
 
     if (listen((SOCKET) AsGenericPort(argv[0])->Context, bcklg) != 0)
-        RaiseExceptionC(R.Assertion, "listen-socket", "listen failed",
+        RaiseExceptionC(Assertion, "listen-socket", "listen failed",
                 List(LastSocketError()));
 
     return(NoValueObject);
@@ -3265,7 +3265,7 @@ Define("accept-socket", AcceptSocketPrimitive)(int_t argc, FObject argv[])
     LeaveWait();
 
     if (s == INVALID_SOCKET)
-        RaiseExceptionC(R.Assertion, "accept-socket", "accept failed",
+        RaiseExceptionC(Assertion, "accept-socket", "accept failed",
                 List(LastSocketError()));
 
     return(MakeSocketPort(s));
@@ -3290,7 +3290,7 @@ Define("connect-socket", ConnectSocketPrimitive)(int_t argc, FObject argv[])
     LeaveWait();
 
     if (ret != 0)
-        RaiseExceptionC(R.Assertion, "connect-socket", "connect failed",
+        RaiseExceptionC(Assertion, "connect-socket", "connect failed",
                 List(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
                 LastSocketError()));
 
@@ -3306,7 +3306,7 @@ Define("shutdown-socket", ShutdownSocketPrimitive)(int_t argc, FObject argv[])
     FixnumArgCheck("shutdown-socket", argv[1]);
 
     if (shutdown((SOCKET) AsGenericPort(argv[0])->Context, (int) AsFixnum(argv[1])) != 0)
-        RaiseExceptionC(R.Assertion, "shutdown-socket", "shutdown failed",
+        RaiseExceptionC(Assertion, "shutdown-socket", "shutdown failed",
                 List(argv[0], argv[1], LastSocketError()));
 
     return(NoValueObject);
@@ -3344,7 +3344,7 @@ Define("recv-socket", ReceiveSocketPrimitive)(int_t argc, FObject argv[])
     {
         ptr = (char *) malloc(bvl);
         if (ptr == 0)
-            RaiseExceptionC(R.Restriction, "recv-socket", "insufficient memory",
+            RaiseExceptionC(Restriction, "recv-socket", "insufficient memory",
                     List(argv[0]));
     }
 
@@ -3377,7 +3377,7 @@ Define("get-ip-addresses", GetIpAddressesPrimitive)(int_t argc, FObject argv[])
     {
         iaabuf = (IP_ADAPTER_ADDRESSES *) malloc(sz);
         if (iaabuf == 0)
-            RaiseExceptionC(R.Assertion, "get-ip-addresses", "unable to allocate memory",
+            RaiseExceptionC(Assertion, "get-ip-addresses", "unable to allocate memory",
                     EmptyListObject);
 
         ULONG ret = GetAdaptersAddresses((ULONG) AsFixnum(argv[0]), 0, 0, iaabuf, &sz);
@@ -3390,7 +3390,7 @@ Define("get-ip-addresses", GetIpAddressesPrimitive)(int_t argc, FObject argv[])
         else if (ret == ERROR_SUCCESS)
             break;
         else
-            RaiseExceptionC(R.Assertion, "get-ip-addresses", "GetAdaptersAddresses failed",
+            RaiseExceptionC(Assertion, "get-ip-addresses", "GetAdaptersAddresses failed",
                     List(MakeFixnum(ret)));
 
         cnt += 1;
@@ -3427,7 +3427,7 @@ Define("get-ip-addresses", GetIpAddressesPrimitive)(int_t argc, FObject argv[])
     struct ifaddrs * ifab;
 
     if (getifaddrs(&ifab) != 0)
-        RaiseExceptionC(R.Assertion, "get-ip-addresses", "getifaddrs failed",
+        RaiseExceptionC(Assertion, "get-ip-addresses", "getifaddrs failed",
                 List(LastSocketError()));
 
     FObject lst = EmptyListObject;

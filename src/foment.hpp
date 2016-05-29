@@ -12,7 +12,6 @@ To Do:
 
 Future:
 -- pull options from FOMENT_OPTIONS environment variable
--- internal symbols etc as immortal objects created at compile time
 -- features, command-line, full-command-line, interactive options,
     environment-variables, etc passed to scheme as a single assoc list
 -- number.cpp: make NumberP, BinaryNumberOp, and UnaryNumberOp faster
@@ -950,12 +949,6 @@ typedef struct
     FObject HashBagRecordType;
     FObject ExceptionRecordType;
 
-    FObject Assertion;
-    FObject Restriction;
-    FObject Lexical;
-    FObject Syntax;
-    FObject Error;
-
     FObject LoadedLibraries;
 
     FObject SyntacticEnvRecordType;
@@ -1025,6 +1018,11 @@ extern FObject QuasiquoteSymbol;
 extern FObject UnquoteSymbol;
 extern FObject UnquoteSplicingSymbol;
 extern FObject FileErrorSymbol;
+extern FObject Assertion;
+extern FObject Restriction;
+extern FObject Lexical;
+extern FObject Syntax;
+extern FObject Error;
 
 // ---- Flonums ----
 
@@ -1317,387 +1315,387 @@ typedef struct _FThreadState
 inline void ZeroArgsCheck(const char * who, int_t argc)
 {
     if (argc != 0)
-        RaiseExceptionC(R.Assertion, who, "expected no arguments", EmptyListObject);
+        RaiseExceptionC(Assertion, who, "expected no arguments", EmptyListObject);
 }
 
 inline void OneArgCheck(const char * who, int_t argc)
 {
     if (argc != 1)
-        RaiseExceptionC(R.Assertion, who, "expected one argument", EmptyListObject);
+        RaiseExceptionC(Assertion, who, "expected one argument", EmptyListObject);
 }
 
 inline void TwoArgsCheck(const char * who, int_t argc)
 {
     if (argc != 2)
-        RaiseExceptionC(R.Assertion, who, "expected two arguments", EmptyListObject);
+        RaiseExceptionC(Assertion, who, "expected two arguments", EmptyListObject);
 }
 
 inline void ThreeArgsCheck(const char * who, int_t argc)
 {
     if (argc != 3)
-        RaiseExceptionC(R.Assertion, who, "expected three arguments", EmptyListObject);
+        RaiseExceptionC(Assertion, who, "expected three arguments", EmptyListObject);
 }
 
 inline void FourArgsCheck(const char * who, int_t argc)
 {
     if (argc != 4)
-        RaiseExceptionC(R.Assertion, who, "expected four arguments", EmptyListObject);
+        RaiseExceptionC(Assertion, who, "expected four arguments", EmptyListObject);
 }
 
 inline void FiveArgsCheck(const char * who, int_t argc)
 {
     if (argc != 5)
-        RaiseExceptionC(R.Assertion, who, "expected five arguments", EmptyListObject);
+        RaiseExceptionC(Assertion, who, "expected five arguments", EmptyListObject);
 }
 
 inline void SixArgsCheck(const char * who, int_t argc)
 {
     if (argc != 6)
-        RaiseExceptionC(R.Assertion, who, "expected six arguments", EmptyListObject);
+        RaiseExceptionC(Assertion, who, "expected six arguments", EmptyListObject);
 }
 
 inline void SevenArgsCheck(const char * who, int_t argc)
 {
     if (argc != 7)
-        RaiseExceptionC(R.Assertion, who, "expected seven arguments", EmptyListObject);
+        RaiseExceptionC(Assertion, who, "expected seven arguments", EmptyListObject);
 }
 
 inline void AtLeastOneArgCheck(const char * who, int_t argc)
 {
     if (argc < 1)
-        RaiseExceptionC(R.Assertion, who, "expected at least one argument", EmptyListObject);
+        RaiseExceptionC(Assertion, who, "expected at least one argument", EmptyListObject);
 }
 
 inline void AtLeastTwoArgsCheck(const char * who, int_t argc)
 {
     if (argc < 2)
-        RaiseExceptionC(R.Assertion, who, "expected at least two arguments", EmptyListObject);
+        RaiseExceptionC(Assertion, who, "expected at least two arguments", EmptyListObject);
 }
 
 inline void AtLeastThreeArgsCheck(const char * who, int_t argc)
 {
     if (argc < 3)
-        RaiseExceptionC(R.Assertion, who, "expected at least three arguments", EmptyListObject);
+        RaiseExceptionC(Assertion, who, "expected at least three arguments", EmptyListObject);
 }
 
 inline void AtLeastFourArgsCheck(const char * who, int_t argc)
 {
     if (argc < 4)
-        RaiseExceptionC(R.Assertion, who, "expected at least four arguments", EmptyListObject);
+        RaiseExceptionC(Assertion, who, "expected at least four arguments", EmptyListObject);
 }
 
 inline void ZeroOrOneArgsCheck(const char * who, int_t argc)
 {
     if (argc > 1)
-        RaiseExceptionC(R.Assertion, who, "expected zero or one arguments", EmptyListObject);
+        RaiseExceptionC(Assertion, who, "expected zero or one arguments", EmptyListObject);
 }
 
 inline void ZeroToTwoArgsCheck(const char * who, int_t argc)
 {
     if (argc > 2)
-        RaiseExceptionC(R.Assertion, who, "expected zero to two arguments", EmptyListObject);
+        RaiseExceptionC(Assertion, who, "expected zero to two arguments", EmptyListObject);
 }
 
 inline void OneOrTwoArgsCheck(const char * who, int_t argc)
 {
     if (argc < 1 || argc > 2)
-        RaiseExceptionC(R.Assertion, who, "expected one or two arguments", EmptyListObject);
+        RaiseExceptionC(Assertion, who, "expected one or two arguments", EmptyListObject);
 }
 
 inline void OneToThreeArgsCheck(const char * who, int_t argc)
 {
     if (argc < 1 || argc > 3)
-        RaiseExceptionC(R.Assertion, who, "expected one to three arguments", EmptyListObject);
+        RaiseExceptionC(Assertion, who, "expected one to three arguments", EmptyListObject);
 }
 
 inline void OneToFourArgsCheck(const char * who, int_t argc)
 {
     if (argc < 1 || argc > 4)
-        RaiseExceptionC(R.Assertion, who, "expected one to four arguments", EmptyListObject);
+        RaiseExceptionC(Assertion, who, "expected one to four arguments", EmptyListObject);
 }
 
 inline void TwoOrThreeArgsCheck(const char * who, int_t argc)
 {
     if (argc < 2 || argc > 3)
-        RaiseExceptionC(R.Assertion, who, "expected two or three arguments", EmptyListObject);
+        RaiseExceptionC(Assertion, who, "expected two or three arguments", EmptyListObject);
 }
 
 inline void TwoToFourArgsCheck(const char * who, int_t argc)
 {
     if (argc < 2 || argc > 4)
-        RaiseExceptionC(R.Assertion, who, "expected two to four arguments", EmptyListObject);
+        RaiseExceptionC(Assertion, who, "expected two to four arguments", EmptyListObject);
 }
 
 inline void ThreeToFiveArgsCheck(const char * who, int_t argc)
 {
     if (argc < 3 || argc > 5)
-        RaiseExceptionC(R.Assertion, who, "expected three to five arguments", EmptyListObject);
+        RaiseExceptionC(Assertion, who, "expected three to five arguments", EmptyListObject);
 }
 
 inline void NonNegativeArgCheck(const char * who, FObject arg, int_t bf)
 {
     if (NonNegativeExactIntegerP(arg, bf) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected an exact non-negative integer", List(arg));
+        RaiseExceptionC(Assertion, who, "expected an exact non-negative integer", List(arg));
 }
 
 inline void IndexArgCheck(const char * who, FObject arg, FFixnum len)
 {
     if (FixnumP(arg) == 0 || AsFixnum(arg) < 0 || AsFixnum(arg) > len)
-        RaiseExceptionC(R.Assertion, who, "expected a valid index", List(arg));
+        RaiseExceptionC(Assertion, who, "expected a valid index", List(arg));
 }
 
 inline void EndIndexArgCheck(const char * who, FObject arg, FFixnum strt, FFixnum len)
 {
     if (FixnumP(arg) == 0 || AsFixnum(arg) < strt || AsFixnum(arg) > len)
-        RaiseExceptionC(R.Assertion, who, "expected a valid index", List(arg));
+        RaiseExceptionC(Assertion, who, "expected a valid index", List(arg));
 }
 
 inline void ByteArgCheck(const char * who, FObject obj)
 {
     if (FixnumP(obj) == 0 || AsFixnum(obj) < 0 || AsFixnum(obj) > 0xFF)
-        RaiseExceptionC(R.Assertion, who, "expected a byte: an exact integer between 0 and 255",
+        RaiseExceptionC(Assertion, who, "expected a byte: an exact integer between 0 and 255",
                 List(obj));
 }
 
 inline void FixnumArgCheck(const char * who, FObject obj)
 {
     if (FixnumP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected an exact integer", List(obj));
+        RaiseExceptionC(Assertion, who, "expected an exact integer", List(obj));
 }
 
 inline void IntegerArgCheck(const char * who, FObject obj)
 {
     if (IntegerP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected an integer", List(obj));
+        RaiseExceptionC(Assertion, who, "expected an integer", List(obj));
 }
 
 inline void RealArgCheck(const char * who, FObject obj)
 {
     if (RealP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a real number", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a real number", List(obj));
 }
 
 inline void RationalArgCheck(const char * who, FObject obj)
 {
     if (RationalP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a rational number", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a rational number", List(obj));
 }
 
 inline void NumberArgCheck(const char * who, FObject obj)
 {
     if (NumberP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a number", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a number", List(obj));
 }
 
 inline void CharacterArgCheck(const char * who, FObject obj)
 {
     if (CharacterP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a character", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a character", List(obj));
 }
 
 inline void BooleanArgCheck(const char * who, FObject obj)
 {
     if (BooleanP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a boolean", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a boolean", List(obj));
 }
 
 inline void SymbolArgCheck(const char * who, FObject obj)
 {
     if (SymbolP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a symbol", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a symbol", List(obj));
 }
 
 inline void ExceptionArgCheck(const char * who, FObject obj)
 {
     if (ExceptionP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected an error-object", List(obj));
+        RaiseExceptionC(Assertion, who, "expected an error-object", List(obj));
 }
 
 inline void StringArgCheck(const char * who, FObject obj)
 {
     if (StringP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a string", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a string", List(obj));
 }
 
 inline void PairArgCheck(const char * who, FObject obj)
 {
     if (PairP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a pair", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a pair", List(obj));
 }
 
 inline void ListArgCheck(const char * who, FObject obj)
 {
     if (ListLength(obj) < 0)
-        RaiseExceptionC(R.Assertion, who, "expected a list", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a list", List(obj));
 }
 
 inline void BoxArgCheck(const char * who, FObject obj)
 {
     if (BoxP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a box", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a box", List(obj));
 }
 
 inline void VectorArgCheck(const char * who, FObject obj)
 {
     if (VectorP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a vector", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a vector", List(obj));
 }
 
 inline void BytevectorArgCheck(const char * who, FObject obj)
 {
     if (BytevectorP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a bytevector", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a bytevector", List(obj));
 }
 
 inline void EnvironmentArgCheck(const char * who, FObject obj)
 {
     if (EnvironmentP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected an environment", List(obj));
+        RaiseExceptionC(Assertion, who, "expected an environment", List(obj));
 }
 
 inline void PortArgCheck(const char * who, FObject obj)
 {
     if (BinaryPortP(obj) == 0 && TextualPortP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a port", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a port", List(obj));
 }
 
 inline void InputPortArgCheck(const char * who, FObject obj)
 {
     if ((BinaryPortP(obj) == 0 && TextualPortP(obj) == 0) || InputPortP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected an input port", List(obj));
+        RaiseExceptionC(Assertion, who, "expected an input port", List(obj));
 }
 
 inline void OutputPortArgCheck(const char * who, FObject obj)
 {
     if ((BinaryPortP(obj) == 0 && TextualPortP(obj) == 0) || OutputPortP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected an output port", List(obj));
+        RaiseExceptionC(Assertion, who, "expected an output port", List(obj));
 }
 
 inline void BinaryPortArgCheck(const char * who, FObject obj)
 {
     if (BinaryPortP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a binary port", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a binary port", List(obj));
 }
 
 inline void TextualPortArgCheck(const char * who, FObject obj)
 {
     if (TextualPortP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a textual port", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a textual port", List(obj));
 }
 
 inline void StringOutputPortArgCheck(const char * who, FObject obj)
 {
     if (StringOutputPortP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a string output port", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a string output port", List(obj));
 }
 
 inline void BytevectorOutputPortArgCheck(const char * who, FObject obj)
 {
     if (BytevectorOutputPortP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a bytevector output port", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a bytevector output port", List(obj));
 }
 
 inline void TextualInputPortArgCheck(const char * who, FObject obj)
 {
     if (TextualPortP(obj) == 0 || InputPortOpenP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected an open textual input port", List(obj));
+        RaiseExceptionC(Assertion, who, "expected an open textual input port", List(obj));
 }
 
 inline void TextualOutputPortArgCheck(const char * who, FObject obj)
 {
     if (TextualPortP(obj) == 0 || OutputPortOpenP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected an open textual output port", List(obj));
+        RaiseExceptionC(Assertion, who, "expected an open textual output port", List(obj));
 }
 
 inline void BinaryInputPortArgCheck(const char * who, FObject obj)
 {
     if (BinaryPortP(obj) == 0 || InputPortOpenP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected an open binary input port", List(obj));
+        RaiseExceptionC(Assertion, who, "expected an open binary input port", List(obj));
 }
 
 inline void BinaryOutputPortArgCheck(const char * who, FObject obj)
 {
     if (BinaryPortP(obj) == 0 || OutputPortOpenP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected an open binary output port", List(obj));
+        RaiseExceptionC(Assertion, who, "expected an open binary output port", List(obj));
 }
 
 inline void ConsoleInputPortArgCheck(const char * who, FObject obj)
 {
     if (ConsolePortP(obj) == 0 || InputPortOpenP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected an open console input port", List(obj));
+        RaiseExceptionC(Assertion, who, "expected an open console input port", List(obj));
 }
 
 inline void SocketPortArgCheck(const char * who, FObject obj)
 {
     if (SocketPortP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a socket port", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a socket port", List(obj));
 }
 
 inline void OpenPositioningPortArgCheck(const char * who, FObject obj)
 {
     if (PortOpenP(obj) == 0 || PositioningPortP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected an open port which supports positioning",
+        RaiseExceptionC(Assertion, who, "expected an open port which supports positioning",
                 List(obj));
 }
 
 inline void ProcedureArgCheck(const char * who, FObject obj)
 {
     if (ProcedureP(obj) == 0 && PrimitiveP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a procedure", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a procedure", List(obj));
 }
 
 inline void ThreadArgCheck(const char * who, FObject obj)
 {
     if (ThreadP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a thread", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a thread", List(obj));
 }
 
 inline void ExclusiveArgCheck(const char * who, FObject obj)
 {
     if (ExclusiveP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected an exclusive", List(obj));
+        RaiseExceptionC(Assertion, who, "expected an exclusive", List(obj));
 }
 
 inline void ConditionArgCheck(const char * who, FObject obj)
 {
     if (ConditionP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a condition", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a condition", List(obj));
 }
 
 inline void TConcArgCheck(const char * who, FObject obj)
 {
     if (PairP(obj) == 0 || PairP(First(obj)) == 0 || PairP(Rest(obj)) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a tconc", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a tconc", List(obj));
 }
 
 inline void HashTreeArgCheck(const char * who, FObject obj)
 {
     if (HashTreeP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a hash tree", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a hash tree", List(obj));
 }
 
 inline void HashContainerArgCheck(const char * who, FObject obj)
 {
     if (HashContainerP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a hash-map, hash-set, or hash-bag", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a hash-map, hash-set, or hash-bag", List(obj));
 }
 
 inline void EqHashMapArgCheck(const char * who, FObject obj)
 {
     if (HashMapP(obj) == 0 || PairP(AsHashContainer(obj)->Tracker) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected an eq-hash-map", List(obj));
+        RaiseExceptionC(Assertion, who, "expected an eq-hash-map", List(obj));
 }
 
 inline void EqHashSetArgCheck(const char * who, FObject obj)
 {
     if (HashSetP(obj) == 0 || PairP(AsHashContainer(obj)->Tracker) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected an eq-hash-set", List(obj));
+        RaiseExceptionC(Assertion, who, "expected an eq-hash-set", List(obj));
 }
 
 inline void ComparatorArgCheck(const char * who, FObject obj)
 {
     if (ComparatorP(obj) == 0)
-        RaiseExceptionC(R.Assertion, who, "expected a comparator", List(obj));
+        RaiseExceptionC(Assertion, who, "expected a comparator", List(obj));
 }
 
 // ----------------

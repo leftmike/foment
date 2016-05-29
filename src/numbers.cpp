@@ -550,7 +550,7 @@ FObject ToExact(FObject n)
         double64_t d = AsFlonum(n);
 
         if (isnan(d) || isfinite(d) == 0)
-            RaiseExceptionC(R.Assertion, "exact", "expected a finite number", List(n));
+            RaiseExceptionC(Assertion, "exact", "expected a finite number", List(n));
 
         if (d == Truncate(d))
         {
@@ -1124,7 +1124,7 @@ static void WriteNumber(FObject port, FObject obj, FFixnum rdx)
     else if (FlonumP(obj))
     {
         if (rdx != 10)
-            RaiseExceptionC(R.Assertion, "number->string", "radix for decimal numbers must be 10",
+            RaiseExceptionC(Assertion, "number->string", "radix for decimal numbers must be 10",
                     List(obj, MakeFixnum(rdx)));
 
         double64_t d = AsFlonum(obj);
@@ -1174,7 +1174,7 @@ FObject NumberToString(FObject obj, FFixnum rdx)
     else if (FlonumP(obj))
     {
         if (rdx != 10)
-            RaiseExceptionC(R.Assertion, "number->string", "radix for decimal numbers must be 10",
+            RaiseExceptionC(Assertion, "number->string", "radix for decimal numbers must be 10",
                     List(obj, MakeFixnum(rdx)));
 
         double64_t d = AsFlonum(obj);
@@ -1917,7 +1917,7 @@ WriteCh(R.StandardOutput, '\n');
     if (BothNumberP(z1, z2))
     {
         if (ComplexP(z2) == 0 && GenericSign(z2) == 0)
-            RaiseExceptionC(R.Assertion, "/", "divide by zero", List(z1, z2));
+            RaiseExceptionC(Assertion, "/", "divide by zero", List(z1, z2));
 
         switch (BinaryNumberOp(z1, z2))
         {
@@ -3030,7 +3030,7 @@ Define("expt", ExptPrimitive)(int_t argc, FObject argv[])
                 return(FlonumP(argv[0]) || FlonumP(argv[1]) ? MakeFlonum(0.0) : MakeFixnum(0));
         }
 
-        RaiseExceptionC(R.Assertion, "expt",
+        RaiseExceptionC(Assertion, "expt",
                 "(expt 0 z): z must be zero or have a positive real part", List(argv[1]));
     }
     else if (FixnumP(argv[1]))
@@ -3147,7 +3147,7 @@ Define("number->string", NumberToStringPrimitive)(int_t argc, FObject argv[])
     {
         if (FixnumP(argv[1]) == 0 || (AsFixnum(argv[1]) != 2 && AsFixnum(argv[1]) != 8
                 && AsFixnum(argv[1]) != 10 && AsFixnum(argv[1]) != 16))
-            RaiseExceptionC(R.Assertion, "number->string", "expected radix of 2, 8, 10, or 16",
+            RaiseExceptionC(Assertion, "number->string", "expected radix of 2, 8, 10, or 16",
                     List(argv[1]));
 
         rdx = AsFixnum(argv[1]);
@@ -3167,7 +3167,7 @@ Define("string->number", StringToNumberPrimitive)(int_t argc, FObject argv[])
     {
         if (FixnumP(argv[1]) == 0 || (AsFixnum(argv[1]) != 2 && AsFixnum(argv[1]) != 8
                 && AsFixnum(argv[1]) != 10 && AsFixnum(argv[1]) != 16))
-            RaiseExceptionC(R.Assertion, "string->number", "expected radix of 2, 8, 10, or 16",
+            RaiseExceptionC(Assertion, "string->number", "expected radix of 2, 8, 10, or 16",
                     List(argv[1]));
 
         rdx = AsFixnum(argv[1]);

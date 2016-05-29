@@ -319,7 +319,7 @@ static FObject Execute(FThreadState * ts)
             {
             case CheckCountOpcode:
                 if (ts->ArgCount != InstructionArg(obj))
-                    RaiseException(R.Assertion, AsProcedure(ts->Proc)->Name,
+                    RaiseException(Assertion, AsProcedure(ts->Proc)->Name,
                             WrongNumberOfArguments, EmptyListObject);
                 break;
 
@@ -327,7 +327,7 @@ static FObject Execute(FThreadState * ts)
                 FAssert(InstructionArg(obj) >= 0);
 
                 if (ts->ArgCount < InstructionArg(obj))
-                    RaiseException(R.Assertion, AsProcedure(ts->Proc)->Name,
+                    RaiseException(Assertion, AsProcedure(ts->Proc)->Name,
                             WrongNumberOfArguments, EmptyListObject);
                 else if (ts->ArgCount == InstructionArg(obj))
                 {
@@ -499,7 +499,7 @@ static FObject Execute(FThreadState * ts)
                 {
                     FAssert(AsGlobal(ts->AStack[ts->AStackPtr - 1])->Interactive == TrueObject);
 
-                    RaiseException(R.Assertion, AsProcedure(ts->Proc)->Name, UndefinedMessage,
+                    RaiseException(Assertion, AsProcedure(ts->Proc)->Name, UndefinedMessage,
                             List(ts->AStack[ts->AStackPtr - 1]));
                 }
 
@@ -597,11 +597,11 @@ CallProcedure:
                     {
                         if (GrowMemRegionUp(&ts->Stack,
                                 (ts->AStackPtr + 128) * sizeof(FObject)) == 0)
-                            RaiseExceptionC(R.Assertion, "foment", "out of memory",
+                            RaiseExceptionC(Assertion, "foment", "out of memory",
                                     EmptyListObject);
                         if (GrowMemRegionDown(&ts->Stack,
                                 (ts->CStackPtr + 128) * sizeof(FObject)) == 0)
-                            RaiseExceptionC(R.Assertion, "foment", "out of memory",
+                            RaiseExceptionC(Assertion, "foment", "out of memory",
                                     EmptyListObject);
                     }
 
@@ -628,7 +628,7 @@ CallPrimitive:
                     ts->AStackPtr += 1;
                 }
                 else
-                    RaiseException(R.Assertion, AsProcedure(ts->Proc)->Name, NotCallable,
+                    RaiseException(Assertion, AsProcedure(ts->Proc)->Name, NotCallable,
                             List(op));
                 break;
 
@@ -689,7 +689,7 @@ TailCallPrimitive:
                     ts->Frame = NoValueObject;
                 }
                 else
-                    RaiseException(R.Assertion, AsProcedure(ts->Proc)->Name, NotCallable,
+                    RaiseException(Assertion, AsProcedure(ts->Proc)->Name, NotCallable,
                             List(op));
                 break;
 
@@ -771,11 +771,11 @@ TailCallPrimitive:
                 {
                     ts->AStackPtr -= 1;
                     if (AsValuesCount(ts->AStack[ts->AStackPtr]) != InstructionArg(obj))
-                        RaiseException(R.Assertion, AsProcedure(ts->Proc)->Name,
+                        RaiseException(Assertion, AsProcedure(ts->Proc)->Name,
                                 UnexpectedNumberOfValues, EmptyListObject);
                 }
                 else
-                    RaiseException(R.Assertion, AsProcedure(ts->Proc)->Name,
+                    RaiseException(Assertion, AsProcedure(ts->Proc)->Name,
                             UnexpectedNumberOfValues, EmptyListObject);
                 break;
 
@@ -795,7 +795,7 @@ TailCallPrimitive:
                     vc = 1;
 
                 if (vc < InstructionArg(obj))
-                    RaiseException(R.Assertion, AsProcedure(ts->Proc)->Name,
+                    RaiseException(Assertion, AsProcedure(ts->Proc)->Name,
                             UnexpectedNumberOfValues, EmptyListObject);
                 else if (vc == InstructionArg(obj))
                 {
@@ -841,7 +841,7 @@ TailCallPrimitive:
                                 AsFixnum(ts->CStack[- (ts->CStackPtr - 1)])];
                         if (InstructionP(cd) == 0 || InstructionOpcode(cd)
                                 != DiscardResultOpcode)
-                           RaiseExceptionC(R.Assertion, "values",
+                           RaiseExceptionC(Assertion, "values",
                                    "caller not expecting multiple values",
                                    List(AsProcedure(ts->CStack[- (ts->CStackPtr - 2)])->Name));
 
@@ -863,7 +863,7 @@ TailCallPrimitive:
             case ApplyOpcode:
             {
                 if (ts->ArgCount < 2)
-                   RaiseExceptionC(R.Assertion, "apply", "expected at least two arguments",
+                   RaiseExceptionC(Assertion, "apply", "expected at least two arguments",
                            EmptyListObject);
 
                 FObject prc = ts->AStack[ts->AStackPtr - ts->ArgCount];
@@ -885,10 +885,10 @@ TailCallPrimitive:
                 {
                     if (GrowMemRegionUp(&ts->Stack,
                             (ts->AStackPtr + ll + 128) * sizeof(FObject)) == 0)
-                        RaiseExceptionC(R.Assertion, "foment", "out of memory", EmptyListObject);
+                        RaiseExceptionC(Assertion, "foment", "out of memory", EmptyListObject);
                     if (GrowMemRegionDown(&ts->Stack,
                             (ts->CStackPtr + 128) * sizeof(FObject)) == 0)
-                        RaiseExceptionC(R.Assertion, "foment", "out of memory", EmptyListObject);
+                        RaiseExceptionC(Assertion, "foment", "out of memory", EmptyListObject);
                 }
 
                 FObject ptr = lst;
@@ -903,7 +903,7 @@ TailCallPrimitive:
                 }
 
                 if (ptr != EmptyListObject)
-                   RaiseExceptionC(R.Assertion, "apply", "expected a proper list", List(lst));
+                   RaiseExceptionC(Assertion, "apply", "expected a proper list", List(lst));
 
                 ts->AStack[ts->AStackPtr] = prc;
                 ts->AStackPtr += 1;
@@ -943,7 +943,7 @@ TailCallPrimitive:
                 }
 
                 if (cc == 0)
-                    RaiseExceptionC(R.Assertion, "case-lambda", "no matching case",
+                    RaiseExceptionC(Assertion, "case-lambda", "no matching case",
                             List(MakeFixnum(ts->ArgCount)));
                 break;
             }

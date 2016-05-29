@@ -65,6 +65,11 @@ EternalSymbol(QuoteSymbol, "quote");
 EternalSymbol(QuasiquoteSymbol, "quasiquote");
 EternalSymbol(UnquoteSymbol, "unquote");
 EternalSymbol(UnquoteSplicingSymbol, "unquote-splicing");
+EternalSymbol(Assertion, "assertion-violation");
+EternalSymbol(Restriction, "implementation-restriction");
+EternalSymbol(Lexical, "lexical-violation");
+EternalSymbol(Syntax, "syntax-violation");
+EternalSymbol(Error, "error-violation");
 
 void ErrorExitFoment()
 {
@@ -328,7 +333,7 @@ Define("error", ErrorPrimitive)(int_t argc, FObject argv[])
         lst = MakePair(argv[argc], lst);
     }
 
-    Raise(MakeException(R.Assertion, StringCToSymbol("error"), NoValueObject, argv[0], lst));
+    Raise(MakeException(Assertion, StringCToSymbol("error"), NoValueObject, argv[0], lst));
     return(NoValueObject);
 }
 
@@ -571,11 +576,11 @@ Define("%make-record-type", MakeRecordTypePrimitive)(int_t argc, FObject argv[])
     while (PairP(flst))
     {
         if (PairP(First(flst)) == 0 || SymbolP(First(First(flst))) == 0)
-            RaiseExceptionC(R.Assertion, "define-record-type", "expected a list of fields",
+            RaiseExceptionC(Assertion, "define-record-type", "expected a list of fields",
                     List(argv[1], First(flst)));
 
         if (Memq(First(First(flst)), flds) != FalseObject)
-            RaiseExceptionC(R.Assertion, "define-record-type", "duplicate field name",
+            RaiseExceptionC(Assertion, "define-record-type", "duplicate field name",
                     List(argv[1], First(flst)));
 
         flds = MakePair(First(First(flst)), flds);
@@ -619,7 +624,7 @@ Define("%record-index", RecordIndexPrimitive)(int_t argc, FObject argv[])
         if (EqP(argv[1], AsRecordType(argv[0])->Fields[rdx]))
             return(MakeFixnum(rdx));
 
-    RaiseExceptionC(R.Assertion, "define-record-type", "expected a field-name",
+    RaiseExceptionC(Assertion, "define-record-type", "expected a field-name",
             List(argv[1], argv[0]));
 
     return(NoValueObject);
@@ -633,7 +638,7 @@ Define("%record-ref", RecordRefPrimitive)(int_t argc, FObject argv[])
     FMustBe(RecordTypeP(argv[0]));
 
     if (RecordP(argv[1], argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "%record-ref", "not a record of the expected type",
+        RaiseExceptionC(Assertion, "%record-ref", "not a record of the expected type",
                 List(argv[1], argv[0]));
 
     FMustBe(FixnumP(argv[2]));
@@ -650,7 +655,7 @@ Define("%record-set!", RecordSetPrimitive)(int_t argc, FObject argv[])
     FMustBe(RecordTypeP(argv[0]));
 
     if (RecordP(argv[1], argv[0]) == 0)
-        RaiseExceptionC(R.Assertion, "%record-set!", "not a record of the expected type",
+        RaiseExceptionC(Assertion, "%record-set!", "not a record of the expected type",
                 List(argv[1], argv[0]));
 
     FMustBe(FixnumP(argv[2]));
@@ -1076,11 +1081,6 @@ int_t SetupFoment(FThreadState * ts)
     SetupLibrary();
     R.ExceptionRecordType = MakeRecordTypeC("exception",
             sizeof(ExceptionFieldsC) / sizeof(char *), ExceptionFieldsC);
-    R.Assertion = StringCToSymbol("assertion-violation");
-    R.Restriction = StringCToSymbol("implementation-restriction");
-    R.Lexical = StringCToSymbol("lexical-violation");
-    R.Syntax = StringCToSymbol("syntax-violation");
-    R.Error = StringCToSymbol("error-violation");
 
     FObject nam = List(StringCToSymbol("foment"), StringCToSymbol("bedrock"));
     R.Bedrock = MakeEnvironment(nam, FalseObject);
@@ -1097,12 +1097,22 @@ int_t SetupFoment(FThreadState * ts)
     InternSymbol(QuasiquoteSymbol);
     InternSymbol(UnquoteSymbol);
     InternSymbol(UnquoteSplicingSymbol);
+    InternSymbol(Assertion);
+    InternSymbol(Restriction);
+    InternSymbol(Lexical);
+    InternSymbol(Syntax);
+    InternSymbol(Error);
 
     FAssert(BeginSymbol == StringCToSymbol("begin"));
     FAssert(QuoteSymbol == StringCToSymbol("quote"));
     FAssert(QuasiquoteSymbol == StringCToSymbol("quasiquote"));
     FAssert(UnquoteSymbol == StringCToSymbol("unquote"));
     FAssert(UnquoteSplicingSymbol == StringCToSymbol("unquote-splicing"));
+    FAssert(Assertion == StringCToSymbol("assertion-violation"));
+    FAssert(Restriction == StringCToSymbol("implementation-restriction"));
+    FAssert(Lexical == StringCToSymbol("lexical-violation"));
+    FAssert(Syntax == StringCToSymbol("syntax-violation"));
+    FAssert(Error == StringCToSymbol("error-violation"));
 
     for (uint_t n = 0; n < sizeof(SpecialSyntaxes) / sizeof(char *); n++)
         LibraryExport(R.BedrockLibrary, EnvironmentSetC(R.Bedrock, SpecialSyntaxes[n],

@@ -57,7 +57,7 @@ int_t ListLength(const char * nam, FObject lst)
 {
     int_t ll = ListLength(lst);
     if (ll < 0)
-        RaiseExceptionC(R.Assertion, nam, "expected a list", List(lst));
+        RaiseExceptionC(Assertion, nam, "expected a list", List(lst));
 
     return(ll);
 }
