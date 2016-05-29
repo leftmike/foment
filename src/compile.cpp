@@ -68,26 +68,21 @@ FObject MakeBinding(FObject se, FObject id, FObject ra)
 
 static int_t IdentifierMagic = 0;
 
-static const char * IdentifierFieldsC[] = {"symbol", "filename", "line-number", "magic",
-    "syntactic-env", "wrapped"};
-
 FObject MakeIdentifier(FObject sym, FObject fn, int_t ln)
 {
-    FAssert(sizeof(FIdentifier) == sizeof(IdentifierFieldsC) + sizeof(FRecord));
     FAssert(SymbolP(sym));
 
-    FIdentifier * i = (FIdentifier *) MakeRecord(R.IdentifierRecordType);
-    i->Symbol = sym;
-    i->Filename = fn;
-    i->LineNumber = MakeFixnum(ln);
+    FIdentifier * nid = (FIdentifier *) MakeObject(IdentifierTag, sizeof(FIdentifier), 4, "foobar");
+    nid->Symbol = sym;
+    nid->Filename = fn;
+    nid->SyntacticEnv = NoValueObject;
+    nid->Wrapped = NoValueObject;
 
+    nid->LineNumber = ln;
     IdentifierMagic += 1;
-    i->Magic = MakeFixnum(IdentifierMagic);
+    nid->Magic = IdentifierMagic;
 
-    i->SyntacticEnv = NoValueObject;
-    i->Wrapped = NoValueObject;
-
-    return(i);
+    return(nid);
 }
 
 FObject MakeIdentifier(FObject sym)
@@ -98,18 +93,17 @@ FObject MakeIdentifier(FObject sym)
 FObject WrapIdentifier(FObject id, FObject se)
 {
     FAssert(IdentifierP(id));
-
-    FAssert(sizeof(FIdentifier) == sizeof(IdentifierFieldsC) + sizeof(FRecord));
     FAssert(SyntacticEnvP(se));
 
-    FIdentifier * i = (FIdentifier *) MakeRecord(R.IdentifierRecordType);
-    i->Symbol = AsIdentifier(id)->Symbol;
-    i->LineNumber = AsIdentifier(id)->LineNumber;
-    i->Magic = AsIdentifier(id)->Magic;
-    i->SyntacticEnv = se;
-    i->Wrapped = id;
+    FIdentifier * nid = (FIdentifier *) MakeObject(IdentifierTag, sizeof(FIdentifier), 4, "foobar");
+    nid->Symbol = AsIdentifier(id)->Symbol;
+    nid->Filename = AsIdentifier(id)->Filename;
+    nid->SyntacticEnv = se;
+    nid->Wrapped = id;
+    nid->LineNumber = AsIdentifier(id)->LineNumber;
+    nid->Magic = AsIdentifier(id)->Magic;
 
-    return(i);
+    return(nid);
 }
 
 // ---- Lambda ----
@@ -144,7 +138,7 @@ FObject MakeLambda(FObject enc, FObject nam, FObject bs, FObject body)
     if (IdentifierP(nam))
     {
         l->Filename = AsIdentifier(nam)->Filename;
-        l->LineNumber = AsIdentifier(nam)->LineNumber;
+        l->LineNumber = MakeFixnum(AsIdentifier(nam)->LineNumber);
     }
     else
     {
@@ -312,8 +306,6 @@ void SetupCompile()
             sizeof(CaseLambdaFieldsC) / sizeof(char *), CaseLambdaFieldsC);
     R.InlineVariableRecordType = MakeRecordTypeC("inline-variable",
             sizeof(InlineVariableFieldsC) / sizeof(char *), InlineVariableFieldsC);
-    R.IdentifierRecordType = MakeRecordTypeC("identifier",
-            sizeof(IdentifierFieldsC) / sizeof(char *), IdentifierFieldsC);
 
     R.ElseReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("else")));
     R.ArrowReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("=>")));

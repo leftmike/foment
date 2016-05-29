@@ -252,9 +252,7 @@ static void WriteLocation(FObject port, FObject obj)
 
 static void WriteRecord(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx)
 {
-    if (IdentifierP(obj))
-        WriteGeneric(port, AsIdentifier(obj)->Symbol, df, wfn, ctx);
-    else if (BindingP(obj))
+    if (BindingP(obj))
         WriteGeneric(port, AsBinding(obj)->Identifier, df, wfn, ctx);
     else if (ReferenceP(obj))
         WriteGeneric(port, AsReference(obj)->Identifier, df, wfn, ctx);
@@ -526,6 +524,13 @@ static void WriteObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
         WriteCh(port, '>');
         break;
     }
+
+    case IdentifierTag:
+        obj = AsIdentifier(obj)->Symbol;
+
+        FAssert(SymbolP(obj));
+
+        /* Fall through */
 
     case SymbolTag:
         if (StringP(AsSymbol(obj)->String))

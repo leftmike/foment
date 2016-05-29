@@ -169,6 +169,7 @@ typedef enum
     ExclusiveTag,
     ConditionTag,
     HashTreeTag,
+    IdentifierTag,
     FreeTag, // Only on Adult Generation
     BadDogTag // Invalid Tag
 } FIndirectTag;
@@ -953,7 +954,6 @@ typedef struct
 
     FObject SyntacticEnvRecordType;
     FObject BindingRecordType;
-    FObject IdentifierRecordType;
     FObject LambdaRecordType;
     FObject CaseLambdaRecordType;
     FObject InlineVariableRecordType;
@@ -1180,17 +1180,16 @@ void LibraryExport(FObject lib, FObject gl);
 
 typedef struct
 {
-    FRecord Record;
     FObject Symbol;
     FObject Filename;
-    FObject LineNumber;
-    FObject Magic;
     FObject SyntacticEnv;
     FObject Wrapped;
+    int_t LineNumber;
+    int_t Magic;
 } FIdentifier;
 
 #define AsIdentifier(obj) ((FIdentifier *) (obj))
-#define IdentifierP(obj) RecordP(obj, R.IdentifierRecordType)
+#define IdentifierP(obj) (IndirectTag(obj) == IdentifierTag)
 
 FObject MakeIdentifier(FObject sym, FObject fn, int_t ln);
 FObject MakeIdentifier(FObject sym);

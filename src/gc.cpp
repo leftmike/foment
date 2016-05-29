@@ -584,7 +584,6 @@ static const char * RootNames[] =
 
     "syntactic-env-record-type",
     "binding-record-type",
-    "identifier-record-type",
     "lambda-record-type",
     "case-lambda-record-type",
     "inline-variable-record-type",
@@ -672,6 +671,7 @@ static const char * IndirectTagString[] =
     "exclusive",
     "condition",
     "hash-tree",
+    "identifier",
     "free"
 };
 
@@ -1753,6 +1753,7 @@ int_t SetupCore(FThreadState * ts)
     FAssert(sizeof(FObjHdr) % OBJECT_ALIGNMENT == 0);
     FAssert(sizeof(FObjHdr) >= OBJECT_ALIGNMENT);
     FAssert(OBJHDR_SIZE_MASK >= OBJHDR_SLOT_COUNT_MASK * sizeof(FObject));
+    FAssert(BadDogTag <= OBJHDR_TAG_MASK + 1);
     FAssert(sizeof(FObject) <= OBJECT_ALIGNMENT);
     FAssert(Adults.Base == 0);
     FAssert(AdultsUsed == 0);
