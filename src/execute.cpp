@@ -19,6 +19,14 @@ Foment
 #include "execute.hpp"
 #include "syncthrd.hpp"
 
+EternalSymbol(WrongNumberOfArguments, "wrong number of arguments");
+EternalSymbol(NotCallable, "not callable");
+EternalSymbol(UnexpectedNumberOfValues, "unexpected number of values");
+EternalSymbol(UndefinedMessage, "variable is undefined");
+EternalSymbol(ExceptionHandlerSymbol, "exception-handler");
+EternalSymbol(NotifyHandlerSymbol, "notify-handler");
+EternalSymbol(SigIntSymbol, "sigint");
+
 // ---- Procedure ----
 
 FObject MakeProcedure(FObject nam, FObject fn, FObject ln, FObject cv, int_t ac, uint_t fl)
@@ -285,7 +293,7 @@ static FObject Execute(FThreadState * ts)
         {
             ts->NotifyFlag = 0;
 
-            PrepareHandler(ts, R.NotifyHandler, R.NotifyHandlerSymbol, ts->NotifyObject);
+            PrepareHandler(ts, R.NotifyHandler, NotifyHandlerSymbol, ts->NotifyObject);
         }
 
         CheckForGC();
@@ -312,7 +320,7 @@ static FObject Execute(FThreadState * ts)
             case CheckCountOpcode:
                 if (ts->ArgCount != InstructionArg(obj))
                     RaiseException(R.Assertion, AsProcedure(ts->Proc)->Name,
-                            R.WrongNumberOfArguments, EmptyListObject);
+                            WrongNumberOfArguments, EmptyListObject);
                 break;
 
             case RestArgOpcode:
@@ -320,7 +328,7 @@ static FObject Execute(FThreadState * ts)
 
                 if (ts->ArgCount < InstructionArg(obj))
                     RaiseException(R.Assertion, AsProcedure(ts->Proc)->Name,
-                            R.WrongNumberOfArguments, EmptyListObject);
+                            WrongNumberOfArguments, EmptyListObject);
                 else if (ts->ArgCount == InstructionArg(obj))
                 {
                     ts->AStack[ts->AStackPtr] = EmptyListObject;
@@ -491,7 +499,7 @@ static FObject Execute(FThreadState * ts)
                 {
                     FAssert(AsGlobal(ts->AStack[ts->AStackPtr - 1])->Interactive == TrueObject);
 
-                    RaiseException(R.Assertion, AsProcedure(ts->Proc)->Name, R.UndefinedMessage,
+                    RaiseException(R.Assertion, AsProcedure(ts->Proc)->Name, UndefinedMessage,
                             List(ts->AStack[ts->AStackPtr - 1]));
                 }
 
@@ -620,7 +628,7 @@ CallPrimitive:
                     ts->AStackPtr += 1;
                 }
                 else
-                    RaiseException(R.Assertion, AsProcedure(ts->Proc)->Name, R.NotCallable,
+                    RaiseException(R.Assertion, AsProcedure(ts->Proc)->Name, NotCallable,
                             List(op));
                 break;
 
@@ -681,7 +689,7 @@ TailCallPrimitive:
                     ts->Frame = NoValueObject;
                 }
                 else
-                    RaiseException(R.Assertion, AsProcedure(ts->Proc)->Name, R.NotCallable,
+                    RaiseException(R.Assertion, AsProcedure(ts->Proc)->Name, NotCallable,
                             List(op));
                 break;
 
@@ -764,11 +772,11 @@ TailCallPrimitive:
                     ts->AStackPtr -= 1;
                     if (AsValuesCount(ts->AStack[ts->AStackPtr]) != InstructionArg(obj))
                         RaiseException(R.Assertion, AsProcedure(ts->Proc)->Name,
-                                R.UnexpectedNumberOfValues, EmptyListObject);
+                                UnexpectedNumberOfValues, EmptyListObject);
                 }
                 else
                     RaiseException(R.Assertion, AsProcedure(ts->Proc)->Name,
-                            R.UnexpectedNumberOfValues, EmptyListObject);
+                            UnexpectedNumberOfValues, EmptyListObject);
                 break;
 
             case RestValuesOpcode:
@@ -788,7 +796,7 @@ TailCallPrimitive:
 
                 if (vc < InstructionArg(obj))
                     RaiseException(R.Assertion, AsProcedure(ts->Proc)->Name,
-                            R.UnexpectedNumberOfValues, EmptyListObject);
+                            UnexpectedNumberOfValues, EmptyListObject);
                 else if (vc == InstructionArg(obj))
                 {
                     ts->AStack[ts->AStackPtr] = EmptyListObject;
@@ -1097,7 +1105,7 @@ FObject ExecuteThunk(FObject op)
         }
         catch (FObject obj)
         {
-            if (PrepareHandler(ts, R.RaiseHandler, R.ExceptionHandlerSymbol, obj) == 0)
+            if (PrepareHandler(ts, R.RaiseHandler, ExceptionHandlerSymbol, obj) == 0)
                 throw obj;
         }
         catch (FNotifyThrow nt)
@@ -1106,7 +1114,7 @@ FObject ExecuteThunk(FObject op)
 
             ts->NotifyFlag = 0;
 
-            if (PrepareHandler(ts, R.NotifyHandler, R.NotifyHandlerSymbol, ts->NotifyObject) == 0)
+            if (PrepareHandler(ts, R.NotifyHandler, NotifyHandlerSymbol, ts->NotifyObject) == 0)
                 ThreadExit(ts->NotifyObject);
         }
     }
@@ -1404,14 +1412,21 @@ void SetupExecute()
 {
     FObject v[7];
 
-    R.WrongNumberOfArguments = MakeStringC("wrong number of arguments");
-    R.NotCallable = MakeStringC("not callable");
-    R.UnexpectedNumberOfValues = MakeStringC("unexpected number of values");
-    R.UndefinedMessage = MakeStringC("variable is undefined");
+    InternSymbol(WrongNumberOfArguments);
+    InternSymbol(NotCallable);
+    InternSymbol(UnexpectedNumberOfValues);
+    InternSymbol(UndefinedMessage);
+    InternSymbol(ExceptionHandlerSymbol);
+    InternSymbol(NotifyHandlerSymbol);
+    InternSymbol(SigIntSymbol);
 
-    R.ExceptionHandlerSymbol = StringCToSymbol("exception-handler");
-    R.NotifyHandlerSymbol = StringCToSymbol("notify-handler");
-    R.SigIntSymbol = StringCToSymbol("sigint");
+    FAssert(WrongNumberOfArguments == StringCToSymbol("wrong number of arguments"));
+    FAssert(NotCallable == StringCToSymbol("not callable"));
+    FAssert(UnexpectedNumberOfValues ==  StringCToSymbol("unexpected number of values"));
+    FAssert(UndefinedMessage == StringCToSymbol("variable is undefined"));
+    FAssert(ExceptionHandlerSymbol == StringCToSymbol("exception-handler"));
+    FAssert(NotifyHandlerSymbol == StringCToSymbol("notify-handler"));
+    FAssert(SigIntSymbol == StringCToSymbol("sigint"));
 
     R.DynamicRecordType = MakeRecordTypeC("dynamic", sizeof(DynamicFieldsC) / sizeof(char *),
             DynamicFieldsC);

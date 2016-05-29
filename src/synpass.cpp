@@ -704,7 +704,7 @@ FObject SPassDo(FObject enc, FObject se, FObject expr)
 
     inits = ReverseListModify(inits);
 
-    FObject tag = MakeIdentifier(R.TagSymbol);
+    FObject tag = MakeIdentifier(TagSymbol);
     FObject tb = MakeBinding(se, tag, FalseObject);
 
     EnterScopeList(bs);

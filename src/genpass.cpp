@@ -542,7 +542,7 @@ static FObject GPassMakeCall(FLambda * lam, FObject cdl, FObject op, int_t argc,
 
                 if (argc < AsFixnum(AsLambda(op)->ArgCount) - 1)
                     RaiseException(R.Assertion, lam->Name == NoValueObject ? lam : lam->Name,
-                            R.WrongNumberOfArguments, List(expr));
+                            WrongNumberOfArguments, List(expr));
                 else if (argc < AsFixnum(AsLambda(op)->ArgCount))
                 {
                     cdl = MakePair(EmptyListObject, cdl);
@@ -557,7 +557,7 @@ static FObject GPassMakeCall(FLambda * lam, FObject cdl, FObject op, int_t argc,
             }
             else if (AsFixnum(AsLambda(op)->ArgCount) != argc)
                 RaiseException(R.Assertion, lam->Name == NoValueObject ? lam : lam->Name,
-                        R.WrongNumberOfArguments, List(expr));
+                        WrongNumberOfArguments, List(expr));
             else if (AsLambda(op) == lam && cf == TailCallFlag && lam->UseStack == TrueObject)
             {
                 FAssert(FixnumP(lam->BodyIndex));

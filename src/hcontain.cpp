@@ -4,6 +4,8 @@ Foment
 
 */
 
+#include <stdio.h>
+#include <string.h>
 #ifdef FOMENT_WINDOWS
 #include <intrin.h>
 #endif // FOMENT_WINDOWS
@@ -502,7 +504,15 @@ Define("hash-tree-copy", HashTreeCopyPrimitive)(int_t argc, FObject argv[])
 
 // ---- Symbols ----
 
-static uint_t NextSymbolHash = 0;
+FObject SymbolToString(FObject sym)
+{
+    if (StringP(AsSymbol(sym)->String))
+        return(AsSymbol(sym)->String);
+
+    FAssert(CStringP(AsSymbol(sym)->String));
+
+    return(MakeStringC(AsCString(AsSymbol(sym)->String)->String));
+}
 
 FObject StringToSymbol(FObject str)
 {
@@ -516,15 +526,13 @@ FObject StringToSymbol(FObject str)
     {
         FAssert(SymbolP(First(obj)));
 
-        if (StringCompare(AsSymbol(First(obj))->String, str) == 0)
+        if (StringCompare(SymbolToString(First(obj)), str) == 0)
             return(First(obj));
         obj = Rest(obj);
     }
 
     FSymbol * sym = (FSymbol *) MakeObject(SymbolTag, sizeof(FSymbol), 1, "string->symbol");
     sym->String = str;
-    sym->Hash = NextSymbolHash;
-    NextSymbolHash = (NextSymbolHash + 1) % HASH_MODULO;
 
     R.SymbolHashTree = HashTreeSet(R.SymbolHashTree, idx, MakePair(sym, lst));
 
@@ -541,19 +549,110 @@ FObject StringLengthToSymbol(FCh * s, int_t sl)
     {
         FAssert(SymbolP(First(obj)));
 
-        if (StringLengthEqualP(s, sl, AsSymbol(First(obj))->String))
+        if (StringLengthEqualP(s, sl, SymbolToString(First(obj))))
             return(First(obj));
         obj = Rest(obj);
     }
 
     FSymbol * sym = (FSymbol *) MakeObject(SymbolTag, sizeof(FSymbol), 1, "string->symbol");
     sym->String = MakeString(s, sl);
-    sym->Hash = NextSymbolHash;
-    NextSymbolHash = (NextSymbolHash + 1) % HASH_MODULO;
 
     R.SymbolHashTree = HashTreeSet(R.SymbolHashTree, idx, MakePair(sym, lst));
 
     return(sym);
+}
+
+static uint_t CStringHash(const char * s)
+{
+    uint_t h = 0;
+
+    while (*s)
+    {
+        h = ((h << 5) + h) + *s;
+        s += 1;
+    }
+
+    return(h);
+}
+
+uint_t SymbolHash(FObject obj)
+{
+    FAssert(SymbolP(obj));
+
+    if (StringP(AsSymbol(obj)->String))
+        return(StringHash(AsSymbol(obj)->String));
+
+    FAssert(CStringP(AsSymbol(obj)->String));
+
+    return(CStringHash(AsCString(AsSymbol(obj)->String)->String));
+}
+
+static int_t CStringCompare(const char * s, FObject obj)
+{
+    FAssert(StringP(obj));
+
+    uint_t sdx;
+    for (sdx = 0; s[sdx] != 0 && sdx < StringLength(obj); sdx++)
+        if (s[sdx] != AsString(obj)->String[sdx])
+            return(s[sdx] < AsString(obj)->String[sdx] ? -1 : 1);
+
+    if (s[sdx] == 0 && sdx == StringLength(obj))
+        return(0);
+    return(s[sdx] == 0 ? -1 : 1);
+}
+
+int_t SymbolCompare(FObject obj1, FObject obj2)
+{
+    FAssert(SymbolP(obj1));
+    FAssert(SymbolP(obj2));
+
+    if (StringP(AsSymbol(obj1)->String))
+    {
+        if (StringP(AsSymbol(obj2)->String))
+            return(StringCompare(AsSymbol(obj1)->String, AsSymbol(obj2)->String));
+
+        FAssert(CStringP(AsSymbol(obj2)->String));
+
+        return(CStringCompare(AsCString(AsSymbol(obj2)->String)->String,
+                AsSymbol(obj1)->String) * -1);
+    }
+
+    FAssert(CStringP(AsSymbol(obj1)->String));
+
+    if (StringP(AsSymbol(obj2)->String))
+        return(CStringCompare(AsCString(AsSymbol(obj1)->String)->String, AsSymbol(obj2)->String));
+
+    FAssert(CStringP(AsSymbol(obj2)->String));
+
+    return(strcmp(AsCString(AsSymbol(obj1)->String)->String,
+            AsCString(AsSymbol(obj1)->String)->String));
+}
+
+void InternSymbol(FObject sym)
+{
+    FAssert(SymbolP(sym));
+    FAssert(AsObjHdr(sym)->Generation() == OBJHDR_GEN_ETERNAL);
+    FAssert(CStringP(AsSymbol(sym)->String));
+    FAssert(AsObjHdr(AsSymbol(sym)->String)->Generation() == OBJHDR_GEN_ETERNAL);
+
+    uint_t idx = SymbolHash(sym) % HASH_MODULO;
+    FObject lst = HashTreeRef(R.SymbolHashTree, idx, MakeFixnum(idx));
+
+#ifdef FOMENT_DEBUG
+    FObject obj = lst;
+
+    while (PairP(obj))
+    {
+        FAssert(SymbolP(First(obj)));
+        if (SymbolCompare(First(obj), sym) == 0)
+            printf("%s\n", AsCString(AsSymbol(sym)->String)->String);
+        FAssert(SymbolCompare(First(obj), sym) != 0);
+
+        obj = Rest(obj);
+    }
+#endif // FOMENT_DEBUG
+
+    R.SymbolHashTree = HashTreeSet(R.SymbolHashTree, idx, MakePair(sym, lst));
 }
 
 // ---- Hash Container ----
@@ -1181,4 +1280,16 @@ void SetupHashContainerPrims()
 {
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
+
+    FAssert(CStringHash("abcdefghijklmn") == StringHash(MakeStringC("abcdefghijklmn")));
+    FAssert(CStringCompare("abc", MakeStringC("abc"))
+            == StringCompare(MakeStringC("abc"), MakeStringC("abc")));
+    FAssert(CStringCompare("abc", MakeStringC("abcd"))
+            == StringCompare(MakeStringC("abc"), MakeStringC("abcd")));
+    FAssert(CStringCompare("abcd", MakeStringC("abc"))
+            == StringCompare(MakeStringC("abcd"), MakeStringC("abc")));
+    FAssert(CStringCompare("abc", MakeStringC("def"))
+            == StringCompare(MakeStringC("abc"), MakeStringC("def")));
+    FAssert(CStringCompare("def", MakeStringC("abc"))
+            == StringCompare(MakeStringC("def"), MakeStringC("abc")));
 }

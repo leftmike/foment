@@ -628,18 +628,18 @@ static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
             case '\'':
             {
                 FObject obj = Read(port, 0, 0, pdlhm);
-                return(MakePair(WantIdentifiersPortP(port) ? MakeIdentifier(R.QuoteSymbol,
+                return(MakePair(WantIdentifiersPortP(port) ? MakeIdentifier(QuoteSymbol,
                         GetFilename(port), GetLineColumn(port, 0)) :
-                        R.QuoteSymbol, MakePair(obj, EmptyListObject)));
+                        QuoteSymbol, MakePair(obj, EmptyListObject)));
             }
 
             case '`':
             {
                 FObject obj = Read(port, 0, 0, pdlhm);
                 return(MakePair(WantIdentifiersPortP(port)
-                        ? MakeIdentifier(R.QuasiquoteSymbol, GetFilename(port),
+                        ? MakeIdentifier(QuasiquoteSymbol, GetFilename(port),
                         GetLineColumn(port, 0)) :
-                        R.QuasiquoteSymbol, MakePair(obj, EmptyListObject)));
+                        QuasiquoteSymbol, MakePair(obj, EmptyListObject)));
             }
 
             case ',':
@@ -648,12 +648,12 @@ static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
                     RaiseExceptionC(R.Lexical, "read", "unexpected end-of-file reading unquote",
                             List(port));
 
-                FObject sym = R.UnquoteSymbol;
+                FObject sym = UnquoteSymbol;
                 FAlive as(&sym);
                 if (ch == '@')
                 {
                     ReadCh(port, &ch);
-                    sym = R.UnquoteSplicingSymbol;
+                    sym = UnquoteSplicingSymbol;
                 }
 
                 FObject obj = Read(port, 0, 0, pdlhm);

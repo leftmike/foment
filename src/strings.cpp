@@ -225,19 +225,14 @@ static FObject DowncaseString(FObject s)
     return(ns);
 }
 
-uint_t ByteLengthHash(char * b, uint_t bl)
+uint_t StringLengthHash(FCh * s, uint_t sl)
 {
     uint_t h = 0;
 
-    for (; bl > 0; b++, bl--)
-        h = ((h << 5) + h) + *b;
+    for (; sl > 0; s++, sl--)
+        h = ((h << 5) + h) + *s;
 
     return(h);
-}
-
-uint_t StringLengthHash(FCh * s, uint_t sl)
-{
-    return(ByteLengthHash((char *) s, sl * sizeof(FCh)));
 }
 
 uint_t StringHash(FObject obj)

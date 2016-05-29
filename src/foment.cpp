@@ -60,6 +60,12 @@ uint_t VerboseFlag = 0;
 
 FRoots R;
 
+EternalSymbol(BeginSymbol, "begin");
+EternalSymbol(QuoteSymbol, "quote");
+EternalSymbol(QuasiquoteSymbol, "quasiquote");
+EternalSymbol(UnquoteSymbol, "unquote");
+EternalSymbol(UnquoteSplicingSymbol, "unquote-splicing");
+
 void ErrorExitFoment()
 {
     if (SetupComplete)
@@ -197,18 +203,22 @@ FObject StringCToSymbol(const char * s)
     return(StringToSymbol(MakeStringC(s)));
 }
 
-FObject PrefixSymbol(FObject str, FObject sym)
+FObject AddPrefixToSymbol(FObject str, FObject sym)
 {
     FAssert(StringP(str));
     FAssert(SymbolP(sym));
 
-    FObject nstr = MakeStringCh(StringLength(str) + StringLength(AsSymbol(sym)->String), 0);
+    FObject sstr = SymbolToString(sym);
+
+    FAssert(StringP(sstr));
+
+    FObject nstr = MakeStringCh(StringLength(str) + StringLength(sstr), 0);
     uint_t sdx;
     for (sdx = 0; sdx < StringLength(str); sdx++)
         AsString(nstr)->String[sdx] = AsString(str)->String[sdx];
 
-    for (uint_t idx = 0; idx < StringLength(AsSymbol(sym)->String); idx++)
-        AsString(nstr)->String[sdx + idx] = AsString(AsSymbol(sym)->String)->String[idx];
+    for (uint_t idx = 0; idx < StringLength(sstr); idx++)
+        AsString(nstr)->String[sdx + idx] = AsString(sstr)->String[idx];
 
     return(StringToSymbol(nstr));
 }
@@ -241,7 +251,7 @@ Define("symbol->string", SymbolToStringPrimitive)(int_t argc, FObject argv[])
     OneArgCheck("symbol->string", argc);
     SymbolArgCheck("symbol->string", argv[0]);
 
-    return(AsSymbol(argv[0])->String);
+    return(SymbolToString(argv[0]));
 }
 
 Define("string->symbol", StringToSymbolPrimitive)(int_t argc, FObject argv[])
@@ -1081,6 +1091,18 @@ int_t SetupFoment(FThreadState * ts)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 
     R.NoValuePrimitive = MakePrimitive(&NoValuePrimitive);
+
+    InternSymbol(BeginSymbol);
+    InternSymbol(QuoteSymbol);
+    InternSymbol(QuasiquoteSymbol);
+    InternSymbol(UnquoteSymbol);
+    InternSymbol(UnquoteSplicingSymbol);
+
+    FAssert(BeginSymbol == StringCToSymbol("begin"));
+    FAssert(QuoteSymbol == StringCToSymbol("quote"));
+    FAssert(QuasiquoteSymbol == StringCToSymbol("quasiquote"));
+    FAssert(UnquoteSymbol == StringCToSymbol("unquote"));
+    FAssert(UnquoteSplicingSymbol == StringCToSymbol("unquote-splicing"));
 
     for (uint_t n = 0; n < sizeof(SpecialSyntaxes) / sizeof(char *); n++)
         LibraryExport(R.BedrockLibrary, EnvironmentSetC(R.Bedrock, SpecialSyntaxes[n],

@@ -54,6 +54,10 @@ typedef int_t SOCKET;
 #define CR 13
 #define LF 10
 
+EternalSymbol(FileErrorSymbol, "file-error");
+EternalSymbol(CurrentSymbol, "current");
+EternalSymbol(EndSymbol, "end");
+
 // ---- Binary Ports ----
 
 FObject MakeBinaryPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn,
@@ -2843,7 +2847,7 @@ Define("open-binary-input-file", OpenBinaryInputFilePrimitive)(int_t argc, FObje
     FObject port = OpenBinaryInputFile(argv[0]);
 
     if (BinaryPortP(port) == 0)
-        RaiseExceptionC(R.Assertion, "open-binary-input-file", R.FileErrorSymbol,
+        RaiseExceptionC(R.Assertion, "open-binary-input-file", FileErrorSymbol,
                 "unable to open file for input", List(argv[0]));
 
     return(port);
@@ -2857,7 +2861,7 @@ Define("open-binary-output-file", OpenBinaryOutputFilePrimitive)(int_t argc, FOb
     FObject port = OpenBinaryOutputFile(argv[0]);
 
     if (BinaryPortP(port) == 0)
-        RaiseExceptionC(R.Assertion, "open-binary-output-file", R.FileErrorSymbol,
+        RaiseExceptionC(R.Assertion, "open-binary-output-file", FileErrorSymbol,
                 "unable to open file for output", List(argv[0]));
 
     return(port);
@@ -3079,11 +3083,11 @@ Define("set-port-position!", SetPortPositionPrimitive)(int_t argc, FObject argv[
     FPositionFrom frm = FromBegin;
     if (argc == 3)
     {
-        if (argv[2] == R.BeginSymbol)
+        if (argv[2] == BeginSymbol)
             frm = FromBegin;
-        else if (argv[2] == R.CurrentSymbol)
+        else if (argv[2] == CurrentSymbol)
             frm = FromCurrent;
-        else if (argv[2] == R.EndSymbol)
+        else if (argv[2] == EndSymbol)
             frm = FromEnd;
         else
             RaiseExceptionC(R.Assertion, "set-port-position!",
@@ -3602,13 +3606,13 @@ void SetupIO()
             MakeFileDescOutputPort(MakeStringC("standard-error"), 2)));
 #endif // FOMENT_UNIX
 
-    R.QuoteSymbol = StringCToSymbol("quote");
-    R.QuasiquoteSymbol = StringCToSymbol("quasiquote");
-    R.UnquoteSymbol = StringCToSymbol("unquote");
-    R.UnquoteSplicingSymbol = StringCToSymbol("unquote-splicing");
-    R.FileErrorSymbol = StringCToSymbol("file-error");
-    R.CurrentSymbol = StringCToSymbol("current");
-    R.EndSymbol = StringCToSymbol("end");
+    InternSymbol(FileErrorSymbol);
+    InternSymbol(CurrentSymbol);
+    InternSymbol(EndSymbol);
+
+    FAssert(FileErrorSymbol == StringCToSymbol("file-error"));
+    FAssert(CurrentSymbol == StringCToSymbol("current"));
+    FAssert(EndSymbol == StringCToSymbol("end"));
 
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);

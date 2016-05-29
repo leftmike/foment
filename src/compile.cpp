@@ -7,6 +7,11 @@ Foment
 #include "foment.hpp"
 #include "compile.hpp"
 
+EternalSymbol(TagSymbol, "tag");
+EternalSymbol(UsePassSymbol, "use-pass");
+EternalSymbol(ConstantPassSymbol, "constant-pass");
+EternalSymbol(AnalysisPassSymbol, "analysis-pass");
+
 // ---- SyntacticEnv ----
 
 static const char * SyntacticEnvFieldsC[] = {"global-bindings", "local-bindings"};
@@ -331,11 +336,16 @@ void SetupCompile()
     R.EllipsisReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("...")));
     R.UnderscoreReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("_")));
 
-    R.TagSymbol = StringCToSymbol("tag");
-    R.UsePassSymbol = StringCToSymbol("use-pass");
-    R.ConstantPassSymbol = StringCToSymbol("constant-pass");
-    R.AnalysisPassSymbol = StringCToSymbol("analysis-pass");
-    R.InteractionEnv = NoValueObject;
+    InternSymbol(TagSymbol);
+    InternSymbol(UsePassSymbol);
+    InternSymbol(ConstantPassSymbol);
+    InternSymbol(AnalysisPassSymbol);
+
+    FAssert(TagSymbol == StringCToSymbol("tag"));
+    FAssert(UsePassSymbol == StringCToSymbol("use-pass"));
+    FAssert(ConstantPassSymbol == StringCToSymbol("constant-pass"));
+    FAssert(AnalysisPassSymbol == StringCToSymbol("analysis-pass"));
+    FAssert(R.InteractionEnv == NoValueObject);
 
     SetupSyntaxRules();
 

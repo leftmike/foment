@@ -490,7 +490,7 @@ static void NotifySigInt()
             SigIntTime = now;
         }
 
-        NotifyBroadcast(R.SigIntSymbol);
+        NotifyBroadcast(SigIntSymbol);
     }
 }
 

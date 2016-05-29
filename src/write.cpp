@@ -372,6 +372,35 @@ static void WriteObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
         }
         break;
 
+    case CStringTag:
+    {
+        const char * s = AsCString(obj)->String;
+
+        if (df)
+        {
+            while (*s)
+            {
+                WriteCh(port, *s);
+                s += 1;
+            }
+        }
+        else
+        {
+            WriteCh(port, '"');
+
+            while (*s)
+            {
+                if (*s == '\\' || *s == '"')
+                    WriteCh(port, '\\');
+                WriteCh(port, *s);
+                s += 1;
+            }
+
+            WriteCh(port, '"');
+        }
+        break;
+    }
+
     case VectorTag:
     {
         WriteStringC(port, "#(");
@@ -499,8 +528,15 @@ static void WriteObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
     }
 
     case SymbolTag:
-        WriteString(port, AsString(AsSymbol(obj)->String)->String,
-                StringLength(AsSymbol(obj)->String));
+        if (StringP(AsSymbol(obj)->String))
+            WriteString(port, AsString(AsSymbol(obj)->String)->String,
+                    StringLength(AsSymbol(obj)->String));
+        else
+        {
+            FAssert(CStringP(AsSymbol(obj)->String));
+
+            WriteStringC(port, AsCString(AsSymbol(obj)->String)->String);
+        }
         break;
 
     case RecordTypeTag:

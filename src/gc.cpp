@@ -90,13 +90,6 @@ pthread_key_t ThreadKey;
 #define FOMENT_OBJFTR 1
 
 #ifdef FOMENT_OBJFTR
-#define OBJFTR_FEET 0xDEADFEE7
-
-typedef struct
-{
-    uint32_t Feet[2];
-} FObjFtr;
-
 #define OBJECT_HDRFTR_LENGTH (sizeof(FObjHdr) + sizeof(FObjFtr))
 #else // FOMENT_OBJFTR
 #define OBJECT_HDRFTR_LENGTH sizeof(FObjHdr)
@@ -618,22 +611,11 @@ static const char * RootNames[] =
     "ellipsis-reference",
     "underscore-reference",
 
-    "tag-symbol",
-    "use-pass-symbol",
-    "constant-pass-symbol",
-    "analysis-pass-symbol",
     "interaction-env",
 
     "standard-input",
     "standard-output",
     "standard-error",
-    "quote-symbol",
-    "quasiquote-symbol",
-    "unquote-symbol",
-    "unquote-splicing-symbol",
-    "file-error-symbol",
-    "current-symbol",
-    "end-symbol",
 
     "syntax-rules-record-type",
     "pattern-variable-record-type",
@@ -647,36 +629,15 @@ static const char * RootNames[] =
     "no-value-primitive",
     "library-startup-list",
 
-    "wrong-number-of-arguments",
-    "not-callable",
-    "unexpected-number-of-values",
-    "undefined-message",
     "execute-thunk",
     "raise-handler",
     "notify-handler",
     "interactive-thunk",
-    "exception-handler-symbol",
-    "notify-handler-symbol",
-    "sig-int-symbol",
 
     "dynamic-record-type",
     "continuation-record-type",
 
     "cleanup-tconc",
-
-    "define-library-symbol",
-    "import-symbol",
-    "include-library-declarations-symbol",
-    "cond-expand-symbol",
-    "export-symbol",
-    "begin-symbol",
-    "include-symbol",
-    "include-ci-symbol",
-    "only-symbol",
-    "except-symbol",
-    "prefix-symbol",
-    "rename-symbol",
-    "aka-symbol",
 
     "datum-reference-record-type"
 };
@@ -703,6 +664,7 @@ static const char * IndirectTagString[] =
     "box",
     "pair",
     "string",
+    "string-c",
     "vector",
     "bytevector",
     "binary-port",
@@ -856,7 +818,7 @@ static void PrintObjectString(FObject obj)
     }
 
     if (SymbolP(obj))
-        obj = AsSymbol(obj)->String;
+        obj = SymbolToString(obj);
 
     if (StringP(obj))
     {
@@ -944,6 +906,9 @@ static void FCheckFailed(const char * fn, int_t ln, const char * expr, FObjHdr *
 
 static int_t ValidAddress(FObjHdr * oh)
 {
+    if (oh->Generation() == OBJHDR_GEN_ETERNAL)
+        return(1);
+
     uint_t len = ObjectLength(oh->Size());
     FThreadState * ts = Threads;
     void * strt = oh;
@@ -1235,7 +1200,7 @@ Again:
         *pobj = noh + 1;
         oh = noh;
     }
-    else
+    else if (oh->Generation() != OBJHDR_GEN_ETERNAL)
     {
         FAssert(oh->Generation() == OBJHDR_GEN_ADULTS);
 

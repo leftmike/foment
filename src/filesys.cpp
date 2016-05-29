@@ -66,7 +66,7 @@ Define("delete-file", DeleteFilePrimitive)(int_t argc, FObject argv[])
 
     if (remove((const char *) AsBytevector(bv)->Vector) != 0)
 #endif // FOMENT_UNIX
-        RaiseExceptionC(R.Assertion, "delete-file", R.FileErrorSymbol, "unable to delete file",
+        RaiseExceptionC(R.Assertion, "delete-file", FileErrorSymbol, "unable to delete file",
                 List(argv[0]));
 
     return(NoValueObject);
@@ -88,7 +88,7 @@ Define("file-size", FileSizePrimitive)(int_t argc, FObject argv[])
 
     if (GetFileAttributesExW((FCh16 *) AsBytevector(bv)->Vector, GetFileExInfoStandard, &fad)
             == 0 || (fad.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
-        RaiseExceptionC(R.Assertion, "file-size", R.FileErrorSymbol, "not a file", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "file-size", FileErrorSymbol, "not a file", List(argv[0]));
     return(MakeInteger(fad.nFileSizeHigh, fad.nFileSizeLow));
 #endif // FOMENT_WINDOWS
 #ifdef FOMENT_UNIX
@@ -99,7 +99,7 @@ Define("file-size", FileSizePrimitive)(int_t argc, FObject argv[])
     struct stat st;
 
     if (stat((const char *) AsBytevector(bv)->Vector, &st) != 0 || S_ISREG(st.st_mode) == 0)
-        RaiseExceptionC(R.Assertion, "file-size", R.FileErrorSymbol, "not a file", List(argv[0]));
+        RaiseExceptionC(R.Assertion, "file-size", FileErrorSymbol, "not a file", List(argv[0]));
 
     return(MakeIntegerU(st.st_size));
 #endif // FOMENT_UNIX
@@ -332,7 +332,7 @@ Define("file-stat-mtime", FileStatMtimePrimitive)(int_t argc, FObject argv[])
     WIN32_FILE_ATTRIBUTE_DATA fad;
 
     if (GetFileAttributesExW((FCh16 *) AsBytevector(bv)->Vector, GetFileExInfoStandard, &fad) == 0)
-        RaiseExceptionC(R.Assertion, "file-stat-mtime", R.FileErrorSymbol,
+        RaiseExceptionC(R.Assertion, "file-stat-mtime", FileErrorSymbol,
                 "not a file or directory", List(argv[0]));
     return(MakeIntegerU(ConvertTime(&fad.ftLastWriteTime)));
 #endif // FOMENT_WINDOWS
@@ -345,7 +345,7 @@ Define("file-stat-mtime", FileStatMtimePrimitive)(int_t argc, FObject argv[])
     struct stat st;
 
     if (stat((const char *) AsBytevector(bv)->Vector, &st) != 0)
-        RaiseExceptionC(R.Assertion, "file-stat-mtime", R.FileErrorSymbol,
+        RaiseExceptionC(R.Assertion, "file-stat-mtime", FileErrorSymbol,
                 "not a file or directory", List(argv[0]));
 
     return(MakeIntegerU(st.st_mtime));
@@ -365,7 +365,7 @@ Define("file-stat-atime", FileStatAtimePrimitive)(int_t argc, FObject argv[])
     WIN32_FILE_ATTRIBUTE_DATA fad;
 
     if (GetFileAttributesExW((FCh16 *) AsBytevector(bv)->Vector, GetFileExInfoStandard, &fad) == 0)
-        RaiseExceptionC(R.Assertion, "file-stat-atime", R.FileErrorSymbol,
+        RaiseExceptionC(R.Assertion, "file-stat-atime", FileErrorSymbol,
                 "not a file or directory", List(argv[0]));
     return(MakeIntegerU(ConvertTime(&fad.ftLastAccessTime)));
 #endif // FOMENT_WINDOWS
@@ -378,7 +378,7 @@ Define("file-stat-atime", FileStatAtimePrimitive)(int_t argc, FObject argv[])
     struct stat st;
 
     if (stat((const char *) AsBytevector(bv)->Vector, &st) != 0)
-        RaiseExceptionC(R.Assertion, "file-stat-atime", R.FileErrorSymbol,
+        RaiseExceptionC(R.Assertion, "file-stat-atime", FileErrorSymbol,
                 "not a file or directory", List(argv[0]));
 
     return(MakeIntegerU(st.st_atime));
@@ -401,14 +401,14 @@ Define("create-symbolic-link", CreateSymbolicLinkPrimitive)(int_t argc, FObject 
     WIN32_FILE_ATTRIBUTE_DATA fad;
 
     if (GetFileAttributesExW((FCh16 *) AsBytevector(bv1)->Vector, GetFileExInfoStandard, &fad) == 0)
-        RaiseExceptionC(R.Assertion, "create-symbolic-link", R.FileErrorSymbol,
+        RaiseExceptionC(R.Assertion, "create-symbolic-link", FileErrorSymbol,
                 "not a file or directory", List(argv[1]));
 
     if (CreateSymbolicLinkW((FCh16 *) AsBytevector(bv2)->Vector,
             (FCh16 *) AsBytevector(bv1)->Vector,
             (fad.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? SYMBOLIC_LINK_FLAG_DIRECTORY : 0)
             == 0)
-        RaiseExceptionC(R.Assertion, "create-symbolic-link", R.FileErrorSymbol,
+        RaiseExceptionC(R.Assertion, "create-symbolic-link", FileErrorSymbol,
                 "unable to create symbolic link", List(argv[0], argv[1],
                 MakeIntegerU(GetLastError())));
 #endif // FOMENT_WINDOWS
@@ -422,7 +422,7 @@ Define("create-symbolic-link", CreateSymbolicLinkPrimitive)(int_t argc, FObject 
 
     if (symlink((const char *) AsBytevector(bv1)->Vector, (const char *) AsBytevector(bv2)->Vector)
             != 0)
-        RaiseExceptionC(R.Assertion, "create-symbolic-link", R.FileErrorSymbol,
+        RaiseExceptionC(R.Assertion, "create-symbolic-link", FileErrorSymbol,
                 "unable to create symbolic link", List(argv[0], argv[1], MakeFixnum(errno)));
 #endif // FOMENT_UNIX
 
@@ -444,7 +444,7 @@ Define("rename-file", RenameFilePrimitive)(int_t argc, FObject argv[])
 
     if (MoveFileExW((FCh16 *) AsBytevector(bv1)->Vector, (FCh16 *) AsBytevector(bv2)->Vector,
             MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING) == 0)
-        RaiseExceptionC(R.Assertion, "rename-file", R.FileErrorSymbol, "unable to rename file",
+        RaiseExceptionC(R.Assertion, "rename-file", FileErrorSymbol, "unable to rename file",
                 List(argv[0], argv[1], MakeIntegerU(GetLastError())));
 #endif // FOMENT_WINDOWS
 
@@ -457,7 +457,7 @@ Define("rename-file", RenameFilePrimitive)(int_t argc, FObject argv[])
 
     if (rename((const char *) AsBytevector(bv1)->Vector, (const char *) AsBytevector(bv2)->Vector)
             != 0)
-        RaiseExceptionC(R.Assertion, "rename-file", R.FileErrorSymbol, "unable to rename file",
+        RaiseExceptionC(R.Assertion, "rename-file", FileErrorSymbol, "unable to rename file",
                 List(argv[0], argv[1], MakeFixnum(errno)));
 #endif // FOMENT_UNIX
 
@@ -475,7 +475,7 @@ Define("create-directory", CreateDirectoryPrimitive)(int_t argc, FObject argv[])
     FAssert(BytevectorP(bv));
 
     if (CreateDirectoryW((FCh16 *) AsBytevector(bv)->Vector, 0) == 0)
-        RaiseExceptionC(R.Assertion, "create-directory", R.FileErrorSymbol,
+        RaiseExceptionC(R.Assertion, "create-directory", FileErrorSymbol,
                 "unable to create directory", List(argv[0], MakeIntegerU(GetLastError())));
 #endif // FOMENT_WINDOWS
 
@@ -485,7 +485,7 @@ Define("create-directory", CreateDirectoryPrimitive)(int_t argc, FObject argv[])
     FAssert(BytevectorP(bv));
 
     if (mkdir((const char *) AsBytevector(bv)->Vector, S_IRWXU | S_IRWXG | S_IRWXO) != 0)
-        RaiseExceptionC(R.Assertion, "create-directory", R.FileErrorSymbol,
+        RaiseExceptionC(R.Assertion, "create-directory", FileErrorSymbol,
                 "unable to create directory", List(argv[0], MakeFixnum(errno)));
 #endif // FOMENT_UNIX
 
@@ -503,7 +503,7 @@ Define("delete-directory", DeleteDirectoryPrimitive)(int_t argc, FObject argv[])
     FAssert(BytevectorP(bv));
 
     if (RemoveDirectoryW((FCh16 *) AsBytevector(bv)->Vector) == 0)
-        RaiseExceptionC(R.Assertion, "delete-directory", R.FileErrorSymbol,
+        RaiseExceptionC(R.Assertion, "delete-directory", FileErrorSymbol,
                 "unable to delete directory", List(argv[0], MakeIntegerU(GetLastError())));
 #endif // FOMENT_WINDOWS
 
@@ -513,7 +513,7 @@ Define("delete-directory", DeleteDirectoryPrimitive)(int_t argc, FObject argv[])
     FAssert(BytevectorP(bv));
 
     if (rmdir((const char *) AsBytevector(bv)->Vector) != 0)
-        RaiseExceptionC(R.Assertion, "delete-directory", R.FileErrorSymbol,
+        RaiseExceptionC(R.Assertion, "delete-directory", FileErrorSymbol,
                 "unable to delete directory", List(argv[0], MakeFixnum(errno)));
 #endif // FOMENT_UNIX
     return(NoValueObject);
@@ -548,7 +548,7 @@ Define("list-directory", ListDirectoryPrimitive)(int_t argc, FObject argv[])
     WIN32_FIND_DATAW wfd;
     HANDLE dh = FindFirstFileW(us, &wfd);
     if (dh == INVALID_HANDLE_VALUE)
-        RaiseExceptionC(R.Assertion, "list-directory", R.FileErrorSymbol,
+        RaiseExceptionC(R.Assertion, "list-directory", FileErrorSymbol,
                 "unable to list directory", List(argv[0], MakeIntegerU(GetLastError())));
     do
     {
@@ -572,7 +572,7 @@ Define("list-directory", ListDirectoryPrimitive)(int_t argc, FObject argv[])
     DIR * dh;
     dh = opendir((const char *) AsBytevector(bv)->Vector);
     if (dh == 0)
-        RaiseExceptionC(R.Assertion, "list-directory", R.FileErrorSymbol,
+        RaiseExceptionC(R.Assertion, "list-directory", FileErrorSymbol,
                 "unable to list directory", List(argv[0], MakeFixnum(errno)));
     for (;;)
     {
@@ -602,7 +602,7 @@ Define("current-directory", CurrentDirectoryPrimitive)(int_t argc, FObject argv[
         FAssert(BytevectorP(bv));
 
         if (SetCurrentDirectoryW((FCh16 *) AsBytevector(bv)->Vector) == 0)
-            RaiseExceptionC(R.Assertion, "current-directory", R.FileErrorSymbol,
+            RaiseExceptionC(R.Assertion, "current-directory", FileErrorSymbol,
                     "unable to set current directory",
                     List(argv[0], MakeIntegerU(GetLastError())));
 #endif // FOMENT_WINDOWS
@@ -613,7 +613,7 @@ Define("current-directory", CurrentDirectoryPrimitive)(int_t argc, FObject argv[
         FAssert(BytevectorP(bv));
 
         if (chdir((const char *) AsBytevector(bv)->Vector) != 0)
-            RaiseExceptionC(R.Assertion, "current-directory", R.FileErrorSymbol,
+            RaiseExceptionC(R.Assertion, "current-directory", FileErrorSymbol,
                     "unable to set current directory", List(argv[0], MakeFixnum(errno)));
 #endif // FOMENT_UNIX
         return(NoValueObject);

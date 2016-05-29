@@ -444,7 +444,7 @@ static int_t DefaultCompare(FObject obj1, FObject obj2)
     case SymbolOrder:
         if (obj1 == obj2)
             return(0);
-        return(StringCompare(AsSymbol(obj1)->String, AsSymbol(obj2)->String));
+        return(SymbolCompare(obj1, obj2));
 
     case NumberOrder:
         return(NumberCompare(obj1, obj2));
@@ -570,7 +570,7 @@ static uint_t DefaultHash(FObject obj, int_t dpth)
     else if (StringP(obj))
         return(StringHash(obj));
     else if (SymbolP(obj))
-        return(StringHash(AsSymbol(obj)->String));
+        return(SymbolHash(obj));
     else if (NumberP(obj))
         return(NumberHash(obj));
     else if (VectorP(obj))

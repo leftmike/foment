@@ -156,6 +156,7 @@ typedef enum
     BoxTag,
     PairTag,
     StringTag,
+    CStringTag,
     VectorTag,
     BytevectorTag,
     BinaryPortTag,
@@ -219,7 +220,7 @@ int_t GrowMemRegionDown(FMemRegion * mrgn, uint_t sz);
 #define OBJHDR_GEN_BABIES 0x00000000
 #define OBJHDR_GEN_KIDS 0x20000000
 #define OBJHDR_GEN_ADULTS 0x40000000
-#define OBJHDR_GEN_UNUSED 0x60000000
+#define OBJHDR_GEN_ETERNAL 0x60000000
 
 #define OBJHDR_SLOT_COUNT_MASK 0x03FFFFFF
 #define OBJHDR_TAG_SHIFT 26
@@ -254,6 +255,13 @@ inline FObjHdr * AsObjHdr(FObject obj)
 }
 
 #define ByteLength(obj) (AsObjHdr(obj)->Size())
+
+typedef struct
+{
+    uint32_t Feet[2];
+} FObjFtr;
+
+#define OBJFTR_FEET 0xDEADFEE7
 
 FObject MakeObject(uint_t tag, uint_t sz, uint_t sc, const char * who, int_t pf = 0);
 
@@ -495,7 +503,6 @@ inline uint_t StringLength(FObject obj)
 
 void StringToC(FObject s, char * b, int_t bl);
 FObject FoldcaseString(FObject s);
-uint_t ByteLengthHash(char * b, uint_t bl);
 uint_t StringLengthHash(FCh * s, uint_t sl);
 uint_t StringHash(FObject obj);
 int_t StringLengthEqualP(FCh * s, int_t sl, FObject obj);
@@ -864,13 +871,56 @@ typedef FHashContainer FHashBag;
 typedef struct
 {
     FObject String;
-    uint_t Hash;
 } FSymbol;
 
+FObject SymbolToString(FObject sym);
 FObject StringToSymbol(FObject str);
 FObject StringCToSymbol(const char * s);
 FObject StringLengthToSymbol(FCh * s, int_t sl);
-FObject PrefixSymbol(FObject str, FObject sym);
+uint_t SymbolHash(FObject obj);
+int_t SymbolCompare(FObject obj1, FObject obj2);
+FObject AddPrefixToSymbol(FObject str, FObject sym);
+
+#define CStringP(obj) (IndirectTag(obj) == CStringTag)
+#define AsCString(obj) ((FCString *) (obj))
+
+typedef struct
+{
+    const char * String;
+} FCString;
+
+typedef struct
+{
+    FObjHdr ObjHdr;
+    FCString String;
+    FObjFtr ObjFtr;
+} FEternalCString;
+
+typedef struct
+{
+    FObjHdr ObjHdr;
+    FSymbol Symbol;
+    FObjFtr ObjFtr;
+} FEternalSymbol;
+
+#define EternalSymbol(name, string) \
+    static FEternalCString name ## String = \
+    { \
+        .ObjHdr.FlagsAndSize = OBJHDR_GEN_ETERNAL | sizeof(FCString), \
+        .ObjHdr.TagAndSlotCount = (CStringTag << OBJHDR_TAG_SHIFT), \
+        .String.String = string, \
+        .ObjFtr.Feet = {OBJFTR_FEET, OBJFTR_FEET} \
+    }; \
+    static FEternalSymbol name ## Object = \
+    { \
+        .ObjHdr.FlagsAndSize = OBJHDR_GEN_ETERNAL | sizeof(FSymbol), \
+        .ObjHdr.TagAndSlotCount = (SymbolTag << OBJHDR_TAG_SHIFT) | 1, \
+        .Symbol.String = &name ## String.String, \
+        .ObjFtr.Feet = {OBJFTR_FEET, OBJFTR_FEET} \
+    }; \
+    FObject name = &name ## Object.Symbol;
+
+void InternSymbol(FObject sym);
 
 // ---- Roots ----
 
@@ -931,22 +981,11 @@ typedef struct
     FObject EllipsisReference;
     FObject UnderscoreReference;
 
-    FObject TagSymbol;
-    FObject UsePassSymbol;
-    FObject ConstantPassSymbol;
-    FObject AnalysisPassSymbol;
     FObject InteractionEnv;
 
     FObject StandardInput;
     FObject StandardOutput;
     FObject StandardError;
-    FObject QuoteSymbol;
-    FObject QuasiquoteSymbol;
-    FObject UnquoteSymbol;
-    FObject UnquoteSplicingSymbol;
-    FObject FileErrorSymbol;
-    FObject CurrentSymbol;
-    FObject EndSymbol;
 
     FObject SyntaxRulesRecordType;
     FObject PatternVariableRecordType;
@@ -960,41 +999,32 @@ typedef struct
     FObject NoValuePrimitive;
     FObject LibraryStartupList;
 
-    FObject WrongNumberOfArguments;
-    FObject NotCallable;
-    FObject UnexpectedNumberOfValues;
-    FObject UndefinedMessage;
     FObject ExecuteThunk;
     FObject RaiseHandler;
     FObject NotifyHandler;
     FObject InteractiveThunk;
-    FObject ExceptionHandlerSymbol;
-    FObject NotifyHandlerSymbol;
-    FObject SigIntSymbol;
 
     FObject DynamicRecordType;
     FObject ContinuationRecordType;
 
     FObject CleanupTConc;
 
-    FObject DefineLibrarySymbol;
-    FObject ImportSymbol;
-    FObject IncludeLibraryDeclarationsSymbol;
-    FObject CondExpandSymbol;
-    FObject ExportSymbol;
-    FObject BeginSymbol;
-    FObject IncludeSymbol;
-    FObject IncludeCISymbol;
-    FObject OnlySymbol;
-    FObject ExceptSymbol;
-    FObject PrefixSymbol;
-    FObject RenameSymbol;
-    FObject AkaSymbol;
-
     FObject DatumReferenceRecordType;
 } FRoots;
 
 extern FRoots R;
+extern FObject SigIntSymbol;
+extern FObject WrongNumberOfArguments;
+extern FObject TagSymbol;
+extern FObject UsePassSymbol;
+extern FObject ConstantPassSymbol;
+extern FObject AnalysisPassSymbol;
+extern FObject BeginSymbol;
+extern FObject QuoteSymbol;
+extern FObject QuasiquoteSymbol;
+extern FObject UnquoteSymbol;
+extern FObject UnquoteSplicingSymbol;
+extern FObject FileErrorSymbol;
 
 // ---- Flonums ----
 

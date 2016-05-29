@@ -303,10 +303,10 @@ static void UPassCaseLambda(FCaseLambda * cl, int ef)
 
 void UPassLambda(FLambda * lam, int ef)
 {
-    if (lam->CompilerPass != R.UsePassSymbol)
+    if (lam->CompilerPass != UsePassSymbol)
     {
-//        lam->CompilerPass = R.UsePassSymbol;
-        Modify(FLambda, lam, CompilerPass, R.UsePassSymbol);
+//        lam->CompilerPass = UsePassSymbol;
+        Modify(FLambda, lam, CompilerPass, UsePassSymbol);
 
 //        lam->Escapes = (ef != 0 ? TrueObject : FalseObject);
         Modify(FLambda, lam, Escapes, (ef != 0 ? TrueObject : FalseObject));
@@ -505,10 +505,10 @@ static void CPassCaseLambda(FCaseLambda * cl)
 
 void CPassLambda(FLambda * lam)
 {
-    if (lam->CompilerPass != R.ConstantPassSymbol)
+    if (lam->CompilerPass != ConstantPassSymbol)
     {
-//        lam->CompilerPass = R.ConstantPassSymbol;
-        Modify(FLambda, lam, CompilerPass, R.ConstantPassSymbol);
+//        lam->CompilerPass = ConstantPassSymbol;
+        Modify(FLambda, lam, CompilerPass, ConstantPassSymbol);
 
 //        lam->Body = CPassSequence(lam->Body);
         Modify(FLambda, lam, Body, CPassSequence(lam->Body));
@@ -665,10 +665,10 @@ static void APassCaseLambda(FLambda * lam, FCaseLambda * cl)
 
 void APassLambda(FLambda * enc, FLambda * lam)
 {
-    if (lam->CompilerPass != R.AnalysisPassSymbol)
+    if (lam->CompilerPass != AnalysisPassSymbol)
     {
-//        lam->CompilerPass = R.AnalysisPassSymbol;
-        Modify(FLambda, lam, CompilerPass, R.AnalysisPassSymbol);
+//        lam->CompilerPass = AnalysisPassSymbol;
+        Modify(FLambda, lam, CompilerPass, AnalysisPassSymbol);
 
         if (enc != 0)
         {

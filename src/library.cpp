@@ -7,6 +7,19 @@ Foment
 #include "foment.hpp"
 #include "compile.hpp"
 
+EternalSymbol(DefineLibrarySymbol, "define-library");
+EternalSymbol(ImportSymbol, "import");
+EternalSymbol(IncludeLibraryDeclarationsSymbol, "include-library-declarations");
+EternalSymbol(CondExpandSymbol, "cond-expand");
+EternalSymbol(ExportSymbol, "export");
+EternalSymbol(IncludeSymbol, "include");
+EternalSymbol(IncludeCISymbol, "include-ci");
+EternalSymbol(OnlySymbol, "only");
+EternalSymbol(ExceptSymbol, "except");
+EternalSymbol(PrefixSymbol, "prefix");
+EternalSymbol(RenameSymbol, "rename");
+EternalSymbol(AkaSymbol, "aka");
+
 // ---- Environments ----
 
 static const char * EnvironmentFieldsC[] = {"name", "hash-map", "interactive", "immutable"};
@@ -398,7 +411,7 @@ static FObject LoadLibrary(FObject nam)
                     if (obj == EndOfFileObject)
                         break;
 
-                    if (PairP(obj) == 0 || EqualToSymbol(First(obj), R.DefineLibrarySymbol) == 0)
+                    if (PairP(obj) == 0 || EqualToSymbol(First(obj), DefineLibrarySymbol) == 0)
                         RaiseExceptionC(R.Syntax, "define-library", "expected a library",
                                 List(libfn, obj));
 
@@ -562,7 +575,7 @@ static FObject DoImportSet(FObject env, FObject is, FObject form)
         RaiseExceptionC(R.Syntax, "import", "expected a list starting with an identifier",
                 List(is, form));
 
-    if (EqualToSymbol(First(is), R.OnlySymbol))
+    if (EqualToSymbol(First(is), OnlySymbol))
     {
         FObject ilst = DoOnlyOrExcept(env, is, 1);
         if (ilst == NoValueObject)
@@ -571,7 +584,7 @@ static FObject DoImportSet(FObject env, FObject is, FObject form)
 
         return(ilst);
     }
-    else if (EqualToSymbol(First(is), R.ExceptSymbol))
+    else if (EqualToSymbol(First(is), ExceptSymbol))
     {
         FObject ilst = DoOnlyOrExcept(env, is, 0);
         if (ilst == NoValueObject)
@@ -580,7 +593,7 @@ static FObject DoImportSet(FObject env, FObject is, FObject form)
 
         return(ilst);
     }
-    else if (EqualToSymbol(First(is), R.PrefixSymbol))
+    else if (EqualToSymbol(First(is), PrefixSymbol))
     {
         if (PairP(Rest(is)) == 0 || PairP(Rest(Rest(is))) == 0
                 || Rest(Rest(Rest(is))) != EmptyListObject ||
@@ -590,17 +603,17 @@ static FObject DoImportSet(FObject env, FObject is, FObject form)
 
         FObject prfx;
         if (SymbolP(First(Rest(Rest(is)))))
-            prfx = AsSymbol(First(Rest(Rest(is))))->String;
+            prfx = SymbolToString(First(Rest(Rest(is))));
         else
-            prfx = AsSymbol(AsIdentifier(First(Rest(Rest(is))))->Symbol)->String;
+            prfx = SymbolToString(AsIdentifier(First(Rest(Rest(is))))->Symbol);
         FObject ilst = DoImportSet(env, First(Rest(is)), is);
         FObject lst = ilst;
         while (PairP(lst))
         {
             FAssert(GlobalP(First(lst)));
 
-//            AsGlobal(First(lst))->Name = PrefixSymbol(prfx, AsGlobal(First(lst))->Name);
-            Modify(FGlobal, First(lst), Name, PrefixSymbol(prfx, AsGlobal(First(lst))->Name));
+//            AsGlobal(First(lst))->Name = AddPrefixToSymbol(prfx, AsGlobal(First(lst))->Name);
+            Modify(FGlobal, First(lst), Name, AddPrefixToSymbol(prfx, AsGlobal(First(lst))->Name));
             lst = Rest(lst);
         }
 
@@ -608,7 +621,7 @@ static FObject DoImportSet(FObject env, FObject is, FObject form)
 
         return(ilst);
     }
-    else if (EqualToSymbol(First(is), R.RenameSymbol))
+    else if (EqualToSymbol(First(is), RenameSymbol))
     {
         if (PairP(Rest(is)) == 0)
             RaiseExceptionC(R.Syntax, "import",
@@ -730,21 +743,21 @@ static FObject ExpandLibraryDeclarations(FObject env, FObject lst, FObject body)
 
         FObject form = First(lst);
 
-        if (EqualToSymbol(First(form), R.ImportSymbol))
+        if (EqualToSymbol(First(form), ImportSymbol))
             EnvironmentImport(env, form);
-        else if (EqualToSymbol(First(form), R.IncludeLibraryDeclarationsSymbol))
+        else if (EqualToSymbol(First(form), IncludeLibraryDeclarationsSymbol))
             body = ExpandLibraryDeclarations(env, ReadInclude(First(form), Rest(form), 0), body);
-        else if (EqualToSymbol(First(form), R.CondExpandSymbol))
+        else if (EqualToSymbol(First(form), CondExpandSymbol))
         {
             FObject ce = CondExpand(MakeSyntacticEnv(R.Bedrock), form, Rest(form));
             if (ce != EmptyListObject)
                 body = ExpandLibraryDeclarations(env, ce , body);
         }
-        else if (EqualToSymbol(First(form), R.ExportSymbol) == 0
-                && EqualToSymbol(First(form), R.AkaSymbol) == 0
-                && EqualToSymbol(First(form), R.BeginSymbol) == 0
-                && EqualToSymbol(First(form), R.IncludeSymbol) == 0
-                && EqualToSymbol(First(form), R.IncludeCISymbol) == 0)
+        else if (EqualToSymbol(First(form), ExportSymbol) == 0
+                && EqualToSymbol(First(form), AkaSymbol) == 0
+                && EqualToSymbol(First(form), BeginSymbol) == 0
+                && EqualToSymbol(First(form), IncludeSymbol) == 0
+                && EqualToSymbol(First(form), IncludeCISymbol) == 0)
             RaiseExceptionC(R.Syntax, "define-library",
                     "expected a library declaration", List(First(lst)));
         else
@@ -822,12 +835,12 @@ static FObject CompileEvalExpr(FObject obj, FObject env, FObject body)
         return(MakePair(SyntaxToDatum(obj), body));
     else if (PairP(obj) && (IdentifierP(First(obj)) || SymbolP(First(obj))))
     {
-        if (EqualToSymbol(First(obj), R.DefineLibrarySymbol))
+        if (EqualToSymbol(First(obj), DefineLibrarySymbol))
         {
             CompileLibrary(obj);
             return(body);
         }
-        else if (EqualToSymbol(First(obj), R.ImportSymbol))
+        else if (EqualToSymbol(First(obj), ImportSymbol))
         {
             EnvironmentImport(env, obj);
             if (body != EmptyListObject)
@@ -1031,17 +1044,17 @@ static FObject CompileLibraryCode(FObject env, FObject lst)
 
         FObject form = First(lst);
 
-        if (EqualToSymbol(First(form), R.BeginSymbol)
-                || EqualToSymbol(First(form), R.IncludeSymbol)
-                || EqualToSymbol(First(form), R.IncludeCISymbol))
+        if (EqualToSymbol(First(form), BeginSymbol)
+                || EqualToSymbol(First(form), IncludeSymbol)
+                || EqualToSymbol(First(form), IncludeCISymbol))
             body = CompileEvalExpr(form, env, body);
         else
         {
-            FAssert(EqualToSymbol(First(form), R.ImportSymbol)
-                    || EqualToSymbol(First(form), R.IncludeLibraryDeclarationsSymbol)
-                    || EqualToSymbol(First(form), R.CondExpandSymbol)
-                    || EqualToSymbol(First(form), R.ExportSymbol)
-                    || EqualToSymbol(First(form), R.AkaSymbol));
+            FAssert(EqualToSymbol(First(form), ImportSymbol)
+                    || EqualToSymbol(First(form), IncludeLibraryDeclarationsSymbol)
+                    || EqualToSymbol(First(form), CondExpandSymbol)
+                    || EqualToSymbol(First(form), ExportSymbol)
+                    || EqualToSymbol(First(form), AkaSymbol));
         }
 
         lst = Rest(lst);
@@ -1066,7 +1079,7 @@ static FObject CompileExports(FObject env, FObject lst)
 
         FObject form = First(lst);
 
-        if (EqualToSymbol(First(form), R.ExportSymbol))
+        if (EqualToSymbol(First(form), ExportSymbol))
         {
             FObject especs = Rest(form);
             while (PairP(especs))
@@ -1080,7 +1093,7 @@ static FObject CompileExports(FObject env, FObject lst)
                         || (IdentifierP(First(Rest(Rest(spec)))) == 0
                         && SymbolP(First(Rest(Rest(spec)))) == 0)
                         || Rest(Rest(Rest(spec))) != EmptyListObject
-                        || EqualToSymbol(First(spec), R.RenameSymbol) == 0))
+                        || EqualToSymbol(First(spec), RenameSymbol) == 0))
                     RaiseExceptionC(R.Syntax, "export",
                             "expected an identifier or (rename <id1> <id2>)",
                             List(spec, form));
@@ -1118,13 +1131,13 @@ static FObject CompileExports(FObject env, FObject lst)
         }
         else
         {
-            FAssert(EqualToSymbol(First(form), R.ImportSymbol)
-                    || EqualToSymbol(First(form), R.AkaSymbol)
-                    || EqualToSymbol(First(form), R.IncludeLibraryDeclarationsSymbol)
-                    || EqualToSymbol(First(form), R.CondExpandSymbol)
-                    || EqualToSymbol(First(form), R.BeginSymbol)
-                    || EqualToSymbol(First(form), R.IncludeSymbol)
-                    || EqualToSymbol(First(form), R.IncludeCISymbol));
+            FAssert(EqualToSymbol(First(form), ImportSymbol)
+                    || EqualToSymbol(First(form), AkaSymbol)
+                    || EqualToSymbol(First(form), IncludeLibraryDeclarationsSymbol)
+                    || EqualToSymbol(First(form), CondExpandSymbol)
+                    || EqualToSymbol(First(form), BeginSymbol)
+                    || EqualToSymbol(First(form), IncludeSymbol)
+                    || EqualToSymbol(First(form), IncludeCISymbol));
         }
 
         lst = Rest(lst);
@@ -1146,7 +1159,7 @@ static FObject CompileAkas(FObject env, FObject lst)
 
         FObject form = First(lst);
 
-        if (EqualToSymbol(First(form), R.AkaSymbol))
+        if (EqualToSymbol(First(form), AkaSymbol))
         {
             if (PairP(Rest(form)) == 0 || Rest(Rest(form)) != EmptyListObject)
                 RaiseExceptionC(R.Syntax, "aka", "expected (aka <library-name>)", List(form));
@@ -1161,13 +1174,13 @@ static FObject CompileAkas(FObject env, FObject lst)
         }
         else
         {
-            FAssert(EqualToSymbol(First(form), R.ImportSymbol)
-                    || EqualToSymbol(First(form), R.ExportSymbol)
-                    || EqualToSymbol(First(form), R.IncludeLibraryDeclarationsSymbol)
-                    || EqualToSymbol(First(form), R.CondExpandSymbol)
-                    || EqualToSymbol(First(form), R.BeginSymbol)
-                    || EqualToSymbol(First(form), R.IncludeSymbol)
-                    || EqualToSymbol(First(form), R.IncludeCISymbol));
+            FAssert(EqualToSymbol(First(form), ImportSymbol)
+                    || EqualToSymbol(First(form), ExportSymbol)
+                    || EqualToSymbol(First(form), IncludeLibraryDeclarationsSymbol)
+                    || EqualToSymbol(First(form), CondExpandSymbol)
+                    || EqualToSymbol(First(form), BeginSymbol)
+                    || EqualToSymbol(First(form), IncludeSymbol)
+                    || EqualToSymbol(First(form), IncludeCISymbol));
         }
 
         lst = Rest(lst);
@@ -1233,7 +1246,7 @@ static FObject CondExpandProgram(FObject lst, FObject prog)
 
         FObject obj = First(lst);
 
-        if (PairP(obj) && EqualToSymbol(First(obj), R.CondExpandSymbol))
+        if (PairP(obj) && EqualToSymbol(First(obj), CondExpandSymbol))
         {
             FObject ce = CondExpand(MakeSyntacticEnv(R.Bedrock), obj, Rest(obj));
             if (ce != EmptyListObject)
@@ -1266,7 +1279,7 @@ FObject CompileProgram(FObject nam, FObject port)
             if (obj == EndOfFileObject)
                 break;
 
-            if (PairP(obj) && EqualToSymbol(First(obj), R.CondExpandSymbol))
+            if (PairP(obj) && EqualToSymbol(First(obj), CondExpandSymbol))
             {
                 FObject ce = CondExpand(MakeSyntacticEnv(R.Bedrock), obj, Rest(obj));
                 if (ce != EmptyListObject)
@@ -1286,9 +1299,9 @@ FObject CompileProgram(FObject nam, FObject port)
             if (PairP(obj) == 0)
                 break;
 
-            if (EqualToSymbol(First(obj), R.ImportSymbol))
+            if (EqualToSymbol(First(obj), ImportSymbol))
                 EnvironmentImport(env, obj);
-            else if (EqualToSymbol(First(obj), R.DefineLibrarySymbol))
+            else if (EqualToSymbol(First(obj), DefineLibrarySymbol))
                 CompileLibrary(obj);
             else
                 break;
@@ -1340,17 +1353,29 @@ void SetupLibrary()
 
     R.LibraryStartupList = EmptyListObject;
 
-    R.DefineLibrarySymbol = StringCToSymbol("define-library");
-    R.ImportSymbol = StringCToSymbol("import");
-    R.IncludeLibraryDeclarationsSymbol = StringCToSymbol("include-library-declarations");
-    R.CondExpandSymbol = StringCToSymbol("cond-expand");
-    R.ExportSymbol = StringCToSymbol("export");
-    R.BeginSymbol = StringCToSymbol("begin");
-    R.IncludeSymbol = StringCToSymbol("include");
-    R.IncludeCISymbol = StringCToSymbol("include-ci");
-    R.OnlySymbol = StringCToSymbol("only");
-    R.ExceptSymbol = StringCToSymbol("except");
-    R.PrefixSymbol = StringCToSymbol("prefix");
-    R.RenameSymbol = StringCToSymbol("rename");
-    R.AkaSymbol = StringCToSymbol("aka");
+    InternSymbol(DefineLibrarySymbol);
+    InternSymbol(ImportSymbol);
+    InternSymbol(IncludeLibraryDeclarationsSymbol);
+    InternSymbol(CondExpandSymbol);
+    InternSymbol(ExportSymbol);
+    InternSymbol(IncludeSymbol);
+    InternSymbol(IncludeCISymbol);
+    InternSymbol(OnlySymbol);
+    InternSymbol(ExceptSymbol);
+    InternSymbol(PrefixSymbol);
+    InternSymbol(RenameSymbol);
+    InternSymbol(AkaSymbol);
+
+    FAssert(DefineLibrarySymbol == StringCToSymbol("define-library"));
+    FAssert(ImportSymbol == StringCToSymbol("import"));
+    FAssert(IncludeLibraryDeclarationsSymbol == StringCToSymbol("include-library-declarations"));
+    FAssert(CondExpandSymbol == StringCToSymbol("cond-expand"));
+    FAssert(ExportSymbol == StringCToSymbol("export"));
+    FAssert(IncludeSymbol == StringCToSymbol("include"));
+    FAssert(IncludeCISymbol == StringCToSymbol("include-ci"));
+    FAssert(OnlySymbol == StringCToSymbol("only"));
+    FAssert(ExceptSymbol == StringCToSymbol("except"));
+    FAssert(PrefixSymbol == StringCToSymbol("prefix"));
+    FAssert(RenameSymbol == StringCToSymbol("rename"));
+    FAssert(AkaSymbol == StringCToSymbol("aka"));
 }
