@@ -3,7 +3,7 @@
 * Full R7RS.
 * Libraries and programs work.
 * Native threads and some synchronization primitives.
-* Memory management using a garbage collector with two copying and one mark-sweep generations. Guardians protect objects from being collected and trackers follow objects as they get moved by the copying part of the collector.
+* Memory management featuring guardians and trackers. Guardians protect objects from being collected and trackers follow objects as they get moved by the copying part of the collector.
 * Full Unicode including reading and writing unicode characters to the console. Files in UTF-8 and UTF-16 encoding can be read and written.
 * The system is built around a compiler and VM. There is support for prompts and continuation marks.
 * Network support.

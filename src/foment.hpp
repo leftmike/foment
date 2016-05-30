@@ -3,7 +3,6 @@
 Foment
 
 To Do:
--- update documenation: MemoryManagement APIs and Internals
 -- Windows: make test-all: run all tests using all three collectors
 -- CheckObject: check back references from mature objects
 -- partial GC
