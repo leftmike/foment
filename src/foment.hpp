@@ -751,43 +751,6 @@ inline int_t RecordP(FObject obj, FObject rt)
 
 #define RecordNumFields(obj) (AsObjHdr(obj)->SlotCount())
 
-// ---- Primitives ----
-
-#define PrimitiveP(obj) (IndirectTag(obj) == PrimitiveTag)
-#define AsPrimitive(obj) ((FPrimitive *) (obj))
-
-typedef FObject (*FPrimitiveFn)(int_t argc, FObject argv[]);
-typedef struct
-{
-    FPrimitiveFn PrimitiveFn;
-    const char * Name;
-    const char * Filename;
-    int_t LineNumber;
-} FPrimitive;
-
-typedef struct
-{
-    FObjHdr ObjHdr;
-    FPrimitive Primitive;
-    FObjFtr ObjFtr;
-} FEternalPrimitive;
-
-#define Define(name, prim)\
-    static FObject prim ## Fn(int_t argc, FObject argv[]);\
-    static FEternalPrimitive prim ## Object = { \
-        .ObjHdr.FlagsAndSize = OBJHDR_GEN_ETERNAL | sizeof(FPrimitive), \
-        .ObjHdr.TagAndSlotCount = (PrimitiveTag << OBJHDR_TAG_SHIFT), \
-        .Primitive.PrimitiveFn = prim ## Fn, \
-        .Primitive.Name = name, \
-        .Primitive.Filename = __FILE__, \
-        .Primitive.LineNumber =__LINE__, \
-        .ObjFtr.Feet = {OBJFTR_FEET, OBJFTR_FEET} \
-    }; \
-    FObject prim = &prim ## Object.Primitive; \
-    static FObject prim ## Fn
-
-void DefinePrimitive(FObject env, FObject lib, FObject prim);
-
 // ---- HashTree ----
 
 #define HashTreeP(obj) (IndirectTag(obj) == HashTreeTag)
@@ -933,7 +896,45 @@ typedef struct
     }; \
     FObject name = &name ## Object.Symbol;
 
-void InternSymbol(FObject sym);
+FObject InternSymbol(FObject sym, int_t msf = 1);
+
+// ---- Primitives ----
+
+#define PrimitiveP(obj) (IndirectTag(obj) == PrimitiveTag)
+#define AsPrimitive(obj) ((FPrimitive *) (obj))
+
+typedef FObject (*FPrimitiveFn)(int_t argc, FObject argv[]);
+typedef struct
+{
+    FObject Name;
+    FPrimitiveFn PrimitiveFn;
+    const char * Filename;
+    int_t LineNumber;
+} FPrimitive;
+
+typedef struct
+{
+    FObjHdr ObjHdr;
+    FPrimitive Primitive;
+    FObjFtr ObjFtr;
+} FEternalPrimitive;
+
+#define Define(name, prim) \
+    EternalSymbol(prim ## Symbol, name); \
+    static FObject prim ## Fn(int_t argc, FObject argv[]);\
+    static FEternalPrimitive prim ## Object = { \
+        .ObjHdr.FlagsAndSize = OBJHDR_GEN_ETERNAL | sizeof(FPrimitive), \
+        .ObjHdr.TagAndSlotCount = (PrimitiveTag << OBJHDR_TAG_SHIFT) | 1, \
+        .Primitive.Name = prim ## Symbol, \
+        .Primitive.PrimitiveFn = prim ## Fn, \
+        .Primitive.Filename = __FILE__, \
+        .Primitive.LineNumber =__LINE__, \
+        .ObjFtr.Feet = {OBJFTR_FEET, OBJFTR_FEET} \
+    }; \
+    FObject prim = &prim ## Object.Primitive; \
+    static FObject prim ## Fn
+
+void DefinePrimitive(FObject env, FObject lib, FObject prim);
 
 // ---- Roots ----
 

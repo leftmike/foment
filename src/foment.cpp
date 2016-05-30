@@ -688,7 +688,7 @@ FObject MakeRecord(FObject rt)
 
 void DefinePrimitive(FObject env, FObject lib, FObject prim)
 {
-    LibraryExport(lib, EnvironmentSetC(env, AsPrimitive(prim)->Name, prim));
+    LibraryExport(lib, EnvironmentSet(env, InternSymbol(AsPrimitive(prim)->Name, 0), prim));
 }
 
 // Foment specific

@@ -628,7 +628,7 @@ int_t SymbolCompare(FObject obj1, FObject obj2)
             AsCString(AsSymbol(obj1)->String)->String));
 }
 
-void InternSymbol(FObject sym)
+FObject InternSymbol(FObject sym, int_t msf)
 {
     FAssert(SymbolP(sym));
     FAssert(AsObjHdr(sym)->Generation() == OBJHDR_GEN_ETERNAL);
@@ -637,22 +637,25 @@ void InternSymbol(FObject sym)
 
     uint_t idx = SymbolHash(sym) % HASH_MODULO;
     FObject lst = HashTreeRef(R.SymbolHashTree, idx, MakeFixnum(idx));
-
-#ifdef FOMENT_DEBUG
     FObject obj = lst;
 
     while (PairP(obj))
     {
         FAssert(SymbolP(First(obj)));
         if (SymbolCompare(First(obj), sym) == 0)
+        {
+            if (msf == 0)
+                return(First(obj));
             printf("%s\n", AsCString(AsSymbol(sym)->String)->String);
-        FAssert(SymbolCompare(First(obj), sym) != 0);
+        }
+
+        FMustBe(SymbolCompare(First(obj), sym) != 0);
 
         obj = Rest(obj);
     }
-#endif // FOMENT_DEBUG
 
     R.SymbolHashTree = HashTreeSet(R.SymbolHashTree, idx, MakePair(sym, lst));
+    return(sym);
 }
 
 // ---- Hash Container ----

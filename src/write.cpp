@@ -570,8 +570,11 @@ static void WriteObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
 
     case PrimitiveTag:
     {
+        FAssert(SymbolP(AsPrimitive(obj)->Name));
+        FAssert(CStringP(AsSymbol(AsPrimitive(obj)->Name)->String));
+
         WriteStringC(port, "#<primitive: ");
-        WriteStringC(port, AsPrimitive(obj)->Name);
+        WriteStringC(port, AsCString(AsSymbol(AsPrimitive(obj)->Name)->String)->String);
         WriteCh(port, ' ');
 
         const char * fn = AsPrimitive(obj)->Filename;
