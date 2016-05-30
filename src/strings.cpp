@@ -779,42 +779,42 @@ Define("string-hash", StringHashPrimitive)(int_t argc, FObject argv[])
     return(MakeFixnum(StringHash(argv[0]) & MAXIMUM_FIXNUM));
 }
 
-static FPrimitive * Primitives[] =
+static FObject Primitives[] =
 {
-    &StringPPrimitive,
-    &MakeStringPrimitive,
-    &StringPrimitive,
-    &StringLengthPrimitive,
-    &StringRefPrimitive,
-    &StringSetPrimitive,
-    &StringEqualPPrimitive,
-    &StringLessThanPPrimitive,
-    &StringGreaterThanPPrimitive,
-    &StringLessThanEqualPPrimitive,
-    &StringGreaterThanEqualPPrimitive,
-    &StringCiEqualPPrimitive,
-    &StringCiLessThanPPrimitive,
-    &StringCiGreaterThanPPrimitive,
-    &StringCiLessThanEqualPPrimitive,
-    &StringCiGreaterThanEqualPPrimitive,
-    &StringUpcasePrimitive,
-    &StringDowncasePrimitive,
-    &StringFoldcasePrimitive,
-    &StringAppendPrimitive,
-    &StringToListPrimitive,
-    &ListToStringPrimitive,
-    &StringCopyPrimitive,
-    &StringCopyModifyPrimitive,
-    &StringFillPrimitive,
-    &StringComparePrimitive,
-    &StringCiComparePrimitive,
-    &StringHashPrimitive
+    StringPPrimitive,
+    MakeStringPrimitive,
+    StringPrimitive,
+    StringLengthPrimitive,
+    StringRefPrimitive,
+    StringSetPrimitive,
+    StringEqualPPrimitive,
+    StringLessThanPPrimitive,
+    StringGreaterThanPPrimitive,
+    StringLessThanEqualPPrimitive,
+    StringGreaterThanEqualPPrimitive,
+    StringCiEqualPPrimitive,
+    StringCiLessThanPPrimitive,
+    StringCiGreaterThanPPrimitive,
+    StringCiLessThanEqualPPrimitive,
+    StringCiGreaterThanEqualPPrimitive,
+    StringUpcasePrimitive,
+    StringDowncasePrimitive,
+    StringFoldcasePrimitive,
+    StringAppendPrimitive,
+    StringToListPrimitive,
+    ListToStringPrimitive,
+    StringCopyPrimitive,
+    StringCopyModifyPrimitive,
+    StringFillPrimitive,
+    StringComparePrimitive,
+    StringCiComparePrimitive,
+    StringHashPrimitive
 };
 
 void SetupStrings()
 {
-    DefineComparator("string-comparator", &StringPPrimitive, &StringEqualPPrimitive,
-            &StringComparePrimitive, &StringHashPrimitive);
+    DefineComparator("string-comparator", StringPPrimitive, StringEqualPPrimitive,
+            StringComparePrimitive, StringHashPrimitive);
 
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);

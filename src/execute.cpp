@@ -1387,25 +1387,25 @@ FObject CurrentParameters()
     return(hm);
 }
 
-static FPrimitive * Primitives[] =
+static FObject Primitives[] =
 {
-    &ProcedurePPrimitive,
-    &MapCarPrimitive,
-    &MapCdrPrimitive,
-    &MapStringsPrimitive,
-    &MapVectorsPrimitive,
-    &ExecuteThunkPrimitive,
-    &SetRaiseHandlerPrimitive,
-    &SetNotifyHandlerPrimitive,
-    &InteractiveThunkPrimitive,
-    &BytesAllocatedPrimitive,
-    &DynamicStackPrimitive,
-    &DynamicMarksPrimitive,
-    &ParametersPrimitive,
-    &ProcedureToParameterPrimitive,
-    &ParameterPPrimitive,
-    &IndexParameterPrimitive,
-    &FindMarkPrimitive
+    ProcedurePPrimitive,
+    MapCarPrimitive,
+    MapCdrPrimitive,
+    MapStringsPrimitive,
+    MapVectorsPrimitive,
+    ExecuteThunkPrimitive,
+    SetRaiseHandlerPrimitive,
+    SetNotifyHandlerPrimitive,
+    InteractiveThunkPrimitive,
+    BytesAllocatedPrimitive,
+    DynamicStackPrimitive,
+    DynamicMarksPrimitive,
+    ParametersPrimitive,
+    ProcedureToParameterPrimitive,
+    ParameterPPrimitive,
+    IndexParameterPrimitive,
+    FindMarkPrimitive
 };
 
 void SetupExecute()

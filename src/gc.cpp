@@ -569,9 +569,6 @@ static const char * RootNames[] =
     "symbol-hash-tree",
 
     "comparator-record-type",
-    "anyp-primitive",
-    "no-hash-primitive",
-    "no-compare-primitive",
     "eq-comparator",
     "default-comparator",
 
@@ -619,7 +616,6 @@ static const char * RootNames[] =
     "environment-record-type",
     "global-record-type",
     "library-record-type",
-    "no-value-primitive",
     "library-startup-list",
 
     "execute-thunk",
@@ -1892,11 +1888,11 @@ Define("collect", CollectPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-static FPrimitive * Primitives[] =
+static FObject Primitives[] =
 {
-    &InstallGuardianPrimitive,
-    &InstallTrackerPrimitive,
-    &CollectPrimitive
+    InstallGuardianPrimitive,
+    InstallTrackerPrimitive,
+    CollectPrimitive
 };
 
 void SetupGC()

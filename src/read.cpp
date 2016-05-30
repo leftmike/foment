@@ -1006,21 +1006,21 @@ Define("read-bytevector!", ReadBytevectorModifyPrimitive)(int_t argc, FObject ar
     return(MakeFixnum(rl));
 }
 
-static FPrimitive * Primitives[] =
+static FObject Primitives[] =
 {
-    &ReadPrimitive,
-    &ReadCharPrimitive,
-    &PeekCharPrimitive,
-    &ReadLinePrimitive,
-    &EofObjectPPrimitive,
-    &EofObjectPrimitive,
-    &CharReadyPPrimitive,
-    &ReadStringPrimitive,
-    &ReadU8Primitive,
-    &PeekU8Primitive,
-    &U8ReadyPPrimitive,
-    &ReadBytevectorPrimitive,
-    &ReadBytevectorModifyPrimitive
+    ReadPrimitive,
+    ReadCharPrimitive,
+    PeekCharPrimitive,
+    ReadLinePrimitive,
+    EofObjectPPrimitive,
+    EofObjectPrimitive,
+    CharReadyPPrimitive,
+    ReadStringPrimitive,
+    ReadU8Primitive,
+    PeekU8Primitive,
+    U8ReadyPPrimitive,
+    ReadBytevectorPrimitive,
+    ReadBytevectorModifyPrimitive
 };
 
 void SetupRead()

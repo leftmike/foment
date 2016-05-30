@@ -570,25 +570,25 @@ static void SetupSignals()
 }
 #endif // FOMENT_UNIX
 
-static FPrimitive * Primitives[] =
+static FObject Primitives[] =
 {
-    &CurrentThreadPrimitive,
-    &ThreadPPrimitive,
-    &RunThreadPrimitive,
-    &ExitThreadPrimitive,
-    &ExitPrimitive,
-    &SleepPrimitive,
-    &ExclusivePPrimitive,
-    &MakeExclusivePrimitive,
-    &EnterExclusivePrimitive,
-    &LeaveExclusivePrimitive,
-    &TryExclusivePrimitive,
-    &ConditionPPrimitive,
-    &MakeConditionPrimitive,
-    &ConditionWaitPrimitive,
-    &ConditionWakePrimitive,
-    &ConditionWakeAllPrimitive,
-    &SetCtrlCNotifyPrimitive
+    CurrentThreadPrimitive,
+    ThreadPPrimitive,
+    RunThreadPrimitive,
+    ExitThreadPrimitive,
+    ExitPrimitive,
+    SleepPrimitive,
+    ExclusivePPrimitive,
+    MakeExclusivePrimitive,
+    EnterExclusivePrimitive,
+    LeaveExclusivePrimitive,
+    TryExclusivePrimitive,
+    ConditionPPrimitive,
+    MakeConditionPrimitive,
+    ConditionWaitPrimitive,
+    ConditionWakePrimitive,
+    ConditionWakeAllPrimitive,
+    SetCtrlCNotifyPrimitive
 };
 
 void SetupThreads()

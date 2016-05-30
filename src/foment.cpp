@@ -686,18 +686,9 @@ FObject MakeRecord(FObject rt)
 
 // ---- Primitives ----
 
-FObject MakePrimitive(FPrimitive * prim)
+void DefinePrimitive(FObject env, FObject lib, FObject prim)
 {
-    FPrimitive * p = (FPrimitive *) MakeObject(PrimitiveTag, sizeof(FPrimitive), 0,
-            "%make-primitive");
-    memcpy(p, prim, sizeof(FPrimitive));
-
-    return(p);
-}
-
-void DefinePrimitive(FObject env, FObject lib, FPrimitive * prim)
-{
-    LibraryExport(lib, EnvironmentSetC(env, prim->Name, MakePrimitive(prim)));
+    LibraryExport(lib, EnvironmentSetC(env, AsPrimitive(prim)->Name, prim));
 }
 
 // Foment specific
@@ -923,53 +914,53 @@ Define("set-box!", SetBoxPrimitive)(int_t argc, FObject argv[])
 
 // ---- Primitives ----
 
-static FPrimitive * Primitives[] =
+static FObject Primitives[] =
 {
-    &NotPrimitive,
-    &BooleanPPrimitive,
-    &BooleanEqualPPrimitive,
-    &SymbolPPrimitive,
-    &SymbolEqualPPrimitive,
-    &SymbolToStringPrimitive,
-    &StringToSymbolPrimitive,
-    &RaisePrimitive,
-    &ErrorPrimitive,
-    &ErrorObjectPPrimitive,
-    &ErrorObjectTypePrimitive,
-    &ErrorObjectWhoPrimitive,
-    &ErrorObjectKindPrimitive,
-    &ErrorObjectMessagePrimitive,
-    &ErrorObjectIrritantsPrimitive,
-    &FullErrorPrimitive,
-    &CommandLinePrimitive,
-    &FullCommandLinePrimitive,
-    &GetEnvironmentVariablePrimitive,
-    &GetEnvironmentVariablesPrimitive,
-    &CurrentSecondPrimitive,
-    &CurrentJiffyPrimitive,
-    &JiffiesPerSecondPrimitive,
-    &FeaturesPrimitive,
-    &SetFeaturesPrimitive,
-    &MakeRecordTypePrimitive,
-    &MakeRecordPrimitive,
-    &RecordPredicatePrimitive,
-    &RecordIndexPrimitive,
-    &RecordRefPrimitive,
-    &RecordSetPrimitive,
-    &LoadedLibrariesPrimitive,
-    &LibraryPathPrimitive,
-    &RandomPrimitive,
-    &NoValuePrimitive,
-    &ImplementationNamePrimitive,
-    &ImplementationVersionPrimitive,
-    &CPUArchitecturePrimitive,
-    &MachineNamePrimitive,
-    &OSNamePrimitive,
-    &OSVersionPrimitive,
-    &BoxPrimitive,
-    &BoxPPrimitive,
-    &UnboxPrimitive,
-    &SetBoxPrimitive
+    NotPrimitive,
+    BooleanPPrimitive,
+    BooleanEqualPPrimitive,
+    SymbolPPrimitive,
+    SymbolEqualPPrimitive,
+    SymbolToStringPrimitive,
+    StringToSymbolPrimitive,
+    RaisePrimitive,
+    ErrorPrimitive,
+    ErrorObjectPPrimitive,
+    ErrorObjectTypePrimitive,
+    ErrorObjectWhoPrimitive,
+    ErrorObjectKindPrimitive,
+    ErrorObjectMessagePrimitive,
+    ErrorObjectIrritantsPrimitive,
+    FullErrorPrimitive,
+    CommandLinePrimitive,
+    FullCommandLinePrimitive,
+    GetEnvironmentVariablePrimitive,
+    GetEnvironmentVariablesPrimitive,
+    CurrentSecondPrimitive,
+    CurrentJiffyPrimitive,
+    JiffiesPerSecondPrimitive,
+    FeaturesPrimitive,
+    SetFeaturesPrimitive,
+    MakeRecordTypePrimitive,
+    MakeRecordPrimitive,
+    RecordPredicatePrimitive,
+    RecordIndexPrimitive,
+    RecordRefPrimitive,
+    RecordSetPrimitive,
+    LoadedLibrariesPrimitive,
+    LibraryPathPrimitive,
+    RandomPrimitive,
+    NoValuePrimitive,
+    ImplementationNamePrimitive,
+    ImplementationVersionPrimitive,
+    CPUArchitecturePrimitive,
+    MachineNamePrimitive,
+    OSNamePrimitive,
+    OSVersionPrimitive,
+    BoxPrimitive,
+    BoxPPrimitive,
+    UnboxPrimitive,
+    SetBoxPrimitive
 };
 
 // ----------------
@@ -1090,8 +1081,6 @@ int_t SetupFoment(FThreadState * ts)
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 
-    R.NoValuePrimitive = MakePrimitive(&NoValuePrimitive);
-
     InternSymbol(BeginSymbol);
     InternSymbol(QuoteSymbol);
     InternSymbol(QuasiquoteSymbol);
@@ -1133,8 +1122,8 @@ int_t SetupFoment(FThreadState * ts)
     SetupGC();
     SetupMain();
 
-    DefineComparator("boolean-comparator", &BooleanPPrimitive, &BooleanEqualPPrimitive,
-            &BooleanComparePrimitive, &EqHashPrimitive);
+    DefineComparator("boolean-comparator", BooleanPPrimitive, BooleanEqualPPrimitive,
+            BooleanComparePrimitive, EqHashPrimitive);
 
     LibraryExport(R.BedrockLibrary,
             EnvironmentSetC(R.Bedrock, "%standard-input", R.StandardInput));

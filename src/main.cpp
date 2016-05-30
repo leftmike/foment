@@ -568,11 +568,11 @@ static FConfigOption * FindLongName(FChS * ln)
     return(0);
 }
 
-static FPrimitive * Primitives[] =
+static FObject Primitives[] =
 {
-    &ConfigPrimitive,
-    &SetConfigPrimitive,
-    &InteractiveOptionsPrimitive
+    ConfigPrimitive,
+    SetConfigPrimitive,
+    InteractiveOptionsPrimitive
 };
 
 void SetupMain()

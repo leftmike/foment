@@ -765,13 +765,28 @@ typedef struct
     int_t LineNumber;
 } FPrimitive;
 
-#define Define(name, fn)\
-    static FObject fn ## Fn(int_t argc, FObject argv[]);\
-    FPrimitive fn = {fn ## Fn, name, __FILE__, __LINE__};\
-    static FObject fn ## Fn
+typedef struct
+{
+    FObjHdr ObjHdr;
+    FPrimitive Primitive;
+    FObjFtr ObjFtr;
+} FEternalPrimitive;
 
-void DefinePrimitive(FObject env, FObject lib, FPrimitive * prim);
-FObject MakePrimitive(FPrimitive * prim);
+#define Define(name, prim)\
+    static FObject prim ## Fn(int_t argc, FObject argv[]);\
+    static FEternalPrimitive prim ## Object = { \
+        .ObjHdr.FlagsAndSize = OBJHDR_GEN_ETERNAL | sizeof(FPrimitive), \
+        .ObjHdr.TagAndSlotCount = (PrimitiveTag << OBJHDR_TAG_SHIFT), \
+        .Primitive.PrimitiveFn = prim ## Fn, \
+        .Primitive.Name = name, \
+        .Primitive.Filename = __FILE__, \
+        .Primitive.LineNumber =__LINE__, \
+        .ObjFtr.Feet = {OBJFTR_FEET, OBJFTR_FEET} \
+    }; \
+    FObject prim = &prim ## Object.Primitive; \
+    static FObject prim ## Fn
+
+void DefinePrimitive(FObject env, FObject lib, FObject prim);
 
 // ---- HashTree ----
 
@@ -804,16 +819,15 @@ typedef struct
     FObject HasHash;
 } FComparator;
 
-FObject MakeComparator(FObject ttfn, FObject eqfn, FObject compfn, FObject hashfn);
-void DefineComparator(const char * nam, FPrimitive * ttprim, FPrimitive * eqprim,
-    FPrimitive * compprim, FPrimitive * hashprim);
+void DefineComparator(const char * nam, FObject ttprim, FObject eqprim, FObject compprim,
+        FObject hashprim);
 
 int_t EqP(FObject obj1, FObject obj2);
 int_t EqvP(FObject obj1, FObject obj2);
 int_t EqualP(FObject obj1, FObject obj2);
 
 uint_t EqHash(FObject obj);
-extern FPrimitive EqHashPrimitive;
+extern FObject EqHashPrimitive;
 
 // ---- HashContainer ----
 
@@ -938,9 +952,6 @@ typedef struct
     FObject SymbolHashTree;
 
     FObject ComparatorRecordType;
-    FObject AnyPPrimitive;
-    FObject NoHashPrimitive;
-    FObject NoComparePrimitive;
     FObject EqComparator;
     FObject DefaultComparator;
 
@@ -988,7 +999,6 @@ typedef struct
     FObject EnvironmentRecordType;
     FObject GlobalRecordType;
     FObject LibraryRecordType;
-    FObject NoValuePrimitive;
     FObject LibraryStartupList;
 
     FObject ExecuteThunk;
@@ -1022,6 +1032,10 @@ extern FObject Restriction;
 extern FObject Lexical;
 extern FObject Syntax;
 extern FObject Error;
+extern FObject NoValuePrimitive;
+extern FObject AnyPPrimitive;
+extern FObject NoComparePrimitive;
+extern FObject NoHashPrimitive;
 
 // ---- Flonums ----
 
@@ -1700,12 +1714,8 @@ inline void ComparatorArgCheck(const char * who, FObject obj)
 
 extern uint_t CheckHeapFlag;
 extern uint_t VerboseFlag;
-
-extern void * SectionTableBase;
 extern uint_t RandomSeed;
-
 extern volatile uint_t BytesAllocated;
-extern uint_t CollectionCount;
 
 FObject CompileProgram(FObject nam, FObject port);
 FObject Eval(FObject obj, FObject env);

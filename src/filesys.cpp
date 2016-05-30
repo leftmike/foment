@@ -637,32 +637,32 @@ Define("current-directory", CurrentDirectoryPrimitive)(int_t argc, FObject argv[
 #endif // FOMENT_UNIX
 }
 
-static FPrimitive * Primitives[] =
+static FObject Primitives[] =
 {
-    &FileExistsPPrimitive,
-    &DeleteFilePrimitive,
-    &FileSizePrimitive,
-    &FileRegularPPrimitive,
-    &FileDirectoryPPrimitive,
-    &FileSymbolicLinkPPrimitive,
-    &FileReadablePPrimitive,
-    &FileWritablePPrimitive,
+    FileExistsPPrimitive,
+    DeleteFilePrimitive,
+    FileSizePrimitive,
+    FileRegularPPrimitive,
+    FileDirectoryPPrimitive,
+    FileSymbolicLinkPPrimitive,
+    FileReadablePPrimitive,
+    FileWritablePPrimitive,
 #ifdef FOMENT_UNIX
-    &FileExecutablePPrimitive,
+    FileExecutablePPrimitive,
 #endif // FOMENT_UNIX
 #ifdef FOMENT_WINDOWS
-    &FileArchivePPrimitive,
-    &FileSystemPPrimitive,
-    &FileHiddenPPrimitive,
+    FileArchivePPrimitive,
+    FileSystemPPrimitive,
+    FileHiddenPPrimitive,
 #endif // FOMENT_WINDOWS
-    &FileStatMtimePrimitive,
-    &FileStatAtimePrimitive,
-    &CreateSymbolicLinkPrimitive,
-    &RenameFilePrimitive,
-    &CreateDirectoryPrimitive,
-    &DeleteDirectoryPrimitive,
-    &ListDirectoryPrimitive,
-    &CurrentDirectoryPrimitive
+    FileStatMtimePrimitive,
+    FileStatAtimePrimitive,
+    CreateSymbolicLinkPrimitive,
+    RenameFilePrimitive,
+    CreateDirectoryPrimitive,
+    DeleteDirectoryPrimitive,
+    ListDirectoryPrimitive,
+    CurrentDirectoryPrimitive
 };
 
 void SetupFileSys()

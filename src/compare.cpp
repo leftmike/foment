@@ -11,7 +11,7 @@ Foment
 static const char * ComparatorFieldsC[] = {"type-test-procedure", "equality-predicate",
     "comparison-procedure", "hash-function", "has-comparison", "has-hash"};
 
-FObject MakeComparator(FObject ttfn, FObject eqfn, FObject compfn, FObject hashfn)
+static FObject MakeComparator(FObject ttfn, FObject eqfn, FObject compfn, FObject hashfn)
 {
     FAssert(sizeof(FComparator) == sizeof(ComparatorFieldsC) + sizeof(FRecord));
     FAssert(ttfn == TrueObject || ProcedureP(ttfn) || PrimitiveP(ttfn));
@@ -21,23 +21,21 @@ FObject MakeComparator(FObject ttfn, FObject eqfn, FObject compfn, FObject hashf
 
 
     FComparator * comp = (FComparator *) MakeRecord(R.ComparatorRecordType);
-    comp->TypeTestFn = (ttfn == TrueObject ? R.AnyPPrimitive : ttfn);
+    comp->TypeTestFn = (ttfn == TrueObject ? AnyPPrimitive : ttfn);
     comp->EqualityFn = eqfn;
-    comp->ComparisonFn = (compfn == FalseObject ? R.NoComparePrimitive : compfn);
-    comp->HashFn = (hashfn == FalseObject ? R.NoHashPrimitive : hashfn);
+    comp->ComparisonFn = (compfn == FalseObject ? NoComparePrimitive : compfn);
+    comp->HashFn = (hashfn == FalseObject ? NoHashPrimitive : hashfn);
     comp->HasComparison = (compfn == FalseObject ? FalseObject : TrueObject);
     comp->HasHash = (hashfn == FalseObject ? FalseObject : TrueObject);
 
     return(comp);
 }
 
-void DefineComparator(const char * nam, FPrimitive * ttprim, FPrimitive * eqprim,
-    FPrimitive * compprim, FPrimitive * hashprim)
+void DefineComparator(const char * nam, FObject ttprim, FObject eqprim, FObject compprim,
+        FObject hashprim)
 {
     LibraryExport(R.BedrockLibrary, EnvironmentSetC(R.Bedrock, nam,
-            MakeComparator(ttprim == 0 ? TrueObject : MakePrimitive(ttprim),
-                    MakePrimitive(eqprim), compprim == 0 ? FalseObject : MakePrimitive(compprim),
-                    hashprim == 0 ? FalseObject : MakePrimitive(hashprim))));
+            MakeComparator(ttprim, eqprim, compprim, hashprim)));
 }
 
 Define("%make-comparator", MakeComparatorPrimitive)(int_t argc, FObject argv[])
@@ -644,20 +642,20 @@ Define("default-compare", DefaultComparePrimitive)(int_t argc, FObject argv[])
 
 // ---- Primitives ----
 
-static FPrimitive * Primitives[] =
+static FObject Primitives[] =
 {
-    &MakeComparatorPrimitive,
-    &ComparatorPPrimitive,
-    &ComparatorTypeTestProcedurePrimitive,
-    &ComparatorEqualityPredicatePrimitive,
-    &ComparatorComparisonProcedurePrimitive,
-    &ComparatorHashFunctionPrimitive,
-    &ComparatorComparisonProcedurePPrimitive,
-    &ComparatorHashFunctionPPrimitive,
-    &EqvPPrimitive,
-    &EqPPrimitive,
-    &EqualPPrimitive,
-    &EqHashPrimitive
+    MakeComparatorPrimitive,
+    ComparatorPPrimitive,
+    ComparatorTypeTestProcedurePrimitive,
+    ComparatorEqualityPredicatePrimitive,
+    ComparatorComparisonProcedurePrimitive,
+    ComparatorHashFunctionPrimitive,
+    ComparatorComparisonProcedurePPrimitive,
+    ComparatorHashFunctionPPrimitive,
+    EqvPPrimitive,
+    EqPPrimitive,
+    EqualPPrimitive,
+    EqHashPrimitive
 };
 
 void SetupCompare()
@@ -665,14 +663,9 @@ void SetupCompare()
     R.ComparatorRecordType = MakeRecordTypeC("comparator",
             sizeof(ComparatorFieldsC) / sizeof(char *), ComparatorFieldsC);
 
-    R.AnyPPrimitive = MakePrimitive(&AnyPPrimitive);
-    R.NoHashPrimitive = MakePrimitive(&NoHashPrimitive);
-    R.NoComparePrimitive = MakePrimitive(&NoComparePrimitive);
-    R.EqComparator = MakeComparator(TrueObject, MakePrimitive(&EqPPrimitive), FalseObject,
-            MakePrimitive(&EqHashPrimitive));
-    R.DefaultComparator = MakeComparator(MakePrimitive(&DefaultTypeTestPrimitive),
-            MakePrimitive(&DefaultEqualityPrimitive), MakePrimitive(&DefaultComparePrimitive),
-            MakePrimitive(&DefaultHashPrimitive));
+    R.EqComparator = MakeComparator(TrueObject, EqPPrimitive, FalseObject, EqHashPrimitive);
+    R.DefaultComparator = MakeComparator(DefaultTypeTestPrimitive, DefaultEqualityPrimitive,
+            DefaultComparePrimitive, DefaultHashPrimitive);
 }
 
 void SetupComparePrims()

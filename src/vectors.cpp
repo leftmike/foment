@@ -713,33 +713,33 @@ Define("string->utf8", StringToUtf8Primitive)(int_t argc, FObject argv[])
     return(ConvertStringToUtf8(AsString(argv[0])->String + strt, end - strt, 0));
 }
 
-static FPrimitive * Primitives[] =
+static FObject Primitives[] =
 {
-    &VectorPPrimitive,
-    &MakeVectorPrimitive,
-    &VectorPrimitive,
-    &VectorLengthPrimitive,
-    &VectorRefPrimitive,
-    &VectorSetPrimitive,
-    &VectorToListPrimitive,
-    &ListToVectorPrimitive,
-    &VectorToStringPrimitive,
-    &StringToVectorPrimitive,
-    &VectorCopyPrimitive,
-    &VectorCopyModifyPrimitive,
-    &VectorAppendPrimitive,
-    &VectorFillPrimitive,
-    &BytevectorPPrimitive,
-    &MakeBytevectorPrimitive,
-    &BytevectorPrimitive,
-    &BytevectorLengthPrimitive,
-    &BytevectorU8RefPrimitive,
-    &BytevectorU8SetPrimitive,
-    &BytevectorCopyPrimitive,
-    &BytevectorCopyModifyPrimitive,
-    &BytevectorAppendPrimitive,
-    &Utf8ToStringPrimitive,
-    &StringToUtf8Primitive
+    VectorPPrimitive,
+    MakeVectorPrimitive,
+    VectorPrimitive,
+    VectorLengthPrimitive,
+    VectorRefPrimitive,
+    VectorSetPrimitive,
+    VectorToListPrimitive,
+    ListToVectorPrimitive,
+    VectorToStringPrimitive,
+    StringToVectorPrimitive,
+    VectorCopyPrimitive,
+    VectorCopyModifyPrimitive,
+    VectorAppendPrimitive,
+    VectorFillPrimitive,
+    BytevectorPPrimitive,
+    MakeBytevectorPrimitive,
+    BytevectorPrimitive,
+    BytevectorLengthPrimitive,
+    BytevectorU8RefPrimitive,
+    BytevectorU8SetPrimitive,
+    BytevectorCopyPrimitive,
+    BytevectorCopyModifyPrimitive,
+    BytevectorAppendPrimitive,
+    Utf8ToStringPrimitive,
+    StringToUtf8Primitive
 };
 
 void SetupVectors()

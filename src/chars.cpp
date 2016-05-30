@@ -295,37 +295,37 @@ Define("char-ci-compare", CharCiComparePrimitive)(int_t argc, FObject argv[])
     return(ch0 < ch1 ? MakeFixnum(-1) : MakeFixnum(1));
 }
 
-static FPrimitive * Primitives[] =
+static FObject Primitives[] =
 {
-    &CharPPrimitive,
-    &CharEqualPPrimitive,
-    &CharLessThanPPrimitive,
-    &CharGreaterThanPPrimitive,
-    &CharLessThanEqualPPrimitive,
-    &CharGreaterThanEqualPPrimitive,
-    &CharCiEqualPPrimitive,
-    &CharCiLessThanPPrimitive,
-    &CharCiGreaterThanPPrimitive,
-    &CharCiLessThanEqualPPrimitive,
-    &CharCiGreaterThanEqualPPrimitive,
-    &CharAlphabeticPPrimitive,
-    &CharNumericPPrimitive,
-    &CharWhitespacePPrimitive,
-    &CharUpperCasePPrimitive,
-    &CharLowerCasePPrimitive,
-    &DigitValuePrimitive,
-    &CharToIntegerPrimitive,
-    &IntegerToCharPrimitive,
-    &CharUpcasePrimitive,
-    &CharDowncasePrimitive,
-    &CharFoldcasePrimitive,
-    &CharCiComparePrimitive
+    CharPPrimitive,
+    CharEqualPPrimitive,
+    CharLessThanPPrimitive,
+    CharGreaterThanPPrimitive,
+    CharLessThanEqualPPrimitive,
+    CharGreaterThanEqualPPrimitive,
+    CharCiEqualPPrimitive,
+    CharCiLessThanPPrimitive,
+    CharCiGreaterThanPPrimitive,
+    CharCiLessThanEqualPPrimitive,
+    CharCiGreaterThanEqualPPrimitive,
+    CharAlphabeticPPrimitive,
+    CharNumericPPrimitive,
+    CharWhitespacePPrimitive,
+    CharUpperCasePPrimitive,
+    CharLowerCasePPrimitive,
+    DigitValuePrimitive,
+    CharToIntegerPrimitive,
+    IntegerToCharPrimitive,
+    CharUpcasePrimitive,
+    CharDowncasePrimitive,
+    CharFoldcasePrimitive,
+    CharCiComparePrimitive
 };
 
 void SetupCharacters()
 {
-    DefineComparator("char-comparator", &CharPPrimitive, &CharEqualPPrimitive,
-            &CharComparePrimitive, &EqHashPrimitive);
+    DefineComparator("char-comparator", CharPPrimitive, CharEqualPPrimitive,
+            CharComparePrimitive, EqHashPrimitive);
 
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);

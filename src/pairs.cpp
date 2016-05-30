@@ -567,31 +567,31 @@ FObject TConcRemove(FObject tconc)
     return(obj);
 }
 
-static FPrimitive * Primitives[] =
+static FObject Primitives[] =
 {
-    &PairPPrimitive,
-    &ConsPrimitive,
-    &CarPrimitive,
-    &CdrPrimitive,
-    &SetCarPrimitive,
-    &SetCdrPrimitive,
-    &NullPPrimitive,
-    &ListPPrimitive,
-    &MakeListPrimitive,
-    &ListPrimitive,
-    &LengthPrimitive,
-    &AppendPrimitive,
-    &ReversePrimitive,
-    &ListTailPrimitive,
-    &ListRefPrimitive,
-    &ListSetPrimitive,
-    &MemqPrimitive,
-    &MemvPrimitive,
-    &MemberPrimitive,
-    &AssqPrimitive,
-    &AssvPrimitive,
-    &AssocPrimitive,
-    &ListCopyPrimitive
+    PairPPrimitive,
+    ConsPrimitive,
+    CarPrimitive,
+    CdrPrimitive,
+    SetCarPrimitive,
+    SetCdrPrimitive,
+    NullPPrimitive,
+    ListPPrimitive,
+    MakeListPrimitive,
+    ListPrimitive,
+    LengthPrimitive,
+    AppendPrimitive,
+    ReversePrimitive,
+    ListTailPrimitive,
+    ListRefPrimitive,
+    ListSetPrimitive,
+    MemqPrimitive,
+    MemvPrimitive,
+    MemberPrimitive,
+    AssqPrimitive,
+    AssvPrimitive,
+    AssocPrimitive,
+    ListCopyPrimitive
 };
 
 void SetupPairs()

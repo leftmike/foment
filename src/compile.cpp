@@ -72,7 +72,8 @@ FObject MakeIdentifier(FObject sym, FObject fn, int_t ln)
 {
     FAssert(SymbolP(sym));
 
-    FIdentifier * nid = (FIdentifier *) MakeObject(IdentifierTag, sizeof(FIdentifier), 4, "foobar");
+    FIdentifier * nid = (FIdentifier *) MakeObject(IdentifierTag, sizeof(FIdentifier), 4,
+            "%make-identifier");
     nid->Symbol = sym;
     nid->Filename = fn;
     nid->SyntacticEnv = NoValueObject;
@@ -95,7 +96,8 @@ FObject WrapIdentifier(FObject id, FObject se)
     FAssert(IdentifierP(id));
     FAssert(SyntacticEnvP(se));
 
-    FIdentifier * nid = (FIdentifier *) MakeObject(IdentifierTag, sizeof(FIdentifier), 4, "foobar");
+    FIdentifier * nid = (FIdentifier *) MakeObject(IdentifierTag, sizeof(FIdentifier), 4,
+            "%wrap-identifier");
     nid->Symbol = AsIdentifier(id)->Symbol;
     nid->Filename = AsIdentifier(id)->Filename;
     nid->SyntacticEnv = se;
@@ -283,13 +285,13 @@ Define("unsyntax", UnsyntaxPrimitive)(int_t argc, FObject argv[])
     return(SyntaxToDatum(argv[0]));
 }
 
-static FPrimitive * Primitives[] =
+static FObject Primitives[] =
 {
-    &CompileEvalPrimitive,
-    &InteractionEnvironmentPrimitive,
-    &EnvironmentPrimitive,
-    &SyntaxPrimitive,
-    &UnsyntaxPrimitive
+    CompileEvalPrimitive,
+    InteractionEnvironmentPrimitive,
+    EnvironmentPrimitive,
+    SyntaxPrimitive,
+    UnsyntaxPrimitive
 };
 
 void SetupCompile()

@@ -860,18 +860,18 @@ Define("flush-output-port", FlushOutputPortPrimitive)(int_t argc, FObject argv[]
     return(NoValueObject);
 }
 
-static FPrimitive * Primitives[] =
+static FObject Primitives[] =
 {
-    &WritePrimitive,
-    &WriteSharedPrimitive,
-    &WriteSimplePrimitive,
-    &DisplayPrimitive,
-    &NewlinePrimitive,
-    &WriteCharPrimitive,
-    &WriteStringPrimitive,
-    &WriteU8Primitive,
-    &WriteBytevectorPrimitive,
-    &FlushOutputPortPrimitive
+    WritePrimitive,
+    WriteSharedPrimitive,
+    WriteSimplePrimitive,
+    DisplayPrimitive,
+    NewlinePrimitive,
+    WriteCharPrimitive,
+    WriteStringPrimitive,
+    WriteU8Primitive,
+    WriteBytevectorPrimitive,
+    FlushOutputPortPrimitive
 };
 
 void SetupWrite()
