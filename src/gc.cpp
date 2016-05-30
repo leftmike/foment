@@ -36,7 +36,7 @@ Foment
 #define OBJECT_ALIGNMENT 8
 const static uint_t Align[8] = {0, 7, 6, 5, 4, 3, 2, 1};
 
-FCollectorType CollectorType = GenerationalCollector;
+FCollectorType CollectorType = MarkSweepCollector;
 uint_t MaximumStackSize = 1024 * 1024 * 4 * sizeof(FObject);
 uint_t MaximumBabiesSize = 0;
 uint_t MaximumKidsSize = 0;

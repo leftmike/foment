@@ -436,9 +436,9 @@ static void SocketFlushOutput(FObject port)
 
 static int SocketReceive(SOCKET s, char * b, int bl, int flgs)
 {
-    EnterWait();
+//    EnterWait();
     int br = recv(s, b, bl, flgs);
-    LeaveWait();
+//    LeaveWait();
 
     if (br == SOCKET_ERROR)
         return(0);
