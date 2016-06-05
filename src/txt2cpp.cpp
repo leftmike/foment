@@ -11,14 +11,46 @@ txt2cpp <input> <output> <name>
 #endif // FOMENT_WINDOWS
 
 #include <stdio.h>
+#include <string.h>
+
+void print_name(FILE * outf, char * nam)
+{
+    int sf = 1;
+
+    while (*nam)
+    {
+        if (*nam >= 'a' && *nam <= 'z')
+        {
+            if (sf)
+                fputc(*nam - 'a' + 'A', outf);
+            else
+                fputc(*nam, outf);
+            sf = 0;
+        }
+        else if (*nam == ' ' || *nam == '(' || *nam == '-')
+            sf = 1;
+        else if (*nam == ')')
+            break;
+        else
+        {
+            fputc(*nam, outf);
+            sf = 0;
+        }
+
+        nam += 1;
+    }
+}
 
 int main(int argc, char * argv[])
 {
     char buf[256];
+    char * libs[256];
+    int num_libs = 0;
+    int idx;
 
-    if (argc != 4)
+    if (argc != 3)
     {
-        printf("usage: txt2cpp <input> <output> <name>\n");
+        printf("usage: txt2cpp <input> <output>\n");
         return(1);
     }
 
@@ -36,11 +68,40 @@ int main(int argc, char * argv[])
         return(1);
     }
 
-    fprintf(outf, "char %s[] =", argv[3]);
     for (;;)
     {
         if (fgets(buf, sizeof(buf), inf) == 0)
             break;
+
+        if (strncmp(buf, "(define-library", 15) == 0)
+        {
+            idx = 15;
+            while (buf[idx] != 0 && buf[idx] != '(')
+                idx += 1;
+
+            if (buf[idx] != 0)
+            {
+                char * nam = strdup(buf + idx);
+                for (idx = 0; nam[idx] != 0; idx++)
+                    if (nam[idx] == ')')
+                    {
+                        nam[idx + 1] = 0;
+                        break;
+                    }
+
+                if (num_libs > 0)
+                {
+                    fputc(';', outf);
+                    fputc('\n', outf);
+                }
+
+                fprintf(outf, "char ");
+                print_name(outf, nam);
+                fprintf(outf, "[] =");
+                libs[num_libs] = nam;
+                num_libs += 1;
+            }
+        }
 
         char * s = buf;
         int cnt = 0;
@@ -87,6 +148,20 @@ int main(int argc, char * argv[])
 
     fputc(';', outf);
     fputc('\n', outf);
+
+    fprintf(outf, "char * BuiltinLibraries[] = {\n");
+    for (idx = 1; idx < num_libs; idx++)
+    {
+        fprintf(outf, "    ");
+        print_name(outf, libs[idx]);
+        fprintf(outf, ",\n");
+    };
+    fprintf(outf, "    0\n};\n");
+
+    fprintf(outf, "char BuiltinLibraryNames[] =\n\"#(\"\n");
+    for (idx = 1; idx < num_libs; idx++)
+        fprintf(outf, "\"    %s\"\n", libs[idx]);
+    fprintf(outf, "\")\";\n");
 
     if (fclose(inf) != 0)
     {

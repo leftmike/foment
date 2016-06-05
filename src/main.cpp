@@ -40,6 +40,11 @@ Foment
 
 static int InteractiveFlag = 0;
 
+static FChS * Appends[16];
+static int NumAppends = 0;
+static FChS * Includes[16];
+static int NumIncludes = 0;
+
 static FObject MakeCommandLine(int_t argc, FChS * argv[])
 {
     FObject cl = EmptyListObject;
@@ -150,7 +155,7 @@ typedef enum
 } FConfigType;
 
 typedef FObject (*FGetConfigFn)();
-typedef int (*FSetConfigFn)(FObject obj);
+typedef int (*FSetConfigFn)(FChS * s);
 typedef int (*FActionConfigFn)(FConfigWhen when);
 typedef int (*FArgConfigFn)(FConfigWhen when, FChS * s);
 
@@ -210,30 +215,31 @@ static FObject GetLibraryPath()
     return(R.LibraryPath);
 }
 
-static int AppendLibraryPath(FObject obj)
+static int AppendLibraryPath(FChS * s)
 {
-    FObject lp = R.LibraryPath;
-
-    for (;;)
+    if (NumAppends == sizeof(Appends) / sizeof(FChS *))
     {
-        FAssert(PairP(lp));
-
-        if (Rest(lp) == EmptyListObject)
-            break;
-        lp = Rest(lp);
+        printf("error: too many -A and --append\n");
+        return(0);
     }
 
-//    AsPair(lp)->Rest = MakePair(MakeStringS(argv[adx]), EmptyListObject);
-    SetRest(lp, MakePair(obj, EmptyListObject));
-
+    Appends[NumAppends] = s;
+    NumAppends += 1;
     return(1);
 }
 
-static int PrependLibraryPath(FObject obj)
+static int PrependLibraryPath(FChS * s)
 {
-    R.LibraryPath = MakePair(obj, R.LibraryPath);
+    if (NumIncludes == sizeof(Includes) / sizeof(FChS *))
+    {
+        printf("error: too many -I and --prepend\n");
+        return(0);
+    }
 
+    Includes[NumIncludes] = s;
+    NumIncludes += 1;
     return(1);
+
 }
 
 static FObject GetLibraryExtensions()
@@ -241,9 +247,9 @@ static FObject GetLibraryExtensions()
     return(R.LibraryExtensions);
 }
 
-static int AddExtension(FObject obj)
+static int AddExtension(FChS * s)
 {
-    R.LibraryExtensions = MakePair(obj, R.LibraryExtensions);
+    R.LibraryExtensions = MakePair(MakeStringS(s), R.LibraryExtensions);
     return(1);
 }
 
@@ -465,11 +471,6 @@ Define("set-config!", SetConfigPrimitive)(int_t argc, FObject argv[])
         *cfg->BoolValue = argv[1] == TrueObject ? 1 : 0;
         break;
 
-    case SetConfig:
-        StringArgCheck("set-config!", argv[1]);
-        cfg->SetConfigFn(argv[1]);
-        break;
-
     default:
         RaiseExceptionC(Assertion, "set-config!", "option may not be configured now",
                 List(argv[0]));
@@ -581,6 +582,35 @@ void SetupMain()
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 }
 
+void LibraryPathOptions()
+{
+    int idx;
+
+    if (NumAppends > 0)
+    {
+        FObject lp = R.LibraryPath;
+
+        for (;;)
+        {
+            FAssert(PairP(lp));
+
+            if (Rest(lp) == EmptyListObject)
+                break;
+            lp = Rest(lp);
+        }
+
+        for (idx = 0; idx < NumAppends; idx++)
+        {
+//            AsPair(lp)->Rest = MakePair(MakeStringS(Appends[idx]), EmptyListObject);
+            SetRest(lp, MakePair(MakeStringS(Appends[idx]), EmptyListObject));
+            lp = Rest(lp);
+        }
+    }
+
+    for (idx = 0; idx < NumIncludes; idx++)
+        R.LibraryPath = MakePair(MakeStringS(Includes[idx]), R.LibraryPath);
+}
+
 int ProcessOptions(FConfigWhen when, int argc, FChS * argv[], int * pdx)
 {
     int adx = 1;
@@ -647,10 +677,9 @@ int ProcessOptions(FConfigWhen when, int argc, FChS * argv[], int * pdx)
                 break;
 
             case SetConfig:
-                FAssert(cfg->When == AnytimeConfig);
+                FAssert(cfg->When == LateConfig);
 
-                // Handle SetConfig with AnytimeConfig as LateConfig.
-                if (when == LateConfig && cfg->SetConfigFn(MakeStringS(argv[adx])) == 0)
+                if (cfg->SetConfigFn(argv[adx - 1]) == 0)
                     return(0);
                 break;
 
@@ -724,10 +753,12 @@ int main(int argc, FChS * argv[])
         if (InteractiveFlag == 0 && pdx > 0)
         {
             AddToLibraryPath(argv[pdx]);
+            LibraryPathOptions();
             return(ProgramMode(argv[pdx]));
         }
 
         R.LibraryPath = ReverseListModify(MakePair(MakeStringC("."), R.LibraryPath));
+        LibraryPathOptions();
 
         ExecuteThunk(R.InteractiveThunk);
         ExitFoment();

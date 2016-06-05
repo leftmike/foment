@@ -165,6 +165,9 @@ static int_t EnvironmentImportGlobal(FObject env, FObject gl)
     FObject ogl = EnvironmentLookup(env, AsGlobal(gl)->Name);
     if (GlobalP(ogl))
     {
+        if (AsGlobal(ogl)->Box == AsGlobal(gl)->Box)
+            return(0);
+
         if (AsEnvironment(env)->Interactive == FalseObject)
             return(1);
 
@@ -377,8 +380,38 @@ static int_t EqualToSymbol(FObject obj, FObject sym)
     return(obj == sym);
 }
 
+static FObject TryLoadLibrary(FObject port, FObject nam, FObject libfn)
+{
+    if (TextualPortP(port))
+    {
+        WantIdentifiersPort(port, 1);
+
+        for (;;)
+        {
+            FObject obj = Read(port);
+
+            if (obj == EndOfFileObject)
+                break;
+
+            if (PairP(obj) == 0 || EqualToSymbol(First(obj), DefineLibrarySymbol) == 0)
+                RaiseExceptionC(Syntax, "define-library", "expected a library",
+                        List(libfn, obj));
+
+            CompileLibrary(obj);
+        }
+
+        return(FindLibrary(nam));
+    }
+
+    return(NoValueObject);
+}
+
 static FObject LoadLibrary(FObject nam)
 {
+    FObject lib = TryLoadLibrary(OpenBuiltinLibrary(nam), nam, nam);
+    if (LibraryP(lib))
+        return(lib);
+
     FObject lp = R.LibraryPath;
 
     while (PairP(lp))
@@ -400,26 +433,7 @@ static FObject LoadLibrary(FObject nam)
                 port = OpenInputFile(libfn);
             }
 
-            if (TextualPortP(port))
-            {
-                WantIdentifiersPort(port, 1);
-
-                for (;;)
-                {
-                    FObject obj = Read(port);
-
-                    if (obj == EndOfFileObject)
-                        break;
-
-                    if (PairP(obj) == 0 || EqualToSymbol(First(obj), DefineLibrarySymbol) == 0)
-                        RaiseExceptionC(Syntax, "define-library", "expected a library",
-                                List(libfn, obj));
-
-                    CompileLibrary(obj);
-                }
-            }
-
-            FObject lib = FindLibrary(nam);
+            FObject lib = TryLoadLibrary(port, nam, libfn);
             if (LibraryP(lib))
                 return(lib);
 

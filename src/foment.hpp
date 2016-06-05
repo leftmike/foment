@@ -8,6 +8,7 @@ To Do:
 -- partial GC
 -- after partial GC, test for objects pointing to Babies
 -- Use extra generation for immortal objects which are precompiled libraries
+-- immutable objects: immortals and constants: test for this
 
 Future:
 -- pull options from FOMENT_OPTIONS environment variable
@@ -16,7 +17,6 @@ Future:
 -- number.cpp: make NumberP, BinaryNumberOp, and UnaryNumberOp faster
 -- Windows: $(APPDATA)\Foment\Libraries
 -- Unix: $(HOME)/.local/foment/lib
--- don't load all builtin libraries at startup
 -- on unix, if gmp is available, use it instead of mini-gmp
 -- replace mini-gmp
 -- increase maximum/minimum fixnum on 64bit
@@ -1001,6 +1001,7 @@ typedef struct
     FObject GlobalRecordType;
     FObject LibraryRecordType;
     FObject LibraryStartupList;
+    FObject BuiltinLibraryNames;
 
     FObject ExecuteThunk;
     FObject RaiseHandler;
@@ -1185,6 +1186,7 @@ typedef struct
 
 FObject MakeLibrary(FObject nam);
 void LibraryExport(FObject lib, FObject gl);
+FObject OpenBuiltinLibrary(FObject nam);
 
 // ---- Syntax Rules ----
 

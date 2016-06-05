@@ -57,7 +57,7 @@ profile:
 	-mkdir profile
 
 debug/base.cpp: debug/txt2cpp ../src/base.scm makefile
-	debug/txt2cpp ../src/base.scm debug/base.cpp BaseCode
+	debug/txt2cpp ../src/base.scm debug/base.cpp
 
 debug/foment: debug/foment.o debug/gc.o debug/syncthrd.o debug/compile.o debug/io.o\
 		debug/synrules.o debug/synpass.o debug/midpass.o debug/genpass.o\

@@ -965,7 +965,10 @@ static FObject Primitives[] =
 
 // ----------------
 
-extern char BaseCode[];
+// From base.cpp which is generated from base.scm
+extern char FomentBase[];
+extern char BuiltinLibraryNames[];
+extern char * BuiltinLibraries[];
 
 static void SetupScheme()
 {
@@ -980,7 +983,12 @@ static void SetupScheme()
 
     LibraryExport(R.BedrockLibrary, EnvironmentLookup(R.Bedrock, StringCToSymbol("and")));
 
-    port = MakeStringCInputPort(BaseCode);
+    port = MakeStringCInputPort(BuiltinLibraryNames);
+    R.BuiltinLibraryNames = Read(port);
+
+    FAssert(VectorP(R.BuiltinLibraryNames));
+
+    port = MakeStringCInputPort(FomentBase);
     WantIdentifiersPort(port, 1);
     FAlive ap(&port);
 
@@ -992,6 +1000,17 @@ static void SetupScheme()
             break;
         Eval(obj, R.Bedrock);
     }
+}
+
+FObject OpenBuiltinLibrary(FObject nam)
+{
+    FAssert(VectorP(R.BuiltinLibraryNames));
+
+    for (int idx = 0; idx < VectorLength(R.BuiltinLibraryNames); idx++)
+        if (EqualP(nam, AsVector(R.BuiltinLibraryNames)->Vector[idx]))
+            return(MakeStringCInputPort(BuiltinLibraries[idx]));
+
+    return(NoValueObject);
 }
 
 static const char * FeaturesC[] =

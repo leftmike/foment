@@ -118,7 +118,7 @@ Foment
     debug\genudf ..\unidata\SpecialCasing.txt Fullup 3 20 >> ..\src\unidata.hpp
 
 debug\base.cpp: debug\txt2cpp.exe ..\src\base.scm makefile
-    debug\txt2cpp ..\src\base.scm debug\base.cpp BaseCode
+    debug\txt2cpp ..\src\base.scm debug\base.cpp
 
 debug\foment.exe: debug\foment.obj debug\gc.obj debug\syncthrd.obj debug\compile.obj debug\io.obj\
         debug\synrules.obj debug\synpass.obj debug\midpass.obj debug\genpass.obj\
