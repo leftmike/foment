@@ -264,3 +264,464 @@
 (check-equal "110100000110000" (number->string (rotate-bit-field #b110100100010000 1 5 9) 2))
 
 (check-equal "e5" (number->string (reverse-bit-field #xa7 0 8) 16))
+
+;;
+;; ---- SRFI 1: List Library ----
+;;
+
+(import (srfi 1))
+
+(check-equal (a) (cons 'a '()))
+(check-equal ((a) b c d) (cons '(a) '(b c d)))
+(check-equal ("a" b c) (cons "a" '(b c)))
+(check-equal (a . 3) (cons 'a 3))
+(check-equal ((a b) . c) (cons '(a b) 'c))
+
+(check-equal (a 7 c) (list 'a (+ 3 4) 'c))
+(check-equal () (list))
+
+(check-equal (a . b) (xcons 'b 'a))
+
+(check-equal (1 2 3 . 4) (cons* 1 2 3 4))
+(check-equal 1 (cons* 1))
+
+(check-equal (c c c c) (make-list 4 'c))
+(check-equal () (make-list 0))
+(check-equal 10 (length (make-list 10)))
+
+(check-equal (0 1 2 3) (list-tabulate 4 values))
+(check-equal () (list-tabulate 0 values))
+
+(define cl (circular-list 'a 'b 'c))
+(check-equal #t (eq? cl (cdddr cl)))
+(check-equal (a b a b a b a b) (take (circular-list 'a 'b) 8))
+(check-equal #f (list? (circular-list 1 2 3 4 5)))
+
+(check-equal (0 1 2 3 4 5) (iota 6))
+(check-equal (0 -0.1 -0.2 -0.3 -0.4) (iota 5 0 -0.1))
+
+(check-equal #t (proper-list? '(a b c)))
+(check-equal #t (proper-list? '()))
+(check-equal #f (proper-list? '(a b . c)))
+(check-equal #f (proper-list? 'a))
+(check-equal #f (proper-list? (circular-list 1 2 3 4 5 6)))
+
+(check-equal #f (circular-list? '(a b c)))
+(check-equal #f (circular-list? '()))
+(check-equal #f (circular-list? '(a b . c)))
+(check-equal #f (circular-list? 'a))
+(check-equal #t (circular-list? (circular-list 1 2 3 4 5 6)))
+(check-equal #t (circular-list? (cons 0 (circular-list 1 2 3 4 5 6))))
+
+(check-equal #f (dotted-list? '(a b c)))
+(check-equal #f (dotted-list? '()))
+(check-equal #t (dotted-list? '(a b . c)))
+(check-equal #t (dotted-list? 'a))
+(check-equal #f (dotted-list? (circular-list 1 2 3 4 5 6)))
+
+(check-equal #t (not-pair? 'a))
+(check-equal #t (not-pair? #()))
+(check-equal #f (not-pair? (cons 1 2)))
+(check-equal #t (not-pair? '()))
+
+(check-equal #f (null-list? (cons 1 2)))
+(check-equal #t (null-list? '()))
+
+(check-equal #t (list= eq? '(1 2 3 4) '(1 2 3 4)))
+(check-equal #f (list= eq? '(1 2 3) '(1 2 3 4)))
+(check-equal #f (list= eq? '(1 2 3 4) '(1 2 3)))
+(check-equal #f (list= eq? '(1 2 3 4) '(1 2 3 5)))
+(check-equal #t (list= eq? '(1 2 3 4) '(1 2 3 4) '(1 2 3 4)))
+(check-equal #f (list= eq? '(1 2 3) '(1 2 3 4) '(1 2 3 4)))
+(check-equal #f (list= eq? '(1 2 3 4) '(1 2 3) '(1 2 3 4)))
+(check-equal #f (list= eq? '(1 2 3 4) '(1 2 3 4) '(1 2 3)))
+(check-equal #f (list= eq? '(1 2 3 4) '(1 2 3 4) '(1 2 3 5)))
+(check-equal #f (list= eq? '(1 2 3 4) '(1 2 4) '(1 2 3 4)))
+(check-equal #f (list= eq? '(1 2 6 4) '(1 2 3 4) '(1 2 3 4)))
+
+(check-equal 1 (first '(1 2 3 4 5 6 7 8 9 10)))
+(check-equal 2 (second '(1 2 3 4 5 6 7 8 9 10)))
+(check-equal 3 (third '(1 2 3 4 5 6 7 8 9 10)))
+(check-equal 4 (fourth '(1 2 3 4 5 6 7 8 9 10)))
+(check-equal 5 (fifth '(1 2 3 4 5 6 7 8 9 10)))
+(check-equal 6 (sixth '(1 2 3 4 5 6 7 8 9 10)))
+(check-equal 7 (seventh '(1 2 3 4 5 6 7 8 9 10)))
+(check-equal 8 (eighth '(1 2 3 4 5 6 7 8 9 10)))
+(check-equal 9 (ninth '(1 2 3 4 5 6 7 8 9 10)))
+(check-equal 10 (tenth '(1 2 3 4 5 6 7 8 9 10)))
+
+(check-equal (1 2 3) (take '(1 2 3 4 5 6) 3))
+(check-equal () (take '(1 2 3 4 5 6) 0))
+
+(check-equal (4 5 6) (drop '(1 2 3 4 5 6) 3))
+(check-equal () (drop '(1 2 3 4 5 6) 6))
+
+(check-equal (d e) (take-right '(a b c d e) 2))
+(check-equal (2 3 . d) (take-right '(1 2 3 . d) 2))
+(check-equal d (take-right '(1 2 3 . d) 0))
+
+(check-equal (a b c) (drop-right '(a b c d e) 2))
+(check-equal (1) (drop-right '(1 2 3 . d) 2))
+(check-equal (1 2 3) (drop-right '(1 2 3 . d) 0))
+
+(check-equal (1 3) (take! (circular-list 1 3 5) 8))
+(check-equal (1 2 3) (take! '(1 2 3 4 5 6) 3))
+(check-equal () (take! '(1 2 3 4 5 6) 0))
+
+(check-equal (a b c) (drop-right! '(a b c d e) 2))
+(check-equal (1) (drop-right! '(1 2 3 . d) 2))
+(check-equal (1 2 3) (drop-right! '(1 2 3 . d) 0))
+
+(check-equal ((1 2 3) (4 5 6 7 8))
+    (let-values (((pre suf) (split-at '(1 2 3 4 5 6 7 8) 3))) (list pre suf)))
+(check-equal (() (1 2 3 4 5 6 7 8))
+    (let-values (((pre suf) (split-at '(1 2 3 4 5 6 7 8) 0))) (list pre suf)))
+(check-equal ((1 2 3 4 5 6 7 8) ())
+    (let-values (((pre suf) (split-at '(1 2 3 4 5 6 7 8) 8))) (list pre suf)))
+
+(check-equal ((1 2 3) (4 5 6 7 8))
+    (let-values (((pre suf) (split-at! '(1 2 3 4 5 6 7 8) 3))) (list pre suf)))
+(check-equal (() (1 2 3 4 5 6 7 8))
+    (let-values (((pre suf) (split-at! '(1 2 3 4 5 6 7 8) 0))) (list pre suf)))
+(check-equal ((1 2 3 4 5 6 7 8) ())
+    (let-values (((pre suf) (split-at! '(1 2 3 4 5 6 7 8) 8))) (list pre suf)))
+
+(check-equal c (last '(a b c)))
+
+(check-equal (c) (last-pair '(a b c)))
+
+(check-equal (x y) (append '(x) '(y)))
+(check-equal (a b c d) (append '(a) '(b c d)))
+(check-equal (a b c d) (append '(a) '() '(b c d)))
+(check-equal (a b c d) (append '() '(a) '() '(b c d) '()))
+(check-equal (a (b) (c)) (append '(a (b)) '((c))))
+(check-equal (a b c . d) (append '(a b) '(c . d)))
+(check-equal a (append '() 'a))
+(check-equal (x y) (append '(x y)))
+(check-equal () (append))
+
+(check-equal (x y) (append! '(x) '(y)))
+(check-equal (a b c d) (append! '(a) '(b c d)))
+(check-equal (a b c d) (append! '(a) '() '(b c d)))
+(check-equal (a b c d) (append! '() '(a) '() '(b c d) '()))
+(check-equal (a (b) (c)) (append! '(a (b)) '((c))))
+(check-equal (a b c . d) (append! '(a b) '(c . d)))
+(check-equal a (append! '() 'a))
+(check-equal (x y) (append! '(x y)))
+(check-equal () (append!))
+
+(check-equal (x y) (concatenate '((x) (y))))
+(check-equal (a b c d) (concatenate '((a) (b c d))))
+(check-equal (a b c d) (concatenate '((a) () (b c d))))
+(check-equal (a b c d) (concatenate '(() (a) () (b c d) ())))
+(check-equal (a (b) (c)) (concatenate '((a (b)) ((c)))))
+(check-equal (a b c . d) (concatenate '((a b) (c . d))))
+(check-equal a (concatenate '(() a)))
+(check-equal (x y) (concatenate '((x y))))
+(check-equal () (concatenate '()))
+
+(check-equal (x y) (concatenate! '((x) (y))))
+(check-equal (a b c d) (concatenate! '((a) (b c d))))
+(check-equal (a b c d) (concatenate! '((a) () (b c d))))
+(check-equal (a b c d) (concatenate! '(() (a) () (b c d) ())))
+(check-equal (a (b) (c)) (concatenate! '((a (b)) ((c)))))
+(check-equal (a b c . d) (concatenate! '((a b) (c . d))))
+(check-equal a (concatenate! '(() a)))
+(check-equal (x y) (concatenate! '((x y))))
+(check-equal () (concatenate! '()))
+
+(check-equal (c b a) (reverse '(a b c)))
+(check-equal ((e (f)) d (b c) a) (reverse '(a (b c) d (e (f)))))
+
+(check-equal (c b a) (reverse! '(a b c)))
+(check-equal ((e (f)) d (b c) a) (reverse! '(a (b c) d (e (f)))))
+
+(check-equal (3 2 1 4 5) (append-reverse '(1 2 3) '(4 5)))
+(check-equal (3 2 1) (append-reverse '(1 2 3) '()))
+(check-equal (4 5) (append-reverse '() '(4 5)))
+
+(check-equal (3 2 1 4 5) (append-reverse! '(1 2 3) '(4 5)))
+(check-equal (3 2 1) (append-reverse! '(1 2 3) '()))
+(check-equal (4 5) (append-reverse! '() '(4 5)))
+
+(check-equal ((one 1 odd) (two 2 even) (three 3 odd))
+    (zip '(one two three) '(1 2 3) '(odd even odd even odd even odd even)))
+(check-equal ((1) (2) (3)) (zip '(1 2 3)))
+(check-equal ((3 #f) (1 #t) (4 #f) (1 #t)) (zip '(3 1 4 1) (circular-list #f #t)))
+
+(check-equal (1 2 3) (unzip1 '((1 2 3) (2 3 4) (3 4 5))))
+(check-equal ((1 2 3) (one two three))
+     (let-values (((lst1 lst2) (unzip2 '((1 one) (2 two) (3 three))))) (list lst1 lst2)))
+(check-equal (1 2 3 4)
+    (unzip1 '((1 one a #\a "a") (2 two b #\b "b") (3 three c #\c "c") (4 four d #\d "d"))))
+(check-equal ((1 2 3 4) (one two three four))
+    (let-values (((lst1 lst2)
+            (unzip2 '((1 one a #\a "a") (2 two b #\b "b") (3 three c #\c "c") (4 four d #\d "d")))))
+        (list lst1 lst2)))
+(check-equal ((1 2 3 4) (one two three four) (a b c d))
+    (let-values (((lst1 lst2 lst3)
+            (unzip3 '((1 one a #\a "a") (2 two b #\b "b") (3 three c #\c "c") (4 four d #\d "d")))))
+        (list lst1 lst2 lst3)))
+(check-equal ((1 2 3 4) (one two three four) (a b c d) (#\a #\b #\c #\d))
+    (let-values (((lst1 lst2 lst3 lst4)
+            (unzip4 '((1 one a #\a "a") (2 two b #\b "b") (3 three c #\c "c") (4 four d #\d "d")))))
+        (list lst1 lst2 lst3 lst4)))
+(check-equal ((1 2 3 4) (one two three four) (a b c d) (#\a #\b #\c #\d) ("a" "b" "c" "d"))
+    (let-values (((lst1 lst2 lst3 lst4 lst5)
+            (unzip5 '((1 one a #\a "a") (2 two b #\b "b") (3 three c #\c "c") (4 four d #\d "d")))))
+        (list lst1 lst2 lst3 lst4 lst5)))
+
+(check-equal 3 (count even? '(3 1 4 1 5 9 2 5 6)))
+(check-equal 3 (count < '(1 2 4 8) '(2 4 6 8 10 12 14 16)))
+(check-equal 2 (count < '(3 1 4 1) (circular-list 1 10)))
+
+(check-equal 10 (fold + 0 '(1 2 3 4)))
+(check-equal (5 4 3 2 1) (fold cons '() '(1 2 3 4 5)))
+(check-equal 3
+    (fold (lambda (x count) (if (symbol? x) (+ count 1) count)) 0
+            '(a "a" #\a 1 2 3 (b c) d #(e f g) h)))
+(check-equal 10
+    (fold (lambda (s max-len) (max max-len (string-length s))) 0
+            '("abc" "def" "1234567890" "123456789" "wxyz")))
+(check-equal (c 3 b 2 a 1) (fold cons* '() '(a b c) '(1 2 3 4 5)))
+(check-equal (10 8 6)
+    (fold (lambda (frst snd val) (cons (+ frst snd) val)) '() '(1 2 3 4) '(5 6 7)))
+
+(check-equal (1 3 5 7)
+    (fold-right (lambda (n lst) (if (odd? n) (cons n lst) lst)) '() '(1 2 3 4 5 6 7 8)))
+(check-equal (a 1 b 2 c 3) (fold-right cons* '() '(a b c) '(1 2 3 4 5)))
+(check-equal (6 8 10)
+    (fold-right (lambda (frst snd val) (cons (+ frst snd) val)) '() '(1 2 3 4) '(5 6 7)))
+
+(check-equal (5 4 3 2 1)
+    (pair-fold (lambda (pair tail) (set-cdr! pair tail) pair) '() '(1 2 3 4 5)))
+(check-equal 10
+    (pair-fold (lambda (s max-len) (max max-len (string-length (car s)))) 0
+            '("abc" "def" "1234567890" "123456789" "wxyz")))
+(check-equal (10 8 6)
+    (pair-fold (lambda (frst snd val) (cons (+ (car frst) (car snd)) val)) '() '(1 2 3 4) '(5 6 7)))
+
+(check-equal (1 3 5 7)
+    (pair-fold-right (lambda (n lst) (if (odd? (car n)) (cons (car n) lst) lst)) '()
+            '(1 2 3 4 5 6 7 8)))
+(check-equal (6 8 10)
+    (pair-fold-right (lambda (frst snd val) (cons (+ (car frst) (car snd)) val)) '()
+            '(1 2 3 4) '(5 6 7)))
+
+(check-equal 10 (reduce max 0 '(8 4 3 -5 10 9)))
+
+(check-equal (1 2 3 4 5 6 7 8 9) (reduce-right append '() '((1 2 3) (4 5) (6 7 8) (9))))
+
+(check-equal (1 4 9 16 25 36 49 64 81 100)
+    (unfold (lambda (x) (> x 10)) (lambda (x) (* x x)) (lambda (x) (+ x 1)) 1))
+
+(check-equal (1 2 3 4 5) (unfold null-list? car cdr '(1 2 3 4 5)))
+(check-equal (1 2 3 4 5) (unfold null-list? car cdr '(1 2) (lambda (x) '(3 4 5))))
+
+(check-equal (1 4 9 16 25 36 49 64 81 100)
+    (unfold-right zero? (lambda (x) (* x x)) (lambda (x) (- x 1)) 10))
+(check-equal (5 4 3 2 1) (unfold-right null-list? car cdr '(1 2 3 4 5)))
+(check-equal (3 2 1 4 5) (unfold-right null-list? car cdr '(1 2 3) '(4 5)))
+(check-equal (3 2 1) (unfold-right null-list? car cdr '(1 2 3) '()))
+(check-equal (4 5) (unfold-right null-list? car cdr '() '(4 5)))
+
+(check-equal (b e h) (map cadr '((a b) (d e) (g h))))
+(check-equal (1 4 27 256 3125) (map (lambda (n) (expt n n)) '(1 2 3 4 5)))
+(check-equal (5 7 9) (map + '(1 2 3) '(4 5 6)))
+(check-equal #t
+    (let ((ret (let ((count 0)) (map (lambda (ignored) (set! count (+ count 1)) count) '(a b)))))
+        (or (equal? ret '(1 2)) (equal? ret '(2 1)))))
+(check-equal (4 1 5 1) (map + '(3 1 4 1) (circular-list 1 0)))
+
+(check-equal #(0 1 4 9 16)
+    (let ((v (make-vector 5))) (for-each (lambda (i) (vector-set! v i (* i i))) '(0 1 2 3 4)) v))
+(check-equal #(1 1 3 3 5)
+    (let ((v (make-vector 5)))
+        (for-each (lambda (a b) (vector-set! v a (+ a b))) '(0 1 2 3 4) (circular-list 1 0)) v))
+
+(check-equal (1 -1 3 -3 8 -8) (append-map (lambda (x) (list x (- x))) '(1 3 8)))
+(check-equal (1 0 2 1 3 0 4 1 5 0)
+    (append-map (lambda (x y) (list x y)) '(1 2 3 4 5) (circular-list 0 1)))
+
+(check-equal (1 -1 3 -3 8 -8) (append-map! (lambda (x) (list x (- x))) '(1 3 8)))
+(check-equal (1 0 2 1 3 0 4 1 5 0)
+    (append-map! (lambda (x y) (list x y)) '(1 2 3 4 5) (circular-list 0 1)))
+
+(check-equal (b e h) (map! cadr '((a b) (d e) (g h))))
+(check-equal (1 4 27 256 3125) (map! (lambda (n) (expt n n)) '(1 2 3 4 5)))
+(check-equal (5 7 9) (map! + '(1 2 3) '(4 5 6)))
+(check-equal #t
+    (let ((ret (let ((count 0)) (map! (lambda (ignored) (set! count (+ count 1)) count) '(a b)))))
+        (or (equal? ret '(1 2)) (equal? ret '(2 1)))))
+(check-equal (4 1 5 1) (map! + '(3 1 4 1) (circular-list 1 0)))
+
+(check-equal (b e h) (map-in-order cadr '((a b) (d e) (g h))))
+(check-equal (1 4 27 256 3125) (map-in-order (lambda (n) (expt n n)) '(1 2 3 4 5)))
+(check-equal (5 7 9) (map-in-order + '(1 2 3) '(4 5 6)))
+(check-equal #t
+    (let ((ret (let ((count 0))
+                   (map-in-order (lambda (ignored) (set! count (+ count 1)) count) '(a b)))))
+        (or (equal? ret '(1 2)) (equal? ret '(2 1)))))
+(check-equal (4 1 5 1) (map-in-order + '(3 1 4 1) (circular-list 1 0)))
+
+(check-equal #((0 1 2 3) (1 2 3) (2 3) (3))
+    (let ((v (make-vector 4)))
+        (pair-for-each (lambda (lst) (vector-set! v (car lst) lst)) '(0 1 2 3)) v))
+(check-equal #((0 . a) (1 . b) (2 . c) (3 . d))
+    (let ((v (make-vector 4)))
+        (pair-for-each (lambda (fst snd) (vector-set! v (car fst) (cons (car fst) (car snd))))
+                '(0 1 2 3) '(a b c d))
+        v))
+
+(check-equal (1 9 49) (filter-map (lambda (x) (and (number? x) (* x x))) '(a 1 b 3 c 7)))
+(check-equal (0 2 4 6)
+    (filter-map (lambda (n b) (and b n)) '(0 1 2 3 4 5 6) (circular-list #t #f)))
+
+(check-equal (0 8 8 -4) (filter even? '(0 7 8 8 43 -4)))
+(check-equal () (filter even? '(1 3 5 7)))
+(check-equal () (filter even? '()))
+
+(check-equal ((one four five) (2 3 6))
+    (let-values (((nums syms) (partition symbol? '(one 2 3 four five 6))))
+        (list nums syms)))
+
+(check-equal (0 8 8 -4) (remove odd? '(0 7 8 8 43 -4)))
+(check-equal () (remove odd? '(1 3 5 7)))
+(check-equal () (remove odd? '()))
+(check-equal (7 43) (remove even? '(0 7 8 8 43 -4)))
+
+(check-equal (0 8 8 -4) (filter! even? '(0 7 8 8 43 -4)))
+(check-equal () (filter! even? '(1 3 5 7)))
+(check-equal () (filter! even? '()))
+
+(check-equal ((one four five) (2 3 6))
+    (let-values (((nums syms) (partition! symbol? '(one 2 3 four five 6))))
+        (list nums syms)))
+
+(check-equal (0 8 8 -4) (remove! odd? '(0 7 8 8 43 -4)))
+(check-equal () (remove! odd? '(1 3 5 7)))
+(check-equal () (remove! odd? '()))
+(check-equal (7 43) (remove! even? '(0 7 8 8 43 -4)))
+
+(check-equal 2 (find even? '(1 2 3)))
+(check-equal #f (find even? '(1 7 3)))
+(check-equal 2 (find even? '(1 2 . x)))
+(check-equal 6 (find even? (circular-list 1 6 3)))
+(check-equal 4 (find even? '(3 1 4 1 5 9)))
+
+(check-equal (2 3) (find-tail even? '(1 2 3)))
+(check-equal #f (find-tail even? '(1 7 3)))
+(check-equal (2 . x)  (find-tail even? '(1 2 . x)))
+(check-equal (4 1 5 9) (find-tail even? '(3 1 4 1 5 9)))
+(check-equal (-8 -5 0 0) (find-tail even? '(3 1 37 -8 -5 0 0)))
+(check-equal #f (find-tail even? '(3 1 37 -5)))
+
+(check-equal (2 18) (take-while even? '(2 18 3 10 22 9)))
+(check-equal () (take-while odd? '(2 18 4 10 22 20)))
+(check-equal (2 18 4 10 22 20) (take-while even? '(2 18 4 10 22 20)))
+
+(check-equal (2 18) (take-while! even? '(2 18 3 10 22 9)))
+(check-equal () (take-while! odd? '(2 18 4 10 22 20)))
+(check-equal (2 18 4 10 22 20) (take-while! even? '(2 18 4 10 22 20)))
+
+(check-equal (3 10 22 9) (drop-while even? '(2 18 3 10 22 9)))
+
+(check-equal ((2 18) (3 10 22 9))
+    (let-values (((pre suf) (span even? '(2 18 3 10 22 9)))) (list pre suf)))
+(check-equal ((2 18 4 10 22 20) ())
+    (let-values (((pre suf) (span even? '(2 18 4 10 22 20)))) (list pre suf)))
+(check-equal (() (2 18 4 10 22 20))
+    (let-values (((pre suf) (span odd? '(2 18 4 10 22 20)))) (list pre suf)))
+
+(check-equal ((3 1) (4 1 5 9))
+    (let-values (((pre suf) (break even? '(3 1 4 1 5 9)))) (list pre suf)))
+(check-equal ((2 18 4 10 22 20) ())
+    (let-values (((pre suf) (break odd? '(2 18 4 10 22 20)))) (list pre suf)))
+(check-equal (() (2 18 4 10 22 20))
+    (let-values (((pre suf) (break even? '(2 18 4 10 22 20)))) (list pre suf)))
+
+(check-equal #t (any even? '(1 2 3)))
+(check-equal #f (any even? '(1 7 3)))
+(check-equal #t (any even? (circular-list 1 6 3)))
+(check-equal #t (any integer? '(a 3 b 2.7)))
+(check-equal #f (any integer? '(a 3.1 b 2.7)))
+(check-equal #t (any < '(3 1 4 1 5) '(2 7 1 8 2)))
+(check-equal #f (any even? '()))
+(check-equal #f (any < '(3 7 4 1 5) '(2 7)))
+
+(check-equal #t (every even? '(2 4 6 8)))
+(check-equal #f (every even? '(2 4 5 8)))
+(check-equal #t (every < '(1 2 3 4 5) '(2 3 4)))
+(check-equal #t (every even? '()))
+
+(check-equal 2 (list-index even? '(3 1 4 1 5 9)))
+(check-equal 1(list-index < '(3 1 4 1 5 9 2 5 6) '(2 7 1 8 2)))
+(check-equal #f (list-index = '(3 1 4 1 5 9 2 5 6) '(2 7 1 8 2)))
+
+(check-equal (a b c) (memq 'a '(a b c)))
+(check-equal (b c) (memq 'b '(a b c)))
+(check-equal #f (memq 'a '(b c d)))
+(check-equal #f (memq (list 'a) '(b (a) c)))
+(check-equal ((a) c) (member (list 'a) '(b (a) c)))
+(check-equal (101 102) (memq 101 '(100 101 102)))
+(check-equal (101 102) (memv 101 '(100 101 102)))
+
+(check-equal (b c d) (delete 'a '(a b c d)))
+(check-equal (b c d) (delete 'a '(a b a a c d a)))
+(check-equal (b c d) (delete 'a '(b c d)))
+(check-equal () (delete 'a '(a a a a)))
+(check-equal () (delete 'a '()))
+(check-equal (11 12 13) (delete 11 '(8 9 10 11 12 13) >))
+
+(check-equal (a b c z) (delete-duplicates '(a b a c a b c z)))
+(check-equal ((a . 3) (b . 7) (c . 1))
+    (delete-duplicates '((a . 3) (b . 7) (a . 9) (c . 1))
+            (lambda (x y) (eq? (car x) (car y)))))
+
+(check-equal (a 1) (assq 'a '((a 1) (b 2) (c 3))))
+(check-equal (b 2) (assq 'b '((a 1) (b 2) (c 3))))
+(check-equal #f (assq 'd '((a 1) (b 2) (c 3))))
+(check-equal #f (assq (list 'a) '(((a)) ((b)) ((c)))))
+(check-equal ((a)) (assoc (list 'a) '(((a)) ((b)) ((c)))))
+(check-equal (5 7) (assq 5 '((2 3) (5 7) (11 13))))
+(check-equal (5 7) (assv 5 '((2 3) (5 7) (11 13))))
+
+(check-equal ((a . 1)) (alist-cons 'a 1 '()))
+(check-equal ((a . 1) (b . 2)) (alist-cons 'a 1 '((b . 2))))
+
+(check-equal ((a . 1) (b . 2) (c . 3)) (alist-copy '((a . 1) (b . 2) (c . 3))))
+(check-equal () (alist-copy '()))
+
+(check-equal #t (lset<= eq? '(a) '(a b a) '(a b c c)))
+(check-equal #f (lset<= eq? '(a b a) '(a) '(a b c c)))
+(check-equal #t (lset<= eq?))
+(check-equal #t (lset<= eq? '(a)))
+
+(check-equal #t (lset= eq? '(b e a) '(a e b) '(e e b a)))
+(check-equal #t (lset= eq?))
+(check-equal #t (lset= eq? '(a)))
+(check-equal #f (lset= eq? '(b e a d) '(a e b) '(e e b a)))
+(check-equal #f (lset= eq? '(b e a) '(a d e b) '(e e b a)))
+(check-equal #f (lset= eq? '(b e a) '(a e b) '(e d e b a)))
+
+(check-equal (u o i a b c d c e) (lset-adjoin eq? '(a b c d c e) 'a 'e 'i 'o 'u))
+
+(check-equal (u o i a b c d e) (lset-union eq? '(a b c d e) '(a e i o u)))
+(check-equal (x a a c) (lset-union eq? '(a a c) '(x a x)))
+(check-equal () (lset-union eq?))
+(check-equal (a b c) (lset-union eq? '(a b c)))
+
+(check-equal (a e) (lset-intersection eq? '(a b c d e) '(a e i o u)))
+(check-equal (a x a) (lset-intersection eq? '(a x y a) '(x a x z)))
+(check-equal (a b c) (lset-intersection eq? '(a b c)))
+
+(check-equal (b c d) (lset-difference eq? '(a b c d e) '(a e i o u)))
+(check-equal (a b c) (lset-difference eq? '(a b c)))
+
+(check-equal (b c d i o u) (lset-xor eq? '(a b c d e) '(a e i o u)))
+(check-equal () (lset-xor eq?))
+(check-equal (a b c d e) (lset-xor eq? '(a b c d e)))
+
+(check-equal ((b c d) (a e))
+    (let-values (((diff inter) (lset-diff+intersection eq? '(a b c d e) '(a e i o u))))
+        (list diff inter)))

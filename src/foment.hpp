@@ -9,6 +9,7 @@ To Do:
 -- after partial GC, test for objects pointing to Babies
 -- Use extra generation for immortal objects which are precompiled libraries
 -- immutable objects: immortals and constants: test for this
+-- raise exception when a constant is modified
 
 Future:
 -- pull options from FOMENT_OPTIONS environment variable
@@ -1540,8 +1541,7 @@ inline void PairArgCheck(const char * who, FObject obj)
 
 inline void ListArgCheck(const char * who, FObject obj)
 {
-    if (ListLength(obj) < 0)
-        RaiseExceptionC(Assertion, who, "expected a list", List(obj));
+    ListLength(who, obj);
 }
 
 inline void BoxArgCheck(const char * who, FObject obj)

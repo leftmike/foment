@@ -17,6 +17,84 @@ FObject MakePair(FObject first, FObject rest)
     return(pair);
 }
 
+typedef enum
+{
+    ProperList,
+    DottedList,
+    CircularList
+} FListType;
+
+static FListType ListType(FObject lst)
+{
+    FObject fst = lst;
+    FObject slw = lst;
+
+    for (;;)
+    {
+        if (fst == EmptyListObject)
+            break;
+
+        if (PairP(fst) == 0)
+            return(DottedList);
+
+        fst = Rest(fst);
+        if (fst == EmptyListObject)
+            break;
+
+        if (PairP(fst) == 0)
+            return(DottedList);
+        if (fst == slw)
+            return(CircularList);
+
+        fst = Rest(fst);
+        FAssert(PairP(slw));
+        slw = Rest(slw);
+
+        if (fst == slw)
+            return(CircularList);
+    }
+
+    return(ProperList);
+}
+
+static int_t ListLengthPlus(FObject lst)
+{
+    int_t ll = 0;
+    FObject fst = lst;
+    FObject slw = lst;
+
+    for (;;)
+    {
+        if (fst == EmptyListObject)
+            break;
+
+        if (PairP(fst) == 0)
+            return(ll);
+
+        fst = Rest(fst);
+        ll += 1;
+
+        if (fst == EmptyListObject)
+            break;
+
+        if (PairP(fst) == 0)
+            return(ll);
+        if (fst == slw)
+            return(-1);
+
+        fst = Rest(fst);
+        ll += 1;
+
+        FAssert(PairP(slw));
+        slw = Rest(slw);
+
+        if (fst == slw)
+            return(-1);
+    }
+
+    return(ll);
+}
+
 int_t ListLength(FObject lst)
 {
     int_t ll = 0;
@@ -37,7 +115,9 @@ int_t ListLength(FObject lst)
         if (fst == EmptyListObject)
             break;
 
-        if (PairP(fst) == 0 || fst == slw)
+        if (PairP(fst) == 0)
+            return(-1);
+        if (fst == slw)
             return(-1);
 
         fst = Rest(fst);
@@ -183,7 +263,21 @@ Define("list?", ListPPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("list?", argc);
 
-    return(ListLength(argv[0]) >= 0 ? TrueObject : FalseObject);
+    return(ListType(argv[0]) == ProperList ? TrueObject : FalseObject);
+}
+
+Define("circular-list?", CircularListPPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("circular-list?", argc);
+
+    return(ListType(argv[0]) == CircularList ? TrueObject : FalseObject);
+}
+
+Define("dotted-list?", DottedListPPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("dotted-list?", argc);
+
+    return(ListType(argv[0]) == DottedList ? TrueObject : FalseObject);
 }
 
 Define("make-list", MakeListPrimitive)(int_t argc, FObject argv[])
@@ -223,6 +317,16 @@ Define("length", LengthPrimitive)(int_t argc, FObject argv[])
     OneArgCheck("length", argc);
 
     return(MakeFixnum(ListLength("length", argv[0])));
+}
+
+Define("length+", LengthPlusPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("length+", argc);
+
+    int_t len = ListLengthPlus(argv[0]);
+    if (len < 0)
+        return(FalseObject);
+    return(MakeFixnum(len));
 }
 
 static FObject ReverseList(const char * nam, FObject list)
@@ -276,6 +380,14 @@ Define("reverse", ReversePrimitive)(int_t argc, FObject argv[])
     ListArgCheck("reverse", argv[0]);
 
     return(ReverseList("reverse", argv[0]));
+}
+
+Define("reverse!", ReverseBangPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("reverse!", argc);
+    ListArgCheck("reverse!", argv[0]);
+
+    return(ReverseListModify(argv[0]));
 }
 
 Define("list-tail", ListTailPrimitive)(int_t argc, FObject argv[])
@@ -577,11 +689,15 @@ static FObject Primitives[] =
     SetCdrPrimitive,
     NullPPrimitive,
     ListPPrimitive,
+    CircularListPPrimitive,
+    DottedListPPrimitive,
     MakeListPrimitive,
     ListPrimitive,
     LengthPrimitive,
+    LengthPlusPrimitive,
     AppendPrimitive,
     ReversePrimitive,
+    ReverseBangPrimitive,
     ListTailPrimitive,
     ListRefPrimitive,
     ListSetPrimitive,
