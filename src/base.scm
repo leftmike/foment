@@ -380,6 +380,14 @@
         circular-list?
         dotted-list?
         length+)
+    (export ;; (srfi 124)
+        ephemeron?
+        make-ephemeron
+        ephemeron-broken?
+        ephemeron-key
+        ephemeron-datum
+        set-ephemeron-key!
+        set-ephemeron-datum!)
 #|
     (export ;; (srfi 114)
         make-comparator
@@ -3022,3 +3030,15 @@
         (define (lset-diff+intersection eq lst . lsts)
             (values (apply lset-difference eq lst lsts) (apply lset-intersection eq lst lsts)))
     ))
+
+(define-library (srfi 124)
+    (import (foment base))
+    (export
+        ephemeron?
+        make-ephemeron
+        ephemeron-broken?
+        ephemeron-key
+        ephemeron-datum
+        set-ephemeron-key!
+        set-ephemeron-datum!)
+    )

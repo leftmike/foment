@@ -54,6 +54,22 @@ Compiler:
 -- make special syntax into an object so that can track location information
 
 Bugs:
+-- the following program should work
+(import (scheme base) (scheme write))
+(define-syntax deffoo
+    (syntax-rules ()
+        ((deffoo name (vals ...)) (deffoo name () (vals ...)))
+        ((deffoo name (field ...) (val vals ...)) (deffoo name (field ... (tmp . val)) (vals ...)))
+        ((deffoo name ((field . val) ...) ())
+            (begin
+                (define field 'val) ...
+                (define name (list field ...))))))
+
+(define tmp 'abc)
+(deffoo foo (a b c d))
+
+(write foo)
+(newline)
 -- make test segfault on unix32
 -- letrec: http://trac.sacrideo.us/wg/wiki/LetrecStar
 -- serialize loading libraries
@@ -171,6 +187,7 @@ typedef enum
     ConditionTag,
     HashTreeTag,
     IdentifierTag,
+    EphemeronTag,
     FreeTag, // Only on Adult Generation
     BadDogTag // Invalid Tag
 } FIndirectTag;
@@ -227,6 +244,8 @@ int_t GrowMemRegionDown(FMemRegion * mrgn, uint_t sz);
 #define OBJHDR_CHECK_MARK   0x1000
 #define OBJHDR_HAS_SLOTS    0x0800
 #define OBJHDR_TAG_MASK     0x001F
+
+#define OBJHDR_EPHEMERON_KEY_MARK 0x80000000
 
 typedef struct _FObjHdr
 {
@@ -986,6 +1005,26 @@ typedef struct
     static FObject prim ## Fn
 
 void DefinePrimitive(FObject env, FObject lib, FObject prim);
+
+// ---- Ephemerons ----
+
+#define EphemeronP(obj) (IndirectTag(obj) == EphemeronTag)
+#define AsEphemeron(obj) ((FEphemeron *) (obj))
+
+typedef struct _FEphemeron
+{
+    FObject Key;
+    FObject Datum;
+    int_t Broken;
+} FEphemeron;
+
+FObject MakeEphemeron(FObject key, FObject dat);
+inline int_t EphemeronBrokenP(FObject obj)
+{
+    FAssert(EphemeronP(obj));
+
+    return(AsEphemeron(obj)->Broken);
+}
 
 // ---- Roots ----
 
@@ -1761,6 +1800,12 @@ inline void ComparatorArgCheck(const char * who, FObject obj)
 {
     if (ComparatorP(obj) == 0)
         RaiseExceptionC(Assertion, who, "expected a comparator", List(obj));
+}
+
+inline void EphemeronArgCheck(const char * who, FObject obj)
+{
+    if (EphemeronP(obj) == 0)
+        RaiseExceptionC(Assertion, who, "expected an ephemeron", List(obj));
 }
 
 // ----------------

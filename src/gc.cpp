@@ -271,6 +271,22 @@ static inline int CheckMarkP(FObject obj)
     return(AsObjHdr(obj)->FlagsAndTag & OBJHDR_CHECK_MARK);
 }
 
+static inline void SetEphemeronKeyMark(FObject obj)
+{
+    AsObjHdr(obj)->Marks |= OBJHDR_EPHEMERON_KEY_MARK;
+}
+
+static inline void ClearEphemeronKeyMark(FObjHdr * oh)
+{
+    oh->Marks &= ~OBJHDR_EPHEMERON_KEY_MARK;
+}
+
+static inline int EphemeronKeyMarkP(FObject obj)
+{
+    return(AsObjHdr(obj)->Marks & OBJHDR_EPHEMERON_KEY_MARK);
+>>>>>>> start of ephemerons
+}
+
 inline uint_t FObjHdr::TotalSize()
 {
 #ifdef FOMENT_OBJFTR
@@ -698,6 +714,7 @@ static const char * IndirectTagString[] =
     "condition",
     "hash-tree",
     "identifier",
+    "ephemeron",
     "free"
 };
 
@@ -1011,6 +1028,11 @@ Again:
             else
                 CheckObject(AsPair(obj)->Rest, 1);
         }
+        else if (EphemeronP(obj))
+        {
+            CheckObject(AsEphemeron(obj)->Key, 0);
+            CheckObject(AsEphemeron(obj)->Datum, 1);
+        }
         else if (AsObjHdr(obj)->SlotCount() > 0)
         {
             FAssert(AsObjHdr(obj)->FlagsAndTag & OBJHDR_HAS_SLOTS);
@@ -1232,22 +1254,49 @@ Again:
         SetMark(oh);
     }
 
-    if (oh->SlotCount() > 0)
+    if (oh->Tag() != EphemeronTag)
     {
-        FAssert(oh->FlagsAndTag & OBJHDR_HAS_SLOTS);
-
         uint_t sc = oh->SlotCount();
-        uint_t sdx = 0;
-        while (sdx < sc - 1)
+        if (sc > 0)
         {
-            LiveObject(oh->Slots() + sdx);
-            sdx += 1;
-        }
+            FAssert(oh->FlagsAndTag & OBJHDR_HAS_SLOTS);
 
-        if (ObjectP(oh->Slots()[sdx]))
+            uint_t sdx = 0;
+            while (sdx < sc - 1)
+            {
+                LiveObject(oh->Slots() + sdx);
+                sdx += 1;
+            }
+
+            if (ObjectP(oh->Slots()[sdx]))
+            {
+                pobj = oh->Slots() + sdx;
+                goto Again;
+            }
+        }
+    }
+    else
+    {
+        FEphemeron * eph = (FEphemeron *) (oh + 1);
+
+        FAssert(oh->SlotCount() == 0);
+
+        if (eph->Broken == 0)
         {
-            pobj = oh->Slots() + sdx;
-            goto Again;
+            if (ObjectP(eph->Key) == 0 || AliveP(eph->Key))
+            {
+                LiveObject(&eph->Key);
+                LiveObject(&eph->Datum);
+            }
+            else
+            {
+                FAssert(ObjectP(eph->Key));
+                FAssert(EphemeronKeyMarkP(eph->Key) == 0);
+
+                SetEphemeronKeyMark(eph->Key);
+
+                // Add the mapping from eph->Key to eph
+            }
         }
     }
 }
@@ -1922,11 +1971,87 @@ Define("collect", CollectPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
+FObject MakeEphemeron(FObject key, FObject dat)
+{
+    // Note that ephemerons are treated specially by the garbage collector and they are
+    // allocated as having no slots.
+    FEphemeron * eph =
+            (FEphemeron *) MakeObject(EphemeronTag, sizeof(FEphemeron), 0, "make-ephemeron");
+    eph->Key = key;
+    eph->Datum = dat;
+    eph->Broken = 0;
+
+    return(eph);
+}
+
+Define("ephemeron?", EphemeronPPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("ephemeron?", argc);
+
+    return(EphemeronP(argv[0]) ? TrueObject : FalseObject);
+}
+
+Define("make-ephemeron", MakeEphemeronPrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("make-ephemeron", argc);
+
+    return(MakeEphemeron(argv[0], argv[1]));
+}
+
+Define("ephemeron-broken?", EphemeronBrokenPPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("ephemeron-broken?", argc);
+    EphemeronArgCheck("ephemeron-broken?", argv[0]);
+
+    return(EphemeronBrokenP(argv[0]) ? TrueObject : FalseObject);
+}
+
+Define("ephemeron-key", EphemeronKeyPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("ephemeron-key", argc);
+    EphemeronArgCheck("ephemeron-key", argv[0]);
+
+    return(AsEphemeron(argv[0])->Key);
+}
+
+Define("ephemeron-datum", EphemeronDatumPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("ephemeron-datum", argc);
+    EphemeronArgCheck("ephemeron-datum", argv[0]);
+
+    return(AsEphemeron(argv[0])->Datum);
+}
+
+Define("set-ephemeron-key!", SetEphemeronKeyPrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("set-ephemeron-key!", argc);
+    EphemeronArgCheck("set-ephemeron-key!", argv[0]);
+
+    AsEphemeron(argv[0])->Key = argv[1];
+    return(NoValueObject);
+}
+
+Define("set-ephemeron-datum!", SetEphemeronDatumPrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("set-ephemeron-datum!", argc);
+    EphemeronArgCheck("set-ephemeron-datum!", argv[0]);
+
+    AsEphemeron(argv[0])->Datum = argv[1];
+    return(NoValueObject);
+}
+
 static FObject Primitives[] =
 {
     InstallGuardianPrimitive,
     InstallTrackerPrimitive,
-    CollectPrimitive
+    CollectPrimitive,
+    EphemeronPPrimitive,
+    MakeEphemeronPrimitive,
+    EphemeronBrokenPPrimitive,
+    EphemeronKeyPrimitive,
+    EphemeronDatumPrimitive,
+    SetEphemeronKeyPrimitive,
+    SetEphemeronDatumPrimitive
 };
 
 void SetupGC()
