@@ -12,6 +12,7 @@ To Do:
 -- raise exception when a constant is modified
 
 Future:
+-- allow larger objects by using BlockSize > 1 in FObjHdr
 -- pull options from FOMENT_OPTIONS environment variable
 -- features, command-line, full-command-line, interactive options,
     environment-variables, etc passed to scheme as a single assoc list
@@ -214,38 +215,68 @@ void DeleteMemRegion(FMemRegion * mrgn);
 int_t GrowMemRegionUp(FMemRegion * mrgn, uint_t sz);
 int_t GrowMemRegionDown(FMemRegion * mrgn, uint_t sz);
 
-#define OBJHDR_SIZE_MASK 0x1FFFFFFF
-#define OBJHDR_GEN_MASK 0x60000000
-#define OBJHDR_MARK_FORWARD 0x80000000
-#define OBJHDR_GEN_BABIES 0x00000000
-#define OBJHDR_GEN_KIDS 0x20000000
-#define OBJHDR_GEN_ADULTS 0x40000000
-#define OBJHDR_GEN_ETERNAL 0x60000000
+#define OBJHDR_SIZE_SHIFT 28
+#define OBJHDR_COUNT_MASK 0x0FFFFFFF
 
-#define OBJHDR_SLOT_COUNT_MASK 0x03FFFFFF
-#define OBJHDR_TAG_SHIFT 26
-#define OBJHDR_TAG_MASK 0x0000001F
-#define OBJHDR_CHECK_MARK 0x80000000
+#define OBJHDR_GEN_MASK     0xC000
+#define OBJHDR_GEN_BABIES   0x0000
+#define OBJHDR_GEN_KIDS     0x4000
+#define OBJHDR_GEN_ADULTS   0x8000
+#define OBJHDR_GEN_ETERNAL  0xC000
+#define OBJHDR_MARK_FORWARD 0x2000
+#define OBJHDR_CHECK_MARK   0x1000
+#define OBJHDR_HAS_SLOTS    0x0800
+#define OBJHDR_TAG_MASK     0x001F
 
-typedef struct
+typedef struct _FObjHdr
 {
-    union
-    {
-        uint32_t FlagsAndSize;
-        uint32_t Flags;
-    };
-    union
-    {
-        uint32_t TagAndSlotCount;
-        uint32_t CheckMark;
-    };
+    uint32_t BlockSizeAndCount;
+    uint16_t ExtraCount;
+    uint16_t FlagsAndTag;
 
-    uint32_t Size() {return(FlagsAndSize & OBJHDR_SIZE_MASK);}
-    uint32_t SlotCount() {return(TagAndSlotCount & OBJHDR_SLOT_COUNT_MASK);}
-    uint32_t Tag() {return((TagAndSlotCount >> OBJHDR_TAG_SHIFT) & OBJHDR_TAG_MASK);}
+private:
+    uint_t BlockSize() {return(1 << (BlockSizeAndCount >> OBJHDR_SIZE_SHIFT));}
+    uint_t BlockCount() {return(BlockSizeAndCount & OBJHDR_COUNT_MASK);}
+public:
+    uint_t ObjectSize();
+    uint_t TotalSize();
+    uint_t SlotCount();
+    uint_t ByteLength();
+    uint32_t Tag() {return(FlagsAndTag & OBJHDR_TAG_MASK);}
     FObject * Slots() {return((FObject *) (this + 1));}
-    uint32_t Generation() {return(Flags & OBJHDR_GEN_MASK);}
+    uint32_t Generation() {return(FlagsAndTag & OBJHDR_GEN_MASK);}
 } FObjHdr;
+
+// Allocated size of the object in bytes, not including the ObjHdr and ObjFtr.
+inline uint_t FObjHdr::ObjectSize()
+{
+    FAssert(BlockSize() * BlockCount() > 0);
+
+    return(BlockSize() * BlockCount() * sizeof(struct _FObjHdr));
+}
+
+// Number of FObjects which must be at the beginning of the object.
+inline uint_t FObjHdr::SlotCount()
+{
+    if (FlagsAndTag & OBJHDR_HAS_SLOTS)
+    {
+        FAssert(ObjectSize() / sizeof(FObject) >= ExtraCount);
+
+        return(ObjectSize() / sizeof(FObject) - ExtraCount);
+    }
+
+    return(0);
+}
+
+// Number of bytes requested when the object was allocated; makes sense only for objects
+// without slots.
+inline uint_t FObjHdr::ByteLength()
+{
+    FAssert((FlagsAndTag & OBJHDR_HAS_SLOTS) == 0);
+    FAssert(ObjectSize() >= ExtraCount);
+
+    return(ObjectSize() - ExtraCount);
+}
 
 inline FObjHdr * AsObjHdr(FObject obj)
 {
@@ -254,7 +285,10 @@ inline FObjHdr * AsObjHdr(FObject obj)
     return(((FObjHdr *) obj) - 1);
 }
 
-#define ByteLength(obj) (AsObjHdr(obj)->Size())
+inline uint_t ByteLength(FObject obj)
+{
+    return(AsObjHdr(obj)->ByteLength());
+}
 
 typedef struct
 {
@@ -262,6 +296,19 @@ typedef struct
 } FObjFtr;
 
 #define OBJFTR_FEET 0xDEADFEE7
+
+#define EternalObjHdr(type, tag) \
+    .ObjHdr.BlockSizeAndCount = sizeof(type) / sizeof(FObjHdr), \
+    .ObjHdr.ExtraCount = 0, \
+    .ObjHdr.FlagsAndTag = tag | OBJHDR_GEN_ETERNAL
+
+#define EternalObjHdrSlots(type, sc, tag) \
+    .ObjHdr.BlockSizeAndCount = sizeof(type) / sizeof(FObjHdr), \
+    .ObjHdr.ExtraCount = (sizeof(type) / sizeof(FObjHdr)) - sc, \
+    .ObjHdr.FlagsAndTag = tag | OBJHDR_GEN_ETERNAL | OBJHDR_HAS_SLOTS
+
+#define EternalObjFtr \
+    .ObjFtr.Feet = {OBJFTR_FEET, OBJFTR_FEET}
 
 FObject MakeObject(uint_t tag, uint_t sz, uint_t sc, const char * who, int_t pf = 0);
 
@@ -281,7 +328,7 @@ void ReadyForGC();
 
 inline int_t MatureP(FObject obj)
 {
-    return(ObjectP(obj) && (AsObjHdr(obj)->Flags & OBJHDR_GEN_MASK) == OBJHDR_GEN_ADULTS);
+    return(ObjectP(obj) && (AsObjHdr(obj)->FlagsAndTag & OBJHDR_GEN_MASK) == OBJHDR_GEN_ADULTS);
 }
 
 void ModifyVector(FObject obj, uint_t idx, FObject val);
@@ -848,6 +895,9 @@ typedef FHashContainer FHashBag;
 typedef struct
 {
     FObject String;
+#ifdef FOMENT_32BIT
+    uint_t Unused;
+#endif // FOMENT_32BIT
 } FSymbol;
 
 FObject SymbolToString(FObject sym);
@@ -864,6 +914,9 @@ FObject AddPrefixToSymbol(FObject str, FObject sym);
 typedef struct
 {
     const char * String;
+#ifdef FOMENT_32BIT
+    uint_t Unused;
+#endif // FOMENT_32BIT
 } FCString;
 
 typedef struct
@@ -883,17 +936,15 @@ typedef struct
 #define EternalSymbol(name, string) \
     static FEternalCString name ## String = \
     { \
-        .ObjHdr.FlagsAndSize = OBJHDR_GEN_ETERNAL | sizeof(FCString), \
-        .ObjHdr.TagAndSlotCount = (CStringTag << OBJHDR_TAG_SHIFT), \
+        EternalObjHdr(FCString, CStringTag), \
         .String.String = string, \
-        .ObjFtr.Feet = {OBJFTR_FEET, OBJFTR_FEET} \
+        EternalObjFtr \
     }; \
     static FEternalSymbol name ## Object = \
     { \
-        .ObjHdr.FlagsAndSize = OBJHDR_GEN_ETERNAL | sizeof(FSymbol), \
-        .ObjHdr.TagAndSlotCount = (SymbolTag << OBJHDR_TAG_SHIFT) | 1, \
+        EternalObjHdrSlots(FSymbol, 1, SymbolTag), \
         .Symbol.String = &name ## String.String, \
-        .ObjFtr.Feet = {OBJFTR_FEET, OBJFTR_FEET} \
+        EternalObjFtr \
     }; \
     FObject name = &name ## Object.Symbol;
 
@@ -924,13 +975,12 @@ typedef struct
     EternalSymbol(prim ## Symbol, name); \
     static FObject prim ## Fn(int_t argc, FObject argv[]);\
     static FEternalPrimitive prim ## Object = { \
-        .ObjHdr.FlagsAndSize = OBJHDR_GEN_ETERNAL | sizeof(FPrimitive), \
-        .ObjHdr.TagAndSlotCount = (PrimitiveTag << OBJHDR_TAG_SHIFT) | 1, \
+        EternalObjHdrSlots(FPrimitive, 1, PrimitiveTag), \
         .Primitive.Name = prim ## Symbol, \
         .Primitive.PrimitiveFn = prim ## Fn, \
         .Primitive.Filename = __FILE__, \
         .Primitive.LineNumber =__LINE__, \
-        .ObjFtr.Feet = {OBJFTR_FEET, OBJFTR_FEET} \
+        EternalObjFtr \
     }; \
     FObject prim = &prim ## Object.Primitive; \
     static FObject prim ## Fn

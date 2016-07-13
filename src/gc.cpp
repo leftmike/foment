@@ -30,9 +30,6 @@ Foment
 
 #define PAGE_SIZE 4096
 
-#define MAXIMUM_OBJECT_LENGTH OBJHDR_SIZE_MASK
-#define MAXIMUM_SLOT_COUNT OBJHDR_SLOT_COUNT_MASK
-
 #define OBJECT_ALIGNMENT 8
 const static uint_t Align[8] = {0, 7, 6, 5, 4, 3, 2, 1};
 
@@ -224,32 +221,32 @@ int_t GrowMemRegionDown(FMemRegion * mrgn, uint_t sz)
 
 static inline void SetGeneration(FObjHdr * oh, uint_t gen)
 {
-    oh->Flags = ((oh->Flags & ~OBJHDR_GEN_MASK) | gen);
+    oh->FlagsAndTag = ((oh->FlagsAndTag & ~OBJHDR_GEN_MASK) | gen);
 }
 
 static inline void SetMark(FObjHdr * oh)
 {
-    oh->Flags |= OBJHDR_MARK_FORWARD;
+    oh->FlagsAndTag |= OBJHDR_MARK_FORWARD;
 }
 
 static inline void ClearMark(FObjHdr * oh)
 {
-    oh->Flags &= ~OBJHDR_MARK_FORWARD;
+    oh->FlagsAndTag &= ~OBJHDR_MARK_FORWARD;
 }
 
 static inline int MarkP(FObjHdr * oh)
 {
-    return(oh->Flags & OBJHDR_MARK_FORWARD);
+    return(oh->FlagsAndTag & OBJHDR_MARK_FORWARD);
 }
 
 static inline void SetForward(FObjHdr * oh)
 {
-    oh->Flags |= OBJHDR_MARK_FORWARD;
+    oh->FlagsAndTag |= OBJHDR_MARK_FORWARD;
 }
 
 static inline int ForwardP(FObjHdr * oh)
 {
-    return(oh->Flags & OBJHDR_MARK_FORWARD);
+    return(oh->FlagsAndTag & OBJHDR_MARK_FORWARD);
 }
 
 static inline int AliveP(FObject obj)
@@ -261,65 +258,91 @@ static inline int AliveP(FObject obj)
 
 static inline void SetCheckMark(FObject obj)
 {
-    AsObjHdr(obj)->CheckMark |= OBJHDR_CHECK_MARK;
+    AsObjHdr(obj)->FlagsAndTag |= OBJHDR_CHECK_MARK;
 }
 
 static inline void ClearCheckMark(FObjHdr * oh)
 {
-    oh->CheckMark &= ~OBJHDR_CHECK_MARK;
+    oh->FlagsAndTag &= ~OBJHDR_CHECK_MARK;
 }
 
 static inline int CheckMarkP(FObject obj)
 {
-    return(AsObjHdr(obj)->CheckMark & OBJHDR_CHECK_MARK);
+    return(AsObjHdr(obj)->FlagsAndTag & OBJHDR_CHECK_MARK);
 }
 
-static inline uint_t ObjectLength(uint_t sz)
+inline uint_t FObjHdr::TotalSize()
 {
-    uint_t len = sz;
-    len += Align[len % OBJECT_ALIGNMENT];
-
-    FAssert(len >= sz);
-    FAssert(len % OBJECT_ALIGNMENT == 0);
-
-    if (len == 0)
-        len = OBJECT_ALIGNMENT;
-
-    FAssert(len >= sizeof(FObject));
-
-    len += sizeof(FObjHdr);
-
-    FAssert(len % OBJECT_ALIGNMENT == 0);
-
 #ifdef FOMENT_OBJFTR
-    len += sizeof(FObjFtr);
-
-    FAssert(len % OBJECT_ALIGNMENT == 0);
+    return(ObjectSize() + sizeof(FObjHdr) + sizeof(FObjFtr));
+#else // FOMENT_OBJFTR
+    return(ObjectSize() + sizeof(FObjHdr));
 #endif // FOMENT_OBJFTR
-
-    return(len);
 }
 
 #ifdef FOMENT_OBJFTR
 FObjFtr * AsObjFtr(FObjHdr * oh)
 {
-    return(((FObjFtr *) (((char *) oh) + ObjectLength(oh->Size()))) - 1);
+    return((FObjFtr *) (((char *) (oh + 1)) + oh->ObjectSize()));
 }
 #endif // FOMENT_OBJFTR
 
-static FObjHdr * MakeBaby(uint_t len, uint_t tag, uint_t sz, uint_t sc, const char * who)
+static void InitializeObjHdr(FObjHdr * oh, uint_t tsz, uint_t tag, uint_t gen, uint_t sz, uint_t sc)
+{
+    FAssert(tsz - sizeof(FObjHdr) >= OBJECT_ALIGNMENT);
+
+    uint_t osz = tsz - sizeof(FObjHdr);
+
+#ifdef FOMENT_OBJFTR
+    FAssert(osz - sizeof(FObjFtr) >= OBJECT_ALIGNMENT);
+
+    osz -= sizeof(FObjFtr);
+#endif // FOMENT_OBJFTR
+
+    FAssert(osz < OBJHDR_COUNT_MASK);
+    FAssert(osz % OBJECT_ALIGNMENT == 0);
+
+    oh->BlockSizeAndCount = osz / OBJECT_ALIGNMENT;
+    oh->FlagsAndTag = gen | tag;
+
+    FAssert(oh->ObjectSize() == osz);
+
+    if (sc > 0)
+    {
+        oh->ExtraCount = osz / sizeof(FObject) - sc;
+        oh->FlagsAndTag |= OBJHDR_HAS_SLOTS;
+
+        FAssert(oh->SlotCount() == sc);
+    }
+    else if (tag != FreeTag)
+    {
+        FAssert(osz >= sz);
+        FAssert(osz - sz <= 0xFFFF);
+
+        oh->ExtraCount = osz - sz;
+
+        FAssert(oh->ByteLength() == sz);
+    }
+    else
+        oh->ExtraCount = 0;
+
+    FAssert(oh->Tag() == tag);
+    FAssert(oh->Generation() == gen);
+}
+
+static FObjHdr * MakeBaby(uint_t tsz, uint_t tag, uint_t sz, uint_t sc, const char * who)
 {
     FThreadState * ts = GetThreadState();
 
-    if (ts->BabiesUsed + len > ts->Babies.BottomUsed)
+    if (ts->BabiesUsed + tsz > ts->Babies.BottomUsed)
     {
-        if (ts->BabiesUsed + len > ts->Babies.MaximumSize)
+        if (ts->BabiesUsed + tsz > ts->Babies.MaximumSize)
             RaiseExceptionC(Assertion, who, "babies too small; increase maximum-babies-size",
                     EmptyListObject);
 
         uint_t gsz = PAGE_SIZE * 8;
-        if (len > gsz)
-            gsz = len;
+        if (tsz > gsz)
+            gsz = tsz;
         if (gsz > ts->Babies.MaximumSize - ts->Babies.BottomUsed)
             gsz = ts->Babies.MaximumSize - ts->Babies.BottomUsed;
 
@@ -328,24 +351,22 @@ static FObjHdr * MakeBaby(uint_t len, uint_t tag, uint_t sz, uint_t sc, const ch
     }
 
     FObjHdr * oh = (FObjHdr *) (((char *) ts->Babies.Base) + ts->BabiesUsed);
-    ts->BabiesUsed += len;
+    ts->BabiesUsed += tsz;
 
-    oh->FlagsAndSize = sz;
-    oh->TagAndSlotCount = (tag << OBJHDR_TAG_SHIFT) | sc;
-
+    InitializeObjHdr(oh, tsz, tag, OBJHDR_GEN_BABIES, sz, sc);
     return(oh);
 }
 
-static FObjHdr * AllocateKid(uint_t len)
+static FObjHdr * AllocateKid(uint_t tsz)
 {
-    if (ActiveKids->Used + len > ActiveKids->MemRegion.BottomUsed)
+    if (ActiveKids->Used + tsz > ActiveKids->MemRegion.BottomUsed)
     {
-        if (ActiveKids->Used + len > ActiveKids->MemRegion.MaximumSize)
+        if (ActiveKids->Used + tsz > ActiveKids->MemRegion.MaximumSize)
             return(0);
 
         uint_t gsz = PAGE_SIZE * 8;
-        if (len > gsz)
-            gsz = len;
+        if (tsz > gsz)
+            gsz = tsz;
         if (gsz > ActiveKids->MemRegion.MaximumSize - ActiveKids->MemRegion.BottomUsed)
             gsz = ActiveKids->MemRegion.MaximumSize - ActiveKids->MemRegion.BottomUsed;
 
@@ -354,14 +375,14 @@ static FObjHdr * AllocateKid(uint_t len)
     }
 
     FObjHdr * oh = (FObjHdr *) (((char *) ActiveKids->MemRegion.Base) + ActiveKids->Used);
-    ActiveKids->Used += len;
+    ActiveKids->Used += tsz;
 
     return(oh);
 }
 
-static FObjHdr * AllocateAdult(uint_t len, const char * who)
+static FObjHdr * AllocateAdult(uint_t tsz, const char * who)
 {
-    uint_t bkt = len / OBJECT_ALIGNMENT;
+    uint_t bkt = tsz / OBJECT_ALIGNMENT;
     FObjHdr * oh = 0;
 
     if (bkt < FREE_ADULTS)
@@ -371,7 +392,7 @@ static FObjHdr * AllocateAdult(uint_t len, const char * who)
             oh = FreeAdults[bkt];
             FreeAdults[bkt] = (FObjHdr *) *oh->Slots();
 
-            FAssert(ObjectLength(oh->Size()) == len);
+            FAssert(oh->TotalSize() == tsz);
             FAssert(oh->Tag() == FreeTag);
             FAssert(oh->Generation() == OBJHDR_GEN_ADULTS);
         }
@@ -382,23 +403,24 @@ static FObjHdr * AllocateAdult(uint_t len, const char * who)
         FObjHdr ** pfoh = &BigFreeAdults;
         while (foh != 0)
         {
-            FAssert(foh->Size() % OBJECT_ALIGNMENT == 0);
+            uint_t ftsz = foh->TotalSize();
+
+            FAssert(ftsz % OBJECT_ALIGNMENT == 0);
             FAssert(foh->Tag() == FreeTag);
             FAssert(foh->Generation() == OBJHDR_GEN_ADULTS);
 
-            uint_t flen = ObjectLength(foh->Size());
-            if (flen == len)
+            if (ftsz == tsz)
             {
                 *pfoh = (FObjHdr *) *foh->Slots();
                 break;
             }
-            else if (flen >= len + FREE_ADULTS * OBJECT_ALIGNMENT)
+            else if (ftsz >= tsz + FREE_ADULTS * OBJECT_ALIGNMENT)
             {
-                FAssert(foh->Size() > len);
-                FAssert(foh->Size() - len >= OBJECT_ALIGNMENT);
+                FAssert(foh->TotalSize() > tsz);
+                FAssert(foh->TotalSize() - tsz >= OBJECT_ALIGNMENT);
 
-                oh = (FObjHdr *) (((char *) foh) + flen - len);
-                foh->FlagsAndSize = (foh->Size() - len) | (foh->FlagsAndSize & ~OBJHDR_SIZE_MASK);
+                oh = (FObjHdr *) (((char *) foh) + ftsz - tsz);
+                foh->BlockSizeAndCount = (foh->ObjectSize() - tsz) / OBJECT_ALIGNMENT;
 
 #ifdef FOMENT_OBJFTR
                 FObjFtr * of = AsObjFtr(foh);
@@ -415,9 +437,9 @@ static FObjHdr * AllocateAdult(uint_t len, const char * who)
 
     if (oh == 0)
     {
-        if (AdultsUsed + len > Adults.BottomUsed)
+        if (AdultsUsed + tsz > Adults.BottomUsed)
         {
-            if (AdultsUsed + len > Adults.MaximumSize)
+            if (AdultsUsed + tsz > Adults.MaximumSize)
             {
                 if (who == 0)
                 {
@@ -431,8 +453,8 @@ static FObjHdr * AllocateAdult(uint_t len, const char * who)
             }
 
             uint_t gsz = 1024 * 1024;
-            if (len > gsz)
-                gsz = len;
+            if (tsz > gsz)
+                gsz = tsz;
             if (gsz > Adults.MaximumSize - Adults.BottomUsed)
                 gsz = Adults.MaximumSize - Adults.BottomUsed;
             if (GrowMemRegionUp(&Adults, Adults.BottomUsed + gsz) == 0)
@@ -449,60 +471,67 @@ static FObjHdr * AllocateAdult(uint_t len, const char * who)
         }
 
         oh = (FObjHdr *) (((char *) Adults.Base) + AdultsUsed);
-        AdultsUsed += len;
+        AdultsUsed += tsz;
     }
 
     return(oh);
 }
 
-static FObjHdr * MakeAdult(uint_t len, uint_t tag, uint_t sz, uint_t sc, const char * who)
+static FObjHdr * MakeAdult(uint_t tsz, uint_t tag, uint_t sz, uint_t sc, const char * who)
 {
     EnterExclusive(&GCExclusive);
-    FObjHdr * oh = AllocateAdult(len, who);
+    FObjHdr * oh = AllocateAdult(tsz, who);
     LeaveExclusive(&GCExclusive);
 
-    oh->FlagsAndSize = sz | OBJHDR_GEN_ADULTS;
-    oh->TagAndSlotCount = (tag << OBJHDR_TAG_SHIFT) | sc;
-
+    InitializeObjHdr(oh, tsz, tag, OBJHDR_GEN_ADULTS, sz, sc);
     return(oh);
 }
 
 FObject MakeObject(uint_t tag, uint_t sz, uint_t sc, const char * who, int_t pf)
 {
-    uint_t len = ObjectLength(sz);
+    uint_t tsz = sz;
     FObjHdr * oh;
 
+    tsz += Align[tsz % OBJECT_ALIGNMENT];
+    if (tsz == 0)
+        tsz = OBJECT_ALIGNMENT;
+    tsz += sizeof(FObjHdr);
+#ifdef FOMENT_OBJFTR
+    tsz += sizeof(FObjFtr);
+#endif // FOMENT_OBJFTR
+
+    FAssert(tsz % OBJECT_ALIGNMENT == 0);
     FAssert(tag > 0);
     FAssert(tag < BadDogTag);
     FAssert(tag != FreeTag);
     FAssert(sz >= sizeof(FObject) * sc);
 
-    if (len > MAXIMUM_OBJECT_LENGTH)
+    if (tsz > OBJHDR_COUNT_MASK)
         RaiseExceptionC(Restriction, who, "object too big", EmptyListObject);
-    if (sc > MAXIMUM_SLOT_COUNT)
+    if (sc > OBJHDR_COUNT_MASK)
         RaiseExceptionC(Restriction, who, "too many slots", EmptyListObject);
 
     if (CollectorType == GenerationalCollector)
     {
         if (pf || sz > MaximumGenerationalBaby)
-            oh = MakeAdult(len, tag, sz, sc, who);
+            oh = MakeAdult(tsz, tag, sz, sc, who);
         else
-            oh = MakeBaby(len, tag, sz, sc, who);
+            oh = MakeBaby(tsz, tag, sz, sc, who);
     }
     else if (CollectorType == MarkSweepCollector)
-        oh = MakeAdult(len, tag, sz, sc, who);
+        oh = MakeAdult(tsz, tag, sz, sc, who);
     else
     {
         FAssert(CollectorType == NoCollector);
-        oh = MakeBaby(len, tag, sz, sc, who);
+        oh = MakeBaby(tsz, tag, sz, sc, who);
     }
 
     FAssert(oh != 0);
 
     FThreadState * ts = GetThreadState();
-    BytesAllocated += len;
+    BytesAllocated += tsz;
     ts->ObjectsSinceLast += 1;
-    ts->BytesSinceLast += len;
+    ts->BytesSinceLast += tsz;
 
     if (CollectorType != NoCollector &&
             (ts->ObjectsSinceLast > TriggerObjects || ts->BytesSinceLast > TriggerBytes))
@@ -873,19 +902,19 @@ static void FCheckFailed(const char * fn, int_t ln, const char * expr, FObjHdr *
 
     printf("\nFCheck: %s (%d)%s\n", expr, (int) ln, fn);
 
-    uint32_t len = ObjectLength(oh->Size());
+    uint_t tsz = oh->TotalSize();
     const char * tag = "unknown";
     if (oh->Tag() > 0 && oh->Tag() < BadDogTag)
         tag = IndirectTagString[oh->Tag()];
-    printf("len: %d size: %d slots: %d tag: %s gen: 0x%x", len, oh->Size(), oh->SlotCount(),
-            tag, oh->Generation());
+    printf("tsz: %llu osz: %llu blen: %llu slots: %llu tag: %s gen: 0x%x", tsz, oh->ObjectSize(),
+            oh->ByteLength(), oh->SlotCount(), tag, oh->Generation());
     if (MarkP(oh))
         printf("forward/mark");
     printf(" |");
-    for (idx = 0; idx < len && idx < 64; idx++)
+    for (idx = 0; idx < tsz && idx < 64; idx++)
         printf(" %x", ((uint8_t *) oh)[idx]);
-    if (idx < len)
-        printf(" ... (%d more)", len - idx);
+    if (idx < tsz)
+        printf(" ... (%llu more)", tsz - idx);
     printf("\n");
 
     if (CheckStackPtr > 0)
@@ -900,10 +929,10 @@ static int_t ValidAddress(FObjHdr * oh)
     if (oh->Generation() == OBJHDR_GEN_ETERNAL)
         return(1);
 
-    uint_t len = ObjectLength(oh->Size());
+    uint_t tsz = oh->TotalSize();
     FThreadState * ts = Threads;
     void * strt = oh;
-    void * end = ((char *) oh) + len;
+    void * end = ((char *) oh) + tsz;
 
     while (ts != 0)
     {
@@ -957,7 +986,7 @@ Again:
         FCheck(ValidAddress(oh), oh);
         FCheck(IndirectTag(obj) > 0 && IndirectTag(obj) < BadDogTag, oh);
         FCheck(IndirectTag(obj) != FreeTag, oh);
-        FCheck(oh->Size() >= oh->SlotCount() * sizeof(FObject), oh);
+        FCheck(oh->ObjectSize() >= oh->SlotCount() * sizeof(FObject), oh);
 
 #ifdef FOMENT_OBJFTR
         FObjFtr * of = AsObjFtr(oh);
@@ -984,6 +1013,8 @@ Again:
         }
         else if (AsObjHdr(obj)->SlotCount() > 0)
         {
+            FAssert(AsObjHdr(obj)->FlagsAndTag & OBJHDR_HAS_SLOTS);
+
             for (uint_t idx = 0; idx < AsObjHdr(obj)->SlotCount(); idx++)
                 CheckObject(((FObject *) obj)[idx], idx);
         }
@@ -1048,17 +1079,17 @@ static void CheckMemRegion(FMemRegion * mrgn, uint_t used, uint_t gen)
     while (cnt < used)
     {
         FCheck(cnt + sizeof(FObjHdr) <= mrgn->BottomUsed, oh);
-        uint_t sz = oh->Size();
-        uint_t len = ObjectLength(sz);
+        uint_t osz = oh->ObjectSize();
+        uint_t tsz = oh->TotalSize();
 
-        FCheck(len >= sz + sizeof(FObjHdr), oh);
-        FCheck(len % OBJECT_ALIGNMENT == 0, oh);
+        FCheck(tsz >= osz + sizeof(FObjHdr), oh);
+        FCheck(tsz % OBJECT_ALIGNMENT == 0, oh);
 
 #ifdef FOMENT_OBJFTR
-        FCheck(len >= sz + sizeof(FObjHdr) + sizeof(FObjFtr), oh);
+        FCheck(tsz >= osz + sizeof(FObjHdr) + sizeof(FObjFtr), oh);
 #endif // FOMENT_OBJFTR
 
-        FCheck(cnt + len <= mrgn->BottomUsed, oh);
+        FCheck(cnt + tsz <= mrgn->BottomUsed, oh);
 
 #ifdef FOMENT_OBJFTR
         FObjFtr * of = AsObjFtr(oh);
@@ -1068,14 +1099,14 @@ static void CheckMemRegion(FMemRegion * mrgn, uint_t used, uint_t gen)
 #endif // FOMENT_OBJFTR
 
         FCheck(oh->Generation() == gen, oh);
-        FCheck(gen == OBJHDR_GEN_ADULTS || (oh->Flags & OBJHDR_MARK_FORWARD) == 0, oh);
-        FCheck(oh->SlotCount() * sizeof(FObject) <= oh->Size(), oh);
+        FCheck(gen == OBJHDR_GEN_ADULTS || (oh->FlagsAndTag & OBJHDR_MARK_FORWARD) == 0, oh);
+        FCheck(oh->SlotCount() * sizeof(FObject) <= oh->ObjectSize(), oh);
         FCheck(oh->Tag() > 0 && oh->Tag() < BadDogTag, oh);
         FCheck(oh->Tag() != FreeTag || oh->Generation() == OBJHDR_GEN_ADULTS, oh);
 
         ClearCheckMark(oh);
-        oh = (FObjHdr *) (((char *) oh) + len);
-        cnt += len;
+        oh = (FObjHdr *) (((char *) oh) + tsz);
+        cnt += tsz;
     }
 }
 
@@ -1168,20 +1199,20 @@ Again:
             return;
         }
 
-        uint_t len = ObjectLength(oh->Size());
+        uint_t tsz = oh->TotalSize();
         FObjHdr * noh = 0;
 
         if (gen == OBJHDR_GEN_BABIES && ActiveKids != 0)
         {
-            noh = AllocateKid(len);
-            memcpy(noh, oh, len);
+            noh = AllocateKid(tsz);
+            memcpy(noh, oh, tsz);
             SetGeneration(noh, OBJHDR_GEN_KIDS);
         }
 
         if (noh == 0)
         {
-            noh = AllocateAdult(len, 0);
-            memcpy(noh, oh, len);
+            noh = AllocateAdult(tsz, 0);
+            memcpy(noh, oh, tsz);
             SetGeneration(noh, OBJHDR_GEN_ADULTS);
             SetMark(noh);
         }
@@ -1201,9 +1232,11 @@ Again:
         SetMark(oh);
     }
 
-    uint_t sc = oh->SlotCount();
-    if (sc > 0)
+    if (oh->SlotCount() > 0)
     {
+        FAssert(oh->FlagsAndTag & OBJHDR_HAS_SLOTS);
+
+        uint_t sc = oh->SlotCount();
         uint_t sdx = 0;
         while (sdx < sc - 1)
         {
@@ -1333,7 +1366,7 @@ static void Collect()
     while ((char *) oh < ((char *) Adults.Base) + AdultsUsed)
     {
         ClearMark(oh);
-        oh = (FObjHdr *) (((char *) oh) + ObjectLength(oh->Size()));
+        oh = (FObjHdr *) (((char *) oh) + oh->TotalSize());
     }
 
     if (ActiveKids != 0)
@@ -1393,21 +1426,21 @@ static void Collect()
     oh = (FObjHdr *) Adults.Base;
     while ((char *) oh < ((char *) Adults.Base) + AdultsUsed)
     {
-        uint_t len = ObjectLength(oh->Size());
+        uint_t tsz = oh->TotalSize();
         if (MarkP(oh) == 0)
         {
-            FObjHdr * noh = (FObjHdr *) (((char *) oh) + len);
+            FObjHdr * noh = (FObjHdr *) (((char *) oh) + tsz);
             while ((char *) noh < ((char *) Adults.Base) + AdultsUsed)
             {
                 if (MarkP(noh))
                     break;
-                noh = (FObjHdr *) (((char *) noh) + ObjectLength(noh->Size()));
+                noh = (FObjHdr *) (((char *) noh) + noh->TotalSize());
             }
 
-            FAssert((char *) noh - (char *) oh >= len);
+            FAssert((char *) noh - (char *) oh >= tsz);
 
-            len = (char *) noh - (char *) oh;
-            uint_t bkt = len / OBJECT_ALIGNMENT;
+            tsz = (char *) noh - (char *) oh;
+            uint_t bkt = tsz / OBJECT_ALIGNMENT;
             if (bkt < FREE_ADULTS)
             {
                 *oh->Slots() = FreeAdults[bkt];
@@ -1419,10 +1452,9 @@ static void Collect()
                 BigFreeAdults = oh;
             }
 
-            oh->FlagsAndSize = (len - OBJECT_HDRFTR_LENGTH) | OBJHDR_GEN_ADULTS;
-            oh->TagAndSlotCount = FreeTag << OBJHDR_TAG_SHIFT;
+            InitializeObjHdr(oh, tsz, FreeTag, OBJHDR_GEN_ADULTS, 0, 0);
         }
-        oh = (FObjHdr *) (((char *) oh) + len);
+        oh = (FObjHdr *) (((char *) oh) + tsz);
     }
 
     while (final != 0)
@@ -1747,11 +1779,12 @@ int_t SetupCore(FThreadState * ts)
     FAssert(sizeof(FObject) == sizeof(char *));
     FAssert(sizeof(FFixnum) <= sizeof(FImmediate));
     FAssert(sizeof(FCh) <= sizeof(FImmediate));
-    FAssert(sizeof(FObjHdr) % OBJECT_ALIGNMENT == 0);
-    FAssert(sizeof(FObjHdr) >= OBJECT_ALIGNMENT);
-    FAssert(OBJHDR_SIZE_MASK >= OBJHDR_SLOT_COUNT_MASK * sizeof(FObject));
+    FAssert(sizeof(FObjHdr) == OBJECT_ALIGNMENT);
     FAssert(BadDogTag <= OBJHDR_TAG_MASK + 1);
     FAssert(sizeof(FObject) <= OBJECT_ALIGNMENT);
+    FAssert(sizeof(FCString) % OBJECT_ALIGNMENT == 0);
+    FAssert(sizeof(FSymbol) % OBJECT_ALIGNMENT == 0);
+    FAssert(sizeof(FPrimitive) % OBJECT_ALIGNMENT == 0);
     FAssert(Adults.Base == 0);
     FAssert(AdultsUsed == 0);
     FAssert(ActiveKids == 0);
