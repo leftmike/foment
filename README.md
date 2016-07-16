@@ -10,9 +10,12 @@
 * Editing at the REPL including ( ) matching.
 * Portable: Windows, Mac OS X, Linux, and FreeBSD.
 * 32 bit and 64 bit.
+* SRFI 1: List Library
+* SRFI 60: Integers as Bits
 * SRFI 106: Basic socket interface.
 * SRFI 111: Boxes.
 * SRFI 112: Environment Inquiry.
+* SRFI 124: Ephemerons.
 
 See [Foment](https://github.com/leftmike/foment/wiki/Foment) for more details.
 

@@ -155,7 +155,7 @@ int_t EqP(FObject obj1, FObject obj2)
 
 uint_t EqHash(FObject obj)
 {
-    return((uint_t) obj);
+    return(((uint_t) obj) >> 3);
 }
 
 

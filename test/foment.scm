@@ -965,3 +965,101 @@
 (check-error (assertion-violation eq-hash-set-adjoin!) (eq-hash-set-adjoin! 123))
 (check-error (assertion-violation eq-hash-set-delete!) (eq-hash-set-delete!))
 (check-error (assertion-violation eq-hash-set-delete!) (eq-hash-set-delete! 123))
+
+;;
+;; ---- SRFI 124: Ephemerons ----
+;;
+
+(import (srfi 124))
+
+(test-when (not (eq? (cdr (assq 'collector (config))) 'none))
+
+    (check-equal #f (ephemeron? (cons 1 2)))
+    (check-equal #f (ephemeron? (box 1)))
+    (check-equal #f (ephemeron? #(1 2)))
+    (check-equal #t (ephemeron? (make-ephemeron 'abc (cons 1 2))))
+
+    (define e1 (make-ephemeron (cons 1 2) (cons 3 4)))
+    (collect)
+
+    (check-equal #t (ephemeron-broken? e1))
+    (check-equal #f (ephemeron-broken? (make-ephemeron 1 2)))
+    (check-error (assertion-violation ephemeron-broken?) (ephemeron-broken? (cons 1 2)))
+
+    (check-equal (1 . 2) (ephemeron-key (make-ephemeron (cons 1 2) (cons 3 4))))
+    (check-equal #f (ephemeron-key e1))
+    (check-error (assertion-violation ephemeron-key) (ephemeron-key (cons 1 2)))
+
+    (check-equal (3 . 4) (ephemeron-datum (make-ephemeron (cons 1 2) (cons 3 4))))
+    (check-equal #f (ephemeron-datum e1))
+    (check-error (assertion-violation ephemeron-datum) (ephemeron-datum (cons 1 2)))
+
+    (define e2 (make-ephemeron (cons 1 2) (cons 3 4)))
+
+    (set-ephemeron-key! e2 (cons 'a 'b))
+    (check-equal (a . b) (ephemeron-key e2))
+    (check-error (assertion-violation set-ephemeron-key!) (set-ephemeron-key! (cons 1 2) 'a))
+    (check-equal #f (ephemeron-key e1))
+    (check-equal #t (ephemeron-broken? e1))
+    (set-ephemeron-key! e1 'abc)
+    (check-equal #f (ephemeron-key e1))
+
+    (set-ephemeron-datum! e2 (cons 'c 'd))
+    (check-equal (c . d) (ephemeron-datum e2))
+    (check-error (assertion-violation set-ephemeron-datum!) (set-ephemeron-datum! (cons 1 2) 'a))
+    (check-equal #f (ephemeron-datum e1))
+    (check-equal #t (ephemeron-broken? e1))
+    (set-ephemeron-datum! e1 'def)
+    (check-equal #f (ephemeron-datum e1))
+
+    (define (ephemeron-list key cnt)
+        (define (eph-list cnt)
+            (if (= cnt 0)
+                (list (make-ephemeron (cons 'key cnt) (list 'end)))
+                (let ((lst (eph-list (- cnt 1))))
+                    (cons (make-ephemeron (cons 'key cnt) (ephemeron-key (car lst))) lst))))
+        (let ((lst (eph-list cnt)))
+            (cons (make-ephemeron key (ephemeron-key (car lst))) lst)))
+
+    (define (ephemeron-list cnt lst)
+        (if (= cnt 0)
+            lst
+            (ephemeron-list (- cnt 1)
+                    (cons (make-ephemeron (cons 'key cnt) (cons 'datum cnt)) lst))))
+    (define (forward-chain lst key)
+        (if (pair? lst)
+            (begin
+                (set-ephemeron-key! (car lst) key)
+                (forward-chain (cdr lst) (ephemeron-datum (car lst))))))
+    (define (backward-chain lst key)
+        (if (pair? lst)
+            (let ((key (backward-chain (cdr lst) key)))
+                (set-ephemeron-key! (car lst) key)
+                (ephemeron-datum (car lst)))
+            key))
+    (define (count-broken lst)
+        (if (pair? lst)
+            (if (ephemeron-broken? (car lst))
+                (+ (count-broken (cdr lst)) 1)
+                (count-broken (cdr lst)))
+            0))
+
+    (define ekey1 (cons 'ekey1 'ekey1))
+    (define e3 (make-ephemeron ekey1 (cons 3 3)))
+    (define e4 (make-ephemeron ekey1 (cons 4 4)))
+    (collect)
+    (set! ekey1 #f)
+    (collect)
+
+    (define ekey2 (cons 'ekey2 'ekey2))
+    (define blst (ephemeron-list 1000 '()))
+    (backward-chain blst ekey2)
+    (define flst (ephemeron-list 1000 '()))
+    (backward-chain flst ekey2)
+
+    (collect)
+    (set! ekey2 #f)
+    (collect)
+    (collect)
+    (check-equal 1000 (count-broken blst))
+    (check-equal 1000 (count-broken flst)))

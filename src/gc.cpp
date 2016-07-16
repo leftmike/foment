@@ -111,6 +111,10 @@ typedef struct _Tracker
 
 static FTracker * Trackers;
 
+static uint_t LiveEphemerons;
+static FEphemeron ** KeyEphemeronMap;
+static uint_t KeyEphemeronMapSize;
+
 static inline uint_t RoundToPageSize(uint_t cnt)
 {
     if (cnt % PAGE_SIZE != 0)
@@ -273,18 +277,17 @@ static inline int CheckMarkP(FObject obj)
 
 static inline void SetEphemeronKeyMark(FObject obj)
 {
-    AsObjHdr(obj)->Marks |= OBJHDR_EPHEMERON_KEY_MARK;
+    AsObjHdr(obj)->FlagsAndTag |= OBJHDR_EPHEMERON_KEY_MARK;
 }
 
 static inline void ClearEphemeronKeyMark(FObjHdr * oh)
 {
-    oh->Marks &= ~OBJHDR_EPHEMERON_KEY_MARK;
+    oh->FlagsAndTag &= ~OBJHDR_EPHEMERON_KEY_MARK;
 }
 
-static inline int EphemeronKeyMarkP(FObject obj)
+static inline int EphemeronKeyMarkP(FObjHdr * oh)
 {
-    return(AsObjHdr(obj)->Marks & OBJHDR_EPHEMERON_KEY_MARK);
->>>>>>> start of ephemerons
+    return(oh->FlagsAndTag & OBJHDR_EPHEMERON_KEY_MARK);
 }
 
 inline uint_t FObjHdr::TotalSize()
@@ -1213,6 +1216,37 @@ Again:
     FObjHdr * oh = AsObjHdr(*pobj);
     uint_t gen = oh->Generation();
 
+    if (EphemeronKeyMarkP(oh))
+    {
+        FAssert(MarkP(oh) == ForwardP(oh));
+        FAssert(MarkP(oh) == 0);
+
+        ClearEphemeronKeyMark(oh);
+
+        FObject key = (FObject) (oh + 1);
+        uint_t idx = EqHash(key) % KeyEphemeronMapSize;
+        FEphemeron * eph = KeyEphemeronMap[idx];
+        FEphemeron ** peph = &KeyEphemeronMap[idx];
+        while (eph != 0)
+        {
+            if (eph->Key == key)
+            {
+                LiveEphemerons += 1;
+                LiveObject(&eph->Key);
+                LiveObject(&eph->Datum);
+
+                *peph = eph->Next;
+                eph->Next = 0;
+                eph = *peph;
+            }
+            else
+            {
+                peph = &eph->Next;
+                eph = eph->Next;
+            }
+        }
+    }
+
     if (gen == OBJHDR_GEN_BABIES || gen == OBJHDR_GEN_KIDS)
     {
         if (ForwardP(oh))
@@ -1283,20 +1317,28 @@ Again:
 
         if (eph->Broken == 0)
         {
-            if (ObjectP(eph->Key) == 0 || AliveP(eph->Key))
+            if (KeyEphemeronMap == 0 || ObjectP(eph->Key) == 0 || AliveP(eph->Key))
             {
+                LiveEphemerons += 1;
                 LiveObject(&eph->Key);
                 LiveObject(&eph->Datum);
             }
             else
             {
                 FAssert(ObjectP(eph->Key));
-                FAssert(EphemeronKeyMarkP(eph->Key) == 0);
 
-                SetEphemeronKeyMark(eph->Key);
+                uint_t idx = EqHash(eph->Key) % KeyEphemeronMapSize;
+                eph->Next = KeyEphemeronMap[idx];
+                KeyEphemeronMap[idx] = eph;
 
-                // Add the mapping from eph->Key to eph
+                if (EphemeronKeyMarkP(AsObjHdr(eph->Key)) == 0)
+                    SetEphemeronKeyMark(eph->Key);
             }
+        }
+        else
+        {
+            FAssert(eph->Key == FalseObject);
+            FAssert(eph->Datum == FalseObject);
         }
     }
 }
@@ -1431,6 +1473,14 @@ static void Collect()
         ActiveKids->Used = 0;
     }
 
+    FAssert(KeyEphemeronMap == 0);
+
+    KeyEphemeronMapSize = LiveEphemerons;
+    KeyEphemeronMap = (FEphemeron **) malloc(sizeof(FEphemeron *) * KeyEphemeronMapSize);
+    if (KeyEphemeronMap != 0)
+        memset(KeyEphemeronMap, 0, sizeof(FEphemeron *) * KeyEphemeronMapSize);
+    LiveEphemerons = 0;
+
     FObject * rv = (FObject *) &R;
     for (uint_t rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
         LiveObject(rv + rdx);
@@ -1522,6 +1572,27 @@ static void Collect()
 
         TConcAdd(trkr->TConc, trkr->Return);
         free(trkr);
+    }
+
+    if (KeyEphemeronMap != 0)
+    {
+        for (uint_t idx = 0; idx < KeyEphemeronMapSize; idx++)
+        {
+            FEphemeron * eph = KeyEphemeronMap[idx];
+            while (eph != 0)
+            {
+                eph->Key = FalseObject;
+                eph->Datum = FalseObject;
+                eph->Broken = 1;
+
+                FEphemeron * neph = eph->Next;
+                eph->Next = 0;
+                eph = neph;
+            }
+        }
+
+        free(KeyEphemeronMap);
+        KeyEphemeronMap = 0;
     }
 
     while (TConcEmptyP(R.CleanupTConc) == 0)
@@ -1648,7 +1719,7 @@ void InstallTracker(FObject obj, FObject ret, FObject tconc)
             FTracker * trkr = (FTracker *) malloc(sizeof(FTracker));
 
             if (trkr == 0)
-                RaiseExceptionC(Assertion, "install-guardian", "out of memory", EmptyListObject);
+                RaiseExceptionC(Assertion, "install-tracker", "out of memory", EmptyListObject);
 
             trkr->Object = obj;
             trkr->Return = ret;
@@ -1980,6 +2051,11 @@ FObject MakeEphemeron(FObject key, FObject dat)
     eph->Key = key;
     eph->Datum = dat;
     eph->Broken = 0;
+    eph->Next = 0;
+
+    EnterExclusive(&GCExclusive);
+    LiveEphemerons += 1;
+    LeaveExclusive(&GCExclusive);
 
     return(eph);
 }
@@ -2027,7 +2103,8 @@ Define("set-ephemeron-key!", SetEphemeronKeyPrimitive)(int_t argc, FObject argv[
     TwoArgsCheck("set-ephemeron-key!", argc);
     EphemeronArgCheck("set-ephemeron-key!", argv[0]);
 
-    AsEphemeron(argv[0])->Key = argv[1];
+    if (AsEphemeron(argv[0])->Broken == 0)
+        AsEphemeron(argv[0])->Key = argv[1];
     return(NoValueObject);
 }
 
@@ -2036,7 +2113,8 @@ Define("set-ephemeron-datum!", SetEphemeronDatumPrimitive)(int_t argc, FObject a
     TwoArgsCheck("set-ephemeron-datum!", argc);
     EphemeronArgCheck("set-ephemeron-datum!", argv[0]);
 
-    AsEphemeron(argv[0])->Datum = argv[1];
+    if (AsEphemeron(argv[0])->Broken == 0)
+        AsEphemeron(argv[0])->Datum = argv[1];
     return(NoValueObject);
 }
 

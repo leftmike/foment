@@ -619,6 +619,19 @@ static void WriteObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
         break;
     }
 
+    case EphemeronTag:
+    {
+        FCh s[16];
+        int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+
+        WriteStringC(port, "#<ephemeron: ");
+        WriteString(port, s, sl);
+        if (AsEphemeron(obj)->Broken)
+            WriteStringC(port, " (broken)");
+        WriteCh(port, '>');
+        break;
+    }
+
     default:
     {
         FCh s[16];

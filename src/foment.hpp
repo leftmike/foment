@@ -13,6 +13,7 @@ To Do:
 
 Future:
 -- allow larger objects by using BlockSize > 1 in FObjHdr
+-- maybe add ObjectHash like MIT Scheme and get rid of trackers
 -- pull options from FOMENT_OPTIONS environment variable
 -- features, command-line, full-command-line, interactive options,
     environment-variables, etc passed to scheme as a single assoc list
@@ -235,17 +236,17 @@ int_t GrowMemRegionDown(FMemRegion * mrgn, uint_t sz);
 #define OBJHDR_SIZE_SHIFT 28
 #define OBJHDR_COUNT_MASK 0x0FFFFFFF
 
-#define OBJHDR_GEN_MASK     0xC000
-#define OBJHDR_GEN_BABIES   0x0000
-#define OBJHDR_GEN_KIDS     0x4000
-#define OBJHDR_GEN_ADULTS   0x8000
-#define OBJHDR_GEN_ETERNAL  0xC000
-#define OBJHDR_MARK_FORWARD 0x2000
-#define OBJHDR_CHECK_MARK   0x1000
-#define OBJHDR_HAS_SLOTS    0x0800
-#define OBJHDR_TAG_MASK     0x001F
+#define OBJHDR_GEN_MASK           0xC000
+#define OBJHDR_GEN_BABIES         0x0000
+#define OBJHDR_GEN_KIDS           0x4000
+#define OBJHDR_GEN_ADULTS         0x8000
+#define OBJHDR_GEN_ETERNAL        0xC000
+#define OBJHDR_MARK_FORWARD       0x2000
+#define OBJHDR_CHECK_MARK         0x1000
+#define OBJHDR_HAS_SLOTS          0x0800
+#define OBJHDR_EPHEMERON_KEY_MARK 0x0400
 
-#define OBJHDR_EPHEMERON_KEY_MARK 0x80000000
+#define OBJHDR_TAG_MASK           0x001F
 
 typedef struct _FObjHdr
 {
@@ -1016,6 +1017,7 @@ typedef struct _FEphemeron
     FObject Key;
     FObject Datum;
     int_t Broken;
+    struct _FEphemeron * Next; // Used during garbage collection.
 } FEphemeron;
 
 FObject MakeEphemeron(FObject key, FObject dat);
