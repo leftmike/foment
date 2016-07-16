@@ -793,6 +793,8 @@ static FObject CompileTransformer(FObject obj, FObject env)
         return(NoValueObject);
 
     FObject op = EnvironmentGet(env, First(obj));
+    if (SyntaxRulesP(op))
+        return(CompileTransformer(ExpandSyntaxRules(MakeSyntacticEnv(env), op, Rest(obj)), env));
     if (op == SyntaxRulesSyntax)
         return(CompileSyntaxRules(MakeSyntacticEnv(env), obj));
 
