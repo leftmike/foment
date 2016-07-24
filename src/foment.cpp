@@ -912,6 +912,204 @@ Define("set-box!", SetBoxPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
+// ---- Type maps ----
+
+/*
+(make-type-map)
+(type-map-ref <type-map> <obj>)
+(type-map-set! <type-map> <type-test> <value>)
+*/
+
+FObject MakeTypeMap()
+{
+    uint_t idx;
+    FTypeMap * tmap = (FTypeMap *) MakeObject(TypeMapTag, sizeof(FTypeMap),
+            sizeof(FTypeMap) / sizeof(FObject), "type-map");
+    for (idx = 0; idx < sizeof(tmap->DirectMap) / sizeof(FObject); idx++)
+        tmap->DirectMap[idx] = NoValueObject;
+    for (idx = 0; idx < sizeof(tmap->MiscellaneousMap) / sizeof(FObject); idx++)
+        tmap->MiscellaneousMap[idx] = NoValueObject;
+    for (idx = 0; idx < sizeof(tmap->IndirectMap) / sizeof(FObject); idx++)
+        tmap->IndirectMap[idx] = NoValueObject;
+
+    return(tmap);
+}
+
+FObject TypeMapRef(FObject tmap, FObject obj)
+{
+    FAssert(TypeMapP(tmap));
+
+    if (ObjectP(obj))
+    {
+        uint32_t tag = AsObjHdr(obj)->Tag();
+
+        FAssert(tag >= 1 && tag < FreeTag);
+
+        return(AsTypeMap(tmap)->IndirectMap[tag]);
+    }
+    else if (ImmediateTag(obj) == MiscellaneousTag)
+    {
+        if (AsValue(obj) < 4)
+            return(AsTypeMap(tmap)->MiscellaneousMap[AsValue(obj)]);
+    }
+    else
+        return(AsTypeMap(tmap)->DirectMap[ImmediateTag(obj)]);
+
+    return(NoValueObject);
+}
+
+FObject CharPPrimitiveFn(int_t argc, FObject argv[]);
+FObject NullPPrimitiveFn(int_t argc, FObject argv[]);
+FObject BooleanPPrimitiveFn(int_t argc, FObject argv[]);
+FObject EofObjectPPrimitiveFn(int_t argc, FObject argv[]);
+FObject NumberPPrimitiveFn(int_t argc, FObject argv[]);
+FObject BoxPPrimitiveFn(int_t argc, FObject argv[]);
+FObject PairPPrimitiveFn(int_t argc, FObject argv[]);
+FObject StringPPrimitiveFn(int_t argc, FObject argv[]);
+FObject VectorPPrimitiveFn(int_t argc, FObject argv[]);
+FObject BytevectorPPrimitiveFn(int_t argc, FObject argv[]);
+FObject BinaryPortPPrimitiveFn(int_t argc, FObject argv[]);
+FObject TextualPortPPrimitiveFn(int_t argc, FObject argv[]);
+FObject ProcedurePPrimitiveFn(int_t argc, FObject argv[]);
+FObject SymbolPPrimitiveFn(int_t argc, FObject argv[]);
+FObject ThreadPPrimitiveFn(int_t argc, FObject argv[]);
+FObject ExclusivePPrimitiveFn(int_t argc, FObject argv[]);
+FObject ConditionPPrimitiveFn(int_t argc, FObject argv[]);
+FObject EphemeronPPrimitiveFn(int_t argc, FObject argv[]);
+
+int_t TypeMapSet(FObject tmap, FObject typep, FObject val)
+{
+    FAssert(TypeMapP(tmap));
+
+    if (PrimitiveP(typep))
+    {
+        if (AsPrimitive(typep)->PrimitiveFn == CharPPrimitiveFn)
+        {
+            AsTypeMap(tmap)->DirectMap[CharacterTag] = val;
+            return(1);
+        }
+        else if (AsPrimitive(typep)->PrimitiveFn == NullPPrimitiveFn)
+        {
+            AsTypeMap(tmap)->MiscellaneousMap[0] = val;
+            return(1);
+        }
+        else if (AsPrimitive(typep)->PrimitiveFn == BooleanPPrimitiveFn)
+        {
+            AsTypeMap(tmap)->MiscellaneousMap[1] = val;
+            AsTypeMap(tmap)->MiscellaneousMap[2] = val;
+            return(1);
+        }
+        else if (AsPrimitive(typep)->PrimitiveFn == EofObjectPPrimitiveFn)
+        {
+            AsTypeMap(tmap)->MiscellaneousMap[3] = val;
+            return(1);
+        }
+        else if (AsPrimitive(typep)->PrimitiveFn == NumberPPrimitiveFn)
+        {
+            AsTypeMap(tmap)->DirectMap[FixnumTag] = val;
+            AsTypeMap(tmap)->IndirectMap[BignumTag] = val;
+            AsTypeMap(tmap)->IndirectMap[RatioTag] = val;
+            AsTypeMap(tmap)->IndirectMap[ComplexTag] = val;
+            AsTypeMap(tmap)->IndirectMap[FlonumTag] = val;
+            return(1);
+        }
+        else if (AsPrimitive(typep)->PrimitiveFn == BoxPPrimitiveFn)
+        {
+            AsTypeMap(tmap)->IndirectMap[BoxTag] = val;
+            return(1);
+        }
+        else if (AsPrimitive(typep)->PrimitiveFn == PairPPrimitiveFn)
+        {
+            AsTypeMap(tmap)->IndirectMap[PairTag] = val;
+            return(1);
+        }
+        else if (AsPrimitive(typep)->PrimitiveFn == StringPPrimitiveFn)
+        {
+            AsTypeMap(tmap)->IndirectMap[StringTag] = val;
+            return(1);
+        }
+        else if (AsPrimitive(typep)->PrimitiveFn == VectorPPrimitiveFn)
+        {
+            AsTypeMap(tmap)->IndirectMap[VectorTag] = val;
+            return(1);
+        }
+        else if (AsPrimitive(typep)->PrimitiveFn == BytevectorPPrimitiveFn)
+        {
+            AsTypeMap(tmap)->IndirectMap[BytevectorTag] = val;
+            return(1);
+        }
+        else if (AsPrimitive(typep)->PrimitiveFn == BinaryPortPPrimitiveFn)
+        {
+            AsTypeMap(tmap)->IndirectMap[BinaryPortTag] = val;
+            return(1);
+        }
+        else if (AsPrimitive(typep)->PrimitiveFn == TextualPortPPrimitiveFn)
+        {
+            AsTypeMap(tmap)->IndirectMap[TextualPortTag] = val;
+            return(1);
+        }
+        else if (AsPrimitive(typep)->PrimitiveFn == ProcedurePPrimitiveFn)
+        {
+            AsTypeMap(tmap)->IndirectMap[ProcedureTag] = val;
+            AsTypeMap(tmap)->IndirectMap[PrimitiveTag] = val;
+            return(1);
+        }
+        else if (AsPrimitive(typep)->PrimitiveFn == SymbolPPrimitiveFn)
+        {
+            AsTypeMap(tmap)->IndirectMap[SymbolTag] = val;
+            return(1);
+        }
+        else if (AsPrimitive(typep)->PrimitiveFn == ThreadPPrimitiveFn)
+        {
+            AsTypeMap(tmap)->IndirectMap[ThreadTag] = val;
+            return(1);
+        }
+        else if (AsPrimitive(typep)->PrimitiveFn == ExclusivePPrimitiveFn)
+        {
+            AsTypeMap(tmap)->IndirectMap[ExclusiveTag] = val;
+            return(1);
+        }
+        else if (AsPrimitive(typep)->PrimitiveFn == ConditionPPrimitiveFn)
+        {
+            AsTypeMap(tmap)->IndirectMap[ConditionTag] = val;
+            return(1);
+        }
+        else if (AsPrimitive(typep)->PrimitiveFn == EphemeronPPrimitiveFn)
+        {
+            AsTypeMap(tmap)->IndirectMap[EphemeronTag] = val;
+            return(1);
+        }
+    }
+
+    return(0);
+}
+
+Define("make-type-map", MakeTypeMapPrimitive)(int_t argc, FObject argv[])
+{
+    ZeroArgsCheck("make-type-map", argc);
+
+    return(MakeTypeMap());
+}
+
+Define("type-map-ref", TypeMapRefPrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("type-map-ref", argc);
+    TypeMapArgCheck("type-map-ref", argv[0]);
+
+    return(TypeMapRef(argv[0], argv[1]));
+}
+
+Define("type-map-set!", TypeMapSetPrimitive)(int_t argc, FObject argv[])
+{
+    ThreeArgsCheck("type-map-set!", argc);
+    TypeMapArgCheck("type-map-set!", argv[0]);
+
+    if (TypeMapSet(argv[0], argv[1], argv[2]) == 0)
+        RaiseExceptionC(Assertion, "type-map-set!", "expected a predicate", List(argv[1]));
+
+    return(NoValueObject);
+}
+
 // ---- Primitives ----
 
 static FObject Primitives[] =
@@ -960,7 +1158,10 @@ static FObject Primitives[] =
     BoxPrimitive,
     BoxPPrimitive,
     UnboxPrimitive,
-    SetBoxPrimitive
+    SetBoxPrimitive,
+    MakeTypeMapPrimitive,
+    TypeMapRefPrimitive,
+    TypeMapSetPrimitive
 };
 
 // ----------------

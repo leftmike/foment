@@ -189,6 +189,7 @@ typedef enum
     HashTreeTag,
     IdentifierTag,
     EphemeronTag,
+    TypeMapTag,
     FreeTag, // Only on Adult Generation
     BadDogTag // Invalid Tag
 } FIndirectTag;
@@ -993,7 +994,7 @@ typedef struct
 
 #define Define(name, prim) \
     EternalSymbol(prim ## Symbol, name); \
-    static FObject prim ## Fn(int_t argc, FObject argv[]);\
+    FObject prim ## Fn(int_t argc, FObject argv[]);\
     static FEternalPrimitive prim ## Object = { \
         EternalObjHdrSlots(FPrimitive, 1, PrimitiveTag), \
         .Primitive.Name = prim ## Symbol, \
@@ -1003,7 +1004,7 @@ typedef struct
         EternalObjFtr \
     }; \
     FObject prim = &prim ## Object.Primitive; \
-    static FObject prim ## Fn
+    FObject prim ## Fn
 
 void DefinePrimitive(FObject env, FObject lib, FObject prim);
 
@@ -1027,6 +1028,22 @@ inline int_t EphemeronBrokenP(FObject obj)
 
     return(AsEphemeron(obj)->Broken);
 }
+
+// ---- Type maps ----
+
+#define TypeMapP(obj) (IndirectTag(obj) == TypeMapTag)
+#define AsTypeMap(obj) ((FTypeMap *) (obj))
+
+typedef struct
+{
+    FObject DirectMap[8];
+    FObject MiscellaneousMap[4]; // null?, #f, #t, eof-object?
+    FObject IndirectMap[FreeTag];
+} FTypeMap;
+
+FObject MakeTypeMap();
+FObject TypeMapRef(FObject tmap, FObject obj);
+int_t TypeMapSet(FObject tmap, FObject typep, FObject val);
 
 // ---- Roots ----
 
@@ -1808,6 +1825,12 @@ inline void EphemeronArgCheck(const char * who, FObject obj)
 {
     if (EphemeronP(obj) == 0)
         RaiseExceptionC(Assertion, who, "expected an ephemeron", List(obj));
+}
+
+inline void TypeMapArgCheck(const char * who, FObject obj)
+{
+    if (TypeMapP(obj) == 0)
+        RaiseExceptionC(Assertion, who, "expected a type-map", List(obj));
 }
 
 // ----------------

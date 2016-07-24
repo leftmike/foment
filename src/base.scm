@@ -564,7 +564,10 @@
         config
         set-config!
         reverse!
-        full-command-line)
+        full-command-line
+        make-type-map
+        type-map-ref
+        type-map-set!)
     (cond-expand
         (unix
             (export

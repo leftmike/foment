@@ -718,6 +718,7 @@ static const char * IndirectTagString[] =
     "hash-tree",
     "identifier",
     "ephemeron",
+    "type-map",
     "free"
 };
 

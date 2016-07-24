@@ -632,6 +632,17 @@ static void WriteObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
         break;
     }
 
+    case TypeMapTag:
+    {
+        FCh s[16];
+        int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+
+        WriteStringC(port, "#<type-map: ");
+        WriteString(port, s, sl);
+        WriteCh(port, '>');
+        break;
+    }
+
     default:
     {
         FCh s[16];
