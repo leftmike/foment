@@ -493,7 +493,8 @@ FObject StringToSymbol(FObject str)
 {
     FAssert(StringP(str));
 
-    uint_t idx = StringHash(str) % HASH_MODULO;
+    uint_t hsh = StringHash(str);
+    uint_t idx = hsh % HASH_MODULO;
     FObject lst = HashTreeRef(SymbolHashTree, idx, MakeFixnum(idx));
     FObject obj = lst;
 
@@ -508,6 +509,7 @@ FObject StringToSymbol(FObject str)
 
     FSymbol * sym = (FSymbol *) MakeObject(SymbolTag, sizeof(FSymbol), 1, "string->symbol");
     sym->String = str;
+    sym->Hash = hsh;
 
     SymbolHashTree = HashTreeSet(SymbolHashTree, idx, MakePair(sym, lst));
 
@@ -516,7 +518,8 @@ FObject StringToSymbol(FObject str)
 
 FObject StringLengthToSymbol(FCh * s, int_t sl)
 {
-    uint_t idx = StringLengthHash(s, sl) % HASH_MODULO;
+    uint_t hsh = StringLengthHash(s, sl);
+    uint_t idx = hsh % HASH_MODULO;
     FObject lst = HashTreeRef(SymbolHashTree, idx, MakeFixnum(idx));
     FObject obj = lst;
 
@@ -531,35 +534,11 @@ FObject StringLengthToSymbol(FCh * s, int_t sl)
 
     FSymbol * sym = (FSymbol *) MakeObject(SymbolTag, sizeof(FSymbol), 1, "string->symbol");
     sym->String = MakeString(s, sl);
+    sym->Hash = hsh;
 
     SymbolHashTree = HashTreeSet(SymbolHashTree, idx, MakePair(sym, lst));
 
     return(sym);
-}
-
-static uint_t CStringHash(const char * s)
-{
-    uint_t h = 0;
-
-    while (*s)
-    {
-        h = ((h << 5) + h) + *s;
-        s += 1;
-    }
-
-    return(h);
-}
-
-uint_t SymbolHash(FObject obj)
-{
-    FAssert(SymbolP(obj));
-
-    if (StringP(AsSymbol(obj)->String))
-        return(StringHash(AsSymbol(obj)->String));
-
-    FAssert(CStringP(AsSymbol(obj)->String));
-
-    return(CStringHash(AsCString(AsSymbol(obj)->String)->String));
 }
 
 static int_t CStringCompare(const char * s, FObject obj)
@@ -610,9 +589,12 @@ FObject InternSymbol(FObject sym)
     FAssert(CStringP(AsSymbol(sym)->String));
     FAssert(AsObjHdr(AsSymbol(sym)->String)->Generation() == OBJHDR_GEN_ETERNAL);
 
-    uint_t idx = SymbolHash(sym) % HASH_MODULO;
+    uint_t hsh = CStringHash(AsCString(AsSymbol(sym)->String)->String);
+    uint_t idx = hsh % HASH_MODULO;
     FObject lst = HashTreeRef(SymbolHashTree, idx, MakeFixnum(idx));
     FObject obj = lst;
+
+    AsSymbol(sym)->Hash = hsh;
 
     while (PairP(obj))
     {

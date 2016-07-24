@@ -970,7 +970,7 @@
 ;; ---- SRFI 124: Ephemerons ----
 ;;
 
-(import (srfi 124))
+(import (scheme ephemeron))
 
 (test-when (not (eq? (cdr (assq 'collector (config))) 'none))
 

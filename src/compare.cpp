@@ -4,7 +4,17 @@ Foment
 
 */
 
+#ifdef FOMENT_WINDOWS
+#include <windows.h>
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+#include <pthread.h>
+#endif // FOMENT_UNIX
+
 #include "foment.hpp"
+#include "syncthrd.hpp"
+#include "unicode.hpp"
 
 // ---- Roots ----
 
@@ -13,41 +23,51 @@ FObject EqComparator = NoValueObject;
 
 // ---- Comparator ----
 
+Define("no-ordering-predicate", NoOrderingPredicatePrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("no-ordering-predicate", argc);
+
+    RaiseExceptionC(Assertion, "no-ordering-predicate", "no ordering predicate available",
+            EmptyListObject);
+    return(NoValueObject);
+}
+
+Define("no-hash-function", NoHashFunctionPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("no-hash-function", argc);
+
+    RaiseExceptionC(Assertion, "no-hash-function", "no hash function available", EmptyListObject);
+    return(NoValueObject);
+}
+
+// ---- Comparator ----
+
 EternalBuiltinType(ComparatorType, "comparator", 0);
 
-static FObject MakeComparator(FObject ttfn, FObject eqfn, FObject compfn, FObject hashfn)
+static FObject MakeComparator(FObject ttp, FObject eqp, FObject orderp, FObject hashfn)
 {
-    FAssert(ttfn == TrueObject || ProcedureP(ttfn) || PrimitiveP(ttfn));
-    FAssert(ProcedureP(eqfn) || PrimitiveP(eqfn));
-    FAssert(compfn == FalseObject || ProcedureP(compfn) || PrimitiveP(compfn));
-    FAssert(hashfn == FalseObject || ProcedureP(hashfn) || PrimitiveP(hashfn));
-
-
-    FComparator * comp = (FComparator *) MakeBuiltin(ComparatorType, sizeof(FComparator), 7,
+    FComparator * comp = (FComparator *) MakeBuiltin(ComparatorType, sizeof(FComparator), 5,
             "make-comparator");
-    comp->TypeTestFn = (ttfn == TrueObject ? AnyPPrimitive : ttfn);
-    comp->EqualityFn = eqfn;
-    comp->ComparisonFn = (compfn == FalseObject ? NoComparePrimitive : compfn);
-    comp->HashFn = (hashfn == FalseObject ? NoHashPrimitive : hashfn);
-    comp->HasComparison = (compfn == FalseObject ? FalseObject : TrueObject);
-    comp->HasHash = (hashfn == FalseObject ? FalseObject : TrueObject);
+    comp->TypeTestP = ttp;
+    comp->EqualityP = eqp;
+    comp->OrderingP = (orderp == FalseObject ? NoOrderingPredicatePrimitive : orderp);
+    comp->HashFn = (hashfn == FalseObject ? NoHashFunctionPrimitive : hashfn);
+    comp->Context = NoValueObject;
 
     return(comp);
 }
 
-void DefineComparator(const char * nam, FObject ttprim, FObject eqprim, FObject compprim,
-        FObject hashprim)
+void DefineComparator(const char * nam, FObject ttp, FObject eqp, FObject orderp, FObject hashfn)
 {
     LibraryExport(BedrockLibrary, EnvironmentSetC(Bedrock, nam,
-            MakeComparator(ttprim, eqprim, compprim, hashprim)));
+            MakeComparator(ttp, eqp, orderp, hashfn)));
 }
 
-Define("%make-comparator", MakeComparatorPrimitive)(int_t argc, FObject argv[])
+Define("make-comparator", MakeComparatorPrimitive)(int_t argc, FObject argv[])
 {
     FourArgsCheck("make-comparator", argc);
 
-    if (argv[0] != TrueObject)
-        ProcedureArgCheck("make-comparator", argv[0]);
+    ProcedureArgCheck("make-comparator", argv[0]);
     ProcedureArgCheck("make-comparator", argv[1]);
     if (argv[2] != FalseObject)
         ProcedureArgCheck("make-comparator", argv[2]);
@@ -64,13 +84,13 @@ Define("comparator?", ComparatorPPrimitive)(int_t argc, FObject argv[])
     return(ComparatorP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("comparator-type-test-procedure", ComparatorTypeTestProcedurePrimitive)(int_t argc,
+Define("comparator-type-test-predicate", ComparatorTypeTestPredicatePrimitive)(int_t argc,
     FObject argv[])
 {
-    OneArgCheck("comparator-type-test-procedure", argc);
-    ComparatorArgCheck("comparator-type-test-procedure", argv[0]);
+    OneArgCheck("comparator-type-test-predicate", argc);
+    ComparatorArgCheck("comparator-type-test-predicate", argv[0]);
 
-    return(AsComparator(argv[0])->TypeTestFn);
+    return(AsComparator(argv[0])->TypeTestP);
 }
 
 Define("comparator-equality-predicate", ComparatorEqualityPredicatePrimitive)(int_t argc,
@@ -79,16 +99,16 @@ Define("comparator-equality-predicate", ComparatorEqualityPredicatePrimitive)(in
     OneArgCheck("comparator-equality-predicate", argc);
     ComparatorArgCheck("comparator-equality-predicate", argv[0]);
 
-    return(AsComparator(argv[0])->EqualityFn);
+    return(AsComparator(argv[0])->EqualityP);
 }
 
-Define("comparator-comparison-procedure", ComparatorComparisonProcedurePrimitive)(int_t argc,
+Define("comparator-ordering-predicate", ComparatorOrderingPredicatePrimitive)(int_t argc,
     FObject argv[])
 {
-    OneArgCheck("comparator-comparison-procedure", argc);
-    ComparatorArgCheck("comparator-comparison-procedure", argv[0]);
+    OneArgCheck("comparator-ordering-predicate", argc);
+    ComparatorArgCheck("comparator-ordering-predicate", argv[0]);
 
-    return(AsComparator(argv[0])->ComparisonFn);
+    return(AsComparator(argv[0])->OrderingP);
 }
 
 Define("comparator-hash-function", ComparatorHashFunctionPrimitive)(int_t argc, FObject argv[])
@@ -99,43 +119,38 @@ Define("comparator-hash-function", ComparatorHashFunctionPrimitive)(int_t argc, 
     return(AsComparator(argv[0])->HashFn);
 }
 
-Define("comparator-comparison-procedure?", ComparatorComparisonProcedurePPrimitive)(int_t argc,
+Define("comparator-ordered?", ComparatorOrderedPPrimitive)(int_t argc,
     FObject argv[])
 {
-    OneArgCheck("comparator-comparison-procedure?", argc);
-    ComparatorArgCheck("comparator-comparison-procedure?", argv[0]);
+    OneArgCheck("comparator-ordered?", argc);
+    ComparatorArgCheck("comparator-ordered?", argv[0]);
 
-    return(AsComparator(argv[0])->HasComparison);
+    return(AsComparator(argv[0])->OrderingP == NoOrderingPredicatePrimitive ? FalseObject :
+            TrueObject);
 }
 
-Define("comparator-hash-function?", ComparatorHashFunctionPPrimitive)(int_t argc, FObject argv[])
+Define("comparator-hashable?", ComparatorHashablePPrimitive)(int_t argc, FObject argv[])
 {
-    OneArgCheck("comparator-hash-function?", argc);
-    ComparatorArgCheck("comparator-hash-function?", argv[0]);
+    OneArgCheck("comparator-hashable?", argc);
+    ComparatorArgCheck("comparator-hashable?", argv[0]);
 
-    return(AsComparator(argv[0])->HasHash);
+    return(AsComparator(argv[0])->HashFn == NoHashFunctionPrimitive ? FalseObject : TrueObject);
 }
 
-Define("any?", AnyPPrimitive)(int_t argc, FObject argv[])
+Define("comparator-context", ComparatorContextPrimitive)(int_t argc, FObject argv[])
 {
-    OneArgCheck("any?", argc);
+    OneArgCheck("comparator-context", argc);
+    ComparatorArgCheck("comparator-context", argv[0]);
 
-    return(TrueObject);
+    return(AsComparator(argv[0])->Context);
 }
 
-Define("no-hash", NoHashPrimitive)(int_t argc, FObject argv[])
+Define("comparator-context-set!", ComparatorContextSetPrimitive)(int_t argc, FObject argv[])
 {
-    OneArgCheck("no-hash", argc);
+    TwoArgsCheck("comparator-context-set!", argc);
+    ComparatorArgCheck("comparator-context-set!", argv[0]);
 
-    RaiseExceptionC(Assertion, "no-hash", "no hash function available", EmptyListObject);
-    return(NoValueObject);
-}
-
-Define("no-compare", NoComparePrimitive)(int_t argc, FObject argv[])
-{
-    TwoArgsCheck("no-compare", argc);
-
-    RaiseExceptionC(Assertion, "no-compare", "no compare function available", EmptyListObject);
+    AsComparator(argv[0])->Context = argv[1];
     return(NoValueObject);
 }
 
@@ -161,7 +176,6 @@ uint_t EqHash(FObject obj)
 {
     return(((uint_t) obj) >> 3);
 }
-
 
 // ---- Equal ----
 //
@@ -353,6 +367,106 @@ Define("eq-hash", EqHashPrimitive)(int_t argc, FObject argv[])
     OneArgCheck("eq-hash", argc);
 
     return(MakeFixnum(EqHash(argv[0]) & MAXIMUM_FIXNUM));
+}
+
+// ---- Hashing ----
+
+inline uint_t HashBound()
+{
+    FAssert(PairP(IndexParameter(INDEX_PARAMETER_HASH_BOUND)));
+    FAssert(FixnumP(First(IndexParameter(INDEX_PARAMETER_HASH_BOUND))));
+
+    return(AsFixnum(First(IndexParameter(INDEX_PARAMETER_HASH_BOUND))));
+}
+
+inline uint_t HashSalt()
+{
+    FAssert(PairP(IndexParameter(INDEX_PARAMETER_HASH_SALT)));
+    FAssert(FixnumP(First(IndexParameter(INDEX_PARAMETER_HASH_SALT))));
+
+    return(AsFixnum(First(IndexParameter(INDEX_PARAMETER_HASH_SALT))));
+}
+
+Define("%check-hash-bound", CheckHashBoundPrimitive)(int_t argc, FObject argv[])
+{
+    FMustBe(argc == 1);
+    NonNegativeArgCheck("%check-hash-bound", argv[0], 1);
+
+    if (BignumP(argv[0]))
+        return(MakeFixnum(MAXIMUM_FIXNUM));
+
+    FAssert(FixnumP(argv[0]));
+
+    return(argv[0]);
+}
+
+Define("%check-hash-salt", CheckHashSaltPrimitive)(int_t argc, FObject argv[])
+{
+    FMustBe(argc == 1);
+    NonNegativeArgCheck("%check-hash-salt", argv[0], 1);
+
+    if (BignumP(argv[0]))
+        return(MakeFixnum(MAXIMUM_FIXNUM));
+
+    FAssert(FixnumP(argv[0]));
+
+    return(argv[0]);
+}
+
+Define("boolean-hash", BooleanHashPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("boolean-hash", argc);
+    BooleanArgCheck("boolean-hash", argv[0]);
+
+    return(MakeFixnum(argv[0] == FalseObject ? 0 : HashSalt() % HashBound()));
+}
+
+Define("char-hash", CharHashPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("char-hash", argc);
+    CharacterArgCheck("char-hash", argv[0]);
+
+    return(MakeFixnum((AsCharacter(argv[0]) * HashSalt()) % HashBound()));
+}
+
+Define("char-ci-hash", CharCiHashPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("char-ci-hash", argc);
+    CharacterArgCheck("char-ci-hash", argv[0]);
+
+    return(MakeFixnum((CharFoldcase(AsCharacter(argv[0])) * HashSalt()) % HashBound()));
+}
+
+Define("string-hash", StringHashPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("string-hash", argc);
+    StringArgCheck("string-hash", argv[0]);
+
+    return(MakeFixnum((StringHash(argv[0]) * HashSalt()) % HashBound()));
+}
+
+Define("string-ci-hash", StringCiHashPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("string-ci-hash", argc);
+    StringArgCheck("string-ci-hash", argv[0]);
+
+    return(MakeFixnum((StringCiHash(argv[0]) * HashSalt()) % HashBound()));
+}
+
+Define("symbol-hash", SymbolHashPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("symbol-hash", argc);
+    SymbolArgCheck("symbol-hash", argv[0]);
+
+    return(MakeFixnum((SymbolHash(argv[0]) * HashSalt()) % HashBound()));
+}
+
+Define("number-hash", NumberHashPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("number-hash", argc);
+    NumberArgCheck("number-hash", argv[0]);
+
+    return(MakeFixnum((NumberHash(argv[0]) * HashSalt()) % HashBound()));
 }
 
 // ---- Default Comparator ----
@@ -644,22 +758,40 @@ Define("default-compare", DefaultComparePrimitive)(int_t argc, FObject argv[])
     return(MakeFixnum(DefaultCompare(argv[0], argv[1])));
 }
 
+Define("any?", AnyPPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("any?", argc);
+
+    return(TrueObject);
+}
+
 // ---- Primitives ----
 
 static FObject Primitives[] =
 {
     MakeComparatorPrimitive,
     ComparatorPPrimitive,
-    ComparatorTypeTestProcedurePrimitive,
+    ComparatorTypeTestPredicatePrimitive,
     ComparatorEqualityPredicatePrimitive,
-    ComparatorComparisonProcedurePrimitive,
+    ComparatorOrderingPredicatePrimitive,
     ComparatorHashFunctionPrimitive,
-    ComparatorComparisonProcedurePPrimitive,
-    ComparatorHashFunctionPPrimitive,
+    ComparatorOrderedPPrimitive,
+    ComparatorHashablePPrimitive,
+    ComparatorContextPrimitive,
+    ComparatorContextSetPrimitive,
     EqvPPrimitive,
     EqPPrimitive,
     EqualPPrimitive,
-    EqHashPrimitive
+    EqHashPrimitive,
+    CheckHashBoundPrimitive,
+    CheckHashSaltPrimitive,
+    BooleanHashPrimitive,
+    CharHashPrimitive,
+    CharCiHashPrimitive,
+    StringHashPrimitive,
+    StringCiHashPrimitive,
+    SymbolHashPrimitive,
+    NumberHashPrimitive
 };
 
 void SetupCompare()

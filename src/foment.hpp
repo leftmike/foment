@@ -9,7 +9,18 @@ To Do:
 -- after partial GC, test for objects pointing to Babies
 -- Use extra generation for immortal objects which are precompiled libraries
 
+HashTree and Comparator:
+-- get rid of DefineComparator
+-- replace srfi 114 with srfi 128
+-- Change all Compare to OrderingP
+-- EqComparator and AnyPPimitive
+-- DefaultComparator
+-- probably replace HashTree with HashTable
+-- add sets: HashSet
+-- add bags: HashBag
+
 Future:
+-- change EternalSymbol (and Define) to set Symbol->Hash at compile time
 -- allow larger objects by using BlockSize > 1 in FObjHdr
 -- maybe add ObjectHash like MIT Scheme and get rid of trackers
 -- pull options from FOMENT_OPTIONS environment variable
@@ -35,11 +46,6 @@ Future:
     (lambda (x) (* x n))
     > (map #2 ’(1 2 3 4 5))
     (2 4 6 8 10)
-
-HashTree and Comparator:
--- replace srfi 114 with srfi 128
--- add sets: HashSet
--- add bags: HashBag
 
 Compiler:
 -- get rid of -no-inline-procedures and -no-inline-imports
@@ -204,7 +210,6 @@ typedef enum
     ConditionTag,
     HashTreeTag,
     EphemeronTag,
-    TypeMapTag,
     BuiltinTypeTag,
     BuiltinTag,
     FreeTag, // Only on Adult Generation
@@ -585,8 +590,10 @@ inline uint_t StringLength(FObject obj)
 
 void StringToC(FObject s, char * b, int_t bl);
 FObject FoldcaseString(FObject s);
-uint_t StringLengthHash(FCh * s, uint_t sl);
-uint_t StringHash(FObject obj);
+uint32_t StringLengthHash(FCh * s, uint_t sl);
+uint32_t StringHash(FObject obj);
+uint32_t StringCiHash(FObject obj);
+uint32_t CStringHash(const char * s);
 int_t StringLengthEqualP(FCh * s, int_t sl, FObject obj);
 int_t StringCEqualP(const char * s1, FCh * s2, int_t sl2);
 int_t StringCompare(FObject obj1, FObject obj2);
@@ -940,16 +947,14 @@ extern FObject ComparatorType;
 typedef struct
 {
     FObject BuiltinType;
-    FObject TypeTestFn;
-    FObject EqualityFn;
-    FObject ComparisonFn;
+    FObject TypeTestP;
+    FObject EqualityP;
+    FObject OrderingP;
     FObject HashFn;
-    FObject HasComparison;
-    FObject HasHash;
+    FObject Context;
 } FComparator;
 
-void DefineComparator(const char * nam, FObject ttprim, FObject eqprim, FObject compprim,
-        FObject hashprim);
+void DefineComparator(const char * nam, FObject ttp, FObject eqp, FObject orderp, FObject hashfn);
 
 int_t EqP(FObject obj1, FObject obj2);
 int_t EqvP(FObject obj1, FObject obj2);
@@ -1016,16 +1021,16 @@ typedef FHashContainer FHashBag;
 typedef struct
 {
     FObject String;
-#ifdef FOMENT_32BIT
-    uint_t Unused;
-#endif // FOMENT_32BIT
+    uint32_t Hash;
+#ifdef FOMENT_64BIT
+    uint32_t Unused;
+#endif // FOMENT_64BIT
 } FSymbol;
 
 FObject SymbolToString(FObject sym);
 FObject StringToSymbol(FObject str);
 FObject StringCToSymbol(const char * s);
 FObject StringLengthToSymbol(FCh * s, int_t sl);
-uint_t SymbolHash(FObject obj);
 int_t SymbolCompare(FObject obj1, FObject obj2);
 FObject AddPrefixToSymbol(FObject str, FObject sym);
 
@@ -1070,6 +1075,17 @@ typedef struct FALIGN
     FObject name = &name ## Object.Symbol;
 
 FObject InternSymbol(FObject sym);
+
+inline uint_t SymbolHash(FObject obj)
+{
+    FAssert(SymbolP(obj));
+    FAssert((StringP(AsSymbol(obj)->String) &&
+                AsSymbol(obj)->Hash == StringHash(AsSymbol(obj)->String)) ||
+           (CStringP(AsSymbol(obj)->String) &&
+                AsSymbol(obj)->Hash == CStringHash(AsCString(AsSymbol(obj)->String)->String)));
+
+    return(AsSymbol(obj)->Hash);
+}
 
 // ---- Primitives ----
 
@@ -1126,24 +1142,6 @@ inline int_t EphemeronBrokenP(FObject obj)
     return(AsEphemeron(obj)->Broken);
 }
 
-// ---- Type maps ----
-
-#define TypeMapP(obj) (IndirectTag(obj) == TypeMapTag)
-#define AsTypeMap(obj) ((FTypeMap *) (obj))
-
-#define MISCELLANEOUS_TAG_OFFSET 8
-#define INDIRECT_TAG_OFFSET 10
-#define TAG_MAP_SIZE (FreeTag + INDIRECT_TAG_OFFSET)
-
-typedef struct
-{
-    FObject TagMap[TAG_MAP_SIZE]; // direct tags, null?, eof-object?, indirect tags
-} FTypeMap;
-
-FObject MakeTypeMap();
-FObject TypeMapRef(FObject tmap, FObject obj);
-int_t TypeMapSet(FObject tmap, FObject typep, FObject val);
-
 // ---- Roots ----
 
 void RegisterRoot(FObject * root, const char * name);
@@ -1182,9 +1180,6 @@ extern FObject Syntax;
 extern FObject Error;
 extern FObject FileErrorSymbol;
 extern FObject NoValuePrimitive;
-extern FObject AnyPPrimitive;
-extern FObject NoComparePrimitive;
-extern FObject NoHashPrimitive;
 
 // ---- Flonums ----
 
@@ -1443,7 +1438,12 @@ typedef struct _FYoungSection
 #endif // FOMENT_32BIT
 } FYoungSection;
 
-#define INDEX_PARAMETERS 3
+#define INDEX_PARAMETERS 5
+#define INDEX_PARAMETER_CURRENT_INPUT_PORT 0
+#define INDEX_PARAMETER_CURRENT_OUTPUT_PORT 1
+#define INDEX_PARAMETER_CURRENT_ERROR_PORT 2
+#define INDEX_PARAMETER_HASH_BOUND 3
+#define INDEX_PARAMETER_HASH_SALT 4
 
 typedef struct _FThreadState
 {
@@ -1870,12 +1870,6 @@ inline void EphemeronArgCheck(const char * who, FObject obj)
 {
     if (EphemeronP(obj) == 0)
         RaiseExceptionC(Assertion, who, "expected an ephemeron", List(obj));
-}
-
-inline void TypeMapArgCheck(const char * who, FObject obj)
-{
-    if (TypeMapP(obj) == 0)
-        RaiseExceptionC(Assertion, who, "expected a type-map", List(obj));
 }
 
 // ----------------

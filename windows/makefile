@@ -154,7 +154,7 @@ debug\read.obj: ..\src\read.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.
     ..\src\unicode.hpp
 debug\filesys.obj: ..\src\filesys.cpp ..\src\foment.hpp ..\src\unicode.hpp
 debug\hcontain.obj: ..\src\hcontain.cpp ..\src\foment.hpp
-debug\compare.obj: ..\src\compare.cpp ..\src\foment.hpp
+debug\compare.obj: ..\src\compare.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\unicode.hpp
 debug\main.obj: ..\src\main.cpp ..\src\foment.hpp
 debug\base.obj: debug\base.cpp
 
@@ -184,7 +184,7 @@ release\read.obj: ..\src\read.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\i
     ..\src\unicode.hpp
 release\filesys.obj: ..\src\filesys.cpp ..\src\foment.hpp ..\src\unicode.hpp
 release\hcontain.obj: ..\src\hcontain.cpp ..\src\foment.hpp
-release\compare.obj: ..\src\compare.cpp ..\src\foment.hpp
+release\compare.obj: ..\src\compare.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\unicode.hpp
 release\main.obj: ..\src\main.cpp ..\src\foment.hpp
 release\base.obj: debug\base.cpp
 

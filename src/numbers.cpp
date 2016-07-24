@@ -3370,14 +3370,6 @@ Define("number-compare", NumberComparePrimitive)(int_t argc, FObject argv[])
     return(MakeFixnum(NumberCompare(argv[0], argv[1])));
 }
 
-Define("number-hash", NumberHashPrimitive)(int_t argc, FObject argv[])
-{
-    OneArgCheck("number-hash", argc);
-    NumberArgCheck("number-hash", argv[0]);
-
-    return(MakeFixnum(NumberHash(argv[0]) & MAXIMUM_FIXNUM));
-}
-
 static FObject Primitives[] =
 {
     NumberPPrimitive,
@@ -3447,8 +3439,7 @@ static FObject Primitives[] =
     IntegerLengthPrimitive,
     FirstSetBitPrimitive,
     ArithmeticShiftPrimitive,
-    NumberComparePrimitive,
-    NumberHashPrimitive
+    NumberComparePrimitive
 };
 
 void SetupNumbers()

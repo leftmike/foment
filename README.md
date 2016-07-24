@@ -16,6 +16,7 @@
 * SRFI 111: Boxes.
 * SRFI 112: Environment Inquiry.
 * SRFI 124: Ephemerons.
+* SRFI 128: Comparators.
 
 See [Foment](https://github.com/leftmike/foment/wiki/Foment) for more details.
 

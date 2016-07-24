@@ -547,17 +547,6 @@ void FWriteContext::WriteObject(FObject obj)
         break;
     }
 
-    case TypeMapTag:
-    {
-        FCh s[16];
-        int_t sl = FixnumAsString((FFixnum) obj, s, 16);
-
-        WriteStringC("#<type-map: ");
-        WriteString(s, sl);
-        WriteCh('>');
-        break;
-    }
-
     case BuiltinTypeTag:
         WriteStringC("#<");
         WriteStringC(AsBuiltinType(obj)->Name);

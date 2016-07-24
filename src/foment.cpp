@@ -974,44 +974,28 @@ Define("set-box!", SetBoxPrimitive)(int_t argc, FObject argv[])
 
 // ---- Type maps ----
 
-/*
-(make-type-map)
-(type-map-ref <type-map> <obj>)
-(type-map-set! <type-map> <type-test> <value>)
-*/
+#define MISCELLANEOUS_TAG_OFFSET 8
+#define INDIRECT_TAG_OFFSET 10
 
-FObject MakeTypeMap()
+static int_t ObjectTypeTag(FObject obj)
 {
-    uint_t idx;
-    FTypeMap * tmap = (FTypeMap *) MakeObject(TypeMapTag, sizeof(FTypeMap),
-            sizeof(FTypeMap) / sizeof(FObject), "type-map");
-    for (idx = 0; idx < TAG_MAP_SIZE; idx++)
-        tmap->TagMap[idx] = NoValueObject;
-
-    return(tmap);
-}
-
-FObject TypeMapRef(FObject tmap, FObject obj)
-{
-    FAssert(TypeMapP(tmap));
-
     if (ObjectP(obj))
     {
         uint32_t tag = AsObjHdr(obj)->Tag();
 
         FAssert(tag >= 1 && tag < FreeTag);
 
-        return(AsTypeMap(tmap)->TagMap[tag + INDIRECT_TAG_OFFSET]);
+        return(tag + INDIRECT_TAG_OFFSET);
     }
     else if (ImmediateTag(obj) == MiscellaneousTag)
     {
         if (AsValue(obj) < INDIRECT_TAG_OFFSET - MISCELLANEOUS_TAG_OFFSET)
-            return(AsTypeMap(tmap)->TagMap[AsValue(obj) + MISCELLANEOUS_TAG_OFFSET]);
+            return(AsValue(obj) + MISCELLANEOUS_TAG_OFFSET);
     }
     else
-        return(AsTypeMap(tmap)->TagMap[ImmediateTag(obj)]);
+        return(ImmediateTag(obj));
 
-    return(NoValueObject);
+    return(-1);
 }
 
 FObject CharPPrimitiveFn(int_t argc, FObject argv[]);
@@ -1033,136 +1017,71 @@ FObject ExclusivePPrimitiveFn(int_t argc, FObject argv[]);
 FObject ConditionPPrimitiveFn(int_t argc, FObject argv[]);
 FObject EphemeronPPrimitiveFn(int_t argc, FObject argv[]);
 
-int_t TypeMapSet(FObject tmap, FObject typep, FObject val)
+static FObject LookupTypeTags(FObject ttp)
 {
-    FAssert(TypeMapP(tmap));
-
-    if (PrimitiveP(typep))
+    if (PrimitiveP(ttp))
     {
-        if (AsPrimitive(typep)->PrimitiveFn == CharPPrimitiveFn)
-        {
-            AsTypeMap(tmap)->TagMap[CharacterTag + INDIRECT_TAG_OFFSET] = val;
-            return(1);
-        }
-        else if (AsPrimitive(typep)->PrimitiveFn == NullPPrimitiveFn)
-        {
-            AsTypeMap(tmap)->TagMap[AsValue(EmptyListObject) + MISCELLANEOUS_TAG_OFFSET] = val;
-            return(1);
-        }
-        else if (AsPrimitive(typep)->PrimitiveFn == EofObjectPPrimitiveFn)
-        {
-            AsTypeMap(tmap)->TagMap[AsValue(EndOfFileObject) + MISCELLANEOUS_TAG_OFFSET] = val;
-            return(1);
-        }
-        else if (AsPrimitive(typep)->PrimitiveFn == BooleanPPrimitiveFn)
-        {
-            AsTypeMap(tmap)->TagMap[BooleanTag] = val;
-            return(1);
-        }
-        else if (AsPrimitive(typep)->PrimitiveFn == NumberPPrimitiveFn)
-        {
-            AsTypeMap(tmap)->TagMap[FixnumTag] = val;
-            AsTypeMap(tmap)->TagMap[BignumTag + INDIRECT_TAG_OFFSET] = val;
-            AsTypeMap(tmap)->TagMap[RatioTag + INDIRECT_TAG_OFFSET] = val;
-            AsTypeMap(tmap)->TagMap[ComplexTag + INDIRECT_TAG_OFFSET] = val;
-            AsTypeMap(tmap)->TagMap[FlonumTag + INDIRECT_TAG_OFFSET] = val;
-            return(1);
-        }
-        else if (AsPrimitive(typep)->PrimitiveFn == BoxPPrimitiveFn)
-        {
-            AsTypeMap(tmap)->TagMap[BoxTag + INDIRECT_TAG_OFFSET] = val;
-            return(1);
-        }
-        else if (AsPrimitive(typep)->PrimitiveFn == PairPPrimitiveFn)
-        {
-            AsTypeMap(tmap)->TagMap[PairTag + INDIRECT_TAG_OFFSET] = val;
-            return(1);
-        }
-        else if (AsPrimitive(typep)->PrimitiveFn == StringPPrimitiveFn)
-        {
-            AsTypeMap(tmap)->TagMap[StringTag + INDIRECT_TAG_OFFSET] = val;
-            return(1);
-        }
-        else if (AsPrimitive(typep)->PrimitiveFn == VectorPPrimitiveFn)
-        {
-            AsTypeMap(tmap)->TagMap[VectorTag + INDIRECT_TAG_OFFSET] = val;
-            return(1);
-        }
-        else if (AsPrimitive(typep)->PrimitiveFn == BytevectorPPrimitiveFn)
-        {
-            AsTypeMap(tmap)->TagMap[BytevectorTag + INDIRECT_TAG_OFFSET] = val;
-            return(1);
-        }
-        else if (AsPrimitive(typep)->PrimitiveFn == BinaryPortPPrimitiveFn)
-        {
-            AsTypeMap(tmap)->TagMap[BinaryPortTag + INDIRECT_TAG_OFFSET] = val;
-            return(1);
-        }
-        else if (AsPrimitive(typep)->PrimitiveFn == TextualPortPPrimitiveFn)
-        {
-            AsTypeMap(tmap)->TagMap[TextualPortTag + INDIRECT_TAG_OFFSET] = val;
-            return(1);
-        }
-        else if (AsPrimitive(typep)->PrimitiveFn == ProcedurePPrimitiveFn)
-        {
-            AsTypeMap(tmap)->TagMap[ProcedureTag + INDIRECT_TAG_OFFSET] = val;
-            AsTypeMap(tmap)->TagMap[PrimitiveTag + INDIRECT_TAG_OFFSET] = val;
-            return(1);
-        }
-        else if (AsPrimitive(typep)->PrimitiveFn == SymbolPPrimitiveFn)
-        {
-            AsTypeMap(tmap)->TagMap[SymbolTag + INDIRECT_TAG_OFFSET] = val;
-            return(1);
-        }
-        else if (AsPrimitive(typep)->PrimitiveFn == ThreadPPrimitiveFn)
-        {
-            AsTypeMap(tmap)->TagMap[ThreadTag + INDIRECT_TAG_OFFSET] = val;
-            return(1);
-        }
-        else if (AsPrimitive(typep)->PrimitiveFn == ExclusivePPrimitiveFn)
-        {
-            AsTypeMap(tmap)->TagMap[ExclusiveTag + INDIRECT_TAG_OFFSET] = val;
-            return(1);
-        }
-        else if (AsPrimitive(typep)->PrimitiveFn == ConditionPPrimitiveFn)
-        {
-            AsTypeMap(tmap)->TagMap[ConditionTag + INDIRECT_TAG_OFFSET] = val;
-            return(1);
-        }
-        else if (AsPrimitive(typep)->PrimitiveFn == EphemeronPPrimitiveFn)
-        {
-            AsTypeMap(tmap)->TagMap[EphemeronTag + INDIRECT_TAG_OFFSET] = val;
-            return(1);
-        }
+        if (AsPrimitive(ttp)->PrimitiveFn == CharPPrimitiveFn)
+            return(List(MakeFixnum(CharacterTag)));
+        else if (AsPrimitive(ttp)->PrimitiveFn == NullPPrimitiveFn)
+            return(List(MakeFixnum(AsValue(EmptyListObject) + MISCELLANEOUS_TAG_OFFSET)));
+        else if (AsPrimitive(ttp)->PrimitiveFn == EofObjectPPrimitiveFn)
+            return(List(MakeFixnum(AsValue(EndOfFileObject) + MISCELLANEOUS_TAG_OFFSET)));
+        else if (AsPrimitive(ttp)->PrimitiveFn == BooleanPPrimitiveFn)
+            return(List(MakeFixnum(BooleanTag)));
+        else if (AsPrimitive(ttp)->PrimitiveFn == NumberPPrimitiveFn)
+            return(List(MakeFixnum(FixnumTag), MakeFixnum(BignumTag + INDIRECT_TAG_OFFSET),
+                    MakeFixnum(RatioTag + INDIRECT_TAG_OFFSET),
+                    MakeFixnum(ComplexTag + INDIRECT_TAG_OFFSET),
+                    MakeFixnum(FlonumTag + INDIRECT_TAG_OFFSET)));
+        else if (AsPrimitive(ttp)->PrimitiveFn == BoxPPrimitiveFn)
+            return(List(MakeFixnum(BoxTag + INDIRECT_TAG_OFFSET)));
+        else if (AsPrimitive(ttp)->PrimitiveFn == PairPPrimitiveFn)
+            return(List(MakeFixnum(PairTag + INDIRECT_TAG_OFFSET)));
+        else if (AsPrimitive(ttp)->PrimitiveFn == StringPPrimitiveFn)
+            return(List(MakeFixnum(StringTag + INDIRECT_TAG_OFFSET)));
+        else if (AsPrimitive(ttp)->PrimitiveFn == VectorPPrimitiveFn)
+            return(List(MakeFixnum(VectorTag + INDIRECT_TAG_OFFSET)));
+        else if (AsPrimitive(ttp)->PrimitiveFn == BytevectorPPrimitiveFn)
+            return(List(MakeFixnum(BytevectorTag + INDIRECT_TAG_OFFSET)));
+        else if (AsPrimitive(ttp)->PrimitiveFn == BinaryPortPPrimitiveFn)
+            return(List(MakeFixnum(BinaryPortTag + INDIRECT_TAG_OFFSET)));
+        else if (AsPrimitive(ttp)->PrimitiveFn == TextualPortPPrimitiveFn)
+            return(List(MakeFixnum(TextualPortTag + INDIRECT_TAG_OFFSET)));
+        else if (AsPrimitive(ttp)->PrimitiveFn == ProcedurePPrimitiveFn)
+            return(List(MakeFixnum(ProcedureTag + INDIRECT_TAG_OFFSET),
+                    MakeFixnum(PrimitiveTag + INDIRECT_TAG_OFFSET)));
+        else if (AsPrimitive(ttp)->PrimitiveFn == SymbolPPrimitiveFn)
+            return(List(MakeFixnum(SymbolTag + INDIRECT_TAG_OFFSET)));
+        else if (AsPrimitive(ttp)->PrimitiveFn == ThreadPPrimitiveFn)
+            return(List(MakeFixnum(ThreadTag + INDIRECT_TAG_OFFSET)));
+        else if (AsPrimitive(ttp)->PrimitiveFn == ExclusivePPrimitiveFn)
+            return(List(MakeFixnum(ExclusiveTag + INDIRECT_TAG_OFFSET)));
+        else if (AsPrimitive(ttp)->PrimitiveFn == ConditionPPrimitiveFn)
+            return(List(MakeFixnum(ConditionTag + INDIRECT_TAG_OFFSET)));
+        else if (AsPrimitive(ttp)->PrimitiveFn == EphemeronPPrimitiveFn)
+            return(List(MakeFixnum(EphemeronTag + INDIRECT_TAG_OFFSET)));
     }
 
-    return(0);
+    return(EmptyListObject);
 }
 
-Define("make-type-map", MakeTypeMapPrimitive)(int_t argc, FObject argv[])
+Define("object-type-tag", ObjectTypeTagPrimitive)(int_t argc, FObject argv[])
 {
-    ZeroArgsCheck("make-type-map", argc);
+    OneArgCheck("object-type-tag", argc);
 
-    return(MakeTypeMap());
+    return(MakeFixnum(ObjectTypeTag(argv[0])));
 }
 
-Define("type-map-ref", TypeMapRefPrimitive)(int_t argc, FObject argv[])
+Define("lookup-type-tags", LookupTypeTagsPrimitive)(int_t argc, FObject argv[])
 {
-    TwoArgsCheck("type-map-ref", argc);
-    TypeMapArgCheck("type-map-ref", argv[0]);
+    OneArgCheck("lookup-type-tags", argc);
 
-    return(TypeMapRef(argv[0], argv[1]));
-}
+    FObject tlst = LookupTypeTags(argv[0]);
+    if (tlst == EmptyListObject)
+        RaiseExceptionC(Assertion, "lookup-type-tags", "expected a predicate", List(argv[0]));
 
-Define("type-map-set!", TypeMapSetPrimitive)(int_t argc, FObject argv[])
-{
-    ThreeArgsCheck("type-map-set!", argc);
-    TypeMapArgCheck("type-map-set!", argv[0]);
-
-    if (TypeMapSet(argv[0], argv[1], argv[2]) == 0)
-        RaiseExceptionC(Assertion, "type-map-set!", "expected a predicate", List(argv[1]));
-
-    return(NoValueObject);
+    return(tlst);
 }
 
 // ---- Primitives ----
@@ -1214,9 +1133,8 @@ static FObject Primitives[] =
     BoxPPrimitive,
     UnboxPrimitive,
     SetBoxPrimitive,
-    MakeTypeMapPrimitive,
-    TypeMapRefPrimitive,
-    TypeMapSetPrimitive
+    ObjectTypeTagPrimitive,
+    LookupTypeTagsPrimitive
 };
 
 // ----------------

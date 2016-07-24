@@ -657,7 +657,6 @@ static const char * IndirectTagString[] =
     "condition",
     "hash-tree",
     "ephemeron",
-    "type-map",
     "builtin-type",
     "builtin",
     "free"
