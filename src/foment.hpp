@@ -153,13 +153,14 @@ typedef enum
 {
     // Direct Types
 
+    // ObjectTag = 0x0,
     FixnumTag = 0x01,
     CharacterTag = 0x02,
     MiscellaneousTag = 0x03,
     SpecialSyntaxTag = 0x04,
     InstructionTag = 0x05,
     ValuesCountTag = 0x06,
-    UnusedTag = 0x07
+    BooleanTag = 0x07
 } FDirectTag;
 
 typedef enum
@@ -398,28 +399,28 @@ extern uint_t PartialPerFull;
 #define EmptyListObject MakeImmediate(0, MiscellaneousTag)
 #define EmptyListObjectP(obj) ((obj) == EmptyListObject)
 
-#define FalseObject MakeImmediate(1, MiscellaneousTag)
-#define TrueObject MakeImmediate(2, MiscellaneousTag)
-#define BooleanP(obj) ((obj) == FalseObject || (obj) == TrueObject)
-
-#define EndOfFileObject MakeImmediate(3, MiscellaneousTag)
+#define EndOfFileObject MakeImmediate(1, MiscellaneousTag)
 #define EndOfFileObjectP(obj) ((obj) == EndOfFileObject)
 
-#define NoValueObject MakeImmediate(4, MiscellaneousTag)
+#define NoValueObject MakeImmediate(2, MiscellaneousTag)
 #define NoValueObjectP(obj) ((obj) == NoValueObject)
 
-#define WantValuesObject MakeImmediate(5, MiscellaneousTag)
+#define WantValuesObject MakeImmediate(3, MiscellaneousTag)
 #define WantValuesObjectP(obj) ((obj) == WantValuesObject)
 
-#define NotFoundObject MakeImmediate(6, MiscellaneousTag)
+#define NotFoundObject MakeImmediate(4, MiscellaneousTag)
 #define NotFoundObjectP(obj) ((obj) == NotFoundObject)
 
-#define MatchAnyObject MakeImmediate(7, MiscellaneousTag)
+#define MatchAnyObject MakeImmediate(5, MiscellaneousTag)
 #define MatchAnyObjectP(obj) ((obj) == MatchAnyObject)
 
 #define ValuesCountP(obj) ImmediateP(obj, ValuesCountTag)
 #define MakeValuesCount(cnt) MakeImmediate(cnt, ValuesCountTag)
 #define AsValuesCount(obj) ((FFixnum) (AsValue(obj)))
+
+#define FalseObject MakeImmediate(0, BooleanTag)
+#define TrueObject MakeImmediate(1, BooleanTag)
+#define BooleanP(obj) ImmediateP(obj, BooleanTag)
 
 // ---- Special Syntax ----
 
@@ -1034,11 +1035,13 @@ inline int_t EphemeronBrokenP(FObject obj)
 #define TypeMapP(obj) (IndirectTag(obj) == TypeMapTag)
 #define AsTypeMap(obj) ((FTypeMap *) (obj))
 
+#define MISCELLANEOUS_TAG_OFFSET 8
+#define INDIRECT_TAG_OFFSET 10
+#define TAG_MAP_SIZE (FreeTag + INDIRECT_TAG_OFFSET)
+
 typedef struct
 {
-    FObject DirectMap[8];
-    FObject MiscellaneousMap[4]; // null?, #f, #t, eof-object?
-    FObject IndirectMap[FreeTag];
+    FObject TagMap[TAG_MAP_SIZE]; // direct tags, null?, eof-object?, indirect tags
 } FTypeMap;
 
 FObject MakeTypeMap();

@@ -1053,11 +1053,7 @@ Again:
     case SpecialSyntaxTag: // 0x04
     case InstructionTag: // 0x05
     case ValuesCountTag: // 0x06
-        break;
-
-    case UnusedTag: // 0x07
-        PrintCheckStack();
-        FMustBe(0);
+    case BooleanTag: // 0x07
         break;
     }
 

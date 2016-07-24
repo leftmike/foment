@@ -925,12 +925,8 @@ FObject MakeTypeMap()
     uint_t idx;
     FTypeMap * tmap = (FTypeMap *) MakeObject(TypeMapTag, sizeof(FTypeMap),
             sizeof(FTypeMap) / sizeof(FObject), "type-map");
-    for (idx = 0; idx < sizeof(tmap->DirectMap) / sizeof(FObject); idx++)
-        tmap->DirectMap[idx] = NoValueObject;
-    for (idx = 0; idx < sizeof(tmap->MiscellaneousMap) / sizeof(FObject); idx++)
-        tmap->MiscellaneousMap[idx] = NoValueObject;
-    for (idx = 0; idx < sizeof(tmap->IndirectMap) / sizeof(FObject); idx++)
-        tmap->IndirectMap[idx] = NoValueObject;
+    for (idx = 0; idx < TAG_MAP_SIZE; idx++)
+        tmap->TagMap[idx] = NoValueObject;
 
     return(tmap);
 }
@@ -945,15 +941,15 @@ FObject TypeMapRef(FObject tmap, FObject obj)
 
         FAssert(tag >= 1 && tag < FreeTag);
 
-        return(AsTypeMap(tmap)->IndirectMap[tag]);
+        return(AsTypeMap(tmap)->TagMap[tag + INDIRECT_TAG_OFFSET]);
     }
     else if (ImmediateTag(obj) == MiscellaneousTag)
     {
-        if (AsValue(obj) < 4)
-            return(AsTypeMap(tmap)->MiscellaneousMap[AsValue(obj)]);
+        if (AsValue(obj) < INDIRECT_TAG_OFFSET - MISCELLANEOUS_TAG_OFFSET)
+            return(AsTypeMap(tmap)->TagMap[AsValue(obj) + MISCELLANEOUS_TAG_OFFSET]);
     }
     else
-        return(AsTypeMap(tmap)->DirectMap[ImmediateTag(obj)]);
+        return(AsTypeMap(tmap)->TagMap[ImmediateTag(obj)]);
 
     return(NoValueObject);
 }
@@ -985,98 +981,97 @@ int_t TypeMapSet(FObject tmap, FObject typep, FObject val)
     {
         if (AsPrimitive(typep)->PrimitiveFn == CharPPrimitiveFn)
         {
-            AsTypeMap(tmap)->DirectMap[CharacterTag] = val;
+            AsTypeMap(tmap)->TagMap[CharacterTag + INDIRECT_TAG_OFFSET] = val;
             return(1);
         }
         else if (AsPrimitive(typep)->PrimitiveFn == NullPPrimitiveFn)
         {
-            AsTypeMap(tmap)->MiscellaneousMap[0] = val;
-            return(1);
-        }
-        else if (AsPrimitive(typep)->PrimitiveFn == BooleanPPrimitiveFn)
-        {
-            AsTypeMap(tmap)->MiscellaneousMap[1] = val;
-            AsTypeMap(tmap)->MiscellaneousMap[2] = val;
+            AsTypeMap(tmap)->TagMap[AsValue(EmptyListObject) + MISCELLANEOUS_TAG_OFFSET] = val;
             return(1);
         }
         else if (AsPrimitive(typep)->PrimitiveFn == EofObjectPPrimitiveFn)
         {
-            AsTypeMap(tmap)->MiscellaneousMap[3] = val;
+            AsTypeMap(tmap)->TagMap[AsValue(EndOfFileObject) + MISCELLANEOUS_TAG_OFFSET] = val;
+            return(1);
+        }
+        else if (AsPrimitive(typep)->PrimitiveFn == BooleanPPrimitiveFn)
+        {
+            AsTypeMap(tmap)->TagMap[BooleanTag] = val;
             return(1);
         }
         else if (AsPrimitive(typep)->PrimitiveFn == NumberPPrimitiveFn)
         {
-            AsTypeMap(tmap)->DirectMap[FixnumTag] = val;
-            AsTypeMap(tmap)->IndirectMap[BignumTag] = val;
-            AsTypeMap(tmap)->IndirectMap[RatioTag] = val;
-            AsTypeMap(tmap)->IndirectMap[ComplexTag] = val;
-            AsTypeMap(tmap)->IndirectMap[FlonumTag] = val;
+            AsTypeMap(tmap)->TagMap[FixnumTag] = val;
+            AsTypeMap(tmap)->TagMap[BignumTag + INDIRECT_TAG_OFFSET] = val;
+            AsTypeMap(tmap)->TagMap[RatioTag + INDIRECT_TAG_OFFSET] = val;
+            AsTypeMap(tmap)->TagMap[ComplexTag + INDIRECT_TAG_OFFSET] = val;
+            AsTypeMap(tmap)->TagMap[FlonumTag + INDIRECT_TAG_OFFSET] = val;
             return(1);
         }
         else if (AsPrimitive(typep)->PrimitiveFn == BoxPPrimitiveFn)
         {
-            AsTypeMap(tmap)->IndirectMap[BoxTag] = val;
+            AsTypeMap(tmap)->TagMap[BoxTag + INDIRECT_TAG_OFFSET] = val;
             return(1);
         }
         else if (AsPrimitive(typep)->PrimitiveFn == PairPPrimitiveFn)
         {
-            AsTypeMap(tmap)->IndirectMap[PairTag] = val;
+            AsTypeMap(tmap)->TagMap[PairTag + INDIRECT_TAG_OFFSET] = val;
             return(1);
         }
         else if (AsPrimitive(typep)->PrimitiveFn == StringPPrimitiveFn)
         {
-            AsTypeMap(tmap)->IndirectMap[StringTag] = val;
+            AsTypeMap(tmap)->TagMap[StringTag + INDIRECT_TAG_OFFSET] = val;
             return(1);
         }
         else if (AsPrimitive(typep)->PrimitiveFn == VectorPPrimitiveFn)
         {
-            AsTypeMap(tmap)->IndirectMap[VectorTag] = val;
+            AsTypeMap(tmap)->TagMap[VectorTag + INDIRECT_TAG_OFFSET] = val;
             return(1);
         }
         else if (AsPrimitive(typep)->PrimitiveFn == BytevectorPPrimitiveFn)
         {
-            AsTypeMap(tmap)->IndirectMap[BytevectorTag] = val;
+            AsTypeMap(tmap)->TagMap[BytevectorTag + INDIRECT_TAG_OFFSET] = val;
             return(1);
         }
         else if (AsPrimitive(typep)->PrimitiveFn == BinaryPortPPrimitiveFn)
         {
-            AsTypeMap(tmap)->IndirectMap[BinaryPortTag] = val;
+            AsTypeMap(tmap)->TagMap[BinaryPortTag + INDIRECT_TAG_OFFSET] = val;
             return(1);
         }
         else if (AsPrimitive(typep)->PrimitiveFn == TextualPortPPrimitiveFn)
         {
-            AsTypeMap(tmap)->IndirectMap[TextualPortTag] = val;
+            AsTypeMap(tmap)->TagMap[TextualPortTag + INDIRECT_TAG_OFFSET] = val;
             return(1);
         }
         else if (AsPrimitive(typep)->PrimitiveFn == ProcedurePPrimitiveFn)
         {
-            AsTypeMap(tmap)->IndirectMap[ProcedureTag] = val;
-            AsTypeMap(tmap)->IndirectMap[PrimitiveTag] = val;
+            AsTypeMap(tmap)->TagMap[ProcedureTag + INDIRECT_TAG_OFFSET] = val;
+            AsTypeMap(tmap)->TagMap[PrimitiveTag + INDIRECT_TAG_OFFSET] = val;
             return(1);
         }
         else if (AsPrimitive(typep)->PrimitiveFn == SymbolPPrimitiveFn)
         {
-            AsTypeMap(tmap)->IndirectMap[SymbolTag] = val;
+            AsTypeMap(tmap)->TagMap[SymbolTag + INDIRECT_TAG_OFFSET] = val;
             return(1);
         }
         else if (AsPrimitive(typep)->PrimitiveFn == ThreadPPrimitiveFn)
         {
-            AsTypeMap(tmap)->IndirectMap[ThreadTag] = val;
+            AsTypeMap(tmap)->TagMap[ThreadTag + INDIRECT_TAG_OFFSET] = val;
             return(1);
         }
         else if (AsPrimitive(typep)->PrimitiveFn == ExclusivePPrimitiveFn)
         {
-            AsTypeMap(tmap)->IndirectMap[ExclusiveTag] = val;
+            AsTypeMap(tmap)->TagMap[ExclusiveTag + INDIRECT_TAG_OFFSET] = val;
             return(1);
         }
         else if (AsPrimitive(typep)->PrimitiveFn == ConditionPPrimitiveFn)
         {
-            AsTypeMap(tmap)->IndirectMap[ConditionTag] = val;
+            AsTypeMap(tmap)->TagMap[ConditionTag + INDIRECT_TAG_OFFSET] = val;
             return(1);
         }
         else if (AsPrimitive(typep)->PrimitiveFn == EphemeronPPrimitiveFn)
         {
-            AsTypeMap(tmap)->IndirectMap[EphemeronTag] = val;
+            AsTypeMap(tmap)->TagMap[EphemeronTag + INDIRECT_TAG_OFFSET] = val;
             return(1);
         }
     }
