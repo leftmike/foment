@@ -320,17 +320,14 @@ typedef struct
 #define OBJFTR_FEET 0xDEADFEE7
 
 #define EternalObjHdr(type, tag) \
-    .ObjHdr.BlockSizeAndCount = sizeof(type) / sizeof(FObjHdr), \
-    .ObjHdr.ExtraCount = 0, \
-    .ObjHdr.FlagsAndTag = tag | OBJHDR_GEN_ETERNAL
+    {sizeof(type) / sizeof(FObjHdr), 0, tag | OBJHDR_GEN_ETERNAL}
 
 #define EternalObjHdrSlots(type, sc, tag) \
-    .ObjHdr.BlockSizeAndCount = sizeof(type) / sizeof(FObjHdr), \
-    .ObjHdr.ExtraCount = (sizeof(type) / sizeof(FObjHdr)) - sc, \
-    .ObjHdr.FlagsAndTag = tag | OBJHDR_GEN_ETERNAL | OBJHDR_HAS_SLOTS
+    {sizeof(type) / sizeof(FObjHdr), (sizeof(type) / sizeof(FObjHdr)) - sc, \
+            tag | OBJHDR_GEN_ETERNAL | OBJHDR_HAS_SLOTS}
 
 #define EternalObjFtr \
-    .ObjFtr.Feet = {OBJFTR_FEET, OBJFTR_FEET}
+    {{OBJFTR_FEET, OBJFTR_FEET}}
 
 FObject MakeObject(uint_t tag, uint_t sz, uint_t sc, const char * who, int_t pf = 0);
 
@@ -959,13 +956,13 @@ typedef struct
     static FEternalCString name ## String = \
     { \
         EternalObjHdr(FCString, CStringTag), \
-        .String.String = string, \
+        {string}, \
         EternalObjFtr \
     }; \
     static FEternalSymbol name ## Object = \
     { \
         EternalObjHdrSlots(FSymbol, 1, SymbolTag), \
-        .Symbol.String = &name ## String.String, \
+        {&name ## String.String}, \
         EternalObjFtr \
     }; \
     FObject name = &name ## Object.Symbol;
@@ -998,10 +995,7 @@ typedef struct
     FObject prim ## Fn(int_t argc, FObject argv[]);\
     static FEternalPrimitive prim ## Object = { \
         EternalObjHdrSlots(FPrimitive, 1, PrimitiveTag), \
-        .Primitive.Name = prim ## Symbol, \
-        .Primitive.PrimitiveFn = prim ## Fn, \
-        .Primitive.Filename = __FILE__, \
-        .Primitive.LineNumber =__LINE__, \
+        {prim ## Symbol, prim ## Fn, __FILE__, __LINE__}, \
         EternalObjFtr \
     }; \
     FObject prim = &prim ## Object.Primitive; \
