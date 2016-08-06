@@ -8,7 +8,9 @@ txt2cpp <input> <output> <name>
 
 #ifdef FOMENT_WINDOWS
 #define _CRT_SECURE_NO_WARNINGS
-#define strdup _strdup
+#define StringDuplicate(s) _strdup(s)
+#else // FOMENT_WINDOWS
+#define StringDuplicate(s) strdup(s)
 #endif // FOMENT_WINDOWS
 
 #include <stdio.h>
@@ -82,7 +84,7 @@ int main(int argc, char * argv[])
 
             if (buf[idx] != 0)
             {
-                char * nam = strdup(buf + idx);
+                char * nam = StringDuplicate(buf + idx);
                 for (idx = 0; nam[idx] != 0; idx++)
                     if (nam[idx] == ')')
                     {
