@@ -76,7 +76,7 @@ void ErrorExitFoment()
     if (SetupComplete)
     {
         if (CheckHeapFlag || VerboseFlag)
-            printf("RandomSeed: %llu\n", RandomSeed);
+            printf("RandomSeed: " UINT_FMT "\n", RandomSeed);
         ExitFoment();
     }
 
@@ -1202,7 +1202,7 @@ FObject OpenBuiltinLibrary(FObject nam)
 {
     FAssert(VectorP(R.BuiltinLibraryNames));
 
-    for (int idx = 0; idx < VectorLength(R.BuiltinLibraryNames); idx++)
+    for (uint_t idx = 0; idx < VectorLength(R.BuiltinLibraryNames); idx++)
         if (EqualP(nam, AsVector(R.BuiltinLibraryNames)->Vector[idx]))
             return(MakeStringCInputPort(BuiltinLibraries[idx]));
 

@@ -593,7 +593,7 @@ static int_t CStringCompare(const char * s, FObject obj)
 
     uint_t sdx;
     for (sdx = 0; s[sdx] != 0 && sdx < StringLength(obj); sdx++)
-        if (s[sdx] != AsString(obj)->String[sdx])
+        if ((uint8_t) s[sdx] != AsString(obj)->String[sdx])
             return((uint8_t) s[sdx] < AsString(obj)->String[sdx] ? -1 : 1);
 
     if (s[sdx] == 0 && sdx == StringLength(obj))

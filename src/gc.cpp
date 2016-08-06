@@ -880,7 +880,7 @@ static void PrintCheckStack()
     for (uint_t cdx = 0; cdx < CheckStackPtr - 1; cdx++)
     {
         if (idx >= 0)
-            printf("%s[%lld]", from, idx);
+            printf("%s[" INT_FMT "]", from, idx);
         else
             printf("%s", from);
 
@@ -889,7 +889,7 @@ static void PrintCheckStack()
         PrintObjectString(CheckStack[cdx].Object);
 
         if (CheckStack[cdx].Repeat > 1)
-            printf(" (repeats %lld times)", CheckStack[cdx].Repeat);
+            printf(" (repeats " INT_FMT " times)", CheckStack[cdx].Repeat);
         printf("\n");
     }
 
@@ -927,7 +927,8 @@ static void FCheckFailed(const char * fn, int_t ln, const char * expr, FObjHdr *
     const char * tag = "unknown";
     if (oh->Tag() > 0 && oh->Tag() < BadDogTag)
         tag = IndirectTagString[oh->Tag()];
-    printf("tsz: %llu osz: %llu blen: %llu slots: %llu tag: %s gen: 0x%x", tsz, oh->ObjectSize(),
+    printf("tsz: " UINT_FMT " osz: " UINT_FMT " blen: " UINT_FMT " slots: " UINT_FMT
+            " tag: %s gen: 0x%x", tsz, oh->ObjectSize(),
             oh->ByteLength(), oh->SlotCount(), tag, oh->Generation());
     if (MarkP(oh))
         printf("forward/mark");
@@ -935,7 +936,7 @@ static void FCheckFailed(const char * fn, int_t ln, const char * expr, FObjHdr *
     for (idx = 0; idx < tsz && idx < 64; idx++)
         printf(" %x", ((uint8_t *) oh)[idx]);
     if (idx < tsz)
-        printf(" ... (%llu more)", tsz - idx);
+        printf(" ... (" UINT_FMT " more)", tsz - idx);
     printf("\n");
 
     if (CheckStackPtr > 0)

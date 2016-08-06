@@ -405,7 +405,7 @@ Define("config", ConfigPrimitive)(int_t argc, FObject argv[])
 
     FObject ret = EmptyListObject;
 
-    for (int_t idx = 0; idx < sizeof(ConfigOptions) / sizeof(FConfigOption); idx++)
+    for (uint_t idx = 0; idx < sizeof(ConfigOptions) / sizeof(FConfigOption); idx++)
     {
         switch (ConfigOptions[idx].Type)
         {
@@ -449,7 +449,7 @@ Define("set-config!", SetConfigPrimitive)(int_t argc, FObject argv[])
     SymbolArgCheck("set-config!", argv[0]);
 
     FConfigOption * cfg = 0;
-    for (int_t idx = 0; idx < sizeof(ConfigOptions) / sizeof(FConfigOption); idx++)
+    for (uint_t idx = 0; idx < sizeof(ConfigOptions) / sizeof(FConfigOption); idx++)
     {
         if (ConfigOptions[idx].LongName != 0
                 && StringCToSymbol(ConfigOptions[idx].LongName) == argv[0])
@@ -500,7 +500,7 @@ static void Usage()
     printf("Usage:\n");
     printf("    foment <option> ... [--] <program> <program-arg> ...\n\n");
 
-    for (int cdx = 0; cdx < sizeof(ConfigOptions) / sizeof(FConfigOption); cdx++)
+    for (uint_t cdx = 0; cdx < sizeof(ConfigOptions) / sizeof(FConfigOption); cdx++)
     {
         FConfigOption * cfg = ConfigOptions + cdx;
 
@@ -553,7 +553,7 @@ static void Usage()
 
 static FConfigOption * FindShortName(FChS sn)
 {
-    for (int cdx = 0; cdx < sizeof(ConfigOptions) / sizeof(FConfigOption); cdx++)
+    for (uint_t cdx = 0; cdx < sizeof(ConfigOptions) / sizeof(FConfigOption); cdx++)
         if (ConfigOptions[cdx].When != NeverConfig && ConfigOptions[cdx].Type != GetConfig)
         {
             if (ConfigOptions[cdx].ShortName == sn || ConfigOptions[cdx].AltShortName == sn)
@@ -564,7 +564,7 @@ static FConfigOption * FindShortName(FChS sn)
 
 static FConfigOption * FindLongName(FChS * ln)
 {
-    for (int cdx = 0; cdx < sizeof(ConfigOptions) / sizeof(FConfigOption); cdx++)
+    for (uint_t cdx = 0; cdx < sizeof(ConfigOptions) / sizeof(FConfigOption); cdx++)
         if (ConfigOptions[cdx].When != NeverConfig && ConfigOptions[cdx].Type != GetConfig)
         {
             if (ConfigOptions[cdx].LongName != 0

@@ -132,6 +132,9 @@ typedef uint32_t FImmediate;
 typedef int32_t FFixnum;
 typedef int32_t int_t;
 typedef uint32_t uint_t;
+
+#define INT_FMT "%d"
+#define UINT_FMT "%u"
 #endif // FOMENT_32BIT
 
 #ifdef FOMENT_64BIT
@@ -139,6 +142,14 @@ typedef uint64_t FImmediate;
 typedef int64_t FFixnum;
 typedef int64_t int_t;
 typedef uint64_t uint_t;
+
+#ifdef BSD
+#define INT_FMT "%lld"
+#define UINT_FMT "%llu"
+#else // BSD
+#define INT_FMT "%ld"
+#define UINT_FMT "%lu"
+#endif // BSD
 #endif // FOMENT_64BIT
 
 #ifdef FOMENT_DEBUG

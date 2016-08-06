@@ -2187,23 +2187,30 @@ static int_t ConGetCursor(int_t * x, int_t * y)
 
 static void ConGetInfo(FConsoleInput * ci)
 {
-    int_t ret;
     int_t x;
     int_t y;
 
-//    ((int_t) ret);
-
+#ifdef FOMENT_DEBUG
+    int_t ret;
     ret = ConGetCursor(&x, &y);
 
     FAssert(ret != 0);
+#else // FOMENT_DEBUG
+    ConGetCursor(&x, &y);
+#endif // FOMENT_DEBUG
 
     ci->StartX = x;
     ci->StartY = y;
 
     ConSetCursor(ci, 999, 999);
+
+#ifdef FOMENT_DEBUG
     ret = ConGetCursor(&x, &y);
 
     FAssert(ret != 0);
+#else // FOMENT_DEBUG
+    ConGetCursor(&x, &y);
+#endif // FOMENT_DEBUG
 
     ci->Width = x;
     ci->Height = y;
