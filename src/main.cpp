@@ -22,11 +22,21 @@ Foment
 #ifdef FOMENT_WINDOWS
 #include <wchar.h>
 #define StringLengthS(s) wcslen(s)
-#define StringCompareS(s1, s2) wcscmp(s1, L ## s2)
 #define StringToInt(s) _wtoi(s)
 #define HexStringToInt32(s) wcstol(s, 0, 16)
 #define HexStringToInt64(s) _wcstoui64(s, 0, 16);
 #define STRING_FORMAT "%S"
+
+int StringCompareS(FChS * s1, const char * s2)
+{
+    while (*s1 != 0 && *s1 == *s2)
+    {
+        s1 += 1;
+        s2 += 1;
+    }
+
+    return(*s1 - *s2);
+}
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
@@ -169,15 +179,13 @@ typedef struct
     const char * Description;
     FConfigWhen When;
     FConfigType Type;
-    union
-    {
-        uint_t * UIntValue;
-        uint_t * BoolValue;
-        FGetConfigFn GetConfigFn;
-        FSetConfigFn SetConfigFn;
-        FActionConfigFn ActionConfigFn;
-        FArgConfigFn ArgConfigFn;
-    };
+
+    uint_t * UIntValue;
+    uint_t * BoolValue;
+    FGetConfigFn GetConfigFn;
+    FSetConfigFn SetConfigFn;
+    FActionConfigFn ActionConfigFn;
+    FArgConfigFn ArgConfigFn;
 } FConfigOption;
 
 static FObject GetCollector()
@@ -298,97 +306,97 @@ static int EvalAction(FConfigWhen when, FChS * s)
 
 static FConfigOption ConfigOptions[] =
 {
-    {0, 0, "library-path", 0, 0, 0, NeverConfig, GetConfig, {.GetConfigFn = GetLibraryPath}},
+    {0, 0, "library-path", 0, 0, 0, NeverConfig, GetConfig, 0, 0, GetLibraryPath, 0, 0, 0},
     {'A', 0, "append", 0, "directory",
 "        Append the specified directory to the list of directories to search\n"
 "        when loading libraries.",
-        LateConfig, SetConfig, {.SetConfigFn = AppendLibraryPath}},
+        LateConfig, SetConfig, 0, 0, 0, AppendLibraryPath, 0, 0},
     {'I', 0, "prepend", 0, "directory",
 "        Prepend the specified directory to the list of directories to search\n"
 "        when loading libraries.",
-        LateConfig, SetConfig, {.SetConfigFn = PrependLibraryPath}},
+        LateConfig, SetConfig, 0, 0, 0, PrependLibraryPath, 0, 0},
 
     {0, 0, "library-extensions", 0, 0, 0,
-        NeverConfig, GetConfig, {.GetConfigFn = GetLibraryExtensions}},
+        NeverConfig, GetConfig, 0, 0, GetLibraryExtensions, 0, 0, 0},
     {'X', 0, "extension", 0, "extension",
 "        Add the specified extension to the list of filename extensions to try\n"
 "        when loading libraries.",
-        LateConfig, SetConfig, {.SetConfigFn = AddExtension}},
+        LateConfig, SetConfig, 0, 0, 0, AddExtension, 0, 0},
 
     {0, 0, "verbose", 0, 0,
 "        Turn on verbose logging.",
-        AnytimeConfig, BoolConfig, {.BoolValue = &VerboseFlag}},
+        AnytimeConfig, BoolConfig, 0, &VerboseFlag, 0, 0, 0, 0},
     {0, 0, "random-seed", 0, "seed",
 "        Use the specified seed for the random number generator; otherwise the\n"
 "        current time is used.",
-        EarlyConfig, UIntConfig, {.UIntValue = &RandomSeed}},
+        EarlyConfig, UIntConfig, &RandomSeed, 0, 0, 0, 0, 0},
     {'h', '?', "help", "usage", 0,
 "        Prints out the usage information for foment.",
-        EarlyConfig, ActionConfig, {.ActionConfigFn = UsageAction}},
+        EarlyConfig, ActionConfig, 0, 0, 0, 0, UsageAction, 0},
     {0, 0, "version", 0, 0,
 "        Prints out the current version number of foment.",
-        EarlyConfig, ActionConfig, {.ActionConfigFn = VersionAction}},
+        EarlyConfig, ActionConfig, 0, 0, 0, 0, VersionAction, 0},
 
-    {0, 0, "collector", 0, 0, 0, NeverConfig, GetConfig, {.GetConfigFn = GetCollector}},
+    {0, 0, "collector", 0, 0, 0, NeverConfig, GetConfig, 0, 0, GetCollector, 0, 0, 0},
     {0, 0, "no-collector", 0, 0,
 "        No garbage collector.",
-        EarlyConfig, ActionConfig, {.ActionConfigFn = SetNoCollector}},
+        EarlyConfig, ActionConfig, 0, 0, 0, 0, SetNoCollector, 0},
     {0, 0, "mark-sweep", 0, 0,
 "        Use the mark and sweep garbage collector.",
-        EarlyConfig, ActionConfig, {.ActionConfigFn = SetMarkSweep}},
+        EarlyConfig, ActionConfig, 0, 0, 0, 0, SetMarkSweep, 0},
     {0, 0, "generational", 0, 0,
 "        Use the generational + mark and sweep garbage collector.",
-        EarlyConfig, ActionConfig, {.ActionConfigFn = SetGenerational}},
+        EarlyConfig, ActionConfig, 0, 0, 0, 0, SetGenerational, 0},
     {0, 0, "check-heap", 0, 0,
 "        Check the heap before and after garbage collection.",
-        AnytimeConfig, BoolConfig, {.BoolValue = &CheckHeapFlag}},
+        AnytimeConfig, BoolConfig, 0, &CheckHeapFlag, 0, 0, 0, 0},
 
     {0, 0, "maximum-stack-size", 0, "number-of-bytes",
 "        Use the specified number-of-bytes as the maximum stack size for each\n"
 "        thread.",
-        EarlyConfig, UIntConfig, {.UIntValue = &MaximumStackSize}},
+        EarlyConfig, UIntConfig, &MaximumStackSize, 0, 0, 0, 0, 0},
     {0, 0, "maximum-babies-size", 0, "number-of-bytes",
 "        Use the specified number-of-bytes as the maximum size of generation\n"
 "        zero for each thread.",
-        EarlyConfig, UIntConfig, {.UIntValue = &MaximumBabiesSize}},
+        EarlyConfig, UIntConfig, &MaximumBabiesSize, 0, 0, 0, 0, 0},
     {0, 0, "maximum-kids-size", 0, "number-of-bytes",
 "        Use the specified number-of-bytes as the maximum size of generation\n"
 "        one; this space is shared by all threads.",
-        EarlyConfig, UIntConfig, {.UIntValue = &MaximumKidsSize}},
+        EarlyConfig, UIntConfig, &MaximumKidsSize, 0, 0, 0, 0, 0},
     {0, 0, "maximum-adults-size", 0, "number-of-bytes",
 "        Use the specified number-of-bytes as the maximum size of the mark and\n"
 "        sweep generation.",
-        EarlyConfig, UIntConfig, {.UIntValue = &MaximumAdultsSize}},
+        EarlyConfig, UIntConfig, &MaximumAdultsSize, 0, 0, 0, 0, 0},
     {0, 0, "maximum-generational-baby", 0, "number-of-bytes",
 "        When using the generational collector, new objects larger than the\n"
 "        specified number-of-bytes are allocated in the mark and sweep\n"
 "        generation rather than generation zero.",
-        AnytimeConfig, UIntConfig, {.UIntValue = &MaximumGenerationalBaby}},
+        AnytimeConfig, UIntConfig, &MaximumGenerationalBaby, 0, 0, 0, 0, 0},
     {0, 0, "trigger-bytes", 0, "number-of-bytes",
 "        Trigger garbage collection after at least the specified\n"
 "        number-of-bytes have been allocated since the last collection",
-        AnytimeConfig, UIntConfig, {.UIntValue = &TriggerBytes}},
+        AnytimeConfig, UIntConfig, &TriggerBytes, 0, 0, 0, 0, 0},
     {0, 0, "trigger-objects", 0, "number-of-objects",
 "        Trigger garbage collection after at least the specified\n"
 "        number-of-objects have been allocated since the last collection",
-        AnytimeConfig, UIntConfig, {.UIntValue = &TriggerObjects}},
+        AnytimeConfig, UIntConfig, &TriggerObjects, 0, 0, 0, 0, 0},
     {0, 0, "partial-per-full", 0, "number",
 "        Perform the specified number of partial garbage collections\n"
 "        before performing a full collection.",
-        AnytimeConfig, UIntConfig, {.UIntValue = &PartialPerFull}},
+        AnytimeConfig, UIntConfig, &PartialPerFull, 0, 0, 0, 0, 0},
 
     {'i', 0, "interactive", "repl", 0,
 "        Run foment in an interactive session (repl).",
-        LateConfig, ActionConfig, {.ActionConfigFn = SetInteractive}},
+        LateConfig, ActionConfig, 0, 0, 0, 0, SetInteractive, 0},
     {'l', 0, "load", 0, "filename",
 "        Load the specified filename using the scheme procedure, load.",
-        LateConfig, ArgConfig, {.ArgConfigFn = LoadAction}},
+        LateConfig, ArgConfig, 0, 0, 0, 0, 0, LoadAction},
     {'p', 0, "print", 0, "expression",
 "        Evaluate and print the results of the specified expression.",
-        LateConfig, ArgConfig, {.ArgConfigFn = PrintAction}},
+        LateConfig, ArgConfig, 0, 0, 0, 0, 0, PrintAction},
     {'e', 0, "eval", "evaluate", "expression",
 "        Evaluate the specified expression.",
-        LateConfig, ArgConfig, {.ArgConfigFn = EvalAction}}
+        LateConfig, ArgConfig, 0, 0, 0, 0, 0, EvalAction}
 };
 
 Define("config", ConfigPrimitive)(int_t argc, FObject argv[])

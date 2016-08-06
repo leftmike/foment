@@ -81,7 +81,7 @@ int main(int argc, char * argv[])
 
             if (buf[idx] != 0)
             {
-                char * nam = strdup(buf + idx);
+                char * nam = _strdup(buf + idx);
                 for (idx = 0; nam[idx] != 0; idx++)
                     if (nam[idx] == ')')
                     {

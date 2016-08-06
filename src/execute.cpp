@@ -37,8 +37,8 @@ FObject MakeProcedure(FObject nam, FObject fn, FObject ln, FObject cv, int_t ac,
     p->Filename = fn;
     p->LineNumber = ln;
     p->Code = cv;
-    p->ArgCount = ac;
-    p->Flags = fl;
+    p->ArgCount = (uint16_t) ac;
+    p->Flags = (uint8_t) fl;
 
     return(p);
 }
@@ -592,8 +592,8 @@ static FObject Execute(FThreadState * ts)
                 if (ProcedureP(op))
                 {
 CallProcedure:
-                    if (ts->AStackPtr + 128 > ts->Stack.BottomUsed / sizeof(FObject)
-                        || ts->CStackPtr + 128 > ts->Stack.TopUsed / sizeof(FObject))
+                    if ((uint_t) ts->AStackPtr + 128 > ts->Stack.BottomUsed / sizeof(FObject)
+                        || (uint_t) ts->CStackPtr + 128 > ts->Stack.TopUsed / sizeof(FObject))
                     {
                         if (GrowMemRegionUp(&ts->Stack,
                                 (ts->AStackPtr + 128) * sizeof(FObject)) == 0)
@@ -880,8 +880,9 @@ TailCallPrimitive:
                 ts->AStackPtr -= 2;
 
                 int_t ll = ListLength("apply", lst);
-                if (ts->CStackPtr + 128 > ts->Stack.TopUsed / sizeof(FObject)
-                        || ts->AStackPtr + ll + 128 > ts->Stack.BottomUsed / sizeof(FObject))
+                if ((uint_t) ts->CStackPtr + 128 > ts->Stack.TopUsed / sizeof(FObject)
+                        || (uint_t) ts->AStackPtr + ll + 128
+                                > ts->Stack.BottomUsed / sizeof(FObject))
                 {
                     if (GrowMemRegionUp(&ts->Stack,
                             (ts->AStackPtr + ll + 128) * sizeof(FObject)) == 0)
@@ -899,7 +900,7 @@ TailCallPrimitive:
                     ts->ArgCount += 1;
                     ptr = Rest(ptr);
 
-                    FAssert(ts->AStackPtr <= ts->Stack.BottomUsed / sizeof(FObject));
+                    FAssert((uint_t) ts->AStackPtr <= ts->Stack.BottomUsed / sizeof(FObject));
                 }
 
                 if (ptr != EmptyListObject)

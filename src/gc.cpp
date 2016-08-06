@@ -40,7 +40,7 @@ uint_t MaximumKidsSize = 0;
 uint_t MaximumGenerationalBaby = 1024 * 64;
 
 #ifdef FOMENT_64BIT
-uint_t MaximumAdultsSize = 1024 * 1024 * 1024 * 4UL;
+uint_t MaximumAdultsSize = 1024 * 1024 * 1024 * 4LL;
 #endif // FOMENT_64BIT
 #ifdef FOMENT_32BIT
 uint_t MaximumAdultsSize = 1024 * 1024 * 1024;
@@ -225,7 +225,7 @@ int_t GrowMemRegionDown(FMemRegion * mrgn, uint_t sz)
 
 static inline void SetGeneration(FObjHdr * oh, uint_t gen)
 {
-    oh->FlagsAndTag = ((oh->FlagsAndTag & ~OBJHDR_GEN_MASK) | gen);
+    oh->FlagsAndTag = ((oh->FlagsAndTag & ~OBJHDR_GEN_MASK) | ((uint16_t) gen));
 }
 
 static inline void SetMark(FObjHdr * oh)
@@ -321,14 +321,14 @@ static void InitializeObjHdr(FObjHdr * oh, uint_t tsz, uint_t tag, uint_t gen, u
     FAssert(osz < OBJHDR_COUNT_MASK);
     FAssert(osz % OBJECT_ALIGNMENT == 0);
 
-    oh->BlockSizeAndCount = osz / OBJECT_ALIGNMENT;
-    oh->FlagsAndTag = gen | tag;
+    oh->BlockSizeAndCount = (uint32_t) (osz / OBJECT_ALIGNMENT);
+    oh->FlagsAndTag = (uint16_t) (gen | tag);
 
     FAssert(oh->ObjectSize() == osz);
 
     if (sc > 0)
     {
-        oh->ExtraCount = osz / sizeof(FObject) - sc;
+        oh->ExtraCount = (uint16_t) (osz / sizeof(FObject) - sc);
         oh->FlagsAndTag |= OBJHDR_HAS_SLOTS;
 
         FAssert(oh->SlotCount() == sc);
@@ -338,7 +338,7 @@ static void InitializeObjHdr(FObjHdr * oh, uint_t tsz, uint_t tag, uint_t gen, u
         FAssert(osz >= sz);
         FAssert(osz - sz <= 0xFFFF);
 
-        oh->ExtraCount = osz - sz;
+        oh->ExtraCount = (uint16_t) (osz - sz);
 
         FAssert(oh->ByteLength() == sz);
     }
@@ -439,7 +439,7 @@ static FObjHdr * AllocateAdult(uint_t tsz, const char * who)
                 FAssert(foh->TotalSize() - tsz >= OBJECT_ALIGNMENT);
 
                 oh = (FObjHdr *) (((char *) foh) + ftsz - tsz);
-                foh->BlockSizeAndCount = (foh->ObjectSize() - tsz) / OBJECT_ALIGNMENT;
+                foh->BlockSizeAndCount = (uint32_t) ((foh->ObjectSize() - tsz) / OBJECT_ALIGNMENT);
 
 #ifdef FOMENT_OBJFTR
                 FObjFtr * of = AsObjFtr(foh);
@@ -865,7 +865,7 @@ static void PrintObjectString(FObject obj)
     {
         printf(" ");
 
-        for (int_t idx = 0; idx < StringLength(obj); idx++)
+        for (uint_t idx = 0; idx < StringLength(obj); idx++)
             putc(AsString(obj)->String[idx], stdout);
     }
 }
@@ -915,7 +915,7 @@ static int_t CheckTooDeep;
 
 static void FCheckFailed(const char * fn, int_t ln, const char * expr, FObjHdr * oh)
 {
-    int idx;
+    uint_t idx;
 
     CheckFailedCount += 1;
     if (CheckFailedCount > 10)
@@ -1533,7 +1533,7 @@ static void Collect()
                 noh = (FObjHdr *) (((char *) noh) + noh->TotalSize());
             }
 
-            FAssert((char *) noh - (char *) oh >= tsz);
+            FAssert((uint_t) ((char *) noh - (char *) oh) >= tsz);
 
             tsz = (char *) noh - (char *) oh;
             uint_t bkt = tsz / OBJECT_ALIGNMENT;

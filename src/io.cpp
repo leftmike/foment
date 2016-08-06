@@ -1876,7 +1876,9 @@ static void ConSaveHistory(FConsoleInput * ci, FObject fn)
         }
         catch (FObject obj)
         {
-//            ((FObject) obj);
+#ifdef FOMENT_WINDOWS
+            ((FObject) obj);
+#endif // FOMENT_WINDOWS
         }
     }
 }
@@ -1895,7 +1897,9 @@ static void ConLoadHistory(FConsoleInput * ci, FObject fn)
         }
         catch (FObject obj)
         {
-//            ((FObject) obj);
+#ifdef FOMENT_WINDOWS
+            ((FObject) obj);
+#endif // FOMENT_WINDOWS
         }
     }
 }

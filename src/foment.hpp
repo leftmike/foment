@@ -93,6 +93,8 @@ typedef double double64_t;
 typedef wchar_t FCh16;
 typedef FCh16 FChS;
 
+#define FALIGN __declspec(align(8))
+
 #ifdef _M_AMD64
 #define FOMENT_64BIT
 #define FOMENT_MEMORYMODEL "llp64"
@@ -106,6 +108,8 @@ typedef FCh16 FChS;
 #include <sys/param.h>
 typedef uint16_t FCh16;
 typedef char FChS;
+
+#define FALIGN __attribute__ ((aligned(8)))
 
 #ifdef __LP64__
 #define FOMENT_64BIT
@@ -257,7 +261,7 @@ typedef struct _FObjHdr
     uint16_t FlagsAndTag;
 
 private:
-    uint_t BlockSize() {return(1 << (BlockSizeAndCount >> OBJHDR_SIZE_SHIFT));}
+    uint_t BlockSize() {return(((uint_t) 1) << (BlockSizeAndCount >> OBJHDR_SIZE_SHIFT));}
     uint_t BlockCount() {return(BlockSizeAndCount & OBJHDR_COUNT_MASK);}
 public:
     uint_t ObjectSize();
@@ -938,14 +942,14 @@ typedef struct
 #endif // FOMENT_32BIT
 } FCString;
 
-typedef struct
+typedef struct FALIGN
 {
     FObjHdr ObjHdr;
     FCString String;
     FObjFtr ObjFtr;
 } FEternalCString;
 
-typedef struct
+typedef struct FALIGN
 {
     FObjHdr ObjHdr;
     FSymbol Symbol;
@@ -983,7 +987,7 @@ typedef struct
     int_t LineNumber;
 } FPrimitive;
 
-typedef struct
+typedef struct FALIGN
 {
     FObjHdr ObjHdr;
     FPrimitive Primitive;
