@@ -119,7 +119,9 @@ typedef char FChS;
 #define FOMENT_MEMORYMODEL "ilp32"
 #endif // __LP64__
 
-#ifdef BSD
+#ifdef __APPLE__
+#define FOMENT_OSX
+#elif BSD
 #define FOMENT_BSD
 #endif // BSD
 #endif // FOMENT_UNIX
@@ -143,13 +145,13 @@ typedef int64_t FFixnum;
 typedef int64_t int_t;
 typedef uint64_t uint_t;
 
-#ifdef BSD
+#ifdef FOMENT_OSX
 #define INT_FMT "%lld"
 #define UINT_FMT "%llu"
-#else // BSD
+#else // FOMENT_OSX
 #define INT_FMT "%ld"
 #define UINT_FMT "%lu"
-#endif // BSD
+#endif // FOMENT_OSX
 #endif // FOMENT_64BIT
 
 #ifdef FOMENT_DEBUG

@@ -4,6 +4,8 @@ Foment
 
 */
 
+#include "foment.hpp"
+
 #ifdef FOMENT_WINDOWS
 #include <windows.h>
 #endif // FOMENT_WINDOWS
@@ -11,24 +13,23 @@ Foment
 #ifdef FOMENT_UNIX
 #include <pthread.h>
 #include <sys/mman.h>
-#ifdef __APPLE__
+#ifdef FOMENT_OSX
 #define MAP_ANONYMOUS MAP_ANON
 #endif // __APPLE__
 #endif // FOMENT_UNIX
 
-#if defined(FOMENT_BSD) || defined(__APPLE__)
+#if defined(FOMENT_BSD) || defined(FOMENT_OSX)
 #include <stdlib.h>
 #else // FOMENT_BSD
 #include <malloc.h>
 #endif // FOMENT_BSD
 #include <stdio.h>
 #include <string.h>
-#include "foment.hpp"
 #include "syncthrd.hpp"
 #include "io.hpp"
 #include "numbers.hpp"
 
-#define PAGE_SIZE 4096
+#define GC_PAGE_SIZE 4096
 
 #define OBJECT_ALIGNMENT 8
 const static uint_t Align[8] = {0, 7, 6, 5, 4, 3, 2, 1};
@@ -117,11 +118,11 @@ static uint_t KeyEphemeronMapSize;
 
 static inline uint_t RoundToPageSize(uint_t cnt)
 {
-    if (cnt % PAGE_SIZE != 0)
+    if (cnt % GC_PAGE_SIZE != 0)
     {
-        cnt += PAGE_SIZE - (cnt % PAGE_SIZE);
+        cnt += GC_PAGE_SIZE - (cnt % GC_PAGE_SIZE);
 
-        FAssert(cnt % PAGE_SIZE == 0);
+        FAssert(cnt % GC_PAGE_SIZE == 0);
     }
 
     return(cnt);
@@ -144,7 +145,7 @@ void * InitializeMemRegion(FMemRegion * mrgn, uint_t max)
 void DeleteMemRegion(FMemRegion * mrgn)
 {
     FAssert(mrgn->Base != 0);
-    FAssert(mrgn->MaximumSize % PAGE_SIZE == 0);
+    FAssert(mrgn->MaximumSize % GC_PAGE_SIZE == 0);
     FAssert(mrgn->MaximumSize > 0);
 
 #ifdef FOMENT_WINDOWS
@@ -160,9 +161,9 @@ void DeleteMemRegion(FMemRegion * mrgn)
 int_t GrowMemRegionUp(FMemRegion * mrgn, uint_t sz)
 {
     FAssert(mrgn->Base != 0);
-    FAssert(mrgn->TopUsed % PAGE_SIZE == 0);
-    FAssert(mrgn->BottomUsed % PAGE_SIZE == 0);
-    FAssert(mrgn->MaximumSize % PAGE_SIZE == 0);
+    FAssert(mrgn->TopUsed % GC_PAGE_SIZE == 0);
+    FAssert(mrgn->BottomUsed % GC_PAGE_SIZE == 0);
+    FAssert(mrgn->MaximumSize % GC_PAGE_SIZE == 0);
     FAssert(mrgn->TopUsed <= mrgn->MaximumSize);
     FAssert(mrgn->BottomUsed <= mrgn->MaximumSize);
     FAssert(mrgn->BottomUsed + mrgn->TopUsed <= mrgn->MaximumSize);
@@ -193,9 +194,9 @@ int_t GrowMemRegionUp(FMemRegion * mrgn, uint_t sz)
 int_t GrowMemRegionDown(FMemRegion * mrgn, uint_t sz)
 {
     FAssert(mrgn->Base != 0);
-    FAssert(mrgn->TopUsed % PAGE_SIZE == 0);
-    FAssert(mrgn->BottomUsed % PAGE_SIZE == 0);
-    FAssert(mrgn->MaximumSize % PAGE_SIZE == 0);
+    FAssert(mrgn->TopUsed % GC_PAGE_SIZE == 0);
+    FAssert(mrgn->BottomUsed % GC_PAGE_SIZE == 0);
+    FAssert(mrgn->MaximumSize % GC_PAGE_SIZE == 0);
     FAssert(mrgn->TopUsed <= mrgn->MaximumSize);
     FAssert(mrgn->BottomUsed <= mrgn->MaximumSize);
     FAssert(mrgn->BottomUsed + mrgn->TopUsed <= mrgn->MaximumSize);
@@ -359,7 +360,7 @@ static FObjHdr * MakeBaby(uint_t tsz, uint_t tag, uint_t sz, uint_t sc, const ch
             RaiseExceptionC(Assertion, who, "babies too small; increase maximum-babies-size",
                     EmptyListObject);
 
-        uint_t gsz = PAGE_SIZE * 8;
+        uint_t gsz = GC_PAGE_SIZE * 8;
         if (tsz > gsz)
             gsz = tsz;
         if (gsz > ts->Babies.MaximumSize - ts->Babies.BottomUsed)
@@ -383,7 +384,7 @@ static FObjHdr * AllocateKid(uint_t tsz)
         if (ActiveKids->Used + tsz > ActiveKids->MemRegion.MaximumSize)
             return(0);
 
-        uint_t gsz = PAGE_SIZE * 8;
+        uint_t gsz = GC_PAGE_SIZE * 8;
         if (tsz > gsz)
             gsz = tsz;
         if (gsz > ActiveKids->MemRegion.MaximumSize - ActiveKids->MemRegion.BottomUsed)
@@ -1787,7 +1788,7 @@ int_t EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms
     {
         if (InitializeMemRegion(&ts->Babies, MaximumBabiesSize) == 0)
             goto Failed;
-        if (GrowMemRegionUp(&ts->Babies, PAGE_SIZE * 8) == 0)
+        if (GrowMemRegionUp(&ts->Babies, GC_PAGE_SIZE * 8) == 0)
             goto Failed;
         ts->BabiesUsed = 0;
     }
@@ -1795,8 +1796,8 @@ int_t EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms
     if (InitializeMemRegion(&ts->Stack, MaximumStackSize) == 0)
         goto Failed;
 
-    if (GrowMemRegionUp(&ts->Stack, PAGE_SIZE) == 0
-            || GrowMemRegionDown(&ts->Stack, PAGE_SIZE) == 0)
+    if (GrowMemRegionUp(&ts->Stack, GC_PAGE_SIZE) == 0
+            || GrowMemRegionDown(&ts->Stack, GC_PAGE_SIZE) == 0)
         goto Failed;
 
     ts->AStackPtr = 0;
@@ -1946,9 +1947,9 @@ int_t SetupCore(FThreadState * ts)
             return(0);
         if (InitializeMemRegion(&Kids[1].MemRegion, MaximumKidsSize) == 0)
             return(0);
-        if (GrowMemRegionUp(&Kids[0].MemRegion, PAGE_SIZE * 8) == 0)
+        if (GrowMemRegionUp(&Kids[0].MemRegion, GC_PAGE_SIZE * 8) == 0)
             return(0);
-        if (GrowMemRegionUp(&Kids[1].MemRegion, PAGE_SIZE * 8) == 0)
+        if (GrowMemRegionUp(&Kids[1].MemRegion, GC_PAGE_SIZE * 8) == 0)
             return(0);
         ActiveKids = &Kids[0];
     }
@@ -1958,7 +1959,7 @@ int_t SetupCore(FThreadState * ts)
 
         if (InitializeMemRegion(&Adults, MaximumAdultsSize) == 0)
             return(0);
-        if (GrowMemRegionUp(&Adults, PAGE_SIZE * 8) == 0)
+        if (GrowMemRegionUp(&Adults, GC_PAGE_SIZE * 8) == 0)
             return(0);
 
 #ifdef FOMENT_DEBUG
