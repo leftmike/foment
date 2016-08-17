@@ -32,12 +32,12 @@ Foment
 #include <string.h>
 #include <time.h>
 #include "foment.hpp"
-#ifdef FOMENT_BSD
+#if defined(FOMENT_BSD) || defined(FOMENT_OSX)
 #include <stdlib.h>
 #include <netinet/in.h>
-#else // FOMENT_BSD
+#else
 #include <malloc.h>
-#endif // FOMENT_BSD
+#endif
 #include "syncthrd.hpp"
 #include "io.hpp"
 #include "unicode.hpp"

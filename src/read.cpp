@@ -12,11 +12,11 @@ Foment
 #endif // FOMENT_UNIX
 #include <string.h>
 #include "foment.hpp"
-#ifdef FOMENT_BSD
+#if defined(FOMENT_BSD) || defined(FOMENT_OSX)
 #include <stdlib.h>
-#else // FOMENT_BSD
+#else
 #include <malloc.h>
-#endif // FOMENT_BSD
+#endif
 #include "syncthrd.hpp"
 #include "io.hpp"
 #include "unicode.hpp"

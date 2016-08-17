@@ -17,11 +17,11 @@ q: rational
 #include "unicode.hpp"
 #include "numbers.hpp"
 
-#ifdef FOMENT_BSD
+#if defined(FOMENT_BSD) || defined(FOMENT_OSX)
 #include <stdlib.h>
-#else // FOMENT_BSD
+#else
 #include <malloc.h>
-#endif // FOMENT_BSD
+#endif
 
 #ifdef FOMENT_WINDOWS
 #define isfinite _finite

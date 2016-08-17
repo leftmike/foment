@@ -24,7 +24,7 @@ Foment
 #include "foment.hpp"
 #include "unicode.hpp"
 
-#ifdef FOMENT_BSD
+#if defined(FOMENT_BSD) || defined(FOMENT_OSX)
 extern char ** environ;
 #endif // FOMENT_BSD
 
