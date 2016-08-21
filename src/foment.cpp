@@ -688,7 +688,7 @@ FObject MakeRecord(FObject rt)
 
 void DefinePrimitive(FObject env, FObject lib, FObject prim)
 {
-    LibraryExport(lib, EnvironmentSet(env, InternSymbol(AsPrimitive(prim)->Name, 0), prim));
+    LibraryExport(lib, EnvironmentSet(env, InternSymbol(AsPrimitive(prim)->Name), prim));
 }
 
 // Foment specific
@@ -1296,16 +1296,16 @@ int_t SetupFoment(FThreadState * ts)
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
 
-    InternSymbol(BeginSymbol);
-    InternSymbol(QuoteSymbol);
-    InternSymbol(QuasiquoteSymbol);
-    InternSymbol(UnquoteSymbol);
-    InternSymbol(UnquoteSplicingSymbol);
-    InternSymbol(Assertion);
-    InternSymbol(Restriction);
-    InternSymbol(Lexical);
-    InternSymbol(Syntax);
-    InternSymbol(Error);
+    BeginSymbol = InternSymbol(BeginSymbol);
+    QuoteSymbol = InternSymbol(QuoteSymbol);
+    QuasiquoteSymbol = InternSymbol(QuasiquoteSymbol);
+    UnquoteSymbol = InternSymbol(UnquoteSymbol);
+    UnquoteSplicingSymbol = InternSymbol(UnquoteSplicingSymbol);
+    Assertion = InternSymbol(Assertion);
+    Restriction = InternSymbol(Restriction);
+    Lexical = InternSymbol(Lexical);
+    Syntax = InternSymbol(Syntax);
+    Error = InternSymbol(Error);
 
     FAssert(BeginSymbol == StringCToSymbol("begin"));
     FAssert(QuoteSymbol == StringCToSymbol("quote"));

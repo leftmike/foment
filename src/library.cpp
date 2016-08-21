@@ -1369,18 +1369,18 @@ void SetupLibrary()
 
     R.LibraryStartupList = EmptyListObject;
 
-    InternSymbol(DefineLibrarySymbol);
-    InternSymbol(ImportSymbol);
-    InternSymbol(IncludeLibraryDeclarationsSymbol);
-    InternSymbol(CondExpandSymbol);
-    InternSymbol(ExportSymbol);
-    InternSymbol(IncludeSymbol);
-    InternSymbol(IncludeCISymbol);
-    InternSymbol(OnlySymbol);
-    InternSymbol(ExceptSymbol);
-    InternSymbol(PrefixSymbol);
-    InternSymbol(RenameSymbol);
-    InternSymbol(AkaSymbol);
+    DefineLibrarySymbol = InternSymbol(DefineLibrarySymbol);
+    ImportSymbol = InternSymbol(ImportSymbol);
+    IncludeLibraryDeclarationsSymbol = InternSymbol(IncludeLibraryDeclarationsSymbol);
+    CondExpandSymbol = InternSymbol(CondExpandSymbol);
+    ExportSymbol = InternSymbol(ExportSymbol);
+    IncludeSymbol = InternSymbol(IncludeSymbol);
+    IncludeCISymbol = InternSymbol(IncludeCISymbol);
+    OnlySymbol = InternSymbol(OnlySymbol);
+    ExceptSymbol = InternSymbol(ExceptSymbol);
+    PrefixSymbol = InternSymbol(PrefixSymbol);
+    RenameSymbol = InternSymbol(RenameSymbol);
+    AkaSymbol = InternSymbol(AkaSymbol);
 
     FAssert(DefineLibrarySymbol == StringCToSymbol("define-library"));
     FAssert(ImportSymbol == StringCToSymbol("import"));

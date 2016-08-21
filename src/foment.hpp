@@ -984,7 +984,7 @@ typedef struct FALIGN
     }; \
     FObject name = &name ## Object.Symbol;
 
-FObject InternSymbol(FObject sym, int_t msf = 1);
+FObject InternSymbol(FObject sym);
 
 // ---- Primitives ----
 

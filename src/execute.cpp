@@ -1413,13 +1413,13 @@ void SetupExecute()
 {
     FObject v[7];
 
-    InternSymbol(WrongNumberOfArguments);
-    InternSymbol(NotCallable);
-    InternSymbol(UnexpectedNumberOfValues);
-    InternSymbol(UndefinedMessage);
-    InternSymbol(ExceptionHandlerSymbol);
-    InternSymbol(NotifyHandlerSymbol);
-    InternSymbol(SigIntSymbol);
+    WrongNumberOfArguments = InternSymbol(WrongNumberOfArguments);
+    NotCallable = InternSymbol(NotCallable);
+    UnexpectedNumberOfValues = InternSymbol(UnexpectedNumberOfValues);
+    UndefinedMessage = InternSymbol(UndefinedMessage);
+    ExceptionHandlerSymbol = InternSymbol(ExceptionHandlerSymbol);
+    NotifyHandlerSymbol = InternSymbol(NotifyHandlerSymbol);
+    SigIntSymbol = InternSymbol(SigIntSymbol);
 
     FAssert(WrongNumberOfArguments == StringCToSymbol("wrong number of arguments"));
     FAssert(NotCallable == StringCToSymbol("not callable"));

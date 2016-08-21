@@ -628,7 +628,7 @@ int_t SymbolCompare(FObject obj1, FObject obj2)
             AsCString(AsSymbol(obj1)->String)->String));
 }
 
-FObject InternSymbol(FObject sym, int_t msf)
+FObject InternSymbol(FObject sym)
 {
     FAssert(SymbolP(sym));
     FAssert(AsObjHdr(sym)->Generation() == OBJHDR_GEN_ETERNAL);
@@ -643,11 +643,7 @@ FObject InternSymbol(FObject sym, int_t msf)
     {
         FAssert(SymbolP(First(obj)));
         if (SymbolCompare(First(obj), sym) == 0)
-        {
-            if (msf == 0)
-                return(First(obj));
-            printf("%s\n", AsCString(AsSymbol(sym)->String)->String);
-        }
+            return(First(obj));
 
         FMustBe(SymbolCompare(First(obj), sym) != 0);
 

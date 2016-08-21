@@ -3617,9 +3617,9 @@ void SetupIO()
             MakeFileDescOutputPort(MakeStringC("standard-error"), 2)));
 #endif // FOMENT_UNIX
 
-    InternSymbol(FileErrorSymbol);
-    InternSymbol(CurrentSymbol);
-    InternSymbol(EndSymbol);
+    FileErrorSymbol = InternSymbol(FileErrorSymbol);
+    CurrentSymbol = InternSymbol(CurrentSymbol);
+    EndSymbol = InternSymbol(EndSymbol);
 
     FAssert(FileErrorSymbol == StringCToSymbol("file-error"));
     FAssert(CurrentSymbol == StringCToSymbol("current"));

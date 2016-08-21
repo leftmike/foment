@@ -330,10 +330,10 @@ void SetupCompile()
     R.EllipsisReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("...")));
     R.UnderscoreReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("_")));
 
-    InternSymbol(TagSymbol);
-    InternSymbol(UsePassSymbol);
-    InternSymbol(ConstantPassSymbol);
-    InternSymbol(AnalysisPassSymbol);
+    TagSymbol = InternSymbol(TagSymbol);
+    UsePassSymbol = InternSymbol(UsePassSymbol);
+    ConstantPassSymbol = InternSymbol(ConstantPassSymbol);
+    AnalysisPassSymbol = InternSymbol(AnalysisPassSymbol);
 
     FAssert(TagSymbol == StringCToSymbol("tag"));
     FAssert(UsePassSymbol == StringCToSymbol("use-pass"));
