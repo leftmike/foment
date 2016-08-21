@@ -981,7 +981,7 @@ static int_t ValidAddress(FObjHdr * oh)
     return(0);
 }
 
-static void CheckObject(FObject obj, int_t idx)
+static void CheckObject(FObject obj, int_t idx, int_t ef)
 {
     if (CheckStackPtr == WALK_STACK_SIZE)
     {
@@ -999,6 +999,8 @@ Again:
     {
     case 0x00: // ObjectP(obj)
     {
+        FCheck(ef == 0 || AsObjHdr(obj)->Generation() == OBJHDR_GEN_ETERNAL, AsObjHdr(obj));
+
         if (CheckMarkP(obj))
             goto Done;
         SetCheckMark(obj);
@@ -1020,7 +1022,7 @@ Again:
 
         if (PairP(obj))
         {
-            CheckObject(AsPair(obj)->First, 0);
+            CheckObject(AsPair(obj)->First, 0, ef);
 
             FMustBe(CheckStackPtr > 0);
 
@@ -1032,19 +1034,19 @@ Again:
                 goto Again;
             }
             else
-                CheckObject(AsPair(obj)->Rest, 1);
+                CheckObject(AsPair(obj)->Rest, 1, ef);
         }
         else if (EphemeronP(obj))
         {
-            CheckObject(AsEphemeron(obj)->Key, 0);
-            CheckObject(AsEphemeron(obj)->Datum, 1);
+            CheckObject(AsEphemeron(obj)->Key, 0, ef);
+            CheckObject(AsEphemeron(obj)->Datum, 1, ef);
         }
         else if (AsObjHdr(obj)->SlotCount() > 0)
         {
             FAssert(AsObjHdr(obj)->FlagsAndTag & OBJHDR_HAS_SLOTS);
 
             for (uint_t idx = 0; idx < AsObjHdr(obj)->SlotCount(); idx++)
-                CheckObject(((FObject *) obj)[idx], idx);
+                CheckObject(((FObject *) obj)[idx], idx, ef);
         }
         break;
     }
@@ -1067,7 +1069,7 @@ Done:
 static void CheckRoot(FObject obj, const char * from, int_t idx)
 {
     CheckFrom = from;
-    CheckObject(obj, idx);
+    CheckObject(obj, idx, 0);
 }
 
 static void CheckThreadState(FThreadState * ts)
