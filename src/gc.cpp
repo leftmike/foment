@@ -666,7 +666,7 @@ static const char * RootNames[] =
     "global-record-type",
     "library-record-type",
     "library-startup-list",
-    "builtin-library-names",
+    "foment-library-names",
 
     "execute-thunk",
     "raise-handler",

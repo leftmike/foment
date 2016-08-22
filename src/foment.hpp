@@ -1124,7 +1124,7 @@ typedef struct
     FObject GlobalRecordType;
     FObject LibraryRecordType;
     FObject LibraryStartupList;
-    FObject BuiltinLibraryNames;
+    FObject FomentLibraryNames;
 
     FObject ExecuteThunk;
     FObject RaiseHandler;
@@ -1309,7 +1309,7 @@ typedef struct
 
 FObject MakeLibrary(FObject nam);
 void LibraryExport(FObject lib, FObject gl);
-FObject OpenBuiltinLibrary(FObject nam);
+FObject OpenFomentLibrary(FObject nam);
 
 // ---- Syntax Rules ----
 

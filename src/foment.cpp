@@ -1163,8 +1163,8 @@ static FObject Primitives[] =
 
 // From base.cpp which is generated from base.scm
 extern char FomentBase[];
-extern char BuiltinLibraryNames[];
-extern char * BuiltinLibraries[];
+extern char FomentLibraryNames[];
+extern char * FomentLibraries[];
 
 static void SetupScheme()
 {
@@ -1179,10 +1179,10 @@ static void SetupScheme()
 
     LibraryExport(R.BedrockLibrary, EnvironmentLookup(R.Bedrock, StringCToSymbol("and")));
 
-    port = MakeStringCInputPort(BuiltinLibraryNames);
-    R.BuiltinLibraryNames = Read(port);
+    port = MakeStringCInputPort(FomentLibraryNames);
+    R.FomentLibraryNames = Read(port);
 
-    FAssert(VectorP(R.BuiltinLibraryNames));
+    FAssert(VectorP(R.FomentLibraryNames));
 
     port = MakeStringCInputPort(FomentBase);
     WantIdentifiersPort(port, 1);
@@ -1198,13 +1198,13 @@ static void SetupScheme()
     }
 }
 
-FObject OpenBuiltinLibrary(FObject nam)
+FObject OpenFomentLibrary(FObject nam)
 {
-    FAssert(VectorP(R.BuiltinLibraryNames));
+    FAssert(VectorP(R.FomentLibraryNames));
 
-    for (uint_t idx = 0; idx < VectorLength(R.BuiltinLibraryNames); idx++)
-        if (EqualP(nam, AsVector(R.BuiltinLibraryNames)->Vector[idx]))
-            return(MakeStringCInputPort(BuiltinLibraries[idx]));
+    for (uint_t idx = 0; idx < VectorLength(R.FomentLibraryNames); idx++)
+        if (EqualP(nam, AsVector(R.FomentLibraryNames)->Vector[idx]))
+            return(MakeStringCInputPort(FomentLibraries[idx]));
 
     return(NoValueObject);
 }

@@ -152,7 +152,7 @@ int main(int argc, char * argv[])
     fputc(';', outf);
     fputc('\n', outf);
 
-    fprintf(outf, "char * BuiltinLibraries[] = {\n");
+    fprintf(outf, "char * FomentLibraries[] = {\n");
     for (idx = 1; idx < num_libs; idx++)
     {
         fprintf(outf, "    ");
@@ -161,7 +161,7 @@ int main(int argc, char * argv[])
     };
     fprintf(outf, "    0\n};\n");
 
-    fprintf(outf, "char BuiltinLibraryNames[] =\n\"#(\"\n");
+    fprintf(outf, "char FomentLibraryNames[] =\n\"#(\"\n");
     for (idx = 1; idx < num_libs; idx++)
         fprintf(outf, "\"    %s\"\n", libs[idx]);
     fprintf(outf, "\")\";\n");

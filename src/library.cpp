@@ -408,7 +408,7 @@ static FObject TryLoadLibrary(FObject port, FObject nam, FObject libfn)
 
 static FObject LoadLibrary(FObject nam)
 {
-    FObject lib = TryLoadLibrary(OpenBuiltinLibrary(nam), nam, nam);
+    FObject lib = TryLoadLibrary(OpenFomentLibrary(nam), nam, nam);
     if (LibraryP(lib))
         return(lib);
 
