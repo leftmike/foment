@@ -71,6 +71,9 @@ EternalSymbol(Lexical, "lexical-violation");
 EternalSymbol(Syntax, "syntax-violation");
 EternalSymbol(Error, "error-violation");
 
+static void WriteException(FObject port, FObject obj, int_t df);
+EternalBuiltinType(ExceptionType, "exception-type", WriteException);
+
 void ErrorExitFoment()
 {
     if (SetupComplete)
@@ -269,13 +272,10 @@ Define("string->symbol", StringToSymbolPrimitive)(int_t argc, FObject argv[])
 
 // ---- Exceptions ----
 
-static const char * ExceptionFieldsC[] = {"type", "who", "kind", "message", "irritants"};
-
 FObject MakeException(FObject typ, FObject who, FObject knd, FObject msg, FObject lst)
 {
-    FAssert(sizeof(FException) == sizeof(ExceptionFieldsC) + sizeof(FRecord));
-
-    FException * exc = (FException *) MakeRecord(R.ExceptionRecordType);
+    FException * exc = (FException *) MakeBuiltin(ExceptionType, sizeof(FException), 6,
+            "make-exception");
     exc->Type = typ;
     exc->Who = who;
     exc->Kind = knd;
@@ -283,6 +283,55 @@ FObject MakeException(FObject typ, FObject who, FObject knd, FObject msg, FObjec
     exc->Irritants = lst;
 
     return(exc);
+}
+
+static void WriteLocation(FObject port, FObject obj)
+{
+    if (PairP(obj))
+    {
+        if (IdentifierP(First(obj)))
+            obj = First(obj);
+        else if (PairP(First(obj)) && IdentifierP(First(First(obj))))
+            obj = First(First(obj));
+    }
+
+    if (IdentifierP(obj) && FixnumP(AsIdentifier(obj)->LineNumber)
+            && AsFixnum(AsIdentifier(obj)->LineNumber) > 0)
+    {
+        FCh s[16];
+        int_t sl = FixnumAsString(AsFixnum(AsIdentifier(obj)->LineNumber), s, 10);
+
+        WriteStringC(port, " line: ");
+        WriteString(port, s, sl);
+    }
+}
+
+static void
+WriteException(FObject port, FObject obj, int_t df)
+{
+    FCh s[16];
+    int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+
+    WriteStringC(port, "#<exception: #x");
+    WriteString(port, s, sl);
+
+    WriteCh(port, ' ');
+    Write(port, AsException(obj)->Type, df);
+
+    if (SymbolP(AsException(obj)->Who))
+    {
+        WriteCh(port, ' ');
+        Write(port, AsException(obj)->Who, df);
+    }
+
+    WriteCh(port, ' ');
+    Write(port, AsException(obj)->Message, df);
+
+    WriteStringC(port, " irritants: ");
+    Write(port, AsException(obj)->Irritants, df);
+
+    WriteLocation(port, AsException(obj)->Irritants);
+    WriteStringC(port, ">");
 }
 
 void RaiseException(FObject typ, FObject who, FObject knd, FObject msg, FObject lst)
@@ -529,6 +578,20 @@ FObject MakeBox(FObject val, uint_t idx)
     bx->Index = idx;
 
     return(bx);
+}
+
+// ---- Builtins ----
+
+FObject MakeBuiltin(FObject bt, uint_t sz, uint_t sc, const char * who)
+{
+    FAssert(BuiltinTypeP(bt));
+    FAssert(sz >= sizeof(FBuiltin));
+    FAssert(sc > 0);
+
+    FBuiltin * bltn = (FBuiltin *) MakeObject(BuiltinTag, sz, sc, who);
+    bltn->BuiltinType = bt;
+
+    return(bltn);
 }
 
 // ---- Record Types ----
@@ -1285,8 +1348,6 @@ int_t SetupFoment(FThreadState * ts)
     ts->Parameters = MakeEqHashMap();
 
     SetupLibrary();
-    R.ExceptionRecordType = MakeRecordTypeC("exception",
-            sizeof(ExceptionFieldsC) / sizeof(char *), ExceptionFieldsC);
 
     FObject nam = List(StringCToSymbol("foment"), StringCToSymbol("bedrock"));
     R.Bedrock = MakeEnvironment(nam, FalseObject);

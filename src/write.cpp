@@ -229,27 +229,6 @@ static void WritePair(FObject port, FObject obj, int_t df, FWriteFn wfn, void * 
     }
 }
 
-static void WriteLocation(FObject port, FObject obj)
-{
-    if (PairP(obj))
-    {
-        if (IdentifierP(First(obj)))
-            obj = First(obj);
-        else if (PairP(First(obj)) && IdentifierP(First(First(obj))))
-            obj = First(First(obj));
-    }
-
-    if (IdentifierP(obj) && FixnumP(AsIdentifier(obj)->LineNumber)
-            && AsFixnum(AsIdentifier(obj)->LineNumber) > 0)
-    {
-        FCh s[16];
-        int_t sl = FixnumAsString(AsFixnum(AsIdentifier(obj)->LineNumber), s, 10);
-
-        WriteStringC(port, " line: ");
-        WriteString(port, s, sl);
-    }
-}
-
 static void WriteRecord(FObject port, FObject obj, int_t df, FWriteFn wfn, void * ctx)
 {
     if (BindingP(obj))
@@ -262,7 +241,7 @@ static void WriteRecord(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
         FCh s[16];
         int_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
-        WriteStringC(port, "#<(");
+        WriteStringC(port, "#<");
         wfn(port, RecordTypeName(rt), df, (void *) wfn, ctx);
         WriteStringC(port, ": #x");
         WriteString(port, s, sl);
@@ -278,25 +257,6 @@ static void WriteRecord(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
             WriteGeneric(port, AsGlobal(obj)->Name, df, wfn, ctx);
             WriteCh(port, ' ');
             WriteGeneric(port, AsGlobal(obj)->Module, df, wfn, ctx);
-        }
-        else if (ExceptionP(obj))
-        {
-            WriteCh(port, ' ');
-            WriteGeneric(port, AsException(obj)->Type, df, wfn, ctx);
-
-            if (SymbolP(AsException(obj)->Who))
-            {
-                WriteCh(port, ' ');
-                WriteGeneric(port, AsException(obj)->Who, df, wfn, ctx);
-            }
-
-            WriteCh(port, ' ');
-            WriteGeneric(port, AsException(obj)->Message, df, wfn, ctx);
-
-            WriteStringC(port, " irritants: ");
-            WriteGeneric(port, AsException(obj)->Irritants, df, wfn, ctx);
-
-            WriteLocation(port, AsException(obj)->Irritants);
         }
         else if (EnvironmentP(obj))
         {
@@ -327,10 +287,9 @@ static void WriteRecord(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
                 WriteStringC(port, ": ");
                 wfn(port, AsGenericRecord(obj)->Fields[fdx], df, (void *) wfn, ctx);
             }
-
         }
 
-        WriteStringC(port, ")>");
+        WriteStringC(port, ">");
     }
 }
 
@@ -343,11 +302,11 @@ static void WriteObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
         FCh s[16];
         int_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
-        WriteStringC(port, "#<(box: #x");
+        WriteStringC(port, "#<box: #x");
         WriteString(port, s, sl);
         WriteCh(port, ' ');
         wfn(port, Unbox(obj), df, (void *) wfn, ctx);
-        WriteStringC(port, ")>");
+        WriteStringC(port, ">");
         break;
     }
 
@@ -642,6 +601,16 @@ static void WriteObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
         WriteCh(port, '>');
         break;
     }
+
+    case BuiltinTypeTag:
+        WriteStringC(port, "#<");
+        WriteStringC(port, AsBuiltinType(obj)->Name);
+        WriteStringC(port, "-type>");
+        break;
+
+    case BuiltinTag:
+        WriteBuiltin(port, obj, df);
+        break;
 
     default:
     {

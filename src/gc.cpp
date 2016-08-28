@@ -624,7 +624,6 @@ static const char * RootNames[] =
     "hash-map-record-type",
     "hash-set-record-type",
     "hash-bag-record-type",
-    "exception-record-type",
 
     "loaded-libraries",
 
@@ -720,6 +719,8 @@ static const char * IndirectTagString[] =
     "identifier",
     "ephemeron",
     "type-map",
+    "builtin-type",
+    "builtin",
     "free"
 };
 

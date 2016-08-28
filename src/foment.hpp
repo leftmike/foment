@@ -8,8 +8,6 @@ To Do:
 -- partial GC
 -- after partial GC, test for objects pointing to Babies
 -- Use extra generation for immortal objects which are precompiled libraries
--- immutable objects: immortals and constants: test for this
--- raise exception when a constant is modified
 
 Future:
 -- allow larger objects by using BlockSize > 1 in FObjHdr
@@ -208,6 +206,8 @@ typedef enum
     IdentifierTag,
     EphemeronTag,
     TypeMapTag,
+    BuiltinTypeTag,
+    BuiltinTag,
     FreeTag, // Only on Adult Generation
     BadDogTag // Invalid Tag
 } FIndirectTag;
@@ -795,6 +795,62 @@ void Write(FObject port, FObject obj, int_t df);
 void WriteShared(FObject port, FObject obj, int_t df);
 void WriteSimple(FObject port, FObject obj, int_t df);
 
+// ---- Builtin Types ----
+
+#define BuiltinTypeP(obj) (IndirectTag(obj) == BuiltinTypeTag)
+#define AsBuiltinType(obj) ((FBuiltinType *) (obj))
+
+typedef void (*FBuiltinWriteFn)(FObject port, FObject obj, int_t df);
+
+typedef struct
+{
+    const char * Name;
+    FBuiltinWriteFn Write;
+} FBuiltinType;
+
+typedef struct FALIGN
+{
+    FObjHdr ObjHdr;
+    FBuiltinType BuiltinType;
+    FObjFtr ObjFtr;
+} FEternalBuiltinType;
+
+#define EternalBuiltinType(name, string, writefn) \
+    static FEternalBuiltinType name ## Object = \
+    { \
+        EternalObjHdr(FBuiltinType, BuiltinTypeTag), \
+        {string, writefn}, \
+        EternalObjFtr \
+    }; \
+    FObject name = &name ## Object.BuiltinType;
+
+// ---- Builtins ----
+
+#define BuiltinObjectP(obj) (IndirectTag(obj) == BuiltinTag)
+#define AsBuiltin(obj) ((FBuiltin *) (obj))
+
+typedef struct
+{
+    FObject BuiltinType; // must be FBuiltinType
+} FBuiltin;
+
+FObject MakeBuiltin(FObject bt, uint_t sz, uint_t sc, const char * who);
+
+inline int_t BuiltinP(FObject obj, FObject bt)
+{
+    FAssert(BuiltinTypeP(bt));
+
+    return(BuiltinObjectP(obj) && AsBuiltin(obj)->BuiltinType == bt);
+}
+
+inline void WriteBuiltin(FObject port, FObject obj, int_t df)
+{
+    FAssert(BuiltinObjectP(obj));
+    FAssert(BuiltinTypeP(AsBuiltin(obj)->BuiltinType));
+
+    AsBuiltinType(AsBuiltin(obj)->BuiltinType)->Write(port, obj, df);
+}
+
 // ---- Record Types ----
 
 #define RecordTypeP(obj) (IndirectTag(obj) == RecordTypeTag)
@@ -1082,7 +1138,6 @@ typedef struct
     FObject HashMapRecordType;
     FObject HashSetRecordType;
     FObject HashBagRecordType;
-    FObject ExceptionRecordType;
 
     FObject LoadedLibraries;
 
@@ -1370,9 +1425,13 @@ FObject MakeProcedure(FObject nam, FObject fn, FObject ln, FObject cv, int_t ac,
 
 // ---- Exception ----
 
+#define AsException(obj) ((FException *) (obj))
+#define ExceptionP(obj) BuiltinP(obj, ExceptionType)
+extern FObject ExceptionType;
+
 typedef struct
 {
-    FRecord Record;
+    FObject BuiltinType;
     FObject Type; // error, assertion-violation, implementation-restriction, lexical-violation,
                   // syntax-violation, undefined-violation
     FObject Who;
@@ -1380,9 +1439,6 @@ typedef struct
     FObject Message; // should be a string
     FObject Irritants; // a list of zero or more irritants
 } FException;
-
-#define AsException(obj) ((FException *) (obj))
-#define ExceptionP(obj) RecordP(obj, R.ExceptionRecordType)
 
 FObject MakeException(FObject typ, FObject who, FObject knd, FObject msg, FObject lst);
 
