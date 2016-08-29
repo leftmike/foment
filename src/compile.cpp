@@ -14,14 +14,14 @@ EternalSymbol(AnalysisPassSymbol, "analysis-pass");
 
 // ---- SyntacticEnv ----
 
-static const char * SyntacticEnvFieldsC[] = {"global-bindings", "local-bindings"};
+EternalBuiltinType(SyntacticEnvType, "syntactic-environment", 0);
 
 FObject MakeSyntacticEnv(FObject obj)
 {
-    FAssert(sizeof(FSyntacticEnv) == sizeof(SyntacticEnvFieldsC) + sizeof(FRecord));
     FAssert(EnvironmentP(obj) || SyntacticEnvP(obj));
 
-    FSyntacticEnv * se = (FSyntacticEnv *) MakeRecord(R.SyntacticEnvRecordType);
+    FSyntacticEnv * se = (FSyntacticEnv *) MakeBuiltin(SyntacticEnvType, sizeof(FSyntacticEnv), 3,
+            "make-syntactic-environment");
     if (EnvironmentP(obj))
     {
         se->GlobalBindings = obj;
@@ -38,17 +38,15 @@ FObject MakeSyntacticEnv(FObject obj)
 
 // ---- Binding ----
 
-static const char * BindingFieldsC[] = {"identifier", "syntax", "syntactic-env", "rest-arg",
-    "use-count", "set-count", "escapes", "level", "slot", "constant"};
+EternalBuiltinType(BindingType, "binding", 0);
 
 FObject MakeBinding(FObject se, FObject id, FObject ra)
 {
-    FAssert(sizeof(FBinding) == sizeof(BindingFieldsC) + sizeof(FRecord));
     FAssert(SyntacticEnvP(se));
     FAssert(IdentifierP(id));
     FAssert(ra == TrueObject || ra == FalseObject);
 
-    FBinding * b = (FBinding *) MakeRecord(R.BindingRecordType);
+    FBinding * b = (FBinding *) MakeBuiltin(BindingType, sizeof(FBinding), 11, "make-binding");
     b->Identifier = id;
     b->Syntax = NoValueObject;
     b->SyntacticEnv = se;
@@ -66,13 +64,33 @@ FObject MakeBinding(FObject se, FObject id, FObject ra)
 
 // ---- Identifier ----
 
+static void
+WriteIdentifier(FObject port, FObject obj, int_t df)
+{
+    obj = AsIdentifier(obj)->Symbol;
+
+    FAssert(SymbolP(obj));
+
+    if (StringP(AsSymbol(obj)->String))
+        WriteString(port, AsString(AsSymbol(obj)->String)->String,
+                StringLength(AsSymbol(obj)->String));
+    else
+    {
+        FAssert(CStringP(AsSymbol(obj)->String));
+
+        WriteStringC(port, AsCString(AsSymbol(obj)->String)->String);
+    }
+}
+
+EternalBuiltinType(IdentifierType, "identifier", WriteIdentifier);
+
 static int_t IdentifierMagic = 0;
 
 FObject MakeIdentifier(FObject sym, FObject fn, int_t ln)
 {
     FAssert(SymbolP(sym));
 
-    FIdentifier * nid = (FIdentifier *) MakeObject(IdentifierTag, sizeof(FIdentifier), 4,
+    FIdentifier * nid = (FIdentifier *) MakeBuiltin(IdentifierType, sizeof(FIdentifier), 5,
             "%make-identifier");
     nid->Symbol = sym;
     nid->Filename = fn;
@@ -96,7 +114,7 @@ FObject WrapIdentifier(FObject id, FObject se)
     FAssert(IdentifierP(id));
     FAssert(SyntacticEnvP(se));
 
-    FIdentifier * nid = (FIdentifier *) MakeObject(IdentifierTag, sizeof(FIdentifier), 4,
+    FIdentifier * nid = (FIdentifier *) MakeBuiltin(IdentifierType, sizeof(FIdentifier), 5,
             "%wrap-identifier");
     nid->Symbol = AsIdentifier(id)->Symbol;
     nid->Filename = AsIdentifier(id)->Filename;
@@ -110,16 +128,38 @@ FObject WrapIdentifier(FObject id, FObject se)
 
 // ---- Lambda ----
 
-static const char * LambdaFieldsC[] = {"name", "bindings", "body", "rest-arg", "arg-count",
-    "escapes", "use-stack", "level", "slot-count", "middle-pass", "may-inline", "procedure",
-    "body-index", "filename", "line-number"};
+
+static void
+WriteLambda(FObject port, FObject obj, int_t df)
+{
+    FCh s[16];
+    int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+
+    WriteStringC(port, "#<library: #x");
+    WriteString(port, s, sl);
+
+    WriteCh(port, ' ');
+    Write(port, AsLambda(obj)->Name, df);
+    WriteCh(port, ' ');
+    Write(port, AsLambda(obj)->Bindings, df);
+    if (StringP(AsLambda(obj)->Filename) && FixnumP(AsLambda(obj)->LineNumber))
+    {
+        WriteCh(port, ' ');
+        Write(port, AsLambda(obj)->Filename, 1);
+        WriteCh(port, '[');
+        Write(port, AsLambda(obj)->LineNumber, 1);
+        WriteCh(port, ']');
+    }
+    WriteStringC(port, ">");
+}
+
+EternalBuiltinType(LambdaType, "lambda", WriteLambda);
 
 FObject MakeLambda(FObject enc, FObject nam, FObject bs, FObject body)
 {
-    FAssert(sizeof(FLambda) == sizeof(LambdaFieldsC) + sizeof(FRecord));
     FAssert(LambdaP(enc) || enc == NoValueObject);
 
-    FLambda * l = (FLambda *) MakeRecord(R.LambdaRecordType);
+    FLambda * l = (FLambda *) MakeBuiltin(LambdaType, sizeof(FLambda), 16, "make-lambda");
     l->Name = nam;
     l->Bindings = bs;
     l->Body = body;
@@ -153,13 +193,12 @@ FObject MakeLambda(FObject enc, FObject nam, FObject bs, FObject body)
 
 // ---- CaseLambda ----
 
-static const char * CaseLambdaFieldsC[] = {"cases", "name", "escapes"};
+EternalBuiltinType(CaseLambdaType, "case-lambda", 0);
 
 FObject MakeCaseLambda(FObject cases)
 {
-    FAssert(sizeof(FCaseLambda) == sizeof(CaseLambdaFieldsC) + sizeof(FRecord));
-
-    FCaseLambda * cl = (FCaseLambda *) MakeRecord(R.CaseLambdaRecordType);
+    FCaseLambda * cl = (FCaseLambda *) MakeBuiltin(CaseLambdaType, sizeof(FCaseLambda), 4,
+            "make-case-lambda");
     cl->Cases = cases;
     cl->Name = NoValueObject;
     cl->Escapes = FalseObject;
@@ -169,15 +208,14 @@ FObject MakeCaseLambda(FObject cases)
 
 // ---- InlineVariable ----
 
-static const char * InlineVariableFieldsC[] = {"index"};
+EternalBuiltinType(InlineVariableType, "inline-variable", 0);
 
 FObject MakeInlineVariable(int_t idx)
 {
-    FAssert(sizeof(FInlineVariable) == sizeof(InlineVariableFieldsC) + sizeof(FRecord));
-
     FAssert(idx >= 0);
 
-    FInlineVariable * iv = (FInlineVariable *) MakeRecord(R.InlineVariableRecordType);
+    FInlineVariable * iv = (FInlineVariable *) MakeBuiltin(InlineVariableType,
+            sizeof(FInlineVariable), 2, "make-inline-variable");
     iv->Index = MakeFixnum(idx);
 
     return(iv);
@@ -185,15 +223,15 @@ FObject MakeInlineVariable(int_t idx)
 
 // ---- Reference ----
 
-static const char * ReferenceFieldsC[] = {"binding", "identifier"};
+EternalBuiltinType(ReferenceType, "reference", 0);
 
 FObject MakeReference(FObject be, FObject id)
 {
-    FAssert(sizeof(FReference) == sizeof(ReferenceFieldsC) + sizeof(FRecord));
     FAssert(BindingP(be) || EnvironmentP(be));
     FAssert(IdentifierP(id));
 
-    FReference * r = (FReference *) MakeRecord(R.ReferenceRecordType);
+    FReference * r = (FReference *) MakeBuiltin(ReferenceType, sizeof(FReference), 3,
+            "make-reference");
     r->Binding = be;
     r->Identifier = id;
 
@@ -296,19 +334,6 @@ static FObject Primitives[] =
 
 void SetupCompile()
 {
-    R.SyntacticEnvRecordType = MakeRecordTypeC("syntactic-env",
-            sizeof(SyntacticEnvFieldsC) / sizeof(char *), SyntacticEnvFieldsC);
-    R.BindingRecordType = MakeRecordTypeC("binding", sizeof(BindingFieldsC) / sizeof(char *),
-            BindingFieldsC);
-    R.ReferenceRecordType = MakeRecordTypeC("reference",
-            sizeof(ReferenceFieldsC) / sizeof(char *), ReferenceFieldsC);
-    R.LambdaRecordType = MakeRecordTypeC("lambda", sizeof(LambdaFieldsC) / sizeof(char *),
-            LambdaFieldsC);
-    R.CaseLambdaRecordType = MakeRecordTypeC("case-lambda",
-            sizeof(CaseLambdaFieldsC) / sizeof(char *), CaseLambdaFieldsC);
-    R.InlineVariableRecordType = MakeRecordTypeC("inline-variable",
-            sizeof(InlineVariableFieldsC) / sizeof(char *), InlineVariableFieldsC);
-
     R.ElseReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("else")));
     R.ArrowReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("=>")));
     R.LibraryReference = MakeReference(R.Bedrock,
@@ -340,8 +365,6 @@ void SetupCompile()
     FAssert(ConstantPassSymbol == StringCToSymbol("constant-pass"));
     FAssert(AnalysisPassSymbol == StringCToSymbol("analysis-pass"));
     FAssert(R.InteractionEnv == NoValueObject);
-
-    SetupSyntaxRules();
 
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);

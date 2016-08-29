@@ -45,27 +45,25 @@ FObject MakeProcedure(FObject nam, FObject fn, FObject ln, FObject cv, int_t ac,
 
 // ---- Dynamic ----
 
+#define AsDynamic(obj) ((FDynamic *) (obj))
+#define DynamicP(obj) BuiltinP(obj, DynamicType)
+EternalBuiltinType(DynamicType, "dynamic", 0);
+
 typedef struct
 {
-    FRecord Record;
+    FObject BuiltinType;
     FObject Who;
     FObject CStackPtr;
     FObject AStackPtr;
     FObject Marks;
 } FDynamic;
 
-#define AsDynamic(obj) ((FDynamic *) (obj))
-#define DynamicP(obj) RecordP(obj, R.DynamicRecordType)
-
-static const char * DynamicFieldsC[] = {"who", "cstack-ptr", "astack-ptr", "marks"};
-
 static FObject MakeDynamic(FObject who, FObject cdx, FObject adx, FObject ml)
 {
-    FAssert(sizeof(FDynamic) == sizeof(DynamicFieldsC) + sizeof(FRecord));
     FAssert(FixnumP(cdx));
     FAssert(FixnumP(adx));
 
-    FDynamic * dyn = (FDynamic *) MakeRecord(R.DynamicRecordType);
+    FDynamic * dyn = (FDynamic *) MakeBuiltin(DynamicType, sizeof(FDynamic), 5, "make-dynamic");
     dyn->Who = who;
     dyn->CStackPtr = cdx;
     dyn->AStackPtr = adx;
@@ -84,29 +82,28 @@ static FObject MakeDynamic(FObject dyn, FObject ml)
 
 // ---- Continuation ----
 
+#define AsContinuation(obj) ((FContinuation *) (obj))
+#define ContinuationP(obj) BuiltinP(obj, ContinuationType)
+EternalBuiltinType(ContinuationType, "continuation", 0);
+
 typedef struct
 {
-    FRecord Record;
+    FObject BuiltinType;
     FObject CStackPtr;
     FObject CStack;
     FObject AStackPtr;
     FObject AStack;
 } FContinuation;
 
-#define AsContinuation(obj) ((FContinuation *) (obj))
-#define ContinuationP(obj) RecordP(obj, R.ContinuationRecordType)
-
-static const char * ContinuationFieldsC[] = {"cstack-ptr", "cstack", "astack-ptr", "astack"};
-
 static FObject MakeContinuation(FObject cdx, FObject cv, FObject adx, FObject av)
 {
-    FAssert(sizeof(FContinuation) == sizeof(ContinuationFieldsC) + sizeof(FRecord));
     FAssert(FixnumP(cdx));
     FAssert(VectorP(cv));
     FAssert(FixnumP(adx));
     FAssert(VectorP(av));
 
-    FContinuation * cont = (FContinuation *) MakeRecord(R.ContinuationRecordType);
+    FContinuation * cont = (FContinuation *) MakeBuiltin(ContinuationType, sizeof(FContinuation), 5,
+            "make-continuation");
     cont->CStackPtr = cdx;
     cont->CStack = cv;
     cont->AStackPtr = adx;
@@ -1428,11 +1425,6 @@ void SetupExecute()
     FAssert(ExceptionHandlerSymbol == StringCToSymbol("exception-handler"));
     FAssert(NotifyHandlerSymbol == StringCToSymbol("notify-handler"));
     FAssert(SigIntSymbol == StringCToSymbol("sigint"));
-
-    R.DynamicRecordType = MakeRecordTypeC("dynamic", sizeof(DynamicFieldsC) / sizeof(char *),
-            DynamicFieldsC);
-    R.ContinuationRecordType = MakeRecordTypeC("continuation",
-            sizeof(ContinuationFieldsC) / sizeof(char *), ContinuationFieldsC);
 
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);

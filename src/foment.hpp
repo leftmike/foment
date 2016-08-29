@@ -3,6 +3,8 @@
 Foment
 
 To Do:
+-- fix circular write of builtins: maybe make full generic by using slot count in object header
+
 -- Windows: make test-all: run all tests using all three collectors
 -- CheckObject: check back references from mature objects
 -- partial GC
@@ -203,7 +205,6 @@ typedef enum
     ExclusiveTag,
     ConditionTag,
     HashTreeTag,
-    IdentifierTag,
     EphemeronTag,
     TypeMapTag,
     BuiltinTypeTag,
@@ -843,14 +844,6 @@ inline int_t BuiltinP(FObject obj, FObject bt)
     return(BuiltinObjectP(obj) && AsBuiltin(obj)->BuiltinType == bt);
 }
 
-inline void WriteBuiltin(FObject port, FObject obj, int_t df)
-{
-    FAssert(BuiltinObjectP(obj));
-    FAssert(BuiltinTypeP(AsBuiltin(obj)->BuiltinType));
-
-    AsBuiltinType(AsBuiltin(obj)->BuiltinType)->Write(port, obj, df);
-}
-
 // ---- Record Types ----
 
 #define RecordTypeP(obj) (IndirectTag(obj) == RecordTypeTag)
@@ -862,7 +855,6 @@ typedef struct
 } FRecordType;
 
 FObject MakeRecordType(FObject nam, uint_t nf, FObject flds[]);
-FObject MakeRecordTypeC(const char * nam, uint_t nf, const char * flds[]);
 
 #define RecordTypeName(obj) AsRecordType(obj)->Fields[0]
 #define RecordTypeNumFields(obj) (AsObjHdr(obj)->SlotCount())
@@ -908,12 +900,13 @@ FObject MakeHashTree(const char * who);
 
 // ---- Comparator ----
 
-#define ComparatorP(obj) RecordP(obj, R.ComparatorRecordType)
 #define AsComparator(obj) ((FComparator *) (obj))
+#define ComparatorP(obj) BuiltinP(obj, ComparatorType)
+extern FObject ComparatorType;
 
 typedef struct
 {
-    FRecord Record;
+    FObject BuiltinType;
     FObject TypeTestFn;
     FObject EqualityFn;
     FObject ComparisonFn;
@@ -939,7 +932,7 @@ extern FObject EqHashPrimitive;
 
 typedef struct
 {
-    FRecord Record;
+    FObject BuiltinType;
     FObject HashTree;
     FObject Comparator;
     FObject Tracker;
@@ -948,7 +941,8 @@ typedef struct
 
 // ---- HashMap ----
 
-#define HashMapP(obj) RecordP(obj, R.HashMapRecordType)
+#define HashMapP(obj) BuiltinP(obj, HashMapType)
+extern FObject HashMapType;
 
 typedef int_t (*FEquivFn)(FObject obj1, FObject obj2);
 typedef uint_t (*FHashFn)(FObject obj);
@@ -964,7 +958,8 @@ void EqHashMapVisit(FObject hmap, FVisitFn vfn, FObject ctx);
 
 // ---- HashSet ----
 
-#define HashSetP(obj) RecordP(obj, R.HashSetRecordType)
+#define HashSetP(obj) BuiltinP(obj, HashSetType)
+extern FObject HashSetType;
 
 typedef FHashContainer FHashSet;
 
@@ -975,7 +970,8 @@ void EqHashSetDelete(FObject hset, FObject elem);
 
 // ---- HashBag ----
 
-#define HashBagP(obj) RecordP(obj, R.HashBagRecordType)
+#define HashBagP(obj) BuiltinP(obj, HashBagType)
+extern FObject HashBagType;
 
 typedef FHashContainer FHashBag;
 
@@ -1131,22 +1127,10 @@ typedef struct
 
     FObject SymbolHashTree;
 
-    FObject ComparatorRecordType;
     FObject EqComparator;
     FObject DefaultComparator;
 
-    FObject HashMapRecordType;
-    FObject HashSetRecordType;
-    FObject HashBagRecordType;
-
     FObject LoadedLibraries;
-
-    FObject SyntacticEnvRecordType;
-    FObject BindingRecordType;
-    FObject LambdaRecordType;
-    FObject CaseLambdaRecordType;
-    FObject InlineVariableRecordType;
-    FObject ReferenceRecordType;
 
     FObject ElseReference;
     FObject ArrowReference;
@@ -1169,15 +1153,6 @@ typedef struct
     FObject StandardOutput;
     FObject StandardError;
 
-    FObject SyntaxRulesRecordType;
-    FObject PatternVariableRecordType;
-    FObject PatternRepeatRecordType;
-    FObject TemplateRepeatRecordType;
-    FObject SyntaxRuleRecordType;
-
-    FObject EnvironmentRecordType;
-    FObject GlobalRecordType;
-    FObject LibraryRecordType;
     FObject LibraryStartupList;
     FObject FomentLibraryNames;
 
@@ -1186,12 +1161,7 @@ typedef struct
     FObject NotifyHandler;
     FObject InteractiveThunk;
 
-    FObject DynamicRecordType;
-    FObject ContinuationRecordType;
-
     FObject CleanupTConc;
-
-    FObject DatumReferenceRecordType;
 } FRoots;
 
 extern FRoots R;
@@ -1304,12 +1274,13 @@ int_t NumberCompare(FObject obj1, FObject obj2);
 
 // ---- Environments ----
 
-#define EnvironmentP(obj) RecordP(obj, R.EnvironmentRecordType)
 #define AsEnvironment(obj) ((FEnvironment *) (obj))
+#define EnvironmentP(obj) BuiltinP(obj, EnvironmentType)
+extern FObject EnvironmentType;
 
 typedef struct
 {
-    FRecord Record;
+    FObject BuiltinType;
     FObject Name;
     FObject HashMap;
     FObject Interactive;
@@ -1330,12 +1301,13 @@ void EnvironmentImmutable(FObject env);
 
 // ---- Globals ----
 
-#define GlobalP(obj) RecordP(obj, R.GlobalRecordType)
 #define AsGlobal(obj) ((FGlobal *) (obj))
+#define GlobalP(obj) BuiltinP(obj, GlobalType)
+extern FObject GlobalType;
 
 typedef struct
 {
-    FRecord Record;
+    FObject BuiltinType;
     FObject Box;
     FObject Name;
     FObject Module;
@@ -1352,12 +1324,13 @@ typedef struct
 
 // ---- Libraries ----
 
-#define LibraryP(obj) RecordP(obj, R.LibraryRecordType)
 #define AsLibrary(obj) ((FLibrary *) (obj))
+#define LibraryP(obj) BuiltinP(obj, LibraryType)
+extern FObject LibraryType;
 
 typedef struct
 {
-    FRecord Record;
+    FObject BuiltinType;
     FObject Name;
     FObject Exports;
 } FLibrary;
@@ -1368,12 +1341,18 @@ FObject OpenFomentLibrary(FObject nam);
 
 // ---- Syntax Rules ----
 
-#define SyntaxRulesP(obj) RecordP(obj, R.SyntaxRulesRecordType)
+#define SyntaxRulesP(obj) BuiltinP(obj, SyntaxRulesType)
+extern FObject SyntaxRulesType;
 
 // ---- Identifiers ----
 
+#define AsIdentifier(obj) ((FIdentifier *) (obj))
+#define IdentifierP(obj) BuiltinP(obj, IdentifierType)
+extern FObject IdentifierType;
+
 typedef struct
 {
+    FObject BuiltinType;
     FObject Symbol;
     FObject Filename;
     FObject SyntacticEnv;
@@ -1381,9 +1360,6 @@ typedef struct
     int_t LineNumber;
     int_t Magic;
 } FIdentifier;
-
-#define AsIdentifier(obj) ((FIdentifier *) (obj))
-#define IdentifierP(obj) (IndirectTag(obj) == IdentifierTag)
 
 FObject MakeIdentifier(FObject sym, FObject fn, int_t ln);
 FObject MakeIdentifier(FObject sym);
@@ -1932,7 +1908,6 @@ void SetupCharacters();
 void SetupStrings();
 void SetupVectors();
 void SetupHashContainers();
-void SetupHashContainerPrims();
 void SetupCompare();
 void SetupComparePrims();
 void SetupIO();

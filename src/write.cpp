@@ -246,47 +246,12 @@ static void WriteRecord(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
         WriteStringC(port, ": #x");
         WriteString(port, s, sl);
 
-        if (LibraryP(obj))
+        for (uint_t fdx = 1; fdx < RecordNumFields(obj); fdx++)
         {
             WriteCh(port, ' ');
-            WriteGeneric(port, AsLibrary(obj)->Name, df, wfn, ctx);
-        }
-        else if (GlobalP(obj))
-        {
-            WriteCh(port, ' ');
-            WriteGeneric(port, AsGlobal(obj)->Name, df, wfn, ctx);
-            WriteCh(port, ' ');
-            WriteGeneric(port, AsGlobal(obj)->Module, df, wfn, ctx);
-        }
-        else if (EnvironmentP(obj))
-        {
-            WriteCh(port, ' ');
-            wfn(port, AsEnvironment(obj)->Name, df, (void *) wfn, ctx);
-        }
-        else if (LambdaP(obj))
-        {
-            WriteCh(port, ' ');
-            WriteGeneric(port, AsLambda(obj)->Name, df, wfn, ctx);
-            WriteCh(port, ' ');
-            WriteGeneric(port, AsLambda(obj)->Bindings, df, wfn, ctx);
-            if (StringP(AsLambda(obj)->Filename) && FixnumP(AsLambda(obj)->LineNumber))
-            {
-                WriteCh(port, ' ');
-                WriteGeneric(port, AsLambda(obj)->Filename, 1, wfn, ctx);
-                WriteCh(port, '[');
-                WriteGeneric(port, AsLambda(obj)->LineNumber, df, wfn, ctx);
-                WriteCh(port, ']');
-            }
-        }
-        else
-        {
-            for (uint_t fdx = 1; fdx < RecordNumFields(obj); fdx++)
-            {
-                WriteCh(port, ' ');
-                wfn(port, AsRecordType(rt)->Fields[fdx], df, (void *) wfn, ctx);
-                WriteStringC(port, ": ");
-                wfn(port, AsGenericRecord(obj)->Fields[fdx], df, (void *) wfn, ctx);
-            }
+            wfn(port, AsRecordType(rt)->Fields[fdx], df, (void *) wfn, ctx);
+            WriteStringC(port, ": ");
+            wfn(port, AsGenericRecord(obj)->Fields[fdx], df, (void *) wfn, ctx);
         }
 
         WriteStringC(port, ">");
@@ -484,13 +449,6 @@ static void WriteObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
         break;
     }
 
-    case IdentifierTag:
-        obj = AsIdentifier(obj)->Symbol;
-
-        FAssert(SymbolP(obj));
-
-        /* Fall through */
-
     case SymbolTag:
         if (StringP(AsSymbol(obj)->String))
             WriteString(port, AsString(AsSymbol(obj)->String)->String,
@@ -609,7 +567,22 @@ static void WriteObject(FObject port, FObject obj, int_t df, FWriteFn wfn, void 
         break;
 
     case BuiltinTag:
-        WriteBuiltin(port, obj, df);
+        FAssert(BuiltinObjectP(obj));
+        FAssert(BuiltinTypeP(AsBuiltin(obj)->BuiltinType));
+
+        if (AsBuiltinType(AsBuiltin(obj)->BuiltinType)->Write != 0)
+            AsBuiltinType(AsBuiltin(obj)->BuiltinType)->Write(port, obj, df);
+        else
+        {
+            FCh s[16];
+            int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+
+            WriteStringC(port, "#<");
+            WriteStringC(port, AsBuiltinType(AsBuiltin(obj)->BuiltinType)->Name);
+            WriteStringC(port, ": #x");
+            WriteString(port, s, sl);
+            WriteStringC(port, ">");
+        }
         break;
 
     default:

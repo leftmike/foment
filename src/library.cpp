@@ -22,14 +22,28 @@ EternalSymbol(AkaSymbol, "aka");
 
 // ---- Environments ----
 
-static const char * EnvironmentFieldsC[] = {"name", "hash-map", "interactive", "immutable"};
+static void
+WriteEnvironment(FObject port, FObject obj, int_t df)
+{
+    FCh s[16];
+    int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+
+    WriteStringC(port, "#<library: #x");
+    WriteString(port, s, sl);
+
+    WriteCh(port, ' ');
+    Write(port, AsEnvironment(obj)->Name, df);
+    WriteStringC(port, ">");
+}
+
+EternalBuiltinType(EnvironmentType, "environment", WriteEnvironment);
 
 FObject MakeEnvironment(FObject nam, FObject ctv)
 {
-    FAssert(sizeof(FEnvironment) == sizeof(EnvironmentFieldsC) + sizeof(FRecord));
     FAssert(BooleanP(ctv));
 
-    FEnvironment * env = (FEnvironment *) MakeRecord(R.EnvironmentRecordType);
+    FEnvironment * env = (FEnvironment *) MakeBuiltin(EnvironmentType, sizeof(FEnvironment), 5,
+            "make-environment");
     env->HashMap = MakeEqHashMap();
     env->Name = nam;
     env->Interactive = ctv;
@@ -215,14 +229,29 @@ void EnvironmentImportLibrary(FObject env, FObject nam)
 
 // ---- Globals ----
 
-static const char * GlobalFieldsC[] = {"box", "name", "module", "state", "interactive"};
+static void
+WriteGlobal(FObject port, FObject obj, int_t df)
+{
+    FCh s[16];
+    int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+
+    WriteStringC(port, "#<library: #x");
+    WriteString(port, s, sl);
+
+    WriteCh(port, ' ');
+    Write(port, AsGlobal(obj)->Name, df);
+    WriteCh(port, ' ');
+    Write(port, AsGlobal(obj)->Module, df);
+    WriteStringC(port, ">");
+}
+
+EternalBuiltinType(GlobalType, "global", WriteGlobal);
 
 static FObject MakeGlobal(FObject nam, FObject mod, FObject ctv)
 {
-    FAssert(sizeof(FGlobal) == sizeof(GlobalFieldsC) + sizeof(FRecord));
     FAssert(SymbolP(nam));
 
-    FGlobal * gl = (FGlobal *) MakeRecord(R.GlobalRecordType);
+    FGlobal * gl = (FGlobal *) MakeBuiltin(GlobalType, sizeof(FGlobal), 6, "make-global");
     gl->Box = MakeBox(NoValueObject);
     gl->Name = nam;
     gl->Module = mod;
@@ -234,12 +263,11 @@ static FObject MakeGlobal(FObject nam, FObject mod, FObject ctv)
 
 static FObject ImportGlobal(FObject env, FObject nam, FObject gl)
 {
-    FAssert(sizeof(FGlobal) == sizeof(GlobalFieldsC) + sizeof(FRecord));
     FAssert(EnvironmentP(env));
     FAssert(SymbolP(nam));
     FAssert(GlobalP(gl));
 
-    FGlobal * ngl = (FGlobal *) MakeRecord(R.GlobalRecordType);
+    FGlobal * ngl = (FGlobal *) MakeBuiltin(GlobalType, sizeof(FGlobal), 6, "import-global");
     ngl->Box = AsGlobal(gl)->Box;
     ngl->Name = nam;
     ngl->Module =  AsEnvironment(env)->Interactive == TrueObject ? env : AsGlobal(gl)->Module;
@@ -252,19 +280,32 @@ static FObject ImportGlobal(FObject env, FObject nam, FObject gl)
 
         ngl->State = GlobalImportedModified;
     }
+    ngl->Interactive = NoValueObject;
 
     return(ngl);
 }
 
 // ---- Libraries ----
 
-static const char * LibraryFieldsC[] = {"name", "exports"};
+static void
+WriteLibrary(FObject port, FObject obj, int_t df)
+{
+    FCh s[16];
+    int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+
+    WriteStringC(port, "#<library: #x");
+    WriteString(port, s, sl);
+
+    WriteCh(port, ' ');
+    Write(port, AsLibrary(obj)->Name, df);
+    WriteStringC(port, ">");
+}
+
+EternalBuiltinType(LibraryType, "library", WriteLibrary);
 
 static FObject MakeLibrary(FObject nam, FObject exports, FObject proc)
 {
-    FAssert(sizeof(FLibrary) == sizeof(LibraryFieldsC) + sizeof(FRecord));
-
-    FLibrary * lib = (FLibrary *) MakeRecord(R.LibraryRecordType);
+    FLibrary * lib = (FLibrary *) MakeBuiltin(LibraryType, sizeof(FLibrary), 3, "make-library");
     lib->Name = nam;
     lib->Exports = exports;
 
@@ -1360,13 +1401,6 @@ FObject CompileProgram(FObject nam, FObject port)
 
 void SetupLibrary()
 {
-    R.EnvironmentRecordType = MakeRecordTypeC("environment",
-            sizeof(EnvironmentFieldsC) / sizeof(char *), EnvironmentFieldsC);
-    R.GlobalRecordType = MakeRecordTypeC("global", sizeof(GlobalFieldsC) / sizeof(char *),
-            GlobalFieldsC);
-    R.LibraryRecordType = MakeRecordTypeC("library", sizeof(LibraryFieldsC) / sizeof(char *),
-            LibraryFieldsC);
-
     R.LibraryStartupList = EmptyListObject;
 
     DefineLibrarySymbol = InternSymbol(DefineLibrarySymbol);

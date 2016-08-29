@@ -9,23 +9,28 @@ Foment
 
 // ---- SyntacticEnv ----
 
+#define AsSyntacticEnv(obj) ((FSyntacticEnv *) (obj))
+#define SyntacticEnvP(obj) BuiltinP(obj, SyntacticEnvType)
+extern FObject SyntacticEnvType;
+
 typedef struct
 {
-    FRecord Record;
+    FObject BuiltinType;
     FObject GlobalBindings;
     FObject LocalBindings;
 } FSyntacticEnv;
-
-#define AsSyntacticEnv(obj) ((FSyntacticEnv *) (obj))
-#define SyntacticEnvP(obj) RecordP(obj, R.SyntacticEnvRecordType)
 
 FObject MakeSyntacticEnv(FObject obj);
 
 // ---- Binding ----
 
+#define AsBinding(obj) ((FBinding *) (obj))
+#define BindingP(obj) BuiltinP(obj, BindingType)
+extern FObject BindingType;
+
 typedef struct
 {
-    FRecord Record;
+    FObject BuiltinType;
 
     FObject Identifier;
     FObject Syntax;
@@ -40,30 +45,32 @@ typedef struct
     FObject Constant;
 } FBinding;
 
-#define AsBinding(obj) ((FBinding *) (obj))
-#define BindingP(obj) RecordP(obj, R.BindingRecordType)
-
 FObject MakeBinding(FObject se, FObject id, FObject ra);
 
 // ---- Reference ----
 
+#define AsReference(obj) ((FReference *) (obj))
+#define ReferenceP(obj) BuiltinP(obj, ReferenceType)
+extern FObject ReferenceType;
+
 typedef struct
 {
-    FRecord Record;
+    FObject BuiltinType;
     FObject Binding;
     FObject Identifier;
 } FReference;
-
-#define AsReference(obj) ((FReference *) (obj))
-#define ReferenceP(obj) RecordP(obj, R.ReferenceRecordType)
 
 FObject MakeReference(FObject be, FObject id);
 
 // ---- Lambda ----
 
+#define AsLambda(obj) ((FLambda *) (obj))
+#define LambdaP(obj) BuiltinP(obj, LambdaType)
+extern FObject LambdaType;
+
 typedef struct
 {
-    FRecord Record;
+    FObject BuiltinType;
 
     FObject Name;
     FObject Bindings;
@@ -86,81 +93,37 @@ typedef struct
     FObject LineNumber;
 } FLambda;
 
-#define AsLambda(obj) ((FLambda *) (obj))
-#define LambdaP(obj) RecordP(obj, R.LambdaRecordType)
-
 FObject MakeLambda(FObject enc, FObject nam, FObject bs, FObject body);
 
 // ---- CaseLambda ----
 
+#define AsCaseLambda(obj) ((FCaseLambda *) (obj))
+#define CaseLambdaP(obj) BuiltinP(obj, CaseLambdaType)
+extern FObject CaseLambdaType;
+
 typedef struct
 {
-    FRecord Record;
+    FObject BuiltinType;
     FObject Cases;
     FObject Name;
     FObject Escapes;
 } FCaseLambda;
 
-#define AsCaseLambda(obj) ((FCaseLambda *) (obj))
-#define CaseLambdaP(obj) RecordP(obj, R.CaseLambdaRecordType)
-
 FObject MakeCaseLambda(FObject cases);
 
 // ---- InlineVariable ----
 
+#define AsInlineVariable(obj) ((FInlineVariable *) (obj))
+#define InlineVariableP(obj) BuiltinP(obj, InlineVariableType)
+extern FObject InlineVariableType;
+
 typedef struct
 {
-    FRecord Record;
+    FObject BuiltinType;
     FObject Index;
 } FInlineVariable;
 
-#define AsInlineVariable(obj) ((FInlineVariable *) (obj))
-#define InlineVariableP(obj) RecordP(obj, R.InlineVariableRecordType)
-
 FObject MakeInlineVariable(int_t idx);
-
-// ---- Pattern Variable ----
-
-typedef struct
-{
-    FRecord Record;
-    FObject RepeatDepth;
-    FObject Index;
-    FObject Variable;
-} FPatternVariable;
-
-#define AsPatternVariable(obj) ((FPatternVariable *) (obj))
-#define PatternVariableP(obj) RecordP(obj, R.PatternVariableRecordType)
-
-// ---- Pattern Repeat ----
-
-typedef struct
-{
-    FRecord Record;
-    FObject LeaveCount;
-    FObject Ellipsis;
-    FObject Variables;
-    FObject Pattern;
-    FObject Rest;
-} FPatternRepeat;
-
-#define AsPatternRepeat(obj) ((FPatternRepeat *) (obj))
-#define PatternRepeatP(obj) RecordP(obj, R.PatternRepeatRecordType)
-
-// ---- Template Repeat ----
-
-typedef struct
-{
-    FRecord Record;
-    FObject Ellipsis;
-    FObject RepeatCount;
-    FObject Variables;
-    FObject Template;
-    FObject Rest;
-} FTemplateRepeat;
-
-#define AsTemplateRepeat(obj) ((FTemplateRepeat *) (obj))
-#define TemplateRepeatP(obj) RecordP(obj, R.TemplateRepeatRecordType)
 
 // ----------------
 
@@ -180,8 +143,6 @@ void UPassLambda(FLambda * lam, int ef);
 void CPassLambda(FLambda * lam);
 void APassLambda(FLambda * enc, FLambda * lam);
 FObject GPassLambda(FLambda * lam);
-
-void SetupSyntaxRules();
 
 // ----------------
 

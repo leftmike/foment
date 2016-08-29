@@ -617,22 +617,10 @@ static const char * RootNames[] =
 
     "symbol-hash-tree",
 
-    "comparator-record-type",
     "eq-comparator",
     "default-comparator",
 
-    "hash-map-record-type",
-    "hash-set-record-type",
-    "hash-bag-record-type",
-
     "loaded-libraries",
-
-    "syntactic-env-record-type",
-    "binding-record-type",
-    "lambda-record-type",
-    "case-lambda-record-type",
-    "inline-variable-record-type",
-    "reference-record-type",
 
     "else-reference",
     "arrow-reference",
@@ -655,15 +643,6 @@ static const char * RootNames[] =
     "standard-output",
     "standard-error",
 
-    "syntax-rules-record-type",
-    "pattern-variable-record-type",
-    "pattern-repeat-record-type",
-    "template-repeat-record-type",
-    "syntax-rule-record-type",
-
-    "environment-record-type",
-    "global-record-type",
-    "library-record-type",
     "library-startup-list",
     "foment-library-names",
 
@@ -672,12 +651,7 @@ static const char * RootNames[] =
     "notify-handler",
     "interactive-thunk",
 
-    "dynamic-record-type",
-    "continuation-record-type",
-
     "cleanup-tconc",
-
-    "datum-reference-record-type"
 };
 
 typedef struct
@@ -716,7 +690,6 @@ static const char * IndirectTagString[] =
     "exclusive",
     "condition",
     "hash-tree",
-    "identifier",
     "ephemeron",
     "type-map",
     "builtin-type",
@@ -847,28 +820,37 @@ static const char * WhereFrom(FObject obj, int_t * idx)
 
 static void PrintObjectString(FObject obj)
 {
-    if (TextualPortP(obj) || BinaryPortP(obj))
-        obj = AsGenericPort(obj)->Name;
-    else if (ProcedureP(obj))
-        obj = AsProcedure(obj)->Name;
-    else if (RecordTypeP(obj))
-        obj = AsRecordType(obj)->Fields[0];
-    else if (GenericRecordP(obj))
+    if (BuiltinObjectP(obj))
     {
-        FMustBe(RecordTypeP(AsGenericRecord(obj)->Fields[0]));
+        FMustBe(BuiltinTypeP(AsBuiltin(obj)->BuiltinType));
 
-        obj = AsRecordType(AsGenericRecord(obj)->Fields[0])->Fields[0];
+        printf(" %s", AsBuiltinType(AsBuiltin(obj)->BuiltinType)->Name);
     }
-
-    if (SymbolP(obj))
-        obj = SymbolToString(obj);
-
-    if (StringP(obj))
+    else
     {
-        printf(" ");
+        if (TextualPortP(obj) || BinaryPortP(obj))
+            obj = AsGenericPort(obj)->Name;
+        else if (ProcedureP(obj))
+            obj = AsProcedure(obj)->Name;
+        else if (RecordTypeP(obj))
+            obj = AsRecordType(obj)->Fields[0];
+        else if (GenericRecordP(obj))
+        {
+            FMustBe(RecordTypeP(AsGenericRecord(obj)->Fields[0]));
 
-        for (uint_t idx = 0; idx < StringLength(obj); idx++)
-            putc(AsString(obj)->String[idx], stdout);
+            obj = AsRecordType(AsGenericRecord(obj)->Fields[0])->Fields[0];
+        }
+
+        if (SymbolP(obj))
+            obj = SymbolToString(obj);
+
+        if (StringP(obj))
+        {
+            printf(" ");
+
+            for (uint_t idx = 0; idx < StringLength(obj); idx++)
+                putc(AsString(obj)->String[idx], stdout);
+        }
     }
 }
 
@@ -984,6 +966,14 @@ static int_t ValidAddress(FObjHdr * oh)
 
 static void CheckObject(FObject obj, int_t idx, int_t ef)
 {
+    if (obj == 0)
+    {
+        printf("CheckObject: obj == 0\n");
+        if (CheckStackPtr > 0)
+            PrintCheckStack();
+        return;
+    }
+
     if (CheckStackPtr == WALK_STACK_SIZE)
     {
         CheckTooDeep += 1;

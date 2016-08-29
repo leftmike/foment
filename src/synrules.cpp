@@ -10,23 +10,21 @@ Foment
 
 // ---- Syntax Rules ----
 
+#define AsSyntaxRules(obj) ((FSyntaxRules *) (obj))
+EternalBuiltinType(SyntaxRulesType, "syntax-rules", 0);
+
 typedef struct
 {
-    FRecord Record;
+    FObject BuiltinType;
     FObject Literals;
     FObject Rules;
     FObject SyntacticEnv;
 } FSyntaxRules;
 
-#define AsSyntaxRules(obj) ((FSyntaxRules *) (obj))
-
-static const char * SyntaxRulesFieldsC[] = {"literals", "rules", "syntactic-env"};
-
 static FObject MakeSyntaxRules(FObject lits, FObject rules, FObject se)
 {
-    FAssert(sizeof(FSyntaxRules) == sizeof(SyntaxRulesFieldsC) + sizeof(FRecord));
-
-    FSyntaxRules * sr = (FSyntaxRules *) MakeRecord(R.SyntaxRulesRecordType);
+    FSyntaxRules * sr = (FSyntaxRules *) MakeBuiltin(SyntaxRulesType, sizeof(FSyntaxRules), 4,
+            "make-syntax-rules");
     sr->Literals = lits;
     sr->Rules = rules;
     sr->SyntacticEnv = se;
@@ -36,14 +34,24 @@ static FObject MakeSyntaxRules(FObject lits, FObject rules, FObject se)
 
 // ---- Pattern Variable ----
 
-static const char * PatternVariableFieldsC[] = {"repeat-depth", "index", "variable"};
+#define AsPatternVariable(obj) ((FPatternVariable *) (obj))
+#define PatternVariableP(obj) BuiltinP(obj, PatternVariableType)
+EternalBuiltinType(PatternVariableType, "pattern-variable", 0);
+
+typedef struct
+{
+    FObject BuiltinType;
+    FObject RepeatDepth;
+    FObject Index;
+    FObject Variable;
+} FPatternVariable;
 
 static FObject MakePatternVariable(int_t rd, FObject var)
 {
-    FAssert(sizeof(FPatternVariable) == sizeof(PatternVariableFieldsC) + sizeof(FRecord));
     FAssert(ReferenceP(var));
 
-    FPatternVariable * pv = (FPatternVariable *) MakeRecord(R.PatternVariableRecordType);
+    FPatternVariable * pv = (FPatternVariable *) MakeBuiltin(PatternVariableType,
+            sizeof(FPatternVariable), 4, "make-pattern-variable");
     pv->RepeatDepth = MakeFixnum(rd);
     pv->Index = MakeFixnum(-1);
     pv->Variable = var;
@@ -53,15 +61,25 @@ static FObject MakePatternVariable(int_t rd, FObject var)
 
 // ---- Pattern Repeat ----
 
-static const char * PatternRepeatFieldsC[] = {"leave-count", "ellipsis", "variables", "pattern",
-    "rest"};
+#define AsPatternRepeat(obj) ((FPatternRepeat *) (obj))
+#define PatternRepeatP(obj) BuiltinP(obj, PatternRepeatType)
+EternalBuiltinType(PatternRepeatType, "pattern-repeat", 0);
+
+typedef struct
+{
+    FObject BuiltinType;
+    FObject LeaveCount;
+    FObject Ellipsis;
+    FObject Variables;
+    FObject Pattern;
+    FObject Rest;
+} FPatternRepeat;
 
 static FObject MakePatternRepeat(int_t lc, FObject ellip, FObject vars, FObject pat,
     FObject rest)
 {
-    FAssert(sizeof(FPatternRepeat) == sizeof(PatternRepeatFieldsC) + sizeof(FRecord));
-
-    FPatternRepeat * pr = (FPatternRepeat *) MakeRecord(R.PatternRepeatRecordType);
+    FPatternRepeat * pr = (FPatternRepeat *) MakeBuiltin(PatternRepeatType, sizeof(FPatternRepeat),
+            6, "make-pattern-repeat");
     pr->LeaveCount = MakeFixnum(lc);
     pr->Ellipsis = ellip;
     pr->Variables = vars;
@@ -73,14 +91,24 @@ static FObject MakePatternRepeat(int_t lc, FObject ellip, FObject vars, FObject 
 
 // ---- Template Repeat ----
 
-static const char * TemplateRepeatFieldsC[] = {"ellipsis", "repeat-count", "variables", "template",
-    "rest"};
+#define AsTemplateRepeat(obj) ((FTemplateRepeat *) (obj))
+#define TemplateRepeatP(obj) BuiltinP(obj, TemplateRepeatType)
+EternalBuiltinType(TemplateRepeatType, "template-repeat", 0);
+
+typedef struct
+{
+    FObject BuiltinType;
+    FObject Ellipsis;
+    FObject RepeatCount;
+    FObject Variables;
+    FObject Template;
+    FObject Rest;
+} FTemplateRepeat;
 
 static FObject MakeTemplateRepeat(FObject ellip, int_t rc)
 {
-    FAssert(sizeof(FTemplateRepeat) == sizeof(TemplateRepeatFieldsC) + sizeof(FRecord));
-
-    FTemplateRepeat * tr = (FTemplateRepeat *) MakeRecord(R.TemplateRepeatRecordType);
+    FTemplateRepeat * tr = (FTemplateRepeat *) MakeBuiltin(TemplateRepeatType,
+            sizeof(FTemplateRepeat), 6, "make-template-repeat");
     tr->Ellipsis = ellip;
     tr->RepeatCount = MakeFixnum(rc);
     tr->Variables = MakeVector(AsFixnum(tr->RepeatCount), 0, EmptyListObject);
@@ -92,25 +120,23 @@ static FObject MakeTemplateRepeat(FObject ellip, int_t rc)
 
 // ---- Syntax Rule ----
 
+#define AsSyntaxRule(obj) ((FSyntaxRule *) (obj))
+#define SyntaxRuleP(obj) BuiltinP(obj, SyntaxRuleType)
+EternalBuiltinType(SyntaxRuleType, "syntax-rule", 0);
+
 typedef struct
 {
-    FRecord Record;
+    FObject BuiltinType;
     FObject NumVariables;
     FObject Variables; // A list of pattern variables.
     FObject Pattern;
     FObject Template;
 } FSyntaxRule;
 
-#define AsSyntaxRule(obj) ((FSyntaxRule *) (obj))
-#define SyntaxRuleP(obj) RecordP(obj, R.SyntaxRuleRecordType)
-
-static const char * SyntaxRuleFieldsC[] = {"num-variables", "variables", "pattern", "template"};
-
 static FObject MakeSyntaxRule(int_t nv, FObject vars, FObject pat, FObject tpl)
 {
-    FAssert(sizeof(FSyntaxRule) == sizeof(SyntaxRuleFieldsC) + sizeof(FRecord));
-
-    FSyntaxRule * sr = (FSyntaxRule *) MakeRecord(R.SyntaxRuleRecordType);
+    FSyntaxRule * sr = (FSyntaxRule *) MakeBuiltin(SyntaxRuleType, sizeof(FSyntaxRule), 5,
+            "make-syntax-rule");
     sr->NumVariables = MakeFixnum(nv);
     sr->Variables = vars;
     sr->Pattern = pat;
@@ -118,6 +144,8 @@ static FObject MakeSyntaxRule(int_t nv, FObject vars, FObject pat, FObject tpl)
 
     return(sr);
 }
+
+// ----------------
 
 #if 0
 static FObject PatternToList(FObject cpat)
@@ -841,18 +869,4 @@ FObject ExpandSyntaxRules(FObject se, FObject sr, FObject expr)
 
     RaiseExceptionC(Syntax, "syntax-rules", "unable to match pattern", List(sr, expr));
     return(NoValueObject);
-}
-
-void SetupSyntaxRules()
-{
-    R.SyntaxRulesRecordType = MakeRecordTypeC("syntax-rules",
-            sizeof(SyntaxRulesFieldsC) / sizeof(char *), SyntaxRulesFieldsC);
-    R.PatternVariableRecordType = MakeRecordTypeC("pattern-variable",
-            sizeof(PatternVariableFieldsC) / sizeof(char *), PatternVariableFieldsC);
-    R.PatternRepeatRecordType = MakeRecordTypeC("pattern-repeat",
-            sizeof(PatternRepeatFieldsC) / sizeof(char *), PatternRepeatFieldsC);
-    R.TemplateRepeatRecordType = MakeRecordTypeC("template-repeat",
-            sizeof(TemplateRepeatFieldsC) / sizeof(char *), TemplateRepeatFieldsC);
-    R.SyntaxRuleRecordType = MakeRecordTypeC("syntax-rule",
-            sizeof(SyntaxRuleFieldsC) / sizeof(char *), SyntaxRuleFieldsC);
 }

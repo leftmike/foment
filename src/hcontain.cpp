@@ -11,6 +11,10 @@ Foment
 #endif // FOMENT_WINDOWS
 #include "foment.hpp"
 
+EternalBuiltinType(HashMapType, "hash-map", 0);
+EternalBuiltinType(HashSetType, "hash-set", 0);
+EternalBuiltinType(HashBagType, "hash-bag", 0);
+
 // ---- Population Count ----
 //
 // popcount_3 from http://en.wikipedia.org/wiki/Hamming_weight#Efficient_implementation
@@ -989,15 +993,12 @@ Define("hash-container-size-set!", HashContainerSizeSetPrimitive)(int_t argc, FO
 
 // ---- Hash Map ----
 
-static const char * HashContainerFieldsC[4] = {"hash-tree", "comparator", "tracker", "size"};
-
 static FObject MakeHashMap(FObject comp, FObject tracker)
 {
-    FAssert(sizeof(FHashMap) == sizeof(HashContainerFieldsC) + sizeof(FRecord));
     FAssert(ComparatorP(comp));
     FAssert(tracker == NoValueObject || PairP(tracker));
 
-    FHashMap * hmap = (FHashMap *) MakeRecord(R.HashMapRecordType);
+    FHashMap * hmap = (FHashMap *) MakeBuiltin(HashMapType, sizeof(FHashMap), 5, "make-hash-map");
     hmap->HashTree = MakeHashTree("make-hash-map");
     hmap->Comparator = comp;
     hmap->Tracker = tracker;
@@ -1100,11 +1101,10 @@ Define("eq-hash-map-delete", EqHashMapDeletePrimitive)(int_t argc, FObject argv[
 
 static FObject MakeHashSet(FObject comp, FObject tracker)
 {
-    FAssert(sizeof(FHashSet) == sizeof(HashContainerFieldsC) + sizeof(FRecord));
     FAssert(ComparatorP(comp));
     FAssert(tracker == NoValueObject || PairP(tracker));
 
-    FHashSet * hset = (FHashSet *) MakeRecord(R.HashSetRecordType);
+    FHashSet * hset = (FHashSet *) MakeBuiltin(HashSetType, sizeof(FHashSet), 5, "make-hash-set");
     hset->HashTree = MakeHashTree("make-hash-set");
     hset->Comparator = comp;
     hset->Tracker = tracker;
@@ -1201,11 +1201,10 @@ Define("eq-hash-set-delete!", EqHashSetDeletePrimitive)(int_t argc, FObject argv
 
 static FObject MakeHashBag(FObject comp, FObject tracker)
 {
-    FAssert(sizeof(FHashBag) == sizeof(HashContainerFieldsC) + sizeof(FRecord));
     FAssert(ComparatorP(comp));
     FAssert(tracker == NoValueObject || PairP(tracker));
 
-    FHashBag * hbag = (FHashBag *) MakeRecord(R.HashBagRecordType);
+    FHashBag * hbag = (FHashBag *) MakeBuiltin(HashBagType, sizeof(FHashBag), 5, "make-hash-bag");
     hbag->HashTree = MakeHashTree("make-hash-bag");
     hbag->Comparator = comp;
     hbag->Tracker = tracker;
@@ -1266,16 +1265,6 @@ static FObject Primitives[] =
 };
 
 void SetupHashContainers()
-{
-    R.HashMapRecordType = MakeRecordTypeC("hash-map",
-            sizeof(HashContainerFieldsC) / sizeof(char *), HashContainerFieldsC);
-    R.HashSetRecordType = MakeRecordTypeC("hash-set",
-            sizeof(HashContainerFieldsC) / sizeof(char *), HashContainerFieldsC);
-    R.HashBagRecordType = MakeRecordTypeC("hash-bag",
-            sizeof(HashContainerFieldsC) / sizeof(char *), HashContainerFieldsC);
-}
-
-void SetupHashContainerPrims()
 {
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);

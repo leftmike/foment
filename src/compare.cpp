@@ -8,19 +8,18 @@ Foment
 
 // ---- Comparator ----
 
-static const char * ComparatorFieldsC[] = {"type-test-procedure", "equality-predicate",
-    "comparison-procedure", "hash-function", "has-comparison", "has-hash"};
+EternalBuiltinType(ComparatorType, "comparator", 0);
 
 static FObject MakeComparator(FObject ttfn, FObject eqfn, FObject compfn, FObject hashfn)
 {
-    FAssert(sizeof(FComparator) == sizeof(ComparatorFieldsC) + sizeof(FRecord));
     FAssert(ttfn == TrueObject || ProcedureP(ttfn) || PrimitiveP(ttfn));
     FAssert(ProcedureP(eqfn) || PrimitiveP(eqfn));
     FAssert(compfn == FalseObject || ProcedureP(compfn) || PrimitiveP(compfn));
     FAssert(hashfn == FalseObject || ProcedureP(hashfn) || PrimitiveP(hashfn));
 
 
-    FComparator * comp = (FComparator *) MakeRecord(R.ComparatorRecordType);
+    FComparator * comp = (FComparator *) MakeBuiltin(ComparatorType, sizeof(FComparator), 7,
+            "make-comparator");
     comp->TypeTestFn = (ttfn == TrueObject ? AnyPPrimitive : ttfn);
     comp->EqualityFn = eqfn;
     comp->ComparisonFn = (compfn == FalseObject ? NoComparePrimitive : compfn);
@@ -660,9 +659,6 @@ static FObject Primitives[] =
 
 void SetupCompare()
 {
-    R.ComparatorRecordType = MakeRecordTypeC("comparator",
-            sizeof(ComparatorFieldsC) / sizeof(char *), ComparatorFieldsC);
-
     R.EqComparator = MakeComparator(TrueObject, EqPPrimitive, FalseObject, EqHashPrimitive);
     R.DefaultComparator = MakeComparator(DefaultTypeTestPrimitive, DefaultEqualityPrimitive,
             DefaultComparePrimitive, DefaultHashPrimitive);

@@ -27,23 +27,23 @@ Foment
 
 // ---- Datum Reference ----
 
+#define AsDatumReference(obj) ((FDatumReference *) (obj))
+#define DatumReferenceP(obj) BuiltinP(obj, DatumReferenceType)
+
+EternalBuiltinType(DatumReferenceType, "datum-reference", 0);
+
 typedef struct
 {
-    FRecord Record;
+    FObject BuiltinType;
     FObject Label;
 } FDatumReference;
 
-#define AsDatumReference(obj) ((FDatumReference *) (obj))
-#define DatumReferenceP(obj) RecordP(obj, R.DatumReferenceRecordType)
-
-static const char * DatumReferenceFieldsC[] = {"label"};
-
 static FObject MakeDatumReference(FObject lbl)
 {
-    FAssert(sizeof(FDatumReference) == sizeof(DatumReferenceFieldsC) + sizeof(FRecord));
     FAssert(FixnumP(lbl));
 
-    FDatumReference * dref = (FDatumReference *) MakeRecord(R.DatumReferenceRecordType);
+    FDatumReference * dref = (FDatumReference *) MakeBuiltin(DatumReferenceType,
+            sizeof(FDatumReference), 2, "make-datum-reference");
     dref->Label = lbl;
 
     return(dref);
@@ -1026,9 +1026,6 @@ static FObject Primitives[] =
 void SetupRead()
 {
     FAssert(MAXIMUM_NUMBER == MAXIMUM_IDENTIFIER);
-
-    R.DatumReferenceRecordType = MakeRecordTypeC("datum-reference",
-            sizeof(DatumReferenceFieldsC) / sizeof(char *), DatumReferenceFieldsC);
 
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);

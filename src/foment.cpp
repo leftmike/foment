@@ -71,9 +71,6 @@ EternalSymbol(Lexical, "lexical-violation");
 EternalSymbol(Syntax, "syntax-violation");
 EternalSymbol(Error, "error-violation");
 
-static void WriteException(FObject port, FObject obj, int_t df);
-EternalBuiltinType(ExceptionType, "exception-type", WriteException);
-
 void ErrorExitFoment()
 {
     if (SetupComplete)
@@ -272,19 +269,6 @@ Define("string->symbol", StringToSymbolPrimitive)(int_t argc, FObject argv[])
 
 // ---- Exceptions ----
 
-FObject MakeException(FObject typ, FObject who, FObject knd, FObject msg, FObject lst)
-{
-    FException * exc = (FException *) MakeBuiltin(ExceptionType, sizeof(FException), 6,
-            "make-exception");
-    exc->Type = typ;
-    exc->Who = who;
-    exc->Kind = knd;
-    exc->Message = msg;
-    exc->Irritants = lst;
-
-    return(exc);
-}
-
 static void WriteLocation(FObject port, FObject obj)
 {
     if (PairP(obj))
@@ -332,6 +316,21 @@ WriteException(FObject port, FObject obj, int_t df)
 
     WriteLocation(port, AsException(obj)->Irritants);
     WriteStringC(port, ">");
+}
+
+EternalBuiltinType(ExceptionType, "exception", WriteException);
+
+FObject MakeException(FObject typ, FObject who, FObject knd, FObject msg, FObject lst)
+{
+    FException * exc = (FException *) MakeBuiltin(ExceptionType, sizeof(FException), 6,
+            "make-exception");
+    exc->Type = typ;
+    exc->Who = who;
+    exc->Kind = knd;
+    exc->Message = msg;
+    exc->Irritants = lst;
+
+    return(exc);
 }
 
 void RaiseException(FObject typ, FObject who, FObject knd, FObject msg, FObject lst)
@@ -612,18 +611,6 @@ FObject MakeRecordType(FObject nam, uint_t nf, FObject flds[])
     }
 
     return(rt);
-}
-
-FObject MakeRecordTypeC(const char * nam, uint_t nf, const char * flds[])
-{
-    FObject oflds[32];
-
-    FAssert(nf <= sizeof(oflds) / sizeof(FObject));
-
-    for (uint_t fdx = 0; fdx < nf; fdx++)
-        oflds[fdx] = StringCToSymbol(flds[fdx]);
-
-    return(MakeRecordType(StringCToSymbol(nam), nf, oflds));
 }
 
 Define("%make-record-type", MakeRecordTypePrimitive)(int_t argc, FObject argv[])
@@ -1342,7 +1329,6 @@ int_t SetupFoment(FThreadState * ts)
 
     R.SymbolHashTree = MakeHashTree("%setup-foment");
 
-    SetupHashContainers();
     SetupCompare();
 
     ts->Parameters = MakeEqHashMap();
@@ -1383,7 +1369,7 @@ int_t SetupFoment(FThreadState * ts)
         LibraryExport(R.BedrockLibrary, EnvironmentSetC(R.Bedrock, SpecialSyntaxes[n],
                 MakeImmediate(n, SpecialSyntaxTag)));
 
-    SetupHashContainerPrims();
+    SetupHashContainers();
     SetupComparePrims();
     SetupPairs();
     SetupCharacters();
