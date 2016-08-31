@@ -787,7 +787,7 @@ static FObject SPassQuasiquote(FObject enc, FObject se, FObject expr, FObject tp
 {
     if (PairP(tpl))
     {
-        if (MatchReference(R.UnquoteReference, se, First(tpl)))
+        if (MatchReference(UnquoteReference, se, First(tpl)))
         {
             FAssert(dpth > 0);
             dpth -= 1;
@@ -801,15 +801,15 @@ static FObject SPassQuasiquote(FObject enc, FObject se, FObject expr, FObject tp
                 return(SPassExpression(enc, se, First(Rest(tpl))));
             }
         }
-        else if (MatchReference(R.QuasiquoteReference, se, First(tpl)))
+        else if (MatchReference(QuasiquoteReference, se, First(tpl)))
             dpth += 1;
-        else if (MatchReference(R.UnquoteSplicingReference, se, First(tpl)))
+        else if (MatchReference(UnquoteSplicingReference, se, First(tpl)))
         {
             FAssert(dpth > 0);
 
             dpth -= 1;
         }
-        else if (dpth == 1 && PairP(First(tpl)) && MatchReference(R.UnquoteSplicingReference, se,
+        else if (dpth == 1 && PairP(First(tpl)) && MatchReference(UnquoteSplicingReference, se,
                 First(First(tpl))))
         {
             FObject ftpl = First(tpl);
@@ -822,7 +822,7 @@ static FObject SPassQuasiquote(FObject enc, FObject se, FObject expr, FObject tp
             if (rst == Rest(tpl))
                 rst = MakePair(QuoteSyntax, MakePair(SyntaxToDatum(rst), EmptyListObject));
 
-            return(MakePair(R.AppendReference, MakePair(SPassExpression(enc, se,
+            return(MakePair(AppendReference, MakePair(SPassExpression(enc, se,
                     First(Rest(ftpl))), MakePair(rst, EmptyListObject))));
         }
 
@@ -836,7 +836,7 @@ static FObject SPassQuasiquote(FObject enc, FObject se, FObject expr, FObject tp
         else if (rst == Rest(tpl))
             rst = MakePair(QuoteSyntax, MakePair(SyntaxToDatum(rst), EmptyListObject));
 
-        return(MakePair(R.ConsReference, MakePair(fst, MakePair(rst, EmptyListObject))));
+        return(MakePair(ConsReference, MakePair(fst, MakePair(rst, EmptyListObject))));
     }
     else if (VectorP(tpl))
     {
@@ -847,7 +847,7 @@ static FObject SPassQuasiquote(FObject enc, FObject se, FObject expr, FObject tp
 
         FAssert(PairP(ret));
 
-        return(MakePair(R.ListToVectorReference, MakePair(ret, EmptyListObject)));
+        return(MakePair(ListToVectorReference, MakePair(ret, EmptyListObject)));
     }
 
     return(tpl);
@@ -1594,7 +1594,7 @@ static int_t EvaluateFeatureRequirement(FObject se, FObject expr, FObject cls, F
 
     if (SymbolP(obj))
     {
-        FObject lst = R.Features;
+        FObject lst = Features;
         while (PairP(lst))
         {
             FAssert(SymbolP(First(lst)));
@@ -1614,7 +1614,7 @@ static int_t EvaluateFeatureRequirement(FObject se, FObject expr, FObject cls, F
         RaiseExceptionC(Syntax, "cond-expand", "invalid feature requirement syntax",
                 List(obj, cls, expr));
 
-    if (MatchReference(R.LibraryReference, se, First(obj)))
+    if (MatchReference(LibraryReference, se, First(obj)))
     {
         if (PairP(Rest(obj)) == 0 || Rest(Rest(obj)) != EmptyListObject)
             RaiseExceptionC(Syntax, "cond-expand", "expected (library <library name>)",
@@ -1627,7 +1627,7 @@ static int_t EvaluateFeatureRequirement(FObject se, FObject expr, FObject cls, F
 
         return(LibraryP(FindOrLoadLibrary(nam)));
     }
-    else if (MatchReference(R.AndReference, se, First(obj)))
+    else if (MatchReference(AndReference, se, First(obj)))
     {
         FObject lst = Rest(obj);
 
@@ -1645,7 +1645,7 @@ static int_t EvaluateFeatureRequirement(FObject se, FObject expr, FObject cls, F
 
         return(1);
     }
-    else if (MatchReference(R.OrReference, se, First(obj)))
+    else if (MatchReference(OrReference, se, First(obj)))
     {
         FObject lst = Rest(obj);
 
@@ -1663,7 +1663,7 @@ static int_t EvaluateFeatureRequirement(FObject se, FObject expr, FObject cls, F
 
         return(0);
     }
-    else if (MatchReference(R.NotReference, se, First(obj)))
+    else if (MatchReference(NotReference, se, First(obj)))
     {
         if (PairP(Rest(obj)) == 0 || Rest(Rest(obj)) != EmptyListObject)
             RaiseExceptionC(Syntax, "cond-expand", "expected (not <feature requirement>)",
@@ -1690,7 +1690,7 @@ FObject CondExpand(FObject se, FObject expr, FObject clst)
                     List(clst, expr));
 
         if ((IdentifierP(First(cls)) || SymbolP(First(cls)))
-                && MatchReference(R.ElseReference, se, First(cls)))
+                && MatchReference(ElseReference, se, First(cls)))
         {
             if (Rest(clst) != EmptyListObject)
                 RaiseExceptionC(Syntax, "cond-expand",

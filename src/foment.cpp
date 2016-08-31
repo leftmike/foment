@@ -58,8 +58,6 @@ uint_t RandomSeed = 0;
 uint_t CheckHeapFlag = 0;
 uint_t VerboseFlag = 0;
 
-FRoots R;
-
 EternalSymbol(BeginSymbol, "begin");
 EternalSymbol(QuoteSymbol, "quote");
 EternalSymbol(QuasiquoteSymbol, "quasiquote");
@@ -70,6 +68,18 @@ EternalSymbol(Restriction, "implementation-restriction");
 EternalSymbol(Lexical, "lexical-violation");
 EternalSymbol(Syntax, "syntax-violation");
 EternalSymbol(Error, "error-violation");
+
+// ---- Roots ----
+
+FObject SymbolHashTree = NoValueObject;
+FObject Bedrock = NoValueObject;
+FObject BedrockLibrary = NoValueObject;
+FObject LoadedLibraries = EmptyListObject;
+FObject Features = EmptyListObject;
+FObject LibraryPath = EmptyListObject;
+FObject LibraryExtensions = NoValueObject;
+
+static FObject FomentLibrariesVector = NoValueObject;
 
 void ErrorExitFoment()
 {
@@ -456,14 +466,14 @@ Define("command-line", CommandLinePrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("command-line", argc);
 
-    return(R.CommandLine);
+    return(CommandLine);
 }
 
 Define("full-command-line", FullCommandLinePrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("full-command-line", argc);
 
-    return(R.FullCommandLine);
+    return(FullCommandLine);
 }
 
 static void GetEnvironmentVariables()
@@ -494,7 +504,7 @@ static void GetEnvironmentVariables()
         envp += 1;
     }
 
-    R.EnvironmentVariables = lst;
+    EnvironmentVariables = lst;
 }
 
 Define("get-environment-variable", GetEnvironmentVariablePrimitive)(int_t argc, FObject argv[])
@@ -502,9 +512,9 @@ Define("get-environment-variable", GetEnvironmentVariablePrimitive)(int_t argc, 
     OneArgCheck("get-environment-variable", argc);
     StringArgCheck("get-environment-variable", argv[0]);
 
-    FAssert(PairP(R.EnvironmentVariables));
+    FAssert(PairP(EnvironmentVariables));
 
-    FObject ret = Assoc(argv[0], R.EnvironmentVariables);
+    FObject ret = Assoc(argv[0], EnvironmentVariables);
     if (PairP(ret))
         return(Rest(ret));
     return(ret);
@@ -514,9 +524,9 @@ Define("get-environment-variables", GetEnvironmentVariablesPrimitive)(int_t argc
 {
     ZeroArgsCheck("get-environment-variables", argc);
 
-    FAssert(PairP(R.EnvironmentVariables));
+    FAssert(PairP(EnvironmentVariables));
 
-    return(R.EnvironmentVariables);
+    return(EnvironmentVariables);
 }
 
 Define("current-second", CurrentSecondPrimitive)(int_t argc, FObject argv[])
@@ -552,14 +562,14 @@ Define("features", FeaturesPrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("features", argc);
 
-    return(R.Features);
+    return(Features);
 }
 
 Define("%set-features!", SetFeaturesPrimitive)(int_t argc, FObject argv[])
 {
     FMustBe(argc == 1);
 
-    R.Features = argv[0];
+    Features = argv[0];
     return(NoValueObject);
 }
 
@@ -747,14 +757,14 @@ Define("loaded-libraries", LoadedLibrariesPrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("loaded-libraries", argc);
 
-    return(R.LoadedLibraries);
+    return(LoadedLibraries);
 }
 
 Define("library-path", LibraryPathPrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("library-path", argc);
 
-    return(R.LibraryPath);
+    return(LibraryPath);
 }
 
 Define("random", RandomPrimitive)(int_t argc, FObject argv[])
@@ -1225,14 +1235,14 @@ static void SetupScheme()
                 "((and test) test)"
                 "((and test1 test2 ...) (if test1 (and test2 ...) #f))))");
     WantIdentifiersPort(port, 1);
-    Eval(Read(port), R.Bedrock);
+    Eval(Read(port), Bedrock);
 
-    LibraryExport(R.BedrockLibrary, EnvironmentLookup(R.Bedrock, StringCToSymbol("and")));
+    LibraryExport(BedrockLibrary, EnvironmentLookup(Bedrock, StringCToSymbol("and")));
 
     port = MakeStringCInputPort(FomentLibraryNames);
-    R.FomentLibraryNames = Read(port);
+    FomentLibrariesVector = Read(port);
 
-    FAssert(VectorP(R.FomentLibraryNames));
+    FAssert(VectorP(FomentLibrariesVector));
 
     port = MakeStringCInputPort(FomentBase);
     WantIdentifiersPort(port, 1);
@@ -1244,16 +1254,16 @@ static void SetupScheme()
 
         if (obj == EndOfFileObject)
             break;
-        Eval(obj, R.Bedrock);
+        Eval(obj, Bedrock);
     }
 }
 
 FObject OpenFomentLibrary(FObject nam)
 {
-    FAssert(VectorP(R.FomentLibraryNames));
+    FAssert(VectorP(FomentLibrariesVector));
 
-    for (uint_t idx = 0; idx < VectorLength(R.FomentLibraryNames); idx++)
-        if (EqualP(nam, AsVector(R.FomentLibraryNames)->Vector[idx]))
+    for (uint_t idx = 0; idx < VectorLength(FomentLibrariesVector); idx++)
+        if (EqualP(nam, AsVector(FomentLibrariesVector)->Vector[idx]))
             return(MakeStringCInputPort(FomentLibraries[idx]));
 
     return(NoValueObject);
@@ -1320,14 +1330,19 @@ int_t SetupFoment(FThreadState * ts)
         RandomSeed = (unsigned int) time(0);
     srand(RandomSeed);
 
-    FObject * rv = (FObject *) &R;
-    for (uint_t rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
-        rv[rdx] = NoValueObject;
-
     if (SetupCore(ts) == 0)
         return(0);
 
-    R.SymbolHashTree = MakeHashTree("%setup-foment");
+    RegisterRoot(&SymbolHashTree, "symbol-hash-tree");
+    RegisterRoot(&Bedrock, "bedrock");
+    RegisterRoot(&BedrockLibrary, "bedrock-library");
+    RegisterRoot(&LoadedLibraries, "loaded-libraries");
+    RegisterRoot(&Features, "features");
+    RegisterRoot(&LibraryPath, "library-path");
+    RegisterRoot(&LibraryExtensions, "library-extensions");
+    RegisterRoot(&FomentLibrariesVector, "foment-libraries-vector");
+
+    SymbolHashTree = MakeHashTree("%setup-foment");
 
     SetupCompare();
 
@@ -1336,12 +1351,11 @@ int_t SetupFoment(FThreadState * ts)
     SetupLibrary();
 
     FObject nam = List(StringCToSymbol("foment"), StringCToSymbol("bedrock"));
-    R.Bedrock = MakeEnvironment(nam, FalseObject);
-    R.LoadedLibraries = EmptyListObject;
-    R.BedrockLibrary = MakeLibrary(nam);
+    Bedrock = MakeEnvironment(nam, FalseObject);
+    BedrockLibrary = MakeLibrary(nam);
 
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
-        DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
+        DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 
     BeginSymbol = InternSymbol(BeginSymbol);
     QuoteSymbol = InternSymbol(QuoteSymbol);
@@ -1366,7 +1380,7 @@ int_t SetupFoment(FThreadState * ts)
     FAssert(Error == StringCToSymbol("error-violation"));
 
     for (uint_t n = 0; n < sizeof(SpecialSyntaxes) / sizeof(char *); n++)
-        LibraryExport(R.BedrockLibrary, EnvironmentSetC(R.Bedrock, SpecialSyntaxes[n],
+        LibraryExport(BedrockLibrary, EnvironmentSetC(Bedrock, SpecialSyntaxes[n],
                 MakeImmediate(n, SpecialSyntaxTag)));
 
     SetupHashContainers();
@@ -1387,40 +1401,36 @@ int_t SetupFoment(FThreadState * ts)
     DefineComparator("boolean-comparator", BooleanPPrimitive, BooleanEqualPPrimitive,
             BooleanComparePrimitive, EqHashPrimitive);
 
-    LibraryExport(R.BedrockLibrary,
-            EnvironmentSetC(R.Bedrock, "%standard-input", R.StandardInput));
-    LibraryExport(R.BedrockLibrary,
-            EnvironmentSetC(R.Bedrock, "%standard-output", R.StandardOutput));
-    LibraryExport(R.BedrockLibrary,
-            EnvironmentSetC(R.Bedrock, "%standard-error", R.StandardError));
+    LibraryExport(BedrockLibrary,
+            EnvironmentSetC(Bedrock, "%standard-input", StandardInput));
+    LibraryExport(BedrockLibrary,
+            EnvironmentSetC(Bedrock, "%standard-output", StandardOutput));
+    LibraryExport(BedrockLibrary,
+            EnvironmentSetC(Bedrock, "%standard-error", StandardError));
 
 #ifdef FOMENT_DEBUG
-    LibraryExport(R.BedrockLibrary,
-            EnvironmentSetC(R.Bedrock, "%debug-build", TrueObject));
+    LibraryExport(BedrockLibrary,
+            EnvironmentSetC(Bedrock, "%debug-build", TrueObject));
 #else // FOMENT_DEBUG
-    LibraryExport(R.BedrockLibrary,
-            EnvironmentSetC(R.Bedrock, "%debug-build", FalseObject));
+    LibraryExport(BedrockLibrary,
+            EnvironmentSetC(Bedrock, "%debug-build", FalseObject));
 #endif // FOMENT_DEBUG
 
-    R.Features = EmptyListObject;
-
     for (uint_t idx = 0; idx < sizeof(FeaturesC) / sizeof(char *); idx++)
-        R.Features = MakePair(StringCToSymbol(FeaturesC[idx]), R.Features);
+        Features = MakePair(StringCToSymbol(FeaturesC[idx]), Features);
 
-    R.Features = MakePair(StringCToSymbol(CPUArchitecture()), R.Features);
-    R.Features = MakePair(StringCToSymbol(OSName()), R.Features);
-    R.Features = MakePair(StringCToSymbol(LittleEndianP() ? "little-endian" : "big-endian"),
-            R.Features);
+    Features = MakePair(StringCToSymbol(CPUArchitecture()), Features);
+    Features = MakePair(StringCToSymbol(OSName()), Features);
+    Features = MakePair(StringCToSymbol(LittleEndianP() ? "little-endian" : "big-endian"),
+            Features);
     if (CollectorType == MarkSweepCollector || CollectorType == GenerationalCollector)
-        R.Features = MakePair(StringCToSymbol("guardians"), R.Features);
+        Features = MakePair(StringCToSymbol("guardians"), Features);
     if (CollectorType == GenerationalCollector)
-        R.Features = MakePair(StringCToSymbol("trackers"), R.Features);
-
-    R.LibraryPath = EmptyListObject;
+        Features = MakePair(StringCToSymbol("trackers"), Features);
 
     GetEnvironmentVariables();
 
-    FObject lp = Assoc(MakeStringC("FOMENT_LIBPATH"), R.EnvironmentVariables);
+    FObject lp = Assoc(MakeStringC("FOMENT_LIBPATH"), EnvironmentVariables);
     if (PairP(lp))
     {
         FAssert(StringP(First(lp)));
@@ -1434,8 +1444,8 @@ int_t SetupFoment(FThreadState * ts)
             if (AsString(lp)->String[idx] == PathSep)
             {
                 if (idx > strt)
-                    R.LibraryPath = MakePair(
-                            MakeString(AsString(lp)->String + strt, idx - strt), R.LibraryPath);
+                    LibraryPath = MakePair(
+                            MakeString(AsString(lp)->String + strt, idx - strt), LibraryPath);
 
                 idx += 1;
                 strt = idx;
@@ -1445,11 +1455,11 @@ int_t SetupFoment(FThreadState * ts)
         }
 
         if (idx > strt)
-            R.LibraryPath = MakePair(
-                    MakeString(AsString(lp)->String + strt, idx - strt), R.LibraryPath);
+            LibraryPath = MakePair(
+                    MakeString(AsString(lp)->String + strt, idx - strt), LibraryPath);
     }
 
-    R.LibraryExtensions = List(MakeStringC("sld"), MakeStringC("scm"));
+    LibraryExtensions = List(MakeStringC("sld"), MakeStringC("scm"));
 
     if (CheckHeapFlag)
         CheckHeap(__FILE__, __LINE__);

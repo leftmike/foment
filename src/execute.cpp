@@ -27,6 +27,13 @@ EternalSymbol(ExceptionHandlerSymbol, "exception-handler");
 EternalSymbol(NotifyHandlerSymbol, "notify-handler");
 EternalSymbol(SigIntSymbol, "sigint");
 
+// ---- Roots ----
+
+FObject InteractiveThunk = NoValueObject;
+static FObject ExecuteThunk = NoValueObject;
+static FObject NotifyHandler = NoValueObject;
+static FObject RaiseHandler = NoValueObject;
+
 // ---- Procedure ----
 
 FObject MakeProcedure(FObject nam, FObject fn, FObject ln, FObject cv, int_t ac, uint_t fl)
@@ -290,7 +297,7 @@ static FObject Execute(FThreadState * ts)
         {
             ts->NotifyFlag = 0;
 
-            PrepareHandler(ts, R.NotifyHandler, NotifyHandlerSymbol, ts->NotifyObject);
+            PrepareHandler(ts, NotifyHandler, NotifyHandlerSymbol, ts->NotifyObject);
         }
 
         CheckForGC();
@@ -306,7 +313,7 @@ static FObject Execute(FThreadState * ts)
         {
             ts->AStack[ts->AStackPtr] = obj;
             ts->AStackPtr += 1;
-//WritePretty(R.StandardOutput, obj, 0);
+//WritePretty(StandardOutput, obj, 0);
 //printf("\n");
         }
         else
@@ -1079,7 +1086,7 @@ TailCallPrimitive:
     }
 }
 
-FObject ExecuteThunk(FObject op)
+FObject ExecuteProc(FObject op)
 {
     FThreadState * ts = GetThreadState();
 
@@ -1087,7 +1094,7 @@ FObject ExecuteThunk(FObject op)
     ts->AStack[0] = op;
     ts->ArgCount = 1;
     ts->CStackPtr = 0;
-    ts->Proc = R.ExecuteThunk;
+    ts->Proc = ExecuteThunk;
     FAssert(ProcedureP(ts->Proc));
     FAssert(VectorP(AsProcedure(ts->Proc)->Code));
 
@@ -1103,7 +1110,7 @@ FObject ExecuteThunk(FObject op)
         }
         catch (FObject obj)
         {
-            if (PrepareHandler(ts, R.RaiseHandler, ExceptionHandlerSymbol, obj) == 0)
+            if (PrepareHandler(ts, RaiseHandler, ExceptionHandlerSymbol, obj) == 0)
                 throw obj;
         }
         catch (FNotifyThrow nt)
@@ -1112,7 +1119,7 @@ FObject ExecuteThunk(FObject op)
 
             ts->NotifyFlag = 0;
 
-            if (PrepareHandler(ts, R.NotifyHandler, NotifyHandlerSymbol, ts->NotifyObject) == 0)
+            if (PrepareHandler(ts, NotifyHandler, NotifyHandlerSymbol, ts->NotifyObject) == 0)
                 ThreadExit(ts->NotifyObject);
         }
     }
@@ -1226,7 +1233,7 @@ Define("%execute-thunk", ExecuteThunkPrimitive)(int_t argc, FObject argv[])
     FMustBe(argc == 1);
     FMustBe(ProcedureP(argv[0]));
 
-    R.ExecuteThunk = argv[0];
+    ExecuteThunk = argv[0];
     return(NoValueObject);
 }
 
@@ -1237,7 +1244,7 @@ Define("%set-raise-handler!", SetRaiseHandlerPrimitive)(int_t argc, FObject argv
     FMustBe(argc == 1);
     FMustBe(ProcedureP(argv[0]));
 
-    R.RaiseHandler = argv[0];
+    RaiseHandler = argv[0];
     return(NoValueObject);
 }
 
@@ -1248,7 +1255,7 @@ Define("%set-notify-handler!", SetNotifyHandlerPrimitive)(int_t argc, FObject ar
     FMustBe(argc == 1);
     FMustBe(ProcedureP(argv[0]));
 
-    R.NotifyHandler = argv[0];
+    NotifyHandler = argv[0];
     return(NoValueObject);
 }
 
@@ -1259,7 +1266,7 @@ Define("%interactive-thunk", InteractiveThunkPrimitive)(int_t argc, FObject argv
     FMustBe(argc == 1);
     FMustBe(ProcedureP(argv[0]));
 
-    R.InteractiveThunk = argv[0];
+    InteractiveThunk = argv[0];
     return(NoValueObject);
 }
 
@@ -1410,6 +1417,11 @@ void SetupExecute()
 {
     FObject v[7];
 
+    RegisterRoot(&InteractiveThunk, "interactive-thunk");
+    RegisterRoot(&ExecuteThunk, "execute-thunk");
+    RegisterRoot(&NotifyHandler, "notify-handler");
+    RegisterRoot(&RaiseHandler, "raise-handler");
+
     WrongNumberOfArguments = InternSymbol(WrongNumberOfArguments);
     NotCallable = InternSymbol(NotCallable);
     UnexpectedNumberOfValues = InternSymbol(UnexpectedNumberOfValues);
@@ -1427,47 +1439,47 @@ void SetupExecute()
     FAssert(SigIntSymbol == StringCToSymbol("sigint"));
 
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
-        DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
+        DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 
     v[0] = MakeInstruction(ValuesOpcode, 0);
     v[1] = MakeInstruction(ReturnOpcode, 0);
-    LibraryExport(R.BedrockLibrary,
-            EnvironmentSetC(R.Bedrock, "values", MakeProcedure(StringCToSymbol("values"),
+    LibraryExport(BedrockLibrary,
+            EnvironmentSetC(Bedrock, "values", MakeProcedure(StringCToSymbol("values"),
             MakeStringC(__FILE__), MakeFixnum(__LINE__),
             MakeVector(2, v, NoValueObject), 1, PROCEDURE_FLAG_RESTARG)));
 
     v[0] = MakeInstruction(ApplyOpcode, 0);
     v[1] = MakeInstruction(TailCallOpcode, 0);
-    LibraryExport(R.BedrockLibrary,
-            EnvironmentSetC(R.Bedrock, "apply", MakeProcedure(StringCToSymbol("apply"),
+    LibraryExport(BedrockLibrary,
+            EnvironmentSetC(Bedrock, "apply", MakeProcedure(StringCToSymbol("apply"),
             MakeStringC(__FILE__), MakeFixnum(__LINE__),
             MakeVector(2, v, NoValueObject), 2, PROCEDURE_FLAG_RESTARG)));
 
     v[0] = MakeInstruction(SetArgCountOpcode, 0);
     v[1] = MakeInstruction(CallOpcode, 0);
     v[2] = MakeInstruction(ReturnFromOpcode, 0);
-    R.ExecuteThunk = MakeProcedure(NoValueObject, MakeStringC(__FILE__), MakeFixnum(__LINE__),
+    ExecuteThunk = MakeProcedure(NoValueObject, MakeStringC(__FILE__), MakeFixnum(__LINE__),
             MakeVector(3, v, NoValueObject), 1, 0);
 
     // (%return <value>)
 
     v[0] = MakeInstruction(ReturnFromOpcode, 0);
-    LibraryExport(R.BedrockLibrary,
-            EnvironmentSetC(R.Bedrock, "%return",
+    LibraryExport(BedrockLibrary,
+            EnvironmentSetC(Bedrock, "%return",
             MakeProcedure(StringCToSymbol("%return-from"), MakeStringC(__FILE__),
             MakeFixnum(__LINE__), MakeVector(1, v, NoValueObject), 1, 0)));
 
     // (%capture-continuation <proc>)
 
     v[0] = MakeInstruction(CaptureContinuationOpcode, 0);
-    LibraryExport(R.BedrockLibrary, EnvironmentSetC(R.Bedrock, "%capture-continuation",
+    LibraryExport(BedrockLibrary, EnvironmentSetC(Bedrock, "%capture-continuation",
             MakeProcedure(StringCToSymbol("%capture-continuation"),
             MakeStringC(__FILE__), MakeFixnum(__LINE__), MakeVector(1, v, NoValueObject), 1, 0)));
 
     // (%call-continuation <cont> <thunk>)
 
     v[0] = MakeInstruction(CallContinuationOpcode, 0);
-    LibraryExport(R.BedrockLibrary, EnvironmentSetC(R.Bedrock, "%call-continuation",
+    LibraryExport(BedrockLibrary, EnvironmentSetC(Bedrock, "%call-continuation",
             MakeProcedure(StringCToSymbol("%call-continuation"),
             MakeStringC(__FILE__), MakeFixnum(__LINE__), MakeVector(1, v, NoValueObject), 2, 0)));
 
@@ -1480,16 +1492,16 @@ void SetupExecute()
     v[4] = MakeInstruction(PopCStackOpcode, 1);
     v[5] = MakeInstruction(PopDynamicStackOpcode, 0);
     v[6] = MakeInstruction(ReturnOpcode, 0);
-    LibraryExport(R.BedrockLibrary,
-            EnvironmentSetC(R.Bedrock, "%mark-continuation",
+    LibraryExport(BedrockLibrary,
+            EnvironmentSetC(Bedrock, "%mark-continuation",
             MakeProcedure(StringCToSymbol("%mark-continuation"), MakeStringC(__FILE__),
             MakeFixnum(__LINE__), MakeVector(7, v, NoValueObject), 4, 0)));
 
     // (%abort-dynamic <dynamic> <thunk>)
 
     v[0] = MakeInstruction(AbortOpcode, 0);
-    LibraryExport(R.BedrockLibrary,
-            EnvironmentSetC(R.Bedrock, "%abort-dynamic",
+    LibraryExport(BedrockLibrary,
+            EnvironmentSetC(Bedrock, "%abort-dynamic",
             MakeProcedure(StringCToSymbol("%abort-dynamic"), MakeStringC(__FILE__),
             MakeFixnum(__LINE__), MakeVector(1, v, NoValueObject), 2, 0)));
 }

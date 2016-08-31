@@ -1146,75 +1146,41 @@ int_t TypeMapSet(FObject tmap, FObject typep, FObject val);
 
 // ---- Roots ----
 
-typedef struct
-{
-    FObject Bedrock;
-    FObject BedrockLibrary;
-    FObject Features;
-    FObject CommandLine;
-    FObject FullCommandLine;
-    FObject InteractiveOptions;
-    FObject LibraryPath;
-    FObject LibraryExtensions;
-    FObject EnvironmentVariables;
+void RegisterRoot(FObject * root, const char * name);
 
-    FObject SymbolHashTree;
+extern FObject Bedrock;
+extern FObject BedrockLibrary;
+extern FObject Features;
+extern FObject CommandLine;
+extern FObject FullCommandLine;
+extern FObject EnvironmentVariables;
+extern FObject LibraryPath;
+extern FObject LibraryExtensions;
+extern FObject LoadedLibraries;
+extern FObject SymbolHashTree;
+extern FObject EqComparator;
+extern FObject DefaultComparator;
+extern FObject StandardInput;
+extern FObject StandardOutput;
+extern FObject StandardError;
+extern FObject InteractiveThunk;
+extern FObject CleanupTConc;
 
-    FObject EqComparator;
-    FObject DefaultComparator;
+// ---- Eternal Objects ----
 
-    FObject LoadedLibraries;
-
-    FObject ElseReference;
-    FObject ArrowReference;
-    FObject LibraryReference;
-    FObject AndReference;
-    FObject OrReference;
-    FObject NotReference;
-    FObject QuasiquoteReference;
-    FObject UnquoteReference;
-    FObject UnquoteSplicingReference;
-    FObject ConsReference;
-    FObject AppendReference;
-    FObject ListToVectorReference;
-    FObject EllipsisReference;
-    FObject UnderscoreReference;
-
-    FObject InteractionEnv;
-
-    FObject StandardInput;
-    FObject StandardOutput;
-    FObject StandardError;
-
-    FObject LibraryStartupList;
-    FObject FomentLibraryNames;
-
-    FObject ExecuteThunk;
-    FObject RaiseHandler;
-    FObject NotifyHandler;
-    FObject InteractiveThunk;
-
-    FObject CleanupTConc;
-} FRoots;
-
-extern FRoots R;
-extern FObject SigIntSymbol;
-extern FObject WrongNumberOfArguments;
-extern FObject TagSymbol;
-extern FObject UsePassSymbol;
-extern FObject ConstantPassSymbol;
-extern FObject AnalysisPassSymbol;
 extern FObject BeginSymbol;
 extern FObject QuoteSymbol;
 extern FObject QuasiquoteSymbol;
 extern FObject UnquoteSymbol;
 extern FObject UnquoteSplicingSymbol;
-extern FObject FileErrorSymbol;
+extern FObject SigIntSymbol;
+extern FObject WrongNumberOfArguments;
 extern FObject Assertion;
 extern FObject Restriction;
 extern FObject Lexical;
 extern FObject Syntax;
 extern FObject Error;
+extern FObject FileErrorSymbol;
 extern FObject NoValuePrimitive;
 extern FObject AnyPPrimitive;
 extern FObject NoComparePrimitive;
@@ -1925,7 +1891,7 @@ FObject GetInteractionEnv();
 
 FObject SyntaxToDatum(FObject obj);
 
-FObject ExecuteThunk(FObject op);
+FObject ExecuteProc(FObject op);
 
 int_t SetupFoment(FThreadState * ts);
 extern uint_t SetupComplete;

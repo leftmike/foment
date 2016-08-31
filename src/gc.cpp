@@ -116,6 +116,14 @@ static uint_t LiveEphemerons;
 static FEphemeron ** KeyEphemeronMap;
 static uint_t KeyEphemeronMapSize;
 
+// ---- Roots ----
+
+FObject CleanupTConc = NoValueObject;
+
+static FObject * Roots[128];
+static uint_t RootsUsed = 0;
+static const char * RootNames[sizeof(Roots) / sizeof(FObject *)];
+
 static inline uint_t RoundToPageSize(uint_t cnt)
 {
     if (cnt % GC_PAGE_SIZE != 0)
@@ -566,6 +574,15 @@ FObject MakeObject(uint_t tag, uint_t sz, uint_t sc, const char * who, int_t pf)
     return(oh + 1);
 }
 
+void RegisterRoot(FObject * root, const char * name)
+{
+    FAssert(RootsUsed < sizeof(Roots) / sizeof(FObject *));
+
+    Roots[RootsUsed] = root;
+    RootNames[RootsUsed] = name;
+    RootsUsed += 1;
+}
+
 void ModifyVector(FObject obj, uint_t idx, FObject val)
 {
     FAssert(VectorP(obj));
@@ -602,57 +619,6 @@ void SetBox(FObject bx, FObject val)
 
     AsBox(bx)->Value = val;
 }
-
-static const char * RootNames[] =
-{
-    "bedrock",
-    "bedrock-library",
-    "features",
-    "command-line",
-    "full-command-line",
-    "interactive-options",
-    "library-path",
-    "library-extensions",
-    "environment-variables",
-
-    "symbol-hash-tree",
-
-    "eq-comparator",
-    "default-comparator",
-
-    "loaded-libraries",
-
-    "else-reference",
-    "arrow-reference",
-    "library-reference",
-    "and-reference",
-    "or-reference",
-    "not-reference",
-    "quasiquote-reference",
-    "unquote-reference",
-    "unquote-splicing-reference",
-    "cons-reference",
-    "append-reference",
-    "list-to-vector-reference",
-    "ellipsis-reference",
-    "underscore-reference",
-
-    "interaction-env",
-
-    "standard-input",
-    "standard-output",
-    "standard-error",
-
-    "library-startup-list",
-    "foment-library-names",
-
-    "execute-thunk",
-    "raise-handler",
-    "notify-handler",
-    "interactive-thunk",
-
-    "cleanup-tconc",
-};
 
 typedef struct
 {
@@ -1131,7 +1097,6 @@ void CheckHeap(const char * fn, int ln)
 {
     EnterExclusive(&GCExclusive);
 
-    FMustBe(sizeof(RootNames) == sizeof(FRoots));
     FMustBe(sizeof(IndirectTagString) / sizeof(char *) == BadDogTag);
 
     if (VerboseFlag)
@@ -1152,9 +1117,8 @@ void CheckHeap(const char * fn, int ln)
         ts = ts->Next;
     }
 
-    FObject * rv = (FObject *) &R;
-    for (uint_t rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
-        CheckRoot(rv[rdx], RootNames[rdx], -1);
+    for (uint_t rdx = 0; rdx < RootsUsed; rdx++)
+        CheckRoot(*Roots[rdx], RootNames[rdx], -1);
 
     ts = Threads;
     while (ts != 0)
@@ -1473,9 +1437,8 @@ static void Collect()
         memset(KeyEphemeronMap, 0, sizeof(FEphemeron *) * KeyEphemeronMapSize);
     LiveEphemerons = 0;
 
-    FObject * rv = (FObject *) &R;
-    for (uint_t rdx = 0; rdx < sizeof(FRoots) / sizeof(FObject); rdx++)
-        LiveObject(rv + rdx);
+    for (uint_t rdx = 0; rdx < RootsUsed; rdx++)
+        LiveObject(Roots[rdx]);
 
     FThreadState * ts = Threads;
     while (ts != 0)
@@ -1587,9 +1550,9 @@ static void Collect()
         KeyEphemeronMap = 0;
     }
 
-    while (TConcEmptyP(R.CleanupTConc) == 0)
+    while (TConcEmptyP(CleanupTConc) == 0)
     {
-        FObject obj = TConcRemove(R.CleanupTConc);
+        FObject obj = TConcRemove(CleanupTConc);
 
         if (ExclusiveP(obj))
             DeleteExclusive(&AsExclusive(obj)->Exclusive);
@@ -1989,7 +1952,8 @@ int_t SetupCore(FThreadState * ts)
         return(0);
     ts->Thread = MakeThread(h, NoValueObject, NoValueObject, NoValueObject);
 
-    R.CleanupTConc = MakeTConc();
+    RegisterRoot(&CleanupTConc, "cleanup-tconc");
+    CleanupTConc = MakeTConc();
 
     if (CheckHeapFlag)
         CheckHeap(__FILE__, __LINE__);
@@ -2127,5 +2091,5 @@ static FObject Primitives[] =
 void SetupGC()
 {
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
-        DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
+        DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 }

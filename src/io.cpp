@@ -58,6 +58,12 @@ EternalSymbol(FileErrorSymbol, "file-error");
 EternalSymbol(CurrentSymbol, "current");
 EternalSymbol(EndSymbol, "end");
 
+// ---- Roots ----
+
+FObject StandardInput = NoValueObject;
+FObject StandardOutput = NoValueObject;
+FObject StandardError = NoValueObject;
+
 // ---- Binary Ports ----
 
 FObject MakeBinaryPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn,
@@ -88,7 +94,7 @@ FObject MakeBinaryPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn,
     port->PeekedByte = NOT_PEEKED;
     port->Offset = 0;
 
-    InstallGuardian(port, R.CleanupTConc);
+    InstallGuardian(port, CleanupTConc);
 
     return(port);
 }
@@ -830,7 +836,7 @@ FObject MakeTextualPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn
     port->Line = 1;
     port->Column = 0;
 
-    InstallGuardian(port, R.CleanupTConc);
+    InstallGuardian(port, CleanupTConc);
 
     return(port);
 }
@@ -3550,10 +3556,10 @@ static void DefineConstant(FObject env, FObject lib, const char * nam, FObject v
 
 void ExitFoment()
 {
-    if (TextualPortP(R.StandardOutput) || BinaryPortP(R.StandardOutput))
-        FlushOutput(R.StandardOutput);
-    if (TextualPortP(R.StandardError) || BinaryPortP(R.StandardError))
-        FlushOutput(R.StandardError);
+    if (TextualPortP(StandardOutput) || BinaryPortP(StandardOutput))
+        FlushOutput(StandardOutput);
+    if (TextualPortP(StandardError) || BinaryPortP(StandardError))
+        FlushOutput(StandardError);
 }
 
 void SetupIO()
@@ -3575,14 +3581,14 @@ void SetupIO()
         {
             SetConsoleMode(hin, ENABLE_PROCESSED_INPUT | ENABLE_WINDOW_INPUT);
 
-            R.StandardInput = MakeConsoleInputPort(MakeStringC("console-input"), hin, hout);
-            R.StandardOutput = MakeConsoleOutputPort(MakeStringC("console-output"), hout);
+            StandardInput = MakeConsoleInputPort(MakeStringC("console-input"), hin, hout);
+            StandardOutput = MakeConsoleOutputPort(MakeStringC("console-output"), hout);
         }
         else
         {
-            R.StandardInput = MakeLatin1Port(MakeBufferedPort(
+            StandardInput = MakeLatin1Port(MakeBufferedPort(
                     MakeHandleInputPort(MakeStringC("standard-input"), hin)));
-            R.StandardOutput = MakeLatin1Port(MakeBufferedPort(
+            StandardOutput = MakeLatin1Port(MakeBufferedPort(
                     MakeHandleOutputPort(MakeStringC("standard-output"), hout)));
         }
     }
@@ -3592,9 +3598,9 @@ void SetupIO()
         DWORD emd;
 
         if (GetConsoleMode(herr, &emd) != 0)
-            R.StandardError = MakeConsoleOutputPort(MakeStringC("console-output"), herr);
+            StandardError = MakeConsoleOutputPort(MakeStringC("console-output"), herr);
         else
-            R.StandardError = MakeLatin1Port(MakeBufferedPort(
+            StandardError = MakeLatin1Port(MakeBufferedPort(
                     MakeHandleOutputPort(MakeStringC("standard-error"), herr)));
     }
 #endif // FOMENT_WINDOWS
@@ -3602,18 +3608,18 @@ void SetupIO()
 #ifdef FOMENT_UNIX
     if (isatty(0) && isatty(1) && SetupConsole())
     {
-        R.StandardInput = MakeConsoleInputPort(MakeStringC("console-input"), 0, 1);
-        R.StandardOutput = MakeConsoleOutputPort(MakeStringC("console-output"), 1);
+        StandardInput = MakeConsoleInputPort(MakeStringC("console-input"), 0, 1);
+        StandardOutput = MakeConsoleOutputPort(MakeStringC("console-output"), 1);
     }
     else
     {
-        R.StandardInput = MakeUtf8Port(MakeBufferedPort(
+        StandardInput = MakeUtf8Port(MakeBufferedPort(
                 MakeFileDescInputPort(MakeStringC("standard-input"), 0)));
-        R.StandardOutput = MakeUtf8Port(MakeBufferedPort(
+        StandardOutput = MakeUtf8Port(MakeBufferedPort(
                 MakeFileDescOutputPort(MakeStringC("standard-output"), 1)));
     }
 
-    R.StandardError = MakeUtf8Port(MakeBufferedPort(
+    StandardError = MakeUtf8Port(MakeBufferedPort(
             MakeFileDescOutputPort(MakeStringC("standard-error"), 2)));
 #endif // FOMENT_UNIX
 
@@ -3626,40 +3632,40 @@ void SetupIO()
     FAssert(EndSymbol == StringCToSymbol("end"));
 
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
-        DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
+        DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 
-    DefineConstant(R.Bedrock, R.BedrockLibrary, "*af-unspec*", MakeFixnum(AF_UNSPEC));
-    DefineConstant(R.Bedrock, R.BedrockLibrary, "*af-inet*", MakeFixnum(AF_INET));
-    DefineConstant(R.Bedrock, R.BedrockLibrary, "*af-inet6*", MakeFixnum(AF_INET6));
+    DefineConstant(Bedrock, BedrockLibrary, "*af-unspec*", MakeFixnum(AF_UNSPEC));
+    DefineConstant(Bedrock, BedrockLibrary, "*af-inet*", MakeFixnum(AF_INET));
+    DefineConstant(Bedrock, BedrockLibrary, "*af-inet6*", MakeFixnum(AF_INET6));
 
-    DefineConstant(R.Bedrock, R.BedrockLibrary, "*sock-stream*", MakeFixnum(SOCK_STREAM));
-    DefineConstant(R.Bedrock, R.BedrockLibrary, "*sock-dgram*", MakeFixnum(SOCK_DGRAM));
-    DefineConstant(R.Bedrock, R.BedrockLibrary, "*sock-raw*", MakeFixnum(SOCK_RAW));
+    DefineConstant(Bedrock, BedrockLibrary, "*sock-stream*", MakeFixnum(SOCK_STREAM));
+    DefineConstant(Bedrock, BedrockLibrary, "*sock-dgram*", MakeFixnum(SOCK_DGRAM));
+    DefineConstant(Bedrock, BedrockLibrary, "*sock-raw*", MakeFixnum(SOCK_RAW));
 
-    DefineConstant(R.Bedrock, R.BedrockLibrary, "*ai-canonname*", MakeFixnum(AI_CANONNAME));
-    DefineConstant(R.Bedrock, R.BedrockLibrary, "*ai-numerichost*", MakeFixnum(AI_NUMERICHOST));
-    DefineConstant(R.Bedrock, R.BedrockLibrary, "*ai-v4mapped*", MakeFixnum(AI_V4MAPPED));
-    DefineConstant(R.Bedrock, R.BedrockLibrary, "*ai-all*", MakeFixnum(AI_ALL));
-    DefineConstant(R.Bedrock, R.BedrockLibrary, "*ai-addrconfig*", MakeFixnum(AI_ADDRCONFIG));
+    DefineConstant(Bedrock, BedrockLibrary, "*ai-canonname*", MakeFixnum(AI_CANONNAME));
+    DefineConstant(Bedrock, BedrockLibrary, "*ai-numerichost*", MakeFixnum(AI_NUMERICHOST));
+    DefineConstant(Bedrock, BedrockLibrary, "*ai-v4mapped*", MakeFixnum(AI_V4MAPPED));
+    DefineConstant(Bedrock, BedrockLibrary, "*ai-all*", MakeFixnum(AI_ALL));
+    DefineConstant(Bedrock, BedrockLibrary, "*ai-addrconfig*", MakeFixnum(AI_ADDRCONFIG));
 
-    DefineConstant(R.Bedrock, R.BedrockLibrary, "*ipproto-ip*", MakeFixnum(IPPROTO_IP));
-    DefineConstant(R.Bedrock, R.BedrockLibrary, "*ipproto-tcp*", MakeFixnum(IPPROTO_TCP));
-    DefineConstant(R.Bedrock, R.BedrockLibrary, "*ipproto-udp*", MakeFixnum(IPPROTO_UDP));
+    DefineConstant(Bedrock, BedrockLibrary, "*ipproto-ip*", MakeFixnum(IPPROTO_IP));
+    DefineConstant(Bedrock, BedrockLibrary, "*ipproto-tcp*", MakeFixnum(IPPROTO_TCP));
+    DefineConstant(Bedrock, BedrockLibrary, "*ipproto-udp*", MakeFixnum(IPPROTO_UDP));
 
-    DefineConstant(R.Bedrock, R.BedrockLibrary, "*msg-peek*", MakeFixnum(MSG_PEEK));
-    DefineConstant(R.Bedrock, R.BedrockLibrary, "*msg-oob*", MakeFixnum(MSG_OOB));
-    DefineConstant(R.Bedrock, R.BedrockLibrary, "*msg-waitall*", MakeFixnum(MSG_WAITALL));
+    DefineConstant(Bedrock, BedrockLibrary, "*msg-peek*", MakeFixnum(MSG_PEEK));
+    DefineConstant(Bedrock, BedrockLibrary, "*msg-oob*", MakeFixnum(MSG_OOB));
+    DefineConstant(Bedrock, BedrockLibrary, "*msg-waitall*", MakeFixnum(MSG_WAITALL));
 
 #ifdef FOMENT_WINDOWS
-    DefineConstant(R.Bedrock, R.BedrockLibrary, "*shut-rd*", MakeFixnum(SD_RECEIVE));
-    DefineConstant(R.Bedrock, R.BedrockLibrary, "*shut-wr*", MakeFixnum(SD_SEND));
-    DefineConstant(R.Bedrock, R.BedrockLibrary, "*shut-rdwr*", MakeFixnum(SD_BOTH));
+    DefineConstant(Bedrock, BedrockLibrary, "*shut-rd*", MakeFixnum(SD_RECEIVE));
+    DefineConstant(Bedrock, BedrockLibrary, "*shut-wr*", MakeFixnum(SD_SEND));
+    DefineConstant(Bedrock, BedrockLibrary, "*shut-rdwr*", MakeFixnum(SD_BOTH));
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-    DefineConstant(R.Bedrock, R.BedrockLibrary, "*shut-rd*", MakeFixnum(SHUT_RD));
-    DefineConstant(R.Bedrock, R.BedrockLibrary, "*shut-wr*", MakeFixnum(SHUT_WR));
-    DefineConstant(R.Bedrock, R.BedrockLibrary, "*shut-rdwr*", MakeFixnum(SHUT_RDWR));
+    DefineConstant(Bedrock, BedrockLibrary, "*shut-rd*", MakeFixnum(SHUT_RD));
+    DefineConstant(Bedrock, BedrockLibrary, "*shut-wr*", MakeFixnum(SHUT_WR));
+    DefineConstant(Bedrock, BedrockLibrary, "*shut-rdwr*", MakeFixnum(SHUT_RDWR));
 #endif // FOMENT_UNIX
 
     SetupWrite();

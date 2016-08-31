@@ -12,6 +12,25 @@ EternalSymbol(UsePassSymbol, "use-pass");
 EternalSymbol(ConstantPassSymbol, "constant-pass");
 EternalSymbol(AnalysisPassSymbol, "analysis-pass");
 
+// ---- Roots ----
+
+FObject ElseReference = NoValueObject;
+FObject ArrowReference = NoValueObject;
+FObject LibraryReference = NoValueObject;
+FObject AndReference = NoValueObject;
+FObject OrReference = NoValueObject;
+FObject NotReference = NoValueObject;
+FObject QuasiquoteReference = NoValueObject;
+FObject UnquoteReference = NoValueObject;
+FObject UnquoteSplicingReference = NoValueObject;
+FObject ConsReference = NoValueObject;
+FObject AppendReference = NoValueObject;
+FObject ListToVectorReference = NoValueObject;
+FObject EllipsisReference = NoValueObject;
+FObject UnderscoreReference = NoValueObject;
+
+static FObject InteractionEnv = NoValueObject;
+
 // ---- SyntacticEnv ----
 
 EternalBuiltinType(SyntacticEnvType, "syntactic-environment", 0);
@@ -253,14 +272,14 @@ FObject CompileLambda(FObject env, FObject name, FObject formals, FObject body)
 
 FObject GetInteractionEnv()
 {
-    if (EnvironmentP(R.InteractionEnv) == 0)
+    if (EnvironmentP(InteractionEnv) == 0)
     {
-        R.InteractionEnv = MakeEnvironment(StringCToSymbol("interaction"), TrueObject);
-        EnvironmentImportLibrary(R.InteractionEnv,
+        InteractionEnv = MakeEnvironment(StringCToSymbol("interaction"), TrueObject);
+        EnvironmentImportLibrary(InteractionEnv,
                 List(StringCToSymbol("foment"), StringCToSymbol("base")));
     }
 
-    return(R.InteractionEnv);
+    return(InteractionEnv);
 }
 
 // ----------------
@@ -334,26 +353,37 @@ static FObject Primitives[] =
 
 void SetupCompile()
 {
-    R.ElseReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("else")));
-    R.ArrowReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("=>")));
-    R.LibraryReference = MakeReference(R.Bedrock,
-            MakeIdentifier(StringCToSymbol("library")));
-    R.AndReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("and")));
-    R.OrReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("or")));
-    R.NotReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("not")));
-    R.QuasiquoteReference = MakeReference(R.Bedrock,
-            MakeIdentifier(StringCToSymbol("quasiquote")));
-    R.UnquoteReference = MakeReference(R.Bedrock,
-            MakeIdentifier(StringCToSymbol("unquote")));
-    R.UnquoteSplicingReference = MakeReference(R.Bedrock,
+    RegisterRoot(&ElseReference, "else-reference");
+    RegisterRoot(&ArrowReference, "arrow-reference");
+    RegisterRoot(&LibraryReference, "library-reference");
+    RegisterRoot(&AndReference, "and-reference");
+    RegisterRoot(&OrReference, "or-reference");
+    RegisterRoot(&NotReference, "not-reference");
+    RegisterRoot(&QuasiquoteReference, "quasiquote-reference");
+    RegisterRoot(&UnquoteReference, "unquote-reference");
+    RegisterRoot(&UnquoteSplicingReference, "unquote-splicing-reference");
+    RegisterRoot(&ConsReference, "cons-reference");
+    RegisterRoot(&AppendReference, "append-reference");
+    RegisterRoot(&ListToVectorReference, "list-to-vector-reference");
+    RegisterRoot(&EllipsisReference, "ellipsis-reference");
+    RegisterRoot(&UnderscoreReference, "underscore-reference");
+    RegisterRoot(&InteractionEnv, "interaction-env");
+
+    ElseReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("else")));
+    ArrowReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("=>")));
+    LibraryReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("library")));
+    AndReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("and")));
+    OrReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("or")));
+    NotReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("not")));
+    QuasiquoteReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("quasiquote")));
+    UnquoteReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("unquote")));
+    UnquoteSplicingReference = MakeReference(Bedrock,
             MakeIdentifier(StringCToSymbol("unquote-splicing")));
-    R.ConsReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("cons")));
-    R.AppendReference = MakeReference(R.Bedrock,
-            MakeIdentifier(StringCToSymbol("append")));
-    R.ListToVectorReference = MakeReference(R.Bedrock,
-            MakeIdentifier(StringCToSymbol("list->vector")));
-    R.EllipsisReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("...")));
-    R.UnderscoreReference = MakeReference(R.Bedrock, MakeIdentifier(StringCToSymbol("_")));
+    ConsReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("cons")));
+    AppendReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("append")));
+    ListToVectorReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("list->vector")));
+    EllipsisReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("...")));
+    UnderscoreReference = MakeReference(Bedrock, MakeIdentifier(StringCToSymbol("_")));
 
     TagSymbol = InternSymbol(TagSymbol);
     UsePassSymbol = InternSymbol(UsePassSymbol);
@@ -364,8 +394,8 @@ void SetupCompile()
     FAssert(UsePassSymbol == StringCToSymbol("use-pass"));
     FAssert(ConstantPassSymbol == StringCToSymbol("constant-pass"));
     FAssert(AnalysisPassSymbol == StringCToSymbol("analysis-pass"));
-    FAssert(R.InteractionEnv == NoValueObject);
+    FAssert(InteractionEnv == NoValueObject);
 
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
-        DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
+        DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 }

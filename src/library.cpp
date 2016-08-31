@@ -20,6 +20,10 @@ EternalSymbol(PrefixSymbol, "prefix");
 EternalSymbol(RenameSymbol, "rename");
 EternalSymbol(AkaSymbol, "aka");
 
+// ---- Roots ----
+
+static FObject LibraryStartupList = EmptyListObject;
+
 // ---- Environments ----
 
 static void
@@ -28,7 +32,7 @@ WriteEnvironment(FWriteContext * wctx, FObject obj)
     FCh s[16];
     int_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
-    wctx->WriteStringC("#<library: #x");
+    wctx->WriteStringC("#<environment: #x");
     wctx->WriteString(s, sl);
 
     wctx->WriteCh(' ');
@@ -235,7 +239,7 @@ WriteGlobal(FWriteContext * wctx, FObject obj)
     FCh s[16];
     int_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
-    wctx->WriteStringC("#<library: #x");
+    wctx->WriteStringC("#<global: #x");
     wctx->WriteString(s, sl);
 
     wctx->WriteCh(' ');
@@ -309,10 +313,10 @@ static FObject MakeLibrary(FObject nam, FObject exports, FObject proc)
     lib->Name = nam;
     lib->Exports = exports;
 
-    R.LoadedLibraries = MakePair(lib, R.LoadedLibraries);
+    LoadedLibraries = MakePair(lib, LoadedLibraries);
 
     if (ProcedureP(proc))
-        R.LibraryStartupList = MakePair(List(proc), R.LibraryStartupList);
+        LibraryStartupList = MakePair(List(proc), LibraryStartupList);
 
     return(lib);
 }
@@ -342,7 +346,7 @@ void LibraryExport(FObject lib, FObject gl)
 
 static FObject FindLibrary(FObject nam)
 {
-    FObject ll = R.LoadedLibraries;
+    FObject ll = LoadedLibraries;
 
     while (PairP(ll))
     {
@@ -453,13 +457,13 @@ static FObject LoadLibrary(FObject nam)
     if (LibraryP(lib))
         return(lib);
 
-    FObject lp = R.LibraryPath;
+    FObject lp = LibraryPath;
 
     while (PairP(lp))
     {
         FAssert(StringP(First(lp)));
 
-        FObject le = R.LibraryExtensions;
+        FObject le = LibraryExtensions;
 
         while (PairP(le))
         {
@@ -804,7 +808,7 @@ static FObject ExpandLibraryDeclarations(FObject env, FObject lst, FObject body)
             body = ExpandLibraryDeclarations(env, ReadInclude(First(form), Rest(form), 0), body);
         else if (EqualToSymbol(First(form), CondExpandSymbol))
         {
-            FObject ce = CondExpand(MakeSyntacticEnv(R.Bedrock), form, Rest(form));
+            FObject ce = CondExpand(MakeSyntacticEnv(Bedrock), form, Rest(form));
             if (ce != EmptyListObject)
                 body = ExpandLibraryDeclarations(env, ce , body);
         }
@@ -1068,10 +1072,10 @@ FObject CompileEval(FObject obj, FObject env)
     FObject body = CompileEvalExpr(obj, env, EmptyListObject);
 
     body = ReverseListModify(body);
-    if (R.LibraryStartupList != EmptyListObject)
+    if (LibraryStartupList != EmptyListObject)
     {
-        body = MakePair(MakePair(BeginSyntax, ReverseListModify(R.LibraryStartupList)), body);
-        R.LibraryStartupList = EmptyListObject;
+        body = MakePair(MakePair(BeginSyntax, ReverseListModify(LibraryStartupList)), body);
+        LibraryStartupList = EmptyListObject;
     }
     else if (body == EmptyListObject)
         return(NoValuePrimitive);
@@ -1087,7 +1091,7 @@ FObject Eval(FObject obj, FObject env)
 
     FAssert(ProcedureP(proc));
 
-    return(ExecuteThunk(proc));
+    return(ExecuteProc(proc));
 }
 
 static FObject CompileLibraryCode(FObject env, FObject lst)
@@ -1305,7 +1309,7 @@ static FObject CondExpandProgram(FObject lst, FObject prog)
 
         if (PairP(obj) && EqualToSymbol(First(obj), CondExpandSymbol))
         {
-            FObject ce = CondExpand(MakeSyntacticEnv(R.Bedrock), obj, Rest(obj));
+            FObject ce = CondExpand(MakeSyntacticEnv(Bedrock), obj, Rest(obj));
             if (ce != EmptyListObject)
                 prog = CondExpandProgram(ce, prog);
         }
@@ -1338,7 +1342,7 @@ FObject CompileProgram(FObject nam, FObject port)
 
             if (PairP(obj) && EqualToSymbol(First(obj), CondExpandSymbol))
             {
-                FObject ce = CondExpand(MakeSyntacticEnv(R.Bedrock), obj, Rest(obj));
+                FObject ce = CondExpand(MakeSyntacticEnv(Bedrock), obj, Rest(obj));
                 if (ce != EmptyListObject)
                     prog = CondExpandProgram(ce, prog);
             }
@@ -1366,10 +1370,10 @@ FObject CompileProgram(FObject nam, FObject port)
             prog = Rest(prog);
         }
 
-        if (R.LibraryStartupList != EmptyListObject)
+        if (LibraryStartupList != EmptyListObject)
         {
-            body = MakePair(MakePair(BeginSyntax, ReverseListModify(R.LibraryStartupList)), body);
-            R.LibraryStartupList = EmptyListObject;
+            body = MakePair(MakePair(BeginSyntax, ReverseListModify(LibraryStartupList)), body);
+            LibraryStartupList = EmptyListObject;
         }
 
         while (prog != EmptyListObject)
@@ -1383,9 +1387,9 @@ FObject CompileProgram(FObject nam, FObject port)
     catch (FObject obj)
     {
         if (ExceptionP(obj) == 0)
-            WriteStringC(R.StandardOutput, "exception: ");
-        Write(R.StandardOutput, obj, 0);
-        WriteCh(R.StandardOutput, '\n');
+            WriteStringC(StandardOutput, "exception: ");
+        Write(StandardOutput, obj, 0);
+        WriteCh(StandardOutput, '\n');
     }
 
     FObject proc = CompileLambda(env, NoValueObject, EmptyListObject, ReverseListModify(body));
@@ -1401,7 +1405,7 @@ FObject CompileProgram(FObject nam, FObject port)
 
 void SetupLibrary()
 {
-    R.LibraryStartupList = EmptyListObject;
+    RegisterRoot(&LibraryStartupList, "library-startup-list");
 
     DefineLibrarySymbol = InternSymbol(DefineLibrarySymbol);
     ImportSymbol = InternSymbol(ImportSymbol);

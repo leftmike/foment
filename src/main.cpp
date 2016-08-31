@@ -19,6 +19,16 @@ Foment
 #endif // FOMENT_BSD
 #endif // FOMENT_UNIX
 
+// ---- Roots ----
+
+FObject CommandLine = EmptyListObject;
+FObject FullCommandLine = NoValueObject;
+FObject EnvironmentVariables = NoValueObject;
+
+static FObject InteractiveOptions = EmptyListObject;
+
+// ----------------
+
 #ifdef FOMENT_WINDOWS
 #include <wchar.h>
 #define StringLengthS(s) wcslen(s)
@@ -94,9 +104,9 @@ static void AddToLibraryPath(FChS * prog)
         }
 
         if (pth != 0)
-            R.LibraryPath = MakePair(MakeStringS(prog, pth - prog), R.LibraryPath);
+            LibraryPath = MakePair(MakeStringS(prog, pth - prog), LibraryPath);
         else
-            R.LibraryPath = MakePair(MakeStringC("."), R.LibraryPath);
+            LibraryPath = MakePair(MakeStringC("."), LibraryPath);
     }
 }
 #else // FOMENT_UNIX
@@ -114,9 +124,9 @@ static void AddToLibraryPath(FChS * prog)
     }
 
     if (pth != 0)
-        R.LibraryPath = MakePair(MakeStringS(prog, pth - prog), R.LibraryPath);
+        LibraryPath = MakePair(MakeStringS(prog, pth - prog), LibraryPath);
     else
-        R.LibraryPath = MakePair(MakeStringC("."), R.LibraryPath);
+        LibraryPath = MakePair(MakeStringC("."), LibraryPath);
 }
 #endif // FOMENT_UNIX
 
@@ -139,7 +149,7 @@ static int ProgramMode(FChS * arg)
 
     FObject proc = CompileProgram(nam, port);
 
-    ExecuteThunk(proc);
+    ExecuteProc(proc);
     ExitFoment();
     return(0);
 }
@@ -220,7 +230,7 @@ static int SetGenerational(FConfigWhen when)
 
 static FObject GetLibraryPath()
 {
-    return(R.LibraryPath);
+    return(LibraryPath);
 }
 
 static int AppendLibraryPath(FChS * s)
@@ -252,12 +262,12 @@ static int PrependLibraryPath(FChS * s)
 
 static FObject GetLibraryExtensions()
 {
-    return(R.LibraryExtensions);
+    return(LibraryExtensions);
 }
 
 static int AddExtension(FChS * s)
 {
-    R.LibraryExtensions = MakePair(MakeStringS(s), R.LibraryExtensions);
+    LibraryExtensions = MakePair(MakeStringS(s), LibraryExtensions);
     return(1);
 }
 
@@ -283,24 +293,24 @@ static int SetInteractive(FConfigWhen when)
 static int LoadAction(FConfigWhen when, FChS * s)
 {
     InteractiveFlag = 1;
-    R.InteractiveOptions = MakePair(MakePair(StringCToSymbol("load"), MakeStringS(s)),
-            R.InteractiveOptions);
+    InteractiveOptions = MakePair(MakePair(StringCToSymbol("load"), MakeStringS(s)),
+            InteractiveOptions);
     return(1);
 }
 
 static int PrintAction(FConfigWhen when, FChS * s)
 {
     InteractiveFlag = 1;
-    R.InteractiveOptions = MakePair(MakePair(StringCToSymbol("print"), MakeStringS(s)),
-            R.InteractiveOptions);
+    InteractiveOptions = MakePair(MakePair(StringCToSymbol("print"), MakeStringS(s)),
+            InteractiveOptions);
     return(1);
 }
 
 static int EvalAction(FConfigWhen when, FChS * s)
 {
     InteractiveFlag = 1;
-    R.InteractiveOptions = MakePair(MakePair(StringCToSymbol("eval"), MakeStringS(s)),
-            R.InteractiveOptions);
+    InteractiveOptions = MakePair(MakePair(StringCToSymbol("eval"), MakeStringS(s)),
+            InteractiveOptions);
     return(1);
 }
 
@@ -492,7 +502,7 @@ Define("%interactive-options", InteractiveOptionsPrimitive)(int_t argc, FObject 
 {
     FMustBe(argc == 0);
 
-    return(R.InteractiveOptions);
+    return(InteractiveOptions);
 }
 
 static void Usage()
@@ -587,7 +597,7 @@ static FObject Primitives[] =
 void SetupMain()
 {
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
-        DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
+        DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 }
 
 void LibraryPathOptions()
@@ -596,7 +606,7 @@ void LibraryPathOptions()
 
     if (NumAppends > 0)
     {
-        FObject lp = R.LibraryPath;
+        FObject lp = LibraryPath;
 
         for (;;)
         {
@@ -616,7 +626,7 @@ void LibraryPathOptions()
     }
 
     for (idx = 0; idx < NumIncludes; idx++)
-        R.LibraryPath = MakePair(MakeStringS(Includes[idx]), R.LibraryPath);
+        LibraryPath = MakePair(MakeStringS(Includes[idx]), LibraryPath);
 }
 
 int ProcessOptions(FConfigWhen when, int argc, FChS * argv[], int * pdx)
@@ -725,6 +735,11 @@ int main(int argc, FChS * argv[])
 
     FThreadState ts;
 
+    RegisterRoot(&CommandLine, "command-line");
+    RegisterRoot(&FullCommandLine, "full-command-line");
+    RegisterRoot(&EnvironmentVariables, "environment-variables");
+    RegisterRoot(&InteractiveOptions, "interactive-options");
+
     try
     {
         if (SetupFoment(&ts) == 0)
@@ -736,7 +751,7 @@ int main(int argc, FChS * argv[])
     catch (FObject obj)
     {
         printf("error: unexpected exception setting up foment: %p\n", obj);
-        WriteSimple(R.StandardOutput, obj, 0);
+        WriteSimple(StandardOutput, obj, 0);
         return(1);
     }
 
@@ -744,18 +759,15 @@ int main(int argc, FChS * argv[])
 
     try
     {
-        R.InteractiveOptions = EmptyListObject;
         if (ProcessOptions(LateConfig, argc, argv, &pdx) == 0)
             return(1);
 
-        R.FullCommandLine = MakeCommandLine(argc, argv);
-        if (pdx == 0)
-            R.CommandLine = EmptyListObject;
-        else
+        FullCommandLine = MakeCommandLine(argc, argv);
+        if (pdx != 0)
         {
             FAssert(pdx < argc);
 
-            R.CommandLine = MakeCommandLine(argc - pdx, argv + pdx);
+            CommandLine = MakeCommandLine(argc - pdx, argv + pdx);
         }
 
         if (InteractiveFlag == 0 && pdx > 0)
@@ -765,19 +777,19 @@ int main(int argc, FChS * argv[])
             return(ProgramMode(argv[pdx]));
         }
 
-        R.LibraryPath = ReverseListModify(MakePair(MakeStringC("."), R.LibraryPath));
+        LibraryPath = ReverseListModify(MakePair(MakeStringC("."), LibraryPath));
         LibraryPathOptions();
 
-        ExecuteThunk(R.InteractiveThunk);
+        ExecuteProc(InteractiveThunk);
         ExitFoment();
         return(0);
     }
     catch (FObject obj)
     {
         if (ExceptionP(obj) == 0)
-            WriteStringC(R.StandardOutput, "exception: ");
-        WriteSimple(R.StandardOutput, obj, 0);
-        WriteCh(R.StandardOutput, '\n');
+            WriteStringC(StandardOutput, "exception: ");
+        WriteSimple(StandardOutput, obj, 0);
+        WriteCh(StandardOutput, '\n');
         return(1);
     }
 }

@@ -494,7 +494,7 @@ FObject StringToSymbol(FObject str)
     FAssert(StringP(str));
 
     uint_t idx = StringHash(str) % HASH_MODULO;
-    FObject lst = HashTreeRef(R.SymbolHashTree, idx, MakeFixnum(idx));
+    FObject lst = HashTreeRef(SymbolHashTree, idx, MakeFixnum(idx));
     FObject obj = lst;
 
     while (PairP(obj))
@@ -509,7 +509,7 @@ FObject StringToSymbol(FObject str)
     FSymbol * sym = (FSymbol *) MakeObject(SymbolTag, sizeof(FSymbol), 1, "string->symbol");
     sym->String = str;
 
-    R.SymbolHashTree = HashTreeSet(R.SymbolHashTree, idx, MakePair(sym, lst));
+    SymbolHashTree = HashTreeSet(SymbolHashTree, idx, MakePair(sym, lst));
 
     return(sym);
 }
@@ -517,7 +517,7 @@ FObject StringToSymbol(FObject str)
 FObject StringLengthToSymbol(FCh * s, int_t sl)
 {
     uint_t idx = StringLengthHash(s, sl) % HASH_MODULO;
-    FObject lst = HashTreeRef(R.SymbolHashTree, idx, MakeFixnum(idx));
+    FObject lst = HashTreeRef(SymbolHashTree, idx, MakeFixnum(idx));
     FObject obj = lst;
 
     while (PairP(obj))
@@ -532,7 +532,7 @@ FObject StringLengthToSymbol(FCh * s, int_t sl)
     FSymbol * sym = (FSymbol *) MakeObject(SymbolTag, sizeof(FSymbol), 1, "string->symbol");
     sym->String = MakeString(s, sl);
 
-    R.SymbolHashTree = HashTreeSet(R.SymbolHashTree, idx, MakePair(sym, lst));
+    SymbolHashTree = HashTreeSet(SymbolHashTree, idx, MakePair(sym, lst));
 
     return(sym);
 }
@@ -611,7 +611,7 @@ FObject InternSymbol(FObject sym)
     FAssert(AsObjHdr(AsSymbol(sym)->String)->Generation() == OBJHDR_GEN_ETERNAL);
 
     uint_t idx = SymbolHash(sym) % HASH_MODULO;
-    FObject lst = HashTreeRef(R.SymbolHashTree, idx, MakeFixnum(idx));
+    FObject lst = HashTreeRef(SymbolHashTree, idx, MakeFixnum(idx));
     FObject obj = lst;
 
     while (PairP(obj))
@@ -625,7 +625,7 @@ FObject InternSymbol(FObject sym)
         obj = Rest(obj);
     }
 
-    R.SymbolHashTree = HashTreeSet(R.SymbolHashTree, idx, MakePair(sym, lst));
+    SymbolHashTree = HashTreeSet(SymbolHashTree, idx, MakePair(sym, lst));
     return(sym);
 }
 
@@ -984,7 +984,7 @@ Define("make-hash-map", MakeHashMapPrimitive)(int_t argc, FObject argv[])
     if (argc == 1)
         ComparatorArgCheck("make-hash-map", argv[0]);
 
-    return(MakeHashMap(argc == 1 ? argv[0] : R.DefaultComparator, NoValueObject));
+    return(MakeHashMap(argc == 1 ? argv[0] : DefaultComparator, NoValueObject));
 }
 
 Define("hash-map?", HashMapPPrimitive)(int_t argc, FObject argv[])
@@ -996,7 +996,7 @@ Define("hash-map?", HashMapPPrimitive)(int_t argc, FObject argv[])
 
 FObject MakeEqHashMap()
 {
-    return(MakeHashMap(R.EqComparator, MakeTConc()));
+    return(MakeHashMap(EqComparator, MakeTConc()));
 }
 
 FObject EqHashMapRef(FObject hmap, FObject key, FObject def)
@@ -1101,7 +1101,7 @@ Define("hash-set?", HashSetPPrimitive)(int_t argc, FObject argv[])
 
 FObject MakeEqHashSet()
 {
-    return(MakeHashSet(R.EqComparator, MakeTConc()));
+    return(MakeHashSet(EqComparator, MakeTConc()));
 }
 
 int_t EqHashSetContainsP(FObject hset, FObject elem)
@@ -1238,7 +1238,7 @@ static FObject Primitives[] =
 void SetupHashContainers()
 {
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
-        DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
+        DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 
     FAssert(CStringHash("abcdefghijklmn") == StringHash(MakeStringC("abcdefghijklmn")));
     FAssert(CStringCompare("abc", MakeStringC("abc"))

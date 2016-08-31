@@ -144,6 +144,30 @@ void CPassLambda(FLambda * lam);
 void APassLambda(FLambda * enc, FLambda * lam);
 FObject GPassLambda(FLambda * lam);
 
+// ---- Roots ----
+
+extern FObject ElseReference;
+extern FObject ArrowReference;
+extern FObject LibraryReference;
+extern FObject AndReference;
+extern FObject OrReference;
+extern FObject NotReference;
+extern FObject QuasiquoteReference;
+extern FObject UnquoteReference;
+extern FObject UnquoteSplicingReference;
+extern FObject ConsReference;
+extern FObject AppendReference;
+extern FObject ListToVectorReference;
+extern FObject EllipsisReference;
+extern FObject UnderscoreReference;
+
+// ---- Eternal Objects ----
+
+extern FObject TagSymbol;
+extern FObject UsePassSymbol;
+extern FObject ConstantPassSymbol;
+extern FObject AnalysisPassSymbol;
+
 // ----------------
 
 FObject FindOrLoadLibrary(FObject nam);

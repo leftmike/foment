@@ -291,7 +291,7 @@ static FObject CompilePatternVariables(FObject se, FObject form, FObject lits, F
     if (IdentifierP(pat))
     {
         if (MatchReference(ellip, se, pat) == 0
-                && MatchReference(R.UnderscoreReference, se, pat) == 0)
+                && MatchReference(UnderscoreReference, se, pat) == 0)
         {
             if (PatternVariableP(PatternVariableFind(se, pvars, pat)))
                 RaiseExceptionC(Syntax, "syntax-rules",
@@ -385,7 +385,7 @@ static FObject CompilePattern(FObject se, FObject lits, FObject pvars, FObject e
         if (ReferenceP(ref))
             return(ref);
 
-        FAssert(MatchReference(R.UnderscoreReference, se, pat));
+        FAssert(MatchReference(UnderscoreReference, se, pat));
 
         return(MatchAnyObject);
     }
@@ -574,7 +574,7 @@ FObject CompileSyntaxRules(FObject se, FObject obj)
         obj = Rest(obj);
     }
     else
-        ellip = R.EllipsisReference;
+        ellip = EllipsisReference;
 
     if (PairP(Rest(obj)) == 0)
         RaiseExceptionC(Syntax, "syntax-rules", "missing literals", List(form));

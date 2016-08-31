@@ -65,7 +65,7 @@ static FObject MakeExclusive()
     FExclusive * e = (FExclusive *) MakeObject(ExclusiveTag, sizeof(FExclusive), 0,
             "make-exclusive", 1);
     InitializeExclusive(&e->Exclusive);
-    InstallGuardian(e, R.CleanupTConc);
+    InstallGuardian(e, CleanupTConc);
 
     return(e);
 }
@@ -155,8 +155,8 @@ static void FomentThread(FObject obj)
 
         if (ProcedureP(AsThread(ts.Thread)->Thunk))
         {
-//            AsThread(ts.Thread)->Result = ExecuteThunk(AsThread(ts.Thread)->Thunk);
-            Modify(FThread, ts.Thread, Result, ExecuteThunk(AsThread(ts.Thread)->Thunk));
+//            AsThread(ts.Thread)->Result = ExecuteProc(AsThread(ts.Thread)->Thunk);
+            Modify(FThread, ts.Thread, Result, ExecuteProc(AsThread(ts.Thread)->Thunk));
         }
         else
         {
@@ -171,9 +171,9 @@ static void FomentThread(FObject obj)
     catch (FObject exc)
     {
         if (ExceptionP(obj) == 0)
-            WriteStringC(R.StandardOutput, "exception: ");
-        Write(R.StandardOutput, exc, 0);
-        WriteCh(R.StandardOutput, '\n');
+            WriteStringC(StandardOutput, "exception: ");
+        Write(StandardOutput, exc, 0);
+        WriteCh(StandardOutput, '\n');
 
 //        AsThread(ts.Thread)->Result = exc;
         Modify(FThread, ts.Thread, Result, exc);
@@ -594,7 +594,7 @@ static FObject Primitives[] =
 void SetupThreads()
 {
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
-        DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
+        DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 
     SigIntNotify = NOTIFY_EXIT;
     SigIntCount = 0;

@@ -70,7 +70,7 @@ static FObject MakeBignum()
 {
     FBignum * bn = (FBignum *) MakeObject(BignumTag, sizeof(FBignum), 0, "%make-bignum");
     mpz_init(bn->MPInteger);
-    InstallGuardian(bn, R.CleanupTConc);
+    InstallGuardian(bn, CleanupTConc);
 
     return(bn);
 }
@@ -79,7 +79,7 @@ static FObject MakeBignum(FFixnum n)
 {
     FBignum * bn = (FBignum *) MakeObject(BignumTag, sizeof(FBignum), 0, "%make-bignum");
     mpz_init_set_si(bn->MPInteger, (long) n);
-    InstallGuardian(bn, R.CleanupTConc);
+    InstallGuardian(bn, CleanupTConc);
 
     return(bn);
 }
@@ -88,7 +88,7 @@ static FObject MakeBignum(double64_t d)
 {
     FBignum * bn = (FBignum *) MakeObject(BignumTag, sizeof(FBignum), 0, "%make-bignum");
     mpz_init_set_d(bn->MPInteger, d);
-    InstallGuardian(bn, R.CleanupTConc);
+    InstallGuardian(bn, CleanupTConc);
 
     return(bn);
 }
@@ -99,7 +99,7 @@ static FObject MakeBignum(FObject n)
 
     FBignum * bn = (FBignum *) MakeObject(BignumTag, sizeof(FBignum), 0, "%make-bignum");
     mpz_init_set(bn->MPInteger, AsBignum(n));
-    InstallGuardian(bn, R.CleanupTConc);
+    InstallGuardian(bn, CleanupTConc);
 
     return(bn);
 }
@@ -1909,10 +1909,10 @@ static FObject ComplexDivide(FObject r1, FObject i1, FObject r2, FObject i2)
 static FObject GenericDivide(FObject z1, FObject z2)
 {
 /*
-WriteSimple(R.StandardOutput, z1, 0);
-WriteCh(R.StandardOutput, '/');
-WriteSimple(R.StandardOutput, z2, 0);
-WriteCh(R.StandardOutput, '\n');
+WriteSimple(StandardOutput, z1, 0);
+WriteCh(StandardOutput, '/');
+WriteSimple(StandardOutput, z2, 0);
+WriteCh(StandardOutput, '\n');
 */
     if (BothNumberP(z1, z2))
     {
@@ -3456,5 +3456,5 @@ void SetupNumbers()
     FAssert(sizeof(double64_t) == 8);
 
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
-        DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
+        DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 }

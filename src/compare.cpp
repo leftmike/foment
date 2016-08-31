@@ -6,6 +6,11 @@ Foment
 
 #include "foment.hpp"
 
+// ---- Roots ----
+
+FObject DefaultComparator = NoValueObject;
+FObject EqComparator = NoValueObject;
+
 // ---- Comparator ----
 
 EternalBuiltinType(ComparatorType, "comparator", 0);
@@ -33,7 +38,7 @@ static FObject MakeComparator(FObject ttfn, FObject eqfn, FObject compfn, FObjec
 void DefineComparator(const char * nam, FObject ttprim, FObject eqprim, FObject compprim,
         FObject hashprim)
 {
-    LibraryExport(R.BedrockLibrary, EnvironmentSetC(R.Bedrock, nam,
+    LibraryExport(BedrockLibrary, EnvironmentSetC(Bedrock, nam,
             MakeComparator(ttprim, eqprim, compprim, hashprim)));
 }
 
@@ -659,16 +664,19 @@ static FObject Primitives[] =
 
 void SetupCompare()
 {
-    R.EqComparator = MakeComparator(TrueObject, EqPPrimitive, FalseObject, EqHashPrimitive);
-    R.DefaultComparator = MakeComparator(DefaultTypeTestPrimitive, DefaultEqualityPrimitive,
+    RegisterRoot(&DefaultComparator, "default-comparator");
+    RegisterRoot(&EqComparator, "eq-comparator");
+
+    EqComparator = MakeComparator(TrueObject, EqPPrimitive, FalseObject, EqHashPrimitive);
+    DefaultComparator = MakeComparator(DefaultTypeTestPrimitive, DefaultEqualityPrimitive,
             DefaultComparePrimitive, DefaultHashPrimitive);
 }
 
 void SetupComparePrims()
 {
-    LibraryExport(R.BedrockLibrary,
-            EnvironmentSetC(R.Bedrock, "default-comparator", R.DefaultComparator));
+    LibraryExport(BedrockLibrary,
+            EnvironmentSetC(Bedrock, "default-comparator", DefaultComparator));
 
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
-        DefinePrimitive(R.Bedrock, R.BedrockLibrary, Primitives[idx]);
+        DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 }
