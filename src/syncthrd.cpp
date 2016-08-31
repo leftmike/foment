@@ -35,16 +35,16 @@ FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms, FObject idxprms
     return(thrd);
 }
 
-void WriteThread(FObject port, FObject obj, int_t df)
+void WriteThread(FWriteContext * wctx, FObject obj)
 {
     FAssert(ThreadP(obj));
 
-    WriteStringC(port, "#<thread: ");
+    wctx->WriteStringC("#<thread: ");
 
     FCh s[16];
     int_t sl = FixnumAsString((FFixnum) AsThread(obj)->Handle, s, 16);
-    WriteString(port, s, sl);
-    WriteCh(port, '>');
+    wctx->WriteString(s, sl);
+    wctx->WriteCh('>');
 }
 
 // ---- Exclusives ----
@@ -70,16 +70,16 @@ static FObject MakeExclusive()
     return(e);
 }
 
-void WriteExclusive(FObject port, FObject obj, int_t df)
+void WriteExclusive(FWriteContext * wctx, FObject obj)
 {
     FAssert(ExclusiveP(obj));
 
-    WriteStringC(port, "#<exclusive: ");
+    wctx->WriteStringC("#<exclusive: ");
 
     FCh s[16];
     int_t sl = FixnumAsString((FFixnum) &AsExclusive(obj)->Exclusive, s, 16);
-    WriteString(port, s, sl);
-    WriteCh(port, '>');
+    wctx->WriteString(s, sl);
+    wctx->WriteCh('>');
 }
 
 // ---- Conditions ----
@@ -93,16 +93,16 @@ static FObject MakeCondition()
     return(c);
 }
 
-void WriteCondition(FObject port, FObject obj, int_t df)
+void WriteCondition(FWriteContext * wctx, FObject obj)
 {
     FAssert(ConditionP(obj));
 
-    WriteStringC(port, "#<condition: ");
+    wctx->WriteStringC("#<condition: ");
 
     FCh s[16];
     int_t sl = FixnumAsString((FFixnum) &AsCondition(obj)->Condition, s, 16);
-    WriteString(port, s, sl);
-    WriteCh(port, '>');
+    wctx->WriteString(s, sl);
+    wctx->WriteCh('>');
 }
 
 Define("current-thread", CurrentThreadPrimitive)(int_t argc, FObject argv[])

@@ -3,8 +3,6 @@
 Foment
 
 To Do:
--- fix circular write of builtins: maybe make full generic by using slot count in object header
-
 -- Windows: make test-all: run all tests using all three collectors
 -- CheckObject: check back references from mature objects
 -- partial GC
@@ -792,6 +790,41 @@ void WriteCh(FObject port, FCh ch);
 void WriteString(FObject port, FCh * s, uint_t sl);
 void WriteStringC(FObject port, const char * s);
 
+typedef enum
+{
+    NoWrite,
+    SimpleWrite,
+    CircularWrite,
+    SharedWrite
+} FWriteType;
+
+struct FWriteContext
+{
+    FWriteContext(FObject port, int_t df);
+    void Prepare(FObject obj, FWriteType wt);
+
+    void Write(FObject obj);
+    void Display(FObject obj);
+    void WriteCh(FCh ch);
+    void WriteString(FCh * s, uint_t sl);
+    void WriteStringC(const char * s);
+
+private:
+
+    FObject Port;
+    int_t DisplayFlag;
+    FWriteType WriteType;
+    FObject HashMap;
+    int_t SharedCount;
+    int_t PreviousLabel;
+
+    void FindSharedObjects(FObject obj, FWriteType wt);
+    void WritePair(FObject obj);
+    void WriteRecord(FObject obj);
+    void WriteObject(FObject obj);
+    void WriteSimple(FObject obj);
+};
+
 void Write(FObject port, FObject obj, int_t df);
 void WriteShared(FObject port, FObject obj, int_t df);
 void WriteSimple(FObject port, FObject obj, int_t df);
@@ -801,7 +834,7 @@ void WriteSimple(FObject port, FObject obj, int_t df);
 #define BuiltinTypeP(obj) (IndirectTag(obj) == BuiltinTypeTag)
 #define AsBuiltinType(obj) ((FBuiltinType *) (obj))
 
-typedef void (*FBuiltinWriteFn)(FObject port, FObject obj, int_t df);
+typedef void (*FBuiltinWriteFn)(FWriteContext * wctx, FObject obj);
 
 typedef struct
 {
@@ -1919,11 +1952,11 @@ void SetupThreads();
 void SetupGC();
 void SetupMain();
 
-void WriteSpecialSyntax(FObject port, FObject obj, int_t df);
-void WriteInstruction(FObject port, FObject obj, int_t df);
-void WriteThread(FObject port, FObject obj, int_t df);
-void WriteExclusive(FObject port, FObject obj, int_t df);
-void WriteCondition(FObject port, FObject obj, int_t df);
+void WriteSpecialSyntax(FWriteContext * wctx, FObject obj);
+void WriteInstruction(FWriteContext * wctx, FObject obj);
+void WriteThread(FWriteContext * wctx, FObject obj);
+void WriteExclusive(FWriteContext * wctx, FObject obj);
+void WriteCondition(FWriteContext * wctx, FObject obj);
 
 #ifdef FOMENT_WINDOWS
 #define PathCh '\\'

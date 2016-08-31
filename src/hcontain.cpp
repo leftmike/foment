@@ -403,35 +403,6 @@ static FObject HashTreeCopy(FObject htree)
     return(MakeHashTree(HashTreeLength(htree), HashTreeBitmap(htree), bkts, "hash-tree-copy"));
 }
 
-/*
-void WriteHashTree(FObject port, FObject htree)
-{
-    FCh s[16];
-    int_t sl = FixnumAsString((FFixnum) htree, s, 16);
-
-    FAssert(HashTreeP(htree));
-
-    WriteStringC(port, "#<hash-tree: ");
-    WriteString(port, s, sl);
-    WriteCh(port, ' ');
-
-    for (uint_t idx = 0; idx < sizeof(uint_t) * 8; idx++)
-    {
-        if (BucketP(htree, idx))
-        {
-            WriteCh(port, '[');
-            sl = FixnumAsString(idx, s, 10);
-            WriteString(port, s, sl);
-            WriteStringC(port, "] = ");
-            Write(port, GetBucket(htree, idx), 1);
-            WriteCh(port, ' ');
-        }
-    }
-
-    WriteCh(port, '>');
-}
-*/
-
 Define("make-hash-tree", MakeHashTreePrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("make-hash-tree", argc);

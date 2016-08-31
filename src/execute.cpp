@@ -166,23 +166,23 @@ static const char * Opcodes[] =
     "pop-mark-stack",
 };
 
-void WriteInstruction(FObject port, FObject obj, int_t df)
+void WriteInstruction(FWriteContext * wctx, FObject obj)
 {
     FAssert(InstructionP(obj));
 
     FCh s[16];
     int_t sl = FixnumAsString(InstructionArg(obj), s, 10);
 
-    WriteStringC(port, "#<");
+    wctx->WriteStringC("#<");
 
     if (InstructionOpcode(obj) < 0 || InstructionOpcode(obj) >= sizeof(Opcodes) / sizeof(char *))
-        WriteStringC(port, "unknown");
+        wctx->WriteStringC("unknown");
     else
-        WriteStringC(port, Opcodes[InstructionOpcode(obj)]);
+        wctx->WriteStringC(Opcodes[InstructionOpcode(obj)]);
 
-    WriteStringC(port, ": ");
-    WriteString(port, s, sl);
-    WriteCh(port, '>');
+    wctx->WriteStringC(": ");
+    wctx->WriteString(s, sl);
+    wctx->WriteCh('>');
 }
 
 // --------

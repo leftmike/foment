@@ -23,17 +23,17 @@ EternalSymbol(AkaSymbol, "aka");
 // ---- Environments ----
 
 static void
-WriteEnvironment(FObject port, FObject obj, int_t df)
+WriteEnvironment(FWriteContext * wctx, FObject obj)
 {
     FCh s[16];
     int_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
-    WriteStringC(port, "#<library: #x");
-    WriteString(port, s, sl);
+    wctx->WriteStringC("#<library: #x");
+    wctx->WriteString(s, sl);
 
-    WriteCh(port, ' ');
-    Write(port, AsEnvironment(obj)->Name, df);
-    WriteStringC(port, ">");
+    wctx->WriteCh(' ');
+    wctx->Write(AsEnvironment(obj)->Name);
+    wctx->WriteStringC(">");
 }
 
 EternalBuiltinType(EnvironmentType, "environment", WriteEnvironment);
@@ -230,19 +230,19 @@ void EnvironmentImportLibrary(FObject env, FObject nam)
 // ---- Globals ----
 
 static void
-WriteGlobal(FObject port, FObject obj, int_t df)
+WriteGlobal(FWriteContext * wctx, FObject obj)
 {
     FCh s[16];
     int_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
-    WriteStringC(port, "#<library: #x");
-    WriteString(port, s, sl);
+    wctx->WriteStringC("#<library: #x");
+    wctx->WriteString(s, sl);
 
-    WriteCh(port, ' ');
-    Write(port, AsGlobal(obj)->Name, df);
-    WriteCh(port, ' ');
-    Write(port, AsGlobal(obj)->Module, df);
-    WriteStringC(port, ">");
+    wctx->WriteCh(' ');
+    wctx->Write(AsGlobal(obj)->Name);
+    wctx->WriteCh(' ');
+    wctx->Write(AsGlobal(obj)->Module);
+    wctx->WriteStringC(">");
 }
 
 EternalBuiltinType(GlobalType, "global", WriteGlobal);
@@ -288,17 +288,17 @@ static FObject ImportGlobal(FObject env, FObject nam, FObject gl)
 // ---- Libraries ----
 
 static void
-WriteLibrary(FObject port, FObject obj, int_t df)
+WriteLibrary(FWriteContext * wctx, FObject obj)
 {
     FCh s[16];
     int_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
-    WriteStringC(port, "#<library: #x");
-    WriteString(port, s, sl);
+    wctx->WriteStringC("#<library: #x");
+    wctx->WriteString(s, sl);
 
-    WriteCh(port, ' ');
-    Write(port, AsLibrary(obj)->Name, df);
-    WriteStringC(port, ">");
+    wctx->WriteCh(' ');
+    wctx->Write(AsLibrary(obj)->Name);
+    wctx->WriteStringC(">");
 }
 
 EternalBuiltinType(LibraryType, "library", WriteLibrary);

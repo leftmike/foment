@@ -65,20 +65,20 @@ FObject MakeBinding(FObject se, FObject id, FObject ra)
 // ---- Identifier ----
 
 static void
-WriteIdentifier(FObject port, FObject obj, int_t df)
+WriteIdentifier(FWriteContext * wctx, FObject obj)
 {
     obj = AsIdentifier(obj)->Symbol;
 
     FAssert(SymbolP(obj));
 
     if (StringP(AsSymbol(obj)->String))
-        WriteString(port, AsString(AsSymbol(obj)->String)->String,
+        wctx->WriteString(AsString(AsSymbol(obj)->String)->String,
                 StringLength(AsSymbol(obj)->String));
     else
     {
         FAssert(CStringP(AsSymbol(obj)->String));
 
-        WriteStringC(port, AsCString(AsSymbol(obj)->String)->String);
+        wctx->WriteStringC(AsCString(AsSymbol(obj)->String)->String);
     }
 }
 
@@ -130,27 +130,27 @@ FObject WrapIdentifier(FObject id, FObject se)
 
 
 static void
-WriteLambda(FObject port, FObject obj, int_t df)
+WriteLambda(FWriteContext * wctx, FObject obj)
 {
     FCh s[16];
     int_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
-    WriteStringC(port, "#<library: #x");
-    WriteString(port, s, sl);
+    wctx->WriteStringC("#<library: #x");
+    wctx->WriteString(s, sl);
 
-    WriteCh(port, ' ');
-    Write(port, AsLambda(obj)->Name, df);
-    WriteCh(port, ' ');
-    Write(port, AsLambda(obj)->Bindings, df);
+    wctx->WriteCh(' ');
+    wctx->Write(AsLambda(obj)->Name);
+    wctx->WriteCh(' ');
+    wctx->Write(AsLambda(obj)->Bindings);
     if (StringP(AsLambda(obj)->Filename) && FixnumP(AsLambda(obj)->LineNumber))
     {
-        WriteCh(port, ' ');
-        Write(port, AsLambda(obj)->Filename, 1);
-        WriteCh(port, '[');
-        Write(port, AsLambda(obj)->LineNumber, 1);
-        WriteCh(port, ']');
+        wctx->WriteCh(' ');
+        wctx->Display(AsLambda(obj)->Filename);
+        wctx->WriteCh('[');
+        wctx->Display(AsLambda(obj)->LineNumber);
+        wctx->WriteCh(']');
     }
-    WriteStringC(port, ">");
+    wctx->WriteStringC(">");
 }
 
 EternalBuiltinType(LambdaType, "lambda", WriteLambda);

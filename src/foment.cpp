@@ -149,13 +149,13 @@ const char * SpecialSyntaxToName(FObject obj)
     return(SpecialSyntaxes[n]);
 }
 
-void WriteSpecialSyntax(FObject port, FObject obj, int_t df)
+void WriteSpecialSyntax(FWriteContext * wctx, FObject obj)
 {
     const char * n = SpecialSyntaxToName(obj);
 
-    WriteStringC(port, "#<syntax: ");
-    WriteStringC(port, n);
-    WriteCh(port, '>');
+    wctx->WriteStringC("#<syntax: ");
+    wctx->WriteStringC(n);
+    wctx->WriteCh('>');
 }
 
 // ---- Booleans ----
@@ -269,7 +269,7 @@ Define("string->symbol", StringToSymbolPrimitive)(int_t argc, FObject argv[])
 
 // ---- Exceptions ----
 
-static void WriteLocation(FObject port, FObject obj)
+static void WriteLocation(FWriteContext * wctx, FObject obj)
 {
     if (PairP(obj))
     {
@@ -285,37 +285,37 @@ static void WriteLocation(FObject port, FObject obj)
         FCh s[16];
         int_t sl = FixnumAsString(AsFixnum(AsIdentifier(obj)->LineNumber), s, 10);
 
-        WriteStringC(port, " line: ");
-        WriteString(port, s, sl);
+        wctx->WriteStringC(" line: ");
+        wctx->WriteString(s, sl);
     }
 }
 
 static void
-WriteException(FObject port, FObject obj, int_t df)
+WriteException(FWriteContext * wctx, FObject obj)
 {
     FCh s[16];
     int_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
-    WriteStringC(port, "#<exception: #x");
-    WriteString(port, s, sl);
+    wctx->WriteStringC("#<exception: #x");
+    wctx->WriteString(s, sl);
 
-    WriteCh(port, ' ');
-    Write(port, AsException(obj)->Type, df);
+    wctx->WriteCh(' ');
+    wctx->Write(AsException(obj)->Type);
 
     if (SymbolP(AsException(obj)->Who))
     {
-        WriteCh(port, ' ');
-        Write(port, AsException(obj)->Who, df);
+        wctx->WriteCh(' ');
+        wctx->Write(AsException(obj)->Who);
     }
 
-    WriteCh(port, ' ');
-    Write(port, AsException(obj)->Message, df);
+    wctx->WriteCh(' ');
+    wctx->Write(AsException(obj)->Message);
 
-    WriteStringC(port, " irritants: ");
-    Write(port, AsException(obj)->Irritants, df);
+    wctx->WriteStringC(" irritants: ");
+    wctx->Write(AsException(obj)->Irritants);
 
-    WriteLocation(port, AsException(obj)->Irritants);
-    WriteStringC(port, ">");
+    WriteLocation(wctx, AsException(obj)->Irritants);
+    wctx->WriteStringC(">");
 }
 
 EternalBuiltinType(ExceptionType, "exception", WriteException);
