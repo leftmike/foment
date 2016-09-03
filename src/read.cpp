@@ -325,9 +325,9 @@ static FObject ReadIdentifier(FObject port, FCh * s, int_t sdx, int_t mbnf)
     return(sym);
 }
 
-static FObject ReadList(FObject port, FObject * pdlhm);
-static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlhm);
-static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
+static FObject ReadList(FObject port, FObject * pdlhtbl);
+static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlhtbl);
+static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlhtbl)
 {
     FAlive ap(&port);
     FCh ch;
@@ -444,7 +444,7 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
         return(ReadNumber(port, s, sdx, 10, 0));
     }
     else if (ch ==  '(')
-        return(ListToVector(ReadList(port, pdlhm)));
+        return(ListToVector(ReadList(port, pdlhtbl)));
     else if (ch == 'u')
     {
         if (ReadCh(port, &ch) == 0)
@@ -458,13 +458,13 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
                     List(port));
         if (ch != '(')
             RaiseExceptionC(Lexical, "read", "expected #\\u8(", List(port));
-        return(U8ListToBytevector(ReadList(port, pdlhm)));
+        return(U8ListToBytevector(ReadList(port, pdlhtbl)));
     }
     else if (ch == ';')
     {
-        Read(port, 0, 0, pdlhm);
+        Read(port, 0, 0, pdlhtbl);
 
-        return(Read(port, eaf, rlf, pdlhm));
+        return(Read(port, eaf, rlf, pdlhtbl));
     }
     else if (ch == '|')
     {
@@ -485,7 +485,7 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
             pch = ch;
         }
 
-        return(Read(port, eaf, rlf, pdlhm));
+        return(Read(port, eaf, rlf, pdlhtbl));
     }
     else if (ch == '!')
     {
@@ -508,7 +508,7 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
             RaiseExceptionC(Lexical, "read", "unknown directive #!<name>",
                     List(port, MakeString(s, sl)));
 
-        return(Read(port, eaf, rlf, pdlhm));
+        return(Read(port, eaf, rlf, pdlhtbl));
     }
     else if (NumericP(ch))
     {
@@ -526,15 +526,15 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
 
         if (ch == '=')
         {
-            FObject obj = Read(port, 0, 0, pdlhm);
+            FObject obj = Read(port, 0, 0, pdlhtbl);
 
-            if (HashMapP(*pdlhm) == 0)
-                *pdlhm = MakeEqHashMap();
+            if (HashTableP(*pdlhtbl) == 0)
+                *pdlhtbl = MakeEqHashTable(128);
 
-            if (EqHashMapRef(*pdlhm, n, NotFoundObject) != NotFoundObject)
+            if (HashTableRef(*pdlhtbl, n, NotFoundObject) != NotFoundObject)
                 RaiseExceptionC(Lexical, "read", "duplicate datum label", List(port, n));
 
-            EqHashMapSet(*pdlhm, n, obj);
+            HashTableSet(*pdlhtbl, n, obj);
             return(obj);
         }
         else if (ch == '#')
@@ -550,7 +550,7 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
     return(NoValueObject);
 }
 
-static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
+static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlhtbl)
 {
     FAlive ap(&port);
     FCh ch;
@@ -574,7 +574,7 @@ static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
             switch (ch)
             {
             case '#':
-                return(ReadSharp(port, eaf, rlf, pdlhm));
+                return(ReadSharp(port, eaf, rlf, pdlhtbl));
 
             case '"':
                 return(ReadStringLiteral(port, '"'));
@@ -594,7 +594,7 @@ static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
             }
 
             case '(':
-                return(ReadList(port, pdlhm));
+                return(ReadList(port, pdlhtbl));
 
             case ')':
                 if (rlf)
@@ -627,7 +627,7 @@ static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
 
             case '\'':
             {
-                FObject obj = Read(port, 0, 0, pdlhm);
+                FObject obj = Read(port, 0, 0, pdlhtbl);
                 return(MakePair(WantIdentifiersPortP(port) ? MakeIdentifier(QuoteSymbol,
                         GetFilename(port), GetLineColumn(port, 0)) :
                         QuoteSymbol, MakePair(obj, EmptyListObject)));
@@ -635,7 +635,7 @@ static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
 
             case '`':
             {
-                FObject obj = Read(port, 0, 0, pdlhm);
+                FObject obj = Read(port, 0, 0, pdlhtbl);
                 return(MakePair(WantIdentifiersPortP(port)
                         ? MakeIdentifier(QuasiquoteSymbol, GetFilename(port),
                         GetLineColumn(port, 0)) :
@@ -656,7 +656,7 @@ static FObject Read(FObject port, int_t eaf, int_t rlf, FObject * pdlhm)
                     sym = UnquoteSplicingSymbol;
                 }
 
-                FObject obj = Read(port, 0, 0, pdlhm);
+                FObject obj = Read(port, 0, 0, pdlhtbl);
                 return(MakePair(WantIdentifiersPortP(port)
                         ? MakeIdentifier(sym, GetFilename(port), GetLineColumn(port, 0)) : sym,
                         MakePair(obj, EmptyListObject)));
@@ -737,10 +737,10 @@ Eof:
     return(EndOfFileObject);
 }
 
-static FObject ReadList(FObject port, FObject * pdlhm)
+static FObject ReadList(FObject port, FObject * pdlhtbl)
 {
     FAlive ap(&port);
-    FObject obj = Read(port, 0, 1, pdlhm);
+    FObject obj = Read(port, 0, 1, pdlhtbl);
     FAlive ao(&obj);
 
     if (obj == EolObject)
@@ -748,24 +748,24 @@ static FObject ReadList(FObject port, FObject * pdlhm)
 
     if (obj == DotObject)
     {
-        obj = Read(port, 0, 0, pdlhm);
+        obj = Read(port, 0, 0, pdlhtbl);
 
-        if (Read(port, 0, 1, pdlhm) != EolObject)
+        if (Read(port, 0, 1, pdlhtbl) != EolObject)
             RaiseExceptionC(Lexical, "read", "bad dotted pair", List(port));
         return(obj);
     }
 
-    FObject lst = ReadList(port, pdlhm);
+    FObject lst = ReadList(port, pdlhtbl);
     return(MakePair(obj, lst));
-//    return(MakePair(obj, ReadList(port, pdlhm)));
+//    return(MakePair(obj, ReadList(port, pdlhtbl)));
 }
 
-static FObject ResolveReference(FObject port, FObject ref, FObject dlhm)
+static FObject ResolveReference(FObject port, FObject ref, FObject dlhtbl)
 {
     FAssert(DatumReferenceP(ref));
     FAssert(FixnumP(AsDatumReference(ref)->Label));
 
-    FObject obj = EqHashMapRef(dlhm, AsDatumReference(ref)->Label, NotFoundObject);
+    FObject obj = HashTableRef(dlhtbl, AsDatumReference(ref)->Label, NotFoundObject);
     if (obj == NotFoundObject)
         RaiseExceptionC(Lexical, "read", "datum reference to unknown label",
                 List(port, AsDatumReference(ref)->Label));
@@ -773,18 +773,18 @@ static FObject ResolveReference(FObject port, FObject ref, FObject dlhm)
     return(obj);
 }
 
-static void ResolveDatumReferences(FObject port, FObject obj, FObject dlhm)
+static void ResolveDatumReferences(FObject port, FObject obj, FObject dlhtbl)
 {
     while (PairP(obj))
     {
         if (DatumReferenceP(First(obj)))
-            SetFirst(obj, ResolveReference(port, First(obj), dlhm));
+            SetFirst(obj, ResolveReference(port, First(obj), dlhtbl));
         else if (PairP(First(obj)) || VectorP(First(obj)))
-            ResolveDatumReferences(port, First(obj), dlhm);
+            ResolveDatumReferences(port, First(obj), dlhtbl);
 
         if (DatumReferenceP(Rest(obj)))
         {
-            SetRest(obj, ResolveReference(port, Rest(obj), dlhm));
+            SetRest(obj, ResolveReference(port, Rest(obj), dlhtbl));
             break;
         }
 
@@ -797,9 +797,9 @@ static void ResolveDatumReferences(FObject port, FObject obj, FObject dlhm)
         {
             FObject val = AsVector(obj)->Vector[idx];
             if (DatumReferenceP(val))
-                ModifyVector(obj, idx, ResolveReference(port, val, dlhm));
+                ModifyVector(obj, idx, ResolveReference(port, val, dlhtbl));
             else if (PairP(val) || VectorP(val))
-                ResolveDatumReferences(port, val, dlhm);
+                ResolveDatumReferences(port, val, dlhtbl);
         }
     }
 }
@@ -808,13 +808,13 @@ FObject Read(FObject port)
 {
     FAssert(InputPortP(port) && InputPortOpenP(port));
 
-    FObject dlhm = NoValueObject;
+    FObject dlhtbl = NoValueObject;
     FAlive ap(&port);
-    FAlive adlhm(&dlhm);
+    FAlive adlhtbl(&dlhtbl);
 
-    FObject obj = Read(port, 1, 0, &dlhm);
-    if (HashMapP(dlhm))
-        ResolveDatumReferences(port, obj, dlhm);
+    FObject obj = Read(port, 1, 0, &dlhtbl);
+    if (HashTableP(dlhtbl))
+        ResolveDatumReferences(port, obj, dlhtbl);
 
     return(obj);
 }

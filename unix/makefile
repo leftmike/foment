@@ -28,12 +28,14 @@ test-all: all
 	$(MAKE) test TEST_BUILD=release TEST_OPTIONS=--no-collector
 	$(MAKE) test TEST_BUILD=debug TEST_OPTIONS=--mark-sweep
 	$(MAKE) test TEST_BUILD=release TEST_OPTIONS=--mark-sweep
-	$(MAKE) test TEST_BUILD=debug TEST_OPTIONS=--generational
-	$(MAKE) test TEST_BUILD=release TEST_OPTIONS=--generational
 	$(MAKE) test TEST_BUILD=debug "TEST_OPTIONS=--no-collector --check-heap"
 	$(MAKE) test TEST_BUILD=release "TEST_OPTIONS=--no-collector --check-heap"
 	$(MAKE) test TEST_BUILD=debug "TEST_OPTIONS=--mark-sweep --check-heap"
 	$(MAKE) test TEST_BUILD=release "TEST_OPTIONS=--mark-sweep --check-heap"
+
+test-generational: all
+	$(MAKE) test TEST_BUILD=debug TEST_OPTIONS=--generational
+	$(MAKE) test TEST_BUILD=release TEST_OPTIONS=--generational
 	$(MAKE) test TEST_BUILD=debug "TEST_OPTIONS=--generational --check-heap"
 	$(MAKE) test TEST_BUILD=release "TEST_OPTIONS=--generational --check-heap"
 
@@ -63,7 +65,7 @@ debug/foment: debug/foment.o debug/gc.o debug/syncthrd.o debug/compile.o debug/i
 		debug/synrules.o debug/synpass.o debug/midpass.o debug/genpass.o\
 		debug/pairs.o debug/unicode.o debug/chars.o debug/strings.o debug/vectors.o\
 		debug/library.o debug/execute.o debug/numbers.o	debug/mini-gmp.o debug/write.o\
-		debug/read.o debug/filesys.o debug/hcontain.o debug/compare.o debug/main.o\
+		debug/read.o debug/filesys.o debug/compare.o debug/main.o debug/hashtbl.o\
 		debug/base.o
 	g++ -o debug/foment $^ -lpthread
 
@@ -72,7 +74,7 @@ release/foment: release/foment.o release/gc.o release/syncthrd.o release/compile
 		release/pairs.o release/unicode.o release/chars.o release/strings.o\
 		release/vectors.o release/library.o release/execute.o release/numbers.o\
 		release/mini-gmp.o release/write.o release/read.o release/filesys.o\
-		release/hcontain.o release/compare.o release/main.o release/base.o
+		release/compare.o release/main.o release/hashtbl.o release/base.o
 	g++ -o release/foment $^ -lpthread
 
 profile/foment: profile/foment.o profile/gc.o profile/syncthrd.o profile/compile.o profile/io.o\
@@ -80,7 +82,7 @@ profile/foment: profile/foment.o profile/gc.o profile/syncthrd.o profile/compile
 		profile/pairs.o profile/unicode.o profile/chars.o profile/strings.o\
 		profile/vectors.o profile/library.o profile/execute.o profile/numbers.o\
 		profile/mini-gmp.o profile/write.o profile/read.o profile/filesys.o\
-		profile/hcontain.o profile/compare.o profile/main.o profile/base.o
+		profile/compare.o profile/main.o profile/hashtbl.o profile/base.o
 	g++ -pg -o profile/foment $^ -lpthread
 
 debug/foment.o: ../src/foment.cpp ../src/foment.hpp ../src/unicode.hpp
@@ -107,7 +109,7 @@ debug/write.o: ../src/write.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.
 debug/read.o: ../src/read.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
 	../src/unicode.hpp
 debug/filesys.o: ../src/filesys.cpp ../src/foment.hpp ../src/unicode.hpp
-debug/hcontain.o: ../src/hcontain.cpp ../src/foment.hpp
+debug/hashtbl.o: ../src/hashtbl.cpp ../src/foment.hpp
 debug/compare.o: ../src/compare.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/unicode.hpp
 debug/main.o: ../src/main.cpp ../src/foment.hpp
 debug/base.o: debug/base.cpp
@@ -136,7 +138,7 @@ release/write.o: ../src/write.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/i
 release/read.o: ../src/read.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
 	../src/unicode.hpp
 release/filesys.o: ../src/filesys.cpp ../src/foment.hpp ../src/unicode.hpp
-release/hcontain.o: ../src/hcontain.cpp ../src/foment.hpp
+release/hashtbl.o: ../src/hashtbl.cpp ../src/foment.hpp
 release/compare.o: ../src/compare.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/unicode.hpp
 release/main.o: ../src/main.cpp ../src/foment.hpp
 release/base.o: debug/base.cpp

@@ -445,37 +445,6 @@ FObject U8ListToBytevector(FObject obj)
     return(nv);
 }
 
-uint_t BytevectorHash(FObject obj)
-{
-    FAssert(BytevectorP(obj));
-
-    int_t vl = BytevectorLength(obj);
-    FByte * v = AsBytevector(obj)->Vector;
-    const char * p;
-    uint_t h = 0;
-
-    vl *= sizeof(FByte);
-    for (p = (const char *) v; vl > 0; p++, vl--)
-        h = ((h << 5) + h) + *p;
-
-    return(h);
-}
-
-int_t BytevectorCompare(FObject obj1, FObject obj2)
-{
-    FAssert(BytevectorP(obj1));
-    FAssert(BytevectorP(obj2));
-
-    if (BytevectorLength(obj1) != BytevectorLength(obj2))
-        return(BytevectorLength(obj1) < BytevectorLength(obj2) ? -1 : 1);
-
-    for (uint_t sdx = 0; sdx < BytevectorLength(obj1) && sdx < BytevectorLength(obj2); sdx++)
-        if (AsBytevector(obj1)->Vector[sdx] != AsBytevector(obj2)->Vector[sdx])
-            return(AsBytevector(obj1)->Vector[sdx] < AsBytevector(obj2)->Vector[sdx] ? -1 : 1);
-
-    return(0);
-}
-
 Define("bytevector?", BytevectorPPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("bytevector?", argc);

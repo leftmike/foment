@@ -3564,6 +3564,10 @@ void ExitFoment()
 
 void SetupIO()
 {
+    RegisterRoot(&StandardInput, "standard-input");
+    RegisterRoot(&StandardOutput, "standard-output");
+    RegisterRoot(&StandardError, "standard-error");
+
 #ifdef FOMENT_WINDOWS
     WSADATA wd;
 

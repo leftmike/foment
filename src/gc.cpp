@@ -655,7 +655,7 @@ static const char * IndirectTagString[] =
     "thread",
     "exclusive",
     "condition",
-    "hash-tree",
+    "hash-node",
     "ephemeron",
     "builtin-type",
     "builtin",
@@ -765,8 +765,17 @@ static const char * WhereFrom(FObject obj, int_t * idx)
             *idx = -1;
             break;
 
-        case HashTreeTag:
-            from = "hash-tree.buckets";
+        case HashNodeTag:
+            if (*idx == 0)
+                from = "hash-node.key";
+            else if (*idx == 1)
+                from = "hash-node.value";
+            else
+            {
+                FMustBe(*idx = 2);
+                from = "hash-node.next";
+            }
+            *idx = -1;
             break;
 
         default:

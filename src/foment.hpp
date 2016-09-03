@@ -3,26 +3,20 @@
 Foment
 
 To Do:
--- Windows: make test-all: run all tests using all three collectors
 -- CheckObject: check back references from mature objects
 -- partial GC
 -- after partial GC, test for objects pointing to Babies
 -- Use extra generation for immortal objects which are precompiled libraries
+-- split base.scm into separate files
 
-HashTree and Comparator:
--- get rid of DefineComparator
--- replace srfi 114 with srfi 128
--- Change all Compare to OrderingP
--- EqComparator and AnyPPimitive
--- DefaultComparator
--- probably replace HashTree with HashTable
--- add sets: HashSet
--- add bags: HashBag
+HashTable and Comparator:
+-- finish hash tables
+-- add sets
+-- add bags
 
 Future:
 -- change EternalSymbol (and Define) to set Symbol->Hash at compile time
 -- allow larger objects by using BlockSize > 1 in FObjHdr
--- maybe add ObjectHash like MIT Scheme and get rid of trackers
 -- pull options from FOMENT_OPTIONS environment variable
 -- features, command-line, full-command-line, interactive options,
     environment-variables, etc passed to scheme as a single assoc list
@@ -208,7 +202,7 @@ typedef enum
     ThreadTag,
     ExclusiveTag,
     ConditionTag,
-    HashTreeTag,
+    HashNodeTag,
     EphemeronTag,
     BuiltinTypeTag,
     BuiltinTag,
@@ -231,6 +225,8 @@ typedef enum
 
 #define MAXIMUM_FIXNUM ((((FFixnum) 1) << (sizeof(int32_t) * 8 - 4)) - 1)
 #define MINIMUM_FIXNUM (- MAXIMUM_FIXNUM)
+
+#define NormalizeHash(hsh) ((hsh) & MAXIMUM_FIXNUM)
 
 // ---- Memory Management ----
 
@@ -597,7 +593,10 @@ uint32_t CStringHash(const char * s);
 int_t StringLengthEqualP(FCh * s, int_t sl, FObject obj);
 int_t StringCEqualP(const char * s1, FCh * s2, int_t sl2);
 int_t StringCompare(FObject obj1, FObject obj2);
-int_t StringCiCompare(FObject obj1, FObject obj2);
+
+extern FObject StringPPrimitive;
+extern FObject StringEqualPPrimitive;
+extern FObject StringHashPrimitive;
 
 // ---- Vectors ----
 
@@ -628,8 +627,6 @@ typedef struct
 
 FObject MakeBytevector(uint_t vl);
 FObject U8ListToBytevector(FObject obj);
-uint_t BytevectorHash(FObject obj);
-int_t BytevectorCompare(FObject obj1, FObject obj2);
 
 #define BytevectorLength(obj) ByteLength(obj)
 
@@ -821,7 +818,7 @@ private:
     FObject Port;
     int_t DisplayFlag;
     FWriteType WriteType;
-    FObject HashMap;
+    FObject HashTable;
     int_t SharedCount;
     int_t PreviousLabel;
 
@@ -923,22 +920,7 @@ inline int_t RecordP(FObject obj, FObject rt)
 
 #define RecordNumFields(obj) (AsObjHdr(obj)->SlotCount())
 
-// ---- HashTree ----
-
-#define HashTreeP(obj) (IndirectTag(obj) == HashTreeTag)
-#define AsHashTree(obj) ((FHashTree *) (obj))
-
-typedef struct
-{
-    FObject Buckets[1];
-} FHashTree;
-
-FObject MakeHashTree(const char * who);
-
-#define HashTreeLength(obj) (AsObjHdr(obj)->SlotCount())
-#define HashTreeBitmap(obj) (* ((uint_t *) (AsHashTree(obj)->Buckets + HashTreeLength(obj))))
-
-// ---- Comparator ----
+// ---- Comparators ----
 
 #define AsComparator(obj) ((FComparator *) (obj))
 #define ComparatorP(obj) BuiltinP(obj, ComparatorType)
@@ -954,64 +936,28 @@ typedef struct
     FObject Context;
 } FComparator;
 
-void DefineComparator(const char * nam, FObject ttp, FObject eqp, FObject orderp, FObject hashfn);
-
 int_t EqP(FObject obj1, FObject obj2);
 int_t EqvP(FObject obj1, FObject obj2);
 int_t EqualP(FObject obj1, FObject obj2);
+uint32_t EqHash(FObject obj);
 
-uint_t EqHash(FObject obj);
+extern FObject EqPPrimitive;
 extern FObject EqHashPrimitive;
 
-// ---- HashContainer ----
+// ---- Hash Tables ----
 
-#define HashContainerP(obj) (HashMapP(obj) || HashSetP(obj) || HashBagP(obj))
-#define AsHashContainer(obj) ((FHashContainer *) (obj))
+#define HashTableP(obj) BuiltinP(obj, HashTableType)
+extern FObject HashTableType;
 
-typedef struct
-{
-    FObject BuiltinType;
-    FObject HashTree;
-    FObject Comparator;
-    FObject Tracker;
-    FObject Size;
-} FHashContainer;
-
-// ---- HashMap ----
-
-#define HashMapP(obj) BuiltinP(obj, HashMapType)
-extern FObject HashMapType;
-
-typedef int_t (*FEquivFn)(FObject obj1, FObject obj2);
-typedef uint_t (*FHashFn)(FObject obj);
 typedef void (*FVisitFn)(FObject key, FObject val, FObject ctx);
 
-typedef FHashContainer FHashMap;
-
-FObject MakeEqHashMap();
-FObject EqHashMapRef(FObject hmap, FObject key, FObject def);
-void EqHashMapSet(FObject hmap, FObject key, FObject val);
-void EqHashMapDelete(FObject hmap, FObject key);
-void EqHashMapVisit(FObject hmap, FVisitFn vfn, FObject ctx);
-
-// ---- HashSet ----
-
-#define HashSetP(obj) BuiltinP(obj, HashSetType)
-extern FObject HashSetType;
-
-typedef FHashContainer FHashSet;
-
-FObject MakeEqHashSet();
-int_t EqHashSetContainsP(FObject hset, FObject elem);
-void EqHashSetAdjoin(FObject hset, FObject elem);
-void EqHashSetDelete(FObject hset, FObject elem);
-
-// ---- HashBag ----
-
-#define HashBagP(obj) BuiltinP(obj, HashBagType)
-extern FObject HashBagType;
-
-typedef FHashContainer FHashBag;
+FObject MakeEqHashTable(uint_t cap);
+FObject MakeStringHashTable(uint_t cap);
+FObject MakeSymbolHashTable(uint_t cap);
+FObject HashTableRef(FObject htbl, FObject key, FObject def);
+void HashTableSet(FObject htbl, FObject key, FObject val);
+void HashTableDelete(FObject htbl, FObject key);
+void HashTableVisit(FObject htbl, FVisitFn vfn, FObject ctx);
 
 // ---- Symbols ----
 
@@ -1026,13 +972,6 @@ typedef struct
     uint32_t Unused;
 #endif // FOMENT_64BIT
 } FSymbol;
-
-FObject SymbolToString(FObject sym);
-FObject StringToSymbol(FObject str);
-FObject StringCToSymbol(const char * s);
-FObject StringLengthToSymbol(FCh * s, int_t sl);
-int_t SymbolCompare(FObject obj1, FObject obj2);
-FObject AddPrefixToSymbol(FObject str, FObject sym);
 
 #define CStringP(obj) (IndirectTag(obj) == CStringTag)
 #define AsCString(obj) ((FCString *) (obj))
@@ -1074,9 +1013,15 @@ typedef struct FALIGN
     }; \
     FObject name = &name ## Object.Symbol;
 
+FObject SymbolToString(FObject sym);
+FObject StringToSymbol(FObject str);
+FObject StringLengthToSymbol(FCh * s, int_t sl);
 FObject InternSymbol(FObject sym);
 
-inline uint_t SymbolHash(FObject obj)
+FObject StringCToSymbol(const char * s);
+FObject AddPrefixToSymbol(FObject str, FObject sym);
+
+inline uint32_t SymbolHash(FObject obj)
 {
     FAssert(SymbolP(obj));
     FAssert((StringP(AsSymbol(obj)->String) &&
@@ -1086,6 +1031,9 @@ inline uint_t SymbolHash(FObject obj)
 
     return(AsSymbol(obj)->Hash);
 }
+
+extern FObject SymbolPPrimitive;
+extern FObject SymbolHashPrimitive;
 
 // ---- Primitives ----
 
@@ -1155,9 +1103,7 @@ extern FObject EnvironmentVariables;
 extern FObject LibraryPath;
 extern FObject LibraryExtensions;
 extern FObject LoadedLibraries;
-extern FObject SymbolHashTree;
-extern FObject EqComparator;
-extern FObject DefaultComparator;
+extern FObject SymbolHashTable;
 extern FObject StandardInput;
 extern FObject StandardOutput;
 extern FObject StandardError;
@@ -1263,8 +1209,7 @@ FObject ToExact(FObject n);
 FObject MakeInteger(int64_t n);
 FObject MakeIntegerU(uint64_t n);
 FObject MakeInteger(uint32_t high, uint32_t low);
-uint_t NumberHash(FObject obj);
-int_t NumberCompare(FObject obj1, FObject obj2);
+uint32_t NumberHash(FObject obj);
 
 // ---- Environments ----
 
@@ -1276,7 +1221,7 @@ typedef struct
 {
     FObject BuiltinType;
     FObject Name;
-    FObject HashMap;
+    FObject HashTable;
     FObject Interactive;
     FObject Immutable;
 } FEnvironment;
@@ -1393,7 +1338,7 @@ FObject MakeProcedure(FObject nam, FObject fn, FObject ln, FObject cv, int_t ac,
 
 #define ConditionP(obj) (IndirectTag(obj) == ConditionTag)
 
-// ---- Exception ----
+// ---- Exceptions ----
 
 #define AsException(obj) ((FException *) (obj))
 #define ExceptionP(obj) BuiltinP(obj, ExceptionType)
@@ -1836,30 +1781,6 @@ inline void TConcArgCheck(const char * who, FObject obj)
         RaiseExceptionC(Assertion, who, "expected a tconc", List(obj));
 }
 
-inline void HashTreeArgCheck(const char * who, FObject obj)
-{
-    if (HashTreeP(obj) == 0)
-        RaiseExceptionC(Assertion, who, "expected a hash tree", List(obj));
-}
-
-inline void HashContainerArgCheck(const char * who, FObject obj)
-{
-    if (HashContainerP(obj) == 0)
-        RaiseExceptionC(Assertion, who, "expected a hash-map, hash-set, or hash-bag", List(obj));
-}
-
-inline void EqHashMapArgCheck(const char * who, FObject obj)
-{
-    if (HashMapP(obj) == 0 || PairP(AsHashContainer(obj)->Tracker) == 0)
-        RaiseExceptionC(Assertion, who, "expected an eq-hash-map", List(obj));
-}
-
-inline void EqHashSetArgCheck(const char * who, FObject obj)
-{
-    if (HashSetP(obj) == 0 || PairP(AsHashContainer(obj)->Tracker) == 0)
-        RaiseExceptionC(Assertion, who, "expected an eq-hash-set", List(obj));
-}
-
 inline void ComparatorArgCheck(const char * who, FObject obj)
 {
     if (ComparatorP(obj) == 0)
@@ -1870,6 +1791,12 @@ inline void EphemeronArgCheck(const char * who, FObject obj)
 {
     if (EphemeronP(obj) == 0)
         RaiseExceptionC(Assertion, who, "expected an ephemeron", List(obj));
+}
+
+inline void SymbolStringArgCheck(const char * who, FObject obj)
+{
+    if (StringP(obj) == 0 && CStringP(obj) == 0)
+        RaiseExceptionC(Assertion, who, "expected a symbol string", List(obj));
 }
 
 // ----------------
@@ -1900,9 +1827,8 @@ void SetupPairs();
 void SetupCharacters();
 void SetupStrings();
 void SetupVectors();
-void SetupHashContainers();
+void SetupHashTables();
 void SetupCompare();
-void SetupComparePrims();
 void SetupIO();
 void SetupFileSys();
 void SetupCompile();

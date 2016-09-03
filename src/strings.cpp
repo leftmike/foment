@@ -232,7 +232,7 @@ uint32_t StringLengthHash(FCh * s, uint_t sl)
     for (; sl > 0; s++, sl--)
         h = ((h << 5) + h) + *s;
 
-    return(h);
+    return(NormalizeHash(h));
 }
 
 uint32_t StringHash(FObject obj)
@@ -253,7 +253,7 @@ uint32_t StringCiHash(FObject obj)
     for (; sl > 0; s++, sl--)
         h = ((h << 5) + h) + CharFoldcase(*s);
 
-    return(h);
+    return(NormalizeHash(h));
 }
 
 uint32_t CStringHash(const char * s)
@@ -266,7 +266,7 @@ uint32_t CStringHash(const char * s)
         s += 1;
     }
 
-    return(h);
+    return(NormalizeHash(h));
 }
 
 int_t StringCompare(FObject obj1, FObject obj2)
@@ -283,7 +283,7 @@ int_t StringCompare(FObject obj1, FObject obj2)
     return(StringLength(obj1) < StringLength(obj2) ? -1 : 1);
 }
 
-int_t StringCiCompare(FObject obj1, FObject obj2)
+static int_t StringCiCompare(FObject obj1, FObject obj2)
 {
     FAssert(StringP(obj1));
     FAssert(StringP(obj2));
@@ -780,24 +780,6 @@ Define("string-fill!", StringFillPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("string-compare", StringComparePrimitive)(int_t argc, FObject argv[])
-{
-    TwoArgsCheck("string-compare", argc);
-    StringArgCheck("string-compare", argv[0]);
-    StringArgCheck("string-compare", argv[1]);
-
-    return(MakeFixnum(StringCompare(argv[0], argv[1])));
-}
-
-Define("string-ci-compare", StringCiComparePrimitive)(int_t argc, FObject argv[])
-{
-    TwoArgsCheck("string-ci-compare", argc);
-    StringArgCheck("string-ci-compare", argv[0]);
-    StringArgCheck("string-ci-compare", argv[1]);
-
-    return(MakeFixnum(StringCiCompare(argv[0], argv[1])));
-}
-
 static FObject Primitives[] =
 {
     StringPPrimitive,
@@ -824,16 +806,11 @@ static FObject Primitives[] =
     ListToStringPrimitive,
     StringCopyPrimitive,
     StringCopyModifyPrimitive,
-    StringFillPrimitive,
-    StringComparePrimitive,
-    StringCiComparePrimitive
+    StringFillPrimitive
 };
 
 void SetupStrings()
 {
-//    DefineComparator("string-comparator", StringPPrimitive, StringEqualPPrimitive,
-//            StringComparePrimitive, StringHashPrimitive);
-
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 }

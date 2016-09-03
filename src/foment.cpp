@@ -71,7 +71,7 @@ EternalSymbol(Error, "error-violation");
 
 // ---- Roots ----
 
-FObject SymbolHashTree = NoValueObject;
+FObject SymbolHashTable = NoValueObject;
 FObject Bedrock = NoValueObject;
 FObject BedrockLibrary = NoValueObject;
 FObject LoadedLibraries = EmptyListObject;
@@ -198,17 +198,6 @@ Define("boolean=?", BooleanEqualPPrimitive)(int_t argc, FObject argv[])
     }
 
     return(TrueObject);
-}
-
-Define("boolean-compare", BooleanComparePrimitive)(int_t argc, FObject argv[])
-{
-    TwoArgsCheck("boolean-compare", argc);
-    BooleanArgCheck("boolean-compare", argv[0]);
-    BooleanArgCheck("boolean-compare", argv[1]);
-
-    if (argv[0] == argv[1])
-        return(MakeFixnum(0));
-    return(argv[0] < argv[1] ? MakeFixnum(-1) : MakeFixnum(1));
 }
 
 // ---- Symbols ----
@@ -972,7 +961,7 @@ Define("set-box!", SetBoxPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-// ---- Type maps ----
+// ---- Type tags ----
 
 #define MISCELLANEOUS_TAG_OFFSET 8
 #define INDIRECT_TAG_OFFSET 10
@@ -1251,7 +1240,7 @@ int_t SetupFoment(FThreadState * ts)
     if (SetupCore(ts) == 0)
         return(0);
 
-    RegisterRoot(&SymbolHashTree, "symbol-hash-tree");
+    RegisterRoot(&SymbolHashTable, "symbol-hash-table");
     RegisterRoot(&Bedrock, "bedrock");
     RegisterRoot(&BedrockLibrary, "bedrock-library");
     RegisterRoot(&LoadedLibraries, "loaded-libraries");
@@ -1260,11 +1249,9 @@ int_t SetupFoment(FThreadState * ts)
     RegisterRoot(&LibraryExtensions, "library-extensions");
     RegisterRoot(&FomentLibrariesVector, "foment-libraries-vector");
 
-    SymbolHashTree = MakeHashTree("%setup-foment");
+    SymbolHashTable = MakeStringHashTable(4096);
 
-    SetupCompare();
-
-    ts->Parameters = MakeEqHashMap();
+    ts->Parameters = MakeEqHashTable(32);
 
     SetupLibrary();
 
@@ -1301,8 +1288,8 @@ int_t SetupFoment(FThreadState * ts)
         LibraryExport(BedrockLibrary, EnvironmentSetC(Bedrock, SpecialSyntaxes[n],
                 MakeImmediate(n, SpecialSyntaxTag)));
 
-    SetupHashContainers();
-    SetupComparePrims();
+    SetupHashTables();
+    SetupCompare();
     SetupPairs();
     SetupCharacters();
     SetupStrings();
@@ -1315,9 +1302,6 @@ int_t SetupFoment(FThreadState * ts)
     SetupThreads();
     SetupGC();
     SetupMain();
-
-    DefineComparator("boolean-comparator", BooleanPPrimitive, BooleanEqualPPrimitive,
-            BooleanComparePrimitive, EqHashPrimitive);
 
     LibraryExport(BedrockLibrary,
             EnvironmentSetC(Bedrock, "%standard-input", StandardInput));

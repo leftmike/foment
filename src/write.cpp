@@ -27,7 +27,7 @@ FWriteContext::FWriteContext(FObject port, int_t df)
     this->Port = port;
     DisplayFlag = df;
     WriteType = NoWrite;
-    HashMap = NoValueObject;
+    HashTable = NoValueObject;
     SharedCount = 0;
     PreviousLabel = 1;
 }
@@ -39,7 +39,7 @@ void FWriteContext::Prepare(FObject obj, FWriteType wt)
 
     if (wt != SimpleWrite && HasSlotsP(obj))
     {
-        HashMap = MakeEqHashMap();
+        HashTable = MakeEqHashTable(128);
         FindSharedObjects(obj, wt);
         if (SharedCount == 0)
             WriteType = SimpleWrite;
@@ -58,7 +58,7 @@ void FWriteContext::Write(FObject obj)
 
     if (WriteType != SimpleWrite && HasSlotsP(obj))
     {
-        FObject val = EqHashMapRef(HashMap, obj, MakeFixnum(1));
+        FObject val = HashTableRef(HashTable, obj, MakeFixnum(1));
 
         FAssert(FixnumP(val));
 
@@ -67,7 +67,7 @@ void FWriteContext::Write(FObject obj)
             if (AsFixnum(val) > 1)
             {
                 PreviousLabel -= 1;
-                EqHashMapSet(HashMap, obj, MakeFixnum(PreviousLabel));
+                HashTableSet(HashTable, obj, MakeFixnum(PreviousLabel));
 
                 WriteCh('#');
                 FCh s[8];
@@ -83,7 +83,7 @@ void FWriteContext::Write(FObject obj)
                 {
                     Write(First(obj));
                     if (PairP(Rest(obj))
-                            && EqHashMapRef(HashMap, Rest(obj), MakeFixnum(1)) == MakeFixnum(1))
+                            && HashTableRef(HashTable, Rest(obj), MakeFixnum(1)) == MakeFixnum(1))
                     {
                         WriteCh(' ');
                         obj = Rest(obj);
@@ -158,11 +158,11 @@ Again:
 
     if (HasSlotsP(obj))
     {
-        FObject val = EqHashMapRef(HashMap, obj, MakeFixnum(0));
+        FObject val = HashTableRef(HashTable, obj, MakeFixnum(0));
 
         FAssert(FixnumP(val));
 
-        EqHashMapSet(HashMap, obj, MakeFixnum(AsFixnum(val) + 1));
+        HashTableSet(HashTable, obj, MakeFixnum(AsFixnum(val) + 1));
 
         if (AsFixnum(val) == 0)
         {
@@ -185,13 +185,13 @@ Again:
 
             if (wt == CircularWrite)
             {
-                val = EqHashMapRef(HashMap, obj, MakeFixnum(0));
+                val = HashTableRef(HashTable, obj, MakeFixnum(0));
 
                 FAssert(FixnumP(val));
                 FAssert(AsFixnum(val) > 0);
 
                 if (AsFixnum(val) == 1)
-                    EqHashMapDelete(HashMap, obj);
+                    HashTableDelete(HashTable, obj);
             }
         }
         else
@@ -523,12 +523,12 @@ void FWriteContext::WriteObject(FObject obj)
         WriteCondition(this, obj);
         break;
 
-    case HashTreeTag:
+    case HashNodeTag:
     {
         FCh s[16];
         int_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
-        WriteStringC("#<hash-tree: ");
+        WriteStringC("#<hash-node: ");
         WriteString(s, sl);
         WriteCh('>');
         break;

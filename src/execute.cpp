@@ -1374,22 +1374,22 @@ Define("%find-mark", FindMarkPrimitive)(int_t argc, FObject argv[])
     return(FindMark(argv[0], argv[1]));
 }
 
-static void Visit(FObject key, FObject val, FObject hm)
+static void Visit(FObject key, FObject val, FObject htbl)
 {
     FAssert(ParameterP(key));
 
-    EqHashMapSet(hm, key, PairP(val) ? MakePair(First(val), EmptyListObject) : EmptyListObject);
+    HashTableSet(htbl, key, PairP(val) ? MakePair(First(val), EmptyListObject) : EmptyListObject);
 }
 
 FObject CurrentParameters()
 {
-    FObject hm = MakeEqHashMap();
+    FObject htbl = MakeEqHashTable(32);
     FThreadState * ts = GetThreadState();
 
-    if (HashMapP(ts->Parameters))
-        EqHashMapVisit(ts->Parameters, Visit, hm);
+    if (HashTableP(ts->Parameters))
+        HashTableVisit(ts->Parameters, Visit, htbl);
 
-    return(hm);
+    return(htbl);
 }
 
 static FObject Primitives[] =

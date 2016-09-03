@@ -25,12 +25,14 @@ test-all: all
     $(MAKE) test TEST_BUILD=release TEST_OPTIONS=--no-collector
     $(MAKE) test TEST_BUILD=debug TEST_OPTIONS=--mark-sweep
     $(MAKE) test TEST_BUILD=release TEST_OPTIONS=--mark-sweep
-    $(MAKE) test TEST_BUILD=debug TEST_OPTIONS=--generational
-    $(MAKE) test TEST_BUILD=release TEST_OPTIONS=--generational
     $(MAKE) test TEST_BUILD=debug "TEST_OPTIONS=--no-collector --check-heap"
     $(MAKE) test TEST_BUILD=release "TEST_OPTIONS=--no-collector --check-heap"
     $(MAKE) test TEST_BUILD=debug "TEST_OPTIONS=--mark-sweep --check-heap"
     $(MAKE) test TEST_BUILD=release "TEST_OPTIONS=--mark-sweep --check-heap"
+
+test-generational: all
+    $(MAKE) test TEST_BUILD=debug TEST_OPTIONS=--generational
+    $(MAKE) test TEST_BUILD=release TEST_OPTIONS=--generational
     $(MAKE) test TEST_BUILD=debug "TEST_OPTIONS=--generational --check-heap"
     $(MAKE) test TEST_BUILD=release "TEST_OPTIONS=--generational --check-heap"
 
@@ -111,7 +113,7 @@ debug\foment.exe: debug\foment.obj debug\gc.obj debug\syncthrd.obj debug\compile
         debug\synrules.obj debug\synpass.obj debug\midpass.obj debug\genpass.obj\
         debug\pairs.obj debug\unicode.obj debug\chars.obj debug\strings.obj debug\vectors.obj\
         debug\library.obj debug\execute.obj debug\numbers.obj debug\mini-gmp.obj debug\write.obj\
-        debug\read.obj debug\filesys.obj debug\hcontain.obj debug\compare.obj debug\main.obj\
+        debug\read.obj debug\filesys.obj debug\compare.obj debug\main.obj debug\hashtbl.obj\
         debug\base.obj
     link /nologo /subsystem:console /out:debug\foment.exe /debug /pdb:debug\foment.pdb $** $(LIBS)
 
@@ -120,7 +122,7 @@ release\foment.exe: release\foment.obj release\gc.obj release\syncthrd.obj relea
         release\genpass.obj release\pairs.obj release\unicode.obj release\chars.obj\
         release\strings.obj release\vectors.obj release\library.obj release\execute.obj\
         release\numbers.obj release\mini-gmp.obj release\write.obj release\read.obj\
-        release\filesys.obj release\hcontain.obj release\compare.obj release\main.obj\
+        release\filesys.obj release\compare.obj release\main.obj release\hashtbl.obj\
         release\base.obj
 #    link /nologo /subsystem:console /out:release\foment.exe $**
     link /nologo /subsystem:console /out:release\foment.exe /debug /pdb:release\foment.pdb $**\
@@ -153,7 +155,7 @@ debug\write.obj: ..\src\write.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\i
 debug\read.obj: ..\src\read.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
     ..\src\unicode.hpp
 debug\filesys.obj: ..\src\filesys.cpp ..\src\foment.hpp ..\src\unicode.hpp
-debug\hcontain.obj: ..\src\hcontain.cpp ..\src\foment.hpp
+debug\hashtbl.obj: ..\src\hashtbl.cpp ..\src\foment.hpp
 debug\compare.obj: ..\src\compare.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\unicode.hpp
 debug\main.obj: ..\src\main.cpp ..\src\foment.hpp
 debug\base.obj: debug\base.cpp
@@ -183,7 +185,7 @@ release\write.obj: ..\src\write.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src
 release\read.obj: ..\src\read.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
     ..\src\unicode.hpp
 release\filesys.obj: ..\src\filesys.cpp ..\src\foment.hpp ..\src\unicode.hpp
-release\hcontain.obj: ..\src\hcontain.cpp ..\src\foment.hpp
+release\hashtbl.obj: ..\src\hashtbl.cpp ..\src\foment.hpp
 release\compare.obj: ..\src\compare.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\unicode.hpp
 release\main.obj: ..\src\main.cpp ..\src\foment.hpp
 release\base.obj: debug\base.cpp
