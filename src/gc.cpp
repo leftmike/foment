@@ -1788,6 +1788,7 @@ int_t EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms
             ts->IndexParameters[idx] = NoValueObject;
 
     ts->NotifyFlag = 0;
+    ts->ExceptionCount = 0;
     return(1);
 
 Failed:
@@ -1897,15 +1898,15 @@ int_t SetupCore(FThreadState * ts)
 #endif // FOMENT_DEBUG
 
     if (CollectorType == NoCollector && MaximumBabiesSize == 0)
-        MaximumBabiesSize = 1024 * 1024 * 128;
+        MaximumBabiesSize = 1024 * 1024 * 256;
     if (CollectorType == MarkSweepCollector && MaximumBabiesSize != 0)
         MaximumBabiesSize = 0;
     if (CollectorType == GenerationalCollector)
     {
         if (MaximumBabiesSize == 0)
-            MaximumBabiesSize = 1024 * 1024 * 64;
+            MaximumBabiesSize = 1024 * 1024 * 128;
         if (MaximumKidsSize == 0)
-            MaximumKidsSize = MaximumBabiesSize * 8;
+            MaximumKidsSize = MaximumBabiesSize;
 
         if (InitializeMemRegion(&Kids[0].MemRegion, MaximumKidsSize) == 0)
             return(0);

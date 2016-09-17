@@ -72,12 +72,19 @@ typedef struct
     FHashFn UseHashFn;
     FEqualityP UseEqualityP;
     uint_t Size;
-    uint_t Immutable;
+    uint_t InitialCapacity;
+    uint_t Mutable;
 } FHashTable;
 
 inline void UseHashTableArgCheck(const char * who, FObject obj)
 {
     if (HashTableP(obj) == 0 || AsHashTable(obj)->UseHashFn == 0)
+        RaiseExceptionC(Assertion, who, "expected a hash table", List(obj));
+}
+
+inline void HashTableArgCheck(const char * who, FObject obj)
+{
+    if (HashTableP(obj) == 0)
         RaiseExceptionC(Assertion, who, "expected a hash table", List(obj));
 }
 
@@ -89,7 +96,7 @@ static FObject MakeHashTable(uint_t cap, FObject ttp, FObject eqp, FObject hashf
     FAssert(ProcedureP(hashfn) || PrimitiveP(hashfn));
 
     FHashTable * htbl = (FHashTable *) MakeBuiltin(HashTableType, sizeof(FHashTable), 6,
-            "make-hash-table");
+            "%make-hash-table");
     htbl->Entries = MakeVector(cap, 0, NoValueObject);
     htbl->TypeTestP = ttp;
     htbl->EqualityP = eqp;
@@ -119,7 +126,8 @@ static FObject MakeHashTable(uint_t cap, FObject ttp, FObject eqp, FObject hashf
         htbl->UseEqualityP = 0;
     }
     htbl->Size = 0;
-    htbl->Immutable = 0;
+    htbl->InitialCapacity = cap;
+    htbl->Mutable = 1;
 
     return(htbl);
 }
@@ -150,13 +158,31 @@ static FObject MakeHashNode(FObject key, FObject val, FObject next, uint32_t hsh
     return(node);
 }
 
+inline void HashNodeArgCheck(const char * who, FObject obj)
+{
+    if (HashNodeP(obj) == 0)
+        RaiseExceptionC(Assertion, who, "expected a hash node", List(obj));
+}
+
 // ----------------
 
 static void
-ResizeHashTable(FObject htbl)
+HashTableAdjust(FObject htbl)
 {
+    FAssert(HashTableP(htbl));
+    FAssert(VectorP(AsHashTable(htbl)->Entries));
 
-    
+    uint_t cap = VectorLength(AsHashTable(htbl)->Entries);
+    if (AsHashTable(htbl)->Size > cap * 2)
+    {
+
+
+    }
+    else if (AsHashTable(htbl)->Size * 16 < cap)
+    {
+
+
+    }
 }
 
 // ---- Eq Hash Tables ----
@@ -221,6 +247,7 @@ static void RehashEqHashTable(FObject htbl)
             }
 
             AsHashNode(node)->Hash = nhsh;
+            InstallTracker(AsHashNode(node)->Key, node, tconc);
         }
     }
 }
@@ -276,7 +303,7 @@ void HashTableSet(FObject htbl, FObject key, FObject val)
     FAssert(VectorP(AsHashTable(htbl)->Entries));
     FAssert(AsHashTable(htbl)->UseEqualityP != 0);
     FAssert(AsHashTable(htbl)->UseHashFn != 0);
-    FAssert(AsHashTable(htbl)->Immutable == 0);
+    FAssert(AsHashTable(htbl)->Mutable != 0);
 
     FHashFn UseHashFn = AsHashTable(htbl)->UseHashFn;
     FEqualityP UseEqualityP = AsHashTable(htbl)->UseEqualityP;
@@ -311,7 +338,7 @@ void HashTableSet(FObject htbl, FObject key, FObject val)
         InstallTracker(key, node, AsHashTable(htbl)->Tracker);
 
     AsHashTable(htbl)->Size += 1;
-    ResizeHashTable(htbl);
+    HashTableAdjust(htbl);
 }
 
 void HashTableDelete(FObject htbl, FObject key)
@@ -320,7 +347,7 @@ void HashTableDelete(FObject htbl, FObject key)
     FAssert(VectorP(AsHashTable(htbl)->Entries));
     FAssert(AsHashTable(htbl)->UseEqualityP != 0);
     FAssert(AsHashTable(htbl)->UseHashFn != 0);
-    FAssert(AsHashTable(htbl)->Immutable == 0);
+    FAssert(AsHashTable(htbl)->Mutable != 0);
 
     FHashFn UseHashFn = AsHashTable(htbl)->UseHashFn;
     FEqualityP UseEqualityP = AsHashTable(htbl)->UseEqualityP;
@@ -360,7 +387,7 @@ void HashTableDelete(FObject htbl, FObject key)
             }
 
             AsHashTable(htbl)->Size -= 1;
-            ResizeHashTable(htbl);
+            HashTableAdjust(htbl);
             return;
         }
 
@@ -368,7 +395,7 @@ void HashTableDelete(FObject htbl, FObject key)
         node = AsHashNode(node)->Next;
     }
 
-    ResizeHashTable(htbl);
+    HashTableAdjust(htbl);
 }
 
 void HashTableVisit(FObject htbl, FVisitFn vfn, FObject ctx)
@@ -395,11 +422,110 @@ void HashTableVisit(FObject htbl, FVisitFn vfn, FObject ctx)
     }
 }
 
+Define("hash-table?", HashTablePPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("hash-table?", argc);
+
+    return(HashTableP(argv[0]) ? TrueObject : FalseObject);
+}
+
 Define("make-eq-hash-table", MakeEqHashTablePrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("make-eq-hash-table", argc);
 
     return(MakeEqHashTable(128));
+}
+
+Define("%make-hash-table", MakeHashTablePrimitive)(int_t argc, FObject argv[])
+{
+    FourArgsCheck("%make-hash-table", argc);
+    FixnumArgCheck("%make-hash-table", argv[0]);
+    ProcedureArgCheck("%make-hash-table", argv[1]);
+    ProcedureArgCheck("%make-hash-table", argv[2]);
+    ProcedureArgCheck("%make-hash-table", argv[3]);
+
+    return(MakeHashTable(AsFixnum(argv[0]), argv[1], argv[2], argv[3]));
+}
+
+Define("%hash-table-entries", HashTableEntriesPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("%hash-table-entries", argc);
+    HashTableArgCheck("%hash-table-entries", argv[0]);
+
+    return(AsHashTable(argv[0])->Entries);
+}
+
+Define("%hash-table-entries-set!", HashTableEntriesSetPrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("%hash-table-entries-set!", argc);
+    HashTableArgCheck("%hash-table-entries-set!", argv[0]);
+    VectorArgCheck("%hash-table-entries-set!", argv[1]);
+
+//    AsHashTable(argv[0])->Entries = argv[1];
+    Modify(FHashTable, argv[0], Entries, argv[1]);
+    return(NoValueObject);
+}
+
+Define("%hash-table-type-test-predicate", HashTableTypeTestPredicatePrimitive)(int_t argc,
+    FObject argv[])
+{
+    OneArgCheck("%hash-table-type-test-predicate", argc);
+    HashTableArgCheck("%hash-table-type-test-predicate", argv[0]);
+
+    return(AsHashTable(argv[0])->TypeTestP);
+}
+
+Define("%hash-table-equality-predicate", HashTableEqualityPredicatePrimitive)(int_t argc,
+    FObject argv[])
+{
+    OneArgCheck("%hash-table-equality-predicate", argc);
+    HashTableArgCheck("%hash-table-equality-predicate", argv[0]);
+
+    return(AsHashTable(argv[0])->EqualityP);
+}
+
+Define("hash-table-hash-function", HashTableHashFunctionPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("hash-table-hash-function", argc);
+    HashTableArgCheck("hash-table-hash-function", argv[0]);
+
+    return(AsHashTable(argv[0])->HashFn);
+}
+
+Define("hash-table-size", HashTableSizePrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("hash-table-size", argc);
+    HashTableArgCheck("hash-table-size", argv[0]);
+
+    return(MakeFixnum(AsHashTable(argv[0])->Size));
+}
+
+Define("%hash-table-adjust!", HashTableAdjustPrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("%hash-table-adjust!", argc);
+    HashTableArgCheck("%hash-table-adjust!", argv[0]);
+    NonNegativeArgCheck("%hash-table-adjust!", argv[1], 0);
+
+    AsHashTable(argv[0])->Size = AsFixnum(argv[1]);
+    HashTableAdjust(argv[0]);
+    return(NoValueObject);
+}
+
+Define("hash-table-mutable?", HashTableMutablePPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("hash-table-mutable?", argc);
+    HashTableArgCheck("hash-table-mutable?", argv[0]);
+
+    return(AsHashTable(argv[0])->Mutable ? TrueObject : FalseObject);
+}
+
+Define("%hash-table-immutable!", HashTableImmutablePrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("%hash-table-immutable!", argc);
+    HashTableArgCheck("%hash-table-immutable!", argv[0]);
+
+    AsHashTable(argv[0])->Mutable = 0;
+    return(NoValueObject);
 }
 
 Define("%hash-table-ref", HashTableRefPrimitive)(int_t argc, FObject argv[])
@@ -426,6 +552,15 @@ Define("%hash-table-delete!", HashTableDeletePrimitive)(int_t argc, FObject argv
 
     HashTableDelete(argv[0], argv[1]);
     return(NoValueObject);
+}
+
+Define("hash-table-empty-copy", HashTableEmptyCopyPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("hash-table-empty-copy", argc);
+    HashTableArgCheck("hash-table-empty-copy", argv[0]);
+
+    return(MakeHashTable(128, AsHashTable(argv[0])->TypeTestP, AsHashTable(argv[0])->EqualityP,
+            AsHashTable(argv[0])->HashFn));
 }
 
 // ---- Symbols ----
@@ -503,7 +638,7 @@ FObject StringLengthToSymbol(FCh * s, int_t sl)
     ModifyVector(entries, idx, MakeHashNode(sym->String, sym, nlst, hsh, "string->symbol"));
 
     AsHashTable(SymbolHashTable)->Size += 1;
-    ResizeHashTable(SymbolHashTable);
+    HashTableAdjust(SymbolHashTable);
     return(sym);
 }
 
@@ -525,14 +660,103 @@ FObject InternSymbol(FObject sym)
     return(obj);
 }
 
+// ---- Hash Nodes ----
+
+Define("%make-hash-node", MakeHashNodePrimitive)(int_t argc, FObject argv[])
+{
+    FourArgsCheck("%make-hash-node", argc);
+    NonNegativeArgCheck("%make-hash-node", argv[3], 0);
+
+    return(MakeHashNode(argv[0], argv[1], argv[2], AsFixnum(argv[3]), "%make-hash-node"));
+}
+
+Define("%hash-node?", HashNodePPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("%hash-node?", argc);
+
+    return(HashNodeP(argv[0]) ? TrueObject : FalseObject);
+}
+
+Define("%hash-node-key", HashNodeKeyPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("%hash-node-key", argc);
+    HashNodeArgCheck("%hash-node-key", argv[0]);
+
+    return(AsHashNode(argv[0])->Key);
+}
+
+Define("%hash-node-value", HashNodeValuePrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("%hash-node-value", argc);
+    HashNodeArgCheck("%hash-node-value", argv[0]);
+
+    return(AsHashNode(argv[0])->Value);
+}
+
+Define("%hash-node-value-set!", HashNodeValueSetPrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("%hash-node-value-set!", argc);
+    HashNodeArgCheck("%hash-node-value-set!", argv[0]);
+
+//    AsHashNode(argv[0])->Value = argv[1];
+    Modify(FHashNode, argv[0], Value, argv[1]);
+    return(NoValueObject);
+}
+
+Define("%hash-node-next", HashNodeNextPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("%hash-node-next", argc);
+    HashNodeArgCheck("%hash-node-next", argv[0]);
+
+    return(AsHashNode(argv[0])->Next);
+}
+
+Define("%hash-node-next-set!", HashNodeNextSetPrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("%hash-node-next-set!", argc);
+    HashNodeArgCheck("%hash-node-next-set!", argv[0]);
+
+//    AsHashNode(argv[0])->Next = argv[1];
+    Modify(FHashNode, argv[0], Next, argv[1]);
+    return(NoValueObject);
+}
+
+Define("%hash-node-hash", HashNodeHashPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("%hash-node-hash", argc);
+    HashNodeArgCheck("%hash-node-hash", argv[0]);
+
+    return(MakeFixnum(AsHashNode(argv[0])->Hash));
+}
+
 // ---- Primitives ----
 
 static FObject Primitives[] =
 {
+    HashTablePPrimitive,
     MakeEqHashTablePrimitive,
+    MakeHashTablePrimitive,
+    HashTableEntriesPrimitive,
+    HashTableEntriesSetPrimitive,
+    HashTableTypeTestPredicatePrimitive,
+    HashTableEqualityPredicatePrimitive,
+    HashTableHashFunctionPrimitive,
+    HashTableSizePrimitive,
+    HashTableAdjustPrimitive,
+    HashTableMutablePPrimitive,
+    HashTableImmutablePrimitive,
     HashTableRefPrimitive,
     HashTableSetPrimitive,
-    HashTableDeletePrimitive
+    HashTableDeletePrimitive,
+    HashTableEmptyCopyPrimitive,
+    MakeHashNodePrimitive,
+    HashNodePPrimitive,
+    HashNodeKeyPrimitive,
+    HashNodeValuePrimitive,
+    HashNodeValueSetPrimitive,
+    HashNodeNextPrimitive,
+    HashNodeNextSetPrimitive,
+    HashNodeHashPrimitive
 };
 
 void SetupHashTables()

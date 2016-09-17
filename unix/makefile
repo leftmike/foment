@@ -85,7 +85,7 @@ profile/foment: profile/foment.o profile/gc.o profile/syncthrd.o profile/compile
 		profile/compare.o profile/main.o profile/hashtbl.o profile/base.o
 	g++ -pg -o profile/foment $^ -lpthread
 
-debug/foment.o: ../src/foment.cpp ../src/foment.hpp ../src/unicode.hpp
+debug/foment.o: ../src/foment.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/unicode.hpp
 debug/gc.o: ../src/gc.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp
 debug/syncthrd.o: ../src/syncthrd.cpp ../src/foment.hpp ../src/execute.hpp ../src/syncthrd.hpp
 debug/compile.o: ../src/compile.cpp ../src/foment.hpp ../src/compile.hpp
@@ -114,7 +114,7 @@ debug/compare.o: ../src/compare.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src
 debug/main.o: ../src/main.cpp ../src/foment.hpp
 debug/base.o: debug/base.cpp
 
-release/foment.o: ../src/foment.cpp ../src/foment.hpp ../src/unicode.hpp
+release/foment.o: ../src/foment.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/unicode.hpp
 release/gc.o: ../src/gc.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp
 release/syncthrd.o: ../src/syncthrd.cpp ../src/foment.hpp ../src/execute.hpp ../src/syncthrd.hpp
 release/compile.o: ../src/compile.cpp ../src/foment.hpp ../src/compile.hpp

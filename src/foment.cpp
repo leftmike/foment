@@ -15,6 +15,7 @@ Foment
 #include <sys/time.h>
 #include <sys/utsname.h>
 #include <ctype.h>
+#include <pthread.h>
 #endif // FOMENT_UNIX
 
 #include <stdlib.h>
@@ -22,6 +23,7 @@ Foment
 #include <string.h>
 #include <time.h>
 #include "foment.hpp"
+#include "syncthrd.hpp"
 #include "unicode.hpp"
 
 #if defined(FOMENT_BSD) || defined(FOMENT_OSX)
@@ -334,25 +336,52 @@ FObject MakeException(FObject typ, FObject who, FObject knd, FObject msg, FObjec
 
 void RaiseException(FObject typ, FObject who, FObject knd, FObject msg, FObject lst)
 {
-    Raise(MakeException(typ, who, knd, msg, lst));
+    FThreadState * ts = GetThreadState();
+
+    if (ts->ExceptionCount > 0)
+    {
+        printf("error: recursive exception\n");
+        ErrorExitFoment();
+    }
+    ts->ExceptionCount += 1;
+    FObject exc = MakeException(typ, who, knd, msg, lst);
+
+    FAssert(ts->ExceptionCount > 0);
+
+    ts->ExceptionCount -= 1;
+    Raise(exc);
 }
 
 void RaiseExceptionC(FObject typ, const char * who, FObject knd, const char * msg, FObject lst)
 {
     char buf[128];
+    FThreadState * ts = GetThreadState();
+    FObject exc;
+
+    if (ts->ExceptionCount > 0)
+    {
+        printf("error: recursive exception: %s: %s\n", who, msg);
+        ErrorExitFoment();
+    }
+    ts->ExceptionCount += 1;
 
     FAssert(strlen(who) + strlen(msg) + 3 < sizeof(buf));
 
     if (strlen(who) + strlen(msg) + 3 >= sizeof(buf))
-        Raise(MakeException(typ, StringCToSymbol(who), knd, MakeStringC(msg), lst));
+        exc = MakeException(typ, StringCToSymbol(who), knd, MakeStringC(msg), lst);
     else
     {
         strcpy(buf, who);
         strcat(buf, ": ");
         strcat(buf, msg);
 
-        Raise(MakeException(typ, StringCToSymbol(who), knd, MakeStringC(buf), lst));
+        exc = MakeException(typ, StringCToSymbol(who), knd, MakeStringC(buf), lst);
     }
+
+    FAssert(ts->ExceptionCount > 0);
+
+    ts->ExceptionCount -= 1;
+    Raise(exc);
 }
 
 void Raise(FObject obj)

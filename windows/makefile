@@ -132,7 +132,7 @@ debug\txt2cpp.exe: debug\txt2cpp.obj
     link /nologo /subsystem:console /out:debug\txt2cpp.exe\
     debug\txt2cpp.obj
 
-debug\foment.obj: ..\src\foment.cpp ..\src\foment.hpp ..\src\unicode.hpp
+debug\foment.obj: ..\src\foment.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\unicode.hpp
 debug\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp ..\src\numbers.hpp
 debug\syncthrd.obj: ..\src\syncthrd.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\syncthrd.hpp
 debug\compile.obj: ..\src\compile.cpp ..\src\foment.hpp ..\src\compile.hpp
@@ -160,7 +160,7 @@ debug\compare.obj: ..\src\compare.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\s
 debug\main.obj: ..\src\main.cpp ..\src\foment.hpp
 debug\base.obj: debug\base.cpp
 
-release\foment.obj: ..\src\foment.cpp ..\src\foment.hpp ..\src\unicode.hpp
+release\foment.obj: ..\src\foment.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\unicode.hpp
 release\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
     ..\src\numbers.hpp
 release\syncthrd.obj: ..\src\syncthrd.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\syncthrd.hpp

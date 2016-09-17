@@ -454,10 +454,30 @@
         loaded-libraries
         library-path
         eq-hash
+        hash-table? ;; (srfi 125)
         make-eq-hash-table
+        %make-hash-table
+        %hash-table-entries
+        %hash-table-entries-set!
+        %hash-table-type-test-predicate
+        %hash-table-equality-predicate
+        hash-table-hash-function
+        hash-table-size ;; (srfi 125)
+        %hash-table-adjust!
+        hash-table-mutable?
+        %hash-table-immutable!
         %hash-table-ref
         %hash-table-set!
         %hash-table-delete!
+        hash-table-empty-copy
+        %make-hash-node
+        %hash-node?
+        %hash-node-key
+        %hash-node-value
+        %hash-node-value-set!
+        %hash-node-next
+        %hash-node-next-set!
+        %hash-node-hash
         random
         no-value
         set!-values
@@ -2940,7 +2960,7 @@
                     ((comparator-ordering-predicate cdr-comp) (cdr obj1) (cdr obj2))
                     ((comparator-ordering-predicate car-comp) (car obj1) (car obj2)))))
         (define (make-pair-hash car-comp cdr-comp)
-            (lambda (obj)
+            (lambda (obj . arg)
                 (hash-accumulate ((comparator-hash-function car-comp) (car obj))
                                  ((comparator-hash-function cdr-comp) (cdr obj)))))
         (define (make-pair-comparator car-comp cdr-comp)
@@ -2986,7 +3006,7 @@
                             (else #f)))
                     (list-elem<? (comparator-equality-predicate elem-comp)
                             (comparator-ordering-predicate elem-comp) obj1 obj2))
-                (lambda (obj)
+                (lambda (obj . arg)
                     (define (list-hash elem-hash hash obj)
                         (if (empty? obj)
                             hash
@@ -3018,7 +3038,7 @@
                         (vector<? (comparator-equality-predicate elem-comp)
                                 (comparator-ordering-predicate elem-comp) 0 (length obj1))))))
         (define (make-vector-hash elem-comp length ref)
-            (lambda (obj)
+            (lambda (obj . arg)
                 (define (vector-hash elem-hash hash idx len)
                     (if (< idx len)
                         (vector-hash elem-hash (hash-accumulate (elem-hash (ref obj idx)) hash)
@@ -3118,7 +3138,7 @@
                             (if (= tag1 tag2)
                                 ((comparator-ordering-predicate (vector-ref vec tag1)) obj1 obj2)
                                 #f))))
-                (define (standard-hash obj)
+                (define (standard-hash obj . arg)
                     ((comparator-hash-function (vector-ref vec (object-type-tag obj))) obj))
                 (let ((comp
                         (make-comparator standard-type-test standard=? standard<? standard-hash)))

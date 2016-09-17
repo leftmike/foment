@@ -1422,6 +1422,8 @@ typedef struct _FThreadState
 
     int_t NotifyFlag;
     FObject NotifyObject;
+
+    uint_t ExceptionCount;
 } FThreadState;
 
 // ---- Argument Checking ----
