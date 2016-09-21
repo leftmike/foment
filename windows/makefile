@@ -155,7 +155,7 @@ debug\write.obj: ..\src\write.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\i
 debug\read.obj: ..\src\read.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
     ..\src\unicode.hpp
 debug\filesys.obj: ..\src\filesys.cpp ..\src\foment.hpp ..\src\unicode.hpp
-debug\hashtbl.obj: ..\src\hashtbl.cpp ..\src\foment.hpp
+debug\hashtbl.obj: ..\src\hashtbl.cpp ..\src\foment.hpp ..\src\syncthrd.hpp
 debug\compare.obj: ..\src\compare.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\unicode.hpp
 debug\main.obj: ..\src\main.cpp ..\src\foment.hpp
 debug\base.obj: debug\base.cpp
@@ -185,7 +185,7 @@ release\write.obj: ..\src\write.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src
 release\read.obj: ..\src\read.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
     ..\src\unicode.hpp
 release\filesys.obj: ..\src\filesys.cpp ..\src\foment.hpp ..\src\unicode.hpp
-release\hashtbl.obj: ..\src\hashtbl.cpp ..\src\foment.hpp
+release\hashtbl.obj: ..\src\hashtbl.cpp ..\src\foment.hpp ..\src\syncthrd.hpp
 release\compare.obj: ..\src\compare.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\unicode.hpp
 release\main.obj: ..\src\main.cpp ..\src\foment.hpp
 release\base.obj: debug\base.cpp

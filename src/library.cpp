@@ -48,7 +48,7 @@ FObject MakeEnvironment(FObject nam, FObject ctv)
 
     FEnvironment * env = (FEnvironment *) MakeBuiltin(EnvironmentType, sizeof(FEnvironment), 5,
             "make-environment");
-    env->HashTable = MakeSymbolHashTable(512);
+    env->HashTable = MakeSymbolHashTable(512, 0);
     env->Name = nam;
     env->Interactive = ctv;
     env->Immutable = FalseObject;
@@ -1252,14 +1252,14 @@ static FObject CompileAkas(FObject env, FObject lst)
     return(akalst);
 }
 
-static FObject UndefinedList;
-
-static void Visit(FObject key, FObject val, FObject ctx)
+static FObject Fold(FObject key, FObject val, void * ctx, FObject lst)
 {
     FAssert(GlobalP(val));
 
     if (AsGlobal(val)->State == GlobalUndefined)
-        UndefinedList = MakePair(AsGlobal(val)->Name, UndefinedList);
+        return(MakePair(AsGlobal(val)->Name, lst));
+
+    return(lst);
 }
 
 void CompileLibrary(FObject expr)
@@ -1281,11 +1281,10 @@ void CompileLibrary(FObject expr)
     FObject exports = CompileExports(env, body);
     FObject akalst = CompileAkas(env, body);
 
-    UndefinedList = EmptyListObject;
-    HashTableVisit(AsEnvironment(env)->HashTable, Visit, NoValueObject);
-    if (UndefinedList != EmptyListObject)
+    FObject lst = HashTableFold(AsEnvironment(env)->HashTable, Fold, 0, EmptyListObject);
+    if (lst != EmptyListObject)
         RaiseExceptionC(Syntax, "define-library", "identifier(s) used but never defined",
-                List(UndefinedList, expr));
+                List(lst, expr));
 
     FObject lib = MakeLibrary(ln, exports, proc);
 
@@ -1394,11 +1393,10 @@ FObject CompileProgram(FObject nam, FObject port)
 
     FObject proc = CompileLambda(env, NoValueObject, EmptyListObject, ReverseListModify(body));
 
-    UndefinedList = EmptyListObject;
-    HashTableVisit(AsEnvironment(env)->HashTable, Visit, NoValueObject);
-    if (UndefinedList != EmptyListObject)
+    FObject lst = HashTableFold(AsEnvironment(env)->HashTable, Fold, 0, EmptyListObject);
+    if (lst != EmptyListObject)
         RaiseExceptionC(Syntax, "program", "identifier(s) used but never defined",
-                List(UndefinedList, nam));
+                List(lst, nam));
 
     return(proc);
 }

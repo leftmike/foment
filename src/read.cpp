@@ -529,7 +529,7 @@ static FObject ReadSharp(FObject port, int_t eaf, int_t rlf, FObject * pdlhtbl)
             FObject obj = Read(port, 0, 0, pdlhtbl);
 
             if (HashTableP(*pdlhtbl) == 0)
-                *pdlhtbl = MakeEqHashTable(128);
+                *pdlhtbl = MakeEqHashTable(128, 0);
 
             if (HashTableRef(*pdlhtbl, n, NotFoundObject) != NotFoundObject)
                 RaiseExceptionC(Lexical, "read", "duplicate datum label", List(port, n));

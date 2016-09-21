@@ -323,7 +323,7 @@ static int_t EqualP(FObject htbl, FObject obj1, FObject obj2)
 
 int_t EqualP(FObject obj1, FObject obj2)
 {
-    return(EqualP(MakeEqHashTable(128), obj1, obj2));
+    return(EqualP(MakeEqHashTable(128, 0), obj1, obj2));
 }
 
 Define("eqv?", EqvPPrimitive)(int_t argc, FObject argv[])
@@ -478,7 +478,6 @@ static FObject Primitives[] =
     EqvPPrimitive,
     EqPPrimitive,
     EqualPPrimitive,
-    EqHashPrimitive,
     CheckHashBoundPrimitive,
     CheckHashSaltPrimitive,
     BooleanHashPrimitive,
@@ -487,7 +486,8 @@ static FObject Primitives[] =
     StringHashPrimitive,
     StringCiHashPrimitive,
     SymbolHashPrimitive,
-    NumberHashPrimitive
+    NumberHashPrimitive,
+    EqHashPrimitive
 };
 
 void SetupCompare()

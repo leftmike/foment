@@ -39,7 +39,7 @@ void FWriteContext::Prepare(FObject obj, FWriteType wt)
 
     if (wt != SimpleWrite && HasSlotsP(obj))
     {
-        HashTable = MakeEqHashTable(128);
+        HashTable = MakeEqHashTable(128, 0);
         FindSharedObjects(obj, wt);
         if (SharedCount == 0)
             WriteType = SimpleWrite;

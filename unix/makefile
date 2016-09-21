@@ -109,7 +109,7 @@ debug/write.o: ../src/write.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.
 debug/read.o: ../src/read.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
 	../src/unicode.hpp
 debug/filesys.o: ../src/filesys.cpp ../src/foment.hpp ../src/unicode.hpp
-debug/hashtbl.o: ../src/hashtbl.cpp ../src/foment.hpp
+debug/hashtbl.o: ../src/hashtbl.cpp ../src/foment.hpp ../src/syncthrd.hpp
 debug/compare.o: ../src/compare.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/unicode.hpp
 debug/main.o: ../src/main.cpp ../src/foment.hpp
 debug/base.o: debug/base.cpp
@@ -138,7 +138,7 @@ release/write.o: ../src/write.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/i
 release/read.o: ../src/read.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
 	../src/unicode.hpp
 release/filesys.o: ../src/filesys.cpp ../src/foment.hpp ../src/unicode.hpp
-release/hashtbl.o: ../src/hashtbl.cpp ../src/foment.hpp
+release/hashtbl.o: ../src/hashtbl.cpp ../src/foment.hpp ../src/syncthrd.hpp
 release/compare.o: ../src/compare.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/unicode.hpp
 release/main.o: ../src/main.cpp ../src/foment.hpp
 release/base.o: debug/base.cpp

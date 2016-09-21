@@ -60,7 +60,7 @@ void InitializeExclusive(OSExclusive * ose)
 }
 #endif // FOMENT_UNIX
 
-static FObject MakeExclusive()
+FObject MakeExclusive()
 {
     FExclusive * e = (FExclusive *) MakeObject(ExclusiveTag, sizeof(FExclusive), 0,
             "make-exclusive", 1);

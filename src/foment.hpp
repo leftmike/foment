@@ -11,6 +11,10 @@ To Do:
 
 HashTable and Comparator:
 -- finish hash tables
+-- make all eq-hash-table operations atomic
+-- hash table operations while holding exclusive: be careful of exceptions: add a WithExclusive class
+-- %make-hash-node needs to take a hash table
+-- handle different kinds of keys and values in nodes
 -- add sets
 -- add bags
 
@@ -946,18 +950,28 @@ extern FObject EqHashPrimitive;
 
 // ---- Hash Tables ----
 
+#define HASH_TABLE_WEAK_KEYS        0x01
+#define HASH_TABLE_EPHEMERAL_KEYS   0x02
+#define HASH_TABLE_WEAK_VALUES      0x04
+#define HASH_TABLE_EPHEMERAL_VALUES 0x08
+#define HASH_TABLE_IMMUTABLE        0x10
+#define HASH_TABLE_THREAD_SAFE      0x20
+
+// Keys and values flags are the same for hash tables and hash nodes.
+#define HASH_NODE_MASK             0x0F
+
 #define HashTableP(obj) BuiltinP(obj, HashTableType)
 extern FObject HashTableType;
 
-typedef void (*FVisitFn)(FObject key, FObject val, FObject ctx);
+typedef FObject (*FFoldFn)(FObject key, FObject val, void * ctx, FObject accum);
 
-FObject MakeEqHashTable(uint_t cap);
-FObject MakeStringHashTable(uint_t cap);
-FObject MakeSymbolHashTable(uint_t cap);
+FObject MakeEqHashTable(uint_t cap, uint_t flags);
+FObject MakeStringHashTable(uint_t cap, uint_t flags);
+FObject MakeSymbolHashTable(uint_t cap, uint_t flags);
 FObject HashTableRef(FObject htbl, FObject key, FObject def);
 void HashTableSet(FObject htbl, FObject key, FObject val);
 void HashTableDelete(FObject htbl, FObject key);
-void HashTableVisit(FObject htbl, FVisitFn vfn, FObject ctx);
+FObject HashTableFold(FObject htbl, FFoldFn vfn, void * ctx, FObject seed);
 
 // ---- Symbols ----
 
@@ -1333,6 +1347,8 @@ FObject MakeProcedure(FObject nam, FObject fn, FObject ln, FObject cv, int_t ac,
 // ---- Exclusives ----
 
 #define ExclusiveP(obj) (IndirectTag(obj) == ExclusiveTag)
+
+FObject MakeExclusive();
 
 // ---- Conditions ----
 

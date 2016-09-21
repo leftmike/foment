@@ -179,7 +179,7 @@ static FObject SyntaxToDatum(FObject obj, FObject htbl)
 
 FObject SyntaxToDatum(FObject obj)
 {
-    return(SyntaxToDatum(obj, MakeEqHashTable(128)));
+    return(SyntaxToDatum(obj, MakeEqHashTable(128, 0)));
 }
 
 static int_t SyntaxP(FObject obj)

@@ -455,22 +455,31 @@
         library-path
         eq-hash
         hash-table? ;; (srfi 125)
+        %eq-hash-table?
         make-eq-hash-table
         %make-hash-table
-        %hash-table-entries
-        %hash-table-entries-set!
+        %hash-table-buckets
+        %hash-table-buckets-set!
         %hash-table-type-test-predicate
         %hash-table-equality-predicate
-        hash-table-hash-function
+        hash-table-hash-function ;; (srfi 125)
+        %hash-table-pop!
+        hash-table-clear! ;; (srfi 125)
         hash-table-size ;; (srfi 125)
         %hash-table-adjust!
-        hash-table-mutable?
+        hash-table-mutable? ;; (srfi 125)
         %hash-table-immutable!
         %hash-table-ref
         %hash-table-set!
         %hash-table-delete!
-        hash-table-empty-copy
+        hash-table-empty-copy ;; (srfi 125)
+        %hash-table-copy
+        hash-table->alist ;; (srfi 125)
+        hash-table-keys ;; (srfi 125)
+        hash-table-values ;; (srfi 125)
+        %hash-table-entries
         %make-hash-node
+        %copy-hash-node-list
         %hash-node?
         %hash-node-key
         %hash-node-value
@@ -2214,21 +2223,27 @@
     (begin
         (define (bitwise-merge mask n0 n1)
             (bitwise-ior (bitwise-and mask n0) (bitwise-and (bitwise-not mask) n1)))
+
         (define (any-bits-set? n1 n2)
             (not (zero? (bitwise-and n1 n2))))
+
         (define (bit-set? index n)
             (any-bits-set? (expt 2 index) n))
+
         (define (copy-bit idx to bit)
             (if bit
                 (bitwise-ior to (arithmetic-shift 1 idx))
                 (bitwise-and to (bitwise-not (arithmetic-shift 1 idx)))))
+
         (define (bit-field n start end)
             (bitwise-and (bitwise-not (arithmetic-shift -1 (- end start)))
                 (arithmetic-shift n (- start))))
+
         (define (copy-bit-field to from start end)
             (bitwise-merge
                 (arithmetic-shift (bitwise-not (arithmetic-shift -1 (- end start))) start)
                 (arithmetic-shift from start) to))
+
         (define (rotate-bit-field n count start end)
             (define width (- end start))
             (set! count (modulo count width))
@@ -2241,11 +2256,13 @@
                             (arithmetic-shift zn (- count width)))
                         start)
                    (bitwise-and (bitwise-not (arithmetic-shift mask start)) n))))
+
         (define (bit-reverse k n)
             (do ((m (if (negative? n) (bitwise-not n) n) (arithmetic-shift m -1))
                     (k (+ -1 k) (+ -1 k))
                    (rvs 0 (bitwise-ior (arithmetic-shift rvs 1) (bitwise-and 1 m))))
                 ((negative? k) (if (negative? n) (bitwise-not rvs) rvs))))
+
         (define (reverse-bit-field n start end)
             (define width (- end start))
             (let ((mask (bitwise-not (arithmetic-shift -1 width))))
@@ -2253,6 +2270,7 @@
                 (bitwise-ior
                     (arithmetic-shift (bit-reverse width zn) start)
                     (bitwise-and (bitwise-not (arithmetic-shift mask start)) n))))
+
         (define (integer->list k . len)
             (if (null? len)
                 (do ((k k (arithmetic-shift k -1))
@@ -2262,10 +2280,12 @@
                     (k k (arithmetic-shift k -1))
                     (lst '() (cons (odd? k) lst)))
                    ((negative? idx) lst))))
+
         (define (list->integer bools)
             (do ((bs bools (cdr bs))
                 (acc 0 (+ acc acc (if (car bs) 1 0))))
                 ((null? bs) acc)))
+
         (define (booleans->integer . bools)
             (list->integer bools))
     ))
@@ -2425,35 +2445,43 @@
         set-cdr!)
     (begin
         (define (xcons obj1 obj2) (cons obj2 obj1))
+
         (define (cons* obj . lst)
             (define (cons* obj lst)
                 (if (pair? lst)
                     (cons obj (cons* (car lst) (cdr lst)))
                     obj))
             (cons* obj lst))
+
         (define (list-tabulate n proc)
             (define (tabulate i)
                 (if (< i n)
                     (cons (proc i) (tabulate (+ i 1)))
                     '()))
             (tabulate 0))
+
         (define (circular-list obj . lst)
             (let ((ret (cons obj lst)))
                 (set-cdr! (last-pair ret) ret)
                 ret))
+
         (define iota
             (case-lambda
                 ((count) (%iota count 0 1))
                 ((count start) (%iota count start 1))
                 ((count start step) (%iota count start step))))
+
         (define (%iota count value step)
             (if (> count 0)
                 (cons value (%iota (- count 1) (+ value step) step))
                 '()))
+
         (define (null-list? obj)
             (not (pair? obj)))
+
         (define (not-pair? obj)
             (not (pair? obj)))
+
         (define (list= elt= . lists)
             (define (two-list= lst1 lst2)
                 (if (null? lst1)
@@ -2474,53 +2502,72 @@
             (if (pair? lists)
                 (list-of-lists= (car lists) (cdr lists))
                 #t))
+
         (define first car)
+
         (define (second lst)
             (list-ref lst 1))
+
         (define (third lst)
             (list-ref lst 2))
+
         (define (fourth lst)
             (list-ref lst 3))
+
         (define (fifth lst)
             (list-ref lst 4))
+
         (define (sixth lst)
             (list-ref lst 5))
+
         (define (seventh lst)
             (list-ref lst 6))
+
         (define (eighth lst)
             (list-ref lst 7))
+
         (define (ninth lst)
             (list-ref lst 8))
+
         (define (tenth lst)
             (list-ref lst 9))
+
         (define (car+cdr pair)
             (values (car pair) (cdr pair)))
+
         (define (take lst k)
             (if (> k 0)
                 (cons (car lst) (take (cdr lst) (- k 1)))
                 '()))
+
         (define (drop lst k)
             (if (> k 0)
                 (drop (cdr lst) (- k 1))
                 lst))
+
         (define (take-right lst k)
             (drop lst (- (length+ lst) k)))
+
         (define (drop-right lst k)
             (take lst (- (length+ lst) k)))
+
         (define (take! lst k)
             (if (> k 0)
                 (begin
                     (set-cdr! (drop lst (- k 1)) '())
                     lst)
                 '()))
+
         (define (drop-right! lst k)
             (take! lst (- (length+ lst) k)))
+
         (define (split-at lst k)
             (define (split pre suf k)
                 (if (> k 0)
                     (split (cons (car suf) pre) (cdr suf) (- k 1))
                     (values (reverse pre) suf)))
             (split '() lst k))
+
         (define (split-at! lst k)
             (if (> k 0)
                 (let* ((prev (drop lst (- k 1)))
@@ -2528,11 +2575,14 @@
                     (set-cdr! prev '())
                     (values lst suf))
                 (values '() lst)))
+
         (define (last lst) (car (last-pair lst)))
+
         (define (last-pair lst)
             (if (not (pair? (cdr lst)))
                 lst
                 (last-pair (cdr lst))))
+
         (define (append! . lsts)
             (define (from-right lsts)
                 (if (null? (cdr lsts))
@@ -2547,33 +2597,44 @@
             (if (null? lsts)
                 '()
                 (from-right lsts)))
+
         (define (concatenate lsts)
             (apply append lsts))
+
         (define (concatenate! lsts)
             (apply append! lsts))
+
         (define (append-reverse head tail)
             (if (null? head)
                 tail
                 (append-reverse (cdr head) (cons (car head) tail))))
+
         (define (append-reverse! head tail)
             (if (null? head)
                 tail
                 (let ((ret (reverse! head)))
                     (set-cdr! head tail)
                     ret)))
+
         (define (zip lst . lsts)
             (apply map list lst lsts))
+
         (define (unzip1 lsts)
             (map car lsts))
+
         (define (unzip2 lsts)
             (values (map car lsts) (map cadr lsts)))
+
         (define (unzip3 lsts)
             (values (map car lsts) (map cadr lsts) (map caddr lsts)))
+
         (define (unzip4 lsts)
             (values (map car lsts) (map cadr lsts) (map caddr lsts) (map cadddr lsts)))
+
         (define (unzip5 lsts)
             (values (map car lsts) (map cadr lsts) (map caddr lsts) (map cadddr lsts)
                     (map fifth lsts)))
+
         (define (count pred lst . lsts)
             (define (count-1 lst cnt)
                 (if (null? lst)
@@ -2586,6 +2647,7 @@
             (if (null? lsts)
                 (count-1 lst 0)
                 (count-n (cons lst lsts) 0)))
+
         (define (fold proc val lst . lsts)
             (define (fold-n val lsts)
                 (if (every-1 pair? lsts)
@@ -2594,10 +2656,12 @@
             (if (null? lsts)
                 (fold-1 proc val lst)
                 (fold-n val (cons lst lsts))))
+
         (define (fold-1 proc val lst)
             (if (pair? lst)
                 (fold-1 proc (proc (car lst) val) (cdr lst))
                 val))
+
         (define (fold-right proc val lst . lsts)
             (define (fold-right-n lsts)
                 (if (every-1 pair? lsts)
@@ -2606,10 +2670,12 @@
             (if (null? lsts)
                 (fold-right-1 proc val lst)
                 (fold-right-n (cons lst lsts))))
+
         (define (fold-right-1 proc val lst)
             (if (pair? lst)
                 (proc (car lst) (fold-right-1 proc val (cdr lst)))
                 val))
+
         (define (pair-fold proc val lst . lsts)
             (define (pair-fold-1 val lst)
                 (if (pair? lst)
@@ -2624,6 +2690,7 @@
             (if (null? lsts)
                 (pair-fold-1 val lst)
                 (pair-fold-n val (cons lst lsts))))
+
         (define (pair-fold-right proc val lst . lsts)
             (define (pair-fold-right-1 val lst)
                 (if (pair? lst)
@@ -2636,10 +2703,12 @@
             (if (null? lsts)
                 (pair-fold-right-1 val lst)
                 (pair-fold-right-n (cons lst lsts))))
+
         (define (reduce proc ident lst)
             (if (pair? lst)
                 (fold proc (car lst) (cdr lst))
                 ident))
+
         (define (reduce-right proc ident lst)
             (define (from-right head tail)
                 (if (pair? tail)
@@ -2648,6 +2717,7 @@
             (if (pair? lst)
                 (from-right (car lst) (cdr lst))
                 ident))
+
         (define (unfold pred proc gen seed . tgen)
             (define (from-left seed)
                 (if (pred seed)
@@ -2656,16 +2726,20 @@
                         '())
                     (cons (proc seed) (from-left (gen seed)))))
             (from-left seed))
+
         (define (unfold-right pred proc gen seed . tail)
             (define (from-right seed lst)
                 (if (pred seed)
                     lst
                     (from-right (gen seed) (cons (proc seed) lst))))
             (from-right seed (if (pair? tail) (car tail) '())))
+
         (define (append-map proc lst . lsts)
             (apply append (apply map proc lst lsts)))
+
         (define (append-map! proc lst . lsts)
             (apply append! (apply map proc lst lsts)))
+
         (define (pair-for-each proc lst . lsts)
             (define (pair-for-each-1 lst)
                 (if (not (null? lst))
@@ -2680,6 +2754,7 @@
             (if (null? lsts)
                 (pair-for-each-1 lst)
                 (pair-for-each-n (cons lst lsts))))
+
         (define (filter-map proc lst . lsts)
             (define (filter-map-1 lst rlst)
                 (if (not (null? lst))
@@ -2694,12 +2769,14 @@
             (if (null? lsts)
                 (filter-map-1 lst '())
                 (filter-map-n (cons lst lsts) '())))
+
         (define (filter pred lst)
             (if (pair? lst)
                 (if (pred (car lst))
                     (cons (car lst) (filter pred (cdr lst)))
                     (filter pred (cdr lst)))
                 '()))
+
         (define (partition pred lst)
             (define (%partition lst ylst nlst)
                 (if (pair? lst)
@@ -2708,34 +2785,40 @@
                         (%partition (cdr lst) ylst (cons (car lst) nlst)))
                     (values (reverse! ylst) (reverse! nlst))))
             (%partition lst '() '()))
+
         (define (remove pred lst)
             (if (pair? lst)
                 (if (pred (car lst))
                     (remove pred (cdr lst))
                     (cons (car lst) (remove pred (cdr lst))))
                 '()))
+
         (define (find pred lst)
             (cond
                 ((find-tail pred lst) => car)
                 (else #f)))
+
         (define (find-tail pred lst)
             (if (pair? lst)
                 (if (pred (car lst))
                     lst
                     (find-tail pred (cdr lst)))
                 #f))
+
         (define (take-while pred lst)
             (if (pair? lst)
                 (if (pred (car lst))
                     (cons (car lst) (take-while pred (cdr lst)))
                     '())
                 '()))
+
         (define (drop-while pred lst)
             (if (pair? lst)
                 (if (pred (car lst))
                     (drop-while pred (cdr lst))
                     lst)
                 lst))
+
         (define (span pred lst)
             (if (pair? lst)
                 (if (pred (car lst))
@@ -2743,6 +2826,7 @@
                         (values (cons (car lst) pre) suf))
                     (values '() lst))
                 (values '() '())))
+
         (define (break pred lst)
             (if (pair? lst)
                 (if (pred (car lst))
@@ -2750,6 +2834,7 @@
                     (let-values (((pre suf) (break pred (cdr lst))))
                         (values (cons (car lst) pre) suf)))
                 (values '() '())))
+
         (define (any pred lst . lsts)
             (define (any-1 head tail)
                 (if (null? tail)
@@ -2767,6 +2852,7 @@
                         (if (every-1 pair? lsts)
                             (any-n (map car lsts) (map cdr lsts))
                             #f))))
+
         (define (every pred lst . lsts)
             (define (every-n heads tails)
                 (if (every-1 pair? tails)
@@ -2780,6 +2866,7 @@
                         (if (every-1 pair? lsts)
                             (every-n (map car lsts) (map cdr lsts))
                             #t))))
+
         (define (every-1 pred lst)
             (define (every-head head tail)
                 (if (null? tail)
@@ -2788,6 +2875,7 @@
             (if (pair? lst)
                 (every-head (car lst) (cdr lst))
                 #t))
+
         (define (list-index pred lst . lsts)
             (define (list-index-1 lst n)
                 (if (null? lst)
@@ -2804,6 +2892,7 @@
             (if (null? lsts)
                 (list-index-1 lst 0)
                 (list-index-n (cons lst lsts) 0)))
+
         (define (delete obj lst . eq)
             (let ((eq (if (null? eq) equal? (car eq))))
                 (define (delete-first lst)
@@ -2813,6 +2902,7 @@
                             (cons (car lst) (delete-first (cdr lst))))
                         '()))
                 (delete-first lst)))
+
         (define (delete-duplicates lst . eq)
             (let ((eq (if (null? eq) equal? (car eq))))
                 (define (duplicates lst ret)
@@ -2823,13 +2913,17 @@
                                 (cons (car lst) ret)))
                         (reverse! ret)))
                 (duplicates lst '())))
+
         (define (alist-cons key datum alist)
             (cons (cons key datum) alist))
+
         (define (alist-copy alist)
             (map (lambda (obj) (cons (car obj) (cdr obj))) alist))
+
         (define (alist-delete key alist . eq)
             (let ((eq (if (null? eq) equal? (car eq))))
                 (remove (lambda (obj) (eq (car obj) key)) alist)))
+
         (define (lset<= eq . lsts)
             (define (lset-2<= lst1 lst2)
                 (if (pair? lst1)
@@ -2846,8 +2940,10 @@
             (if (pair? lsts)
                 (lset-ht<= (car lsts) (cdr lsts))
                 #t))
+
         (define (lset= eq . lsts)
             (and (apply lset<= eq lsts) (apply lset<= eq (reverse lsts))))
+
         (define (lset-adjoin eq lst . objs)
             (define (adjoin lst objs)
                 (if (pair? objs)
@@ -2856,6 +2952,7 @@
                         (adjoin (cons (car objs) lst) (cdr objs)))
                     lst))
             (adjoin lst objs))
+
         (define (lset-union eq . lsts)
             (define (union-2 ret lst)
                 (if (pair? lst)
@@ -2872,16 +2969,20 @@
             (if (pair? lsts)
                 (union-n (car lsts) (cdr lsts))
                 '()))
+
         (define (lset-intersection eq ret . lsts)
             (filter (lambda (obj) (every (lambda (lst) (member obj lst eq)) lsts)) ret))
+
         (define (lset-difference eq ret . lsts)
             (filter (lambda (obj) (every (lambda (lst) (not (member obj lst eq))) lsts)) ret))
+
         (define (lset-xor eq . lsts)
             (define (difference-2 eq lst1 lst2)
                 (remove (lambda (obj) (member obj lst1 eq)) lst2))
             (reduce (lambda (lst1 lst2)
                         (append (difference-2 eq lst1 lst2) (difference-2 eq lst2 lst1)))
                     '() lsts))
+
         (define (lset-diff+intersection eq lst . lsts)
             (values (apply lset-difference eq lst lsts) (apply lset-intersection eq lst lsts)))
     ))
@@ -2943,26 +3044,32 @@
         )
     (begin
         (define-syntax hash-bound (syntax-rules () ((hash-bound) (hash-bound-parameter))))
+
         (define-syntax hash-salt (syntax-rules () ((hash-salt) (hash-salt-parameter))))
+
         (define (hash-accumulate . hashes)
             (define (accumulate hashes)
                 (if (pair? hashes)
                     (+ (modulo (* (accumulate (cdr hashes)) 33) (hash-bound)) (car hashes))
                     (hash-salt)))
             (accumulate hashes))
+
         (define (make-pair=? car-comp cdr-comp)
             (lambda (obj1 obj2)
                 (and ((comparator-equality-predicate car-comp) (car obj1) (car obj2))
                     ((comparator-equality-predicate cdr-comp) (cdr obj1) (cdr obj2)))))
+
         (define (make-pair<? car-comp cdr-comp)
             (lambda (obj1 obj2)
                 (if ((comparator-equality-predicate car-comp) (car obj1) (car obj2))
                     ((comparator-ordering-predicate cdr-comp) (cdr obj1) (cdr obj2))
                     ((comparator-ordering-predicate car-comp) (car obj1) (car obj2)))))
+
         (define (make-pair-hash car-comp cdr-comp)
             (lambda (obj . arg)
                 (hash-accumulate ((comparator-hash-function car-comp) (car obj))
                                  ((comparator-hash-function cdr-comp) (cdr obj)))))
+
         (define (make-pair-comparator car-comp cdr-comp)
             (make-comparator
                 (lambda (obj)
@@ -2973,6 +3080,7 @@
                 (make-pair=? car-comp cdr-comp)
                 (make-pair<? car-comp cdr-comp)
                 (make-pair-hash car-comp cdr-comp)))
+
         (define (make-list-comparator elem-comp type-test empty? head tail)
             (make-comparator
                 (lambda (obj)
@@ -3013,6 +3121,7 @@
                             (list-hash elem-hash (hash-accumulate (elem-hash (head obj)) hash)
                                     (tail obj))))
                     (list-hash (comparator-hash-function elem-comp) (hash-salt) obj))))
+
         (define (make-vector=? elem-comp length ref)
             (lambda (obj1 obj2)
                 (define (vector=? elem=? idx len)
@@ -3023,6 +3132,7 @@
                         #t))
                 (and (= (length obj1) (length obj2))
                     (vector=? (comparator-equality-predicate elem-comp) 0 (length obj1)))))
+
         (define (make-vector<? elem-comp length ref)
             (lambda (obj1 obj2)
                 (define (vector<? elem=? elem<? idx len)
@@ -3037,6 +3147,7 @@
                         #f
                         (vector<? (comparator-equality-predicate elem-comp)
                                 (comparator-ordering-predicate elem-comp) 0 (length obj1))))))
+
         (define (make-vector-hash elem-comp length ref)
             (lambda (obj . arg)
                 (define (vector-hash elem-hash hash idx len)
@@ -3046,6 +3157,7 @@
                         hash))
                 (vector-hash (comparator-hash-function elem-comp) (hash-salt) 0
                         (length obj))))
+
         (define (make-vector-comparator elem-comp type-test length ref)
             (make-comparator
                 (lambda (obj)
@@ -3061,22 +3173,28 @@
                 (make-vector=? elem-comp length ref)
                 (make-vector<? elem-comp length ref)
                 (make-vector-hash elem-comp length ref)))
+
         (define char-comparator
             (make-comparator char? char=? char<? char-hash))
+
         (define empty-list-comparator
             (make-comparator null?
                 (lambda (obj1 obj2) #t)
                 (lambda (obj1 obj2) #f)
                 (lambda (obj) 0)))
+
         (define eof-comparator
             (make-comparator eof-object?
                 (lambda (obj1 obj2) #t)
                 (lambda (obj1 obj2) #f)
                 (lambda (obj) 0)))
+
         (define boolean-comparator
             (make-comparator boolean? eq? (lambda (obj1 obj2) (and (not obj1) obj2)) boolean-hash))
+
         (define number-comparator
             (make-comparator number? = < number-hash))
+
         (define (make-box-comparator elem-comp)
             (make-comparator box?
                 (lambda (obj1 obj2)
@@ -3085,12 +3203,15 @@
                     ((comparator-ordering-predicate elem-comp) (unbox obj1) (unbox obj2)))
                 (lambda (obj)
                      ((comparator-hash-function elem-comp) (unbox obj)))))
+
         (define string-comparator
             (make-comparator string? string=? string<? string-hash))
+
         (define symbol-comparator
             (make-comparator symbol? eq?
                     (lambda (obj1 obj2) (string<? (symbol->string obj1) (symbol->string obj2)))
                     symbol-hash))
+
         (define no-comparator
             (make-comparator
                     (lambda (obj)
@@ -3120,6 +3241,7 @@
     "standard-comparator-register!: attempt to override comparator"))) tlst))
                 (for-each (lambda (tag)
                               (vector-set! ctx tag type-comp)) tlst)))
+
         (define (make-standard-comparator)
             (let ((vec (make-vector 64 no-comparator)))
                 (define (standard-type-test obj)
@@ -3170,25 +3292,33 @@
 
         (define default-comparator (make-standard-comparator))
         (define (make-default-comparator) default-comparator)
+
         (define default-hash (comparator-hash-function default-comparator))
+
         (define (comparator-register-default! comparator)
             (standard-comparator-register! default-comparator comparator #t))
 
         (define eq-comparator (make-comparator (lambda (obj) #t) eq? #f default-hash))
         (define (make-eq-comparator) eq-comparator)
+
         (define eqv-comparator (make-comparator (lambda (obj) #t) eqv? #f default-hash))
         (define (make-eqv-comparator) eqv-comparator)
+
         (define equal-comparator (make-comparator (lambda (obj) #t) equal? #f default-hash))
         (define (make-equal-comparator) equal-comparator)
+
         (define (comparator-test-type comparator obj)
             ((comparator-type-test-predicate comparator) obj))
+
         (define (comparator-check-type comparator obj)
             (if ((comparator-type-test-predicate comparator) obj)
                 #t
                 (full-error 'assertion-violation 'comparator-check-type #f
                             "comparator-check-type: type test failed" comparator obj)))
+
         (define (comparator-hash comparator obj)
             ((comparator-hash-function comparator) obj))
+
         (define (=? comparator obj1 obj2 . lst)
             (let ((=-2? (comparator-equality-predicate comparator)))
                 (define (=-n? obj1 obj2 lst)
@@ -3198,6 +3328,7 @@
                             #t)
                         #f))
                 (=-n? obj1 obj2 lst)))
+
         (define (<? comparator obj1 obj2 . lst)
             (let ((<-2? (comparator-ordering-predicate comparator)))
                 (define (<-n? obj1 obj2 lst)
@@ -3207,6 +3338,7 @@
                             #t)
                         #f))
                 (<-n? obj1 obj2 lst)))
+
         (define (>? comparator obj1 obj2 . lst)
             (let ((<-2? (comparator-ordering-predicate comparator)))
                 (define (>-n? obj1 obj2 lst)
@@ -3216,6 +3348,7 @@
                             #t)
                         #f))
                 (>-n? obj1 obj2 lst)))
+
         (define (<=? comparator obj1 obj2 . lst)
             (let ((<-2? (comparator-ordering-predicate comparator)))
                 (define (<=-n? obj1 obj2 lst)
@@ -3225,6 +3358,7 @@
                             #t)
                         #f))
                 (<=-n? obj1 obj2 lst)))
+
         (define (>=? comparator obj1 obj2 . lst)
             (let ((<-2? (comparator-ordering-predicate comparator)))
                 (define (>=-n? obj1 obj2 lst)
@@ -3234,6 +3368,7 @@
                             #t)
                         #f))
                 (>=-n? obj1 obj2 lst)))
+
         (define-syntax comparator-if<=>
             (syntax-rules ()
                 ((compartor-if<=> obj1 obj2 less-than equal-to greater-than)

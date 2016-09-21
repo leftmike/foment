@@ -4,8 +4,26 @@ Foment
 
 */
 
+#ifdef FOMENT_WINDOWS
+#define _CRT_SECURE_NO_WARNINGS
+#include <windows.h>
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+#include <pthread.h>
+#endif // FOMENT_UNIX
+
 #include <string.h>
 #include "foment.hpp"
+#include "syncthrd.hpp"
+
+EternalSymbol(ThreadSafeSymbol, "thread-safe");
+EternalSymbol(WeakKeysSymbol, "weak-keys");
+EternalSymbol(EphemeralKeysSymbol, "ephemeral-keys");
+EternalSymbol(WeakValuesSymbol, "weak-values");
+EternalSymbol(EphemeralValuesSymbol, "ephemeral-values");
+
+// ----------------
 
 static int_t SpecialStringEqualP(FObject str1, FObject str2)
 {
@@ -64,16 +82,17 @@ typedef int_t (*FEqualityP)(FObject obj1, FObject obj2);
 typedef struct
 {
     FObject BuiltinType;
-    FObject Entries; // VectorP
+    FObject Buckets; // VectorP
     FObject TypeTestP; // Comparator.TypeTestP
     FObject EqualityP; // Comparator.EqualityP
     FObject HashFn; // Comparator.HashFn
     FObject Tracker;
+    FObject Exclusive;
     FHashFn UseHashFn;
     FEqualityP UseEqualityP;
     uint_t Size;
     uint_t InitialCapacity;
-    uint_t Mutable;
+    uint_t Flags;
 } FHashTable;
 
 inline void UseHashTableArgCheck(const char * who, FObject obj)
@@ -88,16 +107,16 @@ inline void HashTableArgCheck(const char * who, FObject obj)
         RaiseExceptionC(Assertion, who, "expected a hash table", List(obj));
 }
 
-static FObject MakeHashTable(uint_t cap, FObject ttp, FObject eqp, FObject hashfn)
+static FObject MakeHashTable(uint_t cap, FObject ttp, FObject eqp, FObject hashfn, uint_t flags)
 {
     FAssert(cap > 0);
     FAssert(ProcedureP(ttp) || PrimitiveP(ttp));
     FAssert(ProcedureP(eqp) || PrimitiveP(eqp));
     FAssert(ProcedureP(hashfn) || PrimitiveP(hashfn));
 
-    FHashTable * htbl = (FHashTable *) MakeBuiltin(HashTableType, sizeof(FHashTable), 6,
+    FHashTable * htbl = (FHashTable *) MakeBuiltin(HashTableType, sizeof(FHashTable), 7,
             "%make-hash-table");
-    htbl->Entries = MakeVector(cap, 0, NoValueObject);
+    htbl->Buckets = MakeVector(cap, 0, NoValueObject);
     htbl->TypeTestP = ttp;
     htbl->EqualityP = eqp;
     htbl->HashFn = hashfn;
@@ -125,14 +144,26 @@ static FObject MakeHashTable(uint_t cap, FObject ttp, FObject eqp, FObject hashf
         htbl->UseHashFn = 0;
         htbl->UseEqualityP = 0;
     }
+
+    if (flags & HASH_TABLE_THREAD_SAFE)
+        htbl->Exclusive = MakeExclusive();
+    else
+        htbl->Exclusive = NoValueObject;
+
     htbl->Size = 0;
     htbl->InitialCapacity = cap;
-    htbl->Mutable = 1;
+    htbl->Flags = flags;
 
     return(htbl);
 }
 
 // ---- Hash Nodes ----
+
+#define HASH_NODE_WEAK_KEYS        HASH_TABLE_WEAK_KEYS
+#define HASH_NODE_EPHEMERAL_KEYS   HASH_TABLE_EPHEMERAL_KEYS
+#define HASH_NODE_WEAK_VALUES      HASH_TABLE_WEAK_VALUES
+#define HASH_NODE_EPHEMERAL_VALUES HASH_TABLE_EPHEMERAL_VALUES
+#define HASH_NODE_DELETED          0x10
 
 #define AsHashNode(obj) ((FHashNode *) (obj))
 #define HashNodeP(obj) (IndirectTag(obj) == HashNodeTag)
@@ -143,7 +174,7 @@ typedef struct
     FObject Value;
     FObject Next;
     uint32_t Hash;
-    uint32_t Deleted;
+    uint32_t Flags;
 } FHashNode;
 
 static FObject MakeHashNode(FObject key, FObject val, FObject next, uint32_t hsh, const char * who)
@@ -153,9 +184,17 @@ static FObject MakeHashNode(FObject key, FObject val, FObject next, uint32_t hsh
     node->Value = val;
     node->Next = next;
     node->Hash = hsh;
-    node->Deleted = 0;
+    node->Flags = 0;
 
     return(node);
+}
+
+static FObject CopyHashNode(FObject node, FObject next, const char * who)
+{
+    FAssert(HashNodeP(node));
+
+    return(MakeHashNode(AsHashNode(node)->Key, AsHashNode(node)->Value, next,
+            AsHashNode(node)->Hash, who));
 }
 
 inline void HashNodeArgCheck(const char * who, FObject obj)
@@ -167,22 +206,49 @@ inline void HashNodeArgCheck(const char * who, FObject obj)
 // ----------------
 
 static void
-HashTableAdjust(FObject htbl)
+HashTableAdjust(FObject htbl, uint_t sz)
 {
     FAssert(HashTableP(htbl));
-    FAssert(VectorP(AsHashTable(htbl)->Entries));
+    FAssert(VectorP(AsHashTable(htbl)->Buckets));
 
-    uint_t cap = VectorLength(AsHashTable(htbl)->Entries);
+    AsHashTable(htbl)->Size = sz;
+
+    FObject buckets = AsHashTable(htbl)->Buckets;
+    uint_t cap = VectorLength(buckets);
     if (AsHashTable(htbl)->Size > cap * 2)
+        cap *= 2;
+    else if (AsHashTable(htbl)->Size * 16 < cap && cap > AsHashTable(htbl)->InitialCapacity)
+        cap /= 2;
+    else
+        return;
+
+    FHashFn UseHashFn = AsHashTable(htbl)->UseHashFn;
+    FObject nbuckets = MakeVector(cap, 0, NoValueObject);
+    for (uint_t idx = 0; idx < VectorLength(buckets); idx++)
     {
+        FObject nlst = AsVector(buckets)->Vector[idx];
 
+        while (HashNodeP(nlst))
+        {
+            FObject node = nlst;
+            uint_t ndx = AsHashNode(nlst)->Hash % cap;
+            nlst = AsHashNode(nlst)->Next;
 
+            if (UseHashFn == EqHash)
+            {
+//                AsHashNode(node)->Next = AsVector(nbuckets)->Vector[ndx];
+                Modify(FHashNode, node, Next, AsVector(nbuckets)->Vector[ndx]);
+            }
+            else
+                node = CopyHashNode(node, AsVector(nbuckets)->Vector[ndx], "%hash-table-adjust");
+
+//            AsVector(nbuckets)->Vector[ndx] = node;
+            ModifyVector(nbuckets, ndx, node);
+        }
     }
-    else if (AsHashTable(htbl)->Size * 16 < cap)
-    {
 
-
-    }
+//    AsHashTable(htbl)->Buckets = nbuckets;
+    Modify(FHashTable, htbl, Buckets, nbuckets);
 }
 
 // ---- Eq Hash Tables ----
@@ -194,17 +260,17 @@ Define("any?", AnyPPrimitive)(int_t argc, FObject argv[])
     return(TrueObject);
 }
 
-FObject MakeEqHashTable(uint_t cap)
+FObject MakeEqHashTable(uint_t cap, uint_t flags)
 {
-    return(MakeHashTable(cap, AnyPPrimitive, EqPPrimitive, EqHashPrimitive));
+    return(MakeHashTable(cap, AnyPPrimitive, EqPPrimitive, EqHashPrimitive, flags));
 }
 
 static void RehashEqHashTable(FObject htbl)
 {
     FAssert(HashTableP(htbl));
-    FAssert(VectorP(AsHashTable(htbl)->Entries));
+    FAssert(VectorP(AsHashTable(htbl)->Buckets));
 
-    FObject entries = AsHashTable(htbl)->Entries;
+    FObject buckets = AsHashTable(htbl)->Buckets;
     FObject tconc = AsHashTable(htbl)->Tracker;
     while (TConcEmptyP(tconc) == 0)
     {
@@ -212,24 +278,24 @@ static void RehashEqHashTable(FObject htbl)
 
         FAssert(HashNodeP(node));
 
-        if (AsHashNode(node)->Deleted == 0)
+        if ((AsHashNode(node)->Flags & HASH_NODE_DELETED) == 0)
         {
             FAssert(AsHashNode(node)->Hash != EqHash(AsHashNode(node)->Key));
 
             uint32_t nhsh = EqHash(AsHashNode(node)->Key);
-            uint32_t ndx = nhsh % VectorLength(entries);
-            uint32_t odx = AsHashNode(node)->Hash % VectorLength(entries);
+            uint32_t ndx = nhsh % VectorLength(buckets);
+            uint32_t odx = AsHashNode(node)->Hash % VectorLength(buckets);
 
             if (odx != ndx)
             {
-                if (AsVector(entries)->Vector[odx] == node)
+                if (AsVector(buckets)->Vector[odx] == node)
                 {
-//                    AsVector(entries)->Vector[odx] = AsHashNode(node)->Next;
-                    ModifyVector(entries, odx, AsHashNode(node)->Next);
+//                    AsVector(buckets)->Vector[odx] = AsHashNode(node)->Next;
+                    ModifyVector(buckets, odx, AsHashNode(node)->Next);
                 }
                 else
                 {
-                    FObject prev = AsVector(entries)->Vector[odx];
+                    FObject prev = AsVector(buckets)->Vector[odx];
                     while (AsHashNode(prev)->Next != node)
                     {
                         prev = AsHashNode(prev)->Next;
@@ -240,10 +306,10 @@ static void RehashEqHashTable(FObject htbl)
                     AsHashNode(prev)->Next = AsHashNode(node)->Next;
                 }
 
-//                AsHashNode(node)->Next = AsVector(entries)->Vector[ndx];
-                Modify(FHashNode, node, Next, AsVector(entries)->Vector[ndx]);
-//                AsVector(entries)->Vector[ndx] = node;
-                ModifyVector(entries, ndx, node);
+//                AsHashNode(node)->Next = AsVector(buckets)->Vector[ndx];
+                Modify(FHashNode, node, Next, AsVector(buckets)->Vector[ndx]);
+//                AsVector(buckets)->Vector[ndx] = node;
+                ModifyVector(buckets, ndx, node);
             }
 
             AsHashNode(node)->Hash = nhsh;
@@ -254,20 +320,20 @@ static void RehashEqHashTable(FObject htbl)
 
 // ---- Hash Tables ----
 
-FObject MakeStringHashTable(uint_t cap)
+FObject MakeStringHashTable(uint_t cap, uint_t flags)
 {
-    return(MakeHashTable(cap, StringPPrimitive, StringEqualPPrimitive, StringHashPrimitive));
+    return(MakeHashTable(cap, StringPPrimitive, StringEqualPPrimitive, StringHashPrimitive, flags));
 }
 
-FObject MakeSymbolHashTable(uint_t cap)
+FObject MakeSymbolHashTable(uint_t cap, uint_t flags)
 {
-    return(MakeHashTable(cap, SymbolPPrimitive, EqPPrimitive, SymbolHashPrimitive));
+    return(MakeHashTable(cap, SymbolPPrimitive, EqPPrimitive, SymbolHashPrimitive, flags));
 }
 
 FObject HashTableRef(FObject htbl, FObject key, FObject def)
 {
     FAssert(HashTableP(htbl));
-    FAssert(VectorP(AsHashTable(htbl)->Entries));
+    FAssert(VectorP(AsHashTable(htbl)->Buckets));
     FAssert(AsHashTable(htbl)->UseEqualityP != 0);
     FAssert(AsHashTable(htbl)->UseHashFn != 0);
 
@@ -277,10 +343,10 @@ FObject HashTableRef(FObject htbl, FObject key, FObject def)
     if (UseHashFn == EqHash)
         RehashEqHashTable(htbl);
 
-    FObject entries = AsHashTable(htbl)->Entries;
+    FObject buckets = AsHashTable(htbl)->Buckets;
     uint32_t hsh = UseHashFn(key);
-    uint32_t idx = hsh % VectorLength(entries);
-    FObject node = AsVector(entries)->Vector[idx];
+    uint32_t idx = hsh % VectorLength(buckets);
+    FObject node = AsVector(buckets)->Vector[idx];
 
     while (HashNodeP(node))
     {
@@ -300,10 +366,10 @@ FObject HashTableRef(FObject htbl, FObject key, FObject def)
 void HashTableSet(FObject htbl, FObject key, FObject val)
 {
     FAssert(HashTableP(htbl));
-    FAssert(VectorP(AsHashTable(htbl)->Entries));
+    FAssert(VectorP(AsHashTable(htbl)->Buckets));
     FAssert(AsHashTable(htbl)->UseEqualityP != 0);
     FAssert(AsHashTable(htbl)->UseHashFn != 0);
-    FAssert(AsHashTable(htbl)->Mutable != 0);
+    FAssert((AsHashTable(htbl)->Flags & HASH_TABLE_IMMUTABLE) == 0);
 
     FHashFn UseHashFn = AsHashTable(htbl)->UseHashFn;
     FEqualityP UseEqualityP = AsHashTable(htbl)->UseEqualityP;
@@ -311,10 +377,10 @@ void HashTableSet(FObject htbl, FObject key, FObject val)
     if (UseHashFn == EqHash)
         RehashEqHashTable(htbl);
 
-    FObject entries = AsHashTable(htbl)->Entries;
+    FObject buckets = AsHashTable(htbl)->Buckets;
     uint32_t hsh = UseHashFn(key);
-    uint32_t idx = hsh % VectorLength(entries);
-    FObject nlst = AsVector(entries)->Vector[idx];
+    uint32_t idx = hsh % VectorLength(buckets);
+    FObject nlst = AsVector(buckets)->Vector[idx];
     FObject node = nlst;
 
     while (HashNodeP(node))
@@ -332,22 +398,35 @@ void HashTableSet(FObject htbl, FObject key, FObject val)
     }
 
     node = MakeHashNode(key, val, nlst, hsh, "hash-table-set!");
-//    AsVector(entries)->Vector[idx] = node;
-    ModifyVector(entries, idx, node);
+//    AsVector(buckets)->Vector[idx] = node;
+    ModifyVector(buckets, idx, node);
     if (UseHashFn == EqHash && ObjectP(key))
         InstallTracker(key, node, AsHashTable(htbl)->Tracker);
 
-    AsHashTable(htbl)->Size += 1;
-    HashTableAdjust(htbl);
+    HashTableAdjust(htbl, AsHashTable(htbl)->Size + 1);
+}
+
+static FObject CopyHashNodeList(FObject nlst, FObject skp, const char * who)
+{
+    if (HashNodeP(nlst))
+    {
+        if (nlst == skp || (AsHashNode(nlst)->Flags & HASH_NODE_DELETED))
+            return(CopyHashNodeList(AsHashNode(nlst)->Next, skp, who));
+        return(CopyHashNode(nlst, CopyHashNodeList(AsHashNode(nlst)->Next, skp, who), who));
+    }
+
+    FAssert(nlst == NoValueObject);
+
+    return(nlst);
 }
 
 void HashTableDelete(FObject htbl, FObject key)
 {
     FAssert(HashTableP(htbl));
-    FAssert(VectorP(AsHashTable(htbl)->Entries));
+    FAssert(VectorP(AsHashTable(htbl)->Buckets));
     FAssert(AsHashTable(htbl)->UseEqualityP != 0);
     FAssert(AsHashTable(htbl)->UseHashFn != 0);
-    FAssert(AsHashTable(htbl)->Mutable != 0);
+    FAssert((AsHashTable(htbl)->Flags & HASH_TABLE_IMMUTABLE) == 0);
 
     FHashFn UseHashFn = AsHashTable(htbl)->UseHashFn;
     FEqualityP UseEqualityP = AsHashTable(htbl)->UseEqualityP;
@@ -355,29 +434,28 @@ void HashTableDelete(FObject htbl, FObject key)
     if (UseHashFn == EqHash)
         RehashEqHashTable(htbl);
 
-    FObject entries = AsHashTable(htbl)->Entries;
+    FObject buckets = AsHashTable(htbl)->Buckets;
     uint32_t hsh = UseHashFn(key);
-    uint32_t idx = hsh % VectorLength(entries);
-    FObject nlst = AsVector(entries)->Vector[idx];
+    uint32_t idx = hsh % VectorLength(buckets);
+    FObject nlst = AsVector(buckets)->Vector[idx];
     FObject node = nlst;
+    FObject prev = NoValueObject;
 
     while (HashNodeP(node))
     {
-        FObject prev = NoValueObject;
-
         if (UseEqualityP(AsHashNode(node)->Key, key))
         {
             FAssert(AsHashNode(node)->Hash == hsh);
-            FAssert(AsHashNode(node)->Deleted == 0);
+            FAssert((AsHashNode(node)->Flags & HASH_NODE_DELETED) == 0);
 
-            AsHashNode(node)->Deleted = 1;
+            AsHashNode(node)->Flags |= HASH_NODE_DELETED;
 
             if (node == nlst)
             {
-//                AsVector(entries)->Vector[idx] = AsHashNode(node)->Next;
-                ModifyVector(entries, idx, AsHashNode(node)->Next);
+//                AsVector(buckets)->Vector[idx] = AsHashNode(node)->Next;
+                ModifyVector(buckets, idx, AsHashNode(node)->Next);
             }
-            else
+            else if (UseHashFn == EqHash)
             {
                 FAssert(HashNodeP(prev));
                 FAssert(AsHashNode(prev)->Next == node);
@@ -385,41 +463,121 @@ void HashTableDelete(FObject htbl, FObject key)
 //                AsHashNode(prev)->Next = AsHashNode(node)->Next;
                 Modify(FHashNode, prev, Next, AsHashNode(node)->Next);
             }
+            else
+            {
+//                AsVector(buckets)->Vector[idx] = CopyHashNodeList(nlst, node);
+                ModifyVector(buckets, idx, CopyHashNodeList(nlst, node, "%hash-table-delete"));
+            }
 
-            AsHashTable(htbl)->Size -= 1;
-            HashTableAdjust(htbl);
+            HashTableAdjust(htbl, AsHashTable(htbl)->Size - 1);
             return;
         }
 
         prev = node;
         node = AsHashNode(node)->Next;
     }
-
-    HashTableAdjust(htbl);
 }
 
-void HashTableVisit(FObject htbl, FVisitFn vfn, FObject ctx)
+FObject HashTableFold(FObject htbl, FFoldFn foldfn, void * ctx, FObject seed)
 {
     FAssert(HashTableP(htbl));
-    FAssert(VectorP(AsHashTable(htbl)->Entries));
-    FAssert(AsHashTable(htbl)->UseEqualityP != 0);
-    FAssert(AsHashTable(htbl)->UseHashFn != 0);
+    FAssert(VectorP(AsHashTable(htbl)->Buckets));
 
     if (AsHashTable(htbl)->UseHashFn == EqHash)
         RehashEqHashTable(htbl);
 
-    FObject entries = AsHashTable(htbl)->Entries;
+    FObject buckets = AsHashTable(htbl)->Buckets;
+    FObject accum = seed;
 
-    for (uint_t idx = 0; idx < VectorLength(entries); idx++)
+    for (uint_t idx = 0; idx < VectorLength(buckets); idx++)
     {
-        FObject nlst = AsVector(entries)->Vector[idx];
+        FObject nlst = AsVector(buckets)->Vector[idx];
 
         while (HashNodeP(nlst))
         {
-            vfn(AsHashNode(nlst)->Key, AsHashNode(nlst)->Value, ctx);
+            accum = foldfn(AsHashNode(nlst)->Key, AsHashNode(nlst)->Value, ctx, accum);
             nlst = AsHashNode(nlst)->Next;
         }
     }
+
+    return(accum);
+}
+
+static FObject HashTablePop(FObject htbl)
+{
+    FAssert(HashTableP(htbl));
+    FAssert(VectorP(AsHashTable(htbl)->Buckets));
+
+    if (AsHashTable(htbl)->Size == 0)
+        RaiseExceptionC(Assertion, "%hash-table-pop!", "hash table is empty", List(htbl));
+
+    if (AsHashTable(htbl)->UseHashFn == EqHash)
+        RehashEqHashTable(htbl);
+
+    FObject buckets = AsHashTable(htbl)->Buckets;
+
+    for (uint_t idx = 0; idx < VectorLength(buckets); idx++)
+    {
+        FObject nlst = AsVector(buckets)->Vector[idx];
+
+        if (HashNodeP(nlst))
+        {
+//            AsVector(buckets)->Vector[idx] = AsHashNode(nlst)->Next;
+            ModifyVector(buckets, idx, AsHashNode(nlst)->Next);
+
+            HashTableAdjust(htbl, AsHashTable(htbl)->Size - 1);
+
+            AsHashNode(nlst)->Flags |= HASH_NODE_DELETED;
+            return(nlst);
+        }
+    }
+
+    FAssert(0);
+
+    return(NoValueObject);
+}
+
+static void HashTableClear(FObject htbl)
+{
+    FAssert(HashTableP(htbl));
+
+//    AsHashTable(htbl)->Buckets = MakeVector(AsHashTable(htbl)->InitialCapacity, 0, NoValueObject);
+    Modify(FHashTable, htbl, Buckets,
+            MakeVector(AsHashTable(htbl)->InitialCapacity, 0, NoValueObject));
+    AsHashTable(htbl)->Size = 0;
+}
+
+static FObject HashTableCopy(FObject htbl)
+{
+    FAssert(HashTableP(htbl));
+    FAssert(VectorP(AsHashTable(htbl)->Buckets));
+
+    FObject nhtbl = MakeHashTable(VectorLength(AsHashTable(htbl)->Buckets),
+            AsHashTable(htbl)->TypeTestP, AsHashTable(htbl)->EqualityP, AsHashTable(htbl)->HashFn,
+            AsHashTable(htbl)->Flags & ~HASH_TABLE_IMMUTABLE);
+    AsHashTable(nhtbl)->InitialCapacity = AsHashTable(htbl)->InitialCapacity;
+
+    if (AsHashTable(htbl)->UseHashFn == EqHash)
+    {
+        FAssert(AsHashTable(nhtbl)->UseHashFn == EqHash);
+
+        RehashEqHashTable(htbl);
+    }
+
+    FObject buckets = AsHashTable(htbl)->Buckets;
+    FObject nbuckets = AsHashTable(nhtbl)->Buckets;
+
+    FAssert(VectorP(nbuckets));
+    FAssert(VectorLength(buckets) == VectorLength(nbuckets));
+
+    for (uint_t idx = 0; idx < VectorLength(buckets); idx++)
+    {
+//        AsVector(nbuckets)->Vector[idx] = CopyHashNodeList(AsVector(buckets)->Vector[idx], 0);
+        ModifyVector(nbuckets, idx, CopyHashNodeList(AsVector(buckets)->Vector[idx], 0,
+                "hash-table-copy"));
+    }
+
+    return(nhtbl);
 }
 
 Define("hash-table?", HashTablePPrimitive)(int_t argc, FObject argv[])
@@ -429,40 +587,74 @@ Define("hash-table?", HashTablePPrimitive)(int_t argc, FObject argv[])
     return(HashTableP(argv[0]) ? TrueObject : FalseObject);
 }
 
+Define("%eq-hash-table?", EqHashTablePPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("%eq-hash-table?", argc);
+
+    return(HashTableP(argv[0]) && AsHashTable(argv[0])->UseHashFn == EqHash ? TrueObject :
+            FalseObject);
+}
+
 Define("make-eq-hash-table", MakeEqHashTablePrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("make-eq-hash-table", argc);
 
-    return(MakeEqHashTable(128));
+    return(MakeEqHashTable(128, 0));
 }
 
 Define("%make-hash-table", MakeHashTablePrimitive)(int_t argc, FObject argv[])
 {
     FourArgsCheck("%make-hash-table", argc);
-    FixnumArgCheck("%make-hash-table", argv[0]);
+    ProcedureArgCheck("%make-hash-table", argv[0]);
     ProcedureArgCheck("%make-hash-table", argv[1]);
     ProcedureArgCheck("%make-hash-table", argv[2]);
-    ProcedureArgCheck("%make-hash-table", argv[3]);
 
-    return(MakeHashTable(AsFixnum(argv[0]), argv[1], argv[2], argv[3]));
+    uint_t cap = 128;
+    uint_t flags = 0;
+
+    FObject args = argv[3];
+    while (PairP(args))
+    {
+        FObject arg = First(args);
+
+        if (FixnumP(arg) && AsFixnum(arg) >= 0)
+            cap = AsFixnum(arg);
+        else if (arg == ThreadSafeSymbol)
+            flags |= HASH_TABLE_THREAD_SAFE;
+        else if (arg == WeakKeysSymbol)
+            flags |= HASH_TABLE_WEAK_KEYS;
+        else if (arg == EphemeralKeysSymbol)
+            flags |= HASH_TABLE_EPHEMERAL_KEYS;
+        else if (arg == WeakValuesSymbol)
+            flags |= HASH_TABLE_WEAK_VALUES;
+        else if (arg == EphemeralValuesSymbol)
+            flags |= HASH_TABLE_EPHEMERAL_VALUES;
+        else
+            RaiseExceptionC(Assertion, "make-hash-table", "unsupported optional argument(s)",
+                    argv[3]);
+
+        args = Rest(args);
+    }
+
+    return(MakeHashTable(cap, argv[0], argv[1], argv[2], flags));
 }
 
-Define("%hash-table-entries", HashTableEntriesPrimitive)(int_t argc, FObject argv[])
+Define("%hash-table-buckets", HashTableBucketsPrimitive)(int_t argc, FObject argv[])
 {
-    OneArgCheck("%hash-table-entries", argc);
-    HashTableArgCheck("%hash-table-entries", argv[0]);
+    OneArgCheck("%hash-table-buckets", argc);
+    HashTableArgCheck("%hash-table-buckets", argv[0]);
 
-    return(AsHashTable(argv[0])->Entries);
+    return(AsHashTable(argv[0])->Buckets);
 }
 
-Define("%hash-table-entries-set!", HashTableEntriesSetPrimitive)(int_t argc, FObject argv[])
+Define("%hash-table-buckets-set!", HashTableBucketsSetPrimitive)(int_t argc, FObject argv[])
 {
-    TwoArgsCheck("%hash-table-entries-set!", argc);
-    HashTableArgCheck("%hash-table-entries-set!", argv[0]);
-    VectorArgCheck("%hash-table-entries-set!", argv[1]);
+    TwoArgsCheck("%hash-table-buckets-set!", argc);
+    HashTableArgCheck("%hash-table-buckets-set!", argv[0]);
+    VectorArgCheck("%hash-table-buckets-set!", argv[1]);
 
-//    AsHashTable(argv[0])->Entries = argv[1];
-    Modify(FHashTable, argv[0], Entries, argv[1]);
+//    AsHashTable(argv[0])->Buckets = argv[1];
+    Modify(FHashTable, argv[0], Buckets, argv[1]);
     return(NoValueObject);
 }
 
@@ -492,6 +684,23 @@ Define("hash-table-hash-function", HashTableHashFunctionPrimitive)(int_t argc, F
     return(AsHashTable(argv[0])->HashFn);
 }
 
+Define("%hash-table-pop!", HashTablePopPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("%hash-table-pop!", argc);
+    HashTableArgCheck("%hash-table-pop!", argv[0]);
+
+    return(HashTablePop(argv[0]));
+}
+
+Define("hash-table-clear!", HashTableClearPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("hash-table-clear!", argc);
+    HashTableArgCheck("hash-table-clear!", argv[0]);
+
+    HashTableClear(argv[0]);
+    return(NoValueObject);
+}
+
 Define("hash-table-size", HashTableSizePrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("hash-table-size", argc);
@@ -506,8 +715,7 @@ Define("%hash-table-adjust!", HashTableAdjustPrimitive)(int_t argc, FObject argv
     HashTableArgCheck("%hash-table-adjust!", argv[0]);
     NonNegativeArgCheck("%hash-table-adjust!", argv[1], 0);
 
-    AsHashTable(argv[0])->Size = AsFixnum(argv[1]);
-    HashTableAdjust(argv[0]);
+    HashTableAdjust(argv[0], AsFixnum(argv[1]));
     return(NoValueObject);
 }
 
@@ -516,7 +724,7 @@ Define("hash-table-mutable?", HashTableMutablePPrimitive)(int_t argc, FObject ar
     OneArgCheck("hash-table-mutable?", argc);
     HashTableArgCheck("hash-table-mutable?", argv[0]);
 
-    return(AsHashTable(argv[0])->Mutable ? TrueObject : FalseObject);
+    return((AsHashTable(argv[0])->Flags & HASH_TABLE_IMMUTABLE) ? FalseObject : TrueObject);
 }
 
 Define("%hash-table-immutable!", HashTableImmutablePrimitive)(int_t argc, FObject argv[])
@@ -524,8 +732,16 @@ Define("%hash-table-immutable!", HashTableImmutablePrimitive)(int_t argc, FObjec
     OneArgCheck("%hash-table-immutable!", argc);
     HashTableArgCheck("%hash-table-immutable!", argv[0]);
 
-    AsHashTable(argv[0])->Mutable = 0;
+    AsHashTable(argv[0])->Flags |= HASH_TABLE_IMMUTABLE;
     return(NoValueObject);
+}
+
+Define("%hash-table-exclusive", HashTableExclusivePrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("%hash-table-exclusive", argc);
+    HashTableArgCheck("%hash-table-exclusive", argv[0]);
+
+    return(AsHashTable(argv[0])->Exclusive);
 }
 
 Define("%hash-table-ref", HashTableRefPrimitive)(int_t argc, FObject argv[])
@@ -559,8 +775,71 @@ Define("hash-table-empty-copy", HashTableEmptyCopyPrimitive)(int_t argc, FObject
     OneArgCheck("hash-table-empty-copy", argc);
     HashTableArgCheck("hash-table-empty-copy", argv[0]);
 
-    return(MakeHashTable(128, AsHashTable(argv[0])->TypeTestP, AsHashTable(argv[0])->EqualityP,
-            AsHashTable(argv[0])->HashFn));
+    return(MakeHashTable(AsHashTable(argv[0])->InitialCapacity, AsHashTable(argv[0])->TypeTestP,
+            AsHashTable(argv[0])->EqualityP, AsHashTable(argv[0])->HashFn,
+            AsHashTable(argv[0])->Flags & ~HASH_TABLE_IMMUTABLE));
+}
+
+Define("%hash-table-copy", HashTableCopyPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("%hash-table-copy", argc);
+    HashTableArgCheck("%hash-table-copy", argv[0]);
+
+    return(HashTableCopy(argv[0]));
+}
+
+static FObject FoldAList(FObject key, FObject val, void * ctx, FObject lst)
+{
+    return(MakePair(MakePair(key, val), lst));
+}
+
+Define("hash-table->alist", HashTableToAlistPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("hash-table->alist", argc);
+    HashTableArgCheck("%hash-table->alist", argv[0]);
+
+    return(HashTableFold(argv[0], FoldAList, 0, EmptyListObject));
+}
+
+static FObject FoldKeys(FObject key, FObject val, void * ctx, FObject lst)
+{
+    return(MakePair(key, lst));
+}
+
+static FObject FoldValues(FObject key, FObject val, void * ctx, FObject lst)
+{
+    return(MakePair(val, lst));
+}
+
+static FObject FoldEntries(FObject key, FObject val, void * ctx, FObject lst)
+{
+    *((FObject *) ctx) = MakePair(val, *((FObject *) ctx));
+    return(MakePair(key, lst));
+}
+
+Define("hash-table-keys", HashTableKeysPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("hash-table-keys", argc);
+    HashTableArgCheck("hash-table-keys", argv[0]);
+
+    return(HashTableFold(argv[0], FoldKeys, 0, EmptyListObject));
+}
+
+Define("hash-table-values", HashTableValuesPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("hash-table-values", argc);
+    HashTableArgCheck("hash-table-values", argv[0]);
+
+    return(HashTableFold(argv[0], FoldValues, 0, EmptyListObject));
+}
+
+Define("%hash-table-entries", HashTableEntriesPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("%hash-table-entries", argc);
+    HashTableArgCheck("%hash-table-entries", argv[0]);
+
+    FObject vlst = EmptyListObject;
+    return(MakePair(HashTableFold(argv[0], FoldEntries, &vlst, EmptyListObject), vlst));
 }
 
 // ---- Symbols ----
@@ -609,10 +888,10 @@ FObject StringToSymbol(FObject str)
 
 FObject StringLengthToSymbol(FCh * s, int_t sl)
 {
-    FObject entries = AsHashTable(SymbolHashTable)->Entries;
+    FObject buckets = AsHashTable(SymbolHashTable)->Buckets;
     uint32_t hsh = StringLengthHash(s, sl);
-    uint32_t idx = hsh % VectorLength(entries);
-    FObject nlst = AsVector(entries)->Vector[idx];
+    uint32_t idx = hsh % VectorLength(buckets);
+    FObject nlst = AsVector(buckets)->Vector[idx];
     FObject node = nlst;
 
     while (HashNodeP(node))
@@ -634,11 +913,10 @@ FObject StringLengthToSymbol(FCh * s, int_t sl)
     sym->String = MakeString(s, sl);
     sym->Hash = hsh;
 
-//    AsVector(entries)->Vector[idx] = MakeHashNode(key, val, nlst, hsh, "string->symbol");
-    ModifyVector(entries, idx, MakeHashNode(sym->String, sym, nlst, hsh, "string->symbol"));
+//    AsVector(buckets)->Vector[idx] = MakeHashNode(key, val, nlst, hsh, "string->symbol");
+    ModifyVector(buckets, idx, MakeHashNode(sym->String, sym, nlst, hsh, "string->symbol"));
 
-    AsHashTable(SymbolHashTable)->Size += 1;
-    HashTableAdjust(SymbolHashTable);
+    HashTableAdjust(SymbolHashTable, AsHashTable(SymbolHashTable)->Size + 1);
     return(sym);
 }
 
@@ -668,6 +946,15 @@ Define("%make-hash-node", MakeHashNodePrimitive)(int_t argc, FObject argv[])
     NonNegativeArgCheck("%make-hash-node", argv[3], 0);
 
     return(MakeHashNode(argv[0], argv[1], argv[2], AsFixnum(argv[3]), "%make-hash-node"));
+}
+
+Define("%copy-hash-node-list", CopyHashNodeListPrimitive)(int_t argc, FObject argv[])
+{
+    TwoArgsCheck("%copy-hash-node-list", argc);
+    HashNodeArgCheck("%copy-hash-node-list", argv[0]);
+    HashNodeArgCheck("%copy-hash-node-list", argv[1]);
+
+    return(CopyHashNodeList(argv[0], argv[1], "%copy-hash-node-list"));
 }
 
 Define("%hash-node?", HashNodePPrimitive)(int_t argc, FObject argv[])
@@ -734,22 +1021,32 @@ Define("%hash-node-hash", HashNodeHashPrimitive)(int_t argc, FObject argv[])
 static FObject Primitives[] =
 {
     HashTablePPrimitive,
+    EqHashTablePPrimitive,
     MakeEqHashTablePrimitive,
     MakeHashTablePrimitive,
-    HashTableEntriesPrimitive,
-    HashTableEntriesSetPrimitive,
+    HashTableBucketsPrimitive,
+    HashTableBucketsSetPrimitive,
     HashTableTypeTestPredicatePrimitive,
     HashTableEqualityPredicatePrimitive,
     HashTableHashFunctionPrimitive,
+    HashTablePopPrimitive,
+    HashTableClearPrimitive,
     HashTableSizePrimitive,
     HashTableAdjustPrimitive,
     HashTableMutablePPrimitive,
     HashTableImmutablePrimitive,
+    HashTableExclusivePrimitive,
     HashTableRefPrimitive,
     HashTableSetPrimitive,
     HashTableDeletePrimitive,
     HashTableEmptyCopyPrimitive,
+    HashTableCopyPrimitive,
+    HashTableToAlistPrimitive,
+    HashTableKeysPrimitive,
+    HashTableValuesPrimitive,
+    HashTableEntriesPrimitive,
     MakeHashNodePrimitive,
+    CopyHashNodeListPrimitive,
     HashNodePPrimitive,
     HashNodeKeyPrimitive,
     HashNodeValuePrimitive,
@@ -761,6 +1058,12 @@ static FObject Primitives[] =
 
 void SetupHashTables()
 {
+    ThreadSafeSymbol = InternSymbol(ThreadSafeSymbol);
+    WeakKeysSymbol = InternSymbol(WeakKeysSymbol);
+    EphemeralKeysSymbol = InternSymbol(EphemeralKeysSymbol);
+    WeakValuesSymbol = InternSymbol(WeakValuesSymbol);
+    EphemeralValuesSymbol = InternSymbol(EphemeralValuesSymbol);
+
     for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 }

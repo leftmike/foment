@@ -1278,9 +1278,9 @@ int_t SetupFoment(FThreadState * ts)
     RegisterRoot(&LibraryExtensions, "library-extensions");
     RegisterRoot(&FomentLibrariesVector, "foment-libraries-vector");
 
-    SymbolHashTable = MakeStringHashTable(4096);
+    SymbolHashTable = MakeStringHashTable(4096, 0);
 
-    ts->Parameters = MakeEqHashTable(32);
+    ts->Parameters = MakeEqHashTable(32, 0);
 
     SetupLibrary();
 
