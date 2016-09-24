@@ -2025,6 +2025,28 @@ FObject MakeEphemeron(FObject key, FObject dat)
     return(eph);
 }
 
+void EphemeronKeySet(FObject eph, FObject key)
+{
+    FAssert(EphemeronP(eph));
+
+    if (AsEphemeron(eph)->Broken == 0)
+    {
+//        AsEphemeron(eph)->Key = key;
+        Modify(FEphemeron, eph, Key, key);
+    }
+}
+
+void EphemeronDatumSet(FObject eph, FObject dat)
+{
+    FAssert(EphemeronP(eph));
+
+    if (AsEphemeron(eph)->Broken == 0)
+    {
+//        AsEphemeron(eph)->Datum = dat;
+        Modify(FEphemeron, eph, Datum, dat);
+    }
+}
+
 Define("ephemeron?", EphemeronPPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("ephemeron?", argc);
@@ -2068,8 +2090,7 @@ Define("set-ephemeron-key!", SetEphemeronKeyPrimitive)(int_t argc, FObject argv[
     TwoArgsCheck("set-ephemeron-key!", argc);
     EphemeronArgCheck("set-ephemeron-key!", argv[0]);
 
-    if (AsEphemeron(argv[0])->Broken == 0)
-        AsEphemeron(argv[0])->Key = argv[1];
+    EphemeronKeySet(argv[0], argv[1]);
     return(NoValueObject);
 }
 
@@ -2078,8 +2099,7 @@ Define("set-ephemeron-datum!", SetEphemeronDatumPrimitive)(int_t argc, FObject a
     TwoArgsCheck("set-ephemeron-datum!", argc);
     EphemeronArgCheck("set-ephemeron-datum!", argv[0]);
 
-    if (AsEphemeron(argv[0])->Broken == 0)
-        AsEphemeron(argv[0])->Datum = argv[1];
+    EphemeronDatumSet(argv[0], argv[1]);
     return(NoValueObject);
 }
 

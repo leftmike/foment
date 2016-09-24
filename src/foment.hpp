@@ -13,8 +13,8 @@ HashTable and Comparator:
 -- finish hash tables
 -- make all eq-hash-table operations atomic
 -- hash table operations while holding exclusive: be careful of exceptions: add a WithExclusive class
--- %make-hash-node needs to take a hash table
 -- handle different kinds of keys and values in nodes
+-- HashTableAdjust should check for broken nodes and delete them before adjusting the table
 -- add sets
 -- add bags
 
@@ -950,15 +950,18 @@ extern FObject EqHashPrimitive;
 
 // ---- Hash Tables ----
 
+#define HASH_TABLE_NORMAL_KEYS      0x00
 #define HASH_TABLE_WEAK_KEYS        0x01
 #define HASH_TABLE_EPHEMERAL_KEYS   0x02
+#define HASH_TABLE_KEYS_MASK        0x03
+
+#define HASH_TABLE_NORMAL_VALUES    0x00
 #define HASH_TABLE_WEAK_VALUES      0x04
 #define HASH_TABLE_EPHEMERAL_VALUES 0x08
+#define HASH_TABLE_VALUES_MASK      0x0C
+
 #define HASH_TABLE_IMMUTABLE        0x10
 #define HASH_TABLE_THREAD_SAFE      0x20
-
-// Keys and values flags are the same for hash tables and hash nodes.
-#define HASH_NODE_MASK             0x0F
 
 #define HashTableP(obj) BuiltinP(obj, HashTableType)
 extern FObject HashTableType;
@@ -1097,6 +1100,9 @@ typedef struct _FEphemeron
 } FEphemeron;
 
 FObject MakeEphemeron(FObject key, FObject dat);
+void EphemeronKeySet(FObject eph, FObject key);
+void EphemeronDatumSet(FObject eph, FObject dat);
+
 inline int_t EphemeronBrokenP(FObject obj)
 {
     FAssert(EphemeronP(obj));

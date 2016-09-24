@@ -481,6 +481,7 @@
         %make-hash-node
         %copy-hash-node-list
         %hash-node?
+        %hash-node-broken?
         %hash-node-key
         %hash-node-value
         %hash-node-value-set!

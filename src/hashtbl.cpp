@@ -113,6 +113,12 @@ static FObject MakeHashTable(uint_t cap, FObject ttp, FObject eqp, FObject hashf
     FAssert(ProcedureP(ttp) || PrimitiveP(ttp));
     FAssert(ProcedureP(eqp) || PrimitiveP(eqp));
     FAssert(ProcedureP(hashfn) || PrimitiveP(hashfn));
+    FAssert((flags &  HASH_TABLE_KEYS_MASK) == HASH_TABLE_NORMAL_KEYS ||
+            (flags &  HASH_TABLE_KEYS_MASK) == HASH_TABLE_WEAK_KEYS ||
+            (flags &  HASH_TABLE_KEYS_MASK) == HASH_TABLE_EPHEMERAL_KEYS);
+    FAssert((flags &  HASH_TABLE_VALUES_MASK) == HASH_TABLE_NORMAL_VALUES ||
+            (flags &  HASH_TABLE_VALUES_MASK) == HASH_TABLE_WEAK_VALUES ||
+            (flags &  HASH_TABLE_VALUES_MASK) == HASH_TABLE_EPHEMERAL_VALUES);
 
     FHashTable * htbl = (FHashTable *) MakeBuiltin(HashTableType, sizeof(FHashTable), 7,
             "%make-hash-table");
@@ -159,10 +165,16 @@ static FObject MakeHashTable(uint_t cap, FObject ttp, FObject eqp, FObject hashf
 
 // ---- Hash Nodes ----
 
+#define HASH_NODE_NORMAL_KEYS      HASH_TABLE_NORMAL_KEYS
 #define HASH_NODE_WEAK_KEYS        HASH_TABLE_WEAK_KEYS
 #define HASH_NODE_EPHEMERAL_KEYS   HASH_TABLE_EPHEMERAL_KEYS
+#define HASH_NODE_KEYS_MASK        HASH_TABLE_KEYS_MASK
+
+#define HASH_NODE_NORMAL_VALUES    HASH_TABLE_NORMAL_VALUES
 #define HASH_NODE_WEAK_VALUES      HASH_TABLE_WEAK_VALUES
 #define HASH_NODE_EPHEMERAL_VALUES HASH_TABLE_EPHEMERAL_VALUES
+#define HASH_NODE_VALUES_MASK      HASH_TABLE_VALUES_MASK
+
 #define HASH_NODE_DELETED          0x10
 
 #define AsHashNode(obj) ((FHashNode *) (obj))
@@ -177,14 +189,40 @@ typedef struct
     uint32_t Flags;
 } FHashNode;
 
-static FObject MakeHashNode(FObject key, FObject val, FObject next, uint32_t hsh, const char * who)
+static FObject MakeHashNode(FObject htbl, FObject key, FObject val, FObject next, uint32_t hsh,
+    const char * who)
 {
+    FAssert(HashTableP(htbl));
+
+    uint_t ktype = AsHashTable(htbl)->Flags & HASH_TABLE_KEYS_MASK;
+    uint_t vtype = AsHashTable(htbl)->Flags & HASH_TABLE_VALUES_MASK;
     FHashNode * node = (FHashNode *) MakeObject(HashNodeTag, sizeof(FHashNode), 3, who);
-    node->Key = key;
-    node->Value = val;
+
+    if (ktype == HASH_NODE_NORMAL_KEYS)
+        node->Key = key;
+    else if (ktype == HASH_NODE_EPHEMERAL_KEYS)
+        node->Key = MakeEphemeron(key, val);
+    else
+    {
+        FAssert(ktype == HASH_NODE_WEAK_KEYS);
+
+        node->Key = MakeEphemeron(key, key);
+    }
+
+    if (vtype == HASH_NODE_NORMAL_VALUES)
+        node->Value = val;
+    else if (vtype == HASH_NODE_EPHEMERAL_VALUES)
+        node->Value = MakeEphemeron(val, key);
+    else
+    {
+        FAssert(vtype == HASH_NODE_WEAK_VALUES);
+
+        node->Value = MakeEphemeron(val, val);
+    }
+
     node->Next = next;
     node->Hash = hsh;
-    node->Flags = 0;
+    node->Flags = ktype | vtype;
 
     return(node);
 }
@@ -192,9 +230,16 @@ static FObject MakeHashNode(FObject key, FObject val, FObject next, uint32_t hsh
 static FObject CopyHashNode(FObject node, FObject next, const char * who)
 {
     FAssert(HashNodeP(node));
+    FAssert((AsHashNode(node)->Flags & HASH_NODE_DELETED) == 0);
 
-    return(MakeHashNode(AsHashNode(node)->Key, AsHashNode(node)->Value, next,
-            AsHashNode(node)->Hash, who));
+    FHashNode * nnd = (FHashNode *) MakeObject(HashNodeTag, sizeof(FHashNode), 3, who);
+    nnd->Key = AsHashNode(node)->Key;
+    nnd->Value = AsHashNode(node)->Value;
+    nnd->Next = next;
+    nnd->Hash = AsHashNode(node)->Hash;
+    nnd->Flags = AsHashNode(node)->Flags;
+
+    return(nnd);
 }
 
 inline void HashNodeArgCheck(const char * who, FObject obj)
@@ -203,13 +248,124 @@ inline void HashNodeArgCheck(const char * who, FObject obj)
         RaiseExceptionC(Assertion, who, "expected a hash node", List(obj));
 }
 
+inline FObject HashNodeKey(FObject node)
+{
+    FAssert(HashNodeP(node));
+
+    if ((AsHashNode(node)->Flags & HASH_NODE_KEYS_MASK) != HASH_NODE_NORMAL_KEYS)
+    {
+        FAssert(EphemeronP(AsHashNode(node)->Key));
+
+        return(AsEphemeron(AsHashNode(node)->Key)->Key);
+    }
+
+    return(AsHashNode(node)->Key);
+}
+
+inline FObject HashNodeValue(FObject node)
+{
+    FAssert(HashNodeP(node));
+
+    if ((AsHashNode(node)->Flags & HASH_NODE_VALUES_MASK) != HASH_NODE_NORMAL_VALUES)
+    {
+        FAssert(EphemeronP(AsHashNode(node)->Value));
+
+        return(AsEphemeron(AsHashNode(node)->Value)->Key);
+    }
+
+    return(AsHashNode(node)->Value);
+}
+
+inline void HashNodeValueSet(FObject node, FObject val)
+{
+    FAssert(HashNodeP(node));
+
+    if ((AsHashNode(node)->Flags & HASH_NODE_KEYS_MASK) == HASH_NODE_EPHEMERAL_KEYS)
+    {
+        FAssert(EphemeronP(AsHashNode(node)->Key));
+
+        EphemeronDatumSet(AsHashNode(node)->Key, val);
+    }
+
+    if ((AsHashNode(node)->Flags & HASH_NODE_VALUES_MASK) == HASH_NODE_NORMAL_VALUES)
+    {
+//        AsHashNode(node)->Value = val;
+        Modify(FHashNode, node, Value, val);
+    }
+    else if ((AsHashNode(node)->Flags & HASH_NODE_VALUES_MASK) == HASH_NODE_EPHEMERAL_VALUES)
+    {
+        FAssert(EphemeronP(AsHashNode(node)->Value));
+
+        EphemeronKeySet(AsHashNode(node)->Value, val);
+    }
+    else
+    {
+        FAssert((AsHashNode(node)->Flags & HASH_NODE_VALUES_MASK) == HASH_NODE_WEAK_VALUES);
+        FAssert(EphemeronP(AsHashNode(node)->Value));
+
+        EphemeronKeySet(AsHashNode(node)->Value, val);
+        EphemeronDatumSet(AsHashNode(node)->Value, val);
+    }
+}
+
+inline int_t HashNodeBrokenP(FObject node)
+{
+    FAssert(HashNodeP(node));
+
+    if ((AsHashNode(node)->Flags & HASH_NODE_KEYS_MASK) != HASH_NODE_NORMAL_KEYS)
+    {
+        FAssert(EphemeronP(AsHashNode(node)->Key));
+
+        if (EphemeronBrokenP(AsHashNode(node)->Key))
+            return(1);
+    }
+
+    if ((AsHashNode(node)->Flags & HASH_NODE_VALUES_MASK) != HASH_NODE_NORMAL_VALUES)
+    {
+        FAssert(EphemeronP(AsHashNode(node)->Value));
+
+        if (EphemeronBrokenP(AsHashNode(node)->Value))
+            return(1);
+    }
+
+    return(0);
+}
+
 // ----------------
+
+#if 0
+static void
+HashTableClean(FObject htbl)
+{
+    FAssert(HashTableP(htbl));
+    FAssert(VectorP(AsHashTable(htbl)->Buckets));
+
+    FObject buckets = AsHashTable(htbl)->Buckets;
+    for (uint_t idx = 0; idx < VectorLength(buckets); idx++)
+    {
+        FObject nlst = AsVector(buckets)->Vector[idx];
+
+        while (HashNodeP(nlst))
+        {
+//            if (HashNodeBrokenP(nlst) == 0)
+//                accum = foldfn(HashNodeKey(nlst), HashNodeValue(nlst), ctx, accum);
+            nlst = AsHashNode(nlst)->Next;
+        }
+    }
+}
+#endif // 0
 
 static void
 HashTableAdjust(FObject htbl, uint_t sz)
 {
     FAssert(HashTableP(htbl));
     FAssert(VectorP(AsHashTable(htbl)->Buckets));
+
+#if 0
+    if ((AsHashTable(htbl)->Flags & HASH_TABLE_KEYS_MASK) != HASH_TABLE_NORMAL_KEYS ||
+            (AsHashTable(htbl)->Flags & HASH_TABLE_VALUES_MASK) != HASH_TABLE_NORMAL_VALUES)
+        HashTableClean(htbl);
+#endif // 0
 
     AsHashTable(htbl)->Size = sz;
 
@@ -278,11 +434,13 @@ static void RehashEqHashTable(FObject htbl)
 
         FAssert(HashNodeP(node));
 
-        if ((AsHashNode(node)->Flags & HASH_NODE_DELETED) == 0)
+        if ((AsHashNode(node)->Flags & HASH_NODE_DELETED) == 0 && HashNodeBrokenP(node) == 0)
         {
-            FAssert(AsHashNode(node)->Hash != EqHash(AsHashNode(node)->Key));
+            FObject key = HashNodeKey(node);
 
-            uint32_t nhsh = EqHash(AsHashNode(node)->Key);
+            FAssert(AsHashNode(node)->Hash != EqHash(key));
+
+            uint32_t nhsh = EqHash(key);
             uint32_t ndx = nhsh % VectorLength(buckets);
             uint32_t odx = AsHashNode(node)->Hash % VectorLength(buckets);
 
@@ -313,7 +471,7 @@ static void RehashEqHashTable(FObject htbl)
             }
 
             AsHashNode(node)->Hash = nhsh;
-            InstallTracker(AsHashNode(node)->Key, node, tconc);
+            InstallTracker(key, node, tconc);
         }
     }
 }
@@ -350,11 +508,11 @@ FObject HashTableRef(FObject htbl, FObject key, FObject def)
 
     while (HashNodeP(node))
     {
-        if (UseEqualityP(AsHashNode(node)->Key, key))
+        if (UseEqualityP(HashNodeKey(node), key) && HashNodeBrokenP(node) == 0)
         {
             FAssert(AsHashNode(node)->Hash == hsh);
 
-            return(AsHashNode(node)->Value);
+            return(HashNodeValue(node));
         }
 
         node = AsHashNode(node)->Next;
@@ -385,19 +543,18 @@ void HashTableSet(FObject htbl, FObject key, FObject val)
 
     while (HashNodeP(node))
     {
-        if (UseEqualityP(AsHashNode(node)->Key, key))
+        if (UseEqualityP(HashNodeKey(node), key) && HashNodeBrokenP(node) == 0)
         {
             FAssert(AsHashNode(node)->Hash == hsh);
 
-//            AsHashNode(node)->Value = val;
-            Modify(FHashNode, node, Value, val);
+            HashNodeValueSet(node, val);
             return;
         }
 
         node = AsHashNode(node)->Next;
     }
 
-    node = MakeHashNode(key, val, nlst, hsh, "hash-table-set!");
+    node = MakeHashNode(htbl, key, val, nlst, hsh, "hash-table-set!");
 //    AsVector(buckets)->Vector[idx] = node;
     ModifyVector(buckets, idx, node);
     if (UseHashFn == EqHash && ObjectP(key))
@@ -406,13 +563,38 @@ void HashTableSet(FObject htbl, FObject key, FObject val)
     HashTableAdjust(htbl, AsHashTable(htbl)->Size + 1);
 }
 
-static FObject CopyHashNodeList(FObject nlst, FObject skp, const char * who)
+static FObject CopyHashNodeList(FObject htbl, FObject nlst, FObject skp, const char * who)
 {
     if (HashNodeP(nlst))
     {
         if (nlst == skp || (AsHashNode(nlst)->Flags & HASH_NODE_DELETED))
-            return(CopyHashNodeList(AsHashNode(nlst)->Next, skp, who));
-        return(CopyHashNode(nlst, CopyHashNodeList(AsHashNode(nlst)->Next, skp, who), who));
+            return(CopyHashNodeList(htbl, AsHashNode(nlst)->Next, skp, who));
+        if (HashNodeBrokenP(nlst))
+        {
+            FAssert(HashTableP(htbl));
+            AsHashTable(htbl)->Size -= 1;
+
+            return(CopyHashNodeList(htbl, AsHashNode(nlst)->Next, skp, who));
+        }
+        return(CopyHashNode(nlst, CopyHashNodeList(htbl, AsHashNode(nlst)->Next, skp, who), who));
+    }
+
+    FAssert(nlst == NoValueObject);
+
+    return(nlst);
+}
+
+static FObject MakeHashNodeList(FObject htbl, FObject nlst)
+{
+    if (HashNodeP(nlst))
+    {
+        if ((AsHashNode(nlst)->Flags & HASH_NODE_DELETED) || HashNodeBrokenP(nlst))
+            return(MakeHashNodeList(htbl, AsHashNode(nlst)->Next));
+
+        AsHashTable(htbl)->Size += 1;
+        return(MakeHashNode(htbl, HashNodeKey(nlst), HashNodeValue(nlst),
+                MakeHashNodeList(htbl, AsHashNode(nlst)->Next), AsHashNode(nlst)->Hash,
+                "hash-table-copy"));
     }
 
     FAssert(nlst == NoValueObject);
@@ -443,7 +625,7 @@ void HashTableDelete(FObject htbl, FObject key)
 
     while (HashNodeP(node))
     {
-        if (UseEqualityP(AsHashNode(node)->Key, key))
+        if (UseEqualityP(HashNodeKey(node), key) && HashNodeBrokenP(node) == 0)
         {
             FAssert(AsHashNode(node)->Hash == hsh);
             FAssert((AsHashNode(node)->Flags & HASH_NODE_DELETED) == 0);
@@ -466,7 +648,7 @@ void HashTableDelete(FObject htbl, FObject key)
             else
             {
 //                AsVector(buckets)->Vector[idx] = CopyHashNodeList(nlst, node);
-                ModifyVector(buckets, idx, CopyHashNodeList(nlst, node, "%hash-table-delete"));
+                ModifyVector(buckets, idx, CopyHashNodeList(htbl, nlst, node, "%hash-table-delete"));
             }
 
             HashTableAdjust(htbl, AsHashTable(htbl)->Size - 1);
@@ -495,7 +677,8 @@ FObject HashTableFold(FObject htbl, FFoldFn foldfn, void * ctx, FObject seed)
 
         while (HashNodeP(nlst))
         {
-            accum = foldfn(AsHashNode(nlst)->Key, AsHashNode(nlst)->Value, ctx, accum);
+            if (HashNodeBrokenP(nlst) == 0)
+                accum = foldfn(HashNodeKey(nlst), HashNodeValue(nlst), ctx, accum);
             nlst = AsHashNode(nlst)->Next;
         }
     }
@@ -573,8 +756,7 @@ static FObject HashTableCopy(FObject htbl)
     for (uint_t idx = 0; idx < VectorLength(buckets); idx++)
     {
 //        AsVector(nbuckets)->Vector[idx] = CopyHashNodeList(AsVector(buckets)->Vector[idx], 0);
-        ModifyVector(nbuckets, idx, CopyHashNodeList(AsVector(buckets)->Vector[idx], 0,
-                "hash-table-copy"));
+        ModifyVector(nbuckets, idx, MakeHashNodeList(nhtbl, AsVector(buckets)->Vector[idx]));
     }
 
     return(nhtbl);
@@ -635,6 +817,14 @@ Define("%make-hash-table", MakeHashTablePrimitive)(int_t argc, FObject argv[])
 
         args = Rest(args);
     }
+
+    if ((flags & HASH_TABLE_KEYS_MASK) == (HASH_TABLE_WEAK_KEYS | HASH_TABLE_EPHEMERAL_KEYS))
+        RaiseExceptionC(Assertion, "make-hash-table",
+                "must specify as most one of weak-keys and ephemeron-keys", argv[3]);
+
+    if ((flags & HASH_TABLE_VALUES_MASK) == (HASH_TABLE_WEAK_VALUES | HASH_TABLE_EPHEMERAL_VALUES))
+        RaiseExceptionC(Assertion, "make-hash-table",
+                "must specify as most one of weak-values and ephemeron-values", argv[3]);
 
     return(MakeHashTable(cap, argv[0], argv[1], argv[2], flags));
 }
@@ -888,6 +1078,10 @@ FObject StringToSymbol(FObject str)
 
 FObject StringLengthToSymbol(FCh * s, int_t sl)
 {
+    FAssert((AsHashTable(SymbolHashTable)->Flags & HASH_TABLE_KEYS_MASK) == HASH_TABLE_NORMAL_KEYS);
+    FAssert((AsHashTable(SymbolHashTable)->Flags & HASH_TABLE_VALUES_MASK) ==
+            HASH_TABLE_NORMAL_VALUES);
+
     FObject buckets = AsHashTable(SymbolHashTable)->Buckets;
     uint32_t hsh = StringLengthHash(s, sl);
     uint32_t idx = hsh % VectorLength(buckets);
@@ -896,14 +1090,16 @@ FObject StringLengthToSymbol(FCh * s, int_t sl)
 
     while (HashNodeP(node))
     {
-        FAssert(StringP(AsHashNode(node)->Key) || CStringP(AsHashNode(node)->Key));
+        FObject key = HashNodeKey(node);
 
-        if (SpecialStringLengthEqualP(s, sl, AsHashNode(node)->Key))
+        FAssert(StringP(key) || CStringP(key));
+
+        if (SpecialStringLengthEqualP(s, sl, key))
         {
             FAssert(AsHashNode(node)->Hash == hsh);
-            FAssert(SymbolP(AsHashNode(node)->Value));
+            FAssert(SymbolP(HashNodeValue(node)));
 
-            return(AsHashNode(node)->Value);
+            return(HashNodeValue(node));
         }
 
         node = AsHashNode(node)->Next;
@@ -913,8 +1109,10 @@ FObject StringLengthToSymbol(FCh * s, int_t sl)
     sym->String = MakeString(s, sl);
     sym->Hash = hsh;
 
-//    AsVector(buckets)->Vector[idx] = MakeHashNode(key, val, nlst, hsh, "string->symbol");
-    ModifyVector(buckets, idx, MakeHashNode(sym->String, sym, nlst, hsh, "string->symbol"));
+//    AsVector(buckets)->Vector[idx] =
+//            MakeHashNode(SymbolHashTable, sym->String, sym, nlst, hsh, "string->symbol");
+    ModifyVector(buckets, idx,
+            MakeHashNode(SymbolHashTable, sym->String, sym, nlst, hsh, "string->symbol"));
 
     HashTableAdjust(SymbolHashTable, AsHashTable(SymbolHashTable)->Size + 1);
     return(sym);
@@ -942,19 +1140,21 @@ FObject InternSymbol(FObject sym)
 
 Define("%make-hash-node", MakeHashNodePrimitive)(int_t argc, FObject argv[])
 {
-    FourArgsCheck("%make-hash-node", argc);
-    NonNegativeArgCheck("%make-hash-node", argv[3], 0);
+    FiveArgsCheck("%make-hash-node", argc);
+    HashTableArgCheck("%make-hash-node", argv[0]);
+    NonNegativeArgCheck("%make-hash-node", argv[4], 0);
 
-    return(MakeHashNode(argv[0], argv[1], argv[2], AsFixnum(argv[3]), "%make-hash-node"));
+    return(MakeHashNode(argv[0], argv[1], argv[2], argv[3], AsFixnum(argv[4]), "%make-hash-node"));
 }
 
 Define("%copy-hash-node-list", CopyHashNodeListPrimitive)(int_t argc, FObject argv[])
 {
     TwoArgsCheck("%copy-hash-node-list", argc);
-    HashNodeArgCheck("%copy-hash-node-list", argv[0]);
+    HashTableArgCheck("%copy-hash-node-list", argv[0]);
     HashNodeArgCheck("%copy-hash-node-list", argv[1]);
+    HashNodeArgCheck("%copy-hash-node-list", argv[2]);
 
-    return(CopyHashNodeList(argv[0], argv[1], "%copy-hash-node-list"));
+    return(CopyHashNodeList(argv[0], argv[1], argv[2], "%copy-hash-node-list"));
 }
 
 Define("%hash-node?", HashNodePPrimitive)(int_t argc, FObject argv[])
@@ -964,12 +1164,20 @@ Define("%hash-node?", HashNodePPrimitive)(int_t argc, FObject argv[])
     return(HashNodeP(argv[0]) ? TrueObject : FalseObject);
 }
 
+Define("%hash-node-broken?", HashNodeBrokenPPrimitive)(int_t argc, FObject argv[])
+{
+    OneArgCheck("%hash-node-broken?", argc);
+    HashNodeArgCheck("%hash-node-broken?", argv[0]);
+
+    return(HashNodeBrokenP(argv[0]) ? TrueObject : FalseObject);
+}
+
 Define("%hash-node-key", HashNodeKeyPrimitive)(int_t argc, FObject argv[])
 {
     OneArgCheck("%hash-node-key", argc);
     HashNodeArgCheck("%hash-node-key", argv[0]);
 
-    return(AsHashNode(argv[0])->Key);
+    return(HashNodeKey(argv[0]));
 }
 
 Define("%hash-node-value", HashNodeValuePrimitive)(int_t argc, FObject argv[])
@@ -977,7 +1185,7 @@ Define("%hash-node-value", HashNodeValuePrimitive)(int_t argc, FObject argv[])
     OneArgCheck("%hash-node-value", argc);
     HashNodeArgCheck("%hash-node-value", argv[0]);
 
-    return(AsHashNode(argv[0])->Value);
+    return(HashNodeValue(argv[0]));
 }
 
 Define("%hash-node-value-set!", HashNodeValueSetPrimitive)(int_t argc, FObject argv[])
@@ -985,8 +1193,7 @@ Define("%hash-node-value-set!", HashNodeValueSetPrimitive)(int_t argc, FObject a
     TwoArgsCheck("%hash-node-value-set!", argc);
     HashNodeArgCheck("%hash-node-value-set!", argv[0]);
 
-//    AsHashNode(argv[0])->Value = argv[1];
-    Modify(FHashNode, argv[0], Value, argv[1]);
+    HashNodeValueSet(argv[0], argv[1]);
     return(NoValueObject);
 }
 
@@ -1048,6 +1255,7 @@ static FObject Primitives[] =
     MakeHashNodePrimitive,
     CopyHashNodeListPrimitive,
     HashNodePPrimitive,
+    HashNodeBrokenPPrimitive,
     HashNodeKeyPrimitive,
     HashNodeValuePrimitive,
     HashNodeValueSetPrimitive,
