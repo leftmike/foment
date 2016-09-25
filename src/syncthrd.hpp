@@ -223,4 +223,17 @@ typedef struct
     int_t Unused;
 } FNotifyThrow;
 
+class FWithExclusive
+{
+public:
+
+    FWithExclusive(FObject exc);
+    FWithExclusive(OSExclusive * ose);
+    ~FWithExclusive();
+
+private:
+
+    OSExclusive * Exclusive;
+};
+
 #endif // __SYNCTHRD_HPP__

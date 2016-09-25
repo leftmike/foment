@@ -570,6 +570,25 @@ static void SetupSignals()
 }
 #endif // FOMENT_UNIX
 
+FWithExclusive::FWithExclusive(FObject exc)
+{
+    FAssert(ExclusiveP(exc));
+
+    Exclusive = &AsExclusive(exc)->Exclusive;
+    EnterExclusive(Exclusive);
+}
+
+FWithExclusive::FWithExclusive(OSExclusive * ose)
+{
+    Exclusive = ose;
+    EnterExclusive(Exclusive);
+}
+
+FWithExclusive::~FWithExclusive()
+{
+    LeaveExclusive(Exclusive);
+}
+
 static FObject Primitives[] =
 {
     CurrentThreadPrimitive,
