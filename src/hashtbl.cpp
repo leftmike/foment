@@ -551,7 +551,7 @@ FObject MakeSymbolHashTable(uint_t cap, uint_t flags)
     return(MakeHashTable(cap, SymbolPPrimitive, EqPPrimitive, SymbolHashPrimitive, flags));
 }
 
-FObject HashTableRef(FObject htbl, FObject key, FObject def)
+static FObject RefHashTable(FObject htbl, FObject key, FObject def)
 {
     FAssert(HashTableP(htbl));
     FAssert(VectorP(AsHashTable(htbl)->Buckets));
@@ -560,9 +560,6 @@ FObject HashTableRef(FObject htbl, FObject key, FObject def)
 
     FHashFn UseHashFn = AsHashTable(htbl)->UseHashFn;
     FEqualityP UseEqualityP = AsHashTable(htbl)->UseEqualityP;
-
-    if (UseHashFn == EqHash)
-        RehashEqHashTable(htbl);
 
     FObject buckets = AsHashTable(htbl)->Buckets;
     uint32_t hsh = UseHashFn(key);
@@ -584,7 +581,27 @@ FObject HashTableRef(FObject htbl, FObject key, FObject def)
     return(def);
 }
 
-void HashTableSet(FObject htbl, FObject key, FObject val)
+FObject HashTableRef(FObject htbl, FObject key, FObject def)
+{
+    FAssert(HashTableP(htbl));
+
+    if (AsHashTable(htbl)->UseHashFn == EqHash)
+    {
+        if (ExclusiveP(AsHashTable(htbl)->Exclusive))
+        {
+            FWithExclusive we(AsHashTable(htbl)->Exclusive);
+
+            RehashEqHashTable(htbl);
+            return(RefHashTable(htbl, key, def));
+        }
+
+        RehashEqHashTable(htbl);
+    }
+
+    return(RefHashTable(htbl, key, def));
+}
+
+static void SetHashTable(FObject htbl, FObject key, FObject val)
 {
     FAssert(HashTableP(htbl));
     FAssert(VectorP(AsHashTable(htbl)->Buckets));
@@ -626,7 +643,21 @@ void HashTableSet(FObject htbl, FObject key, FObject val)
     HashTableAdjust(htbl, AsHashTable(htbl)->Size + 1);
 }
 
-void HashTableDelete(FObject htbl, FObject key)
+void HashTableSet(FObject htbl, FObject key, FObject val)
+{
+    FAssert(HashTableP(htbl));
+
+    if (ExclusiveP(AsHashTable(htbl)->Exclusive))
+    {
+        FWithExclusive we(AsHashTable(htbl)->Exclusive);
+
+        SetHashTable(htbl, key, val);
+    }
+    else
+        SetHashTable(htbl, key, val);
+}
+
+static void DeleteHashTable(FObject htbl, FObject key)
 {
     FAssert(HashTableP(htbl));
     FAssert(VectorP(AsHashTable(htbl)->Buckets));
@@ -684,13 +715,23 @@ void HashTableDelete(FObject htbl, FObject key)
     }
 }
 
-FObject HashTableFold(FObject htbl, FFoldFn foldfn, void * ctx, FObject seed)
+void HashTableDelete(FObject htbl, FObject key)
+{
+    FAssert(HashTableP(htbl));
+    if (ExclusiveP(AsHashTable(htbl)->Exclusive))
+    {
+        FWithExclusive we(AsHashTable(htbl)->Exclusive);
+
+        DeleteHashTable(htbl, key);
+    }
+    else
+        DeleteHashTable(htbl, key);
+}
+
+static FObject FoldHashTable(FObject htbl, FFoldFn foldfn, void * ctx, FObject seed)
 {
     FAssert(HashTableP(htbl));
     FAssert(VectorP(AsHashTable(htbl)->Buckets));
-
-    if (AsHashTable(htbl)->UseHashFn == EqHash)
-        RehashEqHashTable(htbl);
 
     FObject buckets = AsHashTable(htbl)->Buckets;
     FObject accum = seed;
@@ -708,6 +749,26 @@ FObject HashTableFold(FObject htbl, FFoldFn foldfn, void * ctx, FObject seed)
     }
 
     return(accum);
+}
+
+FObject HashTableFold(FObject htbl, FFoldFn foldfn, void * ctx, FObject seed)
+{
+    FAssert(HashTableP(htbl));
+
+    if (AsHashTable(htbl)->UseHashFn == EqHash)
+    {
+        if (ExclusiveP(AsHashTable(htbl)->Exclusive))
+        {
+            FWithExclusive we(AsHashTable(htbl)->Exclusive);
+
+            RehashEqHashTable(htbl);
+            return(FoldHashTable(htbl, foldfn, ctx, seed));
+        }
+
+        RehashEqHashTable(htbl);
+    }
+
+    return(FoldHashTable(htbl, foldfn, ctx, seed));
 }
 
 static FObject HashTablePop(FObject htbl)

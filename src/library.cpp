@@ -48,7 +48,7 @@ FObject MakeEnvironment(FObject nam, FObject ctv)
 
     FEnvironment * env = (FEnvironment *) MakeBuiltin(EnvironmentType, sizeof(FEnvironment), 5,
             "make-environment");
-    env->HashTable = MakeSymbolHashTable(512, 0);
+    env->HashTable = MakeSymbolHashTable(512, HASH_TABLE_THREAD_SAFE);
     env->Name = nam;
     env->Interactive = ctv;
     env->Immutable = FalseObject;

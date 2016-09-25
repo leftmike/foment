@@ -10,9 +10,8 @@ To Do:
 -- split base.scm into separate files
 
 HashTable and Comparator:
--- finish hash tables
--- make all eq-hash-table operations atomic
--- hash table operations while holding exclusive: be careful of exceptions: add a WithExclusive class
+-- test hash tables
+-- make Scheme hash table operations thread safe
 -- add sets
 -- add bags
 
@@ -28,13 +27,11 @@ Future:
 -- on unix, if gmp is available, use it instead of mini-gmp
 -- replace mini-gmp
 -- increase maximum/minimum fixnum on 64bit
--- some mature segments are compacted during a full collection; ie. mark-compact
 -- inline primitives in GPassExpression
 -- debugging information
 -- composable continuations
--- strings and srfi-13
 -- from Gambit:
-    Serial numbers are used by the printer to identify objects which can’t be read
+    Serial numbers are used by the printer to identify objects which can't be read
     Convenient for debugging
     > (let ((n 2)) (lambda (x) (* x n)))
     #<procedure #2>
@@ -74,7 +71,6 @@ Bugs:
 -- make test segfault on unix32
 -- letrec: http://trac.sacrideo.us/wg/wiki/LetrecStar
 -- serialize loading libraries
--- serialize symbol table
 -- r5rs_pitfall.scm: yin-yang does not terminate; see test2.scm and
    https://groups.google.com/forum/?fromgroups=#!topic/comp.lang.scheme/Fysq_Wplxsw
 -- exhaustively test unicode: char-alphabetic?, char-upcase, etc
