@@ -13,8 +13,6 @@ HashTable and Comparator:
 -- finish hash tables
 -- make all eq-hash-table operations atomic
 -- hash table operations while holding exclusive: be careful of exceptions: add a WithExclusive class
--- handle different kinds of keys and values in nodes
--- HashTableAdjust should check for broken nodes and delete them before adjusting the table
 -- add sets
 -- add bags
 
@@ -975,6 +973,7 @@ FObject HashTableRef(FObject htbl, FObject key, FObject def);
 void HashTableSet(FObject htbl, FObject key, FObject val);
 void HashTableDelete(FObject htbl, FObject key);
 FObject HashTableFold(FObject htbl, FFoldFn vfn, void * ctx, FObject seed);
+void HashTableEphemeronBroken(FObject htbl);
 
 // ---- Symbols ----
 
@@ -1095,19 +1094,21 @@ typedef struct _FEphemeron
 {
     FObject Key;
     FObject Datum;
-    int_t Broken;
-    struct _FEphemeron * Next; // Used during garbage collection.
+    FObject HashTable;
+    struct _FEphemeron * Next; // Used during garbage collection and for broken.
 } FEphemeron;
 
-FObject MakeEphemeron(FObject key, FObject dat);
+FObject MakeEphemeron(FObject key, FObject dat, FObject htbl);
 void EphemeronKeySet(FObject eph, FObject key);
 void EphemeronDatumSet(FObject eph, FObject dat);
+
+#define EPHEMERON_BROKEN ((FEphemeron *) -1)
 
 inline int_t EphemeronBrokenP(FObject obj)
 {
     FAssert(EphemeronP(obj));
 
-    return(AsEphemeron(obj)->Broken);
+    return(AsEphemeron(obj)->Next == EPHEMERON_BROKEN);
 }
 
 // ---- Roots ----

@@ -93,6 +93,7 @@ typedef struct
     uint_t Size;
     uint_t InitialCapacity;
     uint_t Flags;
+    uint_t BrokenCount;
 } FHashTable;
 
 inline void UseHashTableArgCheck(const char * who, FObject obj)
@@ -159,6 +160,7 @@ static FObject MakeHashTable(uint_t cap, FObject ttp, FObject eqp, FObject hashf
     htbl->Size = 0;
     htbl->InitialCapacity = cap;
     htbl->Flags = flags;
+    htbl->BrokenCount = 0;
 
     return(htbl);
 }
@@ -201,23 +203,23 @@ static FObject MakeHashNode(FObject htbl, FObject key, FObject val, FObject next
     if (ktype == HASH_NODE_NORMAL_KEYS)
         node->Key = key;
     else if (ktype == HASH_NODE_EPHEMERAL_KEYS)
-        node->Key = MakeEphemeron(key, val);
+        node->Key = MakeEphemeron(key, val, htbl);
     else
     {
         FAssert(ktype == HASH_NODE_WEAK_KEYS);
 
-        node->Key = MakeEphemeron(key, key);
+        node->Key = MakeEphemeron(key, key, htbl);
     }
 
     if (vtype == HASH_NODE_NORMAL_VALUES)
         node->Value = val;
     else if (vtype == HASH_NODE_EPHEMERAL_VALUES)
-        node->Value = MakeEphemeron(val, key);
+        node->Value = MakeEphemeron(val, key, htbl);
     else
     {
         FAssert(vtype == HASH_NODE_WEAK_VALUES);
 
-        node->Value = MakeEphemeron(val, val);
+        node->Value = MakeEphemeron(val, val, htbl);
     }
 
     node->Next = next;
@@ -331,9 +333,56 @@ inline int_t HashNodeBrokenP(FObject node)
     return(0);
 }
 
+static FObject CopyHashNodeList(FObject htbl, FObject nlst, FObject skp, const char * who)
+{
+    if (HashNodeP(nlst))
+    {
+        if (nlst == skp || (AsHashNode(nlst)->Flags & HASH_NODE_DELETED))
+            return(CopyHashNodeList(htbl, AsHashNode(nlst)->Next, skp, who));
+        if (HashNodeBrokenP(nlst))
+        {
+            FAssert(HashTableP(htbl));
+            FAssert(AsHashTable(htbl)->Size > 0);
+
+            AsHashTable(htbl)->Size -= 1;
+
+            return(CopyHashNodeList(htbl, AsHashNode(nlst)->Next, skp, who));
+        }
+        return(CopyHashNode(nlst, CopyHashNodeList(htbl, AsHashNode(nlst)->Next, skp, who), who));
+    }
+
+    FAssert(nlst == NoValueObject);
+
+    return(nlst);
+}
+
+static FObject MakeHashNodeList(FObject htbl, FObject nlst)
+{
+    if (HashNodeP(nlst))
+    {
+        if ((AsHashNode(nlst)->Flags & HASH_NODE_DELETED) || HashNodeBrokenP(nlst))
+            return(MakeHashNodeList(htbl, AsHashNode(nlst)->Next));
+
+        AsHashTable(htbl)->Size += 1;
+        return(MakeHashNode(htbl, HashNodeKey(nlst), HashNodeValue(nlst),
+                MakeHashNodeList(htbl, AsHashNode(nlst)->Next), AsHashNode(nlst)->Hash,
+                "hash-table-copy"));
+    }
+
+    FAssert(nlst == NoValueObject);
+
+    return(nlst);
+}
+
 // ----------------
 
-#if 0
+void HashTableEphemeronBroken(FObject htbl)
+{
+    FAssert(HashTableP(htbl));
+
+    AsHashTable(htbl)->BrokenCount += 1;
+}
+
 static void
 HashTableClean(FObject htbl)
 {
@@ -343,29 +392,22 @@ HashTableClean(FObject htbl)
     FObject buckets = AsHashTable(htbl)->Buckets;
     for (uint_t idx = 0; idx < VectorLength(buckets); idx++)
     {
-        FObject nlst = AsVector(buckets)->Vector[idx];
-
-        while (HashNodeP(nlst))
-        {
-//            if (HashNodeBrokenP(nlst) == 0)
-//                accum = foldfn(HashNodeKey(nlst), HashNodeValue(nlst), ctx, accum);
-            nlst = AsHashNode(nlst)->Next;
-        }
+//        AsVector(buckets)->Vector[idx] =
+//                CopyHashNodeList(htbl, AsVector(buckets)->Vector[idx], NoValueObject,
+//                        "%hash-table-clean");
+        ModifyVector(buckets, idx,
+                CopyHashNodeList(htbl, AsVector(buckets)->Vector[idx], NoValueObject,
+                        "%hash-table-clean"));
     }
+
+    AsHashTable(htbl)->BrokenCount = 0;
 }
-#endif // 0
 
 static void
 HashTableAdjust(FObject htbl, uint_t sz)
 {
     FAssert(HashTableP(htbl));
     FAssert(VectorP(AsHashTable(htbl)->Buckets));
-
-#if 0
-    if ((AsHashTable(htbl)->Flags & HASH_TABLE_KEYS_MASK) != HASH_TABLE_NORMAL_KEYS ||
-            (AsHashTable(htbl)->Flags & HASH_TABLE_VALUES_MASK) != HASH_TABLE_NORMAL_VALUES)
-        HashTableClean(htbl);
-#endif // 0
 
     AsHashTable(htbl)->Size = sz;
 
@@ -376,7 +418,17 @@ HashTableAdjust(FObject htbl, uint_t sz)
     else if (AsHashTable(htbl)->Size * 16 < cap && cap > AsHashTable(htbl)->InitialCapacity)
         cap /= 2;
     else
+    {
+        if (AsHashTable(htbl)->BrokenCount * 5 > AsHashTable(htbl)->Size)
+        {
+            FAssert((AsHashTable(htbl)->Flags & HASH_TABLE_KEYS_MASK) != HASH_TABLE_NORMAL_KEYS ||
+                    (AsHashTable(htbl)->Flags & HASH_TABLE_VALUES_MASK) != HASH_TABLE_NORMAL_VALUES);
+
+            HashTableClean(htbl);
+        }
+
         return;
+    }
 
     FHashFn UseHashFn = AsHashTable(htbl)->UseHashFn;
     FObject nbuckets = MakeVector(cap, 0, NoValueObject);
@@ -387,24 +439,35 @@ HashTableAdjust(FObject htbl, uint_t sz)
         while (HashNodeP(nlst))
         {
             FObject node = nlst;
-            uint_t ndx = AsHashNode(nlst)->Hash % cap;
             nlst = AsHashNode(nlst)->Next;
 
-            if (UseHashFn == EqHash)
+            if (HashNodeBrokenP(node))
             {
-//                AsHashNode(node)->Next = AsVector(nbuckets)->Vector[ndx];
-                Modify(FHashNode, node, Next, AsVector(nbuckets)->Vector[ndx]);
+                FAssert(AsHashTable(htbl)->Size > 0);
+
+                AsHashTable(htbl)->Size -= 1;
             }
             else
-                node = CopyHashNode(node, AsVector(nbuckets)->Vector[ndx], "%hash-table-adjust");
+            {
+                uint_t ndx = AsHashNode(node)->Hash % cap;
 
-//            AsVector(nbuckets)->Vector[ndx] = node;
-            ModifyVector(nbuckets, ndx, node);
+                if (UseHashFn == EqHash)
+                {
+//                    AsHashNode(node)->Next = AsVector(nbuckets)->Vector[ndx];
+                    Modify(FHashNode, node, Next, AsVector(nbuckets)->Vector[ndx]);
+                }
+                else
+                    node = CopyHashNode(node, AsVector(nbuckets)->Vector[ndx], "%hash-table-adjust");
+
+//                AsVector(nbuckets)->Vector[ndx] = node;
+                ModifyVector(nbuckets, ndx, node);
+            }
         }
     }
 
 //    AsHashTable(htbl)->Buckets = nbuckets;
     Modify(FHashTable, htbl, Buckets, nbuckets);
+    AsHashTable(htbl)->BrokenCount = 0;
 }
 
 // ---- Eq Hash Tables ----
@@ -563,45 +626,6 @@ void HashTableSet(FObject htbl, FObject key, FObject val)
     HashTableAdjust(htbl, AsHashTable(htbl)->Size + 1);
 }
 
-static FObject CopyHashNodeList(FObject htbl, FObject nlst, FObject skp, const char * who)
-{
-    if (HashNodeP(nlst))
-    {
-        if (nlst == skp || (AsHashNode(nlst)->Flags & HASH_NODE_DELETED))
-            return(CopyHashNodeList(htbl, AsHashNode(nlst)->Next, skp, who));
-        if (HashNodeBrokenP(nlst))
-        {
-            FAssert(HashTableP(htbl));
-            AsHashTable(htbl)->Size -= 1;
-
-            return(CopyHashNodeList(htbl, AsHashNode(nlst)->Next, skp, who));
-        }
-        return(CopyHashNode(nlst, CopyHashNodeList(htbl, AsHashNode(nlst)->Next, skp, who), who));
-    }
-
-    FAssert(nlst == NoValueObject);
-
-    return(nlst);
-}
-
-static FObject MakeHashNodeList(FObject htbl, FObject nlst)
-{
-    if (HashNodeP(nlst))
-    {
-        if ((AsHashNode(nlst)->Flags & HASH_NODE_DELETED) || HashNodeBrokenP(nlst))
-            return(MakeHashNodeList(htbl, AsHashNode(nlst)->Next));
-
-        AsHashTable(htbl)->Size += 1;
-        return(MakeHashNode(htbl, HashNodeKey(nlst), HashNodeValue(nlst),
-                MakeHashNodeList(htbl, AsHashNode(nlst)->Next), AsHashNode(nlst)->Hash,
-                "hash-table-copy"));
-    }
-
-    FAssert(nlst == NoValueObject);
-
-    return(nlst);
-}
-
 void HashTableDelete(FObject htbl, FObject key)
 {
     FAssert(HashTableP(htbl));
@@ -755,7 +779,7 @@ static FObject HashTableCopy(FObject htbl)
 
     for (uint_t idx = 0; idx < VectorLength(buckets); idx++)
     {
-//        AsVector(nbuckets)->Vector[idx] = CopyHashNodeList(AsVector(buckets)->Vector[idx], 0);
+//        AsVector(nbuckets)->Vector[idx] = MakeHashNodeList(nhtbl, AsVector(buckets)->Vector[idx]);
         ModifyVector(nbuckets, idx, MakeHashNodeList(nhtbl, AsVector(buckets)->Vector[idx]));
     }
 

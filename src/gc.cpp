@@ -1005,6 +1005,7 @@ Again:
         {
             CheckObject(AsEphemeron(obj)->Key, 0, ef);
             CheckObject(AsEphemeron(obj)->Datum, 1, ef);
+            CheckObject(AsEphemeron(obj)->HashTable, 2, ef);
         }
         else if (AsObjHdr(obj)->SlotCount() > 0)
         {
@@ -1198,6 +1199,7 @@ Again:
                 LiveEphemerons += 1;
                 LiveObject(&eph->Key);
                 LiveObject(&eph->Datum);
+                LiveObject(&eph->HashTable);
 
                 *peph = eph->Next;
                 eph->Next = 0;
@@ -1279,13 +1281,14 @@ Again:
 
         FAssert(oh->SlotCount() == 0);
 
-        if (eph->Broken == 0)
+        if (eph->Next != EPHEMERON_BROKEN)
         {
             if (KeyEphemeronMap == 0 || ObjectP(eph->Key) == 0 || AliveP(eph->Key))
             {
                 LiveEphemerons += 1;
                 LiveObject(&eph->Key);
                 LiveObject(&eph->Datum);
+                LiveObject(&eph->HashTable);
             }
             else
             {
@@ -1303,6 +1306,7 @@ Again:
         {
             FAssert(eph->Key == FalseObject);
             FAssert(eph->Datum == FalseObject);
+            FAssert(eph->HashTable == NoValueObject);
         }
     }
 }
@@ -1546,10 +1550,13 @@ static void Collect()
             {
                 eph->Key = FalseObject;
                 eph->Datum = FalseObject;
-                eph->Broken = 1;
+
+                if (HashTableP(eph->HashTable))
+                    HashTableEphemeronBroken(eph->HashTable);
+                eph->HashTable = NoValueObject;
 
                 FEphemeron * neph = eph->Next;
-                eph->Next = 0;
+                eph->Next = EPHEMERON_BROKEN;
                 eph = neph;
             }
         }
@@ -2007,16 +2014,20 @@ Define("collect", CollectPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-FObject MakeEphemeron(FObject key, FObject dat)
+FObject MakeEphemeron(FObject key, FObject dat, FObject htbl)
 {
+    FAssert(htbl == NoValueObject || HashTableP(htbl));
+
     // Note that ephemerons are treated specially by the garbage collector and they are
     // allocated as having no slots.
     FEphemeron * eph =
             (FEphemeron *) MakeObject(EphemeronTag, sizeof(FEphemeron), 0, "make-ephemeron");
     eph->Key = key;
     eph->Datum = dat;
-    eph->Broken = 0;
+    eph->HashTable = htbl;
     eph->Next = 0;
+
+    FAssert(EphemeronBrokenP(eph) == 0);
 
     EnterExclusive(&GCExclusive);
     LiveEphemerons += 1;
@@ -2029,7 +2040,7 @@ void EphemeronKeySet(FObject eph, FObject key)
 {
     FAssert(EphemeronP(eph));
 
-    if (AsEphemeron(eph)->Broken == 0)
+    if (AsEphemeron(eph)->Next != EPHEMERON_BROKEN)
     {
 //        AsEphemeron(eph)->Key = key;
         Modify(FEphemeron, eph, Key, key);
@@ -2040,7 +2051,7 @@ void EphemeronDatumSet(FObject eph, FObject dat)
 {
     FAssert(EphemeronP(eph));
 
-    if (AsEphemeron(eph)->Broken == 0)
+    if (AsEphemeron(eph)->Next != EPHEMERON_BROKEN)
     {
 //        AsEphemeron(eph)->Datum = dat;
         Modify(FEphemeron, eph, Datum, dat);
@@ -2058,7 +2069,7 @@ Define("make-ephemeron", MakeEphemeronPrimitive)(int_t argc, FObject argv[])
 {
     TwoArgsCheck("make-ephemeron", argc);
 
-    return(MakeEphemeron(argv[0], argv[1]));
+    return(MakeEphemeron(argv[0], argv[1], NoValueObject));
 }
 
 Define("ephemeron-broken?", EphemeronBrokenPPrimitive)(int_t argc, FObject argv[])

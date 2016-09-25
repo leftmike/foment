@@ -541,7 +541,7 @@ void FWriteContext::WriteObject(FObject obj)
 
         WriteStringC("#<ephemeron: ");
         WriteString(s, sl);
-        if (AsEphemeron(obj)->Broken)
+        if (EphemeronBrokenP(obj))
             WriteStringC(" (broken)");
         WriteCh('>');
         break;
