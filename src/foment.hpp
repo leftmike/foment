@@ -9,11 +9,23 @@ To Do:
 -- Use extra generation for immortal objects which are precompiled libraries
 -- split base.scm into separate files
 
-HashTable and Comparator:
+HashTable:
 -- test hash tables
--- make Scheme hash table operations thread safe
--- add sets
--- add bags
+
+Red Edition:
+-- SRFI 41 (scheme stream)
+-- SRFI 101 (scheme list random-access)
+-- SRFI 113 (scheme set)
+-- SRFI 114 (scheme set char)
+-- SRFI 116 (scheme list immutable)
+-- SRFI 117 (scheme list queue)
+-- SRFI 121 (scheme generator)
+-- SRFI 125 (scheme hash-table)
+-- SRFI 128 (scheme lazy-seq)
+-- SRFI 132 (scheme sorting)
+-- SRFI 133 (scheme vector)
+-- SRFI 134 (scheme deque immutable)
+-- SRFI 135 (scheme textual)
 
 Future:
 -- change EternalSymbol (and Define) to set Symbol->Hash at compile time

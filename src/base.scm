@@ -469,6 +469,7 @@
         %hash-table-adjust!
         hash-table-mutable? ;; (srfi 125)
         %hash-table-immutable!
+        %hash-table-exclusive
         %hash-table-ref
         %hash-table-set!
         %hash-table-delete!

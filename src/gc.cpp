@@ -93,6 +93,9 @@ pthread_key_t ThreadKey;
 #define OBJECT_HDRFTR_LENGTH sizeof(FObjHdr)
 #endif // FOMENT_OBJFTR
 
+#define MAXIMUM_TOTAL_LENGTH (OBJECT_HDRFTR_LENGTH + OBJHDR_COUNT_MASK * OBJECT_ALIGNMENT)
+#define MINIMUM_TOTAL_LENGTH (OBJECT_HDRFTR_LENGTH + OBJECT_ALIGNMENT)
+
 typedef struct _Guardian
 {
     struct _Guardian * Next;
@@ -315,7 +318,8 @@ FObjFtr * AsObjFtr(FObjHdr * oh)
 }
 #endif // FOMENT_OBJFTR
 
-static void InitializeObjHdr(FObjHdr * oh, uint_t tsz, uint_t tag, uint_t gen, uint_t sz, uint_t sc)
+static void InitializeObjHdr(FObjHdr * oh, uint_t tsz, uint_t tag, uint_t gen, uint_t sz,
+    uint_t sc)
 {
     FAssert(tsz - sizeof(FObjHdr) >= OBJECT_ALIGNMENT);
 
@@ -327,7 +331,7 @@ static void InitializeObjHdr(FObjHdr * oh, uint_t tsz, uint_t tag, uint_t gen, u
     osz -= sizeof(FObjFtr);
 #endif // FOMENT_OBJFTR
 
-    FAssert(osz < OBJHDR_COUNT_MASK);
+    FAssert(osz < (OBJHDR_COUNT_MASK * OBJECT_ALIGNMENT));
     FAssert(osz % OBJECT_ALIGNMENT == 0);
 
     oh->BlockSizeAndCount = (uint32_t) (osz / OBJECT_ALIGNMENT);
@@ -426,6 +430,7 @@ static FObjHdr * AllocateAdult(uint_t tsz, const char * who)
         }
     }
     else
+//    if (oh == 0)
     {
         FObjHdr * foh = BigFreeAdults;
         FObjHdr ** pfoh = &BigFreeAdults;
@@ -534,7 +539,7 @@ FObject MakeObject(uint_t tag, uint_t sz, uint_t sc, const char * who, int_t pf)
     FAssert(tag != FreeTag);
     FAssert(sz >= sizeof(FObject) * sc);
 
-    if (tsz > OBJHDR_COUNT_MASK)
+    if (tsz > MAXIMUM_TOTAL_LENGTH)
         RaiseExceptionC(Restriction, who, "object too big", EmptyListObject);
     if (sc > OBJHDR_COUNT_MASK)
         RaiseExceptionC(Restriction, who, "too many slots", EmptyListObject);
@@ -1498,7 +1503,8 @@ static void Collect()
             FObjHdr * noh = (FObjHdr *) (((char *) oh) + tsz);
             while ((char *) noh < ((char *) Adults.Base) + AdultsUsed)
             {
-                if (MarkP(noh))
+                if (MarkP(noh)
+                    || ((char *) noh - (char *) oh) + noh->TotalSize() > MAXIMUM_TOTAL_LENGTH)
                     break;
                 noh = (FObjHdr *) (((char *) noh) + noh->TotalSize());
             }
@@ -1520,6 +1526,7 @@ static void Collect()
 
             InitializeObjHdr(oh, tsz, FreeTag, OBJHDR_GEN_ADULTS, 0, 0);
         }
+
         oh = (FObjHdr *) (((char *) oh) + tsz);
     }
 
@@ -1871,6 +1878,7 @@ int_t SetupCore(FThreadState * ts)
     FAssert(sizeof(FFixnum) <= sizeof(FImmediate));
     FAssert(sizeof(FCh) <= sizeof(FImmediate));
     FAssert(sizeof(FObjHdr) == OBJECT_ALIGNMENT);
+    FAssert(sizeof(FObjFtr) == OBJECT_ALIGNMENT);
     FAssert(BadDogTag <= OBJHDR_TAG_MASK + 1);
     FAssert(sizeof(FObject) <= OBJECT_ALIGNMENT);
     FAssert(sizeof(FCString) % OBJECT_ALIGNMENT == 0);
