@@ -564,7 +564,7 @@ static void SetupSignals()
     sigprocmask(SIG_BLOCK, &ss, 0);
 
     signal(SIGUSR2, HandleSigUsr2);
-    
+
     pthread_t pt;
     pthread_create(&pt, 0, SignalThread, 0);
 }

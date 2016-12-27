@@ -13,9 +13,11 @@ Foment
 #ifdef FOMENT_UNIX
 #include <pthread.h>
 #include <sys/mman.h>
+#include <sys/times.h>
+#include <unistd.h>
 #ifdef FOMENT_OSX
 #define MAP_ANONYMOUS MAP_ANON
-#endif // __APPLE__
+#endif // FOMENT_OSX
 #endif // FOMENT_UNIX
 
 #if defined(FOMENT_BSD) || defined(FOMENT_OSX)
@@ -41,7 +43,7 @@ uint_t MaximumKidsSize = 0;
 uint_t MaximumGenerationalBaby = 1024 * 64;
 
 #ifdef FOMENT_64BIT
-uint_t MaximumAdultsSize = 1024 * 1024 * 1024 * 4LL;
+uint_t MaximumAdultsSize = 1024 * 1024 * 1024 * 8LL;
 #endif // FOMENT_64BIT
 #ifdef FOMENT_32BIT
 uint_t MaximumAdultsSize = 1024 * 1024 * 1024;
@@ -83,6 +85,7 @@ unsigned int TlsIndex;
 
 #ifdef FOMENT_UNIX
 pthread_key_t ThreadKey;
+static uint_t ClockTicksPerSecond;
 #endif // FOMENT_UNIX
 
 #define FOMENT_OBJFTR 1
@@ -119,9 +122,16 @@ static uint_t LiveEphemerons;
 static FEphemeron ** KeyEphemeronMap;
 static uint_t KeyEphemeronMapSize;
 
-// ---- Roots ----
-
 FObject CleanupTConc = NoValueObject;
+
+// ---- Counts ----
+
+#define SIZE_COUNTS 256
+static uint64_t SizeCounts[SIZE_COUNTS];
+static uint64_t LargeCount;
+static uint64_t TagCounts[FreeTag];
+
+// ---- Roots ----
 
 static FObject * Roots[128];
 static uint_t RootsUsed = 0;
@@ -137,6 +147,39 @@ static inline uint_t RoundToPageSize(uint_t cnt)
     }
 
     return(cnt);
+}
+
+typedef struct
+{
+    uint64_t UserTimeMS;
+    uint64_t SystemTimeMS;
+} FProcessorTimes;
+
+static int TimesError = 0;
+static FProcessorTimes GCTimes;
+static FProcessorTimes TotalTimes;
+
+void GetProcessorTimes(FProcessorTimes * ptms)
+{
+#ifdef FOMENT_UNIX
+    struct tms tms;
+    if (times(&tms) != (clock_t) -1)
+    {
+        ptms->UserTimeMS = (tms.tms_utime * 1000) / ClockTicksPerSecond;
+        ptms->SystemTimeMS = (tms.tms_stime * 1000) / ClockTicksPerSecond;
+    }
+    else
+        TimesError = 1;
+#endif // FOMENT_UNIX
+
+#ifdef FOMENT_WINDOWS
+/*
+    FILETIME ft, fu, fs;
+    GetProcessTimes(GetCurrentProcess(), &ft, &ft, &fs, &fu);
+    ptms->UserTimeMS = fu.QuadPart / 10000;
+    ptms->SystemTimeMS = fs.QuadPart / 10000;
+*/
+#endif // FOMENT_WINDOWS
 }
 
 void * InitializeMemRegion(FMemRegion * mrgn, uint_t max)
@@ -543,6 +586,12 @@ FObject MakeObject(uint_t tag, uint_t sz, uint_t sc, const char * who, int_t pf)
         RaiseExceptionC(Restriction, who, "object too big", EmptyListObject);
     if (sc > OBJHDR_COUNT_MASK)
         RaiseExceptionC(Restriction, who, "too many slots", EmptyListObject);
+
+    TagCounts[tag] += 1;
+    if (tsz % OBJECT_ALIGNMENT < SIZE_COUNTS)
+        SizeCounts[tsz % OBJECT_ALIGNMENT] += 1;
+    else
+        LargeCount += 1;
 
     if (CollectorType == GenerationalCollector)
     {
@@ -1423,6 +1472,10 @@ static void Collect()
     if (VerboseFlag)
         printf("Garbage Collection...\n");
 
+    FProcessorTimes tstart;
+    if (TimesError == 0)
+        GetProcessorTimes(&tstart);
+
     if (CheckHeapFlag)
         CheckHeap(__FILE__, __LINE__);
 
@@ -1591,6 +1644,14 @@ static void Collect()
         {
             FAssert(0);
         }
+    }
+
+    FProcessorTimes tend;
+    GetProcessorTimes(&tend);
+    if (TimesError == 0)
+    {
+        GCTimes.UserTimeMS += (tend.UserTimeMS - tstart.UserTimeMS);
+        GCTimes.SystemTimeMS += (tend.SystemTimeMS - tstart.SystemTimeMS);
     }
 
     if (VerboseFlag)
@@ -1955,6 +2016,7 @@ int_t SetupCore(FThreadState * ts)
 
 #ifdef FOMENT_UNIX
     pthread_key_create(&ThreadKey, 0);
+    ClockTicksPerSecond = sysconf(_SC_CLK_TCK);
 #endif // FOMENT_UNIX
 
     InitializeExclusive(&GCExclusive);
@@ -2122,6 +2184,70 @@ Define("set-ephemeron-datum!", SetEphemeronDatumPrimitive)(int_t argc, FObject a
     return(NoValueObject);
 }
 
+Define("process-times", ProcessTimesPrimitive)(int_t argc, FObject argv[])
+{
+    ZeroArgsCheck("process-times", argc);
+
+    FProcessorTimes tnow;
+    GetProcessorTimes(&tnow);
+    if (TimesError != 0)
+        return(EmptyListObject);
+
+    return(List(MakeIntegerU(tnow.UserTimeMS - TotalTimes.UserTimeMS),
+            MakeIntegerU(tnow.SystemTimeMS - TotalTimes.SystemTimeMS),
+            MakeIntegerU(GCTimes.UserTimeMS), MakeIntegerU(GCTimes.SystemTimeMS)));
+}
+
+Define("process-times-clear!", ProcessTimesClearPrimitive)(int_t argc, FObject argv[])
+{
+    ZeroArgsCheck("process-times-clear!", argc);
+
+    TimesError = 0;
+    GetProcessorTimes(&TotalTimes);
+    return(NoValueObject);
+}
+
+Define("object-counts", ObjectCountsPrimitive)(int_t argc, FObject argv[])
+{
+    ZeroArgsCheck("object-counts", argc);
+
+    FObject lst = EmptyListObject;
+
+    for (int tdx = 1; tdx < FreeTag; tdx++)
+        if (TagCounts[tdx] > 0)
+            lst = MakePair(MakePair(StringCToSymbol(IndirectTagString[tdx]),
+                    MakeIntegerU(TagCounts[tdx])), lst);
+
+//#define SIZE_COUNTS 256
+//static uint64_t SizeCounts[SIZE_COUNTS];
+//static uint64_t LargeCount;
+    return(ReverseListModify(lst));
+}
+
+Define("object-counts-clear!", ObjectCountsClearPrimitive)(int_t argc, FObject argv[])
+{
+    ZeroArgsCheck("object-counts-clear!", argc);
+
+    memset(SizeCounts, 0, sizeof(SizeCounts));
+    LargeCount = 0;
+    memset(TagCounts, 0, sizeof(TagCounts));
+    return(NoValueObject);
+}
+
+Define("stack-used", StackUsedPrimitive)(int_t argc, FObject argv[])
+{
+    ZeroArgsCheck("stack-used", argc);
+
+    return(NoValueObject);
+}
+
+Define("stack-used-clear!", StackUsedClearPrimitive)(int_t argc, FObject argv[])
+{
+    ZeroArgsCheck("stack-used-clear!", argc);
+
+    return(NoValueObject);
+}
+
 static FObject Primitives[] =
 {
     InstallGuardianPrimitive,
@@ -2133,7 +2259,13 @@ static FObject Primitives[] =
     EphemeronKeyPrimitive,
     EphemeronDatumPrimitive,
     SetEphemeronKeyPrimitive,
-    SetEphemeronDatumPrimitive
+    SetEphemeronDatumPrimitive,
+    ProcessTimesPrimitive,
+    ProcessTimesClearPrimitive,
+    ObjectCountsPrimitive,
+    ObjectCountsClearPrimitive,
+    StackUsedPrimitive,
+    StackUsedClearPrimitive
 };
 
 void SetupGC()

@@ -9,6 +9,8 @@ To Do:
 -- Use extra generation for immortal objects which are precompiled libraries
 -- split base.scm into separate files
 
+-- document process-times[-clear!], object-counts[-clear!], stack-used[-clear!]
+
 HashTable:
 -- test hash tables
 

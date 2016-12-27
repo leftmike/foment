@@ -556,7 +556,13 @@
         object-type-tag
         lookup-type-tags
         comparator-context
-        comparator-context-set!)
+        comparator-context-set!
+        process-times
+        process-times-clear!
+        object-counts
+        object-counts-clear!
+        stack-used
+        stack-used-clear!)
     (cond-expand
         (unix
             (export
