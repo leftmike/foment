@@ -1174,6 +1174,7 @@ FObject MakeFlonum(double64_t dbl);
 // ---- Bignums ----
 
 #define BignumP(obj) (IndirectTag(obj) == BignumTag)
+void DeleteBignum(FObject obj);
 
 // ---- Ratios ----
 
@@ -1185,6 +1186,8 @@ typedef struct
     FObject Numerator;
     FObject Denominator;
 } FRatio;
+
+FObject MakeRatio(FObject nmr, FObject dnm);
 
 // ---- Complex ----
 
@@ -1242,6 +1245,9 @@ FObject MakeInteger(int64_t n);
 FObject MakeIntegerU(uint64_t n);
 FObject MakeInteger(uint32_t high, uint32_t low);
 uint32_t NumberHash(FObject obj);
+
+FObject GenericAdd(FObject z1, FObject z2);
+FObject GenericMultiply(FObject z1, FObject z2);
 
 // ---- Environments ----
 
