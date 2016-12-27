@@ -588,8 +588,8 @@ FObject MakeObject(uint_t tag, uint_t sz, uint_t sc, const char * who, int_t pf)
         RaiseExceptionC(Restriction, who, "too many slots", EmptyListObject);
 
     TagCounts[tag] += 1;
-    if (tsz % OBJECT_ALIGNMENT < SIZE_COUNTS)
-        SizeCounts[tsz % OBJECT_ALIGNMENT] += 1;
+    if (tsz / OBJECT_ALIGNMENT < SIZE_COUNTS)
+        SizeCounts[tsz / OBJECT_ALIGNMENT] += 1;
     else
         LargeCount += 1;
 
@@ -2198,9 +2198,9 @@ Define("process-times", ProcessTimesPrimitive)(int_t argc, FObject argv[])
             MakeIntegerU(GCTimes.UserTimeMS), MakeIntegerU(GCTimes.SystemTimeMS)));
 }
 
-Define("process-times-clear!", ProcessTimesClearPrimitive)(int_t argc, FObject argv[])
+Define("process-times-reset!", ProcessTimesResetPrimitive)(int_t argc, FObject argv[])
 {
-    ZeroArgsCheck("process-times-clear!", argc);
+    ZeroArgsCheck("process-times-reset!", argc);
 
     TimesError = 0;
     GetProcessorTimes(&TotalTimes);
@@ -2218,15 +2218,20 @@ Define("object-counts", ObjectCountsPrimitive)(int_t argc, FObject argv[])
             lst = MakePair(MakePair(StringCToSymbol(IndirectTagString[tdx]),
                     MakeIntegerU(TagCounts[tdx])), lst);
 
-//#define SIZE_COUNTS 256
-//static uint64_t SizeCounts[SIZE_COUNTS];
-//static uint64_t LargeCount;
+    for (int sdx = 0; sdx < SIZE_COUNTS; sdx++)
+        if (SizeCounts[sdx] > 0)
+            lst = MakePair(MakePair(MakeFixnum(sdx * OBJECT_ALIGNMENT),
+                    MakeIntegerU(SizeCounts[sdx])), lst);
+
+    if (LargeCount > 0)
+        lst = MakePair(MakePair(StringCToSymbol("large-size"), MakeIntegerU(LargeCount)), lst);
+
     return(ReverseListModify(lst));
 }
 
-Define("object-counts-clear!", ObjectCountsClearPrimitive)(int_t argc, FObject argv[])
+Define("object-counts-reset!", ObjectCountsResetPrimitive)(int_t argc, FObject argv[])
 {
-    ZeroArgsCheck("object-counts-clear!", argc);
+    ZeroArgsCheck("object-counts-reset!", argc);
 
     memset(SizeCounts, 0, sizeof(SizeCounts));
     LargeCount = 0;
@@ -2238,13 +2243,22 @@ Define("stack-used", StackUsedPrimitive)(int_t argc, FObject argv[])
 {
     ZeroArgsCheck("stack-used", argc);
 
-    return(NoValueObject);
+    FThreadState * ts = GetThreadState();
+    int_t used = 0;
+    if (ts->AStackUsed > ts->AStackPtr)
+        used += (ts->AStackUsed - ts->AStackPtr);
+    if (ts->CStackUsed > ts->CStackPtr)
+        used += (ts->CStackUsed - ts->CStackPtr);
+    return(MakeFixnum(used));
 }
 
-Define("stack-used-clear!", StackUsedClearPrimitive)(int_t argc, FObject argv[])
+Define("stack-used-reset!", StackUsedResetPrimitive)(int_t argc, FObject argv[])
 {
-    ZeroArgsCheck("stack-used-clear!", argc);
+    ZeroArgsCheck("stack-used-reset!", argc);
 
+    FThreadState * ts = GetThreadState();
+    ts->AStackUsed = ts->AStackPtr;
+    ts->CStackUsed = ts->CStackPtr;
     return(NoValueObject);
 }
 
@@ -2261,11 +2275,11 @@ static FObject Primitives[] =
     SetEphemeronKeyPrimitive,
     SetEphemeronDatumPrimitive,
     ProcessTimesPrimitive,
-    ProcessTimesClearPrimitive,
+    ProcessTimesResetPrimitive,
     ObjectCountsPrimitive,
-    ObjectCountsClearPrimitive,
+    ObjectCountsResetPrimitive,
     StackUsedPrimitive,
-    StackUsedClearPrimitive
+    StackUsedResetPrimitive
 };
 
 void SetupGC()

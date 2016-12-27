@@ -9,7 +9,7 @@ To Do:
 -- Use extra generation for immortal objects which are precompiled libraries
 -- split base.scm into separate files
 
--- document process-times[-clear!], object-counts[-clear!], stack-used[-clear!]
+-- document process-times[-reset!], object-counts[-reset!], stack-used[-reset!]
 
 HashTable:
 -- test hash tables
@@ -1440,8 +1440,10 @@ typedef struct _FThreadState
 
     FMemRegion Stack;
     int_t AStackPtr;
+    int_t AStackUsed;
     FObject * AStack;
     int_t CStackPtr;
+    int_t CStackUsed;
     FObject * CStack;
 
     FObject Proc;

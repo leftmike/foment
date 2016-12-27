@@ -596,18 +596,26 @@ static FObject Execute(FThreadState * ts)
                 if (ProcedureP(op))
                 {
 CallProcedure:
-                    if ((uint_t) ts->AStackPtr + 128 > ts->Stack.BottomUsed / sizeof(FObject)
-                        || (uint_t) ts->CStackPtr + 128 > ts->Stack.TopUsed / sizeof(FObject))
+                    if ((uint_t) ts->AStackPtr + 128 > ts->Stack.BottomUsed / sizeof(FObject))
                     {
                         if (GrowMemRegionUp(&ts->Stack,
                                 (ts->AStackPtr + 128) * sizeof(FObject)) == 0)
-                            RaiseExceptionC(Assertion, "foment", "out of memory",
-                                    EmptyListObject);
-                        if (GrowMemRegionDown(&ts->Stack,
-                                (ts->CStackPtr + 128) * sizeof(FObject)) == 0)
-                            RaiseExceptionC(Assertion, "foment", "out of memory",
+                            RaiseExceptionC(Assertion, "foment", "stack: out of memory",
                                     EmptyListObject);
                     }
+
+                    if ((uint_t) ts->CStackPtr + 128 > ts->Stack.TopUsed / sizeof(FObject))
+                    {
+                        if (GrowMemRegionDown(&ts->Stack,
+                                (ts->CStackPtr + 128) * sizeof(FObject)) == 0)
+                            RaiseExceptionC(Assertion, "foment", "stack: out of memory",
+                                    EmptyListObject);
+                    }
+
+                    if (ts->AStackPtr > ts->AStackUsed)
+                        ts->AStackUsed = ts->AStackPtr;
+                    if (ts->CStackPtr > ts->CStackUsed)
+                        ts->CStackUsed = ts->CStackPtr;
 
                     ts->CStack[- ts->CStackPtr] = ts->Proc;
                     ts->CStackPtr += 1;
@@ -883,18 +891,27 @@ TailCallPrimitive:
                 ts->ArgCount -= 2;
                 ts->AStackPtr -= 2;
 
+                if ((uint_t) ts->CStackPtr + 128 > ts->Stack.TopUsed / sizeof(FObject))
+                {
+                    if (GrowMemRegionDown(&ts->Stack,
+                            (ts->CStackPtr + 128) * sizeof(FObject)) == 0)
+                        RaiseExceptionC(Assertion, "foment", "stack: out of memory",
+                                EmptyListObject);
+                }
+
                 int_t ll = ListLength("apply", lst);
-                if ((uint_t) ts->CStackPtr + 128 > ts->Stack.TopUsed / sizeof(FObject)
-                        || (uint_t) ts->AStackPtr + ll + 128
-                                > ts->Stack.BottomUsed / sizeof(FObject))
+                if ((uint_t) ts->AStackPtr + ll + 128 > ts->Stack.BottomUsed / sizeof(FObject))
                 {
                     if (GrowMemRegionUp(&ts->Stack,
                             (ts->AStackPtr + ll + 128) * sizeof(FObject)) == 0)
-                        RaiseExceptionC(Assertion, "foment", "out of memory", EmptyListObject);
-                    if (GrowMemRegionDown(&ts->Stack,
-                            (ts->CStackPtr + 128) * sizeof(FObject)) == 0)
-                        RaiseExceptionC(Assertion, "foment", "out of memory", EmptyListObject);
+                        RaiseExceptionC(Assertion, "foment", "stack: out of memory",
+                                EmptyListObject);
                 }
+
+                if (ts->AStackPtr > ts->AStackUsed)
+                    ts->AStackUsed = ts->AStackPtr;
+                if (ts->CStackPtr > ts->CStackUsed)
+                    ts->CStackUsed = ts->CStackPtr;
 
                 FObject ptr = lst;
                 while (PairP(ptr))

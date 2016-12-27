@@ -558,11 +558,11 @@
         comparator-context
         comparator-context-set!
         process-times
-        process-times-clear!
+        process-times-reset!
         object-counts
-        object-counts-clear!
+        object-counts-reset!
         stack-used
-        stack-used-clear!)
+        stack-used-reset!)
     (cond-expand
         (unix
             (export
