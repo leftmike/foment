@@ -10,6 +10,7 @@ To Do:
 -- split base.scm into separate files
 
 -- document process-times[-reset!], object-counts[-reset!], stack-used[-reset!]
+-- add time and time-apply same as racket
 
 HashTable:
 -- test hash tables

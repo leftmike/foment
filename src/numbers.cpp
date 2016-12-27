@@ -189,13 +189,14 @@ inline static int_t BignumSign(FObject bn)
     return(mpz_sgn(AsBignum(bn)));
 }
 
-inline static void BignumAdd(FObject rbn, FObject bn1, FObject bn2)
+inline static FObject BignumAdd(FObject bn1, FObject bn2)
 {
-    FAssert(BignumP(rbn));
     FAssert(BignumP(bn1));
     FAssert(BignumP(bn2));
 
-    mpz_add(AsBignum(rbn), AsBignum(bn1), AsBignum(bn2));
+    FObject ret = MakeBignum();
+    mpz_add(AsBignum(ret), AsBignum(bn1), AsBignum(bn2));
+    return(ret);
 }
 
 inline static void BignumAddFixnum(FObject rbn, FObject bn, FFixnum n)
@@ -209,13 +210,14 @@ inline static void BignumAddFixnum(FObject rbn, FObject bn, FFixnum n)
         mpz_sub_ui(AsBignum(rbn), AsBignum(bn), (unsigned long) (- n));
 }
 
-inline static void BignumMultipy(FObject rbn, FObject bn1, FObject bn2)
+inline static FObject BignumMultiply(FObject bn1, FObject bn2)
 {
-    FAssert(BignumP(rbn));
     FAssert(BignumP(bn1));
     FAssert(BignumP(bn2));
 
-    mpz_mul(AsBignum(rbn), AsBignum(bn1), AsBignum(bn2));
+    FObject ret = MakeBignum();
+    mpz_mul(AsBignum(ret), AsBignum(bn1), AsBignum(bn2));
+    return(ret);
 }
 
 inline static void BignumMultiplyFixnum(FObject rbn, FObject bn, FFixnum n)
@@ -226,31 +228,34 @@ inline static void BignumMultiplyFixnum(FObject rbn, FObject bn, FFixnum n)
     mpz_mul_si(AsBignum(rbn), AsBignum(bn), (long) n);
 }
 
-inline static void BignumSubtract(FObject rbn, FObject bn1, FObject bn2)
+inline static FObject BignumSubtract(FObject bn1, FObject bn2)
 {
-    FAssert(BignumP(rbn));
     FAssert(BignumP(bn1));
     FAssert(BignumP(bn2));
 
-    mpz_sub(AsBignum(rbn), AsBignum(bn1), AsBignum(bn2));
+    FObject ret = MakeBignum();
+    mpz_sub(AsBignum(ret), AsBignum(bn1), AsBignum(bn2));
+    return(ret);
 }
 
-inline static void BignumDivide(FObject rbn, FObject n, FObject d)
+inline static FObject BignumDivide(FObject n, FObject d)
 {
-    FAssert(BignumP(rbn));
     FAssert(BignumP(n));
     FAssert(BignumP(d));
 
-    mpz_tdiv_q(AsBignum(rbn), AsBignum(n), AsBignum(d));
+    FObject ret = MakeBignum();
+    mpz_tdiv_q(AsBignum(ret), AsBignum(n), AsBignum(d));
+    return(ret);
 }
 
-inline static void BignumRemainder(FObject rbn, FObject n, FObject d)
+inline static FObject BignumRemainder(FObject n, FObject d)
 {
-    FAssert(BignumP(rbn));
     FAssert(BignumP(n));
     FAssert(BignumP(d));
 
-    mpz_tdiv_r(AsBignum(rbn), AsBignum(n), AsBignum(d));
+    FObject ret = MakeBignum();
+    mpz_tdiv_r(AsBignum(ret), AsBignum(n), AsBignum(d));
+    return(ret);
 }
 
 inline static FFixnum BignumRemainderFixnum(FObject n, FFixnum d)
@@ -268,57 +273,63 @@ inline static int_t BignumEqualFixnum(FObject bn, FFixnum n)
     return(mpz_cmp_si(AsBignum(bn), (long) n) == 0);
 }
 
-inline static void BignumExpt(FObject rbn, FObject bn, FFixnum e)
+inline static FObject BignumExpt(FObject bn, FFixnum e)
 {
-    FAssert(BignumP(rbn));
     FAssert(BignumP(bn));
     FAssert(e >= 0);
 
-    mpz_pow_ui(AsBignum(rbn), AsBignum(bn), (unsigned long) e);
+    FObject ret = MakeBignum();
+    mpz_pow_ui(AsBignum(ret), AsBignum(bn), (unsigned long) e);
+    return(ret);
 }
 
-inline static void BignumSqrt(FObject rt, FObject rem, FObject bn)
+inline static FObject BignumSqrt(FObject * rem, FObject bn)
 {
-    FAssert(BignumP(rt));
-    FAssert(BignumP(rem));
     FAssert(BignumP(bn));
 
-    mpz_sqrtrem(AsBignum(rt), AsBignum(rem), AsBignum(bn));
+    FObject ret = MakeBignum();
+    *rem = MakeBignum();
+    mpz_sqrtrem(AsBignum(ret), AsBignum(*rem), AsBignum(bn));
+    return(ret);
 }
 
-inline static void BignumAnd(FObject rbn, FObject bn1, FObject bn2)
+inline static FObject BignumAnd(FObject bn1, FObject bn2)
 {
-    FAssert(BignumP(rbn));
     FAssert(BignumP(bn1));
     FAssert(BignumP(bn2));
 
-    mpz_and(AsBignum(rbn), AsBignum(bn1), AsBignum(bn2));
+    FObject ret = MakeBignum();
+    mpz_and(AsBignum(ret), AsBignum(bn1), AsBignum(bn2));
+    return(ret);
 }
 
-inline static void BignumIOr(FObject rbn, FObject bn1, FObject bn2)
+inline static FObject BignumIOr(FObject bn1, FObject bn2)
 {
-    FAssert(BignumP(rbn));
     FAssert(BignumP(bn1));
     FAssert(BignumP(bn2));
 
-    mpz_ior(AsBignum(rbn), AsBignum(bn1), AsBignum(bn2));
+    FObject ret = MakeBignum();
+    mpz_ior(AsBignum(ret), AsBignum(bn1), AsBignum(bn2));
+    return(ret);
 }
 
-inline static void BignumXOr(FObject rbn, FObject bn1, FObject bn2)
+inline static FObject BignumXOr(FObject bn1, FObject bn2)
 {
-    FAssert(BignumP(rbn));
     FAssert(BignumP(bn1));
     FAssert(BignumP(bn2));
 
-    mpz_xor(AsBignum(rbn), AsBignum(bn1), AsBignum(bn2));
+    FObject ret = MakeBignum();
+    mpz_xor(AsBignum(ret), AsBignum(bn1), AsBignum(bn2));
+    return(ret);
 }
 
-inline static void BignumNot(FObject rbn, FObject bn)
+inline static FObject BignumNot(FObject bn)
 {
-    FAssert(BignumP(rbn));
     FAssert(BignumP(bn));
 
-    mpz_com(AsBignum(rbn), AsBignum(bn));
+    FObject ret = MakeBignum();
+    mpz_com(AsBignum(ret), AsBignum(bn));
+    return(ret);
 }
 
 inline static uint_t BignumBitCount(FObject bn)
@@ -422,18 +433,17 @@ static FObject MakeRatio(FObject nmr, FObject dnm)
 
         while (BignumEqualFixnum(d, 0) == 0)
         {
-            FObject t = MakeBignum();
-            BignumRemainder(t, n, d);
+            FObject t = BignumRemainder(n, d);
             n = d;
             d = t;
         }
 
-        BignumDivide(nmr, nmr, n);
+        nmr = BignumDivide(nmr, n);
 
         if (BignumCompare(dnm, n) == 0)
             return(Normalize(nmr));
 
-        BignumDivide(dnm, dnm, n);
+        dnm = BignumDivide(dnm, n);
 
         if (GenericSign(dnm) < 0)
         {
@@ -464,10 +474,7 @@ static FObject RatioDivide(FObject obj)
     if (FixnumP(AsNumerator(obj)) && FixnumP(AsDenominator(obj)))
         return(MakeFixnum(AsFixnum(AsNumerator(obj)) / AsFixnum(AsDenominator(obj))));
 
-    FObject rbn = MakeBignum();
-
-    BignumDivide(rbn, ToBignum(AsNumerator(obj)), ToBignum(AsDenominator(obj)));
-    return(Normalize(rbn));
+    return(Normalize(BignumDivide(ToBignum(AsNumerator(obj)), ToBignum(AsDenominator(obj)))));
 }
 
 #define AsReal(z) AsComplex(z)->Real
@@ -1499,9 +1506,7 @@ static FObject GenericAdd(FObject z1, FObject z2)
                 FAssert(BignumP(z1));
                 FAssert(BignumP(z2));
 
-                FObject rbn = MakeBignum();
-                BignumAdd(rbn, z1, z2);
-                return(Normalize(rbn));
+                return(Normalize(BignumAdd(z1, z2)));
             }
 
         case BOP_BIGRAT_COMPLEX:
@@ -1625,9 +1630,7 @@ static FObject GenericMultiply(FObject z1, FObject z2)
                 FAssert(BignumP(z1));
                 FAssert(BignumP(z2));
 
-                FObject rbn = MakeBignum();
-                BignumMultipy(rbn, z1, z2);
-                return(Normalize(rbn));
+                return(Normalize(BignumMultiply(z1, z2)));
             }
 
         case BOP_BIGRAT_COMPLEX:
@@ -1761,9 +1764,7 @@ static FObject GenericSubtract(FObject z1, FObject z2)
                 FAssert(BignumP(z1));
                 FAssert(BignumP(z2));
 
-                FObject rbn = MakeBignum();
-                BignumSubtract(rbn, z1, z2);
-                return(Normalize(rbn));
+                return(Normalize(BignumSubtract(z1, z2)));
             }
 
         case BOP_BIGRAT_COMPLEX:
@@ -2190,10 +2191,8 @@ static FObject GenericSqrt(FObject z)
 
     if (BignumP(z))
     {
-        FObject rt = MakeBignum();
-        FObject rem = MakeBignum();
-
-        BignumSqrt(rt, rem, z);
+        FObject rt, rem;
+        rt = BignumSqrt(&rem, z);
         if (GenericSign(rem) == 0)
             return(Normalize(rt));
 
@@ -2612,9 +2611,7 @@ Define("floor-quotient", FloorQuotientPrimitive)(int_t argc, FObject argv[])
 
     FObject n = ToBignum(argv[0]);
     FObject d = ToBignum(argv[1]);
-    FObject rbn = MakeBignum();
-
-    BignumDivide(rbn, n, d);
+    FObject rbn = BignumDivide(n, d);
 
     if (GenericSign(argv[0]) * GenericSign(argv[1]) < 0)
         BignumAddFixnum(rbn, rbn, -1);
@@ -2633,9 +2630,7 @@ Define("truncate-quotient", TruncateQuotientPrimitive)(int_t argc, FObject argv[
 
     FObject n = ToBignum(argv[0]);
     FObject d = ToBignum(argv[1]);
-    FObject rbn = MakeBignum();
-
-    BignumDivide(rbn, n, d);
+    FObject rbn = BignumDivide(n, d);
     return(FlonumP(argv[0]) || FlonumP(argv[1]) ? ToInexact(rbn) : Normalize(rbn));
 }
 
@@ -2646,9 +2641,7 @@ static FObject TruncateRemainder(FObject n, FObject d)
 
     FObject num = ToBignum(n);
     FObject den = ToBignum(d);
-    FObject rbn = MakeBignum();
-
-    BignumRemainder(rbn, num, den);
+    FObject rbn = BignumRemainder(num, den);
     return(FlonumP(n) || FlonumP(d) ? ToInexact(rbn) : Normalize(rbn));
 }
 
@@ -2975,10 +2968,8 @@ Define("%exact-integer-sqrt", ExactIntegerSqrtPrimitive)(int_t argc, FObject arg
         return(MakePair(MakeFixnum(rt), MakeFixnum(AsFixnum(argv[0]) - rt * rt)));
     }
 
-    FObject rt = MakeBignum();
-    FObject rem = MakeBignum();
-
-    BignumSqrt(rt, rem, argv[0]);
+    FObject rt, rem;
+    rt = BignumSqrt(&rem, argv[0]);
     return(MakePair(Normalize(rt), Normalize(rem)));
 }
 
@@ -3018,8 +3009,7 @@ Define("expt", ExptPrimitive)(int_t argc, FObject argv[])
 
         if (FixnumP(argv[0]) || BignumP(argv[0]))
         {
-            FObject rbn = MakeBignum();
-            BignumExpt(rbn, ToBignum(argv[0]), e);
+            FObject rbn = BignumExpt(ToBignum(argv[0]), e);
             return(AsFixnum(argv[1]) < 0 ? MakeRatio(MakeFixnum(1), rbn) : Normalize(rbn));
         }
 
@@ -3161,17 +3151,14 @@ Define("bitwise-and", BitwiseAndPrimitive)(int_t argc, FObject argv[])
         return(MakeFixnum(-1));
 
     IntegerArgCheck("bitwise-and", argv[0]);
-    FObject ret = BignumP(argv[0]) ? MakeBignum(argv[0]) : argv[0];
+    FObject ret = argv[0];
 
     for (int_t adx = 1; adx < argc; adx++)
     {
         IntegerArgCheck("bitwise-and", argv[adx]);
 
         if (BignumP(ret) || BignumP(argv[adx]))
-        {
-            ret = ToBignum(ret);
-            BignumAnd(ret, ret, ToBignum(argv[adx]));
-        }
+            ret = BignumAnd(ToBignum(ret), ToBignum(argv[adx]));
         else
         {
             FAssert(FixnumP(ret));
@@ -3190,17 +3177,14 @@ Define("bitwise-ior", BitwiseIOrPrimitive)(int_t argc, FObject argv[])
         return(MakeFixnum(0));
 
     IntegerArgCheck("bitwise-ior", argv[0]);
-    FObject ret = BignumP(argv[0]) ? MakeBignum(argv[0]) : argv[0];
+    FObject ret = argv[0];
 
     for (int_t adx = 1; adx < argc; adx++)
     {
         IntegerArgCheck("bitwise-ior", argv[adx]);
 
         if (BignumP(ret) || BignumP(argv[adx]))
-        {
-            ret = ToBignum(ret);
-            BignumIOr(ret, ret, ToBignum(argv[adx]));
-        }
+            ret = BignumIOr(ToBignum(ret), ToBignum(argv[adx]));
         else
         {
             FAssert(FixnumP(ret));
@@ -3219,17 +3203,14 @@ Define("bitwise-xor", BitwiseXOrPrimitive)(int_t argc, FObject argv[])
         return(MakeFixnum(0));
 
     IntegerArgCheck("bitwise-xor", argv[0]);
-    FObject ret = BignumP(argv[0]) ? MakeBignum(argv[0]) : argv[0];
+    FObject ret =  argv[0];
 
     for (int_t adx = 1; adx < argc; adx++)
     {
         IntegerArgCheck("bitwise-xor", argv[adx]);
 
         if (BignumP(ret) || BignumP(argv[adx]))
-        {
-            ret = ToBignum(ret);
-            BignumXOr(ret, ret, ToBignum(argv[adx]));
-        }
+            ret = BignumXOr(ToBignum(ret), ToBignum(argv[adx]));
         else
         {
             FAssert(FixnumP(ret));
@@ -3248,11 +3229,7 @@ Define("bitwise-not", BitwiseNotPrimitive)(int_t argc, FObject argv[])
     IntegerArgCheck("bitwise-not", argv[0]);
 
     if (BignumP(argv[0]))
-    {
-        FObject ret = MakeBignum();
-        BignumNot(ret, argv[0]);
-        return(Normalize(ret));
-    }
+        return(Normalize(BignumNot(argv[0])));
 
     return(MakeFixnum(~AsFixnum(argv[0])));
 }
