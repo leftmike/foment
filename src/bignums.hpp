@@ -19,7 +19,6 @@ inline double64_t Truncate(double64_t n)
 #endif // FOMENT_WINDOWS
 }
 
-FObject MakeBignum();
 FObject MakeBignum(FFixnum n);
 FObject MakeBignum(double64_t d);
 FObject MakeBignum(FObject n);
@@ -34,9 +33,9 @@ int_t BignumCompare(FObject bn1, FObject bn2);
 int_t BignumCompareFixnum(FObject bn, FFixnum n);
 int_t BignumSign(FObject bn);
 FObject BignumAdd(FObject bn1, FObject bn2);
-void BignumAddFixnum(FObject rbn, FObject bn, FFixnum n);
+FObject BignumAddFixnum(FObject bn, FFixnum n);
 FObject BignumMultiply(FObject bn1, FObject bn2);
-void BignumMultiplyFixnum(FObject rbn, FObject bn, FFixnum n);
+FObject BignumMultiplyFixnum(FObject bn, FFixnum n);
 FObject BignumSubtract(FObject bn1, FObject bn2);
 FObject BignumDivide(FObject n, FObject d);
 FObject BignumRemainder(FObject n, FObject d);

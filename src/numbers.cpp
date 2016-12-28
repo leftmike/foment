@@ -129,11 +129,8 @@ FObject MakeRatio(FObject nmr, FObject dnm)
             FAssert(BignumP(dnm));
             FAssert(BignumP(nmr));
 
-            dnm = MakeBignum(dnm);
-            nmr = MakeBignum(nmr);
-
-            BignumMultiplyFixnum(dnm, dnm, -1);
-            BignumMultiplyFixnum(nmr, nmr, -1);
+            dnm = BignumMultiplyFixnum(dnm, -1);
+            nmr = BignumMultiplyFixnum(nmr, -1);
         }
     }
 
@@ -1136,9 +1133,7 @@ FObject GenericAdd(FObject z1, FObject z2)
             {
                 FAssert(BignumP(z1));
 
-                FObject rbn = MakeBignum();
-                BignumAddFixnum(rbn, z1, AsFixnum(z2));
-                return(Normalize(rbn));
+                return(Normalize(BignumAddFixnum(z1, AsFixnum(z2))));
             }
 
         case BOP_COMPLEX_BIGRAT:
@@ -1178,9 +1173,7 @@ FObject GenericAdd(FObject z1, FObject z2)
             {
                 FAssert(BignumP(z2));
 
-                FObject rbn = MakeBignum();
-                BignumAddFixnum(rbn, z2, AsFixnum(z1));
-                return(Normalize(rbn));
+                return(Normalize(BignumAddFixnum(z2, AsFixnum(z1))));
             }
 
         case BOP_FIXED_COMPLEX:
@@ -1193,11 +1186,7 @@ FObject GenericAdd(FObject z1, FObject z2)
         {
             int64_t n = AsFixnum(z1) + AsFixnum(z2);
             if (n < MINIMUM_FIXNUM || n > MAXIMUM_FIXNUM)
-            {
-                FObject bn = MakeBignum(AsFixnum(z1));
-                BignumAddFixnum(bn, bn, AsFixnum(z2));
-                return(Normalize(bn));
-            }
+                return(Normalize(BignumAddFixnum(MakeBignum(AsFixnum(z1)), AsFixnum(z2))));
 
             return(MakeFixnum(n));
         }
@@ -1260,9 +1249,7 @@ FObject GenericMultiply(FObject z1, FObject z2)
             {
                 FAssert(BignumP(z1));
 
-                FObject rbn = MakeBignum();
-                BignumMultiplyFixnum(rbn, z1, AsFixnum(z2));
-                return(Normalize(rbn));
+                return(Normalize(BignumMultiplyFixnum(z1, AsFixnum(z2))));
             }
 
         case BOP_COMPLEX_BIGRAT:
@@ -1306,9 +1293,7 @@ FObject GenericMultiply(FObject z1, FObject z2)
             {
                 FAssert(BignumP(z2));
 
-                FObject rbn = MakeBignum();
-                BignumMultiplyFixnum(rbn, z2, AsFixnum(z1));
-                return(Normalize(rbn));
+                return(Normalize(BignumMultiplyFixnum(z2, AsFixnum(z1))));
             }
 
         case BOP_FIXED_COMPLEX:
@@ -1322,11 +1307,7 @@ FObject GenericMultiply(FObject z1, FObject z2)
         {
             int64_t n = AsFixnum(z1) * AsFixnum(z2);
             if (n < MINIMUM_FIXNUM || n > MAXIMUM_FIXNUM)
-            {
-                FObject bn = MakeBignum(AsFixnum(z1));
-                BignumMultiplyFixnum(bn, bn, AsFixnum(z2));
-                return(Normalize(bn));
-            }
+                return(Normalize(BignumMultiplyFixnum(MakeBignum(AsFixnum(z1)), AsFixnum(z2))));
 
             return(MakeFixnum(n));
         }
@@ -1395,9 +1376,7 @@ static FObject GenericSubtract(FObject z1, FObject z2)
             {
                 FAssert(BignumP(z1));
 
-                FObject rbn = MakeBignum();
-                BignumAddFixnum(rbn, z1, - AsFixnum(z2));
-                return(Normalize(rbn));
+                return(Normalize(BignumAddFixnum(z1, - AsFixnum(z2))));
             }
 
         case BOP_COMPLEX_BIGRAT:
@@ -1438,10 +1417,8 @@ static FObject GenericSubtract(FObject z1, FObject z2)
             {
                 FAssert(BignumP(z2));
 
-                FObject rbn = MakeBignum(z2);
-                BignumMultiplyFixnum(rbn, rbn, -1);
-                BignumAddFixnum(rbn, rbn, AsFixnum(z1));
-                return(Normalize(rbn));
+                return(Normalize(BignumAddFixnum(BignumMultiplyFixnum(MakeBignum(z2), -1),
+                        AsFixnum(z1))));
             }
 
         case BOP_FIXED_COMPLEX:
@@ -1455,11 +1432,7 @@ static FObject GenericSubtract(FObject z1, FObject z2)
         {
             int64_t n = AsFixnum(z1) - AsFixnum(z2);
             if (n < MINIMUM_FIXNUM || n > MAXIMUM_FIXNUM)
-            {
-                FObject bn = MakeBignum(AsFixnum(z1));
-                BignumAddFixnum(bn, bn, - AsFixnum(z2));
-                return(Normalize(bn));
-            }
+                return(Normalize(BignumAddFixnum(MakeBignum(AsFixnum(z1)), - AsFixnum(z2))));
 
             return(MakeFixnum(n));
         }
@@ -2221,7 +2194,7 @@ Define("floor-quotient", FloorQuotientPrimitive)(int_t argc, FObject argv[])
     FObject rbn = BignumDivide(n, d);
 
     if (GenericSign(argv[0]) * GenericSign(argv[1]) < 0)
-        BignumAddFixnum(rbn, rbn, -1);
+        rbn = BignumAddFixnum(rbn, -1);
 
     return(FlonumP(argv[0]) || FlonumP(argv[1]) ? ToInexact(rbn) : Normalize(rbn));
 }

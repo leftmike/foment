@@ -139,10 +139,12 @@ typedef char FChS;
 
 typedef void * FObject;
 typedef uint32_t FCh;
+//typedef int int_t;
+//typedef unsigned int uint_t;
 
 #ifdef FOMENT_32BIT
-typedef uint32_t FImmediate;
-typedef int32_t FFixnum;
+typedef int32_t long_t;
+typedef uint32_t ulong_t;
 typedef int32_t int_t;
 typedef uint32_t uint_t;
 
@@ -151,8 +153,8 @@ typedef uint32_t uint_t;
 #endif // FOMENT_32BIT
 
 #ifdef FOMENT_64BIT
-typedef uint64_t FImmediate;
-typedef int64_t FFixnum;
+typedef int64_t long_t;
+typedef uint64_t ulong_t;
 typedef int64_t int_t;
 typedef uint64_t uint_t;
 
@@ -164,6 +166,9 @@ typedef uint64_t uint_t;
 #define UINT_FMT "%lu"
 #endif // FOMENT_OSX
 #endif // FOMENT_64BIT
+
+typedef ulong_t FImmediate;
+typedef long_t FFixnum;
 
 #ifdef FOMENT_DEBUG
 void FAssertFailed(const char * fn, int_t ln, const char * expr);
@@ -238,6 +243,7 @@ typedef enum
 
 #define MAXIMUM_FIXNUM ((((FFixnum) 1) << (sizeof(int32_t) * 8 - 4)) - 1)
 #define MINIMUM_FIXNUM (- MAXIMUM_FIXNUM)
+#define FIXNUM_BITS (sizeof(FFixnum) * 8)
 
 #define NormalizeHash(hsh) ((hsh) & MAXIMUM_FIXNUM)
 
@@ -387,10 +393,10 @@ void ModifyVector(FObject obj, uint_t idx, FObject val);
     Modify(FProcedure, proc, Name, nam);
 */
 #define Modify(type, obj, slot, val)\
-    ModifyObject(obj, (uint_t) &(((type *) 0)->slot), val)
+    ModifyObject(obj, (ulong_t) &(((type *) 0)->slot), val)
 
 // Do not directly call ModifyObject; use Modify instead.
-void ModifyObject(FObject obj, uint_t off, FObject val);
+void ModifyObject(FObject obj, ulong_t off, FObject val);
 
 void InstallGuardian(FObject obj, FObject tconc);
 void InstallTracker(FObject obj, FObject ret, FObject tconc);

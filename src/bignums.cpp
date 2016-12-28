@@ -4,19 +4,64 @@ Foment
 
 */
 
+#include <string.h>
 #include "foment.hpp"
 #include "unicode.hpp"
 #include "bignums.hpp"
 #include "mini-gmp.h"
 
 #define AsBignum(obj) ((FBignum *) (obj))->MPInteger
+#define AsNBignum(obj) ((FBignum *) (obj))
+
+#ifdef FOMENT_32BIT
+#define MAXIMUM_DIGIT_COUNT (((uint_t) 1 << sizeof(uint16_t) * 8) - 1)
+#endif // FOMENT_32BIT
+#ifdef FOMENT_64BIT
+#define MAXIMUM_DIGIT_COUNT (((uint_t) 1 << sizeof(uint32_t) * 8) - 1)
+#endif // FOMENT_64BIT
+
+#define HALF_BITS (sizeof(uint_t) * 4)
+#define LO_MASK (((uint_t) 1 << HALF_BITS) - 1)
+#define HI_HALF(digit) (((digit) >> HALF_BITS) & LO_MASK)
+#define LO_HALF(digit) ((digit) & LO_MASK)
 
 typedef struct
 {
     mpz_t MPInteger;
+    int8_t Sign;
+#ifdef FOMENT_32BIT
+    int8_t Pad;
+    uint16_t Used;
+#endif // FOMENT_32BIT
+#ifdef FOMENT_64BIT
+    int8_t Pad[3];
+    uint32_t Used;
+#endif // FOMENT_64BIT
+    uint_t Digits[1];
 } FBignum;
 
-FObject MakeBignum()
+static inline uint_t DigitCount(FObject bn)
+{
+    FAssert(BignumP(bn));
+
+    return((ByteLength(bn) - sizeof(FBignum)) / sizeof(uint_t) + 1);
+}
+
+static inline void SetDigitsUsed(FBignum * bn)
+{
+    bn->Used = DigitCount(bn);
+    while (bn->Used > 0)
+    {
+        bn->Used -= 1;
+        if (bn->Digits[bn->Used] != 0)
+            break;
+    }
+}
+
+static void BignumAddFixnum(FObject rbn, FObject bn, FFixnum n);
+static void BignumMultiplyFixnum(FObject rbn, FObject bn, FFixnum n);
+
+static FObject MakeBignum()
 {
     FBignum * bn = (FBignum *) MakeObject(BignumTag, sizeof(FBignum), 0, "%make-bignum");
     mpz_init(bn->MPInteger);
@@ -25,11 +70,40 @@ FObject MakeBignum()
     return(bn);
 }
 
+static FBignum * MakeBignumCount(uint_t bc)
+{
+    FAssert(bc > 0);
+    FAssert(bc < MAXIMUM_DIGIT_COUNT);
+
+    FBignum * bn = (FBignum *) MakeObject(BignumTag, sizeof(FBignum) + (bc - 1) * sizeof(uint_t),
+            0, "%make-bignum");
+    bn->Sign = 0;
+    bn->Used = 0;
+    memset(bn->Digits, 0, bc * sizeof(uint_t));
+
+    FAssert(DigitCount(bn) == bc);
+
+    return(bn);
+}
+
 FObject MakeBignum(FFixnum n)
 {
-    FBignum * bn = (FBignum *) MakeObject(BignumTag, sizeof(FBignum), 0, "%make-bignum");
+    FAssert(sizeof(FFixnum) == sizeof(uint_t));
+
+    FBignum * bn = MakeBignumCount(1);
     mpz_init_set_si(bn->MPInteger, (long) n);
     InstallGuardian(bn, CleanupTConc);
+
+    if (n >= 0)
+        bn->Sign = 1;
+    else
+    {
+        bn->Sign = -1;
+        n = -n;
+    }
+
+    bn->Digits[0] = n;
+    SetDigitsUsed(bn);
 
     return(bn);
 }
@@ -124,9 +198,49 @@ double64_t BignumToDouble(FObject bn)
     return(mpz_get_d(AsBignum(bn)));
 }
 
+/*
+Destructively divide bn by digit; the quotient is left in bn and the remainder is returned;
+hdigit must fit in half a uint_t. The quotient is not normalized.
+*/
+/*static*/ uint_t BignumHDigitDivide(FBignum * bn, uint_t hdigit)
+{
+    FAssert(hdigit <= ((uint_t) 1 << HALF_BITS) - 1);
+
+    uint_t q0 = 0;
+    uint_t r0 = 0;
+    uint_t q1, r1;
+
+    for (uint_t idx = bn->Used - 1; idx > 0; idx--)
+    {
+        q1 = bn->Digits[idx] / hdigit + q0;
+        r1 = ((bn->Digits[idx] % hdigit) << HALF_BITS) + HI_HALF(bn->Digits[idx - 1]);
+        q0 = ((r1 / hdigit) << HALF_BITS);
+        r0 = r1 % hdigit;
+        bn->Digits[idx] = q1;
+        bn->Digits[idx - 1] = (r0 << HALF_BITS) + LO_HALF(bn->Digits[idx - 1]);
+    }
+
+    q1 = bn->Digits[0] / hdigit + q0;
+    r1 = bn->Digits[0] % hdigit;
+    bn->Digits[0] = q1;
+
+    return(r1);
+}
+
 char * BignumToStringC(FObject bn, FFixnum rdx)
 {
     return(mpz_get_str(0, (int) rdx, AsBignum(bn)));
+}
+
+/*static*/ char * NBignumToStringC(FObject bn, FFixnum rdx)
+{
+    // change typedef of int_t to long_t and uint_t to ulong_t
+    // add typedef int int_t and typedef unsigned int uint_t
+    // change uses of int_t and uint_t to long_t and ulong_t
+    // INT_FMT --> LONG_FMT
+    // UINT_FMT --> ULONG_FMT
+
+    return(0);
 }
 
 static inline FFixnum TensDigit(double64_t n)
@@ -238,7 +352,7 @@ FObject BignumAdd(FObject bn1, FObject bn2)
     return(ret);
 }
 
-void BignumAddFixnum(FObject rbn, FObject bn, FFixnum n)
+static void BignumAddFixnum(FObject rbn, FObject bn, FFixnum n)
 {
     FAssert(BignumP(rbn));
     FAssert(BignumP(bn));
@@ -247,6 +361,18 @@ void BignumAddFixnum(FObject rbn, FObject bn, FFixnum n)
         mpz_add_ui(AsBignum(rbn), AsBignum(bn), (unsigned long) n);
     else
         mpz_sub_ui(AsBignum(rbn), AsBignum(bn), (unsigned long) (- n));
+}
+
+FObject BignumAddFixnum(FObject bn, FFixnum n)
+{
+    FAssert(BignumP(bn));
+
+    FObject ret = MakeBignum();
+    if (n > 0)
+        mpz_add_ui(AsBignum(ret), AsBignum(bn), (unsigned long) n);
+    else
+        mpz_sub_ui(AsBignum(ret), AsBignum(bn), (unsigned long) (- n));
+    return(ret);
 }
 
 FObject BignumMultiply(FObject bn1, FObject bn2)
@@ -259,12 +385,21 @@ FObject BignumMultiply(FObject bn1, FObject bn2)
     return(ret);
 }
 
-void BignumMultiplyFixnum(FObject rbn, FObject bn, FFixnum n)
+static void BignumMultiplyFixnum(FObject rbn, FObject bn, FFixnum n)
 {
     FAssert(BignumP(rbn));
     FAssert(BignumP(bn));
 
     mpz_mul_si(AsBignum(rbn), AsBignum(bn), (long) n);
+}
+
+FObject BignumMultiplyFixnum(FObject bn, FFixnum n)
+{
+    FAssert(BignumP(bn));
+
+    FObject ret = MakeBignum();
+    mpz_mul_si(AsBignum(ret), AsBignum(bn), (long) n);
+    return(ret);
 }
 
 FObject BignumSubtract(FObject bn1, FObject bn2)
