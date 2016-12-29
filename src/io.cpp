@@ -3117,7 +3117,7 @@ Define("set-port-position!", SetPortPositionPrimitive)(long_t argc, FObject argv
 
 Define("socket-merge-flags", SocketMergeFlagsPrimitive)(long_t argc, FObject argv[])
 {
-    FFixnum ret = 0;
+    long_t ret = 0;
 
     for (long_t adx = 0; adx < argc; adx++)
     {
@@ -3134,7 +3134,7 @@ Define("socket-purge-flags", SocketPurgeFlagsPrimitive)(long_t argc, FObject arg
     AtLeastOneArgCheck("socket-purge-flags", argc);
     FixnumArgCheck("socket-purge-flags", argv[0]);
 
-    FFixnum ret = AsFixnum(argv[0]);
+    long_t ret = AsFixnum(argv[0]);
 
     for (long_t adx = 1; adx < argc; adx++)
     {

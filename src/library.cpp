@@ -30,7 +30,7 @@ static void
 WriteEnvironment(FWriteContext * wctx, FObject obj)
 {
     FCh s[16];
-    long_t sl = FixnumAsString((FFixnum) obj, s, 16);
+    long_t sl = FixnumAsString((long_t) obj, s, 16);
 
     wctx->WriteStringC("#<environment: #x");
     wctx->WriteString(s, sl);
@@ -237,7 +237,7 @@ static void
 WriteGlobal(FWriteContext * wctx, FObject obj)
 {
     FCh s[16];
-    long_t sl = FixnumAsString((FFixnum) obj, s, 16);
+    long_t sl = FixnumAsString((long_t) obj, s, 16);
 
     wctx->WriteStringC("#<global: #x");
     wctx->WriteString(s, sl);
@@ -295,7 +295,7 @@ static void
 WriteLibrary(FWriteContext * wctx, FObject obj)
 {
     FCh s[16];
-    long_t sl = FixnumAsString((FFixnum) obj, s, 16);
+    long_t sl = FixnumAsString((long_t) obj, s, 16);
 
     wctx->WriteStringC("#<library: #x");
     wctx->WriteString(s, sl);

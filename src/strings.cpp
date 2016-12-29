@@ -604,8 +604,8 @@ Define("string-append", StringAppendPrimitive)(long_t argc, FObject argv[])
 
 Define("string->list", StringToListPrimitive)(long_t argc, FObject argv[])
 {
-    FFixnum strt;
-    FFixnum end;
+    long_t strt;
+    long_t end;
 
     OneToThreeArgsCheck("string->list", argc);
     StringArgCheck("string->list", argv[0]);
@@ -623,19 +623,19 @@ Define("string->list", StringToListPrimitive)(long_t argc, FObject argv[])
             end = AsFixnum(argv[2]);
         }
         else
-            end = (FFixnum) StringLength(argv[0]);
+            end = (long_t) StringLength(argv[0]);
     }
     else
     {
         strt = 0;
-        end = (FFixnum) StringLength(argv[0]);
+        end = (long_t) StringLength(argv[0]);
     }
 
     FAssert(end >= strt);
 
     FObject lst = EmptyListObject;
 
-    for (FFixnum idx = end; idx > strt; idx--)
+    for (long_t idx = end; idx > strt; idx--)
         lst = MakePair(MakeCharacter(AsString(argv[0])->String[idx - 1]), lst);
 
     return(lst);
@@ -667,8 +667,8 @@ Define("list->string", ListToStringPrimitive)(long_t argc, FObject argv[])
 
 Define("string-copy", StringCopyPrimitive)(long_t argc, FObject argv[])
 {
-    FFixnum strt;
-    FFixnum end;
+    long_t strt;
+    long_t end;
 
     OneToThreeArgsCheck("string-copy", argc);
     StringArgCheck("string-copy", argv[0]);
@@ -686,12 +686,12 @@ Define("string-copy", StringCopyPrimitive)(long_t argc, FObject argv[])
             end = AsFixnum(argv[2]);
         }
         else
-            end = (FFixnum) StringLength(argv[0]);
+            end = (long_t) StringLength(argv[0]);
     }
     else
     {
         strt = 0;
-        end = (FFixnum) StringLength(argv[0]);
+        end = (long_t) StringLength(argv[0]);
     }
 
     FAssert(end >= strt);
@@ -701,8 +701,8 @@ Define("string-copy", StringCopyPrimitive)(long_t argc, FObject argv[])
 
 Define("string-copy!", StringCopyModifyPrimitive)(long_t argc, FObject argv[])
 {
-    FFixnum strt;
-    FFixnum end;
+    long_t strt;
+    long_t end;
 
     ThreeToFiveArgsCheck("string-copy!", argc);
     StringArgCheck("string-copy!", argv[0]);
@@ -722,15 +722,15 @@ Define("string-copy!", StringCopyModifyPrimitive)(long_t argc, FObject argv[])
             end = AsFixnum(argv[4]);
         }
         else
-            end = (FFixnum) StringLength(argv[2]);
+            end = (long_t) StringLength(argv[2]);
     }
     else
     {
         strt = 0;
-        end = (FFixnum) StringLength(argv[2]);
+        end = (long_t) StringLength(argv[2]);
     }
 
-    if ((FFixnum) StringLength(argv[0]) - AsFixnum(argv[1]) < end - strt)
+    if ((long_t) StringLength(argv[0]) - AsFixnum(argv[1]) < end - strt)
         RaiseExceptionC(Assertion, "string-copy!", "expected a valid index", List(argv[1]));
 
     FAssert(end >= strt);
@@ -743,8 +743,8 @@ Define("string-copy!", StringCopyModifyPrimitive)(long_t argc, FObject argv[])
 
 Define("string-fill!", StringFillPrimitive)(long_t argc, FObject argv[])
 {
-    FFixnum strt;
-    FFixnum end;
+    long_t strt;
+    long_t end;
 
     TwoToFourArgsCheck("string-fill!", argc);
     StringArgCheck("string-fill!", argv[0]);
@@ -763,18 +763,18 @@ Define("string-fill!", StringFillPrimitive)(long_t argc, FObject argv[])
             end = AsFixnum(argv[3]);
         }
         else
-            end = (FFixnum) StringLength(argv[0]);
+            end = (long_t) StringLength(argv[0]);
     }
     else
     {
         strt = 0;
-        end = (FFixnum) StringLength(argv[0]);
+        end = (long_t) StringLength(argv[0]);
     }
 
     FAssert(end >= strt);
 
     FCh ch = AsCharacter(argv[1]);
-    for (FFixnum idx = strt; idx < end; idx++)
+    for (long_t idx = strt; idx < end; idx++)
         AsString(argv[0])->String[idx] = ch;
 
     return(NoValueObject);

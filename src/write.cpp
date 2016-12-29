@@ -237,7 +237,7 @@ void FWriteContext::WriteRecord(FObject obj)
     {
         FObject rt = AsGenericRecord(obj)->Fields[0];
         FCh s[16];
-        long_t sl = FixnumAsString((FFixnum) obj, s, 16);
+        long_t sl = FixnumAsString((long_t) obj, s, 16);
 
         WriteStringC("#<");
         Write(RecordTypeName(rt));
@@ -263,7 +263,7 @@ void FWriteContext::WriteObject(FObject obj)
     case BoxTag:
     {
         FCh s[16];
-        long_t sl = FixnumAsString((FFixnum) obj, s, 16);
+        long_t sl = FixnumAsString((long_t) obj, s, 16);
 
         WriteStringC("#<box: #x");
         WriteString(s, sl);
@@ -346,7 +346,7 @@ void FWriteContext::WriteObject(FObject obj)
             if (idx > 0)
                 WriteCh(' ');
 
-            sl = FixnumAsString((FFixnum) AsBytevector(obj)->Vector[idx], s, 10);
+            sl = FixnumAsString((long_t) AsBytevector(obj)->Vector[idx], s, 10);
             WriteString(s, sl);
         }
 
@@ -358,7 +358,7 @@ void FWriteContext::WriteObject(FObject obj)
     case TextualPortTag:
     {
         FCh s[16];
-        long_t sl = FixnumAsString((FFixnum) obj, s, 16);
+        long_t sl = FixnumAsString((long_t) obj, s, 16);
 
         WriteStringC("#<");
         if (TextualPortP(obj))
@@ -412,7 +412,7 @@ void FWriteContext::WriteObject(FObject obj)
     case ProcedureTag:
     {
         FCh s[16];
-        long_t sl = FixnumAsString((FFixnum) obj, s, 16);
+        long_t sl = FixnumAsString((long_t) obj, s, 16);
 
         WriteStringC("#<procedure: ");
         WriteString(s, sl);
@@ -462,7 +462,7 @@ void FWriteContext::WriteObject(FObject obj)
     case RecordTypeTag:
     {
         FCh s[16];
-        long_t sl = FixnumAsString((FFixnum) obj, s, 16);
+        long_t sl = FixnumAsString((long_t) obj, s, 16);
 
         WriteStringC("#<record-type: #x");
         WriteString(s, sl);
@@ -526,7 +526,7 @@ void FWriteContext::WriteObject(FObject obj)
     case HashNodeTag:
     {
         FCh s[16];
-        long_t sl = FixnumAsString((FFixnum) obj, s, 16);
+        long_t sl = FixnumAsString((long_t) obj, s, 16);
 
         WriteStringC("#<hash-node: ");
         WriteString(s, sl);
@@ -537,7 +537,7 @@ void FWriteContext::WriteObject(FObject obj)
     case EphemeronTag:
     {
         FCh s[16];
-        long_t sl = FixnumAsString((FFixnum) obj, s, 16);
+        long_t sl = FixnumAsString((long_t) obj, s, 16);
 
         WriteStringC("#<ephemeron: ");
         WriteString(s, sl);
@@ -562,7 +562,7 @@ void FWriteContext::WriteObject(FObject obj)
         else
         {
             FCh s[16];
-            long_t sl = FixnumAsString((FFixnum) obj, s, 16);
+            long_t sl = FixnumAsString((long_t) obj, s, 16);
 
             WriteStringC("#<");
             WriteStringC(AsBuiltinType(AsBuiltin(obj)->BuiltinType)->Name);
@@ -575,7 +575,7 @@ void FWriteContext::WriteObject(FObject obj)
     default:
     {
         FCh s[16];
-        long_t sl = FixnumAsString((FFixnum) obj, s, 16);
+        long_t sl = FixnumAsString((long_t) obj, s, 16);
 
         WriteStringC("#<unknown: ");
         WriteString(s, sl);
@@ -651,7 +651,7 @@ void FWriteContext::WriteSimple(FObject obj)
     else
     {
         FCh s[16];
-        long_t sl = FixnumAsString((FFixnum) obj, s, 16);
+        long_t sl = FixnumAsString((long_t) obj, s, 16);
 
         WriteStringC("#<unknown: ");
         WriteString(s, sl);

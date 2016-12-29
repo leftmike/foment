@@ -227,7 +227,7 @@ UnexpectedEof:
     return(NoValueObject);
 }
 
-static FObject ReadNumber(FObject port, FCh * s, long_t sdx, FFixnum rdx, long_t df)
+static FObject ReadNumber(FObject port, FCh * s, long_t sdx, long_t rdx, long_t df)
 {
     FAlive ap(&port);
     FCh ch;

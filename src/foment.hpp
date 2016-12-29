@@ -39,7 +39,6 @@ Future:
 -- number.cpp: make NumberP, BinaryNumberOp, and UnaryNumberOp faster
 -- Windows: $(APPDATA)\Foment\Libraries
 -- Unix: $(HOME)/.local/foment/lib
--- on unix, if gmp is available, use it instead of mini-gmp
 -- replace mini-gmp
 -- increase maximum/minimum fixnum on 64bit
 -- inline primitives in GPassExpression
@@ -161,9 +160,6 @@ typedef uint64_t ulong_t;
 #endif // FOMENT_OSX
 #endif // FOMENT_64BIT
 
-typedef ulong_t FImmediate;
-typedef long_t FFixnum;
-
 #ifdef FOMENT_DEBUG
 void FAssertFailed(const char * fn, long_t ln, const char * expr);
 #define FAssert(expr)\
@@ -222,22 +218,22 @@ typedef enum
     BadDogTag // Invalid Tag
 } FIndirectTag;
 
-#define ObjectP(obj) ((((FImmediate) (obj)) & 0x7) == 0x0)
+#define ObjectP(obj) ((((ulong_t) (obj)) & 0x7) == 0x0)
 
-#define ImmediateTag(obj) (((FImmediate) (obj)) & 0x7)
+#define ImmediateTag(obj) (((ulong_t) (obj)) & 0x7)
 #define ImmediateP(obj, it) (ImmediateTag((obj)) == it)
 #define MakeImmediate(val, it)\
-    ((FObject *) ((((FImmediate) (val)) << 3) | (it & 0x7)))
-#define AsValue(obj) (((FImmediate) (obj)) >> 3)
+    ((FObject *) ((((ulong_t) (val)) << 3) | (it & 0x7)))
+#define AsValue(obj) (((ulong_t) (obj)) >> 3)
 
 #define FixnumP(obj) ImmediateP(obj, FixnumTag)
 #define MakeFixnum(n)\
-    ((FObject *) ((((FFixnum) (n)) << 3) | (FixnumTag & 0x7)))
-#define AsFixnum(obj) (((FFixnum) (obj)) >> 3)
+    ((FObject *) ((((long_t) (n)) << 3) | (FixnumTag & 0x7)))
+#define AsFixnum(obj) (((long_t) (obj)) >> 3)
 
-#define MAXIMUM_FIXNUM ((((FFixnum) 1) << (sizeof(int32_t) * 8 - 4)) - 1)
+#define MAXIMUM_FIXNUM ((((long_t) 1) << (sizeof(int32_t) * 8 - 4)) - 1)
 #define MINIMUM_FIXNUM (- MAXIMUM_FIXNUM)
-#define FIXNUM_BITS (sizeof(FFixnum) * 8)
+#define FIXNUM_BITS (sizeof(long_t) * 8)
 
 #define NormalizeHash(hsh) ((hsh) & MAXIMUM_FIXNUM)
 
@@ -443,7 +439,7 @@ extern ulong_t PartialPerFull;
 
 #define ValuesCountP(obj) ImmediateP(obj, ValuesCountTag)
 #define MakeValuesCount(cnt) MakeImmediate(cnt, ValuesCountTag)
-#define AsValuesCount(obj) ((FFixnum) (AsValue(obj)))
+#define AsValuesCount(obj) ((long_t) (AsValue(obj)))
 
 #define FalseObject MakeImmediate(0, BooleanTag)
 #define TrueObject MakeImmediate(1, BooleanTag)
@@ -1204,10 +1200,10 @@ typedef struct
 
 long_t GenericEqvP(FObject x1, FObject x2);
 
-FObject StringToNumber(FCh * s, long_t sl, FFixnum rdx);
-FObject NumberToString(FObject obj, FFixnum rdx);
+FObject StringToNumber(FCh * s, long_t sl, long_t rdx);
+FObject NumberToString(FObject obj, long_t rdx);
 
-long_t FixnumAsString(FFixnum n, FCh * s, FFixnum rdx);
+long_t FixnumAsString(long_t n, FCh * s, long_t rdx);
 
 inline long_t NumberP(FObject obj)
 {
@@ -1596,13 +1592,13 @@ inline void NonNegativeArgCheck(const char * who, FObject arg, long_t bf)
         RaiseExceptionC(Assertion, who, "expected an exact non-negative integer", List(arg));
 }
 
-inline void IndexArgCheck(const char * who, FObject arg, FFixnum len)
+inline void IndexArgCheck(const char * who, FObject arg, long_t len)
 {
     if (FixnumP(arg) == 0 || AsFixnum(arg) < 0 || AsFixnum(arg) > len)
         RaiseExceptionC(Assertion, who, "expected a valid index", List(arg));
 }
 
-inline void EndIndexArgCheck(const char * who, FObject arg, FFixnum strt, FFixnum len)
+inline void EndIndexArgCheck(const char * who, FObject arg, long_t strt, long_t len)
 {
     if (FixnumP(arg) == 0 || AsFixnum(arg) < strt || AsFixnum(arg) > len)
         RaiseExceptionC(Assertion, who, "expected a valid index", List(arg));

@@ -10,12 +10,12 @@ Foment
 // ---- Instruction ----
 
 #define MakeInstruction(op, arg)\
-    MakeImmediate(((((FFixnum) (arg)) << 8) | (op & 0xFF)), InstructionTag)
+    MakeImmediate(((((long_t) (arg)) << 8) | (op & 0xFF)), InstructionTag)
 #define InstructionOpcode(obj) ((FOpcode) (AsValue(obj) & 0xFF))
-#define InstructionArg(obj) ((FFixnum) (AsValue(obj) >> 8))
+#define InstructionArg(obj) ((long_t) (AsValue(obj) >> 8))
 
 /*
-Each instruction consists of <opcode> <arg>. The <arg> is a FFixnum.
+Each instruction consists of <opcode> <arg>. The <arg> is a Fixnum.
 
 The virtual machine state consists of an AStack (and an AStackPtr); a CStack and (a CStackPtr);
 a Frame, an ArgCount, an IP, and a Proc. The Frame is optionally a vector on the heap.

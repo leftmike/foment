@@ -229,8 +229,8 @@ static long_t EqualPUnionFind(FObject htbl, FObject objx, FObject objy)
             if (EqP(rx, ry))
                 return(1);
 
-            FFixnum nx = AsFixnum(Unbox(rx));
-            FFixnum ny = AsFixnum(Unbox(ry));
+            long_t nx = AsFixnum(Unbox(rx));
+            long_t ny = AsFixnum(Unbox(ry));
 
             if (nx > ny)
             {

@@ -375,7 +375,7 @@ static FObject Execute(FThreadState * ts)
 
             case PushCStackOpcode:
             {
-                FFixnum arg = InstructionArg(obj);
+                long_t arg = InstructionArg(obj);
 
                 while (arg > 0)
                 {
@@ -391,7 +391,7 @@ static FObject Execute(FThreadState * ts)
 
             case PushNoValueOpcode:
             {
-                FFixnum arg = InstructionArg(obj);
+                long_t arg = InstructionArg(obj);
 
                 while (arg > 0)
                 {

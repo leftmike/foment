@@ -1933,10 +1933,8 @@ long_t SetupCore(FThreadState * ts)
 {
     FAssert(sizeof(FObject) == sizeof(long_t));
     FAssert(sizeof(FObject) == sizeof(ulong_t));
-    FAssert(sizeof(FObject) == sizeof(FImmediate));
     FAssert(sizeof(FObject) == sizeof(char *));
-    FAssert(sizeof(FFixnum) <= sizeof(FImmediate));
-    FAssert(sizeof(FCh) <= sizeof(FImmediate));
+    FAssert(sizeof(FCh) <= sizeof(ulong_t));
     FAssert(sizeof(FObjHdr) == OBJECT_ALIGNMENT);
     FAssert(sizeof(FObjFtr) == OBJECT_ALIGNMENT);
     FAssert(BadDogTag <= OBJHDR_TAG_MASK + 1);

@@ -42,7 +42,7 @@ void WriteThread(FWriteContext * wctx, FObject obj)
     wctx->WriteStringC("#<thread: ");
 
     FCh s[16];
-    long_t sl = FixnumAsString((FFixnum) AsThread(obj)->Handle, s, 16);
+    long_t sl = FixnumAsString((long_t) AsThread(obj)->Handle, s, 16);
     wctx->WriteString(s, sl);
     wctx->WriteCh('>');
 }
@@ -77,7 +77,7 @@ void WriteExclusive(FWriteContext * wctx, FObject obj)
     wctx->WriteStringC("#<exclusive: ");
 
     FCh s[16];
-    long_t sl = FixnumAsString((FFixnum) &AsExclusive(obj)->Exclusive, s, 16);
+    long_t sl = FixnumAsString((long_t) &AsExclusive(obj)->Exclusive, s, 16);
     wctx->WriteString(s, sl);
     wctx->WriteCh('>');
 }
@@ -100,7 +100,7 @@ void WriteCondition(FWriteContext * wctx, FObject obj)
     wctx->WriteStringC("#<condition: ");
 
     FCh s[16];
-    long_t sl = FixnumAsString((FFixnum) &AsCondition(obj)->Condition, s, 16);
+    long_t sl = FixnumAsString((long_t) &AsCondition(obj)->Condition, s, 16);
     wctx->WriteString(s, sl);
     wctx->WriteCh('>');
 }

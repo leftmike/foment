@@ -4,8 +4,14 @@ Foment
 
 */
 
-#include <string.h>
 #include "foment.hpp"
+#if defined(FOMENT_BSD) || defined(FOMENT_OSX)
+#include <stdlib.h>
+#else
+#include <malloc.h>
+#endif
+#include <string.h>
+#include <stdio.h>
 #include "unicode.hpp"
 #include "bignums.hpp"
 #include "mini-gmp.h"
@@ -40,11 +46,12 @@ typedef struct
     ulong_t Digits[1];
 } FBignum;
 
+static char * NBignumToStringC(FObject bn, long_t rdx);
 static inline ulong_t DigitCount(FObject bn)
 {
     FAssert(BignumP(bn));
 
-    return((ByteLength(bn) - sizeof(FBignum)) / sizeof(ulong_t) + 1);
+    return((ByteLength(bn) - (sizeof(FBignum) - sizeof(ulong_t))) / sizeof(ulong_t));
 }
 
 static inline void SetDigitsUsed(FBignum * bn)
@@ -52,31 +59,25 @@ static inline void SetDigitsUsed(FBignum * bn)
     bn->Used = DigitCount(bn);
     while (bn->Used > 0)
     {
-        bn->Used -= 1;
-        if (bn->Digits[bn->Used] != 0)
+        if (bn->Digits[bn->Used - 1] != 0)
             break;
+        bn->Used -= 1;
     }
 }
 
-static void BignumAddFixnum(FObject rbn, FObject bn, FFixnum n);
-static void BignumMultiplyFixnum(FObject rbn, FObject bn, FFixnum n);
+static void BignumAddFixnum(FObject rbn, FObject bn, long_t n);
+static void BignumMultiplyFixnum(FObject rbn, FObject bn, long_t n);
 
-static FObject MakeBignum()
+static FBignum * MakeNBignum(ulong_t bc) // Change to MakeBignum
 {
-    FBignum * bn = (FBignum *) MakeObject(BignumTag, sizeof(FBignum), 0, "%make-bignum");
-    mpz_init(bn->MPInteger);
-    InstallGuardian(bn, CleanupTConc);
-
-    return(bn);
-}
-
-static FBignum * MakeBignumCount(ulong_t bc)
-{
-    FAssert(bc > 0);
+//    FAssert(bc > 0);
     FAssert(bc < MAXIMUM_DIGIT_COUNT);
 
     FBignum * bn = (FBignum *) MakeObject(BignumTag, sizeof(FBignum) + (bc - 1) * sizeof(ulong_t),
             0, "%make-bignum");
+    mpz_init(bn->MPInteger);
+    InstallGuardian(bn, CleanupTConc);
+
     bn->Sign = 0;
     bn->Used = 0;
     memset(bn->Digits, 0, bc * sizeof(ulong_t));
@@ -86,13 +87,13 @@ static FBignum * MakeBignumCount(ulong_t bc)
     return(bn);
 }
 
-FObject MakeBignum(FFixnum n)
+FObject MakeBignumFromFixnum(long_t n)
 {
-    FAssert(sizeof(FFixnum) == sizeof(ulong_t));
+    FAssert(sizeof(long_t) == sizeof(ulong_t));
 
-    FBignum * bn = MakeBignumCount(1);
+    FBignum * bn = MakeNBignum(1);
     mpz_init_set_si(bn->MPInteger, (long) n);
-    InstallGuardian(bn, CleanupTConc);
+//    InstallGuardian(bn, CleanupTConc);
 
     if (n >= 0)
         bn->Sign = 1;
@@ -105,25 +106,32 @@ FObject MakeBignum(FFixnum n)
     bn->Digits[0] = n;
     SetDigitsUsed(bn);
 
+    FAssert(bn->Used == 1 || bn->Digits[0] == 0);
+    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+
     return(bn);
 }
 
-FObject MakeBignum(double64_t d)
+FObject MakeBignumFromDouble(double64_t d)
 {
-    FBignum * bn = (FBignum *) MakeObject(BignumTag, sizeof(FBignum), 0, "%make-bignum");
+    FBignum * bn = MakeNBignum(0);
     mpz_init_set_d(bn->MPInteger, d);
-    InstallGuardian(bn, CleanupTConc);
+//    InstallGuardian(bn, CleanupTConc);
 
     return(bn);
 }
 
-FObject MakeBignum(FObject n)
+FObject CopyBignum(FObject n)
 {
     FAssert(BignumP(n));
 
-    FBignum * bn = (FBignum *) MakeObject(BignumTag, sizeof(FBignum), 0, "%make-bignum");
+    FBignum * bn = MakeNBignum(AsNBignum(n)->Used);
     mpz_init_set(bn->MPInteger, AsBignum(n));
-    InstallGuardian(bn, CleanupTConc);
+//    InstallGuardian(bn, CleanupTConc);
+
+    bn->Sign = AsNBignum(n)->Sign;
+    memcpy(bn->Digits, AsNBignum(n)->Digits, AsNBignum(n)->Used * sizeof(ulong_t));
+    SetDigitsUsed(bn);
 
     return(bn);
 }
@@ -138,9 +146,9 @@ void DeleteBignum(FObject obj)
 FObject ToBignum(FObject obj)
 {
     if (FixnumP(obj))
-        return(MakeBignum(AsFixnum(obj)));
+        return(MakeBignumFromFixnum(AsFixnum(obj)));
     else if (FlonumP(obj))
-        return(MakeBignum(AsFlonum(obj)));
+        return(MakeBignumFromDouble(AsFlonum(obj)));
 
     FAssert(BignumP(obj));
 
@@ -168,6 +176,7 @@ FObject MakeInteger(int64_t n)
     FObject bn = MakeInteger(n >> 32, n & 0xFFFFFFFF);
     FAssert(BignumP(bn));
     mpz_mul_si(AsBignum(bn), AsBignum(bn), -1);
+    AsNBignum(bn)->Sign = -1;
     return(bn);
 }
 
@@ -184,10 +193,15 @@ FObject MakeInteger(uint32_t high, uint32_t low)
     if (high == 0 && low <= MAXIMUM_FIXNUM)
         return(MakeFixnum(low));
 
-    FObject bn = MakeBignum();
+    FObject bn = MakeNBignum(1);
+    AsNBignum(bn)->Digits[0] = (((uint64_t) high) << 32) | ((uint64_t) low);
+    SetDigitsUsed(AsNBignum(bn));
+
     mpz_set_ui(AsBignum(bn), high);
     mpz_mul_2exp(AsBignum(bn), AsBignum(bn), 32);
     mpz_add_ui(AsBignum(bn), AsBignum(bn), low);
+
+    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
     return(bn);
 }
 
@@ -202,7 +216,7 @@ double64_t BignumToDouble(FObject bn)
 Destructively divide bn by digit; the quotient is left in bn and the remainder is returned;
 hdigit must fit in half a ulong_t. The quotient is not normalized.
 */
-/*static*/ ulong_t BignumHDigitDivide(FBignum * bn, ulong_t hdigit)
+static ulong_t BignumHDigitDivide(FBignum * bn, ulong_t hdigit)
 {
     FAssert(hdigit <= ((ulong_t) 1 << HALF_BITS) - 1);
 
@@ -227,28 +241,72 @@ hdigit must fit in half a ulong_t. The quotient is not normalized.
     return(r1);
 }
 
-char * BignumToStringC(FObject bn, FFixnum rdx)
+char * BignumToStringC(FObject bn, long_t rdx)
 {
     return(mpz_get_str(0, (int) rdx, AsBignum(bn)));
 }
 
-/*static*/ char * NBignumToStringC(FObject bn, FFixnum rdx)
-{
+static const char DigitTable[] = "0123456789abcdefghijklmnopqrstuvwxyz";
 
-    return(0);
+static char * NBignumToStringC(FObject bn, long_t rdx)
+{
+    if (AsNBignum(bn)->Used == 0)
+        return(strdup("0"));
+
+    FObject obj = CopyBignum(bn);
+
+    FAssert(BignumP(obj));
+
+    FBignum * tbn = AsNBignum(obj);
+    char * ret = (char *) malloc(tbn->Used * sizeof(ulong_t) * 8 + 2);
+    if (ret == 0)
+        return(0);
+    char * s = ret;
+
+    while (tbn->Used > 0)
+    {
+        ulong_t dgt = BignumHDigitDivide(tbn, rdx);
+
+        FAssert(dgt >= 0 && dgt < rdx);
+
+        *s = DigitTable[dgt];
+        s += 1;
+
+        while (tbn->Used > 0 && tbn->Digits[tbn->Used - 1] == 0)
+            tbn->Used -= 1;
+    }
+
+    if (tbn->Sign < 0)
+    {
+        *s = '-';
+        s += 1;
+    }
+    *s = 0;
+
+    char * p = ret;
+    while (s > p)
+    {
+        s -= 1;
+        char t = *s;
+        *s = *p;
+        *p = t;
+        p += 1;
+    }
+
+    return(ret);
 }
 
-static inline FFixnum TensDigit(double64_t n)
+static inline long_t TensDigit(double64_t n)
 {
-    return((FFixnum) (n - (Truncate(n / 10.0) * 10.0)));
+    return((long_t) (n - (Truncate(n / 10.0) * 10.0)));
 }
 
 FObject ToExactRatio(double64_t d)
 {
-    FObject whl = MakeBignum(Truncate(d));
-    FObject rbn = MakeBignum((FFixnum) 0);
+    FObject whl = MakeBignumFromDouble(Truncate(d));
+    FObject rbn = MakeBignumFromFixnum((long_t) 0);
     FObject scl = MakeFixnum(1);
-    FFixnum sgn = (d < 0 ? -1 : 1);
+    long_t sgn = (d < 0 ? -1 : 1);
     d = fabs(d - Truncate(d));
 
     for (long_t idx = 0; d != Truncate(d) && idx < 14; idx++)
@@ -265,12 +323,12 @@ FObject ToExactRatio(double64_t d)
     return(GenericAdd(MakeRatio(rbn, scl), whl));
 }
 
-long_t ParseBignum(FCh * s, long_t sl, long_t sdx, FFixnum rdx, FFixnum sgn, FFixnum n,
+long_t ParseBignum(FCh * s, long_t sl, long_t sdx, long_t rdx, long_t sgn, long_t n,
     FObject * punt)
 {
     FAssert(n > 0);
 
-    FObject bn = MakeBignum(n);
+    FObject bn = MakeBignumFromFixnum(n);
 
     if (rdx == 16)
     {
@@ -323,7 +381,7 @@ long_t BignumCompare(FObject bn1, FObject bn2)
     return(mpz_cmp(AsBignum(bn1), AsBignum(bn2)));
 }
 
-long_t BignumCompareFixnum(FObject bn, FFixnum n)
+long_t BignumCompareFixnum(FObject bn, long_t n)
 {
     FAssert(BignumP(bn));
 
@@ -342,12 +400,12 @@ FObject BignumAdd(FObject bn1, FObject bn2)
     FAssert(BignumP(bn1));
     FAssert(BignumP(bn2));
 
-    FObject ret = MakeBignum();
+    FObject ret = MakeNBignum(0);
     mpz_add(AsBignum(ret), AsBignum(bn1), AsBignum(bn2));
     return(ret);
 }
 
-static void BignumAddFixnum(FObject rbn, FObject bn, FFixnum n)
+static void BignumAddFixnum(FObject rbn, FObject bn, long_t n)
 {
     FAssert(BignumP(rbn));
     FAssert(BignumP(bn));
@@ -358,11 +416,11 @@ static void BignumAddFixnum(FObject rbn, FObject bn, FFixnum n)
         mpz_sub_ui(AsBignum(rbn), AsBignum(bn), (unsigned long) (- n));
 }
 
-FObject BignumAddFixnum(FObject bn, FFixnum n)
+FObject BignumAddFixnum(FObject bn, long_t n)
 {
     FAssert(BignumP(bn));
 
-    FObject ret = MakeBignum();
+    FObject ret = MakeNBignum(0);
     if (n > 0)
         mpz_add_ui(AsBignum(ret), AsBignum(bn), (unsigned long) n);
     else
@@ -375,12 +433,12 @@ FObject BignumMultiply(FObject bn1, FObject bn2)
     FAssert(BignumP(bn1));
     FAssert(BignumP(bn2));
 
-    FObject ret = MakeBignum();
+    FObject ret = MakeNBignum(0);
     mpz_mul(AsBignum(ret), AsBignum(bn1), AsBignum(bn2));
     return(ret);
 }
 
-static void BignumMultiplyFixnum(FObject rbn, FObject bn, FFixnum n)
+static void BignumMultiplyFixnum(FObject rbn, FObject bn, long_t n)
 {
     FAssert(BignumP(rbn));
     FAssert(BignumP(bn));
@@ -388,11 +446,11 @@ static void BignumMultiplyFixnum(FObject rbn, FObject bn, FFixnum n)
     mpz_mul_si(AsBignum(rbn), AsBignum(bn), (long) n);
 }
 
-FObject BignumMultiplyFixnum(FObject bn, FFixnum n)
+FObject BignumMultiplyFixnum(FObject bn, long_t n)
 {
     FAssert(BignumP(bn));
 
-    FObject ret = MakeBignum();
+    FObject ret = MakeNBignum(0);
     mpz_mul_si(AsBignum(ret), AsBignum(bn), (long) n);
     return(ret);
 }
@@ -402,7 +460,7 @@ FObject BignumSubtract(FObject bn1, FObject bn2)
     FAssert(BignumP(bn1));
     FAssert(BignumP(bn2));
 
-    FObject ret = MakeBignum();
+    FObject ret = MakeNBignum(0);
     mpz_sub(AsBignum(ret), AsBignum(bn1), AsBignum(bn2));
     return(ret);
 }
@@ -412,7 +470,7 @@ FObject BignumDivide(FObject n, FObject d)
     FAssert(BignumP(n));
     FAssert(BignumP(d));
 
-    FObject ret = MakeBignum();
+    FObject ret = MakeNBignum(0);
     mpz_tdiv_q(AsBignum(ret), AsBignum(n), AsBignum(d));
     return(ret);
 }
@@ -422,12 +480,12 @@ FObject BignumRemainder(FObject n, FObject d)
     FAssert(BignumP(n));
     FAssert(BignumP(d));
 
-    FObject ret = MakeBignum();
+    FObject ret = MakeNBignum(0);
     mpz_tdiv_r(AsBignum(ret), AsBignum(n), AsBignum(d));
     return(ret);
 }
 
-FFixnum BignumRemainderFixnum(FObject n, FFixnum d)
+long_t BignumRemainderFixnum(FObject n, long_t d)
 {
     FAssert(BignumP(n));
     FAssert(d >= 0);
@@ -435,19 +493,19 @@ FFixnum BignumRemainderFixnum(FObject n, FFixnum d)
     return(mpz_tdiv_ui(AsBignum(n), (unsigned long) d));
 }
 
-long_t BignumEqualFixnum(FObject bn, FFixnum n)
+long_t BignumEqualFixnum(FObject bn, long_t n)
 {
     FAssert(BignumP(bn));
 
     return(mpz_cmp_si(AsBignum(bn), (long) n) == 0);
 }
 
-FObject BignumExpt(FObject bn, FFixnum e)
+FObject BignumExpt(FObject bn, long_t e)
 {
     FAssert(BignumP(bn));
     FAssert(e >= 0);
 
-    FObject ret = MakeBignum();
+    FObject ret = MakeNBignum(0);
     mpz_pow_ui(AsBignum(ret), AsBignum(bn), (unsigned long) e);
     return(ret);
 }
@@ -456,8 +514,8 @@ FObject BignumSqrt(FObject * rem, FObject bn)
 {
     FAssert(BignumP(bn));
 
-    FObject ret = MakeBignum();
-    *rem = MakeBignum();
+    FObject ret = MakeNBignum(0);
+    *rem = MakeNBignum(0);
     mpz_sqrtrem(AsBignum(ret), AsBignum(*rem), AsBignum(bn));
     return(ret);
 }
@@ -467,7 +525,7 @@ FObject BignumAnd(FObject bn1, FObject bn2)
     FAssert(BignumP(bn1));
     FAssert(BignumP(bn2));
 
-    FObject ret = MakeBignum();
+    FObject ret = MakeNBignum(0);
     mpz_and(AsBignum(ret), AsBignum(bn1), AsBignum(bn2));
     return(ret);
 }
@@ -477,7 +535,7 @@ FObject BignumIOr(FObject bn1, FObject bn2)
     FAssert(BignumP(bn1));
     FAssert(BignumP(bn2));
 
-    FObject ret = MakeBignum();
+    FObject ret = MakeNBignum(0);
     mpz_ior(AsBignum(ret), AsBignum(bn1), AsBignum(bn2));
     return(ret);
 }
@@ -487,7 +545,7 @@ FObject BignumXOr(FObject bn1, FObject bn2)
     FAssert(BignumP(bn1));
     FAssert(BignumP(bn2));
 
-    FObject ret = MakeBignum();
+    FObject ret = MakeNBignum(0);
     mpz_xor(AsBignum(ret), AsBignum(bn1), AsBignum(bn2));
     return(ret);
 }
@@ -496,7 +554,7 @@ FObject BignumNot(FObject bn)
 {
     FAssert(BignumP(bn));
 
-    FObject ret = MakeBignum();
+    FObject ret = MakeNBignum(0);
     mpz_com(AsBignum(ret), AsBignum(bn));
     return(ret);
 }
@@ -522,7 +580,7 @@ ulong_t BignumFirstSetBit(FObject bn)
     return(mpz_scan1(AsBignum(bn), 0));
 }
 
-FObject BignumArithmeticShift(FObject bn, FFixnum cnt)
+FObject BignumArithmeticShift(FObject bn, long_t cnt)
 {
     FAssert(BignumP(bn));
 
@@ -531,12 +589,12 @@ FObject BignumArithmeticShift(FObject bn, FFixnum cnt)
 
     if (cnt < 0)
     {
-        FObject rbn = MakeBignum();
+        FObject rbn = MakeNBignum(0);
         mpz_fdiv_q_2exp(AsBignum(rbn), AsBignum(bn), (mp_bitcnt_t) - cnt);
         return(Normalize(rbn));
     }
 
-    FObject rbn = MakeBignum();
+    FObject rbn = MakeNBignum(0);
     mpz_mul_2exp(AsBignum(rbn), AsBignum(bn), (mp_bitcnt_t) cnt);
     return(rbn);
 }

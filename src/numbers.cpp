@@ -80,12 +80,12 @@ FObject MakeRatio(FObject nmr, FObject dnm)
 
     if (FixnumP(nmr) && FixnumP(dnm))
     {
-        FFixnum n = AsFixnum(nmr);
-        FFixnum d = AsFixnum(dnm);
+        long_t n = AsFixnum(nmr);
+        long_t d = AsFixnum(dnm);
 
         while (d != 0)
         {
-            FFixnum t = n % d;
+            long_t t = n % d;
             n = d;
             d = t;
         }
@@ -233,7 +233,7 @@ FObject ToExact(FObject n)
         if (d == Truncate(d))
         {
             if (d > MAXIMUM_FIXNUM || d < MINIMUM_FIXNUM)
-                return(MakeBignum(d));
+                return(MakeBignumFromDouble(d));
 
             return(MakeFixnum(d));
         }
@@ -259,13 +259,13 @@ FObject ToExact(FObject n)
     return(n);
 }
 
-static long_t ParseUInteger(FCh * s, long_t sl, long_t sdx, FFixnum rdx, FFixnum sgn, FObject * punt)
+static long_t ParseUInteger(FCh * s, long_t sl, long_t sdx, long_t rdx, long_t sgn, FObject * punt)
 {
     // <uinteger> : <digit> <digit> ...
 
     FAssert(sdx < sl);
 
-    FFixnum n;
+    long_t n;
     long_t strt = sdx;
 
     if (rdx == 16)
@@ -286,7 +286,7 @@ static long_t ParseUInteger(FCh * s, long_t sl, long_t sdx, FFixnum rdx, FFixnum
 
             if (t < MINIMUM_FIXNUM || t > MAXIMUM_FIXNUM)
                 return(ParseBignum(s, sl, sdx, rdx, sgn, n, punt));
-            n = (FFixnum) t;
+            n = (long_t) t;
         }
     }
     else
@@ -301,7 +301,7 @@ static long_t ParseUInteger(FCh * s, long_t sl, long_t sdx, FFixnum rdx, FFixnum
                 int64_t t = n * rdx + dv;
                 if (t < MINIMUM_FIXNUM || t > MAXIMUM_FIXNUM)
                     return(ParseBignum(s, sl, sdx, rdx, sgn, n, punt));
-                n = (FFixnum) t;
+                n = (long_t) t;
             }
             else
                 break;
@@ -316,7 +316,7 @@ static long_t ParseUInteger(FCh * s, long_t sl, long_t sdx, FFixnum rdx, FFixnum
     return(sdx);
 }
 
-static long_t ParseDecimal10(FCh * s, long_t sl, long_t sdx, FFixnum sgn, FObject whl,
+static long_t ParseDecimal10(FCh * s, long_t sl, long_t sdx, long_t sgn, FObject whl,
     FObject * pdc10)
 {
     // <decimal10> : <uinteger> ... <suffix>
@@ -360,7 +360,7 @@ static long_t ParseDecimal10(FCh * s, long_t sl, long_t sdx, FFixnum sgn, FObjec
     if (sdx < sl && (s[sdx] == 'e' || s[sdx] == 'E'))
     {
         FObject e;
-        FFixnum sgn = 1;
+        long_t sgn = 1;
 
         sdx += 1;
         if (s[sdx] == '-')
@@ -388,7 +388,7 @@ static long_t ParseDecimal10(FCh * s, long_t sl, long_t sdx, FFixnum sgn, FObjec
     return(sdx);
 }
 
-static long_t ParseUReal(FCh * s, long_t sl, long_t sdx, FFixnum rdx, FFixnum sgn, FObject * purl)
+static long_t ParseUReal(FCh * s, long_t sl, long_t sdx, long_t rdx, long_t sgn, FObject * purl)
 {
     // <ureal> : <uinteger>
     //         | <uinteger> / <uinteger>
@@ -424,7 +424,7 @@ static long_t ParseUReal(FCh * s, long_t sl, long_t sdx, FFixnum rdx, FFixnum sg
     return(sdx);
 }
 
-static long_t ParseReal(FCh * s, long_t sl, long_t sdx, FFixnum rdx, FObject * prl)
+static long_t ParseReal(FCh * s, long_t sl, long_t sdx, long_t rdx, FObject * prl)
 {
     // <real> : <ureal>
     //        | + <ureal>
@@ -457,7 +457,7 @@ static long_t ParseReal(FCh * s, long_t sl, long_t sdx, FFixnum rdx, FObject * p
         }
     }
 
-    FFixnum sgn = 1;
+    long_t sgn = 1;
 
     if (s[sdx] == '-')
     {
@@ -484,7 +484,7 @@ static long_t ParseReal(FCh * s, long_t sl, long_t sdx, FFixnum rdx, FObject * p
     return(sdx);
 }
 
-static long_t ParseComplex(FCh * s, long_t sl, FFixnum rdx, FObject * pcmplx)
+static long_t ParseComplex(FCh * s, long_t sl, long_t rdx, FObject * pcmplx)
 {
     // <complex> : <real>
     //           | <real> @ <real>
@@ -574,7 +574,7 @@ static long_t ParseComplex(FCh * s, long_t sl, FFixnum rdx, FObject * pcmplx)
 #define EXACTNESS_EXACT 1
 #define EXACTNESS_INEXACT 2
 
-FObject StringToNumber(FCh * s, long_t sl, FFixnum rdx)
+FObject StringToNumber(FCh * s, long_t sl, long_t rdx)
 {
     FAssert(rdx == 2 || rdx == 8 || rdx == 10 || rdx == 16);
 
@@ -659,9 +659,9 @@ FObject StringToNumber(FCh * s, long_t sl, FFixnum rdx)
 
 const static char Digits[] = {"0123456789abcdef"};
 
-long_t FixnumAsString(FFixnum n, FCh * s, FFixnum rdx)
+long_t FixnumAsString(long_t n, FCh * s, long_t rdx)
 {
-    FAssert(rdx <= (FFixnum) sizeof(Digits));
+    FAssert(rdx <= (long_t) sizeof(Digits));
 
     long_t sl = 0;
 
@@ -701,7 +701,7 @@ static long_t NeedImaginaryPlusSignP(FObject n)
     return(BignumCompareFixnum(n, 0) >= 0);
 }
 
-static void WriteNumber(FObject port, FObject obj, FFixnum rdx)
+static void WriteNumber(FObject port, FObject obj, long_t rdx)
 {
     FAssert(NumberP(obj));
 
@@ -771,7 +771,7 @@ static void WriteNumber(FObject port, FObject obj, FFixnum rdx)
     }
 }
 
-FObject NumberToString(FObject obj, FFixnum rdx)
+FObject NumberToString(FObject obj, long_t rdx)
 {
     FAssert(NumberP(obj));
 
@@ -1186,7 +1186,8 @@ FObject GenericAdd(FObject z1, FObject z2)
         {
             int64_t n = AsFixnum(z1) + AsFixnum(z2);
             if (n < MINIMUM_FIXNUM || n > MAXIMUM_FIXNUM)
-                return(Normalize(BignumAddFixnum(MakeBignum(AsFixnum(z1)), AsFixnum(z2))));
+                return(Normalize(BignumAddFixnum(MakeBignumFromFixnum(AsFixnum(z1)),
+                        AsFixnum(z2))));
 
             return(MakeFixnum(n));
         }
@@ -1307,7 +1308,8 @@ FObject GenericMultiply(FObject z1, FObject z2)
         {
             int64_t n = AsFixnum(z1) * AsFixnum(z2);
             if (n < MINIMUM_FIXNUM || n > MAXIMUM_FIXNUM)
-                return(Normalize(BignumMultiplyFixnum(MakeBignum(AsFixnum(z1)), AsFixnum(z2))));
+                return(Normalize(BignumMultiplyFixnum(MakeBignumFromFixnum(AsFixnum(z1)),
+                        AsFixnum(z2))));
 
             return(MakeFixnum(n));
         }
@@ -1417,7 +1419,7 @@ static FObject GenericSubtract(FObject z1, FObject z2)
             {
                 FAssert(BignumP(z2));
 
-                return(Normalize(BignumAddFixnum(BignumMultiplyFixnum(MakeBignum(z2), -1),
+                return(Normalize(BignumAddFixnum(BignumMultiplyFixnum(CopyBignum(z2), -1),
                         AsFixnum(z1))));
             }
 
@@ -1432,7 +1434,8 @@ static FObject GenericSubtract(FObject z1, FObject z2)
         {
             int64_t n = AsFixnum(z1) - AsFixnum(z2);
             if (n < MINIMUM_FIXNUM || n > MAXIMUM_FIXNUM)
-                return(Normalize(BignumAddFixnum(MakeBignum(AsFixnum(z1)), - AsFixnum(z2))));
+                return(Normalize(BignumAddFixnum(MakeBignumFromFixnum(AsFixnum(z1)),
+                        - AsFixnum(z2))));
 
             return(MakeFixnum(n));
         }
@@ -1495,7 +1498,7 @@ WriteCh(StandardOutput, '\n');
                 FAssert(BignumP(z1));
                 FAssert(BignumP(z2));
 
-                return(MakeRatio(MakeBignum(z1), MakeBignum(z2)));
+                return(MakeRatio(CopyBignum(z1), CopyBignum(z2)));
             }
 
         case BOP_BIGRAT_COMPLEX:
@@ -1514,7 +1517,7 @@ WriteCh(StandardOutput, '\n');
             if (RatioP(z1))
                 return(MakeRatio(AsNumerator(z1), GenericMultiply(AsDenominator(z1), z2)));
             else
-                return(MakeRatio(MakeBignum(z1), z2));
+                return(MakeRatio(CopyBignum(z1), z2));
 
         case BOP_COMPLEX_BIGRAT:
             return(MakeComplex(GenericDivide(AsReal(z1), z2),
@@ -1550,7 +1553,7 @@ WriteCh(StandardOutput, '\n');
             if (RatioP(z2))
                 return(MakeRatio(GenericMultiply(AsDenominator(z2), z1), AsNumerator(z2)));
             else
-                return(MakeRatio(z1, MakeBignum(z2)));
+                return(MakeRatio(z1, CopyBignum(z2)));
 
         case BOP_FIXED_COMPLEX:
             return(ComplexDivide(z1, MakeFixnum(0), AsReal(z2), AsImaginary(z2)));
@@ -2543,7 +2546,7 @@ Define("%exact-integer-sqrt", ExactIntegerSqrtPrimitive)(long_t argc, FObject ar
 
     if (FixnumP(argv[0]))
     {
-        FFixnum rt = (FFixnum) sqrt((double64_t) AsFixnum(argv[0]));
+        long_t rt = (long_t) sqrt((double64_t) AsFixnum(argv[0]));
 
         return(MakePair(MakeFixnum(rt), MakeFixnum(AsFixnum(argv[0]) - rt * rt)));
     }
@@ -2583,7 +2586,7 @@ Define("expt", ExptPrimitive)(long_t argc, FObject argv[])
     }
     else if (FixnumP(argv[1]))
     {
-        FFixnum e = AsFixnum(argv[1]);
+        long_t e = AsFixnum(argv[1]);
         if (e < 0)
             e = - e;
 
@@ -2688,7 +2691,7 @@ Define("number->string", NumberToStringPrimitive)(long_t argc, FObject argv[])
     OneOrTwoArgsCheck("number->string", argc);
     NumberArgCheck("number->string", argv[0]);
 
-    FFixnum rdx = 10;
+    long_t rdx = 10;
 
     if (argc == 2)
     {
@@ -2708,7 +2711,7 @@ Define("string->number", StringToNumberPrimitive)(long_t argc, FObject argv[])
     OneOrTwoArgsCheck("string->number", argc);
     StringArgCheck("string->number", argv[0]);
 
-    FFixnum rdx = 10;
+    long_t rdx = 10;
 
     if (argc == 2)
     {
@@ -2878,7 +2881,7 @@ Define("arithmetic-shift", ArithmeticShiftPrimitive)(long_t argc, FObject argv[]
     IntegerArgCheck("arithmetic-shift", argv[0]);
     FixnumArgCheck("arithmetic-shift", argv[1]);
 
-    FFixnum cnt = AsFixnum(argv[1]);
+    long_t cnt = AsFixnum(argv[1]);
     if (cnt == 0)
         return(argv[0]);
 

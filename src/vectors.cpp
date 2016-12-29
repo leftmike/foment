@@ -140,8 +140,8 @@ Define("vector-set!", VectorSetPrimitive)(long_t argc, FObject argv[])
 
 Define("vector->list", VectorToListPrimitive)(long_t argc, FObject argv[])
 {
-    FFixnum strt;
-    FFixnum end;
+    long_t strt;
+    long_t end;
 
     OneToThreeArgsCheck("vector->list", argc);
     VectorArgCheck("vector->list", argv[0]);
@@ -159,19 +159,19 @@ Define("vector->list", VectorToListPrimitive)(long_t argc, FObject argv[])
             end = AsFixnum(argv[2]);
         }
         else
-            end = (FFixnum) VectorLength(argv[0]);
+            end = (long_t) VectorLength(argv[0]);
     }
     else
     {
         strt = 0;
-        end = (FFixnum) VectorLength(argv[0]);
+        end = (long_t) VectorLength(argv[0]);
     }
 
     FAssert(end >= strt);
 
     FObject lst = EmptyListObject;
 
-    for (FFixnum idx = end; idx > strt; idx--)
+    for (long_t idx = end; idx > strt; idx--)
         lst = MakePair(AsVector(argv[0])->Vector[idx - 1], lst);
 
     return(lst);
@@ -186,8 +186,8 @@ Define("list->vector", ListToVectorPrimitive)(long_t argc, FObject argv[])
 
 Define("vector->string", VectorToStringPrimitive)(long_t argc, FObject argv[])
 {
-    FFixnum strt;
-    FFixnum end;
+    long_t strt;
+    long_t end;
 
     OneToThreeArgsCheck("vector->string", argc);
     VectorArgCheck("vector->string", argv[0]);
@@ -205,19 +205,19 @@ Define("vector->string", VectorToStringPrimitive)(long_t argc, FObject argv[])
             end = AsFixnum(argv[2]);
         }
         else
-            end = (FFixnum) VectorLength(argv[0]);
+            end = (long_t) VectorLength(argv[0]);
     }
     else
     {
         strt = 0;
-        end = (FFixnum) VectorLength(argv[0]);
+        end = (long_t) VectorLength(argv[0]);
     }
 
     FAssert(end >= strt);
 
     FObject s = MakeString(0, end - strt);
 
-    for (FFixnum idx = 0; idx < end - strt; idx ++)
+    for (long_t idx = 0; idx < end - strt; idx ++)
     {
         CharacterArgCheck("vector->string", AsVector(argv[0])->Vector[idx + strt]);
 
@@ -229,8 +229,8 @@ Define("vector->string", VectorToStringPrimitive)(long_t argc, FObject argv[])
 
 Define("string->vector", StringToVectorPrimitive)(long_t argc, FObject argv[])
 {
-    FFixnum strt;
-    FFixnum end;
+    long_t strt;
+    long_t end;
 
     OneToThreeArgsCheck("string->vector", argc);
     StringArgCheck("string->vector", argv[0]);
@@ -248,18 +248,18 @@ Define("string->vector", StringToVectorPrimitive)(long_t argc, FObject argv[])
             end = AsFixnum(argv[2]);
         }
         else
-            end = (FFixnum) StringLength(argv[0]);
+            end = (long_t) StringLength(argv[0]);
     }
     else
     {
         strt = 0;
-        end = (FFixnum) StringLength(argv[0]);
+        end = (long_t) StringLength(argv[0]);
     }
 
     FAssert(end >= strt);
 
     FObject v = MakeVector(end - strt, "string->vector");
-    for (FFixnum idx = 0; idx < end - strt; idx ++)
+    for (long_t idx = 0; idx < end - strt; idx ++)
         AsVector(v)->Vector[idx] = MakeCharacter(AsString(argv[0])->String[idx + strt]);
 
     return(v);
@@ -267,8 +267,8 @@ Define("string->vector", StringToVectorPrimitive)(long_t argc, FObject argv[])
 
 Define("vector-copy", VectorCopyPrimitive)(long_t argc, FObject argv[])
 {
-    FFixnum strt;
-    FFixnum end;
+    long_t strt;
+    long_t end;
 
     OneToThreeArgsCheck("vector-copy", argc);
     VectorArgCheck("vector-copy", argv[0]);
@@ -286,12 +286,12 @@ Define("vector-copy", VectorCopyPrimitive)(long_t argc, FObject argv[])
             end = AsFixnum(argv[2]);
         }
         else
-            end = (FFixnum) VectorLength(argv[0]);
+            end = (long_t) VectorLength(argv[0]);
     }
     else
     {
         strt = 0;
-        end = (FFixnum) VectorLength(argv[0]);
+        end = (long_t) VectorLength(argv[0]);
     }
 
     FAssert(end >= strt);
@@ -301,8 +301,8 @@ Define("vector-copy", VectorCopyPrimitive)(long_t argc, FObject argv[])
 
 Define("vector-copy!", VectorCopyModifyPrimitive)(long_t argc, FObject argv[])
 {
-    FFixnum strt;
-    FFixnum end;
+    long_t strt;
+    long_t end;
 
     ThreeToFiveArgsCheck("vector-copy!", argc);
     VectorArgCheck("vector-copy!", argv[0]);
@@ -322,29 +322,29 @@ Define("vector-copy!", VectorCopyModifyPrimitive)(long_t argc, FObject argv[])
             end = AsFixnum(argv[4]);
         }
         else
-            end = (FFixnum) VectorLength(argv[2]);
+            end = (long_t) VectorLength(argv[2]);
     }
     else
     {
         strt = 0;
-        end = (FFixnum) VectorLength(argv[2]);
+        end = (long_t) VectorLength(argv[2]);
     }
 
-    if ((FFixnum) VectorLength(argv[0]) - AsFixnum(argv[1]) < end - strt)
+    if ((long_t) VectorLength(argv[0]) - AsFixnum(argv[1]) < end - strt)
         RaiseExceptionC(Assertion, "vector-copy!", "expected a valid index", List(argv[1]));
 
     FAssert(end >= strt);
 
-    FFixnum at = AsFixnum(argv[1]);
+    long_t at = AsFixnum(argv[1]);
 
     if (at > strt)
     {
-        for (FFixnum idx = end - strt; idx > 0; idx--)
+        for (long_t idx = end - strt; idx > 0; idx--)
             ModifyVector(argv[0], idx + at - 1, AsVector(argv[2])->Vector[idx + strt - 1]);
     }
     else
     {
-        for (FFixnum idx = 0; idx < end - strt; idx++)
+        for (long_t idx = 0; idx < end - strt; idx++)
             ModifyVector(argv[0], idx + at, AsVector(argv[2])->Vector[idx + strt]);
     }
 
@@ -379,8 +379,8 @@ Define("vector-append", VectorAppendPrimitive)(long_t argc, FObject argv[])
 
 Define("vector-fill!", VectorFillPrimitive)(long_t argc, FObject argv[])
 {
-    FFixnum strt;
-    FFixnum end;
+    long_t strt;
+    long_t end;
 
     TwoToFourArgsCheck("vector-fill!", argc);
     VectorArgCheck("vector-fill!", argv[0]);
@@ -398,17 +398,17 @@ Define("vector-fill!", VectorFillPrimitive)(long_t argc, FObject argv[])
             end = AsFixnum(argv[3]);
         }
         else
-            end = (FFixnum) VectorLength(argv[0]);
+            end = (long_t) VectorLength(argv[0]);
     }
     else
     {
         strt = 0;
-        end = (FFixnum) VectorLength(argv[0]);
+        end = (long_t) VectorLength(argv[0]);
     }
 
     FAssert(end >= strt);
 
-    for (FFixnum idx = strt; idx < end; idx++)
+    for (long_t idx = strt; idx < end; idx++)
         ModifyVector(argv[0], idx, argv[1]);
 
     return(NoValueObject);
@@ -513,8 +513,8 @@ Define("bytevector-u8-set!", BytevectorU8SetPrimitive)(long_t argc, FObject argv
 
 Define("bytevector-copy", BytevectorCopyPrimitive)(long_t argc, FObject argv[])
 {
-    FFixnum strt;
-    FFixnum end;
+    long_t strt;
+    long_t end;
 
     OneToThreeArgsCheck("bytevector-copy", argc);
     BytevectorArgCheck("bytevector-copy", argv[0]);
@@ -532,12 +532,12 @@ Define("bytevector-copy", BytevectorCopyPrimitive)(long_t argc, FObject argv[])
             end = AsFixnum(argv[2]);
         }
         else
-            end = (FFixnum) BytevectorLength(argv[0]);
+            end = (long_t) BytevectorLength(argv[0]);
     }
     else
     {
         strt = 0;
-        end = (FFixnum) BytevectorLength(argv[0]);
+        end = (long_t) BytevectorLength(argv[0]);
     }
 
     FAssert(end >= strt);
@@ -550,8 +550,8 @@ Define("bytevector-copy", BytevectorCopyPrimitive)(long_t argc, FObject argv[])
 
 Define("bytevector-copy!", BytevectorCopyModifyPrimitive)(long_t argc, FObject argv[])
 {
-    FFixnum strt;
-    FFixnum end;
+    long_t strt;
+    long_t end;
 
     ThreeToFiveArgsCheck("bytevector-copy!", argc);
     BytevectorArgCheck("bytevector-copy!", argv[0]);
@@ -571,15 +571,15 @@ Define("bytevector-copy!", BytevectorCopyModifyPrimitive)(long_t argc, FObject a
             end = AsFixnum(argv[4]);
         }
         else
-            end = (FFixnum) BytevectorLength(argv[2]);
+            end = (long_t) BytevectorLength(argv[2]);
     }
     else
     {
         strt = 0;
-        end = (FFixnum) BytevectorLength(argv[2]);
+        end = (long_t) BytevectorLength(argv[2]);
     }
 
-    if ((FFixnum) BytevectorLength(argv[0]) - AsFixnum(argv[1]) < end - strt)
+    if ((long_t) BytevectorLength(argv[0]) - AsFixnum(argv[1]) < end - strt)
         RaiseExceptionC(Assertion, "bytevector-copy!", "expected a valid index", List(argv[1]));
 
     FAssert(end >= strt);
@@ -635,12 +635,12 @@ Define("utf8->string", Utf8ToStringPrimitive)(long_t argc, FObject argv[])
             end = AsFixnum(argv[2]);
         }
         else
-            end = (FFixnum) BytevectorLength(argv[0]);
+            end = (long_t) BytevectorLength(argv[0]);
     }
     else
     {
         strt = 0;
-        end = (FFixnum) BytevectorLength(argv[0]);
+        end = (long_t) BytevectorLength(argv[0]);
     }
 
     FAssert(end >= strt);
@@ -669,12 +669,12 @@ Define("string->utf8", StringToUtf8Primitive)(long_t argc, FObject argv[])
             end = AsFixnum(argv[2]);
         }
         else
-            end = (FFixnum) StringLength(argv[0]);
+            end = (long_t) StringLength(argv[0]);
     }
     else
     {
         strt = 0;
-        end = (FFixnum) StringLength(argv[0]);
+        end = (long_t) StringLength(argv[0]);
     }
 
     FAssert(end >= strt);
