@@ -18,7 +18,7 @@ Foment
 
 // ---- Comparator ----
 
-Define("no-ordering-predicate", NoOrderingPredicatePrimitive)(int_t argc, FObject argv[])
+Define("no-ordering-predicate", NoOrderingPredicatePrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("no-ordering-predicate", argc);
 
@@ -27,7 +27,7 @@ Define("no-ordering-predicate", NoOrderingPredicatePrimitive)(int_t argc, FObjec
     return(NoValueObject);
 }
 
-Define("no-hash-function", NoHashFunctionPrimitive)(int_t argc, FObject argv[])
+Define("no-hash-function", NoHashFunctionPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("no-hash-function", argc);
 
@@ -52,7 +52,7 @@ static FObject MakeComparator(FObject ttp, FObject eqp, FObject orderp, FObject 
     return(comp);
 }
 
-Define("make-comparator", MakeComparatorPrimitive)(int_t argc, FObject argv[])
+Define("make-comparator", MakeComparatorPrimitive)(long_t argc, FObject argv[])
 {
     FourArgsCheck("make-comparator", argc);
 
@@ -66,14 +66,14 @@ Define("make-comparator", MakeComparatorPrimitive)(int_t argc, FObject argv[])
     return(MakeComparator(argv[0], argv[1], argv[2], argv[3]));
 }
 
-Define("comparator?", ComparatorPPrimitive)(int_t argc, FObject argv[])
+Define("comparator?", ComparatorPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("comparator?", argc);
 
     return(ComparatorP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("comparator-type-test-predicate", ComparatorTypeTestPredicatePrimitive)(int_t argc,
+Define("comparator-type-test-predicate", ComparatorTypeTestPredicatePrimitive)(long_t argc,
     FObject argv[])
 {
     OneArgCheck("comparator-type-test-predicate", argc);
@@ -82,7 +82,7 @@ Define("comparator-type-test-predicate", ComparatorTypeTestPredicatePrimitive)(i
     return(AsComparator(argv[0])->TypeTestP);
 }
 
-Define("comparator-equality-predicate", ComparatorEqualityPredicatePrimitive)(int_t argc,
+Define("comparator-equality-predicate", ComparatorEqualityPredicatePrimitive)(long_t argc,
     FObject argv[])
 {
     OneArgCheck("comparator-equality-predicate", argc);
@@ -91,7 +91,7 @@ Define("comparator-equality-predicate", ComparatorEqualityPredicatePrimitive)(in
     return(AsComparator(argv[0])->EqualityP);
 }
 
-Define("comparator-ordering-predicate", ComparatorOrderingPredicatePrimitive)(int_t argc,
+Define("comparator-ordering-predicate", ComparatorOrderingPredicatePrimitive)(long_t argc,
     FObject argv[])
 {
     OneArgCheck("comparator-ordering-predicate", argc);
@@ -100,7 +100,7 @@ Define("comparator-ordering-predicate", ComparatorOrderingPredicatePrimitive)(in
     return(AsComparator(argv[0])->OrderingP);
 }
 
-Define("comparator-hash-function", ComparatorHashFunctionPrimitive)(int_t argc, FObject argv[])
+Define("comparator-hash-function", ComparatorHashFunctionPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("comparator-hash-function", argc);
     ComparatorArgCheck("comparator-hash-function", argv[0]);
@@ -108,7 +108,7 @@ Define("comparator-hash-function", ComparatorHashFunctionPrimitive)(int_t argc, 
     return(AsComparator(argv[0])->HashFn);
 }
 
-Define("comparator-ordered?", ComparatorOrderedPPrimitive)(int_t argc,
+Define("comparator-ordered?", ComparatorOrderedPPrimitive)(long_t argc,
     FObject argv[])
 {
     OneArgCheck("comparator-ordered?", argc);
@@ -118,7 +118,7 @@ Define("comparator-ordered?", ComparatorOrderedPPrimitive)(int_t argc,
             TrueObject);
 }
 
-Define("comparator-hashable?", ComparatorHashablePPrimitive)(int_t argc, FObject argv[])
+Define("comparator-hashable?", ComparatorHashablePPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("comparator-hashable?", argc);
     ComparatorArgCheck("comparator-hashable?", argv[0]);
@@ -126,7 +126,7 @@ Define("comparator-hashable?", ComparatorHashablePPrimitive)(int_t argc, FObject
     return(AsComparator(argv[0])->HashFn == NoHashFunctionPrimitive ? FalseObject : TrueObject);
 }
 
-Define("comparator-context", ComparatorContextPrimitive)(int_t argc, FObject argv[])
+Define("comparator-context", ComparatorContextPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("comparator-context", argc);
     ComparatorArgCheck("comparator-context", argv[0]);
@@ -134,7 +134,7 @@ Define("comparator-context", ComparatorContextPrimitive)(int_t argc, FObject arg
     return(AsComparator(argv[0])->Context);
 }
 
-Define("comparator-context-set!", ComparatorContextSetPrimitive)(int_t argc, FObject argv[])
+Define("comparator-context-set!", ComparatorContextSetPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("comparator-context-set!", argc);
     ComparatorArgCheck("comparator-context-set!", argv[0]);
@@ -146,7 +146,7 @@ Define("comparator-context-set!", ComparatorContextSetPrimitive)(int_t argc, FOb
 
 // ---- Equivalence predicates ----
 
-int_t EqvP(FObject obj1, FObject obj2)
+long_t EqvP(FObject obj1, FObject obj2)
 {
     if (obj1 == obj2)
         return(1);
@@ -154,7 +154,7 @@ int_t EqvP(FObject obj1, FObject obj2)
     return(GenericEqvP(obj1, obj2));
 }
 
-int_t EqP(FObject obj1, FObject obj2)
+long_t EqP(FObject obj1, FObject obj2)
 {
     if (obj1 == obj2)
         return(1);
@@ -188,7 +188,7 @@ static FObject EqualPFind(FObject obj)
     return(obj);
 }
 
-static int_t EqualPUnionFind(FObject htbl, FObject objx, FObject objy)
+static long_t EqualPUnionFind(FObject htbl, FObject objx, FObject objy)
 {
     FObject bx = HashTableRef(htbl, objx, FalseObject);
     FObject by = HashTableRef(htbl, objy, FalseObject);
@@ -248,7 +248,7 @@ static int_t EqualPUnionFind(FObject htbl, FObject objx, FObject objy)
     return(0);
 }
 
-static int_t EqualP(FObject htbl, FObject obj1, FObject obj2)
+static long_t EqualP(FObject htbl, FObject obj1, FObject obj2)
 {
     if (EqvP(obj1, obj2))
         return(1);
@@ -289,7 +289,7 @@ static int_t EqualP(FObject htbl, FObject obj1, FObject obj2)
         if (EqualPUnionFind(htbl, obj1, obj2))
             return(1);
 
-        for (uint_t idx = 0; idx < VectorLength(obj1); idx++)
+        for (ulong_t idx = 0; idx < VectorLength(obj1); idx++)
             if (EqualP(htbl, AsVector(obj1)->Vector[idx], AsVector(obj2)->Vector[idx]) == 0)
                 return(0);
 
@@ -312,7 +312,7 @@ static int_t EqualP(FObject htbl, FObject obj1, FObject obj2)
         if (BytevectorLength(obj1) != BytevectorLength(obj2))
             return(0);
 
-        for (uint_t idx = 0; idx < BytevectorLength(obj1); idx++)
+        for (ulong_t idx = 0; idx < BytevectorLength(obj1); idx++)
             if (AsBytevector(obj1)->Vector[idx] != AsBytevector(obj2)->Vector[idx])
                 return(0);
         return(1);
@@ -321,26 +321,26 @@ static int_t EqualP(FObject htbl, FObject obj1, FObject obj2)
     return(0);
 }
 
-int_t EqualP(FObject obj1, FObject obj2)
+long_t EqualP(FObject obj1, FObject obj2)
 {
     return(EqualP(MakeEqHashTable(128, 0), obj1, obj2));
 }
 
-Define("eqv?", EqvPPrimitive)(int_t argc, FObject argv[])
+Define("eqv?", EqvPPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("eqv?", argc);
 
     return(EqvP(argv[0], argv[1]) ? TrueObject : FalseObject);
 }
 
-Define("eq?", EqPPrimitive)(int_t argc, FObject argv[])
+Define("eq?", EqPPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("eq?", argc);
 
     return(EqP(argv[0], argv[1]) ? TrueObject : FalseObject);
 }
 
-Define("equal?", EqualPPrimitive)(int_t argc, FObject argv[])
+Define("equal?", EqualPPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("equal?", argc);
 
@@ -349,7 +349,7 @@ Define("equal?", EqualPPrimitive)(int_t argc, FObject argv[])
 
 // ---- Hashing ----
 
-inline uint_t HashBound()
+inline ulong_t HashBound()
 {
     FAssert(PairP(IndexParameter(INDEX_PARAMETER_HASH_BOUND)));
     FAssert(FixnumP(First(IndexParameter(INDEX_PARAMETER_HASH_BOUND))));
@@ -357,7 +357,7 @@ inline uint_t HashBound()
     return(AsFixnum(First(IndexParameter(INDEX_PARAMETER_HASH_BOUND))));
 }
 
-inline uint_t HashSalt()
+inline ulong_t HashSalt()
 {
     FAssert(PairP(IndexParameter(INDEX_PARAMETER_HASH_SALT)));
     FAssert(FixnumP(First(IndexParameter(INDEX_PARAMETER_HASH_SALT))));
@@ -365,7 +365,7 @@ inline uint_t HashSalt()
     return(AsFixnum(First(IndexParameter(INDEX_PARAMETER_HASH_SALT))));
 }
 
-Define("%check-hash-bound", CheckHashBoundPrimitive)(int_t argc, FObject argv[])
+Define("%check-hash-bound", CheckHashBoundPrimitive)(long_t argc, FObject argv[])
 {
     FMustBe(argc == 1);
     NonNegativeArgCheck("%check-hash-bound", argv[0], 1);
@@ -378,7 +378,7 @@ Define("%check-hash-bound", CheckHashBoundPrimitive)(int_t argc, FObject argv[])
     return(argv[0]);
 }
 
-Define("%check-hash-salt", CheckHashSaltPrimitive)(int_t argc, FObject argv[])
+Define("%check-hash-salt", CheckHashSaltPrimitive)(long_t argc, FObject argv[])
 {
     FMustBe(argc == 1);
     NonNegativeArgCheck("%check-hash-salt", argv[0], 1);
@@ -391,7 +391,7 @@ Define("%check-hash-salt", CheckHashSaltPrimitive)(int_t argc, FObject argv[])
     return(argv[0]);
 }
 
-Define("boolean-hash", BooleanHashPrimitive)(int_t argc, FObject argv[])
+Define("boolean-hash", BooleanHashPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("boolean-hash", argc);
     BooleanArgCheck("boolean-hash", argv[0]);
@@ -399,7 +399,7 @@ Define("boolean-hash", BooleanHashPrimitive)(int_t argc, FObject argv[])
     return(MakeFixnum(argv[0] == FalseObject ? 0 : HashSalt() % HashBound()));
 }
 
-Define("char-hash", CharHashPrimitive)(int_t argc, FObject argv[])
+Define("char-hash", CharHashPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("char-hash", argc);
     CharacterArgCheck("char-hash", argv[0]);
@@ -407,7 +407,7 @@ Define("char-hash", CharHashPrimitive)(int_t argc, FObject argv[])
     return(MakeFixnum((AsCharacter(argv[0]) * HashSalt()) % HashBound()));
 }
 
-Define("char-ci-hash", CharCiHashPrimitive)(int_t argc, FObject argv[])
+Define("char-ci-hash", CharCiHashPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("char-ci-hash", argc);
     CharacterArgCheck("char-ci-hash", argv[0]);
@@ -415,7 +415,7 @@ Define("char-ci-hash", CharCiHashPrimitive)(int_t argc, FObject argv[])
     return(MakeFixnum((CharFoldcase(AsCharacter(argv[0])) * HashSalt()) % HashBound()));
 }
 
-Define("string-hash", StringHashPrimitive)(int_t argc, FObject argv[])
+Define("string-hash", StringHashPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("string-hash", argc);
     StringArgCheck("string-hash", argv[0]);
@@ -423,7 +423,7 @@ Define("string-hash", StringHashPrimitive)(int_t argc, FObject argv[])
     return(MakeFixnum((StringHash(argv[0]) * HashSalt()) % HashBound()));
 }
 
-Define("string-ci-hash", StringCiHashPrimitive)(int_t argc, FObject argv[])
+Define("string-ci-hash", StringCiHashPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("string-ci-hash", argc);
     StringArgCheck("string-ci-hash", argv[0]);
@@ -431,7 +431,7 @@ Define("string-ci-hash", StringCiHashPrimitive)(int_t argc, FObject argv[])
     return(MakeFixnum((StringCiHash(argv[0]) * HashSalt()) % HashBound()));
 }
 
-Define("symbol-hash", SymbolHashPrimitive)(int_t argc, FObject argv[])
+Define("symbol-hash", SymbolHashPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("symbol-hash", argc);
     SymbolArgCheck("symbol-hash", argv[0]);
@@ -439,7 +439,7 @@ Define("symbol-hash", SymbolHashPrimitive)(int_t argc, FObject argv[])
     return(MakeFixnum((SymbolHash(argv[0]) * HashSalt()) % HashBound()));
 }
 
-Define("number-hash", NumberHashPrimitive)(int_t argc, FObject argv[])
+Define("number-hash", NumberHashPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("number-hash", argc);
     NumberArgCheck("number-hash", argv[0]);
@@ -449,10 +449,10 @@ Define("number-hash", NumberHashPrimitive)(int_t argc, FObject argv[])
 
 uint32_t EqHash(FObject obj)
 {
-    return(NormalizeHash(((uint_t) obj) >> 3));
+    return(NormalizeHash(((ulong_t) obj) >> 3));
 }
 
-Define("eq-hash", EqHashPrimitive)(int_t argc, FObject argv[])
+Define("eq-hash", EqHashPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("eq-hash", argc);
 
@@ -492,6 +492,6 @@ static FObject Primitives[] =
 
 void SetupCompare()
 {
-    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (ulong_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 }

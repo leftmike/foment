@@ -204,14 +204,14 @@ inline void SetThreadState(FThreadState * ts)
 }
 #endif // FOMENT_UNIX
 
-extern volatile uint_t TotalThreads;
+extern volatile ulong_t TotalThreads;
 extern FThreadState * Threads;
 extern OSExclusive ThreadsExclusive;
 
-int_t EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms);
-uint_t LeaveThread(FThreadState * ts);
+long_t EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms);
+ulong_t LeaveThread(FThreadState * ts);
 
-inline FObject IndexParameter(uint_t idx)
+inline FObject IndexParameter(ulong_t idx)
 {
     FAssert(idx < INDEX_PARAMETERS);
 
@@ -220,7 +220,7 @@ inline FObject IndexParameter(uint_t idx)
 
 typedef struct
 {
-    int_t Unused;
+    long_t Unused;
 } FNotifyThrow;
 
 class FWithExclusive

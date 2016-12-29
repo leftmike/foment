@@ -123,7 +123,7 @@ typedef struct
     FObject Index;
 } FInlineVariable;
 
-FObject MakeInlineVariable(int_t idx);
+FObject MakeInlineVariable(long_t idx);
 
 // ----------------
 
@@ -134,10 +134,10 @@ FObject CompileLambda(FObject env, FObject name, FObject formals, FObject body);
 FObject CompileSyntaxRules(FObject se, FObject obj);
 FObject ExpandSyntaxRules(FObject se, FObject sr, FObject expr);
 
-int_t MatchReference(FObject ref, FObject se, FObject expr);
+long_t MatchReference(FObject ref, FObject se, FObject expr);
 FObject ExpandExpression(FObject enc, FObject se, FObject expr);
 FObject CondExpand(FObject se, FObject expr, FObject clst);
-FObject ReadInclude(FObject op, FObject lst, int_t cif);
+FObject ReadInclude(FObject op, FObject lst, long_t cif);
 FObject SPassLambda(FObject enc, FObject se, FObject name, FObject formals, FObject body);
 void UPassLambda(FLambda * lam, int ef);
 void CPassLambda(FLambda * lam);

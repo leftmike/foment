@@ -10,14 +10,14 @@ Foment
 
 // ---- Strings ----
 
-FObject MakeString(FCh * s, uint_t sl)
+FObject MakeString(FCh * s, ulong_t sl)
 {
     FString * ns = (FString *) MakeObject(StringTag, sizeof(FString) + sl * sizeof(FCh), 0,
         "make-string");
     ns->String[sl] = 0;
 
     if (s != 0)
-        for (uint_t idx = 0; idx < sl; idx++)
+        for (ulong_t idx = 0; idx < sl; idx++)
             ns->String[idx] = s[idx];
 
     FObject obj = ns;
@@ -25,11 +25,11 @@ FObject MakeString(FCh * s, uint_t sl)
     return(obj);
 }
 
-FObject MakeStringCh(uint_t sl, FCh ch)
+FObject MakeStringCh(ulong_t sl, FCh ch)
 {
     FString * s = AsString(MakeString(0, sl));
 
-    for (uint_t idx = 0; idx < sl; idx++)
+    for (ulong_t idx = 0; idx < sl; idx++)
         s->String[idx] = ch;
 
     return(s);
@@ -39,7 +39,7 @@ FObject MakeStringF(FString * s)
 {
     FString * ns = AsString(MakeString(0, StringLength(s)));
 
-    for (uint_t idx = 0; idx < StringLength(s); idx++)
+    for (ulong_t idx = 0; idx < StringLength(s); idx++)
         ns->String[idx] = s->String[idx];
 
     return(ns);
@@ -47,25 +47,25 @@ FObject MakeStringF(FString * s)
 
 FObject MakeStringC(const char * s)
 {
-    int_t sl = strlen(s);
+    long_t sl = strlen(s);
     FString * ns = AsString(MakeString(0, sl));
 
-    int_t idx;
+    long_t idx;
     for (idx = 0; idx < sl; idx++)
         ns->String[idx] = s[idx];
 
     return(ns);
 }
 
-void StringToC(FObject s, char * b, int_t bl)
+void StringToC(FObject s, char * b, long_t bl)
 {
-    int_t idx;
+    long_t idx;
 
     FAssert(StringP(s));
 
     for (idx = 0; idx < bl - 1; idx++)
     {
-        if (idx == (int_t) StringLength(s))
+        if (idx == (long_t) StringLength(s))
             break;
 
         b[idx] = (char) AsString(s)->String[idx];
@@ -79,25 +79,25 @@ FObject FoldcaseString(FObject s)
 {
     FAssert(StringP(s));
 
-    uint_t sl = StringLength(s);
-    uint_t nsl = 0;
+    ulong_t sl = StringLength(s);
+    ulong_t nsl = 0;
 
-    for (uint_t idx = 0; idx < sl; idx++)
+    for (ulong_t idx = 0; idx < sl; idx++)
         nsl += CharFullfoldLength(AsString(s)->String[idx]);
 
     FString * ns = AsString(MakeString(0, nsl));
 
     if (nsl == sl)
     {
-        for (uint_t idx = 0; idx < sl; idx++)
+        for (ulong_t idx = 0; idx < sl; idx++)
             ns->String[idx] = CharFoldcase(AsString(s)->String[idx]);
     }
     else
     {
-        uint_t ndx = 0;
-        for (uint_t idx = 0; idx < sl; idx++)
+        ulong_t ndx = 0;
+        for (ulong_t idx = 0; idx < sl; idx++)
         {
-            uint_t fcl = CharFullfoldLength(AsString(s)->String[idx]);
+            ulong_t fcl = CharFullfoldLength(AsString(s)->String[idx]);
             if (fcl == 1)
             {
                 ns->String[ndx] = CharFoldcase(AsString(s)->String[idx]);
@@ -129,25 +129,25 @@ static FObject UpcaseString(FObject s)
 {
     FAssert(StringP(s));
 
-    uint_t sl = StringLength(s);
-    uint_t nsl = 0;
+    ulong_t sl = StringLength(s);
+    ulong_t nsl = 0;
 
-    for (uint_t idx = 0; idx < sl; idx++)
+    for (ulong_t idx = 0; idx < sl; idx++)
         nsl += CharFullupLength(AsString(s)->String[idx]);
 
     FString * ns = AsString(MakeString(0, nsl));
 
     if (nsl == sl)
     {
-        for (uint_t idx = 0; idx < sl; idx++)
+        for (ulong_t idx = 0; idx < sl; idx++)
             ns->String[idx] = CharUpcase(AsString(s)->String[idx]);
     }
     else
     {
-        uint_t ndx = 0;
-        for (uint_t idx = 0; idx < sl; idx++)
+        ulong_t ndx = 0;
+        for (ulong_t idx = 0; idx < sl; idx++)
         {
-            uint_t fcl = CharFullupLength(AsString(s)->String[idx]);
+            ulong_t fcl = CharFullupLength(AsString(s)->String[idx]);
             if (fcl == 1)
             {
                 ns->String[ndx] = CharUpcase(AsString(s)->String[idx]);
@@ -179,25 +179,25 @@ static FObject DowncaseString(FObject s)
 {
     FAssert(StringP(s));
 
-    uint_t sl = StringLength(s);
-    uint_t nsl = 0;
+    ulong_t sl = StringLength(s);
+    ulong_t nsl = 0;
 
-    for (uint_t idx = 0; idx < sl; idx++)
+    for (ulong_t idx = 0; idx < sl; idx++)
         nsl += CharFulldownLength(AsString(s)->String[idx]);
 
     FString * ns = AsString(MakeString(0, nsl));
 
     if (nsl == sl)
     {
-        for (uint_t idx = 0; idx < sl; idx++)
+        for (ulong_t idx = 0; idx < sl; idx++)
             ns->String[idx] = CharDowncase(AsString(s)->String[idx]);
     }
     else
     {
-        uint_t ndx = 0;
-        for (uint_t idx = 0; idx < sl; idx++)
+        ulong_t ndx = 0;
+        for (ulong_t idx = 0; idx < sl; idx++)
         {
-            uint_t fcl = CharFulldownLength(AsString(s)->String[idx]);
+            ulong_t fcl = CharFulldownLength(AsString(s)->String[idx]);
             if (fcl == 1)
             {
                 ns->String[ndx] = CharDowncase(AsString(s)->String[idx]);
@@ -225,7 +225,7 @@ static FObject DowncaseString(FObject s)
     return(ns);
 }
 
-uint32_t StringLengthHash(FCh * s, uint_t sl)
+uint32_t StringLengthHash(FCh * s, ulong_t sl)
 {
     uint32_t h = 0;
 
@@ -247,7 +247,7 @@ uint32_t StringCiHash(FObject obj)
     FAssert(StringP(obj));
 
     FCh * s = AsString(obj)->String;
-    uint_t sl = StringLength(obj);
+    ulong_t sl = StringLength(obj);
     uint32_t h = 0;
 
     for (; sl > 0; s++, sl--)
@@ -269,12 +269,12 @@ uint32_t CStringHash(const char * s)
     return(NormalizeHash(h));
 }
 
-int_t StringCompare(FObject obj1, FObject obj2)
+long_t StringCompare(FObject obj1, FObject obj2)
 {
     FAssert(StringP(obj1));
     FAssert(StringP(obj2));
 
-    for (uint_t sdx = 0; sdx < StringLength(obj1) && sdx < StringLength(obj2); sdx++)
+    for (ulong_t sdx = 0; sdx < StringLength(obj1) && sdx < StringLength(obj2); sdx++)
         if (AsString(obj1)->String[sdx] != AsString(obj2)->String[sdx])
             return(AsString(obj1)->String[sdx] < AsString(obj2)->String[sdx] ? -1 : 1);
 
@@ -283,12 +283,12 @@ int_t StringCompare(FObject obj1, FObject obj2)
     return(StringLength(obj1) < StringLength(obj2) ? -1 : 1);
 }
 
-static int_t StringCiCompare(FObject obj1, FObject obj2)
+static long_t StringCiCompare(FObject obj1, FObject obj2)
 {
     FAssert(StringP(obj1));
     FAssert(StringP(obj2));
 
-    for (uint_t sdx = 0; sdx < StringLength(obj1) && sdx < StringLength(obj2); sdx++)
+    for (ulong_t sdx = 0; sdx < StringLength(obj1) && sdx < StringLength(obj2); sdx++)
     {
         FCh ch1 = CharFoldcase(AsString(obj1)->String[sdx]);
         FCh ch2 = CharFoldcase(AsString(obj2)->String[sdx]);
@@ -302,12 +302,12 @@ static int_t StringCiCompare(FObject obj1, FObject obj2)
     return(StringLength(obj1) < StringLength(obj2) ? -1 : 1);
 }
 
-int_t StringLengthEqualP(FCh * s, int_t sl, FObject obj)
+long_t StringLengthEqualP(FCh * s, long_t sl, FObject obj)
 {
     FAssert(StringP(obj));
-    int_t sdx;
+    long_t sdx;
 
-    if (sl !=  (int_t) StringLength(obj))
+    if (sl !=  (long_t) StringLength(obj))
         return(0);
 
     for (sdx = 0; sdx < sl; sdx++)
@@ -317,27 +317,27 @@ int_t StringLengthEqualP(FCh * s, int_t sl, FObject obj)
     return(1);
 }
 
-int_t StringCEqualP(const char * s1, FCh * s2, int_t sl2)
+long_t StringCEqualP(const char * s1, FCh * s2, long_t sl2)
 {
-    int_t sl1 = strlen(s1);
+    long_t sl1 = strlen(s1);
     if (sl1 != sl2)
         return(0);
 
-    for (int_t sdx = 0; sdx < sl1; sdx++)
+    for (long_t sdx = 0; sdx < sl1; sdx++)
         if (s1[sdx] != (char) s2[sdx])
             return(0);
 
     return(1);
 }
 
-Define("string?", StringPPrimitive)(int_t argc, FObject argv[])
+Define("string?", StringPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("string?", argc);
 
     return(StringP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("make-string", MakeStringPrimitive)(int_t argc, FObject argv[])
+Define("make-string", MakeStringPrimitive)(long_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("make-string", argc);
     NonNegativeArgCheck("make-string", argv[0], 0);
@@ -352,11 +352,11 @@ Define("make-string", MakeStringPrimitive)(int_t argc, FObject argv[])
     return(MakeString(0, AsFixnum(argv[0])));
 }
 
-Define("string", StringPrimitive)(int_t argc, FObject argv[])
+Define("string", StringPrimitive)(long_t argc, FObject argv[])
 {
     FObject s = MakeString(0, argc);
 
-    for (int_t adx = 0; adx < argc; adx++)
+    for (long_t adx = 0; adx < argc; adx++)
     {
         CharacterArgCheck("string", argv[adx]);
 
@@ -366,7 +366,7 @@ Define("string", StringPrimitive)(int_t argc, FObject argv[])
     return(s);
 }
 
-Define("string-length", StringLengthPrimitive)(int_t argc, FObject argv[])
+Define("string-length", StringLengthPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("string-length", argc);
     StringArgCheck("string-length", argv[0]);
@@ -374,7 +374,7 @@ Define("string-length", StringLengthPrimitive)(int_t argc, FObject argv[])
     return(MakeFixnum(StringLength(argv[0])));
 }
 
-Define("string-ref", StringRefPrimitive)(int_t argc, FObject argv[])
+Define("string-ref", StringRefPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("string-ref", argc);
     StringArgCheck("string-ref", argv[0]);
@@ -383,7 +383,7 @@ Define("string-ref", StringRefPrimitive)(int_t argc, FObject argv[])
     return(MakeCharacter(AsString(argv[0])->String[AsFixnum(argv[1])]));
 }
 
-Define("string-set!", StringSetPrimitive)(int_t argc, FObject argv[])
+Define("string-set!", StringSetPrimitive)(long_t argc, FObject argv[])
 {
     ThreeArgsCheck("string-set!", argc);
     StringArgCheck("string-set!", argv[0]);
@@ -394,12 +394,12 @@ Define("string-set!", StringSetPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("string=?", StringEqualPPrimitive)(int_t argc, FObject argv[])
+Define("string=?", StringEqualPPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("string=?", argc);
     StringArgCheck("string=?", argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         StringArgCheck("string=?", argv[adx]);
 
@@ -410,12 +410,12 @@ Define("string=?", StringEqualPPrimitive)(int_t argc, FObject argv[])
     return(TrueObject);
 }
 
-Define("string<?", StringLessThanPPrimitive)(int_t argc, FObject argv[])
+Define("string<?", StringLessThanPPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("string<?", argc);
     StringArgCheck("string<?", argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         StringArgCheck("string<?", argv[adx]);
 
@@ -426,12 +426,12 @@ Define("string<?", StringLessThanPPrimitive)(int_t argc, FObject argv[])
     return(TrueObject);
 }
 
-Define("string>?", StringGreaterThanPPrimitive)(int_t argc, FObject argv[])
+Define("string>?", StringGreaterThanPPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("string>?", argc);
     StringArgCheck("string>?", argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         StringArgCheck("string>?", argv[adx]);
 
@@ -442,12 +442,12 @@ Define("string>?", StringGreaterThanPPrimitive)(int_t argc, FObject argv[])
     return(TrueObject);
 }
 
-Define("string<=?", StringLessThanEqualPPrimitive)(int_t argc, FObject argv[])
+Define("string<=?", StringLessThanEqualPPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("string<=?", argc);
     StringArgCheck("string<=?", argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         StringArgCheck("string<=?", argv[adx]);
 
@@ -458,12 +458,12 @@ Define("string<=?", StringLessThanEqualPPrimitive)(int_t argc, FObject argv[])
     return(TrueObject);
 }
 
-Define("string>=?", StringGreaterThanEqualPPrimitive)(int_t argc, FObject argv[])
+Define("string>=?", StringGreaterThanEqualPPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("string>=?", argc);
     StringArgCheck("string>=?", argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         StringArgCheck("string>=?", argv[adx]);
 
@@ -474,12 +474,12 @@ Define("string>=?", StringGreaterThanEqualPPrimitive)(int_t argc, FObject argv[]
     return(TrueObject);
 }
 
-Define("string-ci=?", StringCiEqualPPrimitive)(int_t argc, FObject argv[])
+Define("string-ci=?", StringCiEqualPPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("string-ci=?", argc);
     StringArgCheck("string-ci=?", argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         StringArgCheck("string-ci=?", argv[adx]);
 
@@ -490,12 +490,12 @@ Define("string-ci=?", StringCiEqualPPrimitive)(int_t argc, FObject argv[])
     return(TrueObject);
 }
 
-Define("string-ci<?", StringCiLessThanPPrimitive)(int_t argc, FObject argv[])
+Define("string-ci<?", StringCiLessThanPPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("string-ci<?", argc);
     StringArgCheck("string-ci<?", argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         StringArgCheck("string-ci<?", argv[adx]);
 
@@ -506,12 +506,12 @@ Define("string-ci<?", StringCiLessThanPPrimitive)(int_t argc, FObject argv[])
     return(TrueObject);
 }
 
-Define("string-ci>?", StringCiGreaterThanPPrimitive)(int_t argc, FObject argv[])
+Define("string-ci>?", StringCiGreaterThanPPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("string-ci>?", argc);
     StringArgCheck("string-ci>?", argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         StringArgCheck("string-ci>?", argv[adx]);
 
@@ -522,12 +522,12 @@ Define("string-ci>?", StringCiGreaterThanPPrimitive)(int_t argc, FObject argv[])
     return(TrueObject);
 }
 
-Define("string-ci<=?", StringCiLessThanEqualPPrimitive)(int_t argc, FObject argv[])
+Define("string-ci<=?", StringCiLessThanEqualPPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("string-ci<=?", argc);
     StringArgCheck("string-ci<=?", argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         StringArgCheck("string-ci<=?", argv[adx]);
 
@@ -538,12 +538,12 @@ Define("string-ci<=?", StringCiLessThanEqualPPrimitive)(int_t argc, FObject argv
     return(TrueObject);
 }
 
-Define("string-ci>=?", StringCiGreaterThanEqualPPrimitive)(int_t argc, FObject argv[])
+Define("string-ci>=?", StringCiGreaterThanEqualPPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("string-ci>=?", argc);
     StringArgCheck("string-ci>=?", argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         StringArgCheck("string-ci>=?", argv[adx]);
 
@@ -554,7 +554,7 @@ Define("string-ci>=?", StringCiGreaterThanEqualPPrimitive)(int_t argc, FObject a
     return(TrueObject);
 }
 
-Define("string-upcase", StringUpcasePrimitive)(int_t argc, FObject argv[])
+Define("string-upcase", StringUpcasePrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("string-upcase", argc);
     StringArgCheck("string-upcase", argv[0]);
@@ -562,7 +562,7 @@ Define("string-upcase", StringUpcasePrimitive)(int_t argc, FObject argv[])
     return(UpcaseString(argv[0]));
 }
 
-Define("string-downcase", StringDowncasePrimitive)(int_t argc, FObject argv[])
+Define("string-downcase", StringDowncasePrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("string-downcase", argc);
     StringArgCheck("string-downcase", argv[0]);
@@ -570,7 +570,7 @@ Define("string-downcase", StringDowncasePrimitive)(int_t argc, FObject argv[])
     return(DowncaseString(argv[0]));
 }
 
-Define("string-foldcase", StringFoldcasePrimitive)(int_t argc, FObject argv[])
+Define("string-foldcase", StringFoldcasePrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("string-foldcase", argc);
     StringArgCheck("string-foldcase", argv[0]);
@@ -578,11 +578,11 @@ Define("string-foldcase", StringFoldcasePrimitive)(int_t argc, FObject argv[])
     return(FoldcaseString(argv[0]));
 }
 
-Define("string-append", StringAppendPrimitive)(int_t argc, FObject argv[])
+Define("string-append", StringAppendPrimitive)(long_t argc, FObject argv[])
 {
-    int_t sl = 0;
+    long_t sl = 0;
 
-    for (int_t adx = 0; adx < argc; adx++)
+    for (long_t adx = 0; adx < argc; adx++)
     {
         StringArgCheck("string-append", argv[adx]);
 
@@ -591,8 +591,8 @@ Define("string-append", StringAppendPrimitive)(int_t argc, FObject argv[])
 
     FObject s = MakeString(0, sl);
 
-    int_t sdx = 0;
-    for (int_t adx = 0; adx < argc; adx++)
+    long_t sdx = 0;
+    for (long_t adx = 0; adx < argc; adx++)
     {
         sl = StringLength(argv[adx]);
         memcpy(AsString(s)->String + sdx, AsString(argv[adx])->String, sl * sizeof(FCh));
@@ -602,7 +602,7 @@ Define("string-append", StringAppendPrimitive)(int_t argc, FObject argv[])
     return(s);
 }
 
-Define("string->list", StringToListPrimitive)(int_t argc, FObject argv[])
+Define("string->list", StringToListPrimitive)(long_t argc, FObject argv[])
 {
     FFixnum strt;
     FFixnum end;
@@ -641,14 +641,14 @@ Define("string->list", StringToListPrimitive)(int_t argc, FObject argv[])
     return(lst);
 }
 
-Define("list->string", ListToStringPrimitive)(int_t argc, FObject argv[])
+Define("list->string", ListToStringPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("list->string", argc);
 
     FObject lst = argv[0];
-    int_t sl = ListLength("list->string", lst);
+    long_t sl = ListLength("list->string", lst);
     FObject s = MakeString(0, sl);
-    int_t sdx = 0;
+    long_t sdx = 0;
 
     while (PairP(lst))
     {
@@ -665,7 +665,7 @@ Define("list->string", ListToStringPrimitive)(int_t argc, FObject argv[])
     return(s);
 }
 
-Define("string-copy", StringCopyPrimitive)(int_t argc, FObject argv[])
+Define("string-copy", StringCopyPrimitive)(long_t argc, FObject argv[])
 {
     FFixnum strt;
     FFixnum end;
@@ -699,7 +699,7 @@ Define("string-copy", StringCopyPrimitive)(int_t argc, FObject argv[])
     return(MakeString(AsString(argv[0])->String + strt, end - strt));
 }
 
-Define("string-copy!", StringCopyModifyPrimitive)(int_t argc, FObject argv[])
+Define("string-copy!", StringCopyModifyPrimitive)(long_t argc, FObject argv[])
 {
     FFixnum strt;
     FFixnum end;
@@ -741,7 +741,7 @@ Define("string-copy!", StringCopyModifyPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("string-fill!", StringFillPrimitive)(int_t argc, FObject argv[])
+Define("string-fill!", StringFillPrimitive)(long_t argc, FObject argv[])
 {
     FFixnum strt;
     FFixnum end;
@@ -811,6 +811,6 @@ static FObject Primitives[] =
 
 void SetupStrings()
 {
-    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (ulong_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 }

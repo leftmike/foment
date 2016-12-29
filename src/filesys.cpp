@@ -25,7 +25,7 @@ Foment
 
 // ---- System interface ----
 
-Define("file-exists?", FileExistsPPrimitive)(int_t argc, FObject argv[])
+Define("file-exists?", FileExistsPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("file-exists?", argc);
     StringArgCheck("file-exists?", argv[0]);
@@ -47,7 +47,7 @@ Define("file-exists?", FileExistsPPrimitive)(int_t argc, FObject argv[])
 #endif // FOMENT_UNIX
 }
 
-Define("delete-file", DeleteFilePrimitive)(int_t argc, FObject argv[])
+Define("delete-file", DeleteFilePrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("delete-file", argc);
     StringArgCheck("delete-file", argv[0]);
@@ -74,7 +74,7 @@ Define("delete-file", DeleteFilePrimitive)(int_t argc, FObject argv[])
 
 // ---- File System interface ----
 
-Define("file-size", FileSizePrimitive)(int_t argc, FObject argv[])
+Define("file-size", FileSizePrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("file-size", argc);
     StringArgCheck("file-size", argv[0]);
@@ -105,7 +105,7 @@ Define("file-size", FileSizePrimitive)(int_t argc, FObject argv[])
 #endif // FOMENT_UNIX
 }
 
-Define("file-regular?", FileRegularPPrimitive)(int_t argc, FObject argv[])
+Define("file-regular?", FileRegularPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("file-regular?", argc);
     StringArgCheck("file-regular?", argv[0]);
@@ -134,7 +134,7 @@ Define("file-regular?", FileRegularPPrimitive)(int_t argc, FObject argv[])
 #endif // FOMENT_UNIX
 }
 
-Define("file-directory?", FileDirectoryPPrimitive)(int_t argc, FObject argv[])
+Define("file-directory?", FileDirectoryPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("file-directory?", argc);
     StringArgCheck("file-directory?", argv[0]);
@@ -163,7 +163,7 @@ Define("file-directory?", FileDirectoryPPrimitive)(int_t argc, FObject argv[])
 #endif // FOMENT_UNIX
 }
 
-Define("file-symbolic-link?", FileSymbolicLinkPPrimitive)(int_t argc, FObject argv[])
+Define("file-symbolic-link?", FileSymbolicLinkPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("file-symbolic-link?", argc);
     StringArgCheck("file-symbolic-link?", argv[0]);
@@ -192,7 +192,7 @@ Define("file-symbolic-link?", FileSymbolicLinkPPrimitive)(int_t argc, FObject ar
 #endif // FOMENT_UNIX
 }
 
-Define("file-readable?", FileReadablePPrimitive)(int_t argc, FObject argv[])
+Define("file-readable?", FileReadablePPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("file-readable?", argc);
     StringArgCheck("file-readable?", argv[0]);
@@ -216,7 +216,7 @@ Define("file-readable?", FileReadablePPrimitive)(int_t argc, FObject argv[])
 #endif // FOMENT_UNIX
 }
 
-Define("file-writable?", FileWritablePPrimitive)(int_t argc, FObject argv[])
+Define("file-writable?", FileWritablePPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("file-writable?", argc);
     StringArgCheck("file-writable?", argv[0]);
@@ -242,7 +242,7 @@ Define("file-writable?", FileWritablePPrimitive)(int_t argc, FObject argv[])
 }
 
 #ifdef FOMENT_UNIX
-Define("file-executable?", FileExecutablePPrimitive)(int_t argc, FObject argv[])
+Define("file-executable?", FileExecutablePPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("file-executable?", argc);
     StringArgCheck("file-executable?", argv[0]);
@@ -256,7 +256,7 @@ Define("file-executable?", FileExecutablePPrimitive)(int_t argc, FObject argv[])
 #endif // FOMENT_UNIX
 
 #ifdef FOMENT_WINDOWS
-Define("file-archive?", FileArchivePPrimitive)(int_t argc, FObject argv[])
+Define("file-archive?", FileArchivePPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("file-archive?", argc);
     StringArgCheck("file-archive?", argv[0]);
@@ -270,7 +270,7 @@ Define("file-archive?", FileArchivePPrimitive)(int_t argc, FObject argv[])
             : FalseObject);
 }
 
-Define("file-system?", FileSystemPPrimitive)(int_t argc, FObject argv[])
+Define("file-system?", FileSystemPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("file-system?", argc);
     StringArgCheck("file-system?", argv[0]);
@@ -284,7 +284,7 @@ Define("file-system?", FileSystemPPrimitive)(int_t argc, FObject argv[])
             FalseObject);
 }
 
-Define("file-hidden?", FileHiddenPPrimitive)(int_t argc, FObject argv[])
+Define("file-hidden?", FileHiddenPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("file-hidden?", argc);
     StringArgCheck("file-hidden?", argv[0]);
@@ -319,7 +319,7 @@ static __time64_t ConvertTime(FILETIME * ft)
 }
 #endif // FOMENT_WINDOWS
 
-Define("file-stat-mtime", FileStatMtimePrimitive)(int_t argc, FObject argv[])
+Define("file-stat-mtime", FileStatMtimePrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("file-stat-mtime", argc);
     StringArgCheck("file-stat-mtime", argv[0]);
@@ -352,7 +352,7 @@ Define("file-stat-mtime", FileStatMtimePrimitive)(int_t argc, FObject argv[])
 #endif // FOMENT_UNIX
 }
 
-Define("file-stat-atime", FileStatAtimePrimitive)(int_t argc, FObject argv[])
+Define("file-stat-atime", FileStatAtimePrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("file-stat-atime", argc);
     StringArgCheck("file-stat-atime", argv[0]);
@@ -385,7 +385,7 @@ Define("file-stat-atime", FileStatAtimePrimitive)(int_t argc, FObject argv[])
 #endif // FOMENT_UNIX
 }
 
-Define("create-symbolic-link", CreateSymbolicLinkPrimitive)(int_t argc, FObject argv[])
+Define("create-symbolic-link", CreateSymbolicLinkPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("create-symbolic-link", argc);
     StringArgCheck("create-symbolic-link", argv[0]);
@@ -429,7 +429,7 @@ Define("create-symbolic-link", CreateSymbolicLinkPrimitive)(int_t argc, FObject 
     return(NoValueObject);
 }
 
-Define("rename-file", RenameFilePrimitive)(int_t argc, FObject argv[])
+Define("rename-file", RenameFilePrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("rename-file", argc);
     StringArgCheck("rename-file", argv[0]);
@@ -464,7 +464,7 @@ Define("rename-file", RenameFilePrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("create-directory", CreateDirectoryPrimitive)(int_t argc, FObject argv[])
+Define("create-directory", CreateDirectoryPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("create-directory", argc);
     StringArgCheck("create-directory", argv[0]);
@@ -492,7 +492,7 @@ Define("create-directory", CreateDirectoryPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("delete-directory", DeleteDirectoryPrimitive)(int_t argc, FObject argv[])
+Define("delete-directory", DeleteDirectoryPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("delete-directory", argc);
     StringArgCheck("delete-directory", argv[0]);
@@ -519,20 +519,20 @@ Define("delete-directory", DeleteDirectoryPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("list-directory", ListDirectoryPrimitive)(int_t argc, FObject argv[])
+Define("list-directory", ListDirectoryPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("list-directory", argc);
     StringArgCheck("list-directory", argv[0]);
 
 #ifdef FOMENT_WINDOWS
-    uint_t sl = StringLength(argv[0]);
+    ulong_t sl = StringLength(argv[0]);
     FObject bv = ConvertStringToUtf16(AsString(argv[0])->String, sl, 1, 2);
     FObject lst = EmptyListObject;
 
     FAssert(BytevectorP(bv));
 
     FCh16 * us = (FCh16 *) AsBytevector(bv)->Vector;
-    uint_t usl = lstrlenW(us);
+    ulong_t usl = lstrlenW(us);
     if (AsString(argv[0])->String[sl - 1] == '\\' || AsString(argv[0])->String[sl - 1] == '/')
     {
         us[usl] = '*';
@@ -588,7 +588,7 @@ Define("list-directory", ListDirectoryPrimitive)(int_t argc, FObject argv[])
 #endif // FOMENT_UNIX
 }
 
-Define("current-directory", CurrentDirectoryPrimitive)(int_t argc, FObject argv[])
+Define("current-directory", CurrentDirectoryPrimitive)(long_t argc, FObject argv[])
 {
     ZeroOrOneArgsCheck("current-directory", argc);
 
@@ -667,6 +667,6 @@ static FObject Primitives[] =
 
 void SetupFileSys()
 {
-    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (ulong_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 }

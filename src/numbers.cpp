@@ -33,12 +33,12 @@ q: rational
 #endif // isfinite
 #endif // FOMENT_UNIX
 
-static int_t GenericCompare(const char * who, FObject x1, FObject x2, int_t cf);
-static int_t GenericSign(FObject x);
+static long_t GenericCompare(const char * who, FObject x1, FObject x2, long_t cf);
+static long_t GenericSign(FObject x);
 static FObject GenericSubtract(FObject z1, FObject z2);
 static FObject GenericDivide(FObject z1, FObject z2);
 
-int_t IntegerP(FObject obj)
+long_t IntegerP(FObject obj)
 {
     if (FlonumP(obj))
         return(isfinite(AsFlonum(obj)) && AsFlonum(obj) == Truncate(AsFlonum(obj)));
@@ -46,7 +46,7 @@ int_t IntegerP(FObject obj)
     return(FixnumP(obj) || BignumP(obj));
 }
 
-int_t NonNegativeExactIntegerP(FObject obj, int_t bf)
+long_t NonNegativeExactIntegerP(FObject obj, long_t bf)
 {
     return((FixnumP(obj) && AsFixnum(obj) >= 0) || (bf && BignumP(obj) && GenericSign(obj) >= 0));
 }
@@ -259,21 +259,21 @@ FObject ToExact(FObject n)
     return(n);
 }
 
-static int_t ParseUInteger(FCh * s, int_t sl, int_t sdx, FFixnum rdx, FFixnum sgn, FObject * punt)
+static long_t ParseUInteger(FCh * s, long_t sl, long_t sdx, FFixnum rdx, FFixnum sgn, FObject * punt)
 {
     // <uinteger> : <digit> <digit> ...
 
     FAssert(sdx < sl);
 
     FFixnum n;
-    int_t strt = sdx;
+    long_t strt = sdx;
 
     if (rdx == 16)
     {
         for (n = 0; sdx < sl; sdx++)
         {
             int64_t t;
-            int_t dv = DigitValue(s[sdx]);
+            long_t dv = DigitValue(s[sdx]);
 
             if (dv >= 0 && dv <= 9)
                 t = n * 16 + dv;
@@ -295,7 +295,7 @@ static int_t ParseUInteger(FCh * s, int_t sl, int_t sdx, FFixnum rdx, FFixnum sg
 
         for (n = 0; sdx < sl; sdx++)
         {
-            int_t dv = DigitValue(s[sdx]);
+            long_t dv = DigitValue(s[sdx]);
             if (dv >= 0 && dv < rdx)
             {
                 int64_t t = n * rdx + dv;
@@ -316,7 +316,7 @@ static int_t ParseUInteger(FCh * s, int_t sl, int_t sdx, FFixnum rdx, FFixnum sg
     return(sdx);
 }
 
-static int_t ParseDecimal10(FCh * s, int_t sl, int_t sdx, FFixnum sgn, FObject whl,
+static long_t ParseDecimal10(FCh * s, long_t sl, long_t sdx, FFixnum sgn, FObject whl,
     FObject * pdc10)
 {
     // <decimal10> : <uinteger> ... <suffix>
@@ -344,7 +344,7 @@ static int_t ParseDecimal10(FCh * s, int_t sl, int_t sdx, FFixnum sgn, FObject w
         sdx += 1;
         while (sdx < sl)
         {
-            int_t dv = DigitValue(s[sdx]);
+            long_t dv = DigitValue(s[sdx]);
             if (dv >= 0 && dv <= 9)
             {
                 d += dv * scl;
@@ -388,7 +388,7 @@ static int_t ParseDecimal10(FCh * s, int_t sl, int_t sdx, FFixnum sgn, FObject w
     return(sdx);
 }
 
-static int_t ParseUReal(FCh * s, int_t sl, int_t sdx, FFixnum rdx, FFixnum sgn, FObject * purl)
+static long_t ParseUReal(FCh * s, long_t sl, long_t sdx, FFixnum rdx, FFixnum sgn, FObject * purl)
 {
     // <ureal> : <uinteger>
     //         | <uinteger> / <uinteger>
@@ -424,7 +424,7 @@ static int_t ParseUReal(FCh * s, int_t sl, int_t sdx, FFixnum rdx, FFixnum sgn, 
     return(sdx);
 }
 
-static int_t ParseReal(FCh * s, int_t sl, int_t sdx, FFixnum rdx, FObject * prl)
+static long_t ParseReal(FCh * s, long_t sl, long_t sdx, FFixnum rdx, FObject * prl)
 {
     // <real> : <ureal>
     //        | + <ureal>
@@ -484,7 +484,7 @@ static int_t ParseReal(FCh * s, int_t sl, int_t sdx, FFixnum rdx, FObject * prl)
     return(sdx);
 }
 
-static int_t ParseComplex(FCh * s, int_t sl, FFixnum rdx, FObject * pcmplx)
+static long_t ParseComplex(FCh * s, long_t sl, FFixnum rdx, FObject * pcmplx)
 {
     // <complex> : <real>
     //           | <real> @ <real>
@@ -513,7 +513,7 @@ static int_t ParseComplex(FCh * s, int_t sl, FFixnum rdx, FObject * pcmplx)
         }
     }
 
-    int_t sdx = ParseReal(s, sl, 0, rdx, pcmplx);
+    long_t sdx = ParseReal(s, sl, 0, rdx, pcmplx);
     if (sdx < 0 || sdx == sl)
         return(sdx);
 
@@ -574,16 +574,16 @@ static int_t ParseComplex(FCh * s, int_t sl, FFixnum rdx, FObject * pcmplx)
 #define EXACTNESS_EXACT 1
 #define EXACTNESS_INEXACT 2
 
-FObject StringToNumber(FCh * s, int_t sl, FFixnum rdx)
+FObject StringToNumber(FCh * s, long_t sl, FFixnum rdx)
 {
     FAssert(rdx == 2 || rdx == 8 || rdx == 10 || rdx == 16);
 
     if (sl == 0)
         return(FalseObject);
 
-    int_t epf = EXACTNESS_NONE;
-    int_t rpf = 0;
-    int_t sdx = 0;
+    long_t epf = EXACTNESS_NONE;
+    long_t rpf = 0;
+    long_t sdx = 0;
 
     while (sdx < sl && s[sdx] == '#')
     {
@@ -659,11 +659,11 @@ FObject StringToNumber(FCh * s, int_t sl, FFixnum rdx)
 
 const static char Digits[] = {"0123456789abcdef"};
 
-int_t FixnumAsString(FFixnum n, FCh * s, FFixnum rdx)
+long_t FixnumAsString(FFixnum n, FCh * s, FFixnum rdx)
 {
     FAssert(rdx <= (FFixnum) sizeof(Digits));
 
-    int_t sl = 0;
+    long_t sl = 0;
 
     if (n < 0)
     {
@@ -687,7 +687,7 @@ int_t FixnumAsString(FFixnum n, FCh * s, FFixnum rdx)
     return(sl);
 }
 
-static int_t NeedImaginaryPlusSignP(FObject n)
+static long_t NeedImaginaryPlusSignP(FObject n)
 {
     if (FixnumP(n))
         return(AsFixnum(n) >= 0);
@@ -708,7 +708,7 @@ static void WriteNumber(FObject port, FObject obj, FFixnum rdx)
     if (FixnumP(obj))
     {
         FCh s[32];
-        int_t sl = FixnumAsString(AsFixnum(obj), s, rdx);
+        long_t sl = FixnumAsString(AsFixnum(obj), s, rdx);
 
         WriteString(port, s, sl);
     }
@@ -747,7 +747,7 @@ static void WriteNumber(FObject port, FObject obj, FFixnum rdx)
         else
         {
             char s[128];
-            int_t idx = sprintf_s(s, sizeof(s), "%.14g", d);
+            long_t idx = sprintf_s(s, sizeof(s), "%.14g", d);
 
             if (d == Truncate(d) && strchr(s, '.') == 0)
             {
@@ -778,7 +778,7 @@ FObject NumberToString(FObject obj, FFixnum rdx)
     if (FixnumP(obj))
     {
         FCh s[32];
-        int_t sl = FixnumAsString(AsFixnum(obj), s, rdx);
+        long_t sl = FixnumAsString(AsFixnum(obj), s, rdx);
 
         return(MakeString(s, sl));
     }
@@ -797,7 +797,7 @@ FObject NumberToString(FObject obj, FFixnum rdx)
         else
         {
             char s[128];
-            int_t idx = sprintf_s(s, sizeof(s), "%.14g", d);
+            long_t idx = sprintf_s(s, sizeof(s), "%.14g", d);
 
             if (d == Truncate(d) && strchr(s, '.') == 0)
             {
@@ -819,14 +819,14 @@ FObject NumberToString(FObject obj, FFixnum rdx)
     return(GetOutputString(port));
 }
 
-static inline int_t BothNumberP(FObject z1, FObject z2)
+static inline long_t BothNumberP(FObject z1, FObject z2)
 {
     return(NumberP(z1) && NumberP(z2));
 }
 
-static inline int_t BinaryNumberOp(FObject z1, FObject z2)
+static inline long_t BinaryNumberOp(FObject z1, FObject z2)
 {
-    int_t op;
+    long_t op;
 
     if (ComplexP(z1))
         op = 0x1 << 2;
@@ -847,26 +847,26 @@ static inline int_t BinaryNumberOp(FObject z1, FObject z2)
     return(op);
 }
 
-static const int_t BOP_BIGRAT_BIGRAT = 0x0;   // 0b0000
-static const int_t BOP_BIGRAT_COMPLEX = 0x1;  // 0b0001
-static const int_t BOP_BIGRAT_FLOAT = 0x2;    // 0b0010
-static const int_t BOP_BIGRAT_FIXED = 0x3;    // 0b0011
-static const int_t BOP_COMPLEX_BIGRAT = 0x4;  // 0b0100
-static const int_t BOP_COMPLEX_COMPLEX = 0x5; // 0b0101
-static const int_t BOP_COMPLEX_FLOAT = 0x6;   // 0b0110
-static const int_t BOP_COMPLEX_FIXED = 0x7;   // 0b0111
-static const int_t BOP_FLOAT_BIGRAT = 0x8;    // 0b1000
-static const int_t BOP_FLOAT_COMPLEX = 0x9;   // 0b1001
-static const int_t BOP_FLOAT_FLOAT = 0xA;     // 0b1010
-static const int_t BOP_FLOAT_FIXED = 0xB;     // 0b1011
-static const int_t BOP_FIXED_BIGRAT = 0xC;    // 0b1100
-static const int_t BOP_FIXED_COMPLEX = 0xD;   // 0b1101
-static const int_t BOP_FIXED_FLOAT = 0xE;     // 0b1110
-static const int_t BOP_FIXED_FIXED = 0xF;     // 0b1111
+static const long_t BOP_BIGRAT_BIGRAT = 0x0;   // 0b0000
+static const long_t BOP_BIGRAT_COMPLEX = 0x1;  // 0b0001
+static const long_t BOP_BIGRAT_FLOAT = 0x2;    // 0b0010
+static const long_t BOP_BIGRAT_FIXED = 0x3;    // 0b0011
+static const long_t BOP_COMPLEX_BIGRAT = 0x4;  // 0b0100
+static const long_t BOP_COMPLEX_COMPLEX = 0x5; // 0b0101
+static const long_t BOP_COMPLEX_FLOAT = 0x6;   // 0b0110
+static const long_t BOP_COMPLEX_FIXED = 0x7;   // 0b0111
+static const long_t BOP_FLOAT_BIGRAT = 0x8;    // 0b1000
+static const long_t BOP_FLOAT_COMPLEX = 0x9;   // 0b1001
+static const long_t BOP_FLOAT_FLOAT = 0xA;     // 0b1010
+static const long_t BOP_FLOAT_FIXED = 0xB;     // 0b1011
+static const long_t BOP_FIXED_BIGRAT = 0xC;    // 0b1100
+static const long_t BOP_FIXED_COMPLEX = 0xD;   // 0b1101
+static const long_t BOP_FIXED_FLOAT = 0xE;     // 0b1110
+static const long_t BOP_FIXED_FIXED = 0xF;     // 0b1111
 
-static inline int_t UnaryNumberOp(FObject z)
+static inline long_t UnaryNumberOp(FObject z)
 {
-    int_t op;
+    long_t op;
 
     if (ComplexP(z))
         op = 0x1;
@@ -880,12 +880,12 @@ static inline int_t UnaryNumberOp(FObject z)
     return(op);
 }
 
-static const int_t UOP_BIGRAT = 0x0;  // 0b0000
-static const int_t UOP_COMPLEX = 0x1; // 0b0001
-static const int_t UOP_FLOAT = 0x2;   // 0b0010
-static const int_t UOP_FIXED = 0x3;   // 0b0011
+static const long_t UOP_BIGRAT = 0x0;  // 0b0000
+static const long_t UOP_COMPLEX = 0x1; // 0b0001
+static const long_t UOP_FLOAT = 0x2;   // 0b0010
+static const long_t UOP_FIXED = 0x3;   // 0b0011
 
-static int_t GenericSign(FObject x)
+static long_t GenericSign(FObject x)
 {
     switch(UnaryNumberOp(x))
     {
@@ -914,7 +914,7 @@ static int_t GenericSign(FObject x)
     return(0);
 }
 
-int_t GenericEqvP(FObject x1, FObject x2)
+long_t GenericEqvP(FObject x1, FObject x2)
 {
     if (BothNumberP(x1, x2))
     {
@@ -965,7 +965,7 @@ int_t GenericEqvP(FObject x1, FObject x2)
     return(0);
 }
 
-static int_t GenericCompare(const char * who, FObject x1, FObject x2, int_t cf)
+static long_t GenericCompare(const char * who, FObject x1, FObject x2, long_t cf)
 {
     if (BothNumberP(x1, x2))
     {
@@ -1046,11 +1046,11 @@ static int_t GenericCompare(const char * who, FObject x1, FObject x2, int_t cf)
     FObject r2 = ComplexP(x2) ? AsReal(x2) : x2;
     FObject i2 = ComplexP(x2) ? AsImaginary(x2) : MakeFixnum(0);
 
-    int_t ret = GenericCompare(who, r1, r2, 0);
+    long_t ret = GenericCompare(who, r1, r2, 0);
     return(ret == 0 ? GenericCompare(who, i1, i2, 0) : ret);
 }
 
-uint_t GenericHash(FObject z)
+ulong_t GenericHash(FObject z)
 {
     switch(UnaryNumberOp(z))
     {
@@ -1068,7 +1068,7 @@ uint_t GenericHash(FObject z)
             return(GenericHash(AsReal(z)) + (GenericHash(AsImaginary(z)) << 7));
 
         case UOP_FLOAT:
-            return((uint_t) AsFlonum(z));
+            return((ulong_t) AsFlonum(z));
 
         case UOP_FIXED:
             return(AsFixnum(z));
@@ -1800,28 +1800,28 @@ static FObject GenericSqrt(FObject z)
     return(MakeFlonum(rt));
 }
 
-Define("number?", NumberPPrimitive)(int_t argc, FObject argv[])
+Define("number?", NumberPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("number?", argc);
 
     return(NumberP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("complex?", ComplexPPrimitive)(int_t argc, FObject argv[])
+Define("complex?", ComplexPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("complex?", argc);
 
     return(NumberP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("real?", RealPPrimitive)(int_t argc, FObject argv[])
+Define("real?", RealPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("real?", argc);
 
     return(RealP(argv[0]) ? TrueObject : FalseObject);
 }
 
-int_t RationalP(FObject obj)
+long_t RationalP(FObject obj)
 {
     if (FlonumP(obj))
         return((isnan(AsFlonum(obj)) || isfinite(AsFlonum(obj)) == 0) ? 0 : 1);
@@ -1829,21 +1829,21 @@ int_t RationalP(FObject obj)
     return(RealP(obj));
 }
 
-Define("rational?", RationalPPrimitive)(int_t argc, FObject argv[])
+Define("rational?", RationalPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("rational?", argc);
 
     return(RationalP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("integer?", IntegerPPrimitive)(int_t argc, FObject argv[])
+Define("integer?", IntegerPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("integer?", argc);
 
     return(IntegerP(argv[0]) ? TrueObject : FalseObject);
 }
 
-static int_t ExactP(FObject obj)
+static long_t ExactP(FObject obj)
 {
     if (ComplexP(obj))
         obj = AsReal(obj);
@@ -1851,7 +1851,7 @@ static int_t ExactP(FObject obj)
     return(FixnumP(obj) || BignumP(obj) || RatioP(obj));
 }
 
-Define("exact?", ExactPPrimitive)(int_t argc, FObject argv[])
+Define("exact?", ExactPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("exact?", argc);
     NumberArgCheck("exact?", argv[0]);
@@ -1859,7 +1859,7 @@ Define("exact?", ExactPPrimitive)(int_t argc, FObject argv[])
     return(ExactP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("inexact?", InexactPPrimitive)(int_t argc, FObject argv[])
+Define("inexact?", InexactPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("inexact?", argc);
     NumberArgCheck("inexact?", argv[0]);
@@ -1868,7 +1868,7 @@ Define("inexact?", InexactPPrimitive)(int_t argc, FObject argv[])
             ? TrueObject : FalseObject);
 }
 
-Define("exact-integer?", ExactIntegerPPrimitive)(int_t argc, FObject argv[])
+Define("exact-integer?", ExactIntegerPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("exact-integer?", argc);
     NumberArgCheck("exact-integer?", argv[0]);
@@ -1876,7 +1876,7 @@ Define("exact-integer?", ExactIntegerPPrimitive)(int_t argc, FObject argv[])
     return((FixnumP(argv[0]) || BignumP(argv[0])) ? TrueObject : FalseObject);
 }
 
-Define("finite?", FinitePPrimitive)(int_t argc, FObject argv[])
+Define("finite?", FinitePPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("finite?", argc);
     NumberArgCheck("finite?", argv[0]);
@@ -1894,12 +1894,12 @@ Define("finite?", FinitePPrimitive)(int_t argc, FObject argv[])
     return(TrueObject);
 }
 
-static inline int_t InfiniteP(double64_t d)
+static inline long_t InfiniteP(double64_t d)
 {
     return(isnan(d) == 0 && isfinite(d) == 0);
 }
 
-Define("infinite?", InfinitePPrimitive)(int_t argc, FObject argv[])
+Define("infinite?", InfinitePPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("infinite?", argc);
     NumberArgCheck("infinite?", argv[0]);
@@ -1917,7 +1917,7 @@ Define("infinite?", InfinitePPrimitive)(int_t argc, FObject argv[])
     return(FalseObject);
 }
 
-Define("nan?", NanPPrimitive)(int_t argc, FObject argv[])
+Define("nan?", NanPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("nan?", argc);
     NumberArgCheck("nan?", argv[0]);
@@ -1935,62 +1935,62 @@ Define("nan?", NanPPrimitive)(int_t argc, FObject argv[])
     return(FalseObject);
 }
 
-Define("=", EqualPrimitive)(int_t argc, FObject argv[])
+Define("=", EqualPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("=", argc);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
         if (GenericCompare("=", argv[adx - 1], argv[adx], 1) != 0)
             return(FalseObject);
 
     return(TrueObject);
 }
 
-Define("<", LessThanPrimitive)(int_t argc, FObject argv[])
+Define("<", LessThanPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("<", argc);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
         if (GenericCompare("<", argv[adx - 1], argv[adx], 0) >= 0)
             return(FalseObject);
 
     return(TrueObject);
 }
 
-Define(">", GreaterThanPrimitive)(int_t argc, FObject argv[])
+Define(">", GreaterThanPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck(">", argc);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
         if (GenericCompare(">", argv[adx - 1], argv[adx], 0) <= 0)
             return(FalseObject);
 
     return(TrueObject);
 }
 
-Define("<=", LessThanEqualPrimitive)(int_t argc, FObject argv[])
+Define("<=", LessThanEqualPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("<=", argc);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
         if (GenericCompare("<=", argv[adx - 1], argv[adx], 0) > 0)
             return(FalseObject);
 
     return(TrueObject);
 }
 
-Define(">=", GreaterThanEqualPrimitive)(int_t argc, FObject argv[])
+Define(">=", GreaterThanEqualPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck(">=", argc);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
         if (GenericCompare(">=", argv[adx - 1], argv[adx], 0) < 0)
             return(FalseObject);
 
     return(TrueObject);
 }
 
-static int_t ZeroP(FObject obj)
+static long_t ZeroP(FObject obj)
 {
     if (FixnumP(obj))
         return(AsFixnum(obj) == 0);
@@ -2002,7 +2002,7 @@ static int_t ZeroP(FObject obj)
     return(0);
 }
 
-Define("zero?", ZeroPPrimitive)(int_t argc, FObject argv[])
+Define("zero?", ZeroPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("zero?", argc);
     NumberArgCheck("zero?", argv[0]);
@@ -2010,7 +2010,7 @@ Define("zero?", ZeroPPrimitive)(int_t argc, FObject argv[])
     return(ZeroP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("positive?", PositivePPrimitive)(int_t argc, FObject argv[])
+Define("positive?", PositivePPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("positive?", argc);
     RealArgCheck("positive?", argv[0]);
@@ -2018,7 +2018,7 @@ Define("positive?", PositivePPrimitive)(int_t argc, FObject argv[])
     return(GenericSign(argv[0]) > 0 ? TrueObject : FalseObject);
 }
 
-Define("negative?", NegativePPrimitive)(int_t argc, FObject argv[])
+Define("negative?", NegativePPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("negative?", argc);
     RealArgCheck("negative?", argv[0]);
@@ -2026,7 +2026,7 @@ Define("negative?", NegativePPrimitive)(int_t argc, FObject argv[])
     return(GenericSign(argv[0]) < 0 ? TrueObject : FalseObject);
 }
 
-static int_t OddP(FObject obj)
+static long_t OddP(FObject obj)
 {
     if (FixnumP(obj))
         return(AsFixnum(obj) % 2 != 0);
@@ -2038,7 +2038,7 @@ static int_t OddP(FObject obj)
     return(BignumRemainderFixnum(obj, 2) != 0);
 }
 
-Define("odd?", OddPPrimitive)(int_t argc, FObject argv[])
+Define("odd?", OddPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("odd?", argc);
     IntegerArgCheck("odd?", argv[0]);
@@ -2046,7 +2046,7 @@ Define("odd?", OddPPrimitive)(int_t argc, FObject argv[])
     return(OddP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("even?", EvenPPrimitive)(int_t argc, FObject argv[])
+Define("even?", EvenPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("even?", argc);
     IntegerArgCheck("even?", argv[0]);
@@ -2054,15 +2054,15 @@ Define("even?", EvenPPrimitive)(int_t argc, FObject argv[])
     return(OddP(argv[0]) ? FalseObject : TrueObject);
 }
 
-Define("max", MaxPrimitive)(int_t argc, FObject argv[])
+Define("max", MaxPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastOneArgCheck("max", argc);
     RealArgCheck("max", argv[0]);
 
     FObject max = argv[0];
-    int_t ief = FlonumP(argv[0]);
+    long_t ief = FlonumP(argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         if (FlonumP(argv[adx]))
             ief = 1;
@@ -2074,15 +2074,15 @@ Define("max", MaxPrimitive)(int_t argc, FObject argv[])
     return(ief ? ToInexact(max) : max);
 }
 
-Define("min", MinPrimitive)(int_t argc, FObject argv[])
+Define("min", MinPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastOneArgCheck("min", argc);
     RealArgCheck("min", argv[0]);
 
     FObject min = argv[0];
-    int_t ief = FlonumP(argv[0]);
+    long_t ief = FlonumP(argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         if (FlonumP(argv[adx]))
             ief = 1;
@@ -2094,7 +2094,7 @@ Define("min", MinPrimitive)(int_t argc, FObject argv[])
     return(ief ? ToInexact(min) : min);
 }
 
-Define("+", AddPrimitive)(int_t argc, FObject argv[])
+Define("+", AddPrimitive)(long_t argc, FObject argv[])
 {
     if (argc == 0)
         return(MakeFixnum(0));
@@ -2105,13 +2105,13 @@ Define("+", AddPrimitive)(int_t argc, FObject argv[])
     }
 
     FObject ret = argv[0];
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
         ret = GenericAdd(ret, argv[adx]);
 
     return(ret);
 }
 
-Define("*", MultiplyPrimitive)(int_t argc, FObject argv[])
+Define("*", MultiplyPrimitive)(long_t argc, FObject argv[])
 {
     if (argc == 0)
         return(MakeFixnum(1));
@@ -2119,7 +2119,7 @@ Define("*", MultiplyPrimitive)(int_t argc, FObject argv[])
     NumberArgCheck("*", argv[0]);
     FObject ret = argv[0];
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         NumberArgCheck("*", argv[adx]);
 
@@ -2129,7 +2129,7 @@ Define("*", MultiplyPrimitive)(int_t argc, FObject argv[])
     return(ret);
 }
 
-Define("-", SubtractPrimitive)(int_t argc, FObject argv[])
+Define("-", SubtractPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastOneArgCheck("-", argc);
     NumberArgCheck("-", argv[0]);
@@ -2138,7 +2138,7 @@ Define("-", SubtractPrimitive)(int_t argc, FObject argv[])
         return(GenericSubtract(MakeFixnum(0), argv[0]));
 
     FObject ret = argv[0];
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         NumberArgCheck("-", argv[adx]);
 
@@ -2148,7 +2148,7 @@ Define("-", SubtractPrimitive)(int_t argc, FObject argv[])
     return(ret);
 }
 
-Define("/", DividePrimitive)(int_t argc, FObject argv[])
+Define("/", DividePrimitive)(long_t argc, FObject argv[])
 {
     AtLeastOneArgCheck("/", argc);
     NumberArgCheck("/", argv[0]);
@@ -2157,7 +2157,7 @@ Define("/", DividePrimitive)(int_t argc, FObject argv[])
         return(GenericDivide(MakeFixnum(1), argv[0]));
 
     FObject ret = argv[0];
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         NumberArgCheck("/", argv[adx]);
 
@@ -2167,7 +2167,7 @@ Define("/", DividePrimitive)(int_t argc, FObject argv[])
     return(ret);
 }
 
-Define("abs", AbsPrimitive)(int_t argc, FObject argv[])
+Define("abs", AbsPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("abs", argc);
     RealArgCheck("abs", argv[0]);
@@ -2175,7 +2175,7 @@ Define("abs", AbsPrimitive)(int_t argc, FObject argv[])
     return(Abs(argv[0]));
 }
 
-Define("floor-quotient", FloorQuotientPrimitive)(int_t argc, FObject argv[])
+Define("floor-quotient", FloorQuotientPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("floor-quotient", argc);
     IntegerArgCheck("floor-quotient", argv[0]);
@@ -2199,7 +2199,7 @@ Define("floor-quotient", FloorQuotientPrimitive)(int_t argc, FObject argv[])
     return(FlonumP(argv[0]) || FlonumP(argv[1]) ? ToInexact(rbn) : Normalize(rbn));
 }
 
-Define("truncate-quotient", TruncateQuotientPrimitive)(int_t argc, FObject argv[])
+Define("truncate-quotient", TruncateQuotientPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("truncate-quotient", argc);
     IntegerArgCheck("truncate-quotient", argv[0]);
@@ -2225,7 +2225,7 @@ static FObject TruncateRemainder(FObject n, FObject d)
     return(FlonumP(n) || FlonumP(d) ? ToInexact(rbn) : Normalize(rbn));
 }
 
-Define("truncate-remainder", TruncateRemainderPrimitive)(int_t argc, FObject argv[])
+Define("truncate-remainder", TruncateRemainderPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("truncate-remainder", argc);
     IntegerArgCheck("truncate-remainder", argv[0]);
@@ -2249,7 +2249,7 @@ static FObject Gcd(FObject a, FObject b)
         FAssert(GenericSign(a) > 0);
         FAssert(GenericSign(b) > 0);
 
-        int_t cmp = GenericCompare("gcd", a, b, 0);
+        long_t cmp = GenericCompare("gcd", a, b, 0);
         if (cmp == 0)
             break;
 
@@ -2262,7 +2262,7 @@ static FObject Gcd(FObject a, FObject b)
     return(a);
 }
 
-Define("gcd", GcdPrimitive)(int_t argc, FObject argv[])
+Define("gcd", GcdPrimitive)(long_t argc, FObject argv[])
 {
     if (argc == 0)
         return(MakeFixnum(0));
@@ -2270,7 +2270,7 @@ Define("gcd", GcdPrimitive)(int_t argc, FObject argv[])
     IntegerArgCheck("gcd", argv[0]);
 
     FObject ret = Abs(argv[0]);
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         IntegerArgCheck("gcd", argv[adx]);
 
@@ -2291,7 +2291,7 @@ static FObject Lcm(FObject a, FObject b)
     return(GenericMultiply(GenericDivide(a, Gcd(a, b)), b));
 }
 
-Define("lcm", LcmPrimitive)(int_t argc, FObject argv[])
+Define("lcm", LcmPrimitive)(long_t argc, FObject argv[])
 {
     if (argc == 0)
         return(MakeFixnum(1));
@@ -2299,7 +2299,7 @@ Define("lcm", LcmPrimitive)(int_t argc, FObject argv[])
     IntegerArgCheck("lcm", argv[0]);
 
     FObject ret = Abs(argv[0]);
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         IntegerArgCheck("lcm", argv[adx]);
 
@@ -2309,7 +2309,7 @@ Define("lcm", LcmPrimitive)(int_t argc, FObject argv[])
     return(ret);
 }
 
-Define("numerator", NumeratorPrimitive)(int_t argc, FObject argv[])
+Define("numerator", NumeratorPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("numerator", argc);
     RationalArgCheck("numerator", argv[0]);
@@ -2327,7 +2327,7 @@ Define("numerator", NumeratorPrimitive)(int_t argc, FObject argv[])
     return(argv[0]);
 }
 
-Define("denominator", DenominatorPrimitive)(int_t argc, FObject argv[])
+Define("denominator", DenominatorPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("denominator", argc);
     RationalArgCheck("denominator", argv[0]);
@@ -2345,7 +2345,7 @@ Define("denominator", DenominatorPrimitive)(int_t argc, FObject argv[])
     return(FlonumP(argv[0]) ? MakeFlonum(1.0) : MakeFixnum(1));
 }
 
-Define("floor", FloorPrimitive)(int_t argc, FObject argv[])
+Define("floor", FloorPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("floor", argc);
     RealArgCheck("floor", argv[0]);
@@ -2365,7 +2365,7 @@ Define("floor", FloorPrimitive)(int_t argc, FObject argv[])
     return(argv[0]);
 }
 
-Define("ceiling", CeilingPrimitive)(int_t argc, FObject argv[])
+Define("ceiling", CeilingPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("ceiling", argc);
     RealArgCheck("ceiling", argv[0]);
@@ -2385,7 +2385,7 @@ Define("ceiling", CeilingPrimitive)(int_t argc, FObject argv[])
     return(argv[0]);
 }
 
-Define("truncate", TruncatePrimitive)(int_t argc, FObject argv[])
+Define("truncate", TruncatePrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("truncate", argc);
     RealArgCheck("truncate", argv[0]);
@@ -2398,7 +2398,7 @@ Define("truncate", TruncatePrimitive)(int_t argc, FObject argv[])
     return(argv[0]);
 }
 
-Define("round", RoundPrimitive)(int_t argc, FObject argv[])
+Define("round", RoundPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("round", argc);
     RealArgCheck("round", argv[0]);
@@ -2432,7 +2432,7 @@ Define("round", RoundPrimitive)(int_t argc, FObject argv[])
     return(argv[0]);
 }
 
-Define("exp", ExpPrimitive)(int_t argc, FObject argv[])
+Define("exp", ExpPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("exp", argc);
     NumberArgCheck("exp", argv[0]);
@@ -2440,7 +2440,7 @@ Define("exp", ExpPrimitive)(int_t argc, FObject argv[])
     return(GenericExp(argv[0]));
 }
 
-Define("log", LogPrimitive)(int_t argc, FObject argv[])
+Define("log", LogPrimitive)(long_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("log", argc);
     NumberArgCheck("log", argv[0]);
@@ -2455,7 +2455,7 @@ Define("log", LogPrimitive)(int_t argc, FObject argv[])
     return(GenericDivide(GenericLog(argv[0]), GenericLog(argv[1])));
 }
 
-Define("sin", SinPrimitive)(int_t argc, FObject argv[])
+Define("sin", SinPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("sin", argc);
     NumberArgCheck("sin", argv[0]);
@@ -2463,7 +2463,7 @@ Define("sin", SinPrimitive)(int_t argc, FObject argv[])
     return(GenericSine(argv[0]));
 }
 
-Define("cos", CosPrimitive)(int_t argc, FObject argv[])
+Define("cos", CosPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("cos", argc);
     NumberArgCheck("cos", argv[0]);
@@ -2471,7 +2471,7 @@ Define("cos", CosPrimitive)(int_t argc, FObject argv[])
     return(GenericCosine(argv[0]));
 }
 
-Define("tan", TanPrimitive)(int_t argc, FObject argv[])
+Define("tan", TanPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("tan", argc);
     NumberArgCheck("tan", argv[0]);
@@ -2479,7 +2479,7 @@ Define("tan", TanPrimitive)(int_t argc, FObject argv[])
     return(GenericTangent(argv[0]));
 }
 
-Define("asin", ASinPrimitive)(int_t argc, FObject argv[])
+Define("asin", ASinPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("asin", argc);
     NumberArgCheck("asin", argv[0]);
@@ -2487,7 +2487,7 @@ Define("asin", ASinPrimitive)(int_t argc, FObject argv[])
     return(GenericInverseSine(argv[0]));
 }
 
-Define("acos", ACosPrimitive)(int_t argc, FObject argv[])
+Define("acos", ACosPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("acos", argc);
     NumberArgCheck("acos", argv[0]);
@@ -2495,7 +2495,7 @@ Define("acos", ACosPrimitive)(int_t argc, FObject argv[])
     return(GenericInverseCosine(argv[0]));
 }
 
-Define("atan", ATanPrimitive)(int_t argc, FObject argv[])
+Define("atan", ATanPrimitive)(long_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("atan", argc);
 
@@ -2520,7 +2520,7 @@ Define("atan", ATanPrimitive)(int_t argc, FObject argv[])
     return(MakeFlonum(atan2(AsFlonum(z1), AsFlonum(z2))));
 }
 
-Define("square", SquarePrimitive)(int_t argc, FObject argv[])
+Define("square", SquarePrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("square", argc);
     NumberArgCheck("square", argv[0]);
@@ -2528,7 +2528,7 @@ Define("square", SquarePrimitive)(int_t argc, FObject argv[])
     return(GenericMultiply(argv[0], argv[0]));
 }
 
-Define("sqrt", SqrtPrimitive)(int_t argc, FObject argv[])
+Define("sqrt", SqrtPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("sqrt", argc);
     NumberArgCheck("sqrt", argv[0]);
@@ -2536,7 +2536,7 @@ Define("sqrt", SqrtPrimitive)(int_t argc, FObject argv[])
     return(GenericSqrt(argv[0]));
 }
 
-Define("%exact-integer-sqrt", ExactIntegerSqrtPrimitive)(int_t argc, FObject argv[])
+Define("%exact-integer-sqrt", ExactIntegerSqrtPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("exact-integer-sqrt", argc);
     NonNegativeArgCheck("exact-integer-sqrt", argv[0], 1);
@@ -2553,7 +2553,7 @@ Define("%exact-integer-sqrt", ExactIntegerSqrtPrimitive)(int_t argc, FObject arg
     return(MakePair(Normalize(rt), Normalize(rem)));
 }
 
-Define("expt", ExptPrimitive)(int_t argc, FObject argv[])
+Define("expt", ExptPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("expt", argc);
     NumberArgCheck("expt", argv[0]);
@@ -2570,7 +2570,7 @@ Define("expt", ExptPrimitive)(int_t argc, FObject argv[])
         }
         else
         {
-            int_t sgn = GenericSign(argv[1]);
+            long_t sgn = GenericSign(argv[1]);
 
             if (sgn == 0)
                 return(FlonumP(argv[0]) || FlonumP(argv[1]) ? MakeFlonum(1.0) : MakeFixnum(1));
@@ -2625,7 +2625,7 @@ Define("expt", ExptPrimitive)(int_t argc, FObject argv[])
     return(MakeFlonum(pow(AsFlonum(b), AsFlonum(e))));
 }
 
-Define("make-rectangular", MakeRectangularPrimitive)(int_t argc, FObject argv[])
+Define("make-rectangular", MakeRectangularPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("make-rectangular", argc);
     RealArgCheck("make-rectangular", argv[0]);
@@ -2634,7 +2634,7 @@ Define("make-rectangular", MakeRectangularPrimitive)(int_t argc, FObject argv[])
     return(MakeComplex(argv[0], argv[1]));
 }
 
-Define("make-polar", MakePolarPrimitive)(int_t argc, FObject argv[])
+Define("make-polar", MakePolarPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("make-polar", argc);
     RealArgCheck("make-polar", argv[0]);
@@ -2643,7 +2643,7 @@ Define("make-polar", MakePolarPrimitive)(int_t argc, FObject argv[])
     return(MakePolar(argv[0], argv[1]));
 }
 
-Define("real-part", RealPartPrimitive)(int_t argc, FObject argv[])
+Define("real-part", RealPartPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("real-part", argc);
     NumberArgCheck("real-part", argv[0]);
@@ -2654,7 +2654,7 @@ Define("real-part", RealPartPrimitive)(int_t argc, FObject argv[])
     return(argv[0]);
 }
 
-Define("imag-part", ImagPartPrimitive)(int_t argc, FObject argv[])
+Define("imag-part", ImagPartPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("imag-part", argc);
     NumberArgCheck("imag-part", argv[0]);
@@ -2667,7 +2667,7 @@ Define("imag-part", ImagPartPrimitive)(int_t argc, FObject argv[])
     return(MakeFixnum(0));
 }
 
-Define("inexact", InexactPrimitive)(int_t argc, FObject argv[])
+Define("inexact", InexactPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("inexact", argc);
     NumberArgCheck("inexact", argv[0]);
@@ -2675,7 +2675,7 @@ Define("inexact", InexactPrimitive)(int_t argc, FObject argv[])
     return(ToInexact(argv[0]));
 }
 
-Define("exact", ExactPrimitive)(int_t argc, FObject argv[])
+Define("exact", ExactPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("exact", argc);
     NumberArgCheck("exact", argv[0]);
@@ -2683,7 +2683,7 @@ Define("exact", ExactPrimitive)(int_t argc, FObject argv[])
     return(ToExact(argv[0]));
 }
 
-Define("number->string", NumberToStringPrimitive)(int_t argc, FObject argv[])
+Define("number->string", NumberToStringPrimitive)(long_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("number->string", argc);
     NumberArgCheck("number->string", argv[0]);
@@ -2703,7 +2703,7 @@ Define("number->string", NumberToStringPrimitive)(int_t argc, FObject argv[])
     return(NumberToString(argv[0], rdx));
 }
 
-Define("string->number", StringToNumberPrimitive)(int_t argc, FObject argv[])
+Define("string->number", StringToNumberPrimitive)(long_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("string->number", argc);
     StringArgCheck("string->number", argv[0]);
@@ -2725,7 +2725,7 @@ Define("string->number", StringToNumberPrimitive)(int_t argc, FObject argv[])
 
 // ---- SRFI 60: Integers As Bits ----
 
-Define("bitwise-and", BitwiseAndPrimitive)(int_t argc, FObject argv[])
+Define("bitwise-and", BitwiseAndPrimitive)(long_t argc, FObject argv[])
 {
     if (argc == 0)
         return(MakeFixnum(-1));
@@ -2733,7 +2733,7 @@ Define("bitwise-and", BitwiseAndPrimitive)(int_t argc, FObject argv[])
     IntegerArgCheck("bitwise-and", argv[0]);
     FObject ret = argv[0];
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         IntegerArgCheck("bitwise-and", argv[adx]);
 
@@ -2751,7 +2751,7 @@ Define("bitwise-and", BitwiseAndPrimitive)(int_t argc, FObject argv[])
     return(Normalize(ret));
 }
 
-Define("bitwise-ior", BitwiseIOrPrimitive)(int_t argc, FObject argv[])
+Define("bitwise-ior", BitwiseIOrPrimitive)(long_t argc, FObject argv[])
 {
     if (argc == 0)
         return(MakeFixnum(0));
@@ -2759,7 +2759,7 @@ Define("bitwise-ior", BitwiseIOrPrimitive)(int_t argc, FObject argv[])
     IntegerArgCheck("bitwise-ior", argv[0]);
     FObject ret = argv[0];
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         IntegerArgCheck("bitwise-ior", argv[adx]);
 
@@ -2777,7 +2777,7 @@ Define("bitwise-ior", BitwiseIOrPrimitive)(int_t argc, FObject argv[])
     return(Normalize(ret));
 }
 
-Define("bitwise-xor", BitwiseXOrPrimitive)(int_t argc, FObject argv[])
+Define("bitwise-xor", BitwiseXOrPrimitive)(long_t argc, FObject argv[])
 {
     if (argc == 0)
         return(MakeFixnum(0));
@@ -2785,7 +2785,7 @@ Define("bitwise-xor", BitwiseXOrPrimitive)(int_t argc, FObject argv[])
     IntegerArgCheck("bitwise-xor", argv[0]);
     FObject ret =  argv[0];
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         IntegerArgCheck("bitwise-xor", argv[adx]);
 
@@ -2803,7 +2803,7 @@ Define("bitwise-xor", BitwiseXOrPrimitive)(int_t argc, FObject argv[])
     return(Normalize(ret));
 }
 
-Define("bitwise-not", BitwiseNotPrimitive)(int_t argc, FObject argv[])
+Define("bitwise-not", BitwiseNotPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("bitwise-not", argc);
     IntegerArgCheck("bitwise-not", argv[0]);
@@ -2819,16 +2819,16 @@ Define("bitwise-not", BitwiseNotPrimitive)(int_t argc, FObject argv[])
 BitCount was adapted from Chibi Scheme which adapted it from
 http://graphics.stanford.edu/~seander/bithacks.html
 */
-static uint_t BitCount(uint_t n)
+static ulong_t BitCount(ulong_t n)
 {
-    n -= ((n >> 1) & (uint_t) ~(uint_t)0/3);
-    n = ((n & (uint_t) ~(uint_t)0/15*3) + ((n >> 2) & (uint_t) ~(uint_t)0/15*3));
-    n = (n + (n >> 4)) & (uint_t) ~(uint_t)0/255*15;
+    n -= ((n >> 1) & (ulong_t) ~(ulong_t)0/3);
+    n = ((n & (ulong_t) ~(ulong_t)0/15*3) + ((n >> 2) & (ulong_t) ~(ulong_t)0/15*3));
+    n = (n + (n >> 4)) & (ulong_t) ~(ulong_t)0/255*15;
 
-    return ((uint_t)(n * ((uint_t) ~(uint_t)0/255)) >> (sizeof(n) - 1) * 8);
+    return ((ulong_t)(n * ((ulong_t) ~(ulong_t)0/255)) >> (sizeof(n) - 1) * 8);
 }
 
-Define("bit-count", BitCountPrimitive)(int_t argc, FObject argv[])
+Define("bit-count", BitCountPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("bit-count", argc);
     IntegerArgCheck("bit-count", argv[0]);
@@ -2836,11 +2836,11 @@ Define("bit-count", BitCountPrimitive)(int_t argc, FObject argv[])
     if (BignumP(argv[0]))
         return(MakeFixnum(BignumBitCount(argv[0])));
 
-    int_t n = AsFixnum(argv[0]);
+    long_t n = AsFixnum(argv[0]);
     return(MakeFixnum(BitCount(n < 0 ? ~n : n)));
 }
 
-Define("integer-length", IntegerLengthPrimitive)(int_t argc, FObject argv[])
+Define("integer-length", IntegerLengthPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("integer-length", argc);
     IntegerArgCheck("integer-length", argv[0]);
@@ -2848,15 +2848,15 @@ Define("integer-length", IntegerLengthPrimitive)(int_t argc, FObject argv[])
     if (BignumP(argv[0]))
         return(MakeFixnum(BignumIntegerLength(argv[0])));
 
-    uint_t n = AsFixnum(argv[0]);
-    for (int_t idx = sizeof(uint_t) * 8 - 1; idx >= 0; idx--)
-        if (n & ((uint_t) 1 << idx))
+    ulong_t n = AsFixnum(argv[0]);
+    for (long_t idx = sizeof(ulong_t) * 8 - 1; idx >= 0; idx--)
+        if (n & ((ulong_t) 1 << idx))
             return(MakeFixnum(idx + 1));
 
     return(MakeFixnum(0));
 }
 
-Define("first-set-bit", FirstSetBitPrimitive)(int_t argc, FObject argv[])
+Define("first-set-bit", FirstSetBitPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("first-set-bit", argc);
     IntegerArgCheck("first-set-bit", argv[0]);
@@ -2864,15 +2864,15 @@ Define("first-set-bit", FirstSetBitPrimitive)(int_t argc, FObject argv[])
     if (BignumP(argv[0]))
         return(MakeFixnum(BignumFirstSetBit(argv[0])));
 
-    uint_t n = AsFixnum(argv[0]);
-    for (uint_t idx = 0; idx < sizeof(uint_t) * 8; idx++)
-        if (n & ((uint_t) 1 << idx))
+    ulong_t n = AsFixnum(argv[0]);
+    for (ulong_t idx = 0; idx < sizeof(ulong_t) * 8; idx++)
+        if (n & ((ulong_t) 1 << idx))
             return(MakeFixnum(idx));
 
     return(MakeFixnum(-1));
 }
 
-Define("arithmetic-shift", ArithmeticShiftPrimitive)(int_t argc, FObject argv[])
+Define("arithmetic-shift", ArithmeticShiftPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("arithmetic-shift", argc);
     IntegerArgCheck("arithmetic-shift", argv[0]);
@@ -2970,6 +2970,6 @@ void SetupNumbers()
 {
     FAssert(sizeof(double64_t) == 8);
 
-    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (ulong_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 }

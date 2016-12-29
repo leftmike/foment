@@ -9,19 +9,19 @@ Foment
 
 // ---- Characters ----
 
-Define("char?", CharPPrimitive)(int_t argc, FObject argv[])
+Define("char?", CharPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("char?", argc);
 
     return(CharacterP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("char=?", CharEqualPPrimitive)(int_t argc, FObject argv[])
+Define("char=?", CharEqualPPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("char=?", argc);
     CharacterArgCheck("char=?", argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         CharacterArgCheck("char=?", argv[adx]);
 
@@ -32,12 +32,12 @@ Define("char=?", CharEqualPPrimitive)(int_t argc, FObject argv[])
     return(TrueObject);
 }
 
-Define("char<?", CharLessThanPPrimitive)(int_t argc, FObject argv[])
+Define("char<?", CharLessThanPPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("char<?", argc);
     CharacterArgCheck("char<?", argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         CharacterArgCheck("char<?", argv[adx]);
 
@@ -48,12 +48,12 @@ Define("char<?", CharLessThanPPrimitive)(int_t argc, FObject argv[])
     return(TrueObject);
 }
 
-Define("char>?", CharGreaterThanPPrimitive)(int_t argc, FObject argv[])
+Define("char>?", CharGreaterThanPPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("char>?", argc);
     CharacterArgCheck("char>?", argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         CharacterArgCheck("char>?", argv[adx]);
 
@@ -64,12 +64,12 @@ Define("char>?", CharGreaterThanPPrimitive)(int_t argc, FObject argv[])
     return(TrueObject);
 }
 
-Define("char<=?", CharLessThanEqualPPrimitive)(int_t argc, FObject argv[])
+Define("char<=?", CharLessThanEqualPPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("char<=?", argc);
     CharacterArgCheck("char<=?", argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         CharacterArgCheck("char<=?", argv[adx]);
 
@@ -80,12 +80,12 @@ Define("char<=?", CharLessThanEqualPPrimitive)(int_t argc, FObject argv[])
     return(TrueObject);
 }
 
-Define("char>=?", CharGreaterThanEqualPPrimitive)(int_t argc, FObject argv[])
+Define("char>=?", CharGreaterThanEqualPPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("char>=?", argc);
     CharacterArgCheck("char>=?", argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         CharacterArgCheck("char>=?", argv[adx]);
 
@@ -96,12 +96,12 @@ Define("char>=?", CharGreaterThanEqualPPrimitive)(int_t argc, FObject argv[])
     return(TrueObject);
 }
 
-Define("char-ci=?", CharCiEqualPPrimitive)(int_t argc, FObject argv[])
+Define("char-ci=?", CharCiEqualPPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("char-ci=?", argc);
     CharacterArgCheck("char-ci=?", argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         CharacterArgCheck("char-ci=?", argv[adx]);
 
@@ -112,12 +112,12 @@ Define("char-ci=?", CharCiEqualPPrimitive)(int_t argc, FObject argv[])
     return(TrueObject);
 }
 
-Define("char-ci<?", CharCiLessThanPPrimitive)(int_t argc, FObject argv[])
+Define("char-ci<?", CharCiLessThanPPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("char-ci<?", argc);
     CharacterArgCheck("char-ci<?", argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         CharacterArgCheck("char-ci<?", argv[adx]);
 
@@ -128,12 +128,12 @@ Define("char-ci<?", CharCiLessThanPPrimitive)(int_t argc, FObject argv[])
     return(TrueObject);
 }
 
-Define("char-ci>?", CharCiGreaterThanPPrimitive)(int_t argc, FObject argv[])
+Define("char-ci>?", CharCiGreaterThanPPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("char-ci>?", argc);
     CharacterArgCheck("char-ci>?", argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         CharacterArgCheck("char-ci>?", argv[adx]);
 
@@ -144,12 +144,12 @@ Define("char-ci>?", CharCiGreaterThanPPrimitive)(int_t argc, FObject argv[])
     return(TrueObject);
 }
 
-Define("char-ci<=?", CharCiLessThanEqualPPrimitive)(int_t argc, FObject argv[])
+Define("char-ci<=?", CharCiLessThanEqualPPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("char-ci<=?", argc);
     CharacterArgCheck("char-ci<=?", argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         CharacterArgCheck("char-ci<=?", argv[adx]);
 
@@ -160,12 +160,12 @@ Define("char-ci<=?", CharCiLessThanEqualPPrimitive)(int_t argc, FObject argv[])
     return(TrueObject);
 }
 
-Define("char-ci>=?", CharCiGreaterThanEqualPPrimitive)(int_t argc, FObject argv[])
+Define("char-ci>=?", CharCiGreaterThanEqualPPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("char-ci>=?", argc);
     CharacterArgCheck("char-ci>=?", argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         CharacterArgCheck("char-ci>=?", argv[adx]);
 
@@ -176,7 +176,7 @@ Define("char-ci>=?", CharCiGreaterThanEqualPPrimitive)(int_t argc, FObject argv[
     return(TrueObject);
 }
 
-Define("char-alphabetic?", CharAlphabeticPPrimitive)(int_t argc, FObject argv[])
+Define("char-alphabetic?", CharAlphabeticPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("char-alphabetic?", argc);
     CharacterArgCheck("char-alphabetic?", argv[0]);
@@ -184,18 +184,18 @@ Define("char-alphabetic?", CharAlphabeticPPrimitive)(int_t argc, FObject argv[])
     return(AlphabeticP(AsCharacter(argv[0])) ? TrueObject : FalseObject);
 }
 
-Define("char-numeric?", CharNumericPPrimitive)(int_t argc, FObject argv[])
+Define("char-numeric?", CharNumericPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("char-numeric?", argc);
     CharacterArgCheck("char-numeric?", argv[0]);
 
-    int_t dv = DigitValue(AsCharacter(argv[0]));
+    long_t dv = DigitValue(AsCharacter(argv[0]));
     if (dv < 0 || dv > 9)
         return(FalseObject);
     return(TrueObject);
 }
 
-Define("char-whitespace?", CharWhitespacePPrimitive)(int_t argc, FObject argv[])
+Define("char-whitespace?", CharWhitespacePPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("char-whitespace?", argc);
     CharacterArgCheck("char-whitespace?", argv[0]);
@@ -203,7 +203,7 @@ Define("char-whitespace?", CharWhitespacePPrimitive)(int_t argc, FObject argv[])
     return(WhitespaceP(AsCharacter(argv[0])) ? TrueObject : FalseObject);
 }
 
-Define("char-upper-case?", CharUpperCasePPrimitive)(int_t argc, FObject argv[])
+Define("char-upper-case?", CharUpperCasePPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("char-upper-case?", argc);
     CharacterArgCheck("char-upper-case?", argv[0]);
@@ -211,7 +211,7 @@ Define("char-upper-case?", CharUpperCasePPrimitive)(int_t argc, FObject argv[])
     return(UppercaseP(AsCharacter(argv[0])) ? TrueObject : FalseObject);
 }
 
-Define("char-lower-case?", CharLowerCasePPrimitive)(int_t argc, FObject argv[])
+Define("char-lower-case?", CharLowerCasePPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("char-lower-case?", argc);
     CharacterArgCheck("char-lower-case?", argv[0]);
@@ -219,18 +219,18 @@ Define("char-lower-case?", CharLowerCasePPrimitive)(int_t argc, FObject argv[])
     return(LowercaseP(AsCharacter(argv[0])) ? TrueObject : FalseObject);
 }
 
-Define("digit-value", DigitValuePrimitive)(int_t argc, FObject argv[])
+Define("digit-value", DigitValuePrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("digit-value", argc);
     CharacterArgCheck("digit-value", argv[0]);
 
-    int_t dv = DigitValue(AsCharacter(argv[0]));
+    long_t dv = DigitValue(AsCharacter(argv[0]));
     if (dv < 0 || dv > 9)
         return(FalseObject);
     return(MakeFixnum(dv));
 }
 
-Define("char->integer", CharToIntegerPrimitive)(int_t argc, FObject argv[])
+Define("char->integer", CharToIntegerPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("char->integer", argc);
     CharacterArgCheck("char->integer", argv[0]);
@@ -238,7 +238,7 @@ Define("char->integer", CharToIntegerPrimitive)(int_t argc, FObject argv[])
     return(MakeFixnum(AsCharacter(argv[0])));
 }
 
-Define("integer->char", IntegerToCharPrimitive)(int_t argc, FObject argv[])
+Define("integer->char", IntegerToCharPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("integer->char", argc);
     FixnumArgCheck("integer->char", argv[0]);
@@ -246,7 +246,7 @@ Define("integer->char", IntegerToCharPrimitive)(int_t argc, FObject argv[])
     return(MakeCharacter(AsFixnum(argv[0])));
 }
 
-Define("char-upcase", CharUpcasePrimitive)(int_t argc, FObject argv[])
+Define("char-upcase", CharUpcasePrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("char-upcase", argc);
     CharacterArgCheck("char-upcase", argv[0]);
@@ -254,7 +254,7 @@ Define("char-upcase", CharUpcasePrimitive)(int_t argc, FObject argv[])
     return(MakeCharacter(CharUpcase(AsCharacter(argv[0]))));
 }
 
-Define("char-downcase", CharDowncasePrimitive)(int_t argc, FObject argv[])
+Define("char-downcase", CharDowncasePrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("char-downcase", argc);
     CharacterArgCheck("char-downcase", argv[0]);
@@ -262,7 +262,7 @@ Define("char-downcase", CharDowncasePrimitive)(int_t argc, FObject argv[])
     return(MakeCharacter(CharDowncase(AsCharacter(argv[0]))));
 }
 
-Define("char-foldcase", CharFoldcasePrimitive)(int_t argc, FObject argv[])
+Define("char-foldcase", CharFoldcasePrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("char-foldcase", argc);
     CharacterArgCheck("char-foldcase", argv[0]);
@@ -298,6 +298,6 @@ static FObject Primitives[] =
 
 void SetupCharacters()
 {
-    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (ulong_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 }

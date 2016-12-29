@@ -57,9 +57,9 @@ static FListType ListType(FObject lst)
     return(ProperList);
 }
 
-static int_t ListLengthPlus(FObject lst)
+static long_t ListLengthPlus(FObject lst)
 {
-    int_t ll = 0;
+    long_t ll = 0;
     FObject fst = lst;
     FObject slw = lst;
 
@@ -95,9 +95,9 @@ static int_t ListLengthPlus(FObject lst)
     return(ll);
 }
 
-int_t ListLength(FObject lst)
+long_t ListLength(FObject lst)
 {
-    int_t ll = 0;
+    long_t ll = 0;
     FObject fst = lst;
     FObject slw = lst;
 
@@ -133,9 +133,9 @@ int_t ListLength(FObject lst)
     return(ll);
 }
 
-int_t ListLength(const char * nam, FObject lst)
+long_t ListLength(const char * nam, FObject lst)
 {
-    int_t ll = ListLength(lst);
+    long_t ll = ListLength(lst);
     if (ll < 0)
         RaiseExceptionC(Assertion, nam, "expected a list", List(lst));
 
@@ -200,21 +200,21 @@ FObject List(FObject obj1, FObject obj2, FObject obj3, FObject obj4, FObject obj
             MakePair(obj5, MakePair(obj6, MakePair(obj7, EmptyListObject))))))));
 }
 
-Define("pair?", PairPPrimitive)(int_t argc, FObject argv[])
+Define("pair?", PairPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("pair?", argc);
 
     return(PairP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("cons", ConsPrimitive)(int_t argc, FObject argv[])
+Define("cons", ConsPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("cons", argc);
 
     return(MakePair(argv[0], argv[1]));
 }
 
-Define("car", CarPrimitive)(int_t argc, FObject argv[])
+Define("car", CarPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("car", argc);
     PairArgCheck("car", argv[0]);
@@ -222,7 +222,7 @@ Define("car", CarPrimitive)(int_t argc, FObject argv[])
     return(First(argv[0]));
 }
 
-Define("cdr", CdrPrimitive)(int_t argc, FObject argv[])
+Define("cdr", CdrPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("cdr", argc);
     PairArgCheck("cdr", argv[0]);
@@ -230,7 +230,7 @@ Define("cdr", CdrPrimitive)(int_t argc, FObject argv[])
     return(Rest(argv[0]));
 }
 
-Define("set-car!", SetCarPrimitive)(int_t argc, FObject argv[])
+Define("set-car!", SetCarPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("set-car!", argc);
     PairArgCheck("set-car!", argv[0]);
@@ -241,7 +241,7 @@ Define("set-car!", SetCarPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("set-cdr!", SetCdrPrimitive)(int_t argc, FObject argv[])
+Define("set-cdr!", SetCdrPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("set-cdr!", argc);
     PairArgCheck("set-cdr!", argv[0]);
@@ -252,42 +252,42 @@ Define("set-cdr!", SetCdrPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("null?", NullPPrimitive)(int_t argc, FObject argv[])
+Define("null?", NullPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("null?", argc);
 
     return(argv[0] == EmptyListObject ? TrueObject : FalseObject);
 }
 
-Define("list?", ListPPrimitive)(int_t argc, FObject argv[])
+Define("list?", ListPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("list?", argc);
 
     return(ListType(argv[0]) == ProperList ? TrueObject : FalseObject);
 }
 
-Define("circular-list?", CircularListPPrimitive)(int_t argc, FObject argv[])
+Define("circular-list?", CircularListPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("circular-list?", argc);
 
     return(ListType(argv[0]) == CircularList ? TrueObject : FalseObject);
 }
 
-Define("dotted-list?", DottedListPPrimitive)(int_t argc, FObject argv[])
+Define("dotted-list?", DottedListPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("dotted-list?", argc);
 
     return(ListType(argv[0]) == DottedList ? TrueObject : FalseObject);
 }
 
-Define("make-list", MakeListPrimitive)(int_t argc, FObject argv[])
+Define("make-list", MakeListPrimitive)(long_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("make-list", argc);
     NonNegativeArgCheck("make-list", argv[0], 0);
 
     FObject obj = argc == 1 ? FalseObject : argv[1];
     FObject lst = EmptyListObject;
-    int_t n = AsFixnum(argv[0]);
+    long_t n = AsFixnum(argv[0]);
 
     while (n > 0)
     {
@@ -298,10 +298,10 @@ Define("make-list", MakeListPrimitive)(int_t argc, FObject argv[])
     return(lst);
 }
 
-Define("list", ListPrimitive)(int_t argc, FObject argv[])
+Define("list", ListPrimitive)(long_t argc, FObject argv[])
 {
     FObject lst = EmptyListObject;
-    int_t adx = argc;
+    long_t adx = argc;
 
     while (adx > 0)
     {
@@ -312,18 +312,18 @@ Define("list", ListPrimitive)(int_t argc, FObject argv[])
     return(lst);
 }
 
-Define("length", LengthPrimitive)(int_t argc, FObject argv[])
+Define("length", LengthPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("length", argc);
 
     return(MakeFixnum(ListLength("length", argv[0])));
 }
 
-Define("length+", LengthPlusPrimitive)(int_t argc, FObject argv[])
+Define("length+", LengthPlusPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("length+", argc);
 
-    int_t len = ListLengthPlus(argv[0]);
+    long_t len = ListLengthPlus(argv[0]);
     if (len < 0)
         return(FalseObject);
     return(MakeFixnum(len));
@@ -345,14 +345,14 @@ static FObject ReverseList(const char * nam, FObject list)
     return(rlst);
 }
 
-Define("append", AppendPrimitive)(int_t argc, FObject argv[])
+Define("append", AppendPrimitive)(long_t argc, FObject argv[])
 {
     if (argc == 0)
         return(EmptyListObject);
 
     FObject ret = argv[argc - 1];
 
-    int_t adx = argc - 1;
+    long_t adx = argc - 1;
     while (adx > 0)
     {
         adx -= 1;
@@ -374,7 +374,7 @@ Define("append", AppendPrimitive)(int_t argc, FObject argv[])
     return(ret);
 }
 
-Define("reverse", ReversePrimitive)(int_t argc, FObject argv[])
+Define("reverse", ReversePrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("reverse", argc);
     ListArgCheck("reverse", argv[0]);
@@ -382,7 +382,7 @@ Define("reverse", ReversePrimitive)(int_t argc, FObject argv[])
     return(ReverseList("reverse", argv[0]));
 }
 
-Define("reverse!", ReverseBangPrimitive)(int_t argc, FObject argv[])
+Define("reverse!", ReverseBangPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("reverse!", argc);
     ListArgCheck("reverse!", argv[0]);
@@ -390,14 +390,14 @@ Define("reverse!", ReverseBangPrimitive)(int_t argc, FObject argv[])
     return(ReverseListModify(argv[0]));
 }
 
-Define("list-tail", ListTailPrimitive)(int_t argc, FObject argv[])
+Define("list-tail", ListTailPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("list-tail", argc);
     ListArgCheck("list-tail", argv[0]);
     NonNegativeArgCheck("list-tail", argv[1], 0);
 
     FObject lst = argv[0];
-    int_t k = AsFixnum(argv[1]);
+    long_t k = AsFixnum(argv[1]);
 
     while (k > 0)
     {
@@ -410,14 +410,14 @@ Define("list-tail", ListTailPrimitive)(int_t argc, FObject argv[])
     return(lst);
 }
 
-Define("list-ref", ListRefPrimitive)(int_t argc, FObject argv[])
+Define("list-ref", ListRefPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("list-ref", argc);
     ListArgCheck("list-ref", argv[0]);
     NonNegativeArgCheck("list-ref", argv[1], 0);
 
     FObject lst = argv[0];
-    int_t k = AsFixnum(argv[1]);
+    long_t k = AsFixnum(argv[1]);
 
     while (k > 0)
     {
@@ -432,14 +432,14 @@ Define("list-ref", ListRefPrimitive)(int_t argc, FObject argv[])
     return(First(lst));
 }
 
-Define("list-set!", ListSetPrimitive)(int_t argc, FObject argv[])
+Define("list-set!", ListSetPrimitive)(long_t argc, FObject argv[])
 {
     ThreeArgsCheck("list-set!", argc);
     ListArgCheck("list-set!", argv[0]);
     NonNegativeArgCheck("list-set!", argv[1], 0);
 
     FObject lst = argv[0];
-    int_t k = AsFixnum(argv[1]);
+    long_t k = AsFixnum(argv[1]);
 
     while (k > 0)
     {
@@ -470,7 +470,7 @@ FObject Memq(FObject obj, FObject lst)
     return(FalseObject);
 }
 
-Define("memq", MemqPrimitive)(int_t argc, FObject argv[])
+Define("memq", MemqPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("memq", argc);
     ListArgCheck("memq", argv[1]);
@@ -478,7 +478,7 @@ Define("memq", MemqPrimitive)(int_t argc, FObject argv[])
     return(Memq(argv[0], argv[1]));
 }
 
-Define("memv", MemvPrimitive)(int_t argc, FObject argv[])
+Define("memv", MemvPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("memv", argc);
     ListArgCheck("memv", argv[1]);
@@ -498,7 +498,7 @@ Define("memv", MemvPrimitive)(int_t argc, FObject argv[])
     return(FalseObject);
 }
 
-Define("%member", MemberPrimitive)(int_t argc, FObject argv[])
+Define("%member", MemberPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("member", argc);
     ListArgCheck("member", argv[1]);
@@ -552,7 +552,7 @@ FObject Assoc(FObject obj, FObject alst)
     return(FalseObject);
 }
 
-Define("assq", AssqPrimitive)(int_t argc, FObject argv[])
+Define("assq", AssqPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("assq", argc);
     ListArgCheck("assq", argv[1]);
@@ -574,7 +574,7 @@ Define("assq", AssqPrimitive)(int_t argc, FObject argv[])
     return(FalseObject);
 }
 
-Define("assv", AssvPrimitive)(int_t argc, FObject argv[])
+Define("assv", AssvPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("assv", argc);
     ListArgCheck("assv", argv[1]);
@@ -596,7 +596,7 @@ Define("assv", AssvPrimitive)(int_t argc, FObject argv[])
     return(FalseObject);
 }
 
-Define("%assoc", AssocPrimitive)(int_t argc, FObject argv[])
+Define("%assoc", AssocPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("assoc", argc);
     ListArgCheck("assoc", argv[1]);
@@ -618,7 +618,7 @@ Define("%assoc", AssocPrimitive)(int_t argc, FObject argv[])
     return(FalseObject);
 }
 
-Define("list-copy", ListCopyPrimitive)(int_t argc, FObject argv[])
+Define("list-copy", ListCopyPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("list-copy", argc);
 
@@ -648,7 +648,7 @@ FObject MakeTConc()
     return(MakePair(lp, lp));
 }
 
-int_t TConcEmptyP(FObject tconc)
+long_t TConcEmptyP(FObject tconc)
 {
     FAssert(PairP(tconc));
     FAssert(PairP(First(tconc)));
@@ -712,6 +712,6 @@ static FObject Primitives[] =
 
 void SetupPairs()
 {
-    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (ulong_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 }

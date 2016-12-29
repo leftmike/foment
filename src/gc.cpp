@@ -33,46 +33,46 @@ Foment
 #define GC_PAGE_SIZE 4096
 
 #define OBJECT_ALIGNMENT 8
-const static uint_t Align[8] = {0, 7, 6, 5, 4, 3, 2, 1};
+const static ulong_t Align[8] = {0, 7, 6, 5, 4, 3, 2, 1};
 
 FCollectorType CollectorType = MarkSweepCollector;
-uint_t MaximumStackSize = 1024 * 1024 * 4 * sizeof(FObject);
-uint_t MaximumBabiesSize = 0;
-uint_t MaximumKidsSize = 0;
-uint_t MaximumGenerationalBaby = 1024 * 64;
+ulong_t MaximumStackSize = 1024 * 1024 * 4 * sizeof(FObject);
+ulong_t MaximumBabiesSize = 0;
+ulong_t MaximumKidsSize = 0;
+ulong_t MaximumGenerationalBaby = 1024 * 64;
 
 #ifdef FOMENT_64BIT
-uint_t MaximumAdultsSize = 1024 * 1024 * 1024 * 8LL;
+ulong_t MaximumAdultsSize = 1024 * 1024 * 1024 * 8LL;
 #endif // FOMENT_64BIT
 #ifdef FOMENT_32BIT
-uint_t MaximumAdultsSize = 1024 * 1024 * 1024;
+ulong_t MaximumAdultsSize = 1024 * 1024 * 1024;
 #endif // FOMENT_32BIT
 
-uint_t TriggerObjects = 1024 * 16;
-uint_t TriggerBytes = TriggerObjects * (sizeof(FPair) + sizeof(FObjHdr));
-uint_t PartialPerFull = 4;
+ulong_t TriggerObjects = 1024 * 16;
+ulong_t TriggerBytes = TriggerObjects * (sizeof(FPair) + sizeof(FObjHdr));
+ulong_t PartialPerFull = 4;
 
-volatile uint_t BytesAllocated = 0;
-volatile int_t GCRequired = 0;
+volatile ulong_t BytesAllocated = 0;
+volatile long_t GCRequired = 0;
 static OSExclusive GCExclusive;
 OSExclusive ThreadsExclusive;
 static OSCondition ReadyCondition;
 static OSCondition DoneCondition;
-volatile uint_t TotalThreads;
-static volatile uint_t ReadyThreads;
-static volatile int_t Collecting;
+volatile ulong_t TotalThreads;
+static volatile ulong_t ReadyThreads;
+static volatile long_t Collecting;
 FThreadState * Threads;
 
 #define FREE_ADULTS 16
 static FMemRegion Adults;
-static uint_t AdultsUsed;
+static ulong_t AdultsUsed;
 static FObjHdr * BigFreeAdults;
 static FObjHdr * FreeAdults[FREE_ADULTS];
 
 typedef struct
 {
     FMemRegion MemRegion;
-    uint_t Used;
+    ulong_t Used;
 } FMemSpace;
 
 static FMemSpace Kids[2];
@@ -84,7 +84,7 @@ unsigned int TlsIndex;
 
 #ifdef FOMENT_UNIX
 pthread_key_t ThreadKey;
-static uint_t ClockTicksPerSecond;
+static ulong_t ClockTicksPerSecond;
 #endif // FOMENT_UNIX
 
 #define FOMENT_OBJFTR 1
@@ -117,9 +117,9 @@ typedef struct _Tracker
 
 static FTracker * Trackers;
 
-static uint_t LiveEphemerons;
+static ulong_t LiveEphemerons;
 static FEphemeron ** KeyEphemeronMap;
-static uint_t KeyEphemeronMapSize;
+static ulong_t KeyEphemeronMapSize;
 
 FObject CleanupTConc = NoValueObject;
 
@@ -133,10 +133,10 @@ static uint64_t TagCounts[FreeTag];
 // ---- Roots ----
 
 static FObject * Roots[128];
-static uint_t RootsUsed = 0;
+static ulong_t RootsUsed = 0;
 static const char * RootNames[sizeof(Roots) / sizeof(FObject *)];
 
-static inline uint_t RoundToPageSize(uint_t cnt)
+static inline ulong_t RoundToPageSize(ulong_t cnt)
 {
     if (cnt % GC_PAGE_SIZE != 0)
     {
@@ -181,7 +181,7 @@ void GetProcessorTimes(FProcessorTimes * ptms)
 #endif // FOMENT_WINDOWS
 }
 
-void * InitializeMemRegion(FMemRegion * mrgn, uint_t max)
+void * InitializeMemRegion(FMemRegion * mrgn, ulong_t max)
 {
     mrgn->TopUsed = 0;
     mrgn->BottomUsed = 0;
@@ -211,7 +211,7 @@ void DeleteMemRegion(FMemRegion * mrgn)
     mrgn->Base = 0;
 }
 
-int_t GrowMemRegionUp(FMemRegion * mrgn, uint_t sz)
+long_t GrowMemRegionUp(FMemRegion * mrgn, ulong_t sz)
 {
     FAssert(mrgn->Base != 0);
     FAssert(mrgn->TopUsed % GC_PAGE_SIZE == 0);
@@ -244,7 +244,7 @@ int_t GrowMemRegionUp(FMemRegion * mrgn, uint_t sz)
     return(1);
 }
 
-int_t GrowMemRegionDown(FMemRegion * mrgn, uint_t sz)
+long_t GrowMemRegionDown(FMemRegion * mrgn, ulong_t sz)
 {
     FAssert(mrgn->Base != 0);
     FAssert(mrgn->TopUsed % GC_PAGE_SIZE == 0);
@@ -277,7 +277,7 @@ int_t GrowMemRegionDown(FMemRegion * mrgn, uint_t sz)
     return(1);
 }
 
-static inline void SetGeneration(FObjHdr * oh, uint_t gen)
+static inline void SetGeneration(FObjHdr * oh, ulong_t gen)
 {
     oh->FlagsAndTag = ((oh->FlagsAndTag & ~OBJHDR_GEN_MASK) | ((uint16_t) gen));
 }
@@ -344,7 +344,7 @@ static inline int EphemeronKeyMarkP(FObjHdr * oh)
     return(oh->FlagsAndTag & OBJHDR_EPHEMERON_KEY_MARK);
 }
 
-inline uint_t FObjHdr::TotalSize()
+inline ulong_t FObjHdr::TotalSize()
 {
 #ifdef FOMENT_OBJFTR
     return(ObjectSize() + sizeof(FObjHdr) + sizeof(FObjFtr));
@@ -360,12 +360,12 @@ FObjFtr * AsObjFtr(FObjHdr * oh)
 }
 #endif // FOMENT_OBJFTR
 
-static void InitializeObjHdr(FObjHdr * oh, uint_t tsz, uint_t tag, uint_t gen, uint_t sz,
-    uint_t sc)
+static void InitializeObjHdr(FObjHdr * oh, ulong_t tsz, ulong_t tag, ulong_t gen, ulong_t sz,
+    ulong_t sc)
 {
     FAssert(tsz - sizeof(FObjHdr) >= OBJECT_ALIGNMENT);
 
-    uint_t osz = tsz - sizeof(FObjHdr);
+    ulong_t osz = tsz - sizeof(FObjHdr);
 
 #ifdef FOMENT_OBJFTR
     FAssert(osz - sizeof(FObjFtr) >= OBJECT_ALIGNMENT);
@@ -404,7 +404,7 @@ static void InitializeObjHdr(FObjHdr * oh, uint_t tsz, uint_t tag, uint_t gen, u
     FAssert(oh->Generation() == gen);
 }
 
-static FObjHdr * MakeBaby(uint_t tsz, uint_t tag, uint_t sz, uint_t sc, const char * who)
+static FObjHdr * MakeBaby(ulong_t tsz, ulong_t tag, ulong_t sz, ulong_t sc, const char * who)
 {
     FThreadState * ts = GetThreadState();
 
@@ -414,7 +414,7 @@ static FObjHdr * MakeBaby(uint_t tsz, uint_t tag, uint_t sz, uint_t sc, const ch
             RaiseExceptionC(Assertion, who, "babies too small; increase maximum-babies-size",
                     EmptyListObject);
 
-        uint_t gsz = GC_PAGE_SIZE * 8;
+        ulong_t gsz = GC_PAGE_SIZE * 8;
         if (tsz > gsz)
             gsz = tsz;
         if (gsz > ts->Babies.MaximumSize - ts->Babies.BottomUsed)
@@ -431,14 +431,14 @@ static FObjHdr * MakeBaby(uint_t tsz, uint_t tag, uint_t sz, uint_t sc, const ch
     return(oh);
 }
 
-static FObjHdr * AllocateKid(uint_t tsz)
+static FObjHdr * AllocateKid(ulong_t tsz)
 {
     if (ActiveKids->Used + tsz > ActiveKids->MemRegion.BottomUsed)
     {
         if (ActiveKids->Used + tsz > ActiveKids->MemRegion.MaximumSize)
             return(0);
 
-        uint_t gsz = GC_PAGE_SIZE * 8;
+        ulong_t gsz = GC_PAGE_SIZE * 8;
         if (tsz > gsz)
             gsz = tsz;
         if (gsz > ActiveKids->MemRegion.MaximumSize - ActiveKids->MemRegion.BottomUsed)
@@ -454,9 +454,9 @@ static FObjHdr * AllocateKid(uint_t tsz)
     return(oh);
 }
 
-static FObjHdr * AllocateAdult(uint_t tsz, const char * who)
+static FObjHdr * AllocateAdult(ulong_t tsz, const char * who)
 {
-    uint_t bkt = tsz / OBJECT_ALIGNMENT;
+    ulong_t bkt = tsz / OBJECT_ALIGNMENT;
     FObjHdr * oh = 0;
 
     if (bkt < FREE_ADULTS)
@@ -478,7 +478,7 @@ static FObjHdr * AllocateAdult(uint_t tsz, const char * who)
         FObjHdr ** pfoh = &BigFreeAdults;
         while (foh != 0)
         {
-            uint_t ftsz = foh->TotalSize();
+            ulong_t ftsz = foh->TotalSize();
 
             FAssert(ftsz % OBJECT_ALIGNMENT == 0);
             FAssert(foh->Tag() == FreeTag);
@@ -527,7 +527,7 @@ static FObjHdr * AllocateAdult(uint_t tsz, const char * who)
                         EmptyListObject);
             }
 
-            uint_t gsz = 1024 * 1024;
+            ulong_t gsz = 1024 * 1024;
             if (tsz > gsz)
                 gsz = tsz;
             if (gsz > Adults.MaximumSize - Adults.BottomUsed)
@@ -552,7 +552,7 @@ static FObjHdr * AllocateAdult(uint_t tsz, const char * who)
     return(oh);
 }
 
-static FObjHdr * MakeAdult(uint_t tsz, uint_t tag, uint_t sz, uint_t sc, const char * who)
+static FObjHdr * MakeAdult(ulong_t tsz, ulong_t tag, ulong_t sz, ulong_t sc, const char * who)
 {
     EnterExclusive(&GCExclusive);
     FObjHdr * oh = AllocateAdult(tsz, who);
@@ -562,9 +562,9 @@ static FObjHdr * MakeAdult(uint_t tsz, uint_t tag, uint_t sz, uint_t sc, const c
     return(oh);
 }
 
-FObject MakeObject(uint_t tag, uint_t sz, uint_t sc, const char * who, int_t pf)
+FObject MakeObject(ulong_t tag, ulong_t sz, ulong_t sc, const char * who, long_t pf)
 {
-    uint_t tsz = sz;
+    ulong_t tsz = sz;
     FObjHdr * oh;
 
     tsz += Align[tsz % OBJECT_ALIGNMENT];
@@ -636,7 +636,7 @@ void RegisterRoot(FObject * root, const char * name)
     RootsUsed += 1;
 }
 
-void ModifyVector(FObject obj, uint_t idx, FObject val)
+void ModifyVector(FObject obj, ulong_t idx, FObject val)
 {
     FAssert(VectorP(obj));
     FAssert(idx < VectorLength(obj));
@@ -644,7 +644,7 @@ void ModifyVector(FObject obj, uint_t idx, FObject val)
     AsVector(obj)->Vector[idx] = val;
 }
 
-void ModifyObject(FObject obj, uint_t off, FObject val)
+void ModifyObject(FObject obj, ulong_t off, FObject val)
 {
     FAssert(ObjectP(obj));
     FAssert(off % sizeof(FObject) == 0);
@@ -675,13 +675,13 @@ void SetBox(FObject bx, FObject val)
 
 typedef struct
 {
-    int_t Index;
-    int_t Repeat;
+    long_t Index;
+    long_t Repeat;
     FObject Object;
 } FCheckStack;
 
 #define WALK_STACK_SIZE (1024 * 8)
-static uint_t CheckStackPtr;
+static ulong_t CheckStackPtr;
 static FCheckStack CheckStack[WALK_STACK_SIZE];
 static const char * CheckFrom;
 
@@ -715,7 +715,7 @@ static const char * IndirectTagString[] =
     "free"
 };
 
-static const char * WhereFrom(FObject obj, int_t * idx)
+static const char * WhereFrom(FObject obj, long_t * idx)
 {
     const char * from;
 
@@ -875,7 +875,7 @@ static void PrintObjectString(FObject obj)
         {
             printf(" ");
 
-            for (uint_t idx = 0; idx < StringLength(obj); idx++)
+            for (ulong_t idx = 0; idx < StringLength(obj); idx++)
                 putc(AsString(obj)->String[idx], stdout);
         }
     }
@@ -886,12 +886,12 @@ static void PrintCheckStack()
     FMustBe(CheckStackPtr > 0);
 
     const char * from = CheckFrom;
-    int_t idx = CheckStack[0].Index;
+    long_t idx = CheckStack[0].Index;
 
-    for (uint_t cdx = 0; cdx < CheckStackPtr - 1; cdx++)
+    for (ulong_t cdx = 0; cdx < CheckStackPtr - 1; cdx++)
     {
         if (idx >= 0)
-            printf("%s[" INT_FMT "]", from, idx);
+            printf("%s[" LONG_FMT "]", from, idx);
         else
             printf("%s", from);
 
@@ -900,7 +900,7 @@ static void PrintCheckStack()
         PrintObjectString(CheckStack[cdx].Object);
 
         if (CheckStack[cdx].Repeat > 1)
-            printf(" (repeats " INT_FMT " times)", CheckStack[cdx].Repeat);
+            printf(" (repeats " LONG_FMT " times)", CheckStack[cdx].Repeat);
         printf("\n");
     }
 
@@ -920,13 +920,13 @@ static void PrintCheckStack()
     printf("\n");
 }
 
-static int_t CheckFailedCount;
-static int_t CheckCount;
-static int_t CheckTooDeep;
+static long_t CheckFailedCount;
+static long_t CheckCount;
+static long_t CheckTooDeep;
 
-static void FCheckFailed(const char * fn, int_t ln, const char * expr, FObjHdr * oh)
+static void FCheckFailed(const char * fn, long_t ln, const char * expr, FObjHdr * oh)
 {
-    uint_t idx;
+    ulong_t idx;
 
     CheckFailedCount += 1;
     if (CheckFailedCount > 10)
@@ -934,11 +934,11 @@ static void FCheckFailed(const char * fn, int_t ln, const char * expr, FObjHdr *
 
     printf("\nFCheck: %s (%d)%s\n", expr, (int) ln, fn);
 
-    uint_t tsz = oh->TotalSize();
+    ulong_t tsz = oh->TotalSize();
     const char * tag = "unknown";
     if (oh->Tag() > 0 && oh->Tag() < BadDogTag)
         tag = IndirectTagString[oh->Tag()];
-    printf("tsz: " UINT_FMT " osz: " UINT_FMT " blen: " UINT_FMT " slots: " UINT_FMT
+    printf("tsz: " ULONG_FMT " osz: " ULONG_FMT " blen: " ULONG_FMT " slots: " ULONG_FMT
             " tag: %s gen: 0x%x", tsz, oh->ObjectSize(),
             oh->ByteLength(), oh->SlotCount(), tag, oh->Generation());
     if (MarkP(oh))
@@ -947,7 +947,7 @@ static void FCheckFailed(const char * fn, int_t ln, const char * expr, FObjHdr *
     for (idx = 0; idx < tsz && idx < 64; idx++)
         printf(" %x", ((uint8_t *) oh)[idx]);
     if (idx < tsz)
-        printf(" ... (" UINT_FMT " more)", tsz - idx);
+        printf(" ... (" ULONG_FMT " more)", tsz - idx);
     printf("\n");
 
     if (CheckStackPtr > 0)
@@ -957,12 +957,12 @@ static void FCheckFailed(const char * fn, int_t ln, const char * expr, FObjHdr *
 #define FCheck(expr, oh)\
     if (! (expr)) FCheckFailed(__FILE__, __LINE__, #expr, oh)
 
-static int_t ValidAddress(FObjHdr * oh)
+static long_t ValidAddress(FObjHdr * oh)
 {
     if (oh->Generation() == OBJHDR_GEN_ETERNAL)
         return(1);
 
-    uint_t tsz = oh->TotalSize();
+    ulong_t tsz = oh->TotalSize();
     FThreadState * ts = Threads;
     void * strt = oh;
     void * end = ((char *) oh) + tsz;
@@ -991,7 +991,7 @@ static int_t ValidAddress(FObjHdr * oh)
     return(0);
 }
 
-static void CheckObject(FObject obj, int_t idx, int_t ef)
+static void CheckObject(FObject obj, long_t idx, long_t ef)
 {
     if (obj == 0)
     {
@@ -1064,7 +1064,7 @@ Again:
         {
             FAssert(AsObjHdr(obj)->FlagsAndTag & OBJHDR_HAS_SLOTS);
 
-            for (uint_t idx = 0; idx < AsObjHdr(obj)->SlotCount(); idx++)
+            for (ulong_t idx = 0; idx < AsObjHdr(obj)->SlotCount(); idx++)
                 CheckObject(((FObject *) obj)[idx], idx, ef);
         }
         break;
@@ -1085,7 +1085,7 @@ Done:
     CheckStackPtr -= 1;
 }
 
-static void CheckRoot(FObject obj, const char * from, int_t idx)
+static void CheckRoot(FObject obj, const char * from, long_t idx)
 {
     CheckFrom = from;
     CheckObject(obj, idx, 0);
@@ -1095,14 +1095,14 @@ static void CheckThreadState(FThreadState * ts)
 {
     CheckRoot(ts->Thread, "thread-state.thread", -1);
 
-    uint_t idx = 0;
+    ulong_t idx = 0;
     for (FAlive * ap = ts->AliveList; ap != 0; ap = ap->Next, idx++)
         CheckRoot(*ap->Pointer, "thread-state.alive-list", idx);
 
-    for (int_t adx = 0; adx < ts->AStackPtr; adx++)
+    for (long_t adx = 0; adx < ts->AStackPtr; adx++)
         CheckRoot(ts->AStack[adx], "thread-state.astack", adx);
 
-    for (int_t cdx = 0; cdx < ts->CStackPtr; cdx++)
+    for (long_t cdx = 0; cdx < ts->CStackPtr; cdx++)
         CheckRoot(ts->CStack[- cdx], "thread-state.cstack", cdx);
 
     CheckRoot(ts->Proc, "thread-state.proc", -1);
@@ -1110,22 +1110,22 @@ static void CheckThreadState(FThreadState * ts)
     CheckRoot(ts->DynamicStack, "thread-state.dynamic-stack", -1);
     CheckRoot(ts->Parameters, "thread-state.parameters", -1);
 
-    for (int_t idx = 0; idx < INDEX_PARAMETERS; idx++)
+    for (long_t idx = 0; idx < INDEX_PARAMETERS; idx++)
         CheckRoot(ts->IndexParameters[idx], "thread-state.index-parameters", idx);
 
     CheckRoot(ts->NotifyObject, "thread-state.notify-object", -1);
 }
 
-static void CheckMemRegion(FMemRegion * mrgn, uint_t used, uint_t gen)
+static void CheckMemRegion(FMemRegion * mrgn, ulong_t used, ulong_t gen)
 {
     FObjHdr * oh = (FObjHdr *) mrgn->Base;
-    uint_t cnt = 0;
+    ulong_t cnt = 0;
 
     while (cnt < used)
     {
         FCheck(cnt + sizeof(FObjHdr) <= mrgn->BottomUsed, oh);
-        uint_t osz = oh->ObjectSize();
-        uint_t tsz = oh->TotalSize();
+        ulong_t osz = oh->ObjectSize();
+        ulong_t tsz = oh->TotalSize();
 
         FCheck(tsz >= osz + sizeof(FObjHdr), oh);
         FCheck(tsz % OBJECT_ALIGNMENT == 0, oh);
@@ -1179,7 +1179,7 @@ void CheckHeap(const char * fn, int ln)
         ts = ts->Next;
     }
 
-    for (uint_t rdx = 0; rdx < RootsUsed; rdx++)
+    for (ulong_t rdx = 0; rdx < RootsUsed; rdx++)
         CheckRoot(*Roots[rdx], RootNames[rdx], -1);
 
     ts = Threads;
@@ -1232,7 +1232,7 @@ Again:
     FAssert(ObjectP(*pobj));
 
     FObjHdr * oh = AsObjHdr(*pobj);
-    uint_t gen = oh->Generation();
+    ulong_t gen = oh->Generation();
 
     if (EphemeronKeyMarkP(oh))
     {
@@ -1242,7 +1242,7 @@ Again:
         ClearEphemeronKeyMark(oh);
 
         FObject key = (FObject) (oh + 1);
-        uint_t idx = EqHash(key) % KeyEphemeronMapSize;
+        ulong_t idx = EqHash(key) % KeyEphemeronMapSize;
         FEphemeron * eph = KeyEphemeronMap[idx];
         FEphemeron ** peph = &KeyEphemeronMap[idx];
         while (eph != 0)
@@ -1274,7 +1274,7 @@ Again:
             return;
         }
 
-        uint_t tsz = oh->TotalSize();
+        ulong_t tsz = oh->TotalSize();
         FObjHdr * noh = 0;
 
         if (gen == OBJHDR_GEN_BABIES && ActiveKids != 0)
@@ -1309,12 +1309,12 @@ Again:
 
     if (oh->Tag() != EphemeronTag)
     {
-        uint_t sc = oh->SlotCount();
+        ulong_t sc = oh->SlotCount();
         if (sc > 0)
         {
             FAssert(oh->FlagsAndTag & OBJHDR_HAS_SLOTS);
 
-            uint_t sdx = 0;
+            ulong_t sdx = 0;
             while (sdx < sc - 1)
             {
                 LiveObject(oh->Slots() + sdx);
@@ -1347,7 +1347,7 @@ Again:
             {
                 FAssert(ObjectP(eph->Key));
 
-                uint_t idx = EqHash(eph->Key) % KeyEphemeronMapSize;
+                ulong_t idx = EqHash(eph->Key) % KeyEphemeronMapSize;
                 eph->Next = KeyEphemeronMap[idx];
                 KeyEphemeronMap[idx] = eph;
 
@@ -1506,7 +1506,7 @@ static void Collect()
         memset(KeyEphemeronMap, 0, sizeof(FEphemeron *) * KeyEphemeronMapSize);
     LiveEphemerons = 0;
 
-    for (uint_t rdx = 0; rdx < RootsUsed; rdx++)
+    for (ulong_t rdx = 0; rdx < RootsUsed; rdx++)
         LiveObject(Roots[rdx]);
 
     FThreadState * ts = Threads;
@@ -1517,10 +1517,10 @@ static void Collect()
         for (FAlive * ap = ts->AliveList; ap != 0; ap = ap->Next)
             LiveObject(ap->Pointer);
 
-        for (int_t adx = 0; adx < ts->AStackPtr; adx++)
+        for (long_t adx = 0; adx < ts->AStackPtr; adx++)
             LiveObject(ts->AStack + adx);
 
-        for (int_t cdx = 0; cdx < ts->CStackPtr; cdx++)
+        for (long_t cdx = 0; cdx < ts->CStackPtr; cdx++)
             LiveObject(ts->CStack - cdx);
 
         LiveObject(&ts->Proc);
@@ -1528,7 +1528,7 @@ static void Collect()
         LiveObject(&ts->DynamicStack);
         LiveObject(&ts->Parameters);
 
-        for (int_t idx = 0; idx < INDEX_PARAMETERS; idx++)
+        for (long_t idx = 0; idx < INDEX_PARAMETERS; idx++)
             LiveObject(ts->IndexParameters + idx);
 
         LiveObject(&ts->NotifyObject);
@@ -1543,13 +1543,13 @@ static void Collect()
     FTracker * moved = CollectTrackers();
 
     BigFreeAdults = 0;
-    for (int_t idx = 0; idx < FREE_ADULTS; idx++)
+    for (long_t idx = 0; idx < FREE_ADULTS; idx++)
         FreeAdults[idx] = 0;
 
     oh = (FObjHdr *) Adults.Base;
     while ((char *) oh < ((char *) Adults.Base) + AdultsUsed)
     {
-        uint_t tsz = oh->TotalSize();
+        ulong_t tsz = oh->TotalSize();
         if (MarkP(oh) == 0)
         {
             FObjHdr * noh = (FObjHdr *) (((char *) oh) + tsz);
@@ -1561,10 +1561,10 @@ static void Collect()
                 noh = (FObjHdr *) (((char *) noh) + noh->TotalSize());
             }
 
-            FAssert((uint_t) ((char *) noh - (char *) oh) >= tsz);
+            FAssert((ulong_t) ((char *) noh - (char *) oh) >= tsz);
 
             tsz = (char *) noh - (char *) oh;
-            uint_t bkt = tsz / OBJECT_ALIGNMENT;
+            ulong_t bkt = tsz / OBJECT_ALIGNMENT;
             if (bkt < FREE_ADULTS)
             {
                 *oh->Slots() = FreeAdults[bkt];
@@ -1602,7 +1602,7 @@ static void Collect()
 
     if (KeyEphemeronMap != 0)
     {
-        for (uint_t idx = 0; idx < KeyEphemeronMapSize; idx++)
+        for (ulong_t idx = 0; idx < KeyEphemeronMapSize; idx++)
         {
             FEphemeron * eph = KeyEphemeronMap[idx];
             while (eph != 0)
@@ -1788,7 +1788,7 @@ FAlive::~FAlive()
     ts->AliveList = Next;
 }
 
-int_t EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms)
+long_t EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms)
 {
     memset(ts, 0, sizeof(FThreadState));
 
@@ -1854,11 +1854,11 @@ int_t EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms
     {
         FAssert(VectorLength(idxprms) == INDEX_PARAMETERS);
 
-        for (int_t idx = 0; idx < INDEX_PARAMETERS; idx++)
+        for (long_t idx = 0; idx < INDEX_PARAMETERS; idx++)
             ts->IndexParameters[idx] = AsVector(idxprms)->Vector[idx];
     }
     else
-        for (int_t idx = 0; idx < INDEX_PARAMETERS; idx++)
+        for (long_t idx = 0; idx < INDEX_PARAMETERS; idx++)
             ts->IndexParameters[idx] = NoValueObject;
 
     ts->NotifyFlag = 0;
@@ -1873,7 +1873,7 @@ Failed:
     return(0);
 }
 
-uint_t LeaveThread(FThreadState * ts)
+ulong_t LeaveThread(FThreadState * ts)
 {
     FAssert(ts == GetThreadState());
     SetThreadState(0);
@@ -1892,7 +1892,7 @@ uint_t LeaveThread(FThreadState * ts)
     FAssert(TotalThreads > 0);
     TotalThreads -= 1;
 
-    uint_t tt = TotalThreads;
+    ulong_t tt = TotalThreads;
 
     FAssert(Threads != 0);
 
@@ -1929,10 +1929,10 @@ uint_t LeaveThread(FThreadState * ts)
     return(tt);
 }
 
-int_t SetupCore(FThreadState * ts)
+long_t SetupCore(FThreadState * ts)
 {
-    FAssert(sizeof(FObject) == sizeof(int_t));
-    FAssert(sizeof(FObject) == sizeof(uint_t));
+    FAssert(sizeof(FObject) == sizeof(long_t));
+    FAssert(sizeof(FObject) == sizeof(ulong_t));
     FAssert(sizeof(FObject) == sizeof(FImmediate));
     FAssert(sizeof(FObject) == sizeof(char *));
     FAssert(sizeof(FFixnum) <= sizeof(FImmediate));
@@ -2003,7 +2003,7 @@ int_t SetupCore(FThreadState * ts)
             return(0);
 
 #ifdef FOMENT_DEBUG
-        for (uint_t idx = 0; idx < FREE_ADULTS; idx++)
+        for (ulong_t idx = 0; idx < FREE_ADULTS; idx++)
             FAssert(FreeAdults[idx] == 0);
 #endif // FOMENT_DEBUG
     }
@@ -2046,7 +2046,7 @@ int_t SetupCore(FThreadState * ts)
     return(1);
 }
 
-Define("install-guardian", InstallGuardianPrimitive)(int_t argc, FObject argv[])
+Define("install-guardian", InstallGuardianPrimitive)(long_t argc, FObject argv[])
 {
     // (install-guardian <obj> <tconc>)
 
@@ -2059,7 +2059,7 @@ Define("install-guardian", InstallGuardianPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("install-tracker", InstallTrackerPrimitive)(int_t argc, FObject argv[])
+Define("install-tracker", InstallTrackerPrimitive)(long_t argc, FObject argv[])
 {
     // (install-tracker <obj> <ret> <tconc>)
 
@@ -2072,7 +2072,7 @@ Define("install-tracker", InstallTrackerPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("collect", CollectPrimitive)(int_t argc, FObject argv[])
+Define("collect", CollectPrimitive)(long_t argc, FObject argv[])
 {
     // (collect [<full>])
 
@@ -2127,21 +2127,21 @@ void EphemeronDatumSet(FObject eph, FObject dat)
     }
 }
 
-Define("ephemeron?", EphemeronPPrimitive)(int_t argc, FObject argv[])
+Define("ephemeron?", EphemeronPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("ephemeron?", argc);
 
     return(EphemeronP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("make-ephemeron", MakeEphemeronPrimitive)(int_t argc, FObject argv[])
+Define("make-ephemeron", MakeEphemeronPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("make-ephemeron", argc);
 
     return(MakeEphemeron(argv[0], argv[1], NoValueObject));
 }
 
-Define("ephemeron-broken?", EphemeronBrokenPPrimitive)(int_t argc, FObject argv[])
+Define("ephemeron-broken?", EphemeronBrokenPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("ephemeron-broken?", argc);
     EphemeronArgCheck("ephemeron-broken?", argv[0]);
@@ -2149,7 +2149,7 @@ Define("ephemeron-broken?", EphemeronBrokenPPrimitive)(int_t argc, FObject argv[
     return(EphemeronBrokenP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("ephemeron-key", EphemeronKeyPrimitive)(int_t argc, FObject argv[])
+Define("ephemeron-key", EphemeronKeyPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("ephemeron-key", argc);
     EphemeronArgCheck("ephemeron-key", argv[0]);
@@ -2157,7 +2157,7 @@ Define("ephemeron-key", EphemeronKeyPrimitive)(int_t argc, FObject argv[])
     return(AsEphemeron(argv[0])->Key);
 }
 
-Define("ephemeron-datum", EphemeronDatumPrimitive)(int_t argc, FObject argv[])
+Define("ephemeron-datum", EphemeronDatumPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("ephemeron-datum", argc);
     EphemeronArgCheck("ephemeron-datum", argv[0]);
@@ -2165,7 +2165,7 @@ Define("ephemeron-datum", EphemeronDatumPrimitive)(int_t argc, FObject argv[])
     return(AsEphemeron(argv[0])->Datum);
 }
 
-Define("set-ephemeron-key!", SetEphemeronKeyPrimitive)(int_t argc, FObject argv[])
+Define("set-ephemeron-key!", SetEphemeronKeyPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("set-ephemeron-key!", argc);
     EphemeronArgCheck("set-ephemeron-key!", argv[0]);
@@ -2174,7 +2174,7 @@ Define("set-ephemeron-key!", SetEphemeronKeyPrimitive)(int_t argc, FObject argv[
     return(NoValueObject);
 }
 
-Define("set-ephemeron-datum!", SetEphemeronDatumPrimitive)(int_t argc, FObject argv[])
+Define("set-ephemeron-datum!", SetEphemeronDatumPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("set-ephemeron-datum!", argc);
     EphemeronArgCheck("set-ephemeron-datum!", argv[0]);
@@ -2183,7 +2183,7 @@ Define("set-ephemeron-datum!", SetEphemeronDatumPrimitive)(int_t argc, FObject a
     return(NoValueObject);
 }
 
-Define("process-times", ProcessTimesPrimitive)(int_t argc, FObject argv[])
+Define("process-times", ProcessTimesPrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("process-times", argc);
 
@@ -2197,7 +2197,7 @@ Define("process-times", ProcessTimesPrimitive)(int_t argc, FObject argv[])
             MakeIntegerU(GCTimes.UserTimeMS), MakeIntegerU(GCTimes.SystemTimeMS)));
 }
 
-Define("process-times-reset!", ProcessTimesResetPrimitive)(int_t argc, FObject argv[])
+Define("process-times-reset!", ProcessTimesResetPrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("process-times-reset!", argc);
 
@@ -2206,7 +2206,7 @@ Define("process-times-reset!", ProcessTimesResetPrimitive)(int_t argc, FObject a
     return(NoValueObject);
 }
 
-Define("object-counts", ObjectCountsPrimitive)(int_t argc, FObject argv[])
+Define("object-counts", ObjectCountsPrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("object-counts", argc);
 
@@ -2228,7 +2228,7 @@ Define("object-counts", ObjectCountsPrimitive)(int_t argc, FObject argv[])
     return(ReverseListModify(lst));
 }
 
-Define("object-counts-reset!", ObjectCountsResetPrimitive)(int_t argc, FObject argv[])
+Define("object-counts-reset!", ObjectCountsResetPrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("object-counts-reset!", argc);
 
@@ -2238,12 +2238,12 @@ Define("object-counts-reset!", ObjectCountsResetPrimitive)(int_t argc, FObject a
     return(NoValueObject);
 }
 
-Define("stack-used", StackUsedPrimitive)(int_t argc, FObject argv[])
+Define("stack-used", StackUsedPrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("stack-used", argc);
 
     FThreadState * ts = GetThreadState();
-    int_t used = 0;
+    long_t used = 0;
     if (ts->AStackUsed > ts->AStackPtr)
         used += (ts->AStackUsed - ts->AStackPtr);
     if (ts->CStackUsed > ts->CStackPtr)
@@ -2251,7 +2251,7 @@ Define("stack-used", StackUsedPrimitive)(int_t argc, FObject argv[])
     return(MakeFixnum(used));
 }
 
-Define("stack-used-reset!", StackUsedResetPrimitive)(int_t argc, FObject argv[])
+Define("stack-used-reset!", StackUsedResetPrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("stack-used-reset!", argc);
 
@@ -2283,6 +2283,6 @@ static FObject Primitives[] =
 
 void SetupGC()
 {
-    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (ulong_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 }

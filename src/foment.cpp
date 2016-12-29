@@ -54,11 +54,11 @@ static uint64_t GetMillisecondCount64()
 }
 #endif // FOMENT_UNIX
 
-uint_t SetupComplete = 0;
-uint_t RandomSeed = 0;
+ulong_t SetupComplete = 0;
+ulong_t RandomSeed = 0;
 
-uint_t CheckHeapFlag = 0;
-uint_t VerboseFlag = 0;
+ulong_t CheckHeapFlag = 0;
+ulong_t VerboseFlag = 0;
 
 EternalSymbol(BeginSymbol, "begin");
 EternalSymbol(QuoteSymbol, "quote");
@@ -88,20 +88,20 @@ void ErrorExitFoment()
     if (SetupComplete)
     {
         if (CheckHeapFlag || VerboseFlag)
-            printf("RandomSeed: " UINT_FMT "\n", RandomSeed);
+            printf("RandomSeed: " ULONG_FMT "\n", RandomSeed);
         ExitFoment();
     }
 
     exit(1);
 }
 
-void FAssertFailed(const char * fn, int_t ln, const char * expr)
+void FAssertFailed(const char * fn, long_t ln, const char * expr)
 {
     printf("FAssert: %s (%d)%s\n", expr, (int) ln, fn);
     ErrorExitFoment();
 }
 
-void FMustBeFailed(const char * fn, int_t ln, const char * expr)
+void FMustBeFailed(const char * fn, long_t ln, const char * expr)
 {
     printf("FMustBe: %s (%d)%s\n", expr, (int) ln, fn);
     ErrorExitFoment();
@@ -154,9 +154,9 @@ const char * SpecialSyntaxToName(FObject obj)
 {
     FAssert(SpecialSyntaxP(obj));
 
-    int_t n = AsValue(obj);
+    long_t n = AsValue(obj);
     FAssert(n >= 0);
-    FAssert(n < (int_t) (sizeof(SpecialSyntaxes) / sizeof(char *)));
+    FAssert(n < (long_t) (sizeof(SpecialSyntaxes) / sizeof(char *)));
 
     return(SpecialSyntaxes[n]);
 }
@@ -172,26 +172,26 @@ void WriteSpecialSyntax(FWriteContext * wctx, FObject obj)
 
 // ---- Booleans ----
 
-Define("not", NotPrimitive)(int_t argc, FObject argv[])
+Define("not", NotPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("not", argc);
 
     return(argv[0] == FalseObject ? TrueObject : FalseObject);
 }
 
-Define("boolean?", BooleanPPrimitive)(int_t argc, FObject argv[])
+Define("boolean?", BooleanPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("boolean?", argc);
 
     return(BooleanP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("boolean=?", BooleanEqualPPrimitive)(int_t argc, FObject argv[])
+Define("boolean=?", BooleanEqualPPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("boolean=?", argc);
     BooleanArgCheck("boolean=?", argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         BooleanArgCheck("boolean=?", argv[adx]);
 
@@ -219,29 +219,29 @@ FObject AddPrefixToSymbol(FObject str, FObject sym)
     FAssert(StringP(sstr));
 
     FObject nstr = MakeStringCh(StringLength(str) + StringLength(sstr), 0);
-    uint_t sdx;
+    ulong_t sdx;
     for (sdx = 0; sdx < StringLength(str); sdx++)
         AsString(nstr)->String[sdx] = AsString(str)->String[sdx];
 
-    for (uint_t idx = 0; idx < StringLength(sstr); idx++)
+    for (ulong_t idx = 0; idx < StringLength(sstr); idx++)
         AsString(nstr)->String[sdx + idx] = AsString(sstr)->String[idx];
 
     return(StringToSymbol(nstr));
 }
 
-Define("symbol?", SymbolPPrimitive)(int_t argc, FObject argv[])
+Define("symbol?", SymbolPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("symbol?", argc);
 
     return(SymbolP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("symbol=?", SymbolEqualPPrimitive)(int_t argc, FObject argv[])
+Define("symbol=?", SymbolEqualPPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastTwoArgsCheck("symbol=?", argc);
     SymbolArgCheck("symbol=?", argv[0]);
 
-    for (int_t adx = 1; adx < argc; adx++)
+    for (long_t adx = 1; adx < argc; adx++)
     {
         SymbolArgCheck("symbol=?", argv[adx]);
 
@@ -252,7 +252,7 @@ Define("symbol=?", SymbolEqualPPrimitive)(int_t argc, FObject argv[])
     return(TrueObject);
 }
 
-Define("symbol->string", SymbolToStringPrimitive)(int_t argc, FObject argv[])
+Define("symbol->string", SymbolToStringPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("symbol->string", argc);
     SymbolArgCheck("symbol->string", argv[0]);
@@ -260,7 +260,7 @@ Define("symbol->string", SymbolToStringPrimitive)(int_t argc, FObject argv[])
     return(SymbolToString(argv[0]));
 }
 
-Define("string->symbol", StringToSymbolPrimitive)(int_t argc, FObject argv[])
+Define("string->symbol", StringToSymbolPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("string->symbol", argc);
     StringArgCheck("string->symbol", argv[0]);
@@ -284,7 +284,7 @@ static void WriteLocation(FWriteContext * wctx, FObject obj)
             && AsFixnum(AsIdentifier(obj)->LineNumber) > 0)
     {
         FCh s[16];
-        int_t sl = FixnumAsString(AsFixnum(AsIdentifier(obj)->LineNumber), s, 10);
+        long_t sl = FixnumAsString(AsFixnum(AsIdentifier(obj)->LineNumber), s, 10);
 
         wctx->WriteStringC(" line: ");
         wctx->WriteString(s, sl);
@@ -295,7 +295,7 @@ static void
 WriteException(FWriteContext * wctx, FObject obj)
 {
     FCh s[16];
-    int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+    long_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
     wctx->WriteStringC("#<exception: #x");
     wctx->WriteString(s, sl);
@@ -389,7 +389,7 @@ void Raise(FObject obj)
     throw obj;
 }
 
-Define("raise", RaisePrimitive)(int_t argc, FObject argv[])
+Define("raise", RaisePrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("raise", argc);
 
@@ -397,7 +397,7 @@ Define("raise", RaisePrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("error", ErrorPrimitive)(int_t argc, FObject argv[])
+Define("error", ErrorPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastOneArgCheck("error", argc);
     StringArgCheck("error", argv[0]);
@@ -413,14 +413,14 @@ Define("error", ErrorPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("error-object?", ErrorObjectPPrimitive)(int_t argc, FObject argv[])
+Define("error-object?", ErrorObjectPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("error-object?", argc);
 
     return(ExceptionP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("error-object-type", ErrorObjectTypePrimitive)(int_t argc, FObject argv[])
+Define("error-object-type", ErrorObjectTypePrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("error-object-type", argc);
     ExceptionArgCheck("error-object-type", argv[0]);
@@ -428,7 +428,7 @@ Define("error-object-type", ErrorObjectTypePrimitive)(int_t argc, FObject argv[]
     return(AsException(argv[0])->Type);
 }
 
-Define("error-object-who", ErrorObjectWhoPrimitive)(int_t argc, FObject argv[])
+Define("error-object-who", ErrorObjectWhoPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("error-object-who", argc);
     ExceptionArgCheck("error-object-who", argv[0]);
@@ -436,7 +436,7 @@ Define("error-object-who", ErrorObjectWhoPrimitive)(int_t argc, FObject argv[])
     return(AsException(argv[0])->Who);
 }
 
-Define("error-object-kind", ErrorObjectKindPrimitive)(int_t argc, FObject argv[])
+Define("error-object-kind", ErrorObjectKindPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("error-object-kind", argc);
     ExceptionArgCheck("error-object-kind", argv[0]);
@@ -444,7 +444,7 @@ Define("error-object-kind", ErrorObjectKindPrimitive)(int_t argc, FObject argv[]
     return(AsException(argv[0])->Kind);
 }
 
-Define("error-object-message", ErrorObjectMessagePrimitive)(int_t argc, FObject argv[])
+Define("error-object-message", ErrorObjectMessagePrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("error-object-message", argc);
     ExceptionArgCheck("error-object-message", argv[0]);
@@ -452,7 +452,7 @@ Define("error-object-message", ErrorObjectMessagePrimitive)(int_t argc, FObject 
     return(AsException(argv[0])->Message);
 }
 
-Define("error-object-irritants", ErrorObjectIrritantsPrimitive)(int_t argc, FObject argv[])
+Define("error-object-irritants", ErrorObjectIrritantsPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("error-object-irritants", argc);
     ExceptionArgCheck("error-object-irritants", argv[0]);
@@ -460,7 +460,7 @@ Define("error-object-irritants", ErrorObjectIrritantsPrimitive)(int_t argc, FObj
     return(AsException(argv[0])->Irritants);
 }
 
-Define("full-error", FullErrorPrimitive)(int_t argc, FObject argv[])
+Define("full-error", FullErrorPrimitive)(long_t argc, FObject argv[])
 {
     AtLeastFourArgsCheck("full-error", argc);
     SymbolArgCheck("full-error", argv[0]);
@@ -480,14 +480,14 @@ Define("full-error", FullErrorPrimitive)(int_t argc, FObject argv[])
 
 // ---- System interface ----
 
-Define("command-line", CommandLinePrimitive)(int_t argc, FObject argv[])
+Define("command-line", CommandLinePrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("command-line", argc);
 
     return(CommandLine);
 }
 
-Define("full-command-line", FullCommandLinePrimitive)(int_t argc, FObject argv[])
+Define("full-command-line", FullCommandLinePrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("full-command-line", argc);
 
@@ -525,7 +525,7 @@ static void GetEnvironmentVariables()
     EnvironmentVariables = lst;
 }
 
-Define("get-environment-variable", GetEnvironmentVariablePrimitive)(int_t argc, FObject argv[])
+Define("get-environment-variable", GetEnvironmentVariablePrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("get-environment-variable", argc);
     StringArgCheck("get-environment-variable", argv[0]);
@@ -538,7 +538,7 @@ Define("get-environment-variable", GetEnvironmentVariablePrimitive)(int_t argc, 
     return(ret);
 }
 
-Define("get-environment-variables", GetEnvironmentVariablesPrimitive)(int_t argc, FObject argv[])
+Define("get-environment-variables", GetEnvironmentVariablesPrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("get-environment-variables", argc);
 
@@ -547,7 +547,7 @@ Define("get-environment-variables", GetEnvironmentVariablesPrimitive)(int_t argc
     return(EnvironmentVariables);
 }
 
-Define("current-second", CurrentSecondPrimitive)(int_t argc, FObject argv[])
+Define("current-second", CurrentSecondPrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("current-second", argc);
 
@@ -556,7 +556,7 @@ Define("current-second", CurrentSecondPrimitive)(int_t argc, FObject argv[])
     return(MakeFlonum((double64_t) t));
 }
 
-Define("current-jiffy", CurrentJiffyPrimitive)(int_t argc, FObject argv[])
+Define("current-jiffy", CurrentJiffyPrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("current-jiffy", argc);
 
@@ -569,21 +569,21 @@ Define("current-jiffy", CurrentJiffyPrimitive)(int_t argc, FObject argv[])
 #endif // FOMENT_UNIX
 }
 
-Define("jiffies-per-second", JiffiesPerSecondPrimitive)(int_t argc, FObject argv[])
+Define("jiffies-per-second", JiffiesPerSecondPrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("jiffies-per-second", argc);
 
     return(MakeFixnum(1000));
 }
 
-Define("features", FeaturesPrimitive)(int_t argc, FObject argv[])
+Define("features", FeaturesPrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("features", argc);
 
     return(Features);
 }
 
-Define("%set-features!", SetFeaturesPrimitive)(int_t argc, FObject argv[])
+Define("%set-features!", SetFeaturesPrimitive)(long_t argc, FObject argv[])
 {
     FMustBe(argc == 1);
 
@@ -598,7 +598,7 @@ FObject MakeBox(FObject val)
     return(MakeBox(val, 0));
 }
 
-FObject MakeBox(FObject val, uint_t idx)
+FObject MakeBox(FObject val, ulong_t idx)
 {
     FBox * bx = (FBox *) MakeObject(BoxTag, sizeof(FBox), 1, "box");
     bx->Value = val;
@@ -609,7 +609,7 @@ FObject MakeBox(FObject val, uint_t idx)
 
 // ---- Builtins ----
 
-FObject MakeBuiltin(FObject bt, uint_t sz, uint_t sc, const char * who)
+FObject MakeBuiltin(FObject bt, ulong_t sz, ulong_t sc, const char * who)
 {
     FAssert(BuiltinTypeP(bt));
     FAssert(sz >= sizeof(FBuiltin));
@@ -623,7 +623,7 @@ FObject MakeBuiltin(FObject bt, uint_t sz, uint_t sc, const char * who)
 
 // ---- Record Types ----
 
-FObject MakeRecordType(FObject nam, uint_t nf, FObject flds[])
+FObject MakeRecordType(FObject nam, ulong_t nf, FObject flds[])
 {
     FAssert(SymbolP(nam));
 
@@ -631,7 +631,7 @@ FObject MakeRecordType(FObject nam, uint_t nf, FObject flds[])
             sizeof(FRecordType) + sizeof(FObject) * nf, nf + 1, "%make-record-type");
     rt->Fields[0] = nam;
 
-    for (uint_t fdx = 1; fdx <= nf; fdx++)
+    for (ulong_t fdx = 1; fdx <= nf; fdx++)
     {
         FAssert(SymbolP(flds[fdx - 1]));
 
@@ -641,7 +641,7 @@ FObject MakeRecordType(FObject nam, uint_t nf, FObject flds[])
     return(rt);
 }
 
-Define("%make-record-type", MakeRecordTypePrimitive)(int_t argc, FObject argv[])
+Define("%make-record-type", MakeRecordTypePrimitive)(long_t argc, FObject argv[])
 {
     // (%make-record-type <record-type-name> (<field> ...))
 
@@ -671,7 +671,7 @@ Define("%make-record-type", MakeRecordTypePrimitive)(int_t argc, FObject argv[])
     return(MakeRecordType(argv[0], VectorLength(flds), AsVector(flds)->Vector));
 }
 
-Define("%make-record", MakeRecordPrimitive)(int_t argc, FObject argv[])
+Define("%make-record", MakeRecordPrimitive)(long_t argc, FObject argv[])
 {
     // (%make-record <record-type>)
 
@@ -681,7 +681,7 @@ Define("%make-record", MakeRecordPrimitive)(int_t argc, FObject argv[])
     return(MakeRecord(argv[0]));
 }
 
-Define("%record-predicate", RecordPredicatePrimitive)(int_t argc, FObject argv[])
+Define("%record-predicate", RecordPredicatePrimitive)(long_t argc, FObject argv[])
 {
     // (%record-predicate <record-type> <obj>)
 
@@ -691,14 +691,14 @@ Define("%record-predicate", RecordPredicatePrimitive)(int_t argc, FObject argv[]
     return(RecordP(argv[1], argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("%record-index", RecordIndexPrimitive)(int_t argc, FObject argv[])
+Define("%record-index", RecordIndexPrimitive)(long_t argc, FObject argv[])
 {
     // (%record-index <record-type> <field-name>)
 
     FMustBe(argc == 2);
     FMustBe(RecordTypeP(argv[0]));
 
-    for (uint_t rdx = 1; rdx < RecordTypeNumFields(argv[0]); rdx++)
+    for (ulong_t rdx = 1; rdx < RecordTypeNumFields(argv[0]); rdx++)
         if (EqP(argv[1], AsRecordType(argv[0])->Fields[rdx]))
             return(MakeFixnum(rdx));
 
@@ -708,7 +708,7 @@ Define("%record-index", RecordIndexPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("%record-ref", RecordRefPrimitive)(int_t argc, FObject argv[])
+Define("%record-ref", RecordRefPrimitive)(long_t argc, FObject argv[])
 {
     // (%record-ref <record-type> <obj> <index>)
 
@@ -720,12 +720,12 @@ Define("%record-ref", RecordRefPrimitive)(int_t argc, FObject argv[])
                 List(argv[1], argv[0]));
 
     FMustBe(FixnumP(argv[2]));
-    FMustBe(AsFixnum(argv[2]) > 0 && AsFixnum(argv[2]) < (int_t) RecordNumFields(argv[1]));
+    FMustBe(AsFixnum(argv[2]) > 0 && AsFixnum(argv[2]) < (long_t) RecordNumFields(argv[1]));
 
     return(AsGenericRecord(argv[1])->Fields[AsFixnum(argv[2])]);
 }
 
-Define("%record-set!", RecordSetPrimitive)(int_t argc, FObject argv[])
+Define("%record-set!", RecordSetPrimitive)(long_t argc, FObject argv[])
 {
     // (%record-set! <record-type> <obj> <index> <value>)
 
@@ -737,7 +737,7 @@ Define("%record-set!", RecordSetPrimitive)(int_t argc, FObject argv[])
                 List(argv[1], argv[0]));
 
     FMustBe(FixnumP(argv[2]));
-    FMustBe(AsFixnum(argv[2]) > 0 && AsFixnum(argv[2]) < (int_t) RecordNumFields(argv[1]));
+    FMustBe(AsFixnum(argv[2]) > 0 && AsFixnum(argv[2]) < (long_t) RecordNumFields(argv[1]));
 
 //    AsGenericRecord(argv[1])->Fields[AsFixnum(argv[2])] = argv[3];
     Modify(FGenericRecord, argv[1], Fields[AsFixnum(argv[2])], argv[3]);
@@ -750,13 +750,13 @@ FObject MakeRecord(FObject rt)
 {
     FAssert(RecordTypeP(rt));
 
-    uint_t nf = RecordTypeNumFields(rt);
+    ulong_t nf = RecordTypeNumFields(rt);
 
     FGenericRecord * r = (FGenericRecord *) MakeObject(RecordTag,
             sizeof(FGenericRecord) + sizeof(FObject) * (nf - 1), nf, "%make-record");
     r->Fields[0] = rt;
 
-    for (uint_t fdx = 1; fdx < nf; fdx++)
+    for (ulong_t fdx = 1; fdx < nf; fdx++)
         r->Fields[fdx] = NoValueObject;
 
     return(r);
@@ -771,21 +771,21 @@ void DefinePrimitive(FObject env, FObject lib, FObject prim)
 
 // Foment specific
 
-Define("loaded-libraries", LoadedLibrariesPrimitive)(int_t argc, FObject argv[])
+Define("loaded-libraries", LoadedLibrariesPrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("loaded-libraries", argc);
 
     return(LoadedLibraries);
 }
 
-Define("library-path", LibraryPathPrimitive)(int_t argc, FObject argv[])
+Define("library-path", LibraryPathPrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("library-path", argc);
 
     return(LibraryPath);
 }
 
-Define("random", RandomPrimitive)(int_t argc, FObject argv[])
+Define("random", RandomPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("random", argc);
     NonNegativeArgCheck("random", argv[0], 0);
@@ -793,7 +793,7 @@ Define("random", RandomPrimitive)(int_t argc, FObject argv[])
     return(MakeFixnum(rand() % AsFixnum(argv[0])));
 }
 
-Define("no-value", NoValuePrimitive)(int_t argc, FObject argv[])
+Define("no-value", NoValuePrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("no-value", argc);
 
@@ -802,14 +802,14 @@ Define("no-value", NoValuePrimitive)(int_t argc, FObject argv[])
 
 // ---- SRFI 112: Environment Inquiry ----
 
-Define("implementation-name", ImplementationNamePrimitive)(int_t argc, FObject argv[])
+Define("implementation-name", ImplementationNamePrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("implementation-name", argc);
 
     return(MakeStringC("foment"));
 }
 
-Define("implementation-version", ImplementationVersionPrimitive)(int_t argc, FObject argv[])
+Define("implementation-version", ImplementationVersionPrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("implementation-version", argc);
 
@@ -846,14 +846,14 @@ static const char * CPUArchitecture()
 #endif // FOMENT_UNIX
 }
 
-Define("cpu-architecture", CPUArchitecturePrimitive)(int_t argc, FObject argv[])
+Define("cpu-architecture", CPUArchitecturePrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("cpu-architecture", argc);
 
     return(MakeStringC(CPUArchitecture()));
 }
 
-Define("machine-name", MachineNamePrimitive)(int_t argc, FObject argv[])
+Define("machine-name", MachineNamePrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("machine-name", argc);
 
@@ -885,14 +885,14 @@ static const char * OSName()
 #endif // FOMENT_UNIX
 }
 
-Define("os-name", OSNamePrimitive)(int_t argc, FObject argv[])
+Define("os-name", OSNamePrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("os-name", argc);
 
     return(MakeStringC(OSName()));
 }
 
-Define("os-version", OSVersionPrimitive)(int_t argc, FObject argv[])
+Define("os-version", OSVersionPrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("os-version", argc);
 
@@ -959,21 +959,21 @@ Define("os-version", OSVersionPrimitive)(int_t argc, FObject argv[])
 
 // ---- SRFI 111: Boxes ----
 
-Define("box", BoxPrimitive)(int_t argc, FObject argv[])
+Define("box", BoxPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("box", argc);
 
     return(MakeBox(argv[0]));
 }
 
-Define("box?", BoxPPrimitive)(int_t argc, FObject argv[])
+Define("box?", BoxPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("box?", argc);
 
     return(BoxP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("unbox", UnboxPrimitive)(int_t argc, FObject argv[])
+Define("unbox", UnboxPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("unbox", argc);
     BoxArgCheck("unbox", argv[0]);
@@ -981,7 +981,7 @@ Define("unbox", UnboxPrimitive)(int_t argc, FObject argv[])
     return(Unbox(argv[0]));
 }
 
-Define("set-box!", SetBoxPrimitive)(int_t argc, FObject argv[])
+Define("set-box!", SetBoxPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("set-box!", argc);
     BoxArgCheck("set-box!", argv[0]);
@@ -995,7 +995,7 @@ Define("set-box!", SetBoxPrimitive)(int_t argc, FObject argv[])
 #define MISCELLANEOUS_TAG_OFFSET 8
 #define INDIRECT_TAG_OFFSET 10
 
-static int_t ObjectTypeTag(FObject obj)
+static long_t ObjectTypeTag(FObject obj)
 {
     if (ObjectP(obj))
     {
@@ -1016,24 +1016,24 @@ static int_t ObjectTypeTag(FObject obj)
     return(-1);
 }
 
-FObject CharPPrimitiveFn(int_t argc, FObject argv[]);
-FObject NullPPrimitiveFn(int_t argc, FObject argv[]);
-FObject BooleanPPrimitiveFn(int_t argc, FObject argv[]);
-FObject EofObjectPPrimitiveFn(int_t argc, FObject argv[]);
-FObject NumberPPrimitiveFn(int_t argc, FObject argv[]);
-FObject BoxPPrimitiveFn(int_t argc, FObject argv[]);
-FObject PairPPrimitiveFn(int_t argc, FObject argv[]);
-FObject StringPPrimitiveFn(int_t argc, FObject argv[]);
-FObject VectorPPrimitiveFn(int_t argc, FObject argv[]);
-FObject BytevectorPPrimitiveFn(int_t argc, FObject argv[]);
-FObject BinaryPortPPrimitiveFn(int_t argc, FObject argv[]);
-FObject TextualPortPPrimitiveFn(int_t argc, FObject argv[]);
-FObject ProcedurePPrimitiveFn(int_t argc, FObject argv[]);
-FObject SymbolPPrimitiveFn(int_t argc, FObject argv[]);
-FObject ThreadPPrimitiveFn(int_t argc, FObject argv[]);
-FObject ExclusivePPrimitiveFn(int_t argc, FObject argv[]);
-FObject ConditionPPrimitiveFn(int_t argc, FObject argv[]);
-FObject EphemeronPPrimitiveFn(int_t argc, FObject argv[]);
+FObject CharPPrimitiveFn(long_t argc, FObject argv[]);
+FObject NullPPrimitiveFn(long_t argc, FObject argv[]);
+FObject BooleanPPrimitiveFn(long_t argc, FObject argv[]);
+FObject EofObjectPPrimitiveFn(long_t argc, FObject argv[]);
+FObject NumberPPrimitiveFn(long_t argc, FObject argv[]);
+FObject BoxPPrimitiveFn(long_t argc, FObject argv[]);
+FObject PairPPrimitiveFn(long_t argc, FObject argv[]);
+FObject StringPPrimitiveFn(long_t argc, FObject argv[]);
+FObject VectorPPrimitiveFn(long_t argc, FObject argv[]);
+FObject BytevectorPPrimitiveFn(long_t argc, FObject argv[]);
+FObject BinaryPortPPrimitiveFn(long_t argc, FObject argv[]);
+FObject TextualPortPPrimitiveFn(long_t argc, FObject argv[]);
+FObject ProcedurePPrimitiveFn(long_t argc, FObject argv[]);
+FObject SymbolPPrimitiveFn(long_t argc, FObject argv[]);
+FObject ThreadPPrimitiveFn(long_t argc, FObject argv[]);
+FObject ExclusivePPrimitiveFn(long_t argc, FObject argv[]);
+FObject ConditionPPrimitiveFn(long_t argc, FObject argv[]);
+FObject EphemeronPPrimitiveFn(long_t argc, FObject argv[]);
 
 static FObject LookupTypeTags(FObject ttp)
 {
@@ -1084,14 +1084,14 @@ static FObject LookupTypeTags(FObject ttp)
     return(EmptyListObject);
 }
 
-Define("object-type-tag", ObjectTypeTagPrimitive)(int_t argc, FObject argv[])
+Define("object-type-tag", ObjectTypeTagPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("object-type-tag", argc);
 
     return(MakeFixnum(ObjectTypeTag(argv[0])));
 }
 
-Define("lookup-type-tags", LookupTypeTagsPrimitive)(int_t argc, FObject argv[])
+Define("lookup-type-tags", LookupTypeTagsPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("lookup-type-tags", argc);
 
@@ -1198,7 +1198,7 @@ FObject OpenFomentLibrary(FObject nam)
 {
     FAssert(VectorP(FomentLibrariesVector));
 
-    for (uint_t idx = 0; idx < VectorLength(FomentLibrariesVector); idx++)
+    for (ulong_t idx = 0; idx < VectorLength(FomentLibrariesVector); idx++)
         if (EqualP(nam, AsVector(FomentLibrariesVector)->Vector[idx]))
             return(MakeStringCInputPort(FomentLibraries[idx]));
 
@@ -1225,7 +1225,7 @@ static const char * FeaturesC[] =
 
 static int LittleEndianP()
 {
-    uint_t nd = 1;
+    ulong_t nd = 1;
 
     return(*((char *) &nd) == 1);
 }
@@ -1245,7 +1245,7 @@ static void FixupUName(char * s)
 }
 #endif // FOMENT_UNIX
 
-int_t SetupFoment(FThreadState * ts)
+long_t SetupFoment(FThreadState * ts)
 {
 #ifdef FOMENT_WINDOWS
     StartingTicks = GetTickCount64();
@@ -1288,7 +1288,7 @@ int_t SetupFoment(FThreadState * ts)
     Bedrock = MakeEnvironment(nam, FalseObject);
     BedrockLibrary = MakeLibrary(nam);
 
-    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (ulong_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 
     BeginSymbol = InternSymbol(BeginSymbol);
@@ -1313,7 +1313,7 @@ int_t SetupFoment(FThreadState * ts)
     FAssert(Syntax == StringCToSymbol("syntax-violation"));
     FAssert(Error == StringCToSymbol("error-violation"));
 
-    for (uint_t n = 0; n < sizeof(SpecialSyntaxes) / sizeof(char *); n++)
+    for (ulong_t n = 0; n < sizeof(SpecialSyntaxes) / sizeof(char *); n++)
         LibraryExport(BedrockLibrary, EnvironmentSetC(Bedrock, SpecialSyntaxes[n],
                 MakeImmediate(n, SpecialSyntaxTag)));
 
@@ -1347,7 +1347,7 @@ int_t SetupFoment(FThreadState * ts)
             EnvironmentSetC(Bedrock, "%debug-build", FalseObject));
 #endif // FOMENT_DEBUG
 
-    for (uint_t idx = 0; idx < sizeof(FeaturesC) / sizeof(char *); idx++)
+    for (ulong_t idx = 0; idx < sizeof(FeaturesC) / sizeof(char *); idx++)
         Features = MakePair(StringCToSymbol(FeaturesC[idx]), Features);
 
     Features = MakePair(StringCToSymbol(CPUArchitecture()), Features);
@@ -1368,8 +1368,8 @@ int_t SetupFoment(FThreadState * ts)
 
         lp = Rest(lp);
 
-        uint_t strt = 0;
-        uint_t idx = 0;
+        ulong_t strt = 0;
+        ulong_t idx = 0;
         while (idx < StringLength(lp))
         {
             if (AsString(lp)->String[idx] == PathSep)

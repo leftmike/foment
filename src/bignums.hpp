@@ -27,11 +27,11 @@ FObject Normalize(FObject num); // should be static inline
 double64_t BignumToDouble(FObject bn); // check who calls
 char * BignumToStringC(FObject bn, FFixnum rdx);
 FObject ToExactRatio(double64_t d);
-int_t ParseBignum(FCh * s, int_t sl, int_t sdx, FFixnum rdx, FFixnum sgn, FFixnum n,
+long_t ParseBignum(FCh * s, long_t sl, long_t sdx, FFixnum rdx, FFixnum sgn, FFixnum n,
     FObject * punt);
-int_t BignumCompare(FObject bn1, FObject bn2);
-int_t BignumCompareFixnum(FObject bn, FFixnum n);
-int_t BignumSign(FObject bn);
+long_t BignumCompare(FObject bn1, FObject bn2);
+long_t BignumCompareFixnum(FObject bn, FFixnum n);
+long_t BignumSign(FObject bn);
 FObject BignumAdd(FObject bn1, FObject bn2);
 FObject BignumAddFixnum(FObject bn, FFixnum n);
 FObject BignumMultiply(FObject bn1, FObject bn2);
@@ -40,16 +40,16 @@ FObject BignumSubtract(FObject bn1, FObject bn2);
 FObject BignumDivide(FObject n, FObject d);
 FObject BignumRemainder(FObject n, FObject d);
 FFixnum BignumRemainderFixnum(FObject n, FFixnum d);
-int_t BignumEqualFixnum(FObject bn, FFixnum n);
+long_t BignumEqualFixnum(FObject bn, FFixnum n);
 FObject BignumExpt(FObject bn, FFixnum e);
 FObject BignumSqrt(FObject * rem, FObject bn);
 FObject BignumAnd(FObject bn1, FObject bn2);
 FObject BignumIOr(FObject bn1, FObject bn2);
 FObject BignumXOr(FObject bn1, FObject bn2);
 FObject BignumNot(FObject bn);
-uint_t BignumBitCount(FObject bn);
-uint_t BignumIntegerLength(FObject bn);
-uint_t BignumFirstSetBit(FObject bn);
+ulong_t BignumBitCount(FObject bn);
+ulong_t BignumIntegerLength(FObject bn);
+ulong_t BignumFirstSetBit(FObject bn);
 FObject BignumArithmeticShift(FObject bn, FFixnum cnt);
 
 #endif // __BIGNUMS_HPP__

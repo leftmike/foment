@@ -14,14 +14,14 @@ Foment
 #define AsNBignum(obj) ((FBignum *) (obj))
 
 #ifdef FOMENT_32BIT
-#define MAXIMUM_DIGIT_COUNT (((uint_t) 1 << sizeof(uint16_t) * 8) - 1)
+#define MAXIMUM_DIGIT_COUNT (((ulong_t) 1 << sizeof(uint16_t) * 8) - 1)
 #endif // FOMENT_32BIT
 #ifdef FOMENT_64BIT
-#define MAXIMUM_DIGIT_COUNT (((uint_t) 1 << sizeof(uint32_t) * 8) - 1)
+#define MAXIMUM_DIGIT_COUNT (((ulong_t) 1 << sizeof(uint32_t) * 8) - 1)
 #endif // FOMENT_64BIT
 
-#define HALF_BITS (sizeof(uint_t) * 4)
-#define LO_MASK (((uint_t) 1 << HALF_BITS) - 1)
+#define HALF_BITS (sizeof(ulong_t) * 4)
+#define LO_MASK (((ulong_t) 1 << HALF_BITS) - 1)
 #define HI_HALF(digit) (((digit) >> HALF_BITS) & LO_MASK)
 #define LO_HALF(digit) ((digit) & LO_MASK)
 
@@ -37,14 +37,14 @@ typedef struct
     int8_t Pad[3];
     uint32_t Used;
 #endif // FOMENT_64BIT
-    uint_t Digits[1];
+    ulong_t Digits[1];
 } FBignum;
 
-static inline uint_t DigitCount(FObject bn)
+static inline ulong_t DigitCount(FObject bn)
 {
     FAssert(BignumP(bn));
 
-    return((ByteLength(bn) - sizeof(FBignum)) / sizeof(uint_t) + 1);
+    return((ByteLength(bn) - sizeof(FBignum)) / sizeof(ulong_t) + 1);
 }
 
 static inline void SetDigitsUsed(FBignum * bn)
@@ -70,16 +70,16 @@ static FObject MakeBignum()
     return(bn);
 }
 
-static FBignum * MakeBignumCount(uint_t bc)
+static FBignum * MakeBignumCount(ulong_t bc)
 {
     FAssert(bc > 0);
     FAssert(bc < MAXIMUM_DIGIT_COUNT);
 
-    FBignum * bn = (FBignum *) MakeObject(BignumTag, sizeof(FBignum) + (bc - 1) * sizeof(uint_t),
+    FBignum * bn = (FBignum *) MakeObject(BignumTag, sizeof(FBignum) + (bc - 1) * sizeof(ulong_t),
             0, "%make-bignum");
     bn->Sign = 0;
     bn->Used = 0;
-    memset(bn->Digits, 0, bc * sizeof(uint_t));
+    memset(bn->Digits, 0, bc * sizeof(ulong_t));
 
     FAssert(DigitCount(bn) == bc);
 
@@ -88,7 +88,7 @@ static FBignum * MakeBignumCount(uint_t bc)
 
 FObject MakeBignum(FFixnum n)
 {
-    FAssert(sizeof(FFixnum) == sizeof(uint_t));
+    FAssert(sizeof(FFixnum) == sizeof(ulong_t));
 
     FBignum * bn = MakeBignumCount(1);
     mpz_init_set_si(bn->MPInteger, (long) n);
@@ -200,17 +200,17 @@ double64_t BignumToDouble(FObject bn)
 
 /*
 Destructively divide bn by digit; the quotient is left in bn and the remainder is returned;
-hdigit must fit in half a uint_t. The quotient is not normalized.
+hdigit must fit in half a ulong_t. The quotient is not normalized.
 */
-/*static*/ uint_t BignumHDigitDivide(FBignum * bn, uint_t hdigit)
+/*static*/ ulong_t BignumHDigitDivide(FBignum * bn, ulong_t hdigit)
 {
-    FAssert(hdigit <= ((uint_t) 1 << HALF_BITS) - 1);
+    FAssert(hdigit <= ((ulong_t) 1 << HALF_BITS) - 1);
 
-    uint_t q0 = 0;
-    uint_t r0 = 0;
-    uint_t q1, r1;
+    ulong_t q0 = 0;
+    ulong_t r0 = 0;
+    ulong_t q1, r1;
 
-    for (uint_t idx = bn->Used - 1; idx > 0; idx--)
+    for (ulong_t idx = bn->Used - 1; idx > 0; idx--)
     {
         q1 = bn->Digits[idx] / hdigit + q0;
         r1 = ((bn->Digits[idx] % hdigit) << HALF_BITS) + HI_HALF(bn->Digits[idx - 1]);
@@ -234,11 +234,6 @@ char * BignumToStringC(FObject bn, FFixnum rdx)
 
 /*static*/ char * NBignumToStringC(FObject bn, FFixnum rdx)
 {
-    // change typedef of int_t to long_t and uint_t to ulong_t
-    // add typedef int int_t and typedef unsigned int uint_t
-    // change uses of int_t and uint_t to long_t and ulong_t
-    // INT_FMT --> LONG_FMT
-    // UINT_FMT --> ULONG_FMT
 
     return(0);
 }
@@ -256,7 +251,7 @@ FObject ToExactRatio(double64_t d)
     FFixnum sgn = (d < 0 ? -1 : 1);
     d = fabs(d - Truncate(d));
 
-    for (int_t idx = 0; d != Truncate(d) && idx < 14; idx++)
+    for (long_t idx = 0; d != Truncate(d) && idx < 14; idx++)
     {
         BignumMultiplyFixnum(rbn, rbn, 10);
         d *= 10;
@@ -270,7 +265,7 @@ FObject ToExactRatio(double64_t d)
     return(GenericAdd(MakeRatio(rbn, scl), whl));
 }
 
-int_t ParseBignum(FCh * s, int_t sl, int_t sdx, FFixnum rdx, FFixnum sgn, FFixnum n,
+long_t ParseBignum(FCh * s, long_t sl, long_t sdx, FFixnum rdx, FFixnum sgn, FFixnum n,
     FObject * punt)
 {
     FAssert(n > 0);
@@ -281,7 +276,7 @@ int_t ParseBignum(FCh * s, int_t sl, int_t sdx, FFixnum rdx, FFixnum sgn, FFixnu
     {
         for (n = 0; sdx < sl; sdx++)
         {
-            int_t dv = DigitValue(s[sdx]);
+            long_t dv = DigitValue(s[sdx]);
 
             if (dv < 0 || dv > 9)
             {
@@ -303,7 +298,7 @@ int_t ParseBignum(FCh * s, int_t sl, int_t sdx, FFixnum rdx, FFixnum sgn, FFixnu
 
         for (n = 0; sdx < sl; sdx++)
         {
-            int_t dv = DigitValue(s[sdx]);
+            long_t dv = DigitValue(s[sdx]);
             if (dv >= 0 && dv < rdx)
             {
                 BignumMultiplyFixnum(bn, bn, rdx);
@@ -320,7 +315,7 @@ int_t ParseBignum(FCh * s, int_t sl, int_t sdx, FFixnum rdx, FFixnum sgn, FFixnu
     return(sdx);
 }
 
-int_t BignumCompare(FObject bn1, FObject bn2)
+long_t BignumCompare(FObject bn1, FObject bn2)
 {
     FAssert(BignumP(bn1));
     FAssert(BignumP(bn2));
@@ -328,14 +323,14 @@ int_t BignumCompare(FObject bn1, FObject bn2)
     return(mpz_cmp(AsBignum(bn1), AsBignum(bn2)));
 }
 
-int_t BignumCompareFixnum(FObject bn, FFixnum n)
+long_t BignumCompareFixnum(FObject bn, FFixnum n)
 {
     FAssert(BignumP(bn));
 
     return(mpz_cmp_si(AsBignum(bn), n));
 }
 
-int_t BignumSign(FObject bn)
+long_t BignumSign(FObject bn)
 {
     FAssert(BignumP(bn));
 
@@ -440,7 +435,7 @@ FFixnum BignumRemainderFixnum(FObject n, FFixnum d)
     return(mpz_tdiv_ui(AsBignum(n), (unsigned long) d));
 }
 
-int_t BignumEqualFixnum(FObject bn, FFixnum n)
+long_t BignumEqualFixnum(FObject bn, FFixnum n)
 {
     FAssert(BignumP(bn));
 
@@ -506,21 +501,21 @@ FObject BignumNot(FObject bn)
     return(ret);
 }
 
-uint_t BignumBitCount(FObject bn)
+ulong_t BignumBitCount(FObject bn)
 {
     FAssert(BignumP(bn));
 
     return(mpz_popcount(AsBignum(bn)));
 }
 
-uint_t BignumIntegerLength(FObject bn)
+ulong_t BignumIntegerLength(FObject bn)
 {
     FAssert(BignumP(bn));
 
     return(mpz_sizeinbase(AsBignum(bn), 2));
 }
 
-uint_t BignumFirstSetBit(FObject bn)
+ulong_t BignumFirstSetBit(FObject bn)
 {
     FAssert(BignumP(bn));
 

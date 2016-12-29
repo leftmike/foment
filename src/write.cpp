@@ -17,12 +17,12 @@ Foment
 
 // Write
 
-static inline int_t HasSlotsP(FObject obj)
+static inline long_t HasSlotsP(FObject obj)
 {
     return(ObjectP(obj) && AsObjHdr(obj)->SlotCount() > 0);
 }
 
-FWriteContext::FWriteContext(FObject port, int_t df)
+FWriteContext::FWriteContext(FObject port, long_t df)
 {
     this->Port = port;
     DisplayFlag = df;
@@ -71,7 +71,7 @@ void FWriteContext::Write(FObject obj)
 
                 WriteCh('#');
                 FCh s[8];
-                int_t sl = FixnumAsString(- PreviousLabel, s, 10);
+                long_t sl = FixnumAsString(- PreviousLabel, s, 10);
                 WriteString(s, sl);
                 WriteCh('=');
             }
@@ -111,7 +111,7 @@ void FWriteContext::Write(FObject obj)
 
             WriteCh('#');
             FCh s[8];
-            int_t sl = FixnumAsString(- AsFixnum(val), s, 10);
+            long_t sl = FixnumAsString(- AsFixnum(val), s, 10);
             WriteString(s, sl);
             WriteCh('#');
         }
@@ -122,7 +122,7 @@ void FWriteContext::Write(FObject obj)
 
 void FWriteContext::Display(FObject obj)
 {
-    int_t df = DisplayFlag;
+    long_t df = DisplayFlag;
 
     DisplayFlag = 1;
     Write(obj);
@@ -136,7 +136,7 @@ void FWriteContext::WriteCh(FCh ch)
     ::WriteCh(Port, ch);
 }
 
-void FWriteContext::WriteString(FCh * s, uint_t sl)
+void FWriteContext::WriteString(FCh * s, ulong_t sl)
 {
     FAssert(WriteType != NoWrite);
 
@@ -179,7 +179,7 @@ Again:
             }
             else
             {
-                for (uint_t idx = 0; idx < AsObjHdr(obj)->SlotCount(); idx++)
+                for (ulong_t idx = 0; idx < AsObjHdr(obj)->SlotCount(); idx++)
                     FindSharedObjects(((FObject *) obj)[idx], wt);
             }
 
@@ -237,14 +237,14 @@ void FWriteContext::WriteRecord(FObject obj)
     {
         FObject rt = AsGenericRecord(obj)->Fields[0];
         FCh s[16];
-        int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+        long_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
         WriteStringC("#<");
         Write(RecordTypeName(rt));
         WriteStringC(": #x");
         WriteString(s, sl);
 
-        for (uint_t fdx = 1; fdx < RecordNumFields(obj); fdx++)
+        for (ulong_t fdx = 1; fdx < RecordNumFields(obj); fdx++)
         {
             WriteCh(' ');
             Write(AsRecordType(rt)->Fields[fdx]);
@@ -263,7 +263,7 @@ void FWriteContext::WriteObject(FObject obj)
     case BoxTag:
     {
         FCh s[16];
-        int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+        long_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
         WriteStringC("#<box: #x");
         WriteString(s, sl);
@@ -280,7 +280,7 @@ void FWriteContext::WriteObject(FObject obj)
         {
             WriteCh('"');
 
-            for (uint_t idx = 0; idx < StringLength(obj); idx++)
+            for (ulong_t idx = 0; idx < StringLength(obj); idx++)
             {
                 FCh ch = AsString(obj)->String[idx];
                 if (ch == '\\' || ch == '"')
@@ -324,7 +324,7 @@ void FWriteContext::WriteObject(FObject obj)
     case VectorTag:
     {
         WriteStringC("#(");
-        for (uint_t idx = 0; idx < VectorLength(obj); idx++)
+        for (ulong_t idx = 0; idx < VectorLength(obj); idx++)
         {
             if (idx > 0)
                 WriteCh(' ');
@@ -338,10 +338,10 @@ void FWriteContext::WriteObject(FObject obj)
     case BytevectorTag:
     {
         FCh s[8];
-        int_t sl;
+        long_t sl;
 
         WriteStringC("#u8(");
-        for (uint_t idx = 0; idx < BytevectorLength(obj); idx++)
+        for (ulong_t idx = 0; idx < BytevectorLength(obj); idx++)
         {
             if (idx > 0)
                 WriteCh(' ');
@@ -358,7 +358,7 @@ void FWriteContext::WriteObject(FObject obj)
     case TextualPortTag:
     {
         FCh s[16];
-        int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+        long_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
         WriteStringC("#<");
         if (TextualPortP(obj))
@@ -412,7 +412,7 @@ void FWriteContext::WriteObject(FObject obj)
     case ProcedureTag:
     {
         FCh s[16];
-        int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+        long_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
         WriteStringC("#<procedure: ");
         WriteString(s, sl);
@@ -462,14 +462,14 @@ void FWriteContext::WriteObject(FObject obj)
     case RecordTypeTag:
     {
         FCh s[16];
-        int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+        long_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
         WriteStringC("#<record-type: #x");
         WriteString(s, sl);
         WriteCh(' ');
         Write(RecordTypeName(obj));
 
-        for (uint_t fdx = 1; fdx < RecordTypeNumFields(obj); fdx += 1)
+        for (ulong_t fdx = 1; fdx < RecordTypeNumFields(obj); fdx += 1)
         {
             WriteCh(' ');
             Write(AsRecordType(obj)->Fields[fdx]);
@@ -505,7 +505,7 @@ void FWriteContext::WriteObject(FObject obj)
         WriteStringC(fn);
         WriteCh('@');
         FCh s[16];
-        int_t sl = FixnumAsString(AsPrimitive(obj)->LineNumber, s, 10);
+        long_t sl = FixnumAsString(AsPrimitive(obj)->LineNumber, s, 10);
         WriteString(s, sl);
         WriteCh('>');
         break;
@@ -526,7 +526,7 @@ void FWriteContext::WriteObject(FObject obj)
     case HashNodeTag:
     {
         FCh s[16];
-        int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+        long_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
         WriteStringC("#<hash-node: ");
         WriteString(s, sl);
@@ -537,7 +537,7 @@ void FWriteContext::WriteObject(FObject obj)
     case EphemeronTag:
     {
         FCh s[16];
-        int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+        long_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
         WriteStringC("#<ephemeron: ");
         WriteString(s, sl);
@@ -562,7 +562,7 @@ void FWriteContext::WriteObject(FObject obj)
         else
         {
             FCh s[16];
-            int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+            long_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
             WriteStringC("#<");
             WriteStringC(AsBuiltinType(AsBuiltin(obj)->BuiltinType)->Name);
@@ -575,7 +575,7 @@ void FWriteContext::WriteObject(FObject obj)
     default:
     {
         FCh s[16];
-        int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+        long_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
         WriteStringC("#<unknown: ");
         WriteString(s, sl);
@@ -608,7 +608,7 @@ void FWriteContext::WriteSimple(FObject obj)
             else
             {
                 FCh s[16];
-                int_t sl = FixnumAsString(AsCharacter(obj), s, 16);
+                long_t sl = FixnumAsString(AsCharacter(obj), s, 16);
                 WriteStringC("#\\x");
                 WriteString(s, sl);
             }
@@ -623,7 +623,7 @@ void FWriteContext::WriteSimple(FObject obj)
         WriteStringC("#<values-count: ");
 
         FCh s[16];
-        int_t sl = FixnumAsString(AsValuesCount(obj), s, 10);
+        long_t sl = FixnumAsString(AsValuesCount(obj), s, 10);
         WriteString(s, sl);
 
         WriteCh('>');
@@ -651,7 +651,7 @@ void FWriteContext::WriteSimple(FObject obj)
     else
     {
         FCh s[16];
-        int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+        long_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
         WriteStringC("#<unknown: ");
         WriteString(s, sl);
@@ -659,7 +659,7 @@ void FWriteContext::WriteSimple(FObject obj)
     }
 }
 
-void Write(FObject port, FObject obj, int_t df)
+void Write(FObject port, FObject obj, long_t df)
 {
     FWriteContext wctx(port, df);
 
@@ -667,7 +667,7 @@ void Write(FObject port, FObject obj, int_t df)
     wctx.Write(obj);
 }
 
-void WriteShared(FObject port, FObject obj, int_t df)
+void WriteShared(FObject port, FObject obj, long_t df)
 {
     FWriteContext wctx(port, df);
 
@@ -675,7 +675,7 @@ void WriteShared(FObject port, FObject obj, int_t df)
     wctx.Write(obj);
 }
 
-void WriteSimple(FObject port, FObject obj, int_t df)
+void WriteSimple(FObject port, FObject obj, long_t df)
 {
     FWriteContext wctx(port, df);
 
@@ -685,7 +685,7 @@ void WriteSimple(FObject port, FObject obj, int_t df)
 
 // ---- Primitives ----
 
-Define("write", WritePrimitive)(int_t argc, FObject argv[])
+Define("write", WritePrimitive)(long_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("write", argc);
     FObject port = (argc == 2 ? argv[1] : CurrentOutputPort());
@@ -695,7 +695,7 @@ Define("write", WritePrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("write-shared", WriteSharedPrimitive)(int_t argc, FObject argv[])
+Define("write-shared", WriteSharedPrimitive)(long_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("write-shared", argc);
     FObject port = (argc == 2 ? argv[1] : CurrentOutputPort());
@@ -705,7 +705,7 @@ Define("write-shared", WriteSharedPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("write-simple", WriteSimplePrimitive)(int_t argc, FObject argv[])
+Define("write-simple", WriteSimplePrimitive)(long_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("write-simple", argc);
     FObject port = (argc == 2 ? argv[1] : CurrentOutputPort());
@@ -715,7 +715,7 @@ Define("write-simple", WriteSimplePrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("display", DisplayPrimitive)(int_t argc, FObject argv[])
+Define("display", DisplayPrimitive)(long_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("display", argc);
     FObject port = (argc == 2 ? argv[1] : CurrentOutputPort());
@@ -725,7 +725,7 @@ Define("display", DisplayPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("newline", NewlinePrimitive)(int_t argc, FObject argv[])
+Define("newline", NewlinePrimitive)(long_t argc, FObject argv[])
 {
     ZeroOrOneArgsCheck("newline", argc);
     FObject port = (argc == 1 ? argv[0] : CurrentOutputPort());
@@ -735,7 +735,7 @@ Define("newline", NewlinePrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("write-char", WriteCharPrimitive)(int_t argc, FObject argv[])
+Define("write-char", WriteCharPrimitive)(long_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("write-char", argc);
     CharacterArgCheck("write-char", argv[0]);
@@ -746,15 +746,15 @@ Define("write-char", WriteCharPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("write-string", WriteStringPrimitive)(int_t argc, FObject argv[])
+Define("write-string", WriteStringPrimitive)(long_t argc, FObject argv[])
 {
     OneToFourArgsCheck("write-string", argc);
     StringArgCheck("write-string", argv[0]);
     FObject port = (argc > 1 ? argv[1] : CurrentOutputPort());
     TextualOutputPortArgCheck("write-string", port);
 
-    int_t strt;
-    int_t end;
+    long_t strt;
+    long_t end;
     if (argc > 2)
     {
         IndexArgCheck("write-string", argv[2], StringLength(argv[0]));
@@ -768,19 +768,19 @@ Define("write-string", WriteStringPrimitive)(int_t argc, FObject argv[])
             end = AsFixnum(argv[3]);
         }
         else
-            end = (int_t) StringLength(argv[0]);
+            end = (long_t) StringLength(argv[0]);
     }
     else
     {
         strt = 0;
-        end = (int_t) StringLength(argv[0]);
+        end = (long_t) StringLength(argv[0]);
     }
 
     WriteString(port, AsString(argv[0])->String + strt, end - strt);
     return(NoValueObject);
 }
 
-Define("write-u8", WriteU8Primitive)(int_t argc, FObject argv[])
+Define("write-u8", WriteU8Primitive)(long_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("write-u8", argc);
     ByteArgCheck("write-u8", argv[0]);
@@ -792,15 +792,15 @@ Define("write-u8", WriteU8Primitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("write-bytevector", WriteBytevectorPrimitive)(int_t argc, FObject argv[])
+Define("write-bytevector", WriteBytevectorPrimitive)(long_t argc, FObject argv[])
 {
     OneToFourArgsCheck("write-bytevector", argc);
     BytevectorArgCheck("write-bytevector", argv[0]);
     FObject port = (argc > 1 ? argv[1] : CurrentOutputPort());
     BinaryOutputPortArgCheck("write-bytevector", port);
 
-    int_t strt;
-    int_t end;
+    long_t strt;
+    long_t end;
     if (argc > 2)
     {
         IndexArgCheck("write-bytevector", argv[2], BytevectorLength(argv[0]));
@@ -814,19 +814,19 @@ Define("write-bytevector", WriteBytevectorPrimitive)(int_t argc, FObject argv[])
             end = AsFixnum(argv[3]);
         }
         else
-            end = (int_t) BytevectorLength(argv[0]);
+            end = (long_t) BytevectorLength(argv[0]);
     }
     else
     {
         strt = 0;
-        end = (int_t) BytevectorLength(argv[0]);
+        end = (long_t) BytevectorLength(argv[0]);
     }
 
     WriteBytes(port, AsBytevector(argv[0])->Vector + strt, end - strt);
     return(NoValueObject);
 }
 
-Define("flush-output-port", FlushOutputPortPrimitive)(int_t argc, FObject argv[])
+Define("flush-output-port", FlushOutputPortPrimitive)(long_t argc, FObject argv[])
 {
     ZeroOrOneArgsCheck("flush-output-port", argc);
     FObject port = (argc == 1 ? argv[0] : CurrentOutputPort());
@@ -852,6 +852,6 @@ static FObject Primitives[] =
 
 void SetupWrite()
 {
-    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (ulong_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 }

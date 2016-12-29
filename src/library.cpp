@@ -30,7 +30,7 @@ static void
 WriteEnvironment(FWriteContext * wctx, FObject obj)
 {
     FCh s[16];
-    int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+    long_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
     wctx->WriteStringC("#<environment: #x");
     wctx->WriteString(s, sl);
@@ -92,7 +92,7 @@ FObject EnvironmentLookup(FObject env, FObject sym)
 
 // If the environment is interactive, a global will be defined. Otherwise, a global will be
 // defined only if it is not already defined. One will be returned if the global can't be defined.
-int_t EnvironmentDefine(FObject env, FObject symid, FObject val)
+long_t EnvironmentDefine(FObject env, FObject symid, FObject val)
 {
     FAssert(EnvironmentP(env));
     FAssert(SymbolP(symid) || IdentifierP(symid));
@@ -175,7 +175,7 @@ FObject EnvironmentGet(FObject env, FObject symid)
     return(NoValueObject);
 }
 
-static int_t EnvironmentImportGlobal(FObject env, FObject gl)
+static long_t EnvironmentImportGlobal(FObject env, FObject gl)
 {
     FAssert(EnvironmentP(env));
     FAssert(GlobalP(gl));
@@ -219,7 +219,7 @@ void EnvironmentImportLibrary(FObject env, FObject nam)
         FAssert(GlobalP(Rest(First(elst))));
 
 #ifdef FOMENT_DEBUG
-        int_t ret =
+        long_t ret =
 #endif // FOMENT_DEBUG
         EnvironmentImportGlobal(env,
                 ImportGlobal(env, First(First(elst)), Rest(First(elst))));
@@ -237,7 +237,7 @@ static void
 WriteGlobal(FWriteContext * wctx, FObject obj)
 {
     FCh s[16];
-    int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+    long_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
     wctx->WriteStringC("#<global: #x");
     wctx->WriteString(s, sl);
@@ -295,7 +295,7 @@ static void
 WriteLibrary(FWriteContext * wctx, FObject obj)
 {
     FCh s[16];
-    int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+    long_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
     wctx->WriteStringC("#<library: #x");
     wctx->WriteString(s, sl);
@@ -415,7 +415,7 @@ static FObject LibraryNameDeep(FObject dir, FObject nam, FObject ext)
     return(GetOutputString(out));
 }
 
-static int_t EqualToSymbol(FObject obj, FObject sym)
+static long_t EqualToSymbol(FObject obj, FObject sym)
 {
     FAssert(SymbolP(sym));
 
@@ -525,7 +525,7 @@ FObject LibraryName(FObject lst)
     return(ReverseListModify(nlst));
 }
 
-static int_t CheckForIdentifier(FObject nam, FObject ids)
+static long_t CheckForIdentifier(FObject nam, FObject ids)
 {
     FAssert(SymbolP(nam));
 
@@ -588,7 +588,7 @@ static FObject CheckForRename(FObject nam, FObject rlst)
 }
 
 static FObject DoImportSet(FObject env, FObject is, FObject form);
-static FObject DoOnlyOrExcept(FObject env, FObject is, int_t cfif)
+static FObject DoOnlyOrExcept(FObject env, FObject is, long_t cfif)
 {
     if (PairP(Rest(is)) == 0)
         return(NoValueObject);

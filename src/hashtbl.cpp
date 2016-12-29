@@ -25,7 +25,7 @@ EternalSymbol(EphemeralValuesSymbol, "ephemeral-values");
 
 // ----------------
 
-static int_t SpecialStringEqualP(FObject str1, FObject str2)
+static long_t SpecialStringEqualP(FObject str1, FObject str2)
 {
     FObject obj;
     const char * cs;
@@ -53,7 +53,7 @@ static int_t SpecialStringEqualP(FObject str1, FObject str2)
         cs = AsCString(str1)->String;
     }
 
-    uint_t sdx;
+    ulong_t sdx;
     for (sdx = 0; sdx < StringLength(obj); sdx++)
         if (cs[sdx] == 0 || AsString(obj)->String[sdx] != cs[sdx])
             return(0);
@@ -77,7 +77,7 @@ EternalBuiltinType(HashTableType, "hash-table", 0);
 #define AsHashTable(obj) ((FHashTable *) (obj))
 
 typedef uint32_t (*FHashFn)(FObject obj);
-typedef int_t (*FEqualityP)(FObject obj1, FObject obj2);
+typedef long_t (*FEqualityP)(FObject obj1, FObject obj2);
 
 typedef struct
 {
@@ -90,10 +90,10 @@ typedef struct
     FObject Exclusive;
     FHashFn UseHashFn;
     FEqualityP UseEqualityP;
-    uint_t Size;
-    uint_t InitialCapacity;
-    uint_t Flags;
-    uint_t BrokenCount;
+    ulong_t Size;
+    ulong_t InitialCapacity;
+    ulong_t Flags;
+    ulong_t BrokenCount;
 } FHashTable;
 
 inline void UseHashTableArgCheck(const char * who, FObject obj)
@@ -108,7 +108,7 @@ inline void HashTableArgCheck(const char * who, FObject obj)
         RaiseExceptionC(Assertion, who, "expected a hash table", List(obj));
 }
 
-static FObject MakeHashTable(uint_t cap, FObject ttp, FObject eqp, FObject hashfn, uint_t flags)
+static FObject MakeHashTable(ulong_t cap, FObject ttp, FObject eqp, FObject hashfn, ulong_t flags)
 {
     FAssert(cap > 0);
     FAssert(ProcedureP(ttp) || PrimitiveP(ttp));
@@ -196,8 +196,8 @@ static FObject MakeHashNode(FObject htbl, FObject key, FObject val, FObject next
 {
     FAssert(HashTableP(htbl));
 
-    uint_t ktype = AsHashTable(htbl)->Flags & HASH_TABLE_KEYS_MASK;
-    uint_t vtype = AsHashTable(htbl)->Flags & HASH_TABLE_VALUES_MASK;
+    ulong_t ktype = AsHashTable(htbl)->Flags & HASH_TABLE_KEYS_MASK;
+    ulong_t vtype = AsHashTable(htbl)->Flags & HASH_TABLE_VALUES_MASK;
     FHashNode * node = (FHashNode *) MakeObject(HashNodeTag, sizeof(FHashNode), 3, who);
 
     if (ktype == HASH_NODE_NORMAL_KEYS)
@@ -310,7 +310,7 @@ inline void HashNodeValueSet(FObject node, FObject val)
     }
 }
 
-inline int_t HashNodeBrokenP(FObject node)
+inline long_t HashNodeBrokenP(FObject node)
 {
     FAssert(HashNodeP(node));
 
@@ -390,7 +390,7 @@ HashTableClean(FObject htbl)
     FAssert(VectorP(AsHashTable(htbl)->Buckets));
 
     FObject buckets = AsHashTable(htbl)->Buckets;
-    for (uint_t idx = 0; idx < VectorLength(buckets); idx++)
+    for (ulong_t idx = 0; idx < VectorLength(buckets); idx++)
     {
 //        AsVector(buckets)->Vector[idx] =
 //                CopyHashNodeList(htbl, AsVector(buckets)->Vector[idx], NoValueObject,
@@ -404,7 +404,7 @@ HashTableClean(FObject htbl)
 }
 
 static void
-HashTableAdjust(FObject htbl, uint_t sz)
+HashTableAdjust(FObject htbl, ulong_t sz)
 {
     FAssert(HashTableP(htbl));
     FAssert(VectorP(AsHashTable(htbl)->Buckets));
@@ -412,7 +412,7 @@ HashTableAdjust(FObject htbl, uint_t sz)
     AsHashTable(htbl)->Size = sz;
 
     FObject buckets = AsHashTable(htbl)->Buckets;
-    uint_t cap = VectorLength(buckets);
+    ulong_t cap = VectorLength(buckets);
     if (AsHashTable(htbl)->Size > cap * 2)
         cap *= 2;
     else if (AsHashTable(htbl)->Size * 16 < cap && cap > AsHashTable(htbl)->InitialCapacity)
@@ -432,7 +432,7 @@ HashTableAdjust(FObject htbl, uint_t sz)
 
     FHashFn UseHashFn = AsHashTable(htbl)->UseHashFn;
     FObject nbuckets = MakeVector(cap, 0, NoValueObject);
-    for (uint_t idx = 0; idx < VectorLength(buckets); idx++)
+    for (ulong_t idx = 0; idx < VectorLength(buckets); idx++)
     {
         FObject nlst = AsVector(buckets)->Vector[idx];
 
@@ -449,7 +449,7 @@ HashTableAdjust(FObject htbl, uint_t sz)
             }
             else
             {
-                uint_t ndx = AsHashNode(node)->Hash % cap;
+                ulong_t ndx = AsHashNode(node)->Hash % cap;
 
                 if (UseHashFn == EqHash)
                 {
@@ -472,14 +472,14 @@ HashTableAdjust(FObject htbl, uint_t sz)
 
 // ---- Eq Hash Tables ----
 
-Define("any?", AnyPPrimitive)(int_t argc, FObject argv[])
+Define("any?", AnyPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("any?", argc);
 
     return(TrueObject);
 }
 
-FObject MakeEqHashTable(uint_t cap, uint_t flags)
+FObject MakeEqHashTable(ulong_t cap, ulong_t flags)
 {
     return(MakeHashTable(cap, AnyPPrimitive, EqPPrimitive, EqHashPrimitive, flags));
 }
@@ -541,12 +541,12 @@ static void RehashEqHashTable(FObject htbl)
 
 // ---- Hash Tables ----
 
-FObject MakeStringHashTable(uint_t cap, uint_t flags)
+FObject MakeStringHashTable(ulong_t cap, ulong_t flags)
 {
     return(MakeHashTable(cap, StringPPrimitive, StringEqualPPrimitive, StringHashPrimitive, flags));
 }
 
-FObject MakeSymbolHashTable(uint_t cap, uint_t flags)
+FObject MakeSymbolHashTable(ulong_t cap, ulong_t flags)
 {
     return(MakeHashTable(cap, SymbolPPrimitive, EqPPrimitive, SymbolHashPrimitive, flags));
 }
@@ -736,7 +736,7 @@ static FObject FoldHashTable(FObject htbl, FFoldFn foldfn, void * ctx, FObject s
     FObject buckets = AsHashTable(htbl)->Buckets;
     FObject accum = seed;
 
-    for (uint_t idx = 0; idx < VectorLength(buckets); idx++)
+    for (ulong_t idx = 0; idx < VectorLength(buckets); idx++)
     {
         FObject nlst = AsVector(buckets)->Vector[idx];
 
@@ -784,7 +784,7 @@ static FObject HashTablePop(FObject htbl)
 
     FObject buckets = AsHashTable(htbl)->Buckets;
 
-    for (uint_t idx = 0; idx < VectorLength(buckets); idx++)
+    for (ulong_t idx = 0; idx < VectorLength(buckets); idx++)
     {
         FObject nlst = AsVector(buckets)->Vector[idx];
 
@@ -838,7 +838,7 @@ static FObject HashTableCopy(FObject htbl)
     FAssert(VectorP(nbuckets));
     FAssert(VectorLength(buckets) == VectorLength(nbuckets));
 
-    for (uint_t idx = 0; idx < VectorLength(buckets); idx++)
+    for (ulong_t idx = 0; idx < VectorLength(buckets); idx++)
     {
 //        AsVector(nbuckets)->Vector[idx] = MakeHashNodeList(nhtbl, AsVector(buckets)->Vector[idx]);
         ModifyVector(nbuckets, idx, MakeHashNodeList(nhtbl, AsVector(buckets)->Vector[idx]));
@@ -847,14 +847,14 @@ static FObject HashTableCopy(FObject htbl)
     return(nhtbl);
 }
 
-Define("hash-table?", HashTablePPrimitive)(int_t argc, FObject argv[])
+Define("hash-table?", HashTablePPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("hash-table?", argc);
 
     return(HashTableP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("%eq-hash-table?", EqHashTablePPrimitive)(int_t argc, FObject argv[])
+Define("%eq-hash-table?", EqHashTablePPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("%eq-hash-table?", argc);
 
@@ -862,22 +862,22 @@ Define("%eq-hash-table?", EqHashTablePPrimitive)(int_t argc, FObject argv[])
             FalseObject);
 }
 
-Define("make-eq-hash-table", MakeEqHashTablePrimitive)(int_t argc, FObject argv[])
+Define("make-eq-hash-table", MakeEqHashTablePrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("make-eq-hash-table", argc);
 
     return(MakeEqHashTable(128, 0));
 }
 
-Define("%make-hash-table", MakeHashTablePrimitive)(int_t argc, FObject argv[])
+Define("%make-hash-table", MakeHashTablePrimitive)(long_t argc, FObject argv[])
 {
     FourArgsCheck("%make-hash-table", argc);
     ProcedureArgCheck("%make-hash-table", argv[0]);
     ProcedureArgCheck("%make-hash-table", argv[1]);
     ProcedureArgCheck("%make-hash-table", argv[2]);
 
-    uint_t cap = 128;
-    uint_t flags = 0;
+    ulong_t cap = 128;
+    ulong_t flags = 0;
 
     FObject args = argv[3];
     while (PairP(args))
@@ -914,7 +914,7 @@ Define("%make-hash-table", MakeHashTablePrimitive)(int_t argc, FObject argv[])
     return(MakeHashTable(cap, argv[0], argv[1], argv[2], flags));
 }
 
-Define("%hash-table-buckets", HashTableBucketsPrimitive)(int_t argc, FObject argv[])
+Define("%hash-table-buckets", HashTableBucketsPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("%hash-table-buckets", argc);
     HashTableArgCheck("%hash-table-buckets", argv[0]);
@@ -922,7 +922,7 @@ Define("%hash-table-buckets", HashTableBucketsPrimitive)(int_t argc, FObject arg
     return(AsHashTable(argv[0])->Buckets);
 }
 
-Define("%hash-table-buckets-set!", HashTableBucketsSetPrimitive)(int_t argc, FObject argv[])
+Define("%hash-table-buckets-set!", HashTableBucketsSetPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("%hash-table-buckets-set!", argc);
     HashTableArgCheck("%hash-table-buckets-set!", argv[0]);
@@ -933,7 +933,7 @@ Define("%hash-table-buckets-set!", HashTableBucketsSetPrimitive)(int_t argc, FOb
     return(NoValueObject);
 }
 
-Define("%hash-table-type-test-predicate", HashTableTypeTestPredicatePrimitive)(int_t argc,
+Define("%hash-table-type-test-predicate", HashTableTypeTestPredicatePrimitive)(long_t argc,
     FObject argv[])
 {
     OneArgCheck("%hash-table-type-test-predicate", argc);
@@ -942,7 +942,7 @@ Define("%hash-table-type-test-predicate", HashTableTypeTestPredicatePrimitive)(i
     return(AsHashTable(argv[0])->TypeTestP);
 }
 
-Define("%hash-table-equality-predicate", HashTableEqualityPredicatePrimitive)(int_t argc,
+Define("%hash-table-equality-predicate", HashTableEqualityPredicatePrimitive)(long_t argc,
     FObject argv[])
 {
     OneArgCheck("%hash-table-equality-predicate", argc);
@@ -951,7 +951,7 @@ Define("%hash-table-equality-predicate", HashTableEqualityPredicatePrimitive)(in
     return(AsHashTable(argv[0])->EqualityP);
 }
 
-Define("hash-table-hash-function", HashTableHashFunctionPrimitive)(int_t argc, FObject argv[])
+Define("hash-table-hash-function", HashTableHashFunctionPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("hash-table-hash-function", argc);
     HashTableArgCheck("hash-table-hash-function", argv[0]);
@@ -959,7 +959,7 @@ Define("hash-table-hash-function", HashTableHashFunctionPrimitive)(int_t argc, F
     return(AsHashTable(argv[0])->HashFn);
 }
 
-Define("%hash-table-pop!", HashTablePopPrimitive)(int_t argc, FObject argv[])
+Define("%hash-table-pop!", HashTablePopPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("%hash-table-pop!", argc);
     HashTableArgCheck("%hash-table-pop!", argv[0]);
@@ -967,7 +967,7 @@ Define("%hash-table-pop!", HashTablePopPrimitive)(int_t argc, FObject argv[])
     return(HashTablePop(argv[0]));
 }
 
-Define("hash-table-clear!", HashTableClearPrimitive)(int_t argc, FObject argv[])
+Define("hash-table-clear!", HashTableClearPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("hash-table-clear!", argc);
     HashTableArgCheck("hash-table-clear!", argv[0]);
@@ -976,7 +976,7 @@ Define("hash-table-clear!", HashTableClearPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("hash-table-size", HashTableSizePrimitive)(int_t argc, FObject argv[])
+Define("hash-table-size", HashTableSizePrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("hash-table-size", argc);
     HashTableArgCheck("hash-table-size", argv[0]);
@@ -984,7 +984,7 @@ Define("hash-table-size", HashTableSizePrimitive)(int_t argc, FObject argv[])
     return(MakeFixnum(AsHashTable(argv[0])->Size));
 }
 
-Define("%hash-table-adjust!", HashTableAdjustPrimitive)(int_t argc, FObject argv[])
+Define("%hash-table-adjust!", HashTableAdjustPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("%hash-table-adjust!", argc);
     HashTableArgCheck("%hash-table-adjust!", argv[0]);
@@ -994,7 +994,7 @@ Define("%hash-table-adjust!", HashTableAdjustPrimitive)(int_t argc, FObject argv
     return(NoValueObject);
 }
 
-Define("hash-table-mutable?", HashTableMutablePPrimitive)(int_t argc, FObject argv[])
+Define("hash-table-mutable?", HashTableMutablePPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("hash-table-mutable?", argc);
     HashTableArgCheck("hash-table-mutable?", argv[0]);
@@ -1002,7 +1002,7 @@ Define("hash-table-mutable?", HashTableMutablePPrimitive)(int_t argc, FObject ar
     return((AsHashTable(argv[0])->Flags & HASH_TABLE_IMMUTABLE) ? FalseObject : TrueObject);
 }
 
-Define("%hash-table-immutable!", HashTableImmutablePrimitive)(int_t argc, FObject argv[])
+Define("%hash-table-immutable!", HashTableImmutablePrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("%hash-table-immutable!", argc);
     HashTableArgCheck("%hash-table-immutable!", argv[0]);
@@ -1011,7 +1011,7 @@ Define("%hash-table-immutable!", HashTableImmutablePrimitive)(int_t argc, FObjec
     return(NoValueObject);
 }
 
-Define("%hash-table-exclusive", HashTableExclusivePrimitive)(int_t argc, FObject argv[])
+Define("%hash-table-exclusive", HashTableExclusivePrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("%hash-table-exclusive", argc);
     HashTableArgCheck("%hash-table-exclusive", argv[0]);
@@ -1019,7 +1019,7 @@ Define("%hash-table-exclusive", HashTableExclusivePrimitive)(int_t argc, FObject
     return(AsHashTable(argv[0])->Exclusive);
 }
 
-Define("%hash-table-ref", HashTableRefPrimitive)(int_t argc, FObject argv[])
+Define("%hash-table-ref", HashTableRefPrimitive)(long_t argc, FObject argv[])
 {
     ThreeArgsCheck("%hash-table-ref", argc);
     UseHashTableArgCheck("%hash-table-ref", argv[0]);
@@ -1027,7 +1027,7 @@ Define("%hash-table-ref", HashTableRefPrimitive)(int_t argc, FObject argv[])
     return(HashTableRef(argv[0], argv[1], argv[2]));
 }
 
-Define("%hash-table-set!", HashTableSetPrimitive)(int_t argc, FObject argv[])
+Define("%hash-table-set!", HashTableSetPrimitive)(long_t argc, FObject argv[])
 {
     ThreeArgsCheck("%hash-table-set!", argc);
     UseHashTableArgCheck("%hash-table-set!", argv[0]);
@@ -1036,7 +1036,7 @@ Define("%hash-table-set!", HashTableSetPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("%hash-table-delete!", HashTableDeletePrimitive)(int_t argc, FObject argv[])
+Define("%hash-table-delete!", HashTableDeletePrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("%hash-table-delete", argc);
     UseHashTableArgCheck("%hash-table-delete", argv[0]);
@@ -1045,7 +1045,7 @@ Define("%hash-table-delete!", HashTableDeletePrimitive)(int_t argc, FObject argv
     return(NoValueObject);
 }
 
-Define("hash-table-empty-copy", HashTableEmptyCopyPrimitive)(int_t argc, FObject argv[])
+Define("hash-table-empty-copy", HashTableEmptyCopyPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("hash-table-empty-copy", argc);
     HashTableArgCheck("hash-table-empty-copy", argv[0]);
@@ -1055,7 +1055,7 @@ Define("hash-table-empty-copy", HashTableEmptyCopyPrimitive)(int_t argc, FObject
             AsHashTable(argv[0])->Flags & ~HASH_TABLE_IMMUTABLE));
 }
 
-Define("%hash-table-copy", HashTableCopyPrimitive)(int_t argc, FObject argv[])
+Define("%hash-table-copy", HashTableCopyPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("%hash-table-copy", argc);
     HashTableArgCheck("%hash-table-copy", argv[0]);
@@ -1068,7 +1068,7 @@ static FObject FoldAList(FObject key, FObject val, void * ctx, FObject lst)
     return(MakePair(MakePair(key, val), lst));
 }
 
-Define("hash-table->alist", HashTableToAlistPrimitive)(int_t argc, FObject argv[])
+Define("hash-table->alist", HashTableToAlistPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("hash-table->alist", argc);
     HashTableArgCheck("%hash-table->alist", argv[0]);
@@ -1092,7 +1092,7 @@ static FObject FoldEntries(FObject key, FObject val, void * ctx, FObject lst)
     return(MakePair(key, lst));
 }
 
-Define("hash-table-keys", HashTableKeysPrimitive)(int_t argc, FObject argv[])
+Define("hash-table-keys", HashTableKeysPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("hash-table-keys", argc);
     HashTableArgCheck("hash-table-keys", argv[0]);
@@ -1100,7 +1100,7 @@ Define("hash-table-keys", HashTableKeysPrimitive)(int_t argc, FObject argv[])
     return(HashTableFold(argv[0], FoldKeys, 0, EmptyListObject));
 }
 
-Define("hash-table-values", HashTableValuesPrimitive)(int_t argc, FObject argv[])
+Define("hash-table-values", HashTableValuesPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("hash-table-values", argc);
     HashTableArgCheck("hash-table-values", argv[0]);
@@ -1108,7 +1108,7 @@ Define("hash-table-values", HashTableValuesPrimitive)(int_t argc, FObject argv[]
     return(HashTableFold(argv[0], FoldValues, 0, EmptyListObject));
 }
 
-Define("%hash-table-entries", HashTableEntriesPrimitive)(int_t argc, FObject argv[])
+Define("%hash-table-entries", HashTableEntriesPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("%hash-table-entries", argc);
     HashTableArgCheck("%hash-table-entries", argv[0]);
@@ -1119,7 +1119,7 @@ Define("%hash-table-entries", HashTableEntriesPrimitive)(int_t argc, FObject arg
 
 // ---- Symbols ----
 
-static int_t SpecialStringLengthEqualP(FCh * s, int_t sl, FObject str)
+static long_t SpecialStringLengthEqualP(FCh * s, long_t sl, FObject str)
 {
     if (StringP(str))
         return(StringLengthEqualP(s, sl, str));
@@ -1127,7 +1127,7 @@ static int_t SpecialStringLengthEqualP(FCh * s, int_t sl, FObject str)
     FAssert(CStringP(str));
 
     const char * cs = AsCString(str)->String;
-    uint_t sdx;
+    ulong_t sdx;
     for (sdx = 0; sdx < sl; sdx++)
         if (cs[sdx] == 0 || s[sdx] != cs[sdx])
             return(0);
@@ -1161,7 +1161,7 @@ FObject StringToSymbol(FObject str)
     return(sym);
 }
 
-FObject StringLengthToSymbol(FCh * s, int_t sl)
+FObject StringLengthToSymbol(FCh * s, long_t sl)
 {
     FAssert((AsHashTable(SymbolHashTable)->Flags & HASH_TABLE_KEYS_MASK) == HASH_TABLE_NORMAL_KEYS);
     FAssert((AsHashTable(SymbolHashTable)->Flags & HASH_TABLE_VALUES_MASK) ==
@@ -1223,7 +1223,7 @@ FObject InternSymbol(FObject sym)
 
 // ---- Hash Nodes ----
 
-Define("%make-hash-node", MakeHashNodePrimitive)(int_t argc, FObject argv[])
+Define("%make-hash-node", MakeHashNodePrimitive)(long_t argc, FObject argv[])
 {
     FiveArgsCheck("%make-hash-node", argc);
     HashTableArgCheck("%make-hash-node", argv[0]);
@@ -1232,7 +1232,7 @@ Define("%make-hash-node", MakeHashNodePrimitive)(int_t argc, FObject argv[])
     return(MakeHashNode(argv[0], argv[1], argv[2], argv[3], AsFixnum(argv[4]), "%make-hash-node"));
 }
 
-Define("%copy-hash-node-list", CopyHashNodeListPrimitive)(int_t argc, FObject argv[])
+Define("%copy-hash-node-list", CopyHashNodeListPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("%copy-hash-node-list", argc);
     HashTableArgCheck("%copy-hash-node-list", argv[0]);
@@ -1242,14 +1242,14 @@ Define("%copy-hash-node-list", CopyHashNodeListPrimitive)(int_t argc, FObject ar
     return(CopyHashNodeList(argv[0], argv[1], argv[2], "%copy-hash-node-list"));
 }
 
-Define("%hash-node?", HashNodePPrimitive)(int_t argc, FObject argv[])
+Define("%hash-node?", HashNodePPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("%hash-node?", argc);
 
     return(HashNodeP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("%hash-node-broken?", HashNodeBrokenPPrimitive)(int_t argc, FObject argv[])
+Define("%hash-node-broken?", HashNodeBrokenPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("%hash-node-broken?", argc);
     HashNodeArgCheck("%hash-node-broken?", argv[0]);
@@ -1257,7 +1257,7 @@ Define("%hash-node-broken?", HashNodeBrokenPPrimitive)(int_t argc, FObject argv[
     return(HashNodeBrokenP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("%hash-node-key", HashNodeKeyPrimitive)(int_t argc, FObject argv[])
+Define("%hash-node-key", HashNodeKeyPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("%hash-node-key", argc);
     HashNodeArgCheck("%hash-node-key", argv[0]);
@@ -1265,7 +1265,7 @@ Define("%hash-node-key", HashNodeKeyPrimitive)(int_t argc, FObject argv[])
     return(HashNodeKey(argv[0]));
 }
 
-Define("%hash-node-value", HashNodeValuePrimitive)(int_t argc, FObject argv[])
+Define("%hash-node-value", HashNodeValuePrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("%hash-node-value", argc);
     HashNodeArgCheck("%hash-node-value", argv[0]);
@@ -1273,7 +1273,7 @@ Define("%hash-node-value", HashNodeValuePrimitive)(int_t argc, FObject argv[])
     return(HashNodeValue(argv[0]));
 }
 
-Define("%hash-node-value-set!", HashNodeValueSetPrimitive)(int_t argc, FObject argv[])
+Define("%hash-node-value-set!", HashNodeValueSetPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("%hash-node-value-set!", argc);
     HashNodeArgCheck("%hash-node-value-set!", argv[0]);
@@ -1282,7 +1282,7 @@ Define("%hash-node-value-set!", HashNodeValueSetPrimitive)(int_t argc, FObject a
     return(NoValueObject);
 }
 
-Define("%hash-node-next", HashNodeNextPrimitive)(int_t argc, FObject argv[])
+Define("%hash-node-next", HashNodeNextPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("%hash-node-next", argc);
     HashNodeArgCheck("%hash-node-next", argv[0]);
@@ -1290,7 +1290,7 @@ Define("%hash-node-next", HashNodeNextPrimitive)(int_t argc, FObject argv[])
     return(AsHashNode(argv[0])->Next);
 }
 
-Define("%hash-node-next-set!", HashNodeNextSetPrimitive)(int_t argc, FObject argv[])
+Define("%hash-node-next-set!", HashNodeNextSetPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("%hash-node-next-set!", argc);
     HashNodeArgCheck("%hash-node-next-set!", argv[0]);
@@ -1300,7 +1300,7 @@ Define("%hash-node-next-set!", HashNodeNextSetPrimitive)(int_t argc, FObject arg
     return(NoValueObject);
 }
 
-Define("%hash-node-hash", HashNodeHashPrimitive)(int_t argc, FObject argv[])
+Define("%hash-node-hash", HashNodeHashPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("%hash-node-hash", argc);
     HashNodeArgCheck("%hash-node-hash", argv[0]);
@@ -1357,6 +1357,6 @@ void SetupHashTables()
     WeakValuesSymbol = InternSymbol(WeakValuesSymbol);
     EphemeralValuesSymbol = InternSymbol(EphemeralValuesSymbol);
 
-    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (ulong_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 }

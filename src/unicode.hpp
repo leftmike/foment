@@ -20,11 +20,11 @@ Foment
 
 extern unsigned char Utf8TrailingBytes[256];
 
-FCh ConvertUtf8ToCh(FByte * b, uint_t bl);
-FObject ConvertUtf8ToString(FByte * b, uint_t bl);
-FObject ConvertStringToUtf8(FCh * s, uint_t sl, int_t ztf);
-FObject ConvertUtf16ToString(FCh16 * b, uint_t bl);
-FObject ConvertStringToUtf16(FCh * s, uint_t sl, int_t ztf, uint_t el);
+FCh ConvertUtf8ToCh(FByte * b, ulong_t bl);
+FObject ConvertUtf8ToString(FByte * b, ulong_t bl);
+FObject ConvertStringToUtf8(FCh * s, ulong_t sl, long_t ztf);
+FObject ConvertUtf16ToString(FCh16 * b, ulong_t bl);
+FObject ConvertStringToUtf16(FCh * s, ulong_t sl, long_t ztf, ulong_t el);
 
 inline FObject ConvertStringToUtf8(FObject s)
 {

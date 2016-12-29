@@ -9,9 +9,9 @@ Foment
 
 // ---- Binary Ports ----
 
-typedef uint_t (*FReadBytesFn)(FObject port, void * b, uint_t bl);
-typedef int_t (*FByteReadyPFn)(FObject port);
-typedef void (*FWriteBytesFn)(FObject port, void * b, uint_t bl);
+typedef ulong_t (*FReadBytesFn)(FObject port, void * b, ulong_t bl);
+typedef long_t (*FByteReadyPFn)(FObject port);
+typedef void (*FWriteBytesFn)(FObject port, void * b, ulong_t bl);
 
 typedef struct
 {
@@ -19,8 +19,8 @@ typedef struct
     FReadBytesFn ReadBytesFn;
     FByteReadyPFn ByteReadyPFn;
     FWriteBytesFn WriteBytesFn;
-    uint_t PeekedByte;
-    uint_t Offset;
+    ulong_t PeekedByte;
+    ulong_t Offset;
 } FBinaryPort;
 
 #define AsBinaryPort(obj) ((FBinaryPort *) obj)
@@ -31,9 +31,9 @@ FObject MakeBinaryPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn,
 
 // ---- Textual Ports ----
 
-typedef uint_t (*FReadChFn)(FObject port, FCh * ch);
-typedef int_t (*FCharReadyPFn)(FObject port);
-typedef void (*FWriteStringFn)(FObject port, FCh * s, uint_t sl);
+typedef ulong_t (*FReadChFn)(FObject port, FCh * ch);
+typedef long_t (*FCharReadyPFn)(FObject port);
+typedef void (*FWriteStringFn)(FObject port, FCh * s, ulong_t sl);
 
 typedef struct
 {
@@ -41,9 +41,9 @@ typedef struct
     FReadChFn ReadChFn;
     FCharReadyPFn CharReadyPFn;
     FWriteStringFn WriteStringFn;
-    uint_t PeekedChar;
-    uint_t Line;
-    uint_t Column;
+    ulong_t PeekedChar;
+    ulong_t Line;
+    ulong_t Column;
 } FTextualPort;
 
 #define AsTextualPort(obj) ((FTextualPort *) obj)
@@ -78,6 +78,6 @@ inline FObject CurrentOutputPort()
 
 void SetupWrite();
 void SetupRead();
-int_t IdentifierSubsequentP(FCh ch);
+long_t IdentifierSubsequentP(FCh ch);
 
 #endif // __IO_HPP__

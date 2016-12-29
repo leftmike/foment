@@ -65,7 +65,7 @@ static int NumAppends = 0;
 static FChS * Includes[16];
 static int NumIncludes = 0;
 
-static FObject MakeCommandLine(int_t argc, FChS * argv[])
+static FObject MakeCommandLine(long_t argc, FChS * argv[])
 {
     FObject cl = EmptyListObject;
 
@@ -166,7 +166,7 @@ typedef enum
 
 typedef enum
 {
-    UIntConfig,
+    ULongConfig,
     BoolConfig,
     GetConfig,
     SetConfig,
@@ -190,8 +190,8 @@ typedef struct
     FConfigWhen When;
     FConfigType Type;
 
-    uint_t * UIntValue;
-    uint_t * BoolValue;
+    ulong_t * UIntValue;
+    ulong_t * BoolValue;
     FGetConfigFn GetConfigFn;
     FSetConfigFn SetConfigFn;
     FActionConfigFn ActionConfigFn;
@@ -339,7 +339,7 @@ static FConfigOption ConfigOptions[] =
     {0, 0, "random-seed", 0, "seed",
 "        Use the specified seed for the random number generator; otherwise the\n"
 "        current time is used.",
-        EarlyConfig, UIntConfig, &RandomSeed, 0, 0, 0, 0, 0},
+        EarlyConfig, ULongConfig, &RandomSeed, 0, 0, 0, 0, 0},
     {'h', '?', "help", "usage", 0,
 "        Prints out the usage information for foment.",
         EarlyConfig, ActionConfig, 0, 0, 0, 0, UsageAction, 0},
@@ -364,36 +364,36 @@ static FConfigOption ConfigOptions[] =
     {0, 0, "maximum-stack-size", 0, "number-of-bytes",
 "        Use the specified number-of-bytes as the maximum stack size for each\n"
 "        thread.",
-        EarlyConfig, UIntConfig, &MaximumStackSize, 0, 0, 0, 0, 0},
+        EarlyConfig, ULongConfig, &MaximumStackSize, 0, 0, 0, 0, 0},
     {0, 0, "maximum-babies-size", 0, "number-of-bytes",
 "        Use the specified number-of-bytes as the maximum size of generation\n"
 "        zero for each thread.",
-        EarlyConfig, UIntConfig, &MaximumBabiesSize, 0, 0, 0, 0, 0},
+        EarlyConfig, ULongConfig, &MaximumBabiesSize, 0, 0, 0, 0, 0},
     {0, 0, "maximum-kids-size", 0, "number-of-bytes",
 "        Use the specified number-of-bytes as the maximum size of generation\n"
 "        one; this space is shared by all threads.",
-        EarlyConfig, UIntConfig, &MaximumKidsSize, 0, 0, 0, 0, 0},
+        EarlyConfig, ULongConfig, &MaximumKidsSize, 0, 0, 0, 0, 0},
     {0, 0, "maximum-adults-size", 0, "number-of-bytes",
 "        Use the specified number-of-bytes as the maximum size of the mark and\n"
 "        sweep generation.",
-        EarlyConfig, UIntConfig, &MaximumAdultsSize, 0, 0, 0, 0, 0},
+        EarlyConfig, ULongConfig, &MaximumAdultsSize, 0, 0, 0, 0, 0},
     {0, 0, "maximum-generational-baby", 0, "number-of-bytes",
 "        When using the generational collector, new objects larger than the\n"
 "        specified number-of-bytes are allocated in the mark and sweep\n"
 "        generation rather than generation zero.",
-        AnytimeConfig, UIntConfig, &MaximumGenerationalBaby, 0, 0, 0, 0, 0},
+        AnytimeConfig, ULongConfig, &MaximumGenerationalBaby, 0, 0, 0, 0, 0},
     {0, 0, "trigger-bytes", 0, "number-of-bytes",
 "        Trigger garbage collection after at least the specified\n"
 "        number-of-bytes have been allocated since the last collection",
-        AnytimeConfig, UIntConfig, &TriggerBytes, 0, 0, 0, 0, 0},
+        AnytimeConfig, ULongConfig, &TriggerBytes, 0, 0, 0, 0, 0},
     {0, 0, "trigger-objects", 0, "number-of-objects",
 "        Trigger garbage collection after at least the specified\n"
 "        number-of-objects have been allocated since the last collection",
-        AnytimeConfig, UIntConfig, &TriggerObjects, 0, 0, 0, 0, 0},
+        AnytimeConfig, ULongConfig, &TriggerObjects, 0, 0, 0, 0, 0},
     {0, 0, "partial-per-full", 0, "number",
 "        Perform the specified number of partial garbage collections\n"
 "        before performing a full collection.",
-        AnytimeConfig, UIntConfig, &PartialPerFull, 0, 0, 0, 0, 0},
+        AnytimeConfig, ULongConfig, &PartialPerFull, 0, 0, 0, 0, 0},
 
     {'i', 0, "interactive", "repl", 0,
 "        Run foment in an interactive session (repl).",
@@ -409,17 +409,17 @@ static FConfigOption ConfigOptions[] =
         LateConfig, ArgConfig, 0, 0, 0, 0, 0, EvalAction}
 };
 
-Define("config", ConfigPrimitive)(int_t argc, FObject argv[])
+Define("config", ConfigPrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("config", argc);
 
     FObject ret = EmptyListObject;
 
-    for (uint_t idx = 0; idx < sizeof(ConfigOptions) / sizeof(FConfigOption); idx++)
+    for (ulong_t idx = 0; idx < sizeof(ConfigOptions) / sizeof(FConfigOption); idx++)
     {
         switch (ConfigOptions[idx].Type)
         {
-        case UIntConfig:
+        case ULongConfig:
             FAssert(ConfigOptions[idx].LongName != 0);
 
             ret = MakePair(MakePair(StringCToSymbol(ConfigOptions[idx].LongName),
@@ -453,13 +453,13 @@ Define("config", ConfigPrimitive)(int_t argc, FObject argv[])
     return(ret);
 }
 
-Define("set-config!", SetConfigPrimitive)(int_t argc, FObject argv[])
+Define("set-config!", SetConfigPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("set-config!", argc);
     SymbolArgCheck("set-config!", argv[0]);
 
     FConfigOption * cfg = 0;
-    for (uint_t idx = 0; idx < sizeof(ConfigOptions) / sizeof(FConfigOption); idx++)
+    for (ulong_t idx = 0; idx < sizeof(ConfigOptions) / sizeof(FConfigOption); idx++)
     {
         if (ConfigOptions[idx].LongName != 0
                 && StringCToSymbol(ConfigOptions[idx].LongName) == argv[0])
@@ -479,7 +479,7 @@ Define("set-config!", SetConfigPrimitive)(int_t argc, FObject argv[])
 
     switch (cfg->Type)
     {
-    case UIntConfig:
+    case ULongConfig:
         FixnumArgCheck("set-config!", argv[1]);
         *cfg->UIntValue = AsFixnum(argv[1]);
         break;
@@ -498,7 +498,7 @@ Define("set-config!", SetConfigPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("%interactive-options", InteractiveOptionsPrimitive)(int_t argc, FObject argv[])
+Define("%interactive-options", InteractiveOptionsPrimitive)(long_t argc, FObject argv[])
 {
     FMustBe(argc == 0);
 
@@ -510,7 +510,7 @@ static void Usage()
     printf("Usage:\n");
     printf("    foment <option> ... [--] <program> <program-arg> ...\n\n");
 
-    for (uint_t cdx = 0; cdx < sizeof(ConfigOptions) / sizeof(FConfigOption); cdx++)
+    for (ulong_t cdx = 0; cdx < sizeof(ConfigOptions) / sizeof(FConfigOption); cdx++)
     {
         FConfigOption * cfg = ConfigOptions + cdx;
 
@@ -563,7 +563,7 @@ static void Usage()
 
 static FConfigOption * FindShortName(FChS sn)
 {
-    for (uint_t cdx = 0; cdx < sizeof(ConfigOptions) / sizeof(FConfigOption); cdx++)
+    for (ulong_t cdx = 0; cdx < sizeof(ConfigOptions) / sizeof(FConfigOption); cdx++)
         if (ConfigOptions[cdx].When != NeverConfig && ConfigOptions[cdx].Type != GetConfig)
         {
             if (ConfigOptions[cdx].ShortName == sn || ConfigOptions[cdx].AltShortName == sn)
@@ -574,7 +574,7 @@ static FConfigOption * FindShortName(FChS sn)
 
 static FConfigOption * FindLongName(FChS * ln)
 {
-    for (uint_t cdx = 0; cdx < sizeof(ConfigOptions) / sizeof(FConfigOption); cdx++)
+    for (ulong_t cdx = 0; cdx < sizeof(ConfigOptions) / sizeof(FConfigOption); cdx++)
         if (ConfigOptions[cdx].When != NeverConfig && ConfigOptions[cdx].Type != GetConfig)
         {
             if (ConfigOptions[cdx].LongName != 0
@@ -596,7 +596,7 @@ static FObject Primitives[] =
 
 void SetupMain()
 {
-    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (ulong_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 }
 
@@ -682,7 +682,7 @@ int ProcessOptions(FConfigWhen when, int argc, FChS * argv[], int * pdx)
         {
             switch (cfg->Type)
             {
-            case UIntConfig:
+            case ULongConfig:
                 *cfg->UIntValue = StringToInt(argv[adx - 1]);
                 break;
 

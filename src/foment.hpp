@@ -139,31 +139,25 @@ typedef char FChS;
 
 typedef void * FObject;
 typedef uint32_t FCh;
-//typedef int int_t;
-//typedef unsigned int uint_t;
 
 #ifdef FOMENT_32BIT
 typedef int32_t long_t;
 typedef uint32_t ulong_t;
-typedef int32_t int_t;
-typedef uint32_t uint_t;
 
-#define INT_FMT "%d"
-#define UINT_FMT "%u"
+#define LONG_FMT "%d"
+#define ULONG_FMT "%u"
 #endif // FOMENT_32BIT
 
 #ifdef FOMENT_64BIT
 typedef int64_t long_t;
 typedef uint64_t ulong_t;
-typedef int64_t int_t;
-typedef uint64_t uint_t;
 
 #ifdef FOMENT_OSX
-#define INT_FMT "%lld"
-#define UINT_FMT "%llu"
+#define LONG_FMT "%lld"
+#define ULONG_FMT "%llu"
 #else // FOMENT_OSX
-#define INT_FMT "%ld"
-#define UINT_FMT "%lu"
+#define LONG_FMT "%ld"
+#define ULONG_FMT "%lu"
 #endif // FOMENT_OSX
 #endif // FOMENT_64BIT
 
@@ -171,14 +165,14 @@ typedef ulong_t FImmediate;
 typedef long_t FFixnum;
 
 #ifdef FOMENT_DEBUG
-void FAssertFailed(const char * fn, int_t ln, const char * expr);
+void FAssertFailed(const char * fn, long_t ln, const char * expr);
 #define FAssert(expr)\
     if (! (expr)) FAssertFailed( __FILE__, __LINE__, #expr)
 #else // FOMENT_DEBUG
 #define FAssert(expr)
 #endif // FOMENT_DEBUG
 
-void FMustBeFailed(const char * fn, int_t ln, const char * expr);
+void FMustBeFailed(const char * fn, long_t ln, const char * expr);
 #define FMustBe(expr)\
     if (! (expr)) FMustBeFailed(__FILE__, __LINE__, #expr)
 
@@ -260,16 +254,16 @@ extern FCollectorType CollectorType;
 
 typedef struct
 {
-    uint_t TopUsed;
-    uint_t BottomUsed;
-    uint_t MaximumSize;
+    ulong_t TopUsed;
+    ulong_t BottomUsed;
+    ulong_t MaximumSize;
     void * Base;
 } FMemRegion;
 
-void * InitializeMemRegion(FMemRegion * mrgn, uint_t max);
+void * InitializeMemRegion(FMemRegion * mrgn, ulong_t max);
 void DeleteMemRegion(FMemRegion * mrgn);
-int_t GrowMemRegionUp(FMemRegion * mrgn, uint_t sz);
-int_t GrowMemRegionDown(FMemRegion * mrgn, uint_t sz);
+long_t GrowMemRegionUp(FMemRegion * mrgn, ulong_t sz);
+long_t GrowMemRegionDown(FMemRegion * mrgn, ulong_t sz);
 
 #define OBJHDR_SIZE_SHIFT 28
 #define OBJHDR_COUNT_MASK 0x0FFFFFFF
@@ -293,20 +287,20 @@ typedef struct _FObjHdr
     uint16_t FlagsAndTag;
 
 private:
-    uint_t BlockSize() {return(((uint_t) 1) << (BlockSizeAndCount >> OBJHDR_SIZE_SHIFT));}
-    uint_t BlockCount() {return(BlockSizeAndCount & OBJHDR_COUNT_MASK);}
+    ulong_t BlockSize() {return(((ulong_t) 1) << (BlockSizeAndCount >> OBJHDR_SIZE_SHIFT));}
+    ulong_t BlockCount() {return(BlockSizeAndCount & OBJHDR_COUNT_MASK);}
 public:
-    uint_t ObjectSize();
-    uint_t TotalSize();
-    uint_t SlotCount();
-    uint_t ByteLength();
+    ulong_t ObjectSize();
+    ulong_t TotalSize();
+    ulong_t SlotCount();
+    ulong_t ByteLength();
     uint32_t Tag() {return(FlagsAndTag & OBJHDR_TAG_MASK);}
     FObject * Slots() {return((FObject *) (this + 1));}
     uint32_t Generation() {return(FlagsAndTag & OBJHDR_GEN_MASK);}
 } FObjHdr;
 
 // Allocated size of the object in bytes, not including the ObjHdr and ObjFtr.
-inline uint_t FObjHdr::ObjectSize()
+inline ulong_t FObjHdr::ObjectSize()
 {
     FAssert(BlockSize() * BlockCount() > 0);
 
@@ -314,7 +308,7 @@ inline uint_t FObjHdr::ObjectSize()
 }
 
 // Number of FObjects which must be at the beginning of the object.
-inline uint_t FObjHdr::SlotCount()
+inline ulong_t FObjHdr::SlotCount()
 {
     if (FlagsAndTag & OBJHDR_HAS_SLOTS)
     {
@@ -328,7 +322,7 @@ inline uint_t FObjHdr::SlotCount()
 
 // Number of bytes requested when the object was allocated; makes sense only for objects
 // without slots.
-inline uint_t FObjHdr::ByteLength()
+inline ulong_t FObjHdr::ByteLength()
 {
     FAssert((FlagsAndTag & OBJHDR_HAS_SLOTS) == 0);
     FAssert(ObjectSize() >= ExtraCount);
@@ -343,7 +337,7 @@ inline FObjHdr * AsObjHdr(FObject obj)
     return(((FObjHdr *) obj) - 1);
 }
 
-inline uint_t ByteLength(FObject obj)
+inline ulong_t ByteLength(FObject obj)
 {
     return(AsObjHdr(obj)->ByteLength());
 }
@@ -365,14 +359,14 @@ typedef struct
 #define EternalObjFtr \
     {{OBJFTR_FEET, OBJFTR_FEET}}
 
-FObject MakeObject(uint_t tag, uint_t sz, uint_t sc, const char * who, int_t pf = 0);
+FObject MakeObject(ulong_t tag, ulong_t sz, ulong_t sc, const char * who, long_t pf = 0);
 
 inline FIndirectTag IndirectTag(FObject obj)
 {
     return((FIndirectTag) (ObjectP(obj) ? AsObjHdr(obj)->Tag() : 0));
 }
 
-extern volatile int_t GCRequired;
+extern volatile long_t GCRequired;
 
 void EnterWait();
 void LeaveWait();
@@ -381,12 +375,12 @@ void CheckHeap(const char * fn, int ln);
 void ReadyForGC();
 #define CheckForGC() if (GCRequired) ReadyForGC()
 
-inline int_t MatureP(FObject obj)
+inline long_t MatureP(FObject obj)
 {
     return(ObjectP(obj) && (AsObjHdr(obj)->FlagsAndTag & OBJHDR_GEN_MASK) == OBJHDR_GEN_ADULTS);
 }
 
-void ModifyVector(FObject obj, uint_t idx, FObject val);
+void ModifyVector(FObject obj, ulong_t idx, FObject val);
 
 /*
 //    AsProcedure(proc)->Name = nam;
@@ -412,14 +406,14 @@ public:
     FObject * Pointer;
 };
 
-extern uint_t MaximumStackSize;
-extern uint_t MaximumBabiesSize;
-extern uint_t MaximumKidsSize;
-extern uint_t MaximumAdultsSize;
-extern uint_t MaximumGenerationalBaby;
-extern uint_t TriggerObjects;
-extern uint_t TriggerBytes;
-extern uint_t PartialPerFull;
+extern ulong_t MaximumStackSize;
+extern ulong_t MaximumBabiesSize;
+extern ulong_t MaximumKidsSize;
+extern ulong_t MaximumAdultsSize;
+extern ulong_t MaximumGenerationalBaby;
+extern ulong_t TriggerObjects;
+extern ulong_t TriggerBytes;
+extern ulong_t PartialPerFull;
 
 //
 // ---- Immediate Types ----
@@ -532,8 +526,8 @@ void SetFirst(FObject obj, FObject val);
 void SetRest(FObject obj, FObject val);
 
 FObject MakePair(FObject first, FObject rest);
-int_t ListLength(FObject lst);
-int_t ListLength(const char * nam, FObject lst);
+long_t ListLength(FObject lst);
+long_t ListLength(const char * nam, FObject lst);
 FObject ReverseListModify(FObject list);
 
 FObject List(FObject obj);
@@ -551,7 +545,7 @@ FObject Assq(FObject obj, FObject alst);
 FObject Assoc(FObject obj, FObject alst);
 
 FObject MakeTConc();
-int_t TConcEmptyP(FObject tconc);
+long_t TConcEmptyP(FObject tconc);
 void TConcAdd(FObject tconc, FObject obj);
 FObject TConcRemove(FObject tconc);
 
@@ -563,11 +557,11 @@ FObject TConcRemove(FObject tconc);
 typedef struct
 {
     FObject Value;
-    uint_t Index;
+    ulong_t Index;
 } FBox;
 
 FObject MakeBox(FObject val);
-FObject MakeBox(FObject val, uint_t idx);
+FObject MakeBox(FObject val, ulong_t idx);
 inline FObject Unbox(FObject bx)
 {
     FAssert(BoxP(bx));
@@ -588,13 +582,13 @@ typedef struct
     FCh String[1];
 } FString;
 
-FObject MakeString(FCh * s, uint_t sl);
-FObject MakeStringCh(uint_t sl, FCh ch);
+FObject MakeString(FCh * s, ulong_t sl);
+FObject MakeStringCh(ulong_t sl, FCh ch);
 FObject MakeStringC(const char * s);
 FObject MakeStringS(FChS * ss);
-FObject MakeStringS(FChS * ss, uint_t ssl);
+FObject MakeStringS(FChS * ss, ulong_t ssl);
 
-inline uint_t StringLength(FObject obj)
+inline ulong_t StringLength(FObject obj)
 {
     FAssert(StringP(obj));
     FAssert(ByteLength(obj) % sizeof(FCh) == 0);
@@ -603,15 +597,15 @@ inline uint_t StringLength(FObject obj)
     return((ByteLength(obj) / sizeof(FCh)) - 1);
 }
 
-void StringToC(FObject s, char * b, int_t bl);
+void StringToC(FObject s, char * b, long_t bl);
 FObject FoldcaseString(FObject s);
-uint32_t StringLengthHash(FCh * s, uint_t sl);
+uint32_t StringLengthHash(FCh * s, ulong_t sl);
 uint32_t StringHash(FObject obj);
 uint32_t StringCiHash(FObject obj);
 uint32_t CStringHash(const char * s);
-int_t StringLengthEqualP(FCh * s, int_t sl, FObject obj);
-int_t StringCEqualP(const char * s1, FCh * s2, int_t sl2);
-int_t StringCompare(FObject obj1, FObject obj2);
+long_t StringLengthEqualP(FCh * s, long_t sl, FObject obj);
+long_t StringCEqualP(const char * s1, FCh * s2, long_t sl2);
+long_t StringCompare(FObject obj1, FObject obj2);
 
 extern FObject StringPPrimitive;
 extern FObject StringEqualPPrimitive;
@@ -627,7 +621,7 @@ typedef struct
     FObject Vector[1];
 } FVector;
 
-FObject MakeVector(uint_t vl, FObject * v, FObject obj);
+FObject MakeVector(ulong_t vl, FObject * v, FObject obj);
 FObject ListToVector(FObject obj);
 FObject VectorToList(FObject vec);
 
@@ -644,7 +638,7 @@ typedef struct
     FByte Vector[1];
 } FBytevector;
 
-FObject MakeBytevector(uint_t vl);
+FObject MakeBytevector(ulong_t vl);
 FObject U8ListToBytevector(FObject obj);
 
 #define BytevectorLength(obj) ByteLength(obj)
@@ -681,7 +675,7 @@ typedef struct
 {
     FObject Name;
     FObject Object;
-    uint_t Flags;
+    ulong_t Flags;
     void * Context;
     FCloseInputFn CloseInputFn;
     FCloseOutputFn CloseOutputFn;
@@ -695,33 +689,33 @@ typedef struct
 #define TextualPortP(obj) (IndirectTag(obj) == TextualPortTag)
 #define BinaryPortP(obj) (IndirectTag(obj) == BinaryPortTag)
 
-inline int_t InputPortP(FObject obj)
+inline long_t InputPortP(FObject obj)
 {
     return((BinaryPortP(obj) || TextualPortP(obj))
             && (AsGenericPort(obj)->Flags & PORT_FLAG_INPUT));
 }
 
-inline int_t OutputPortP(FObject obj)
+inline long_t OutputPortP(FObject obj)
 {
     return((BinaryPortP(obj) || TextualPortP(obj))
             && (AsGenericPort(obj)->Flags & PORT_FLAG_OUTPUT));
 }
 
-inline int_t InputPortOpenP(FObject obj)
+inline long_t InputPortOpenP(FObject obj)
 {
     FAssert(BinaryPortP(obj) || TextualPortP(obj));
 
     return(AsGenericPort(obj)->Flags & PORT_FLAG_INPUT_OPEN);
 }
 
-inline int_t OutputPortOpenP(FObject obj)
+inline long_t OutputPortOpenP(FObject obj)
 {
     FAssert(BinaryPortP(obj) || TextualPortP(obj));
 
     return(AsGenericPort(obj)->Flags & PORT_FLAG_OUTPUT_OPEN);
 }
 
-inline int_t PortOpenP(FObject obj)
+inline long_t PortOpenP(FObject obj)
 {
     FAssert(BinaryPortP(obj) || TextualPortP(obj));
 
@@ -729,41 +723,41 @@ inline int_t PortOpenP(FObject obj)
             (AsGenericPort(obj)->Flags & PORT_FLAG_OUTPUT_OPEN));
 }
 
-inline int_t StringOutputPortP(FObject obj)
+inline long_t StringOutputPortP(FObject obj)
 {
     return(TextualPortP(obj) && (AsGenericPort(obj)->Flags & PORT_FLAG_STRING_OUTPUT));
 }
 
-inline int_t BytevectorOutputPortP(FObject obj)
+inline long_t BytevectorOutputPortP(FObject obj)
 {
     return(BinaryPortP(obj) && (AsGenericPort(obj)->Flags & PORT_FLAG_BYTEVECTOR_OUTPUT));
 }
 
-inline int_t FoldcasePortP(FObject port)
+inline long_t FoldcasePortP(FObject port)
 {
     FAssert(TextualPortP(port) && InputPortP(port));
 
     return(AsGenericPort(port)->Flags & PORT_FLAG_FOLDCASE);
 }
 
-inline int_t WantIdentifiersPortP(FObject port)
+inline long_t WantIdentifiersPortP(FObject port)
 {
     FAssert(TextualPortP(port) && InputPortP(port));
 
     return(AsGenericPort(port)->Flags & PORT_FLAG_WANT_IDENTIFIERS);
 }
 
-inline int_t ConsolePortP(FObject port)
+inline long_t ConsolePortP(FObject port)
 {
     return(TextualPortP(port) && (AsGenericPort(port)->Flags & PORT_FLAG_CONSOLE));
 }
 
-inline int_t SocketPortP(FObject port)
+inline long_t SocketPortP(FObject port)
 {
     return(BinaryPortP(port) && (AsGenericPort(port)->Flags & PORT_FLAG_SOCKET));
 }
 
-inline int_t PositioningPortP(FObject obj)
+inline long_t PositioningPortP(FObject obj)
 {
     FAssert(BinaryPortP(obj) || TextualPortP(obj));
 
@@ -781,12 +775,12 @@ void SetPosition(FObject port, int64_t pos, FPositionFrom frm);
 
 // Binary ports
 
-uint_t ReadBytes(FObject port, FByte * b, uint_t bl);
-int_t PeekByte(FObject port, FByte * b);
-int_t ByteReadyP(FObject port);
-uint_t GetOffset(FObject port);
+ulong_t ReadBytes(FObject port, FByte * b, ulong_t bl);
+long_t PeekByte(FObject port, FByte * b);
+long_t ByteReadyP(FObject port);
+ulong_t GetOffset(FObject port);
 
-void WriteBytes(FObject port, void * b, uint_t bl);
+void WriteBytes(FObject port, void * b, ulong_t bl);
 
 // Textual ports
 
@@ -797,20 +791,20 @@ FObject MakeStringCInputPort(const char * s);
 FObject MakeStringOutputPort();
 FObject GetOutputString(FObject port);
 
-uint_t ReadCh(FObject port, FCh * ch);
-uint_t PeekCh(FObject port, FCh * ch);
-int_t CharReadyP(FObject port);
+ulong_t ReadCh(FObject port, FCh * ch);
+ulong_t PeekCh(FObject port, FCh * ch);
+long_t CharReadyP(FObject port);
 FObject ReadLine(FObject port);
-FObject ReadString(FObject port, uint_t cnt);
-uint_t GetLineColumn(FObject port, uint_t * col);
+FObject ReadString(FObject port, ulong_t cnt);
+ulong_t GetLineColumn(FObject port, ulong_t * col);
 FObject GetFilename(FObject port);
-void FoldcasePort(FObject port, int_t fcf);
-void WantIdentifiersPort(FObject port, int_t wif);
+void FoldcasePort(FObject port, long_t fcf);
+void WantIdentifiersPort(FObject port, long_t wif);
 
 FObject Read(FObject port);
 
 void WriteCh(FObject port, FCh ch);
-void WriteString(FObject port, FCh * s, uint_t sl);
+void WriteString(FObject port, FCh * s, ulong_t sl);
 void WriteStringC(FObject port, const char * s);
 
 typedef enum
@@ -823,23 +817,23 @@ typedef enum
 
 struct FWriteContext
 {
-    FWriteContext(FObject port, int_t df);
+    FWriteContext(FObject port, long_t df);
     void Prepare(FObject obj, FWriteType wt);
 
     void Write(FObject obj);
     void Display(FObject obj);
     void WriteCh(FCh ch);
-    void WriteString(FCh * s, uint_t sl);
+    void WriteString(FCh * s, ulong_t sl);
     void WriteStringC(const char * s);
 
 private:
 
     FObject Port;
-    int_t DisplayFlag;
+    long_t DisplayFlag;
     FWriteType WriteType;
     FObject HashTable;
-    int_t SharedCount;
-    int_t PreviousLabel;
+    long_t SharedCount;
+    long_t PreviousLabel;
 
     void FindSharedObjects(FObject obj, FWriteType wt);
     void WritePair(FObject obj);
@@ -848,9 +842,9 @@ private:
     void WriteSimple(FObject obj);
 };
 
-void Write(FObject port, FObject obj, int_t df);
-void WriteShared(FObject port, FObject obj, int_t df);
-void WriteSimple(FObject port, FObject obj, int_t df);
+void Write(FObject port, FObject obj, long_t df);
+void WriteShared(FObject port, FObject obj, long_t df);
+void WriteSimple(FObject port, FObject obj, long_t df);
 
 // ---- Builtin Types ----
 
@@ -891,9 +885,9 @@ typedef struct
     FObject BuiltinType; // must be FBuiltinType
 } FBuiltin;
 
-FObject MakeBuiltin(FObject bt, uint_t sz, uint_t sc, const char * who);
+FObject MakeBuiltin(FObject bt, ulong_t sz, ulong_t sc, const char * who);
 
-inline int_t BuiltinP(FObject obj, FObject bt)
+inline long_t BuiltinP(FObject obj, FObject bt)
 {
     FAssert(BuiltinTypeP(bt));
 
@@ -910,7 +904,7 @@ typedef struct
     FObject Fields[1];
 } FRecordType;
 
-FObject MakeRecordType(FObject nam, uint_t nf, FObject flds[]);
+FObject MakeRecordType(FObject nam, ulong_t nf, FObject flds[]);
 
 #define RecordTypeName(obj) AsRecordType(obj)->Fields[0]
 #define RecordTypeNumFields(obj) (AsObjHdr(obj)->SlotCount())
@@ -932,7 +926,7 @@ typedef struct
 
 FObject MakeRecord(FObject rt);
 
-inline int_t RecordP(FObject obj, FObject rt)
+inline long_t RecordP(FObject obj, FObject rt)
 {
     return(GenericRecordP(obj) && AsGenericRecord(obj)->Fields[0] == rt);
 }
@@ -955,9 +949,9 @@ typedef struct
     FObject Context;
 } FComparator;
 
-int_t EqP(FObject obj1, FObject obj2);
-int_t EqvP(FObject obj1, FObject obj2);
-int_t EqualP(FObject obj1, FObject obj2);
+long_t EqP(FObject obj1, FObject obj2);
+long_t EqvP(FObject obj1, FObject obj2);
+long_t EqualP(FObject obj1, FObject obj2);
 uint32_t EqHash(FObject obj);
 
 extern FObject EqPPrimitive;
@@ -983,9 +977,9 @@ extern FObject HashTableType;
 
 typedef FObject (*FFoldFn)(FObject key, FObject val, void * ctx, FObject accum);
 
-FObject MakeEqHashTable(uint_t cap, uint_t flags);
-FObject MakeStringHashTable(uint_t cap, uint_t flags);
-FObject MakeSymbolHashTable(uint_t cap, uint_t flags);
+FObject MakeEqHashTable(ulong_t cap, ulong_t flags);
+FObject MakeStringHashTable(ulong_t cap, ulong_t flags);
+FObject MakeSymbolHashTable(ulong_t cap, ulong_t flags);
 FObject HashTableRef(FObject htbl, FObject key, FObject def);
 void HashTableSet(FObject htbl, FObject key, FObject val);
 void HashTableDelete(FObject htbl, FObject key);
@@ -1013,7 +1007,7 @@ typedef struct
 {
     const char * String;
 #ifdef FOMENT_32BIT
-    uint_t Unused;
+    ulong_t Unused;
 #endif // FOMENT_32BIT
 } FCString;
 
@@ -1048,7 +1042,7 @@ typedef struct FALIGN
 
 FObject SymbolToString(FObject sym);
 FObject StringToSymbol(FObject str);
-FObject StringLengthToSymbol(FCh * s, int_t sl);
+FObject StringLengthToSymbol(FCh * s, long_t sl);
 FObject InternSymbol(FObject sym);
 
 FObject StringCToSymbol(const char * s);
@@ -1073,13 +1067,13 @@ extern FObject SymbolHashPrimitive;
 #define PrimitiveP(obj) (IndirectTag(obj) == PrimitiveTag)
 #define AsPrimitive(obj) ((FPrimitive *) (obj))
 
-typedef FObject (*FPrimitiveFn)(int_t argc, FObject argv[]);
+typedef FObject (*FPrimitiveFn)(long_t argc, FObject argv[]);
 typedef struct
 {
     FObject Name;
     FPrimitiveFn PrimitiveFn;
     const char * Filename;
-    int_t LineNumber;
+    long_t LineNumber;
 } FPrimitive;
 
 typedef struct FALIGN
@@ -1091,7 +1085,7 @@ typedef struct FALIGN
 
 #define Define(name, prim) \
     EternalSymbol(prim ## Symbol, name); \
-    FObject prim ## Fn(int_t argc, FObject argv[]);\
+    FObject prim ## Fn(long_t argc, FObject argv[]);\
     static FEternalPrimitive prim ## Object = { \
         EternalObjHdrSlots(FPrimitive, 1, PrimitiveTag), \
         {prim ## Symbol, prim ## Fn, __FILE__, __LINE__}, \
@@ -1121,7 +1115,7 @@ void EphemeronDatumSet(FObject eph, FObject dat);
 
 #define EPHEMERON_BROKEN ((FEphemeron *) -1)
 
-inline int_t EphemeronBrokenP(FObject obj)
+inline long_t EphemeronBrokenP(FObject obj)
 {
     FAssert(EphemeronP(obj));
 
@@ -1208,14 +1202,14 @@ typedef struct
 
 // ---- Numbers ----
 
-int_t GenericEqvP(FObject x1, FObject x2);
+long_t GenericEqvP(FObject x1, FObject x2);
 
-FObject StringToNumber(FCh * s, int_t sl, FFixnum rdx);
+FObject StringToNumber(FCh * s, long_t sl, FFixnum rdx);
 FObject NumberToString(FObject obj, FFixnum rdx);
 
-int_t FixnumAsString(FFixnum n, FCh * s, FFixnum rdx);
+long_t FixnumAsString(FFixnum n, FCh * s, FFixnum rdx);
 
-inline int_t NumberP(FObject obj)
+inline long_t NumberP(FObject obj)
 {
     if (FixnumP(obj))
         return(1);
@@ -1224,7 +1218,7 @@ inline int_t NumberP(FObject obj)
     return(tag == BignumTag || tag == RatioTag || tag == FlonumTag || tag == ComplexTag);
 }
 
-inline int_t RealP(FObject obj)
+inline long_t RealP(FObject obj)
 {
     if (FixnumP(obj))
         return(1);
@@ -1233,9 +1227,9 @@ inline int_t RealP(FObject obj)
     return(tag == BignumTag || tag == RatioTag || tag == FlonumTag);
 }
 
-int_t IntegerP(FObject obj);
-int_t RationalP(FObject obj);
-int_t NonNegativeExactIntegerP(FObject obj, int_t bf);
+long_t IntegerP(FObject obj);
+long_t RationalP(FObject obj);
+long_t NonNegativeExactIntegerP(FObject obj, long_t bf);
 
 #define POSITIVE_INFINITY (DBL_MAX * DBL_MAX)
 #define NEGATIVE_INFINITY -POSITIVE_INFINITY
@@ -1273,7 +1267,7 @@ typedef struct
 FObject MakeEnvironment(FObject nam, FObject ctv);
 FObject EnvironmentBind(FObject env, FObject sym);
 FObject EnvironmentLookup(FObject env, FObject sym);
-int_t EnvironmentDefine(FObject env, FObject symid, FObject val);
+long_t EnvironmentDefine(FObject env, FObject symid, FObject val);
 FObject EnvironmentSet(FObject env, FObject sym, FObject val);
 FObject EnvironmentSetC(FObject env, const char * sym, FObject val);
 FObject EnvironmentGet(FObject env, FObject symid);
@@ -1340,11 +1334,11 @@ typedef struct
     FObject Filename;
     FObject SyntacticEnv;
     FObject Wrapped;
-    int_t LineNumber;
-    int_t Magic;
+    long_t LineNumber;
+    long_t Magic;
 } FIdentifier;
 
-FObject MakeIdentifier(FObject sym, FObject fn, int_t ln);
+FObject MakeIdentifier(FObject sym, FObject fn, long_t ln);
 FObject MakeIdentifier(FObject sym);
 FObject WrapIdentifier(FObject id, FObject se);
 
@@ -1363,7 +1357,7 @@ typedef struct
 #define AsProcedure(obj) ((FProcedure *) (obj))
 #define ProcedureP(obj) (IndirectTag(obj) == ProcedureTag)
 
-FObject MakeProcedure(FObject nam, FObject fn, FObject ln, FObject cv, int_t ac, uint_t fl);
+FObject MakeProcedure(FObject nam, FObject fn, FObject ln, FObject cv, long_t ac, ulong_t fl);
 
 #define PROCEDURE_FLAG_CLOSURE      0x8
 #define PROCEDURE_FLAG_PARAMETER    0x4
@@ -1422,10 +1416,10 @@ inline void RaiseExceptionC(FObject typ, const char * who, const char * msg, FOb
 typedef struct _FYoungSection
 {
     struct _FYoungSection * Next;
-    uint_t Used;
-    uint_t Scan;
+    ulong_t Used;
+    ulong_t Scan;
 #ifdef FOMENT_32BIT
-    uint_t Pad;
+    ulong_t Pad;
 #endif // FOMENT_32BIT
 } FYoungSection;
 
@@ -1445,158 +1439,158 @@ typedef struct _FThreadState
 
     FAlive * AliveList;
 
-    uint_t ObjectsSinceLast;
-    uint_t BytesSinceLast;
+    ulong_t ObjectsSinceLast;
+    ulong_t BytesSinceLast;
 
     FMemRegion Babies;
-    uint_t BabiesUsed;
+    ulong_t BabiesUsed;
 
     FMemRegion Stack;
-    int_t AStackPtr;
-    int_t AStackUsed;
+    long_t AStackPtr;
+    long_t AStackUsed;
     FObject * AStack;
-    int_t CStackPtr;
-    int_t CStackUsed;
+    long_t CStackPtr;
+    long_t CStackUsed;
     FObject * CStack;
 
     FObject Proc;
     FObject Frame;
-    int_t IP;
-    int_t ArgCount;
+    long_t IP;
+    long_t ArgCount;
 
     FObject DynamicStack;
     FObject Parameters;
     FObject IndexParameters[INDEX_PARAMETERS];
 
-    int_t NotifyFlag;
+    long_t NotifyFlag;
     FObject NotifyObject;
 
-    uint_t ExceptionCount;
+    ulong_t ExceptionCount;
 } FThreadState;
 
 // ---- Argument Checking ----
 
-inline void ZeroArgsCheck(const char * who, int_t argc)
+inline void ZeroArgsCheck(const char * who, long_t argc)
 {
     if (argc != 0)
         RaiseExceptionC(Assertion, who, "expected no arguments", EmptyListObject);
 }
 
-inline void OneArgCheck(const char * who, int_t argc)
+inline void OneArgCheck(const char * who, long_t argc)
 {
     if (argc != 1)
         RaiseExceptionC(Assertion, who, "expected one argument", EmptyListObject);
 }
 
-inline void TwoArgsCheck(const char * who, int_t argc)
+inline void TwoArgsCheck(const char * who, long_t argc)
 {
     if (argc != 2)
         RaiseExceptionC(Assertion, who, "expected two arguments", EmptyListObject);
 }
 
-inline void ThreeArgsCheck(const char * who, int_t argc)
+inline void ThreeArgsCheck(const char * who, long_t argc)
 {
     if (argc != 3)
         RaiseExceptionC(Assertion, who, "expected three arguments", EmptyListObject);
 }
 
-inline void FourArgsCheck(const char * who, int_t argc)
+inline void FourArgsCheck(const char * who, long_t argc)
 {
     if (argc != 4)
         RaiseExceptionC(Assertion, who, "expected four arguments", EmptyListObject);
 }
 
-inline void FiveArgsCheck(const char * who, int_t argc)
+inline void FiveArgsCheck(const char * who, long_t argc)
 {
     if (argc != 5)
         RaiseExceptionC(Assertion, who, "expected five arguments", EmptyListObject);
 }
 
-inline void SixArgsCheck(const char * who, int_t argc)
+inline void SixArgsCheck(const char * who, long_t argc)
 {
     if (argc != 6)
         RaiseExceptionC(Assertion, who, "expected six arguments", EmptyListObject);
 }
 
-inline void SevenArgsCheck(const char * who, int_t argc)
+inline void SevenArgsCheck(const char * who, long_t argc)
 {
     if (argc != 7)
         RaiseExceptionC(Assertion, who, "expected seven arguments", EmptyListObject);
 }
 
-inline void AtLeastOneArgCheck(const char * who, int_t argc)
+inline void AtLeastOneArgCheck(const char * who, long_t argc)
 {
     if (argc < 1)
         RaiseExceptionC(Assertion, who, "expected at least one argument", EmptyListObject);
 }
 
-inline void AtLeastTwoArgsCheck(const char * who, int_t argc)
+inline void AtLeastTwoArgsCheck(const char * who, long_t argc)
 {
     if (argc < 2)
         RaiseExceptionC(Assertion, who, "expected at least two arguments", EmptyListObject);
 }
 
-inline void AtLeastThreeArgsCheck(const char * who, int_t argc)
+inline void AtLeastThreeArgsCheck(const char * who, long_t argc)
 {
     if (argc < 3)
         RaiseExceptionC(Assertion, who, "expected at least three arguments", EmptyListObject);
 }
 
-inline void AtLeastFourArgsCheck(const char * who, int_t argc)
+inline void AtLeastFourArgsCheck(const char * who, long_t argc)
 {
     if (argc < 4)
         RaiseExceptionC(Assertion, who, "expected at least four arguments", EmptyListObject);
 }
 
-inline void ZeroOrOneArgsCheck(const char * who, int_t argc)
+inline void ZeroOrOneArgsCheck(const char * who, long_t argc)
 {
     if (argc > 1)
         RaiseExceptionC(Assertion, who, "expected zero or one arguments", EmptyListObject);
 }
 
-inline void ZeroToTwoArgsCheck(const char * who, int_t argc)
+inline void ZeroToTwoArgsCheck(const char * who, long_t argc)
 {
     if (argc > 2)
         RaiseExceptionC(Assertion, who, "expected zero to two arguments", EmptyListObject);
 }
 
-inline void OneOrTwoArgsCheck(const char * who, int_t argc)
+inline void OneOrTwoArgsCheck(const char * who, long_t argc)
 {
     if (argc < 1 || argc > 2)
         RaiseExceptionC(Assertion, who, "expected one or two arguments", EmptyListObject);
 }
 
-inline void OneToThreeArgsCheck(const char * who, int_t argc)
+inline void OneToThreeArgsCheck(const char * who, long_t argc)
 {
     if (argc < 1 || argc > 3)
         RaiseExceptionC(Assertion, who, "expected one to three arguments", EmptyListObject);
 }
 
-inline void OneToFourArgsCheck(const char * who, int_t argc)
+inline void OneToFourArgsCheck(const char * who, long_t argc)
 {
     if (argc < 1 || argc > 4)
         RaiseExceptionC(Assertion, who, "expected one to four arguments", EmptyListObject);
 }
 
-inline void TwoOrThreeArgsCheck(const char * who, int_t argc)
+inline void TwoOrThreeArgsCheck(const char * who, long_t argc)
 {
     if (argc < 2 || argc > 3)
         RaiseExceptionC(Assertion, who, "expected two or three arguments", EmptyListObject);
 }
 
-inline void TwoToFourArgsCheck(const char * who, int_t argc)
+inline void TwoToFourArgsCheck(const char * who, long_t argc)
 {
     if (argc < 2 || argc > 4)
         RaiseExceptionC(Assertion, who, "expected two to four arguments", EmptyListObject);
 }
 
-inline void ThreeToFiveArgsCheck(const char * who, int_t argc)
+inline void ThreeToFiveArgsCheck(const char * who, long_t argc)
 {
     if (argc < 3 || argc > 5)
         RaiseExceptionC(Assertion, who, "expected three to five arguments", EmptyListObject);
 }
 
-inline void NonNegativeArgCheck(const char * who, FObject arg, int_t bf)
+inline void NonNegativeArgCheck(const char * who, FObject arg, long_t bf)
 {
     if (NonNegativeExactIntegerP(arg, bf) == 0)
         RaiseExceptionC(Assertion, who, "expected an exact non-negative integer", List(arg));
@@ -1851,10 +1845,10 @@ inline void SymbolStringArgCheck(const char * who, FObject obj)
 
 // ----------------
 
-extern uint_t CheckHeapFlag;
-extern uint_t VerboseFlag;
-extern uint_t RandomSeed;
-extern volatile uint_t BytesAllocated;
+extern ulong_t CheckHeapFlag;
+extern ulong_t VerboseFlag;
+extern ulong_t RandomSeed;
+extern volatile ulong_t BytesAllocated;
 
 FObject CompileProgram(FObject nam, FObject port);
 FObject Eval(FObject obj, FObject env);
@@ -1864,14 +1858,14 @@ FObject SyntaxToDatum(FObject obj);
 
 FObject ExecuteProc(FObject op);
 
-int_t SetupFoment(FThreadState * ts);
-extern uint_t SetupComplete;
+long_t SetupFoment(FThreadState * ts);
+extern ulong_t SetupComplete;
 void ExitFoment();
 void ErrorExitFoment();
 
 // ---- Do Not Call Directly ----
 
-int_t SetupCore(FThreadState * ts);
+long_t SetupCore(FThreadState * ts);
 void SetupLibrary();
 void SetupPairs();
 void SetupCharacters();
@@ -1897,14 +1891,14 @@ void WriteCondition(FWriteContext * wctx, FObject obj);
 #ifdef FOMENT_WINDOWS
 #define PathCh '\\'
 #define PathSep ';'
-inline int_t PathChP(FCh ch)
+inline long_t PathChP(FCh ch)
 {
     return(ch == '\\' || ch == '/');
 }
 #else // FOMENT_WINDOWS
 #define PathCh '/'
 #define PathSep ':'
-inline int_t PathChP(FCh ch)
+inline long_t PathChP(FCh ch)
 {
     return(ch == '/');
 }

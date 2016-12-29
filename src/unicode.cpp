@@ -54,21 +54,21 @@ static const FCh Utf8Offsets[6] =
     0x82082080
 };
 
-static uint_t ChLengthOfUtf8(FByte * b, uint_t bl)
+static ulong_t ChLengthOfUtf8(FByte * b, ulong_t bl)
 {
-    uint_t sl = 0;
+    ulong_t sl = 0;
 
-    for (uint_t bdx = 0; bdx < bl; sl++)
+    for (ulong_t bdx = 0; bdx < bl; sl++)
         bdx += Utf8TrailingBytes[b[bdx]] + 1;
 
     return(sl);
 }
 
-static uint_t Utf8LengthOfCh(FCh * s, uint_t sl)
+static ulong_t Utf8LengthOfCh(FCh * s, ulong_t sl)
 {
-    uint_t bl = 0;
+    ulong_t bl = 0;
 
-    for (uint_t sdx = 0; sdx < sl; sdx++)
+    for (ulong_t sdx = 0; sdx < sl; sdx++)
     {
         if (s[sdx] < 0x80UL)
             bl += 1;
@@ -85,11 +85,11 @@ static uint_t Utf8LengthOfCh(FCh * s, uint_t sl)
     return(bl);
 }
 
-FCh ConvertUtf8ToCh(FByte * b, uint_t bl)
+FCh ConvertUtf8ToCh(FByte * b, ulong_t bl)
 {
     FCh ch = 0;
-    uint_t bdx = 0;
-    uint_t eb = Utf8TrailingBytes[b[bdx]];
+    ulong_t bdx = 0;
+    ulong_t eb = Utf8TrailingBytes[b[bdx]];
 
     FAssert(bdx + eb < bl);
 
@@ -112,16 +112,16 @@ FCh ConvertUtf8ToCh(FByte * b, uint_t bl)
     return(ch);
 }
 
-FObject ConvertUtf8ToString(FByte * b, uint_t bl)
+FObject ConvertUtf8ToString(FByte * b, ulong_t bl)
 {
-    uint_t sl = ChLengthOfUtf8(b, bl);
+    ulong_t sl = ChLengthOfUtf8(b, bl);
     FObject s = MakeString(0, sl);
-    uint_t bdx = 0;
+    ulong_t bdx = 0;
 
-    for (uint_t sdx = 0; sdx < sl; sdx++)
+    for (ulong_t sdx = 0; sdx < sl; sdx++)
     {
         FCh ch = 0;
-        uint_t eb = Utf8TrailingBytes[b[bdx]];
+        ulong_t eb = Utf8TrailingBytes[b[bdx]];
 
         FAssert(bdx + eb < bl);
 
@@ -147,16 +147,16 @@ FObject ConvertUtf8ToString(FByte * b, uint_t bl)
     return(s);
 }
 
-FObject ConvertStringToUtf8(FCh * s, uint_t sl, int_t ztf)
+FObject ConvertStringToUtf8(FCh * s, ulong_t sl, long_t ztf)
 {
-    uint_t bl = Utf8LengthOfCh(s, sl);
+    ulong_t bl = Utf8LengthOfCh(s, sl);
     FObject b = MakeBytevector(bl + (ztf ? 1 : 0));
-    uint_t bdx = 0;
+    ulong_t bdx = 0;
 
-    for (uint_t sdx = 0; sdx < sl; sdx++)
+    for (ulong_t sdx = 0; sdx < sl; sdx++)
     {
         FCh ch = s[sdx];
-        uint_t bw;
+        ulong_t bw;
 
         if (ch < 0x80UL)
             bw = 1;
@@ -204,11 +204,11 @@ FObject ConvertStringToUtf8(FCh * s, uint_t sl, int_t ztf)
     return(b);
 }
 
-static uint_t Utf16LengthOfCh(FCh * s, uint_t sl)
+static ulong_t Utf16LengthOfCh(FCh * s, ulong_t sl)
 {
-    uint_t ssl = 0;
+    ulong_t ssl = 0;
 
-    for (uint_t idx = 0; idx < sl; idx++)
+    for (ulong_t idx = 0; idx < sl; idx++)
     {
         ssl += 1;
 
@@ -219,9 +219,9 @@ static uint_t Utf16LengthOfCh(FCh * s, uint_t sl)
     return(ssl);
 }
 
-static uint_t ChLengthOfUtf16(FCh16 * ss, uint_t ssl)
+static ulong_t ChLengthOfUtf16(FCh16 * ss, ulong_t ssl)
 {
-    uint_t sl = 0;
+    ulong_t sl = 0;
 
     while (ssl > 0)
     {
@@ -235,13 +235,13 @@ static uint_t ChLengthOfUtf16(FCh16 * ss, uint_t ssl)
     return(sl);
 }
 
-FObject ConvertUtf16ToString(FCh16 * b, uint_t bl)
+FObject ConvertUtf16ToString(FCh16 * b, ulong_t bl)
 {
-    uint_t sl = ChLengthOfUtf16(b, bl);
+    ulong_t sl = ChLengthOfUtf16(b, bl);
     FObject s = MakeString(0, sl);
-    uint_t bdx = 0;
+    ulong_t bdx = 0;
 
-    for (uint_t sdx = 0; sdx < sl; sdx++)
+    for (ulong_t sdx = 0; sdx < sl; sdx++)
     {
         FAssert(bdx < bl);
 
@@ -270,14 +270,14 @@ FObject ConvertUtf16ToString(FCh16 * b, uint_t bl)
     return(s);
 }
 
-FObject ConvertStringToUtf16(FCh * s, uint_t sl, int_t ztf, uint_t el)
+FObject ConvertStringToUtf16(FCh * s, ulong_t sl, long_t ztf, ulong_t el)
 {
-    uint_t ul = Utf16LengthOfCh(s, sl);
+    ulong_t ul = Utf16LengthOfCh(s, sl);
     FObject b = MakeBytevector((ul + (ztf ? 1 : 0) + el) * sizeof(FCh16));
     FCh16 * u = (FCh16 *) AsBytevector(b)->Vector;
-    uint_t udx = 0;
+    ulong_t udx = 0;
 
-    for (uint_t sdx = 0; sdx < sl; sdx++)
+    for (ulong_t sdx = 0; sdx < sl; sdx++)
     {
         FAssert(udx < ul);
 
@@ -316,7 +316,7 @@ FObject MakeStringS(FChS * ss)
     return(ConvertUtf16ToString(ss, wcslen(ss)));
 }
 
-FObject MakeStringS(FChS * ss, uint_t ssl)
+FObject MakeStringS(FChS * ss, ulong_t ssl)
 {
     return(ConvertUtf16ToString(ss, ssl));
 }
@@ -328,7 +328,7 @@ FObject MakeStringS(FChS * ss)
     return(ConvertUtf8ToString((FByte *) ss, strlen(ss)));
 }
 
-FObject MakeStringS(FChS * ss, uint_t ssl)
+FObject MakeStringS(FChS * ss, ulong_t ssl)
 {
     return(ConvertUtf8ToString((FByte *) ss, ssl));
 }

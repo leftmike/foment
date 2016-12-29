@@ -48,7 +48,7 @@ static void LeaveScope(FObject bd)
             Rest(AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings));
 }
 
-static int_t IdentifierEqualP(FObject id1, FObject id2)
+static long_t IdentifierEqualP(FObject id1, FObject id2)
 {
     FAssert(IdentifierP(id1));
     FAssert(IdentifierP(id2));
@@ -165,7 +165,7 @@ static FObject SyntaxToDatum(FObject obj, FObject htbl)
         vec = MakeVector(VectorLength(obj), 0, FalseObject);
         HashTableSet(htbl, obj, vec);
 
-        for (uint_t idx = 0; idx < VectorLength(vec); idx++)
+        for (ulong_t idx = 0; idx < VectorLength(vec); idx++)
         {
 //            AsVector(vec)->Vector[idx] = SyntaxToDatum(AsVector(obj)->Vector[idx], htbl);
             ModifyVector(vec, idx, SyntaxToDatum(AsVector(obj)->Vector[idx], htbl));
@@ -182,12 +182,12 @@ FObject SyntaxToDatum(FObject obj)
     return(SyntaxToDatum(obj, MakeEqHashTable(128, 0)));
 }
 
-static int_t SyntaxP(FObject obj)
+static long_t SyntaxP(FObject obj)
 {
     return(SpecialSyntaxP(obj) || SyntaxRulesP(obj));
 }
 
-static int_t SyntaxBindingP(FObject be, FObject var)
+static long_t SyntaxBindingP(FObject be, FObject var)
 {
     if (BindingP(be))
     {
@@ -327,7 +327,7 @@ static FObject AddBinding(FObject se, FObject ss, FObject bs, FObject id, FObjec
     return(bs);
 }
 
-static FObject SPassLetVar(FObject se, FObject ss, FObject lb, FObject bs, FObject vi, int_t vf)
+static FObject SPassLetVar(FObject se, FObject ss, FObject lb, FObject bs, FObject vi, long_t vf)
 {
     if (vf != 0)
     {
@@ -351,7 +351,7 @@ static FObject SPassLetVar(FObject se, FObject ss, FObject lb, FObject bs, FObje
 }
 
 static FObject SPassLetInit(FObject enc, FObject se, FObject ss, FObject lb, FObject nlb,
-    FObject bd, FObject vi, int_t vf)
+    FObject bd, FObject vi, long_t vf)
 {
     FObject expr = SPassExpression(enc, se, First(Rest(vi)));
     if (ss == LetSyntaxSyntax || ss == LetrecSyntaxSyntax)
@@ -379,9 +379,9 @@ static FObject SPassLetInit(FObject enc, FObject se, FObject ss, FObject lb, FOb
     }
 }
 
-static int_t FormalsCount(FObject formals)
+static long_t FormalsCount(FObject formals)
 {
-    int_t fc = 0;
+    long_t fc = 0;
 
     while (PairP(formals))
     {
@@ -403,7 +403,7 @@ static FObject GatherLetValuesFormals(FObject bs, FObject lb)
     {
         FAssert(PairP(First(lb)));
 
-        int_t fc = FormalsCount(First(First(lb)));
+        long_t fc = FormalsCount(First(First(lb)));
         FObject vb = EmptyListObject;
 
         while (fc > 0)
@@ -423,8 +423,8 @@ static FObject GatherLetValuesFormals(FObject bs, FObject lb)
     return(ReverseListModify(nbs));
 }
 
-static FObject SPassLetBindings(FObject enc, FObject se, FObject ss, FObject lb, int_t rf,
-    int_t vf)
+static FObject SPassLetBindings(FObject enc, FObject se, FObject ss, FObject lb, long_t rf,
+    long_t vf)
 {
     // ((<variable> <init>) ...)
     // ((<formals> <init>) ...)
@@ -476,7 +476,7 @@ static FObject AddLetStarBinding(FObject se, FObject id, FObject form)
 }
 
 static FObject SPassLetStarVarInit(FObject enc, FObject se, FObject ss, FObject lb, FObject nlb,
-    FObject vi, int_t vf)
+    FObject vi, long_t vf)
 {
     // (<variable> <init>)
     // (<formals> <init>)
@@ -505,7 +505,7 @@ static FObject SPassLetStarVarInit(FObject enc, FObject se, FObject ss, FObject 
     return(nlb);
 }
 
-static FObject SPassLetStarBindings(FObject enc, FObject se, FObject ss, FObject lb, int_t vf)
+static FObject SPassLetStarBindings(FObject enc, FObject se, FObject ss, FObject lb, long_t vf)
 {
     // ((<variable> <init>) ...)
     // ((<formals> <init>) ...)
@@ -594,8 +594,8 @@ static FObject SPassLetStarToLet(FObject lb, FObject body)
             SPassLetStarToLet(Rest(lb), body))), EmptyListObject));
 }
 
-static FObject SPassLet(FObject enc, FObject se, FObject ss, FObject expr, int_t rf, int_t sf,
-    int_t vf)
+static FObject SPassLet(FObject enc, FObject se, FObject ss, FObject expr, long_t rf, long_t sf,
+    long_t vf)
 {
     // rf : rec flag; eg. rf = 1 for letrec
     // sf : star flag; eg. sf = 1 for let*
@@ -633,7 +633,7 @@ static FObject SPassLet(FObject enc, FObject se, FObject ss, FObject expr, int_t
     return(ret);
 }
 
-int_t MatchReference(FObject ref, FObject se, FObject expr)
+long_t MatchReference(FObject ref, FObject se, FObject expr)
 {
     FAssert(ReferenceP(ref));
 
@@ -783,7 +783,7 @@ static FObject SPassReadInclude(FObject expr, FObject ss)
     return(ret);
 }
 
-static FObject SPassQuasiquote(FObject enc, FObject se, FObject expr, FObject tpl, int_t dpth)
+static FObject SPassQuasiquote(FObject enc, FObject se, FObject expr, FObject tpl, long_t dpth)
 {
     if (PairP(tpl))
     {
@@ -1262,7 +1262,7 @@ static FObject GatherVariablesAndSyntax(FObject enc, FObject se, FObject dlst, F
 
             FAssert(PairP(Rest(expr)));
 
-            int_t fc = FormalsCount(First(Rest(expr)));
+            long_t fc = FormalsCount(First(Rest(expr)));
             FObject vb = EmptyListObject;
 
             while (fc > 0)
@@ -1587,7 +1587,7 @@ FObject ExpandExpression(FObject enc, FObject se, FObject expr)
 
 // ----------------
 
-static int_t EvaluateFeatureRequirement(FObject se, FObject expr, FObject cls, FObject obj)
+static long_t EvaluateFeatureRequirement(FObject se, FObject expr, FObject cls, FObject obj)
 {
     if (IdentifierP(obj))
         obj = AsIdentifier(obj)->Symbol;
@@ -1723,10 +1723,10 @@ static FObject MungeIncludeName(FObject source, FObject target)
     FAssert(StringP(target));
 
     FCh * src = AsString(source)->String;
-    uint_t srclen = StringLength(source);
+    ulong_t srclen = StringLength(source);
     FCh * tgt = AsString(target)->String;
-    uint_t tgtlen = StringLength(target);
-    uint_t idx;
+    ulong_t tgtlen = StringLength(target);
+    ulong_t idx;
 
     if (PathChP(tgt[0]))
         return(target);
@@ -1746,7 +1746,7 @@ static FObject MungeIncludeName(FObject source, FObject target)
     return(s);
 }
 
-FObject ReadInclude(FObject op, FObject lst, int_t cif)
+FObject ReadInclude(FObject op, FObject lst, long_t cif)
 {
     FAssert(SymbolP(op) || IdentifierP(op));
 

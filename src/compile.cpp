@@ -103,9 +103,9 @@ WriteIdentifier(FWriteContext * wctx, FObject obj)
 
 EternalBuiltinType(IdentifierType, "identifier", WriteIdentifier);
 
-static int_t IdentifierMagic = 0;
+static long_t IdentifierMagic = 0;
 
-FObject MakeIdentifier(FObject sym, FObject fn, int_t ln)
+FObject MakeIdentifier(FObject sym, FObject fn, long_t ln)
 {
     FAssert(SymbolP(sym));
 
@@ -152,7 +152,7 @@ static void
 WriteLambda(FWriteContext * wctx, FObject obj)
 {
     FCh s[16];
-    int_t sl = FixnumAsString((FFixnum) obj, s, 16);
+    long_t sl = FixnumAsString((FFixnum) obj, s, 16);
 
     wctx->WriteStringC("#<library: #x");
     wctx->WriteString(s, sl);
@@ -229,7 +229,7 @@ FObject MakeCaseLambda(FObject cases)
 
 EternalBuiltinType(InlineVariableType, "inline-variable", 0);
 
-FObject MakeInlineVariable(int_t idx)
+FObject MakeInlineVariable(long_t idx)
 {
     FAssert(idx >= 0);
 
@@ -284,7 +284,7 @@ FObject GetInteractionEnv()
 
 // ----------------
 
-Define("%compile-eval", CompileEvalPrimitive)(int_t argc, FObject argv[])
+Define("%compile-eval", CompileEvalPrimitive)(long_t argc, FObject argv[])
 {
     FMustBe(argc == 2);
     EnvironmentArgCheck("eval", argv[1]);
@@ -292,7 +292,7 @@ Define("%compile-eval", CompileEvalPrimitive)(int_t argc, FObject argv[])
     return(CompileEval(argv[0], argv[1]));
 }
 
-Define("interaction-environment", InteractionEnvironmentPrimitive)(int_t argc, FObject argv[])
+Define("interaction-environment", InteractionEnvironmentPrimitive)(long_t argc, FObject argv[])
 {
     if (argc == 0)
     {
@@ -303,7 +303,7 @@ Define("interaction-environment", InteractionEnvironmentPrimitive)(int_t argc, F
 
     FObject env = MakeEnvironment(StringCToSymbol("interaction"), TrueObject);
 
-    for (int_t adx = 0; adx < argc; adx++)
+    for (long_t adx = 0; adx < argc; adx++)
     {
         ListArgCheck("environment", argv[adx]);
 
@@ -313,11 +313,11 @@ Define("interaction-environment", InteractionEnvironmentPrimitive)(int_t argc, F
     return(env);
 }
 
-Define("environment", EnvironmentPrimitive)(int_t argc, FObject argv[])
+Define("environment", EnvironmentPrimitive)(long_t argc, FObject argv[])
 {
     FObject env = MakeEnvironment(EmptyListObject, FalseObject);
 
-    for (int_t adx = 0; adx < argc; adx++)
+    for (long_t adx = 0; adx < argc; adx++)
     {
         ListArgCheck("environment", argv[adx]);
 
@@ -328,14 +328,14 @@ Define("environment", EnvironmentPrimitive)(int_t argc, FObject argv[])
     return(env);
 }
 
-Define("syntax", SyntaxPrimitive)(int_t argc, FObject argv[])
+Define("syntax", SyntaxPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("syntax", argc);
 
     return(ExpandExpression(NoValueObject, MakeSyntacticEnv(GetInteractionEnv()), argv[0]));
 }
 
-Define("unsyntax", UnsyntaxPrimitive)(int_t argc, FObject argv[])
+Define("unsyntax", UnsyntaxPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("unsyntax", argc);
 
@@ -396,6 +396,6 @@ void SetupCompile()
     FAssert(AnalysisPassSymbol == StringCToSymbol("analysis-pass"));
     FAssert(InteractionEnv == NoValueObject);
 
-    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (ulong_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 }

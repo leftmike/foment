@@ -36,7 +36,7 @@ static FObject RaiseHandler = NoValueObject;
 
 // ---- Procedure ----
 
-FObject MakeProcedure(FObject nam, FObject fn, FObject ln, FObject cv, int_t ac, uint_t fl)
+FObject MakeProcedure(FObject nam, FObject fn, FObject ln, FObject cv, long_t ac, ulong_t fl)
 {
     FProcedure * p = (FProcedure *) MakeObject(ProcedureTag, sizeof(FProcedure), 4,
             "%make-procedure");
@@ -178,7 +178,7 @@ void WriteInstruction(FWriteContext * wctx, FObject obj)
     FAssert(InstructionP(obj));
 
     FCh s[16];
-    int_t sl = FixnumAsString(InstructionArg(obj), s, 10);
+    long_t sl = FixnumAsString(InstructionArg(obj), s, 10);
 
     wctx->WriteStringC("#<");
 
@@ -258,7 +258,7 @@ static FObject FindMark(FObject key, FObject dflt)
     return(dflt);
 }
 
-static int_t PrepareHandler(FThreadState * ts, FObject hdlr, FObject key, FObject obj)
+static long_t PrepareHandler(FThreadState * ts, FObject hdlr, FObject key, FObject obj)
 {
     if (ProcedureP(hdlr))
     {
@@ -304,7 +304,7 @@ static FObject Execute(FThreadState * ts)
 
         FAssert(VectorP(AsProcedure(ts->Proc)->Code));
         FAssert(ts->IP >= 0);
-        FAssert(ts->IP < (int_t) VectorLength(AsProcedure(ts->Proc)->Code));
+        FAssert(ts->IP < (long_t) VectorLength(AsProcedure(ts->Proc)->Code));
 
         FObject obj = AsVector(AsProcedure(ts->Proc)->Code)->Vector[ts->IP];
         ts->IP += 1;
@@ -342,7 +342,7 @@ static FObject Execute(FThreadState * ts)
                 {
                     FObject lst = EmptyListObject;
 
-                    int_t ac = ts->ArgCount;
+                    long_t ac = ts->ArgCount;
                     while (ac > InstructionArg(obj))
                     {
                         ts->AStackPtr -= 1;
@@ -360,7 +360,7 @@ static FObject Execute(FThreadState * ts)
                 FAssert(InstructionArg(obj) > 0);
 
                 FObject lst = EmptyListObject;
-                int_t ac = InstructionArg(obj);
+                long_t ac = InstructionArg(obj);
                 while (ac > 0)
                 {
                     ts->AStackPtr -= 1;
@@ -454,7 +454,7 @@ static FObject Execute(FThreadState * ts)
 
             case GetFrameOpcode:
                 FAssert(VectorP(ts->Frame));
-                FAssert((uint_t) InstructionArg(obj) < VectorLength(ts->Frame));
+                FAssert((ulong_t) InstructionArg(obj) < VectorLength(ts->Frame));
 
                 ts->AStack[ts->AStackPtr] = AsVector(ts->Frame)->Vector[InstructionArg(obj)];
                 ts->AStackPtr += 1;
@@ -462,7 +462,7 @@ static FObject Execute(FThreadState * ts)
 
             case SetFrameOpcode:
                 FAssert(VectorP(ts->Frame));
-                FAssert((uint_t) InstructionArg(obj) < VectorLength(ts->Frame));
+                FAssert((ulong_t) InstructionArg(obj) < VectorLength(ts->Frame));
                 FAssert(ts->AStackPtr > 0);
 
                 ts->AStackPtr -= 1;
@@ -474,7 +474,7 @@ static FObject Execute(FThreadState * ts)
             case GetVectorOpcode:
                 FAssert(ts->AStackPtr > 0);
                 FAssert(VectorP(ts->AStack[ts->AStackPtr - 1]));
-                FAssert((uint_t) InstructionArg(obj)
+                FAssert((ulong_t) InstructionArg(obj)
                         < VectorLength(ts->AStack[ts->AStackPtr - 1]));
 
                 ts->AStack[ts->AStackPtr - 1] = AsVector(ts->AStack[ts->AStackPtr - 1])->Vector[
@@ -484,7 +484,7 @@ static FObject Execute(FThreadState * ts)
             case SetVectorOpcode:
                 FAssert(ts->AStackPtr > 1);
                 FAssert(VectorP(ts->AStack[ts->AStackPtr - 1]));
-                FAssert((uint_t) InstructionArg(obj)
+                FAssert((ulong_t) InstructionArg(obj)
                         < VectorLength(ts->AStack[ts->AStackPtr - 1]));
 
 //                AsVector(ts->AStack[ts->AStackPtr - 1])->Vector[InstructionArg(obj)] =
@@ -596,7 +596,7 @@ static FObject Execute(FThreadState * ts)
                 if (ProcedureP(op))
                 {
 CallProcedure:
-                    if ((uint_t) ts->AStackPtr + 128 > ts->Stack.BottomUsed / sizeof(FObject))
+                    if ((ulong_t) ts->AStackPtr + 128 > ts->Stack.BottomUsed / sizeof(FObject))
                     {
                         if (GrowMemRegionUp(&ts->Stack,
                                 (ts->AStackPtr + 128) * sizeof(FObject)) == 0)
@@ -604,7 +604,7 @@ CallProcedure:
                                     EmptyListObject);
                     }
 
-                    if ((uint_t) ts->CStackPtr + 128 > ts->Stack.TopUsed / sizeof(FObject))
+                    if ((ulong_t) ts->CStackPtr + 128 > ts->Stack.TopUsed / sizeof(FObject))
                     {
                         if (GrowMemRegionDown(&ts->Stack,
                                 (ts->CStackPtr + 128) * sizeof(FObject)) == 0)
@@ -796,7 +796,7 @@ TailCallPrimitive:
                 FAssert(ts->AStackPtr > 0);
                 FAssert(InstructionArg(obj) >= 0);
 
-                int_t vc;
+                long_t vc;
 
                 if (ValuesCountP(ts->AStack[ts->AStackPtr - 1]))
                 {
@@ -881,7 +881,7 @@ TailCallPrimitive:
                 FObject prc = ts->AStack[ts->AStackPtr - ts->ArgCount];
                 FObject lst = ts->AStack[ts->AStackPtr - 1];
 
-                int_t adx = ts->ArgCount;
+                long_t adx = ts->ArgCount;
                 while (adx > 2)
                 {
                     ts->AStack[ts->AStackPtr - adx] = ts->AStack[ts->AStackPtr - adx + 1];
@@ -891,7 +891,7 @@ TailCallPrimitive:
                 ts->ArgCount -= 2;
                 ts->AStackPtr -= 2;
 
-                if ((uint_t) ts->CStackPtr + 128 > ts->Stack.TopUsed / sizeof(FObject))
+                if ((ulong_t) ts->CStackPtr + 128 > ts->Stack.TopUsed / sizeof(FObject))
                 {
                     if (GrowMemRegionDown(&ts->Stack,
                             (ts->CStackPtr + 128) * sizeof(FObject)) == 0)
@@ -899,8 +899,8 @@ TailCallPrimitive:
                                 EmptyListObject);
                 }
 
-                int_t ll = ListLength("apply", lst);
-                if ((uint_t) ts->AStackPtr + ll + 128 > ts->Stack.BottomUsed / sizeof(FObject))
+                long_t ll = ListLength("apply", lst);
+                if ((ulong_t) ts->AStackPtr + ll + 128 > ts->Stack.BottomUsed / sizeof(FObject))
                 {
                     if (GrowMemRegionUp(&ts->Stack,
                             (ts->AStackPtr + ll + 128) * sizeof(FObject)) == 0)
@@ -921,7 +921,7 @@ TailCallPrimitive:
                     ts->ArgCount += 1;
                     ptr = Rest(ptr);
 
-                    FAssert((uint_t) ts->AStackPtr <= ts->Stack.BottomUsed / sizeof(FObject));
+                    FAssert((ulong_t) ts->AStackPtr <= ts->Stack.BottomUsed / sizeof(FObject));
                 }
 
                 if (ptr != EmptyListObject)
@@ -934,14 +934,14 @@ TailCallPrimitive:
 
             case CaseLambdaOpcode:
             {
-                int_t cc = InstructionArg(obj);
-                int_t idx = 0;
+                long_t cc = InstructionArg(obj);
+                long_t idx = 0;
 
                 while (cc > 0)
                 {
                     FAssert(VectorP(AsProcedure(ts->Proc)->Code));
                     FAssert(ts->IP + idx >= 0);
-                    FAssert(ts->IP + idx < (int_t) VectorLength(AsProcedure(ts->Proc)->Code));
+                    FAssert(ts->IP + idx < (long_t) VectorLength(AsProcedure(ts->Proc)->Code));
 
                     FObject prc = AsVector(AsProcedure(ts->Proc)->Code)->Vector[ts->IP + idx];
 
@@ -1002,7 +1002,7 @@ TailCallPrimitive:
                 ts->AStackPtr = AsFixnum(AsContinuation(cont)->AStackPtr);
 
                 FAssert(VectorP(AsContinuation(cont)->AStack));
-                for (int_t adx = 0; adx < ts->AStackPtr; adx++)
+                for (long_t adx = 0; adx < ts->AStackPtr; adx++)
                     ts->AStack[adx] = AsVector(AsContinuation(cont)->AStack)->Vector[adx];
 
                 FAssert(FixnumP(AsContinuation(cont)->CStackPtr));
@@ -1010,7 +1010,7 @@ TailCallPrimitive:
 
                 FAssert(VectorP(AsContinuation(cont)->CStack));
                 FObject * cs = ts->CStack - ts->CStackPtr + 1;
-                for (int_t cdx = 0; cdx < ts->CStackPtr; cdx++)
+                for (long_t cdx = 0; cdx < ts->CStackPtr; cdx++)
                     cs[cdx] = AsVector(AsContinuation(cont)->CStack)->Vector[cdx];
                 ts->ArgCount = 0;
                 goto TailCall;
@@ -1057,7 +1057,7 @@ TailCallPrimitive:
                 FObject who = ts->AStack[ts->AStackPtr - 4];
                 ts->AStackPtr -= 4;
 
-                int_t idx = ts->CStackPtr - 3; // WantValuesObject, Proc, IP
+                long_t idx = ts->CStackPtr - 3; // WantValuesObject, Proc, IP
 
                 if (PairP(ts->DynamicStack))
                 {
@@ -1142,14 +1142,14 @@ FObject ExecuteProc(FObject op)
     }
 }
 
-Define("procedure?", ProcedurePPrimitive)(int_t argc, FObject argv[])
+Define("procedure?", ProcedurePPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("procedure?", argc);
 
     return((ProcedureP(argv[0]) || PrimitiveP(argv[0])) ? TrueObject : FalseObject);
 }
 
-Define("%map-car", MapCarPrimitive)(int_t argc, FObject argv[])
+Define("%map-car", MapCarPrimitive)(long_t argc, FObject argv[])
 {
     // (%map-car lists)
 
@@ -1170,7 +1170,7 @@ Define("%map-car", MapCarPrimitive)(int_t argc, FObject argv[])
     return(ReverseListModify(ret));
 }
 
-Define("%map-cdr", MapCdrPrimitive)(int_t argc, FObject argv[])
+Define("%map-cdr", MapCdrPrimitive)(long_t argc, FObject argv[])
 {
     // (%map-cdr lists)
 
@@ -1191,7 +1191,7 @@ Define("%map-cdr", MapCdrPrimitive)(int_t argc, FObject argv[])
     return(ReverseListModify(ret));
 }
 
-Define("%map-strings", MapStringsPrimitive)(int_t argc, FObject argv[])
+Define("%map-strings", MapStringsPrimitive)(long_t argc, FObject argv[])
 {
     // (%map-strings index strings)
 
@@ -1199,7 +1199,7 @@ Define("%map-strings", MapStringsPrimitive)(int_t argc, FObject argv[])
     FMustBe(FixnumP(argv[0]));
     FMustBe(AsFixnum(argv[0]) >= 0);
 
-    int_t idx = AsFixnum(argv[0]);
+    long_t idx = AsFixnum(argv[0]);
     FObject ret = EmptyListObject;
     FObject lst = argv[1];
 
@@ -1207,7 +1207,7 @@ Define("%map-strings", MapStringsPrimitive)(int_t argc, FObject argv[])
     {
         StringArgCheck("string-map", First(lst));
 
-        if (idx == (int_t) StringLength(First(lst)))
+        if (idx == (long_t) StringLength(First(lst)))
             return(EmptyListObject);
 
         ret = MakePair(MakeCharacter(AsString(First(lst))->String[idx]), ret);
@@ -1217,7 +1217,7 @@ Define("%map-strings", MapStringsPrimitive)(int_t argc, FObject argv[])
     return(ReverseListModify(ret));
 }
 
-Define("%map-vectors", MapVectorsPrimitive)(int_t argc, FObject argv[])
+Define("%map-vectors", MapVectorsPrimitive)(long_t argc, FObject argv[])
 {
     // (%map-vectors index vectors)
 
@@ -1225,7 +1225,7 @@ Define("%map-vectors", MapVectorsPrimitive)(int_t argc, FObject argv[])
     FMustBe(FixnumP(argv[0]));
     FMustBe(AsFixnum(argv[0]) >= 0);
 
-    int_t idx = AsFixnum(argv[0]);
+    long_t idx = AsFixnum(argv[0]);
     FObject ret = EmptyListObject;
     FObject lst = argv[1];
 
@@ -1233,7 +1233,7 @@ Define("%map-vectors", MapVectorsPrimitive)(int_t argc, FObject argv[])
     {
         VectorArgCheck("vector-map", First(lst));
 
-        if (idx == (int_t) VectorLength(First(lst)))
+        if (idx == (long_t) VectorLength(First(lst)))
             return(EmptyListObject);
 
         ret = MakePair(AsVector(First(lst))->Vector[idx], ret);
@@ -1243,7 +1243,7 @@ Define("%map-vectors", MapVectorsPrimitive)(int_t argc, FObject argv[])
     return(ReverseListModify(ret));
 }
 
-Define("%execute-thunk", ExecuteThunkPrimitive)(int_t argc, FObject argv[])
+Define("%execute-thunk", ExecuteThunkPrimitive)(long_t argc, FObject argv[])
 {
     // (%execute-thunk <proc>)
 
@@ -1254,7 +1254,7 @@ Define("%execute-thunk", ExecuteThunkPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("%set-raise-handler!", SetRaiseHandlerPrimitive)(int_t argc, FObject argv[])
+Define("%set-raise-handler!", SetRaiseHandlerPrimitive)(long_t argc, FObject argv[])
 {
     // (%set-raise-handler! <proc>)
 
@@ -1265,7 +1265,7 @@ Define("%set-raise-handler!", SetRaiseHandlerPrimitive)(int_t argc, FObject argv
     return(NoValueObject);
 }
 
-Define("%set-notify-handler!", SetNotifyHandlerPrimitive)(int_t argc, FObject argv[])
+Define("%set-notify-handler!", SetNotifyHandlerPrimitive)(long_t argc, FObject argv[])
 {
     // (%set-notify-handler! <proc>)
 
@@ -1276,7 +1276,7 @@ Define("%set-notify-handler!", SetNotifyHandlerPrimitive)(int_t argc, FObject ar
     return(NoValueObject);
 }
 
-Define("%interactive-thunk", InteractiveThunkPrimitive)(int_t argc, FObject argv[])
+Define("%interactive-thunk", InteractiveThunkPrimitive)(long_t argc, FObject argv[])
 {
     // (%interactive-thunk <proc>)
 
@@ -1287,13 +1287,13 @@ Define("%interactive-thunk", InteractiveThunkPrimitive)(int_t argc, FObject argv
     return(NoValueObject);
 }
 
-Define("%bytes-allocated", BytesAllocatedPrimitive)(int_t argc, FObject argv[])
+Define("%bytes-allocated", BytesAllocatedPrimitive)(long_t argc, FObject argv[])
 {
     // (%bytes-allocated)
 
     FMustBe(argc == 0);
 
-    uint_t ba = BytesAllocated;
+    ulong_t ba = BytesAllocated;
     BytesAllocated = 0;
 
     return(MakeFixnum(ba));
@@ -1301,7 +1301,7 @@ Define("%bytes-allocated", BytesAllocatedPrimitive)(int_t argc, FObject argv[])
 
 #define ParameterP(obj) (ProcedureP(obj) && (AsProcedure(obj)->Flags & PROCEDURE_FLAG_PARAMETER))
 
-Define("%dynamic-stack", DynamicStackPrimitive)(int_t argc, FObject argv[])
+Define("%dynamic-stack", DynamicStackPrimitive)(long_t argc, FObject argv[])
 {
     // (%dynamic-stack)
     // (%dynamic-stack <stack>)
@@ -1321,7 +1321,7 @@ Define("%dynamic-stack", DynamicStackPrimitive)(int_t argc, FObject argv[])
     return(ds);
 }
 
-Define("%dynamic-marks", DynamicMarksPrimitive)(int_t argc, FObject argv[])
+Define("%dynamic-marks", DynamicMarksPrimitive)(long_t argc, FObject argv[])
 {
     // (%dynamic-marks <dynamic>)
 
@@ -1331,7 +1331,7 @@ Define("%dynamic-marks", DynamicMarksPrimitive)(int_t argc, FObject argv[])
     return(AsDynamic(argv[0])->Marks);
 }
 
-Define("%parameters", ParametersPrimitive)(int_t argc, FObject argv[])
+Define("%parameters", ParametersPrimitive)(long_t argc, FObject argv[])
 {
     // (%parameters)
 
@@ -1340,7 +1340,7 @@ Define("%parameters", ParametersPrimitive)(int_t argc, FObject argv[])
     return(GetThreadState()->Parameters);
 }
 
-Define("%procedure->parameter", ProcedureToParameterPrimitive)(int_t argc, FObject argv[])
+Define("%procedure->parameter", ProcedureToParameterPrimitive)(long_t argc, FObject argv[])
 {
     // (%procedure->parameter <proc>)
 
@@ -1352,7 +1352,7 @@ Define("%procedure->parameter", ProcedureToParameterPrimitive)(int_t argc, FObje
     return(NoValueObject);
 }
 
-Define("%parameter?", ParameterPPrimitive)(int_t argc, FObject argv[])
+Define("%parameter?", ParameterPPrimitive)(long_t argc, FObject argv[])
 {
     // (%parameter? <obj>)
 
@@ -1361,7 +1361,7 @@ Define("%parameter?", ParameterPPrimitive)(int_t argc, FObject argv[])
     return(ParameterP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("%index-parameter", IndexParameterPrimitive)(int_t argc, FObject argv[])
+Define("%index-parameter", IndexParameterPrimitive)(long_t argc, FObject argv[])
 {
     // (%index-parameter <index>)
     // (%index-parameter <index> <value>)
@@ -1382,7 +1382,7 @@ Define("%index-parameter", IndexParameterPrimitive)(int_t argc, FObject argv[])
     return(NoValueObject);
 }
 
-Define("%find-mark", FindMarkPrimitive)(int_t argc, FObject argv[])
+Define("%find-mark", FindMarkPrimitive)(long_t argc, FObject argv[])
 {
     // (%find-mark <key> <default>)
 
@@ -1456,7 +1456,7 @@ void SetupExecute()
     FAssert(NotifyHandlerSymbol == StringCToSymbol("notify-handler"));
     FAssert(SigIntSymbol == StringCToSymbol("sigint"));
 
-    for (uint_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
+    for (ulong_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 
     v[0] = MakeInstruction(ValuesOpcode, 0);
