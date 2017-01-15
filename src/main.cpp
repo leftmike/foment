@@ -752,6 +752,7 @@ int main(int argc, FChS * argv[])
     {
         printf("error: unexpected exception setting up foment: %p\n", obj);
         WriteSimple(StandardOutput, obj, 0);
+        ExitFoment();
         return(1);
     }
 
@@ -760,7 +761,10 @@ int main(int argc, FChS * argv[])
     try
     {
         if (ProcessOptions(LateConfig, argc, argv, &pdx) == 0)
+        {
+            ExitFoment();
             return(1);
+        }
 
         FullCommandLine = MakeCommandLine(argc, argv);
         if (pdx != 0)
@@ -790,6 +794,7 @@ int main(int argc, FChS * argv[])
             WriteStringC(StandardOutput, "exception: ");
         WriteSimple(StandardOutput, obj, 0);
         WriteCh(StandardOutput, '\n');
+        ExitFoment();
         return(1);
     }
 }
