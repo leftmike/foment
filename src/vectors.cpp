@@ -87,8 +87,10 @@ Define("vector?", VectorPPrimitive)(long_t argc, FObject argv[])
 Define("make-vector", MakeVectorPrimitive)(long_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("make-vector", argc);
-    NonNegativeArgCheck("make-vector", argv[0], 0);
+    NonNegativeArgCheck("make-vector", argv[0], 1);
 
+    if (FixnumP(argv[0]) == 0)
+        RaiseExceptionC(Restriction, "make-vector", "object too big", argv[0]);
     return(MakeVector(AsFixnum(argv[0]), 0, argc == 2 ? argv[1] : NoValueObject));
 }
 
@@ -455,7 +457,10 @@ Define("bytevector?", BytevectorPPrimitive)(long_t argc, FObject argv[])
 Define("make-bytevector", MakeBytevectorPrimitive)(long_t argc, FObject argv[])
 {
     OneOrTwoArgsCheck("make-bytevector", argc);
-    NonNegativeArgCheck("make-bytevector", argv[0], 0);
+    NonNegativeArgCheck("make-bytevector", argv[0], 1);
+
+    if (FixnumP(argv[0]) == 0)
+        RaiseExceptionC(Restriction, "make-bytevector", "object too big", argv[0]);
 
     if (argc == 2)
         ByteArgCheck("make-bytevector", argv[1]);
