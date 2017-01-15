@@ -46,7 +46,9 @@ typedef struct
     ulong_t Digits[1];
 } FBignum;
 
+#ifdef FOMENT_DEBUG
 static char * NBignumToStringC(FObject bn, long_t rdx);
+#endif // FOMENT_DEBUG
 static inline ulong_t DigitCount(FObject bn)
 {
     FAssert(BignumP(bn));
@@ -212,6 +214,7 @@ double64_t BignumToDouble(FObject bn)
     return(mpz_get_d(AsBignum(bn)));
 }
 
+#ifdef FOMENT_DEBUG
 /*
 Destructively divide bn by digit; the quotient is left in bn and the remainder is returned;
 hdigit must fit in half a ulong_t. The quotient is not normalized.
@@ -240,12 +243,14 @@ static ulong_t BignumHDigitDivide(FBignum * bn, ulong_t hdigit)
 
     return(r1);
 }
+#endif // FOMENT_DEBUG
 
 char * BignumToStringC(FObject bn, long_t rdx)
 {
     return(mpz_get_str(0, (int) rdx, AsBignum(bn)));
 }
 
+#ifdef FOMENT_DEBUG
 static const char DigitTable[] = "0123456789abcdefghijklmnopqrstuvwxyz";
 
 static char * NBignumToStringC(FObject bn, long_t rdx)
@@ -295,6 +300,7 @@ static char * NBignumToStringC(FObject bn, long_t rdx)
 
     return(ret);
 }
+#endif // FOMENT_DEBUG
 
 static inline long_t TensDigit(double64_t n)
 {
