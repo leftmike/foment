@@ -247,7 +247,7 @@ static ulong_t BufferedReadBytes(FObject port, void * b, ulong_t bl)
             bc->Used = 0;
             bc->Available = ReadBytes(AsGenericPort(port)->Object, bc->Buffer, bc->Maximum);
             if (bc->Available == 0)
-                return(0);
+                return(br);
         }
 
         FAssert(bc->Used < bc->Available);

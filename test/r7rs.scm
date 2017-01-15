@@ -4661,6 +4661,28 @@
 (check-error (assertion-violation open-binary-input-file) (open-binary-input-file 'r7rs.scm))
 (check-error (assertion-violation open-binary-input-file) (open-binary-input-file "r7rs.scm" 2))
 
+(check-equal 3
+    (let* ((f (open-binary-input-file "input.txt"))
+           (b (read-bytevector 3 f)))
+        (close-input-port f)
+        (bytevector-length b)))
+(check-equal 25
+    (let* ((f (open-binary-input-file "input.txt"))
+           (b (read-bytevector 25 f)))
+        (close-input-port f)
+        (bytevector-length b)))
+(check-equal 52
+    (let* ((f (open-binary-input-file "input.txt"))
+           (b (read-bytevector 52 f)))
+        (close-input-port f)
+        (bytevector-length b)))
+;; #13: when using read-byte-vector on a file, the last bytes of the file are lost
+(check-equal 52
+    (let* ((f (open-binary-input-file "input.txt"))
+           (b (read-bytevector 128 f)))
+        (close-input-port f)
+        (if (eof-object? b) b (bytevector-length b))))
+
 (check-equal #t
     (let* ((p (open-output-file "output.txt"))
         (val (output-port-open? p)))
