@@ -55,7 +55,7 @@ static long_t SpecialStringEqualP(FObject str1, FObject str2)
 
     ulong_t sdx;
     for (sdx = 0; sdx < StringLength(obj); sdx++)
-        if (cs[sdx] == 0 || AsString(obj)->String[sdx] != cs[sdx])
+        if (cs[sdx] == 0 || AsString(obj)->String[sdx] != (FCh) cs[sdx])
             return(0);
     return(cs[sdx] == 0);
 }
@@ -1127,9 +1127,9 @@ static long_t SpecialStringLengthEqualP(FCh * s, long_t sl, FObject str)
     FAssert(CStringP(str));
 
     const char * cs = AsCString(str)->String;
-    ulong_t sdx;
+    long_t sdx;
     for (sdx = 0; sdx < sl; sdx++)
-        if (cs[sdx] == 0 || s[sdx] != cs[sdx])
+        if (cs[sdx] == 0 || s[sdx] != (FCh) cs[sdx])
             return(0);
     return(cs[sdx] == 0);
 }

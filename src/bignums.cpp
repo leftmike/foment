@@ -272,7 +272,7 @@ static char * NBignumToStringC(FObject bn, long_t rdx)
     {
         ulong_t dgt = BignumHDigitDivide(tbn, rdx);
 
-        FAssert(dgt >= 0 && dgt < rdx);
+        FAssert(dgt >= 0 && dgt < (ulong_t) rdx);
 
         *s = DigitTable[dgt];
         s += 1;
