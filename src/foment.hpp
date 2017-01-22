@@ -239,6 +239,8 @@ typedef enum
 
 // ---- Memory Management ----
 
+#define OBJECT_ALIGNMENT 8
+
 typedef enum
 {
     NoCollector,
@@ -349,7 +351,7 @@ typedef struct
     {sizeof(type) / sizeof(FObjHdr), 0, tag | OBJHDR_GEN_ETERNAL}
 
 #define EternalObjHdrSlots(type, sc, tag) \
-    {sizeof(type) / sizeof(FObjHdr), (sizeof(type) / sizeof(FObjHdr)) - sc, \
+    {sizeof(type) / sizeof(FObjHdr), (sizeof(type) / sizeof(FObject)) - sc, \
             tag | OBJHDR_GEN_ETERNAL | OBJHDR_HAS_SLOTS}
 
 #define EternalObjFtr \

@@ -1206,9 +1206,16 @@ FObject StringLengthToSymbol(FCh * s, long_t sl)
 FObject InternSymbol(FObject sym)
 {
     FAssert(SymbolP(sym));
+    FAssert(((ulong_t) sym) % OBJECT_ALIGNMENT == 0);
     FAssert(AsObjHdr(sym)->Generation() == OBJHDR_GEN_ETERNAL);
+    FAssert(AsObjHdr(sym)->SlotCount() == 1);
+    FAssert(AsObjHdr(sym)->ObjectSize() >= sizeof(FSymbol));
+
     FAssert(CStringP(AsSymbol(sym)->String));
+    FAssert(((ulong_t) AsSymbol(sym)->String) % OBJECT_ALIGNMENT == 0);
     FAssert(AsObjHdr(AsSymbol(sym)->String)->Generation() == OBJHDR_GEN_ETERNAL);
+    FAssert(AsObjHdr(AsSymbol(sym)->String)->SlotCount() == 0);
+    FAssert(AsObjHdr(AsSymbol(sym)->String)->ObjectSize() >= sizeof(FCString));
 
     FObject obj = HashTableRef(SymbolHashTable, AsSymbol(sym)->String, NoValueObject);
     if (obj == NoValueObject)

@@ -32,7 +32,6 @@ Foment
 
 #define GC_PAGE_SIZE 4096
 
-#define OBJECT_ALIGNMENT 8
 const static ulong_t Align[8] = {0, 7, 6, 5, 4, 3, 2, 1};
 
 FCollectorType CollectorType = MarkSweepCollector;
@@ -623,6 +622,10 @@ FObject MakeObject(ulong_t tag, ulong_t sz, ulong_t sc, const char * who, long_t
     of->Feet[0] = OBJFTR_FEET;
     of->Feet[1] = OBJFTR_FEET;
 #endif // FOMENT_OBJFTR
+
+    FAssert(oh->ObjectSize() >= sz);
+    FAssert(oh->SlotCount() == sc);
+    FAssert(oh->Tag() == tag);
 
     return(oh + 1);
 }
@@ -1939,6 +1942,7 @@ long_t SetupCore(FThreadState * ts)
     FAssert(sizeof(FObjFtr) == OBJECT_ALIGNMENT);
     FAssert(BadDogTag <= OBJHDR_TAG_MASK + 1);
     FAssert(sizeof(FObject) <= OBJECT_ALIGNMENT);
+    FAssert(sizeof(FBuiltinType) % OBJECT_ALIGNMENT == 0);
     FAssert(sizeof(FCString) % OBJECT_ALIGNMENT == 0);
     FAssert(sizeof(FSymbol) % OBJECT_ALIGNMENT == 0);
     FAssert(sizeof(FPrimitive) % OBJECT_ALIGNMENT == 0);
