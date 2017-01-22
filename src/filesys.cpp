@@ -89,7 +89,8 @@ Define("file-size", FileSizePrimitive)(long_t argc, FObject argv[])
     if (GetFileAttributesExW((FCh16 *) AsBytevector(bv)->Vector, GetFileExInfoStandard, &fad)
             == 0 || (fad.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
         RaiseExceptionC(Assertion, "file-size", FileErrorSymbol, "not a file", List(argv[0]));
-    return(MakeInteger(fad.nFileSizeHigh, fad.nFileSizeLow));
+    return(MakeIntegerFromUInt64(
+            ((uint64_t) fad.nFileSizeHigh) << 32 | ((uint64_t) fad.nFileSizeLow)));
 #endif // FOMENT_WINDOWS
 #ifdef FOMENT_UNIX
     FObject bv = ConvertStringToUtf8(argv[0]);
@@ -101,7 +102,7 @@ Define("file-size", FileSizePrimitive)(long_t argc, FObject argv[])
     if (stat((const char *) AsBytevector(bv)->Vector, &st) != 0 || S_ISREG(st.st_mode) == 0)
         RaiseExceptionC(Assertion, "file-size", FileErrorSymbol, "not a file", List(argv[0]));
 
-    return(MakeIntegerU(st.st_size));
+    return(MakeIntegerFromUInt64(st.st_size));
 #endif // FOMENT_UNIX
 }
 
@@ -334,7 +335,7 @@ Define("file-stat-mtime", FileStatMtimePrimitive)(long_t argc, FObject argv[])
     if (GetFileAttributesExW((FCh16 *) AsBytevector(bv)->Vector, GetFileExInfoStandard, &fad) == 0)
         RaiseExceptionC(Assertion, "file-stat-mtime", FileErrorSymbol,
                 "not a file or directory", List(argv[0]));
-    return(MakeIntegerU(ConvertTime(&fad.ftLastWriteTime)));
+    return(MakeIntegerFromUInt64(ConvertTime(&fad.ftLastWriteTime)));
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
@@ -348,7 +349,7 @@ Define("file-stat-mtime", FileStatMtimePrimitive)(long_t argc, FObject argv[])
         RaiseExceptionC(Assertion, "file-stat-mtime", FileErrorSymbol,
                 "not a file or directory", List(argv[0]));
 
-    return(MakeIntegerU(st.st_mtime));
+    return(MakeIntegerFromUInt64(st.st_mtime));
 #endif // FOMENT_UNIX
 }
 
@@ -367,7 +368,7 @@ Define("file-stat-atime", FileStatAtimePrimitive)(long_t argc, FObject argv[])
     if (GetFileAttributesExW((FCh16 *) AsBytevector(bv)->Vector, GetFileExInfoStandard, &fad) == 0)
         RaiseExceptionC(Assertion, "file-stat-atime", FileErrorSymbol,
                 "not a file or directory", List(argv[0]));
-    return(MakeIntegerU(ConvertTime(&fad.ftLastAccessTime)));
+    return(MakeIntegerFromUInt64(ConvertTime(&fad.ftLastAccessTime)));
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
@@ -381,7 +382,7 @@ Define("file-stat-atime", FileStatAtimePrimitive)(long_t argc, FObject argv[])
         RaiseExceptionC(Assertion, "file-stat-atime", FileErrorSymbol,
                 "not a file or directory", List(argv[0]));
 
-    return(MakeIntegerU(st.st_atime));
+    return(MakeIntegerFromUInt64(st.st_atime));
 #endif // FOMENT_UNIX
 }
 
@@ -410,7 +411,7 @@ Define("create-symbolic-link", CreateSymbolicLinkPrimitive)(long_t argc, FObject
             == 0)
         RaiseExceptionC(Assertion, "create-symbolic-link", FileErrorSymbol,
                 "unable to create symbolic link", List(argv[0], argv[1],
-                MakeIntegerU(GetLastError())));
+                MakeIntegerFromUInt64(GetLastError())));
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
@@ -445,7 +446,7 @@ Define("rename-file", RenameFilePrimitive)(long_t argc, FObject argv[])
     if (MoveFileExW((FCh16 *) AsBytevector(bv1)->Vector, (FCh16 *) AsBytevector(bv2)->Vector,
             MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING) == 0)
         RaiseExceptionC(Assertion, "rename-file", FileErrorSymbol, "unable to rename file",
-                List(argv[0], argv[1], MakeIntegerU(GetLastError())));
+                List(argv[0], argv[1], MakeIntegerFromUInt64(GetLastError())));
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
@@ -476,7 +477,8 @@ Define("create-directory", CreateDirectoryPrimitive)(long_t argc, FObject argv[]
 
     if (CreateDirectoryW((FCh16 *) AsBytevector(bv)->Vector, 0) == 0)
         RaiseExceptionC(Assertion, "create-directory", FileErrorSymbol,
-                "unable to create directory", List(argv[0], MakeIntegerU(GetLastError())));
+                "unable to create directory", List(argv[0],
+                MakeIntegerFromUInt64(GetLastError())));
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
@@ -504,7 +506,8 @@ Define("delete-directory", DeleteDirectoryPrimitive)(long_t argc, FObject argv[]
 
     if (RemoveDirectoryW((FCh16 *) AsBytevector(bv)->Vector) == 0)
         RaiseExceptionC(Assertion, "delete-directory", FileErrorSymbol,
-                "unable to delete directory", List(argv[0], MakeIntegerU(GetLastError())));
+                "unable to delete directory", List(argv[0],
+                MakeIntegerFromUInt64(GetLastError())));
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
@@ -549,7 +552,8 @@ Define("list-directory", ListDirectoryPrimitive)(long_t argc, FObject argv[])
     HANDLE dh = FindFirstFileW(us, &wfd);
     if (dh == INVALID_HANDLE_VALUE)
         RaiseExceptionC(Assertion, "list-directory", FileErrorSymbol,
-                "unable to list directory", List(argv[0], MakeIntegerU(GetLastError())));
+                "unable to list directory", List(argv[0],
+                MakeIntegerFromUInt64(GetLastError())));
     do
     {
         if ((wfd.cFileName[0] == '.' && (wfd.cFileName[1] == 0 ||
@@ -604,7 +608,8 @@ Define("current-directory", CurrentDirectoryPrimitive)(long_t argc, FObject argv
         if (SetCurrentDirectoryW((FCh16 *) AsBytevector(bv)->Vector) == 0)
             RaiseExceptionC(Assertion, "current-directory", FileErrorSymbol,
                     "unable to set current directory",
-                    List(argv[0], MakeIntegerU(GetLastError())));
+                    List(argv[0],
+                    MakeIntegerFromUInt64(GetLastError())));
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX

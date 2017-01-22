@@ -368,7 +368,7 @@ int WhitespaceP(FCh ch)
     return(0);
 }
 
-int DigitValue(FCh ch)
+int32_t DigitValue(FCh ch)
 {
     // From:
     // DerivedNumericType-6.2.0.txt

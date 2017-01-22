@@ -136,6 +136,8 @@ typedef char FChS;
 #endif // BSD
 #endif // FOMENT_UNIX
 
+#define FOMENT_LITTLE_ENDIAN 1
+
 typedef void * FObject;
 typedef uint32_t FCh;
 
@@ -1239,9 +1241,8 @@ long_t NonNegativeExactIntegerP(FObject obj, long_t bf);
 FObject ToInexact(FObject n);
 FObject ToExact(FObject n);
 
-FObject MakeInteger(int64_t n);
-FObject MakeIntegerU(uint64_t n);
-FObject MakeInteger(uint32_t high, uint32_t low);
+FObject MakeIntegerFromInt64(int64_t n);
+FObject MakeIntegerFromUInt64(uint64_t n);
 uint32_t NumberHash(FObject obj);
 
 FObject GenericAdd(FObject z1, FObject z2);
@@ -1313,6 +1314,7 @@ typedef struct
 FObject MakeLibrary(FObject nam);
 void LibraryExport(FObject lib, FObject gl);
 FObject OpenFomentLibrary(FObject nam);
+int LittleEndianP();
 
 // ---- Syntax Rules ----
 

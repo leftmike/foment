@@ -41,7 +41,7 @@ inline FObject ConvertStringToUtf16(FObject s)
 }
 
 int WhitespaceP(FCh ch);
-int DigitValue(FCh ch);
+int32_t DigitValue(FCh ch);
 unsigned int AlphabeticP(FCh ch);
 unsigned int UppercaseP(FCh ch);
 unsigned int LowercaseP(FCh ch);

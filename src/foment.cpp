@@ -1229,7 +1229,7 @@ static const char * FeaturesC[] =
     "foment-" FOMENT_VERSION
 };
 
-static int LittleEndianP()
+int LittleEndianP()
 {
     ulong_t nd = 1;
 

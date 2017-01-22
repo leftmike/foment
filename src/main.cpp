@@ -423,7 +423,7 @@ Define("config", ConfigPrimitive)(long_t argc, FObject argv[])
             FAssert(ConfigOptions[idx].LongName != 0);
 
             ret = MakePair(MakePair(StringCToSymbol(ConfigOptions[idx].LongName),
-                    MakeIntegerU(*ConfigOptions[idx].UIntValue)), ret);
+                    MakeIntegerFromUInt64(*ConfigOptions[idx].UIntValue)), ret);
             break;
 
         case BoolConfig:

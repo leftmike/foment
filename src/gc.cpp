@@ -1934,6 +1934,11 @@ ulong_t LeaveThread(FThreadState * ts)
 
 long_t SetupCore(FThreadState * ts)
 {
+#if FOMENT_LITTLE_ENDIAN
+    FAssert(LittleEndianP());
+#else // FOMENT_LITTLE_ENDIAN
+    FAssert(LittleEndianP() == 0);
+#endif // FOMENT_LITTLE_ENDIAN
     FAssert(sizeof(FObject) == sizeof(long_t));
     FAssert(sizeof(FObject) == sizeof(ulong_t));
     FAssert(sizeof(FObject) == sizeof(char *));
@@ -2194,9 +2199,10 @@ Define("process-times", ProcessTimesPrimitive)(long_t argc, FObject argv[])
     if (TimesError != 0)
         return(EmptyListObject);
 
-    return(List(MakeIntegerU(tnow.UserTimeMS - TotalTimes.UserTimeMS),
-            MakeIntegerU(tnow.SystemTimeMS - TotalTimes.SystemTimeMS),
-            MakeIntegerU(GCTimes.UserTimeMS), MakeIntegerU(GCTimes.SystemTimeMS)));
+    return(List(MakeIntegerFromUInt64(tnow.UserTimeMS - TotalTimes.UserTimeMS),
+            MakeIntegerFromUInt64(tnow.SystemTimeMS - TotalTimes.SystemTimeMS),
+            MakeIntegerFromUInt64(GCTimes.UserTimeMS),
+            MakeIntegerFromUInt64(GCTimes.SystemTimeMS)));
 }
 
 Define("process-times-reset!", ProcessTimesResetPrimitive)(long_t argc, FObject argv[])
@@ -2217,15 +2223,16 @@ Define("object-counts", ObjectCountsPrimitive)(long_t argc, FObject argv[])
     for (int tdx = 1; tdx < FreeTag; tdx++)
         if (TagCounts[tdx] > 0)
             lst = MakePair(MakePair(StringCToSymbol(IndirectTagString[tdx]),
-                    MakeIntegerU(TagCounts[tdx])), lst);
+                    MakeIntegerFromUInt64(TagCounts[tdx])), lst);
 
     for (int sdx = 0; sdx < SIZE_COUNTS; sdx++)
         if (SizeCounts[sdx] > 0)
             lst = MakePair(MakePair(MakeFixnum(sdx * OBJECT_ALIGNMENT),
-                    MakeIntegerU(SizeCounts[sdx])), lst);
+                    MakeIntegerFromUInt64(SizeCounts[sdx])), lst);
 
     if (LargeCount > 0)
-        lst = MakePair(MakePair(StringCToSymbol("large-size"), MakeIntegerU(LargeCount)), lst);
+        lst = MakePair(MakePair(StringCToSymbol("large-size"),
+                MakeIntegerFromUInt64(LargeCount)), lst);
 
     return(ReverseListModify(lst));
 }

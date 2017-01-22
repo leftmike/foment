@@ -3088,7 +3088,7 @@ Define("port-position", PortPositionPrimitive)(long_t argc, FObject argv[])
     OneArgCheck("port-position", argc);
     OpenPositioningPortArgCheck("port-position", argv[0]);
 
-    return(MakeInteger(GetPosition(argv[0])));
+    return(MakeIntegerFromInt64(GetPosition(argv[0])));
 }
 
 Define("set-port-position!", SetPortPositionPrimitive)(long_t argc, FObject argv[])

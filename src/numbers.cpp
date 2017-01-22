@@ -110,7 +110,7 @@ FObject MakeRatio(FObject nmr, FObject dnm)
         nmr = ToBignum(nmr);
         dnm = ToBignum(dnm);
 
-        while (BignumEqualFixnum(d, 0) == 0)
+        while (BignumCompareZero(d) != 0)
         {
             FObject t = BignumRemainder(n, d);
             n = d;
@@ -129,8 +129,8 @@ FObject MakeRatio(FObject nmr, FObject dnm)
             FAssert(BignumP(dnm));
             FAssert(BignumP(nmr));
 
-            dnm = BignumMultiplyFixnum(dnm, -1);
-            nmr = BignumMultiplyFixnum(nmr, -1);
+            dnm = BignumMultiplyLong(dnm, -1);
+            nmr = BignumMultiplyLong(nmr, -1);
         }
     }
 
@@ -259,7 +259,7 @@ FObject ToExact(FObject n)
     return(n);
 }
 
-static long_t ParseUInteger(FCh * s, long_t sl, long_t sdx, long_t rdx, long_t sgn, FObject * punt)
+static long_t ParseUInteger(FCh * s, long_t sl, long_t sdx, long_t rdx, int16_t sgn, FObject * punt)
 {
     // <uinteger> : <digit> <digit> ...
 
@@ -388,7 +388,7 @@ static long_t ParseDecimal10(FCh * s, long_t sl, long_t sdx, long_t sgn, FObject
     return(sdx);
 }
 
-static long_t ParseUReal(FCh * s, long_t sl, long_t sdx, long_t rdx, long_t sgn, FObject * purl)
+static long_t ParseUReal(FCh * s, long_t sl, long_t sdx, long_t rdx, int16_t sgn, FObject * purl)
 {
     // <ureal> : <uinteger>
     //         | <uinteger> / <uinteger>
@@ -457,7 +457,7 @@ static long_t ParseReal(FCh * s, long_t sl, long_t sdx, long_t rdx, FObject * pr
         }
     }
 
-    long_t sgn = 1;
+    int16_t sgn = 1;
 
     if (s[sdx] == '-')
     {
@@ -698,7 +698,7 @@ static long_t NeedImaginaryPlusSignP(FObject n)
 
     FAssert(BignumP(n));
 
-    return(BignumCompareFixnum(n, 0) >= 0);
+    return(BignumCompareZero(n) >= 0);
 }
 
 static void WriteNumber(FObject port, FObject obj, long_t rdx)
@@ -1061,7 +1061,7 @@ ulong_t GenericHash(FObject z)
             {
                 FAssert(BignumP(z));
 
-                return(BignumRemainderFixnum(z, MAXIMUM_FIXNUM));
+                return(BignumRemainderLong(z, MAXIMUM_FIXNUM));
             }
 
         case UOP_COMPLEX:
@@ -1133,7 +1133,7 @@ FObject GenericAdd(FObject z1, FObject z2)
             {
                 FAssert(BignumP(z1));
 
-                return(Normalize(BignumAddFixnum(z1, AsFixnum(z2))));
+                return(Normalize(BignumAddLong(z1, AsFixnum(z2))));
             }
 
         case BOP_COMPLEX_BIGRAT:
@@ -1173,7 +1173,7 @@ FObject GenericAdd(FObject z1, FObject z2)
             {
                 FAssert(BignumP(z2));
 
-                return(Normalize(BignumAddFixnum(z2, AsFixnum(z1))));
+                return(Normalize(BignumAddLong(z2, AsFixnum(z1))));
             }
 
         case BOP_FIXED_COMPLEX:
@@ -1186,7 +1186,7 @@ FObject GenericAdd(FObject z1, FObject z2)
         {
             int64_t n = AsFixnum(z1) + AsFixnum(z2);
             if (n < MINIMUM_FIXNUM || n > MAXIMUM_FIXNUM)
-                return(Normalize(BignumAddFixnum(MakeBignumFromFixnum(AsFixnum(z1)),
+                return(Normalize(BignumAddLong(MakeBignumFromLong(AsFixnum(z1)),
                         AsFixnum(z2))));
 
             return(MakeFixnum(n));
@@ -1250,7 +1250,7 @@ FObject GenericMultiply(FObject z1, FObject z2)
             {
                 FAssert(BignumP(z1));
 
-                return(Normalize(BignumMultiplyFixnum(z1, AsFixnum(z2))));
+                return(Normalize(BignumMultiplyLong(z1, AsFixnum(z2))));
             }
 
         case BOP_COMPLEX_BIGRAT:
@@ -1294,7 +1294,7 @@ FObject GenericMultiply(FObject z1, FObject z2)
             {
                 FAssert(BignumP(z2));
 
-                return(Normalize(BignumMultiplyFixnum(z2, AsFixnum(z1))));
+                return(Normalize(BignumMultiplyLong(z2, AsFixnum(z1))));
             }
 
         case BOP_FIXED_COMPLEX:
@@ -1308,7 +1308,7 @@ FObject GenericMultiply(FObject z1, FObject z2)
         {
             int64_t n = AsFixnum(z1) * AsFixnum(z2);
             if (n < MINIMUM_FIXNUM || n > MAXIMUM_FIXNUM)
-                return(Normalize(BignumMultiplyFixnum(MakeBignumFromFixnum(AsFixnum(z1)),
+                return(Normalize(BignumMultiplyLong(MakeBignumFromLong(AsFixnum(z1)),
                         AsFixnum(z2))));
 
             return(MakeFixnum(n));
@@ -1378,7 +1378,7 @@ static FObject GenericSubtract(FObject z1, FObject z2)
             {
                 FAssert(BignumP(z1));
 
-                return(Normalize(BignumAddFixnum(z1, - AsFixnum(z2))));
+                return(Normalize(BignumAddLong(z1, - AsFixnum(z2))));
             }
 
         case BOP_COMPLEX_BIGRAT:
@@ -1419,7 +1419,7 @@ static FObject GenericSubtract(FObject z1, FObject z2)
             {
                 FAssert(BignumP(z2));
 
-                return(Normalize(BignumAddFixnum(BignumMultiplyFixnum(CopyBignum(z2), -1),
+                return(Normalize(BignumAddLong(BignumMultiplyLong(CopyBignum(z2), -1),
                         AsFixnum(z1))));
             }
 
@@ -1434,7 +1434,7 @@ static FObject GenericSubtract(FObject z1, FObject z2)
         {
             int64_t n = AsFixnum(z1) - AsFixnum(z2);
             if (n < MINIMUM_FIXNUM || n > MAXIMUM_FIXNUM)
-                return(Normalize(BignumAddFixnum(MakeBignumFromFixnum(AsFixnum(z1)),
+                return(Normalize(BignumAddLong(MakeBignumFromLong(AsFixnum(z1)),
                         - AsFixnum(z2))));
 
             return(MakeFixnum(n));
@@ -2038,7 +2038,7 @@ static long_t OddP(FObject obj)
 
     FAssert(BignumP(obj));
 
-    return(BignumRemainderFixnum(obj, 2) != 0);
+    return(BignumRemainderLong(obj, 2) != 0);
 }
 
 Define("odd?", OddPPrimitive)(long_t argc, FObject argv[])
@@ -2197,7 +2197,7 @@ Define("floor-quotient", FloorQuotientPrimitive)(long_t argc, FObject argv[])
     FObject rbn = BignumDivide(n, d);
 
     if (GenericSign(argv[0]) * GenericSign(argv[1]) < 0)
-        rbn = BignumAddFixnum(rbn, -1);
+        rbn = BignumAddLong(rbn, -1);
 
     return(FlonumP(argv[0]) || FlonumP(argv[1]) ? ToInexact(rbn) : Normalize(rbn));
 }
@@ -2972,6 +2972,10 @@ static FObject Primitives[] =
 void SetupNumbers()
 {
     FAssert(sizeof(double64_t) == 8);
+
+#ifdef FOMENT_DEBUG
+    TestBignums();
+#endif // FOMENT_DEBUG
 
     for (ulong_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
