@@ -256,7 +256,11 @@ static const char DigitTable[] = "0123456789abcdefghijklmnopqrstuvwxyz";
 static char * NBignumToStringC(FObject bn, long_t rdx)
 {
     if (AsNBignum(bn)->Used == 0)
+#ifdef FOMENT_WINDOWS
         return(_strdup("0"));
+#else // FOMENT_WINDOWS
+        return(strdup("0"));
+#endif // FOMENT_WINDOWS
 
     FObject obj = CopyBignum(bn);
 
