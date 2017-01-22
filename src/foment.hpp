@@ -151,13 +151,13 @@ typedef uint32_t ulong_t;
 typedef int64_t long_t;
 typedef uint64_t ulong_t;
 
-#ifdef FOMENT_OSX
+#if defined(FOMENT_OSX) || defined(FOMENT_WINDOWS)
 #define LONG_FMT "%lld"
 #define ULONG_FMT "%llu"
-#else // FOMENT_OSX
+#else
 #define LONG_FMT "%ld"
 #define ULONG_FMT "%lu"
-#endif // FOMENT_OSX
+#endif
 #endif // FOMENT_64BIT
 
 #ifdef FOMENT_DEBUG

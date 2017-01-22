@@ -1264,7 +1264,7 @@ long_t SetupFoment(FThreadState * ts)
 
     if (RandomSeed == 0)
         RandomSeed = (unsigned int) time(0);
-    srand(RandomSeed);
+    srand((unsigned int) RandomSeed);
 
     if (SetupCore(ts) == 0)
         return(0);

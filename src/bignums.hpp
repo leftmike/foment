@@ -7,6 +7,9 @@ Foment
 #ifndef __BIGNUMS_HPP__
 #define __BIGNUMS_HPP__
 
+#if defined(FOMENT_WINDOWS) && defined(NAN)
+#undef NAN
+#endif
 #include <math.h>
 #include <float.h>
 

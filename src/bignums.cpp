@@ -49,11 +49,11 @@ typedef struct
 #ifdef FOMENT_DEBUG
 static char * NBignumToStringC(FObject bn, long_t rdx);
 #endif // FOMENT_DEBUG
-static inline ulong_t DigitCount(FObject bn)
+static inline uint32_t DigitCount(FObject bn)
 {
     FAssert(BignumP(bn));
 
-    return((ByteLength(bn) - (sizeof(FBignum) - sizeof(ulong_t))) / sizeof(ulong_t));
+    return((uint32_t) ((ByteLength(bn) - (sizeof(FBignum) - sizeof(ulong_t))) / sizeof(ulong_t)));
 }
 
 static inline void SetDigitsUsed(FBignum * bn)
@@ -256,7 +256,7 @@ static const char DigitTable[] = "0123456789abcdefghijklmnopqrstuvwxyz";
 static char * NBignumToStringC(FObject bn, long_t rdx)
 {
     if (AsNBignum(bn)->Used == 0)
-        return(strdup("0"));
+        return(_strdup("0"));
 
     FObject obj = CopyBignum(bn);
 
@@ -391,7 +391,7 @@ long_t BignumCompareFixnum(FObject bn, long_t n)
 {
     FAssert(BignumP(bn));
 
-    return(mpz_cmp_si(AsBignum(bn), n));
+    return(mpz_cmp_si(AsBignum(bn), (long) n));
 }
 
 long_t BignumSign(FObject bn)

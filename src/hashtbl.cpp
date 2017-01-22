@@ -196,8 +196,8 @@ static FObject MakeHashNode(FObject htbl, FObject key, FObject val, FObject next
 {
     FAssert(HashTableP(htbl));
 
-    ulong_t ktype = AsHashTable(htbl)->Flags & HASH_TABLE_KEYS_MASK;
-    ulong_t vtype = AsHashTable(htbl)->Flags & HASH_TABLE_VALUES_MASK;
+    uint32_t ktype = AsHashTable(htbl)->Flags & HASH_TABLE_KEYS_MASK;
+    uint32_t vtype = AsHashTable(htbl)->Flags & HASH_TABLE_VALUES_MASK;
     FHashNode * node = (FHashNode *) MakeObject(HashNodeTag, sizeof(FHashNode), 3, who);
 
     if (ktype == HASH_NODE_NORMAL_KEYS)
@@ -1229,7 +1229,8 @@ Define("%make-hash-node", MakeHashNodePrimitive)(long_t argc, FObject argv[])
     HashTableArgCheck("%make-hash-node", argv[0]);
     NonNegativeArgCheck("%make-hash-node", argv[4], 0);
 
-    return(MakeHashNode(argv[0], argv[1], argv[2], argv[3], AsFixnum(argv[4]), "%make-hash-node"));
+    return(MakeHashNode(argv[0], argv[1], argv[2], argv[3], (uint32_t) AsFixnum(argv[4]),
+            "%make-hash-node"));
 }
 
 Define("%copy-hash-node-list", CopyHashNodeListPrimitive)(long_t argc, FObject argv[])

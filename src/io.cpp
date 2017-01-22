@@ -3421,8 +3421,13 @@ Define("get-ip-addresses", GetIpAddressesPrimitive)(long_t argc, FObject argv[])
                     iaua = iaua->Next)
             {
                 if (iaua->Address.lpSockaddr->sa_family == AF_INET)
-                    lst = MakePair(MakeStringC(inet_ntoa(
-                            ((struct sockaddr_in *) iaua->Address.lpSockaddr)->sin_addr)), lst);
+                {
+                    char buf[46];
+
+                    lst = MakePair(MakeStringC(InetNtop(AF_INET,
+                            &((struct sockaddr_in *) iaua->Address.lpSockaddr)->sin_addr, buf, 46)),
+                            lst);
+                }
                 else if (iaua->Address.lpSockaddr->sa_family == AF_INET6)
                 {
                     char buf[46];
