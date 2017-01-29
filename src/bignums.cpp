@@ -10,6 +10,9 @@ Foment
 #else
 #include <malloc.h>
 #endif
+#ifdef FOMENT_WINDOWS
+#include <intrin.h>
+#endif // FOMENT_WINDOWS
 #include <string.h>
 #include <stdio.h>
 #include "unicode.hpp"
@@ -1099,7 +1102,7 @@ FObject BignumAnd(FObject bn1, FObject bn2)
     FBignum * ret = BignumAnd(AsBignum(bn1), AsBignum(bn2));
     mpz_and(ret->MPInteger, AsBignum(bn1)->MPInteger, AsBignum(bn2)->MPInteger);
 
-    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
+//    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
 
     return(ret);
 }
@@ -1175,9 +1178,11 @@ FObject BignumXOr(FObject bn1, FObject bn2)
     FAssert(BignumP(bn1));
     FAssert(BignumP(bn2));
 
-    FObject ret = MakeBignum(0);
-    // XXX
+    FObject ret = BignumAnd(BignumIOr(bn1, bn2), BignumNot(BignumAnd(bn1, bn2)));
     mpz_xor(AsBignum(ret)->MPInteger, AsBignum(bn1)->MPInteger, AsBignum(bn2)->MPInteger);
+
+    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
+
     return(ret);
 }
 
@@ -1194,19 +1199,97 @@ FObject BignumNot(FObject bn)
     return(ret);
 }
 
+// ---- Population Count ----
+
+#ifdef FOMENT_UNIX
+#define PopulationCount(x) __builtin_popcount(x)
+#endif // FOMENT_UNIX
+
+#ifdef FOMENT_WINDOWS
+#define PopulationCount(x) __popcnt(x)
+#endif // FOMENT_WINDOWS
+
+// popcount_3 from http://en.wikipedia.org/wiki/Hamming_weight#Efficient_implementation
+
+#ifndef PopulationCount
+const uint64_t m1  = 0x5555555555555555; //binary: 0101...
+const uint64_t m2  = 0x3333333333333333; //binary: 00110011..
+const uint64_t m4  = 0x0f0f0f0f0f0f0f0f; //binary:  4 zeros,  4 ones ...
+const uint64_t h01 = 0x0101010101010101; //the sum of 256 to the power of 0,1,2,3...
+
+unsigned int PopulationCount(uint64_t x)
+{
+    x -= (x >> 1) & m1;             //put count of each 2 bits into those 2 bits
+    x = (x & m2) + ((x >> 2) & m2); //put count of each 4 bits into those 4 bits
+    x = (x + (x >> 4)) & m4;        //put count of each 8 bits into those 8 bits
+    return (x * h01) >> 56;  //returns left 8 bits of x + (x<<8) + (x<<16) + (x<<24) + ...
+}
+#endif
+
+static ulong_t BignumBitCount(FBignum * bn)
+{
+    if (bn->Sign < 0)
+        bn = BignumComplement(CopyBignum(bn));
+
+    ulong_t bc = 0;
+    uint16_t idx = 0;
+    while (idx < bn->Used)
+    {
+        bc += PopulationCount(bn->Digits[idx]);
+        idx += 1;
+    }
+
+    if (bn->Sign < 0)
+        bc = bn->Used * sizeof(uint32_t) * 8 - bc;
+
+    return(bc);
+}
+
 ulong_t BignumBitCount(FObject bn)
 {
     FAssert(BignumP(bn));
 
-    // XXX
-    return(mpz_popcount(AsBignum(bn)->MPInteger));
+    ulong_t bc = BignumBitCount(AsBignum(bn));
+
+    FAssert(NBignumCompareZero(bn) < 0 || bc == mpz_popcount(AsBignum(bn)->MPInteger));
+
+    return(bc);
+}
+
+static ulong_t BignumIntegerLength(FBignum * bn)
+{
+    if (bn->Sign < 0)
+    {
+        bn = CopyBignum(bn, 1);
+        UpdateAddUInt32(bn, 1);
+    }
+
+    uint16_t idx = bn->Used;
+    while (idx > 0)
+    {
+        idx -= 1;
+        if (bn->Digits[idx] != 0)
+        {
+            uint32_t n = bn->Digits[idx];
+            for (long_t bdx = sizeof(uint32_t) * 8 - 1; bdx >= 0; bdx--)
+                if (n & ((uint32_t) 1 << bdx))
+                    return(idx * sizeof(uint32_t) * 8 + bdx + 1);
+
+            FAssert(0);
+        }
+    }
+
+    return(0);
 }
 
 ulong_t BignumIntegerLength(FObject bn)
 {
     FAssert(BignumP(bn));
 
-    // XXX
+    ulong_t il = BignumIntegerLength(AsBignum(bn));
+
+//    FAssert(BignumCompareZero(bn) == 0 || il == mpz_sizeinbase(AsBignum(bn)->MPInteger, 2));
+
     return(mpz_sizeinbase(AsBignum(bn)->MPInteger, 2));
 }
 
@@ -1469,6 +1552,27 @@ void TestBignums()
             BignumMultiply(MakeBignumFromLong(-123456789987654321L), MakeBignumFromDouble(7777E33))),
             10), "-764365356449759452798730384693400720346950920044544") == 0);
 
+    FAssert(strcmp(NBignumToStringC(BignumXOr(MakeBignumFromDouble(1234567890E10),
+            MakeBignumFromDouble(987654321E9)), 10), "12024738359006765568") == 0);
+    FAssert(strcmp(NBignumToStringC(BignumXOr(MakeBignumFromDouble(-1234567890E10),
+            MakeBignumFromDouble(987654321E9)), 10), "-12024738359006768640") == 0);
+    FAssert(strcmp(NBignumToStringC(BignumXOr(
+            BignumMultiply(MakeBignumFromLong(123456789012345678L), MakeBignumFromDouble(3333E33)),
+            BignumMultiply(MakeBignumFromLong(123456789987654321L), MakeBignumFromDouble(7777E33))),
+            10), "1370076202799236314238479608294585035847664635702411264") == 0);
+    FAssert(strcmp(NBignumToStringC(BignumXOr(
+            BignumMultiply(MakeBignumFromLong(-123456789012345678L), MakeBignumFromDouble(3333E33)),
+            BignumMultiply(MakeBignumFromLong(123456789987654321L), MakeBignumFromDouble(7777E33))),
+            10), "-1370076202799236314238479608294589758214147505347624960") == 0);
+    FAssert(strcmp(NBignumToStringC(BignumXOr(
+            BignumMultiply(MakeBignumFromLong(123456789012345678L), MakeBignumFromDouble(3333E33)),
+            BignumMultiply(MakeBignumFromLong(-123456789987654321L), MakeBignumFromDouble(7777E33))),
+            10), "-1370076202799236314238479608294589758214147505347624960") == 0);
+    FAssert(strcmp(NBignumToStringC(BignumXOr(
+            BignumMultiply(MakeBignumFromLong(-123456789012345678L), MakeBignumFromDouble(3333E33)),
+            BignumMultiply(MakeBignumFromLong(-123456789987654321L), MakeBignumFromDouble(7777E33))),
+            10), "1370076202799236314238479608294585035847664635702411264") == 0);
+
     FAssert(strcmp(NBignumToStringC(BignumNot(MakeBignumFromLong(123456789012345678L)), 10),
             "-123456789012345679") == 0);
     FAssert(strcmp(NBignumToStringC(BignumNot(MakeBignumFromLong(-123456789012345678L)), 10),
@@ -1481,5 +1585,25 @@ void TestBignums()
             "-98765432099999994374931018153985") == 0);
     FAssert(strcmp(NBignumToStringC(BignumNot(MakeBignumFromDouble(-987654321E23)), 10),
             "98765432099999994374931018153983") == 0);
+
+    FAssert(BignumBitCount(
+            BignumMultiply(MakeBignumFromLong(123456789012345678L), MakeBignumFromDouble(3333E33)))
+            == 51);
+    FAssert(BignumBitCount(
+            BignumMultiply(MakeBignumFromLong(123456789987654321L), MakeBignumFromDouble(7777E33)))
+            == 55);
+    FAssert(BignumBitCount(
+            BignumMultiply(MakeBignumFromLong(-123456789012345678L), MakeBignumFromDouble(3333E33)))
+            == 121);
+    FAssert(BignumBitCount(
+            BignumMultiply(MakeBignumFromLong(-123456789987654321L), MakeBignumFromDouble(7777E33)))
+            == 125);
+
+//    FAssert(BignumIntegerLength(MakeBignumFromLong(0)) == 0);
+    FAssert(BignumIntegerLength(MakeBignumFromLong(1)) == 1);
+    FAssert(BignumIntegerLength(MakeBignumFromLong(123456789987654321L)) == 57);
+    FAssert(BignumIntegerLength(MakeBignumFromLong(-123456789987654321L)) == 57);
+    FAssert(BignumIntegerLength(MakeBignumFromDouble(666E66)) == 229);
+    FAssert(BignumIntegerLength(MakeBignumFromDouble(-666E66)) == 229);
 }
 #endif // FOMENT_DEBUG

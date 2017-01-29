@@ -374,7 +374,7 @@
         bitwise-not
         bit-count
         integer-length
-        first-set-bit
+;        first-set-bit
         arithmetic-shift)
     (export ;; (srfi 1)
         circular-list?
@@ -2229,6 +2229,8 @@
         booleans->integer
         )
     (begin
+        (define (first-set-bit n)
+            (- (integer-length (bitwise-and n (- n))) 1))
         (define (bitwise-merge mask n0 n1)
             (bitwise-ior (bitwise-and mask n0) (bitwise-and (bitwise-not mask) n1)))
 
