@@ -2817,20 +2817,6 @@ Define("bitwise-not", BitwiseNotPrimitive)(long_t argc, FObject argv[])
     return(MakeFixnum(~AsFixnum(argv[0])));
 }
 
-
-/*
-BitCount was adapted from Chibi Scheme which adapted it from
-http://graphics.stanford.edu/~seander/bithacks.html
-*/
-static ulong_t BitCount(ulong_t n)
-{
-    n -= ((n >> 1) & (ulong_t) ~(ulong_t)0/3);
-    n = ((n & (ulong_t) ~(ulong_t)0/15*3) + ((n >> 2) & (ulong_t) ~(ulong_t)0/15*3));
-    n = (n + (n >> 4)) & (ulong_t) ~(ulong_t)0/255*15;
-
-    return ((ulong_t)(n * ((ulong_t) ~(ulong_t)0/255)) >> (sizeof(n) - 1) * 8);
-}
-
 Define("bit-count", BitCountPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("bit-count", argc);
@@ -2840,7 +2826,7 @@ Define("bit-count", BitCountPrimitive)(long_t argc, FObject argv[])
         return(MakeFixnum(BignumBitCount(argv[0])));
 
     long_t n = AsFixnum(argv[0]);
-    return(MakeFixnum(BitCount(n < 0 ? ~n : n)));
+    return(MakeFixnum(PopulationCount(n < 0 ? ~n : n)));
 }
 
 Define("integer-length", IntegerLengthPrimitive)(long_t argc, FObject argv[])
@@ -2857,22 +2843,6 @@ Define("integer-length", IntegerLengthPrimitive)(long_t argc, FObject argv[])
             return(MakeFixnum(idx + 1));
 
     return(MakeFixnum(0));
-}
-
-Define("first-set-bit", FirstSetBitPrimitive)(long_t argc, FObject argv[])
-{
-    OneArgCheck("first-set-bit", argc);
-    IntegerArgCheck("first-set-bit", argv[0]);
-
-    if (BignumP(argv[0]))
-        return(MakeFixnum(BignumFirstSetBit(argv[0])));
-
-    ulong_t n = AsFixnum(argv[0]);
-    for (ulong_t idx = 0; idx < sizeof(ulong_t) * 8; idx++)
-        if (n & ((ulong_t) 1 << idx))
-            return(MakeFixnum(idx));
-
-    return(MakeFixnum(-1));
 }
 
 Define("arithmetic-shift", ArithmeticShiftPrimitive)(long_t argc, FObject argv[])
@@ -2965,7 +2935,6 @@ static FObject Primitives[] =
     BitwiseNotPrimitive,
     BitCountPrimitive,
     IntegerLengthPrimitive,
-    FirstSetBitPrimitive,
     ArithmeticShiftPrimitive
 };
 

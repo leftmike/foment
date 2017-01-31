@@ -374,7 +374,6 @@
         bitwise-not
         bit-count
         integer-length
-;        first-set-bit
         arithmetic-shift)
     (export ;; (srfi 1)
         circular-list?
