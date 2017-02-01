@@ -2836,13 +2836,15 @@ Define("integer-length", IntegerLengthPrimitive)(long_t argc, FObject argv[])
 
     if (BignumP(argv[0]))
         return(MakeFixnum(BignumIntegerLength(argv[0])));
+    else if (AsFixnum(argv[0]) == 0)
+        return(MakeFixnum(0));
 
-    ulong_t n = AsFixnum(argv[0]);
-    for (long_t idx = sizeof(ulong_t) * 8 - 1; idx >= 0; idx--)
-        if (n & ((ulong_t) 1 << idx))
-            return(MakeFixnum(idx + 1));
-
-    return(MakeFixnum(0));
+#ifdef FOMENT_32BIT
+    return(MakeFixnum(HighestBitUInt32(AsFixnum(argv[0])) + 1));
+#endif // FOMENT_32BIT
+#ifdef FOMENT_64BIT
+    return(MakeFixnum(HighestBitUInt64(AsFixnum(argv[0])) + 1));
+#endif // FOMENT_64BIT
 }
 
 Define("arithmetic-shift", ArithmeticShiftPrimitive)(long_t argc, FObject argv[])

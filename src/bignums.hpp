@@ -52,6 +52,69 @@ inline unsigned int PopulationCount(uint64_t x)
 }
 #endif
 
+// ---- Highest Bit ----
+
+inline unsigned int HighestBitUInt32(uint32_t n)
+{
+    unsigned int b = 0;
+    uint32_t t;
+
+    if ((t = n & 0xFFFF0000) != 0)
+    {
+        b += 16;
+        n = t;
+    }
+    if ((t = n & 0xFF00FF00) != 0)
+    {
+        b += 8;
+        n = t;
+    }
+    if ((t = n & 0xF0F0F0F0) != 0)
+    {
+        b += 4;
+        n = t;
+    }
+    if ((t = n & 0xCCCCCCCC) != 0)
+    {
+        b += 2;
+        n = t;
+    }
+    return((n & 0xAAAAAAAA) ? b + 1 : b);
+}
+
+inline unsigned int HighestBitUInt64(uint64_t n)
+{
+    unsigned int b = 0;
+    uint64_t t;
+
+    if ((t =  n & 0xFFFFFFFF00000000) != 0)
+    {
+        b += 32;
+        n = t;
+    }
+    if ((t = n & 0xFFFF0000FFFF0000) != 0)
+    {
+        b += 16;
+        n = t;
+    }
+    if ((t = n & 0xFF00FF00FF00FF00) != 0)
+    {
+        b += 8;
+        n = t;
+    }
+    if ((t = n & 0xF0F0F0F0F0F0F0F0) != 0)
+    {
+        b += 4;
+        n = t;
+    }
+    if ((t = n & 0xCCCCCCCCCCCCCCCC) != 0)
+    {
+        b += 2;
+        n = t;
+    }
+    return((n & 0xAAAAAAAAAAAAAAAA) ? b + 1 : b);
+}
+
 inline double64_t Truncate(double64_t n)
 {
 #ifdef FOMENT_WINDOWS

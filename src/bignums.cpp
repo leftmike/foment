@@ -305,42 +305,6 @@ FObject MakeIntegerFromUInt64(uint64_t n)
     return(BignumFromUInt64(n, 0));
 }
 
-#if 0
-static inline long_t HighestBit(ulong_t word)
-{
-    long_t mbit = 0;
-
-    while (word >>= 1)
-        mbit += 1;
-
-    return(mbit);
-}
-
-static inline int BignumBitSet(FBignum * bn, ulong_t idx)
-{
-    FAssert(idx < bn->Used * UINT32_BITS);
-
-    return(bn->Digits[idx / UINT32_BITS] & (1 << (idx % UINT32_BITS)));
-}
-
-static void BignumCopyBits(FBignum * bn, uint64_t * bits, ulong_t strt, ulong_t cnt)
-{
-    FAssert(cnt <= sizeof(uint64_t) * 8);
-    FAssert(strt + cnt <= bn->Used * UINT32_BITS);
-
-    *bits = 0;
-    ulong_t bdx = 0;
-    while (cnt > 0)
-    {
-        if (BignumBitSet(bn, strt + bdx))
-            *bits |= (1 << bdx);
-
-        bdx += 1;
-        cnt -= 1;
-    }
-}
-#endif // 0
-
 double64_t BignumToDouble(FObject bn)
 {
     FAssert(BignumP(bn));
@@ -1251,14 +1215,7 @@ static ulong_t BignumIntegerLength(FBignum * bn)
     {
         idx -= 1;
         if (bn->Digits[idx] != 0)
-        {
-            uint32_t n = bn->Digits[idx];
-            for (long_t bdx = UINT32_BITS - 1; bdx >= 0; bdx--)
-                if (n & ((uint32_t) 1 << bdx))
-                    return(idx * UINT32_BITS + bdx + 1);
-
-            FAssert(0);
-        }
+            return(idx * UINT32_BITS + HighestBitUInt32(bn->Digits[idx]) + 1);
     }
 
     return(0);

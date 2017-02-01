@@ -190,8 +190,8 @@
 
 (check-error (assertion-violation first-set-bit) (first-set-bit))
 (check-error (assertion-violation first-set-bit) (first-set-bit 12 34))
-(check-error (assertion-violation first-set-bit) (first-set-bit 12.34))
-(check-error (assertion-violation first-set-bit) (first-set-bit 12/34))
+(check-error (assertion-violation bitwise-and) (first-set-bit 12.34))
+(check-error (assertion-violation bitwise-and) (first-set-bit 12/34))
 
 (check-equal #t (logbit? 0 #b1101))
 (check-equal #f (logbit? 1 #b1101))
