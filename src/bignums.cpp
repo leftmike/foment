@@ -685,29 +685,32 @@ FObject BignumAdd(FObject bn1, FObject bn2)
     return(ret);
 }
 
+static void DigitsAddUInt32(FBignum * bn, uint32_t n)
+{
+    uint16_t idx = 0;
+    while (idx < bn->Used && n > 0)
+    {
+        uint64_t v = bn->Digits[idx] + (uint64_t) n;
+        bn->Digits[idx] = v & 0xFFFFFFFF;
+        n = v >> UINT32_BITS;
+        idx += 1;
+    }
+
+    if (n > 0)
+    {
+        FAssert(MaximumDigits(bn) > bn->Used);
+
+        bn->Digits[bn->Used] = n;
+        bn->Used += 1;
+    }
+}
+
 static void UpdateAddUInt32(FBignum * bn, uint32_t n)
 {
     mpz_add_ui(bn->MPInteger, bn->MPInteger, n);
 
     if (bn->Sign >= 0)
-    {
-        uint16_t idx = 0;
-        while (idx < bn->Used && n > 0)
-        {
-            uint64_t v = bn->Digits[idx] + (uint64_t) n;
-            bn->Digits[idx] = v & 0xFFFFFFFF;
-            n = v >> UINT32_BITS;
-            idx += 1;
-        }
-
-        if (n > 0)
-        {
-            FAssert(MaximumDigits(bn) > bn->Used);
-
-            bn->Digits[bn->Used] = n;
-            bn->Used += 1;
-        }
-    }
+        DigitsAddUInt32(bn, n);
     else if (bn->Used == 1)
     {
         if (n >= bn->Digits[0])
@@ -1232,6 +1235,71 @@ ulong_t BignumIntegerLength(FObject bn)
     return(mpz_sizeinbase(AsBignum(bn)->MPInteger, 2));
 }
 
+static FBignum * BignumLeftShift(FBignum * bn, long_t cnt)
+{
+    FAssert(cnt > 0);
+
+    long_t dcnt = cnt / UINT32_BITS;
+    long_t bcnt = cnt % UINT32_BITS;
+
+    if (bcnt == 0)
+    {
+        FBignum * ret = MakeBignum(bn->Used + dcnt);
+        for (uint16_t idx = 0; idx < bn->Used; idx++)
+            ret->Digits[idx + dcnt] = bn->Digits[idx];
+
+        ret->Used = bn->Used + (uint16_t) dcnt;
+        ret->Sign = bn->Sign;
+        return(ret);
+    }
+
+    FBignum * ret = MakeBignum(bn->Used + dcnt + 1);
+    ret->Digits[bn->Used + dcnt] = bn->Digits[bn->Used - 1] >> (UINT32_BITS - bcnt);
+    for (uint16_t idx = 1; idx < bn->Used; idx++)
+        ret->Digits[idx + dcnt] = (bn->Digits[idx] << bcnt) |
+                (bn->Digits[idx - 1] >> (UINT32_BITS - bcnt));
+    ret->Digits[dcnt] = bn->Digits[0] << bcnt;
+
+    ret->Used = bn->Used + (uint16_t) dcnt + 1;
+    ret->Sign = bn->Sign;
+    return(ret);
+}
+
+static FBignum * BignumRightShift(FBignum * bn, long_t cnt)
+{
+    FAssert(cnt > 0);
+
+    uint16_t dcnt = (uint16_t) (cnt / UINT32_BITS);
+    long_t bcnt = cnt % UINT32_BITS;
+
+    if (bn->Used <= dcnt)
+        return(MakeBignum(0));
+    else if (bcnt == 0)
+    {
+        FBignum * ret = MakeBignum(bn->Used - dcnt + (bn->Sign < 0 ? 1 : 0));
+        for (uint16_t idx = dcnt; idx < bn->Used; idx++)
+            ret->Digits[idx - dcnt] = bn->Digits[idx];
+
+        ret->Used = bn->Used - (uint16_t) dcnt;
+        ret->Sign = bn->Sign;
+        return(ret);
+    }
+
+    FBignum * ret = MakeBignum(bn->Used - dcnt + 1);
+    uint16_t idx = dcnt;
+    while (idx < bn->Used - 1)
+    {
+        ret->Digits[idx - dcnt] = (bn->Digits[idx] >> bcnt) |
+                (bn->Digits[idx + 1] << (UINT32_BITS - bcnt));
+        idx += 1;
+    }
+    ret->Digits[idx - dcnt] = bn->Digits[idx] >> bcnt;
+
+    ret->Used = bn->Used - (uint16_t) dcnt;
+    ret->Sign = bn->Sign;
+    return(ret);
+}
+
 FObject BignumArithmeticShift(FObject bn, long_t cnt)
 {
     FAssert(BignumP(bn));
@@ -1239,17 +1307,25 @@ FObject BignumArithmeticShift(FObject bn, long_t cnt)
     if (cnt == 0)
         return(bn);
 
-    // XXX
     if (cnt < 0)
     {
-        FObject rbn = MakeBignum(0);
-        mpz_fdiv_q_2exp(AsBignum(rbn)->MPInteger, AsBignum(bn)->MPInteger, (mp_bitcnt_t) - cnt);
-        return(Normalize(rbn));
+        FBignum * ret = BignumRightShift(AsBignum(bn), - cnt);
+        if (AsBignum(bn)->Sign < 0)
+            DigitsAddUInt32(AsBignum(ret), 1);
+
+        mpz_fdiv_q_2exp(ret->MPInteger, AsBignum(bn)->MPInteger, (mp_bitcnt_t) - cnt);
+
+        FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
+
+        return(Normalize(ret));
     }
 
-    FObject rbn = MakeBignum(0);
-    mpz_mul_2exp(AsBignum(rbn)->MPInteger, AsBignum(bn)->MPInteger, (mp_bitcnt_t) cnt);
-    return(rbn);
+    FBignum * ret = BignumLeftShift(AsBignum(bn), cnt);
+    mpz_mul_2exp(ret->MPInteger, AsBignum(bn)->MPInteger, (mp_bitcnt_t) cnt);
+
+    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
+
+    return(ret);
 }
 
 #ifdef FOMENT_DEBUG
@@ -1645,5 +1721,88 @@ void TestBignums()
 #endif // FOMENT_64BIT
     FAssert(BignumIntegerLength(MakeBignumFromDouble(666E66)) == 229);
     FAssert(BignumIntegerLength(MakeBignumFromDouble(-666E66)) == 229);
+
+#ifdef FOMENT_64BIT
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromLong(123456789987654321L), 123), 10),
+            "1312817772170632175479824592261381132821730046842503168") == 0);
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromLong(123456789987654321L), 128), 10),
+            "42010168709460229615354386952364196250295361498960101376") == 0);
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromLong(-123456789987654321L), 123), 10),
+            "-1312817772170632175479824592261381132821730046842503168") == 0);
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromLong(-123456789987654321L), 128), 10),
+            "-42010168709460229615354386952364196250295361498960101376") == 0);
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromLong(0x5555555555555555L), 64), 16),
+            "55555555555555550000000000000000") == 0);
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromLong(0x5555555555555555L), 61), 16),
+            "aaaaaaaaaaaaaaaa000000000000000") == 0);
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromLong(0x5555555555555555L), 66), 16),
+            "155555555555555540000000000000000") == 0);
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromLong(-0x5555555555555555L), 64), 16),
+            "-55555555555555550000000000000000") == 0);
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromLong(-0x5555555555555555L), 61), 16),
+            "-aaaaaaaaaaaaaaaa000000000000000") == 0);
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromLong(-0x5555555555555555L), 66), 16),
+            "-155555555555555540000000000000000") == 0);
+#else // FOMENT_64BIT
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromLong(123456789), 123), 10),
+            "1312817761668089986430689004301926249332211712") == 0);
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromLong(123456789), 128), 10),
+            "42010168373378879565782048137661639978630774784") == 0);
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromLong(-123456789), 123), 10),
+            "-1312817761668089986430689004301926249332211712") == 0);
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromLong(-123456789), 128), 10),
+            "-42010168373378879565782048137661639978630774784") == 0);
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromLong(0x55555555), 64), 16),
+            "555555550000000000000000") == 0);
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromLong(0x55555555), 61), 16),
+            "aaaaaaaa000000000000000") == 0);
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromLong(0x55555555), 66), 16),
+            "1555555540000000000000000") == 0);
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromLong(-0x55555555), 64), 16),
+            "-555555550000000000000000") == 0);
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromLong(-0x55555555), 61), 16),
+            "-aaaaaaaa000000000000000") == 0);
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromLong(-0x55555555), 66), 16),
+            "-1555555540000000000000000") == 0);
+#endif // FOMENT_64BIT
+
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromDouble(123456789E123), -128), 10),
+            "362806895100397833620635889672491320190768919845254931617368881349570157396831979594644979712") == 0);
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromDouble(123456789E123), -127), 10),
+            "725613790200795667241271779344982640381537839690509863234737762699140314793663959189289959424") == 0);
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromDouble(123456789E123), -130), 10),
+            "90701723775099458405158972418122830047692229961313732904342220337392539349207994898661244928") == 0);
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromDouble(-123456789E45), -128), 10),
+            "-362806895100398") == 0);
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromDouble(-123456789E45), -129), 10),
+            "-181403447550199") == 0);
+    FAssert(strcmp(NBignumToStringC(
+            BignumArithmeticShift(MakeBignumFromDouble(-123456789E45), -126), 10),
+            "-1451227580401592") == 0);
 }
 #endif // FOMENT_DEBUG
