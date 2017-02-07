@@ -1061,7 +1061,7 @@ ulong_t GenericHash(FObject z)
             {
                 FAssert(BignumP(z));
 
-                return(BignumRemainderLong(z, MAXIMUM_FIXNUM));
+                return(BignumHash(z));
             }
 
         case UOP_COMPLEX:
@@ -2038,7 +2038,7 @@ static long_t OddP(FObject obj)
 
     FAssert(BignumP(obj));
 
-    return(BignumRemainderLong(obj, 2) != 0);
+    return(BignumOddP(obj));
 }
 
 Define("odd?", OddPPrimitive)(long_t argc, FObject argv[])

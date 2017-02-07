@@ -33,7 +33,7 @@ typedef struct
 
 #ifdef FOMENT_DEBUG
 static char * NBignumToStringC(FObject bn, uint32_t rdx);
-static inline ulong_t MaximumDigits(FObject bn)
+static inline long_t MaximumDigits(FObject bn)
 {
     FAssert(BignumP(bn));
 
@@ -47,6 +47,7 @@ static void UpdateMultiplyUInt32(FBignum * bn, uint32_t n);
 static uint32_t UpdateDivideUInt32(FBignum * bn, uint32_t d);
 #endif // FOMENT_DEBUG
 static void BignumNegate(FBignum * bn);
+static FBignum * BignumLeftShift(FBignum * ret, FBignum * bn, long_t cnt);
 
 static FBignum * MakeBignum(ulong_t dc)
 {
@@ -324,7 +325,7 @@ double64_t BignumToDouble(FObject bn)
 
         d *= AsBignum(bn)->Sign;
 
-//        FAssert(od == d);
+        FAssert(od == d);
     }
 
     return(od);
@@ -523,7 +524,9 @@ static long_t NBignumCompare(FObject bn1, FObject bn2)
 
 static long_t NBignumCompareZero(FObject bn)
 {
-    if (AsBignum(bn)->Sign > 0)
+    if (AsBignum(bn)->Used == 0)
+        return(0);
+    else if (AsBignum(bn)->Sign > 0)
         return(AsBignum(bn)->Used == 1 && AsBignum(bn)->Digits[0] == 0 ? 0 : 1);
 
     FAssert(AsBignum(bn)->Sign < 0);
@@ -538,7 +541,18 @@ long_t BignumCompare(FObject bn1, FObject bn2)
     FAssert(BignumP(bn2));
 
     long_t ret = mpz_cmp(AsBignum(bn1)->MPInteger, AsBignum(bn2)->MPInteger);
+
+#ifdef FOMENT_DEBUG
+    if (NBignumCompare(bn1, bn2) != ret)
+    {
+        printf("BignumCompare(%s, %s) = %lld\n", BignumToStringC(bn1, 10),
+                BignumToStringC(bn2, 10), ret);
+        printf("NBignumCompare(%s, %s) = %lld\n\n", NBignumToStringC(bn1, 10),
+                NBignumToStringC(bn2, 10), NBignumCompare(bn1, bn2));
+    }
+#endif // FOMENT_DEBUG
 //    FAssert(NBignumCompare(bn1, bn2) == ret);
+
     return(ret);
 }
 
@@ -548,7 +562,16 @@ long_t BignumCompareZero(FObject bn)
 
     long_t ret = mpz_cmp_si(AsBignum(bn)->MPInteger, 0);
 
+#ifdef FOMENT_DEBUG
+    if (NBignumCompareZero(bn) != ret)
+    {
+        printf("BignumCompareZero(%s) = %lld\n", BignumToStringC(bn, 10), ret);
+        printf("NBignumCompareZero(%s) = %lld\n\n", NBignumToStringC(bn, 10),
+                NBignumCompareZero(bn));
+    }
+#endif // FOMENT_DEBUG
 //    FAssert(NBignumCompareZero(bn) == ret);
+
     return(ret);
 }
 
@@ -557,7 +580,14 @@ long_t BignumSign(FObject bn)
     FAssert(BignumP(bn));
 
     long_t sgn = mpz_sgn(AsBignum(bn)->MPInteger);
+
+#ifdef FOMENT_DEBUG
+    if (AsBignum(bn)->Sign != sgn)
+        printf("BignumSign\nmpz: %lld %s\nnew: %d %s\n\n", sgn, BignumToStringC(bn, 10),
+                AsBignum(bn)->Sign, NBignumToStringC(bn, 10));
+#endif // FOMENT_DEBUG
 //    FAssert(AsBignum(bn)->Sign == sgn);
+
     return(sgn);
 }
 
@@ -602,7 +632,7 @@ static void BignumAddDigits(FBignum * ret, uint32_t * digits1, uint16_t used1, u
     }
 }
 
-static void BignumSubtractDigits(FBignum * ret, uint32_t * digits1, uint16_t used1,
+static void DigitsSubtract(FBignum * ret, uint32_t * digits1, uint16_t used1,
     uint32_t * digits2, uint16_t used2)
 {
     FAssert(used2 <= used1);
@@ -614,14 +644,14 @@ static void BignumSubtractDigits(FBignum * ret, uint32_t * digits1, uint16_t use
     while (idx < used1)
     {
         uint32_t d = idx < used2 ? digits2[idx] : 0;
-        if (digits1[idx] >= d + b)
+        if (digits1[idx] >= b && digits1[idx] - b >= d)
         {
-            ret->Digits[idx] = digits1[idx] - (d + b);
+            ret->Digits[idx] = digits1[idx] - b - d;
             b = 0;
         }
         else
         {
-            uint64_t v =  0x100000000UL + digits1[idx] - (d + b);
+            uint64_t v =  0x100000000UL + digits1[idx] - b - d;
             ret->Digits[idx] = v & 0xFFFFFFFF;
             b = 1;
         }
@@ -632,6 +662,11 @@ static void BignumSubtractDigits(FBignum * ret, uint32_t * digits1, uint16_t use
     }
 
 //    FAssert(b == 0);
+}
+
+static inline void DigitsSubtract(FBignum * bn1, FBignum * bn2)
+{
+    DigitsSubtract(bn1, bn1->Digits, bn1->Used, bn2->Digits, bn2->Used);
 }
 
 #define SwapDigits(digits1, used1, sgn1, digits2, used2, sgn2) \
@@ -667,7 +702,7 @@ static FObject BignumAddDigits(uint32_t * digits1, uint16_t used1, int16_t sgn1,
 
     FBignum * ret = MakeBignum(used1);
     ret->Sign = sgn1;
-    BignumSubtractDigits(ret, digits1, used1, digits2, used2);
+    DigitsSubtract(ret, digits1, used1, digits2, used2);
     return(ret);
 }
 
@@ -680,14 +715,13 @@ FObject BignumAdd(FObject bn1, FObject bn2)
             AsBignum(bn2)->Digits, AsBignum(bn2)->Used, AsBignum(bn2)->Sign);
     mpz_add(AsBignum(ret)->MPInteger, AsBignum(bn1)->MPInteger, AsBignum(bn2)->MPInteger);
 
-//    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
+    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
 
     return(ret);
 }
 
-static void DigitsAddUInt32(FBignum * bn, uint32_t n)
+static void DigitsAddUInt32(FBignum * bn, uint16_t idx, uint32_t n)
 {
-    uint16_t idx = 0;
     while (idx < bn->Used && n > 0)
     {
         uint64_t v = bn->Digits[idx] + (uint64_t) n;
@@ -698,10 +732,10 @@ static void DigitsAddUInt32(FBignum * bn, uint32_t n)
 
     if (n > 0)
     {
-        FAssert(MaximumDigits(bn) > bn->Used);
+        FAssert(MaximumDigits(bn) > idx);
 
-        bn->Digits[bn->Used] = n;
-        bn->Used += 1;
+        bn->Digits[idx] = n;
+        bn->Used = idx + 1;
     }
 }
 
@@ -710,7 +744,7 @@ static void UpdateAddUInt32(FBignum * bn, uint32_t n)
     mpz_add_ui(bn->MPInteger, bn->MPInteger, n);
 
     if (bn->Sign >= 0)
-        DigitsAddUInt32(bn, n);
+        DigitsAddUInt32(bn, 0, n);
     else if (bn->Used == 1)
     {
         if (n >= bn->Digits[0])
@@ -785,7 +819,16 @@ FObject BignumAddLong(FObject bn, long_t n)
         mpz_sub_ui(AsBignum(ret)->MPInteger, AsBignum(bn)->MPInteger, (long) n);
     }
 
+#ifdef FOMENT_DEBUG
+    if (strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) != 0)
+    {
+        printf("BignumAddLong\nmpz: %s + %lld = %s\n", BignumToStringC(bn, 10), n,
+                BignumToStringC(ret, 10));
+        printf("new: %s + %lld = %s\n\n", NBignumToStringC(bn, 10), n, NBignumToStringC(ret, 10));
+    }
+#endif // FOMENT_DEBUG
 //    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
+
     return(ret);
 }
 
@@ -799,7 +842,17 @@ FObject BignumSubtract(FObject bn1, FObject bn2)
             AsBignum(bn2)->Sign * -1);
     mpz_sub(AsBignum(ret)->MPInteger, AsBignum(bn1)->MPInteger, AsBignum(bn2)->MPInteger);
 
+#ifdef FOMENT_DEBUG
+    if (strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) != 0)
+    {
+        printf("BignumSubtract\nmpz: %s - %s = %s\n", BignumToStringC(bn1, 10),
+                BignumToStringC(bn2, 10), BignumToStringC(ret, 10));
+        printf("new: %s - %s = %s\n\n", NBignumToStringC(bn1, 10), NBignumToStringC(bn2, 10),
+                NBignumToStringC(ret, 10));
+    }
+#endif // FOMENT_DEBUG
 //    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
+
     return(ret);
 }
 
@@ -846,7 +899,17 @@ FObject BignumMultiply(FObject bn1, FObject bn2)
     AsBignum(ret)->Sign = AsBignum(bn1)->Sign * AsBignum(bn2)->Sign;
     mpz_mul(AsBignum(ret)->MPInteger, AsBignum(bn1)->MPInteger, AsBignum(bn2)->MPInteger);
 
+#ifdef FOMENT_DEBUG
+    if (strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) != 0)
+    {
+        printf("BignumMultiply\nmpz: %s * %s = %s\n", BignumToStringC(bn1, 10),
+                BignumToStringC(bn2, 10), BignumToStringC(ret, 10));
+        printf("new: %s * %s = %s\n\n", NBignumToStringC(bn1, 10), NBignumToStringC(bn2, 10),
+                NBignumToStringC(ret, 10));
+    }
+#endif // FOMENT_DEBUG
 //    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
+
     return(ret);
 }
 
@@ -910,20 +973,170 @@ FObject BignumMultiplyLong(FObject bn, long_t n)
     mpz_mul_si(AsBignum(ret)->MPInteger, AsBignum(bn)->MPInteger, (long) n);
     }
 
+#ifdef FOMENT_DEBUG
+    if (strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) != 0)
+    {
+        printf("BignumMultiplyLong\nmpz: %s * %lld = %s\n", BignumToStringC(bn, 10), n,
+                BignumToStringC(ret, 10));
+        printf("new: %s * %lld = %s\n\n", NBignumToStringC(bn, 10), n, NBignumToStringC(ret, 10));
+    }
+#endif // FOMENT_DEBUG
 //    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
+
     return(ret);
 }
 
-/*
-n / d --> q with r
-
-n[0] / d[0]
-
-*/
-static void BignumDivideDigits(uint32_t * ndigits, uint16_t nused, uint32_t * ddigits,
-    uint16_t dused)
+static long_t BignumOddP(FBignum * bn)
 {
+    return(bn->Used != 0 && (bn->Digits[0] & 0x1));
+}
 
+long_t BignumOddP(FObject n)
+{
+    FAssert(BignumP(n));
+
+    FAssert((mpz_tdiv_ui(AsBignum(n)->MPInteger, 2) != 0) == BignumOddP(AsBignum(n)));
+
+    return(mpz_tdiv_ui(AsBignum(n)->MPInteger, 2) != 0);
+}
+
+ulong_t BignumHash(FObject n)
+{
+    FAssert(BignumP(n));
+
+    // XXX
+    return(mpz_tdiv_ui(AsBignum(n)->MPInteger, MAXIMUM_FIXNUM));
+}
+
+static ulong_t DigitsIntegerLength(FBignum * bn)
+{
+    uint16_t idx = bn->Used;
+    while (idx > 0)
+    {
+        idx -= 1;
+        if (bn->Digits[idx] != 0)
+            return(idx * UINT32_BITS + HighestBitUInt32(bn->Digits[idx]) + 1);
+    }
+
+    return(0);
+}
+
+static long_t DigitsCompareShift(FBignum * n, FBignum * d)
+{
+    ulong_t nbl = DigitsIntegerLength(n);
+    ulong_t dbl = DigitsIntegerLength(d);
+
+    if (nbl < dbl)
+        return(-1);
+    else if (nbl == dbl)
+    {
+        FAssert(n->Used == d->Used);
+
+        uint16_t idx = n->Used;
+        while (idx > 0)
+        {
+            idx -= 1;
+            if (n->Digits[idx] != d->Digits[idx])
+                break;
+        }
+
+        return(n->Digits[idx] < d->Digits[idx] ? -1 : 0);
+    }
+
+    return(nbl - dbl - 1);
+}
+
+/*
+n -= (d << m)
+*/
+static void UpdateShiftSubtract(FBignum * n, FBignum * d, long_t cnt)
+{
+    long_t dcnt = cnt / UINT32_BITS;
+    long_t bcnt = cnt % UINT32_BITS;
+
+    uint32_t s = 0;
+    uint16_t idx = 0;
+    uint32_t b = 0;
+    while (idx < d->Used)
+    {
+        FAssert(idx + dcnt < n->Used);
+
+        s |= d->Digits[idx] << bcnt;
+        if (n->Digits[idx + dcnt] >= b && n->Digits[idx + dcnt] - b >= s)
+        {
+            n->Digits[idx + dcnt] = n->Digits[idx + dcnt] - b - s;
+            b = 0;
+        }
+        else
+        {
+            uint64_t v =  0x100000000UL + n->Digits[idx + dcnt] - b - s;
+            n->Digits[idx + dcnt] = v & 0xFFFFFFFF;
+            b = 1;
+        }
+
+        if (bcnt > 0)
+            s = d->Digits[idx] >> (UINT32_BITS - bcnt);
+        else
+            s = 0;
+        idx += 1;
+    }
+
+    if (s > 0 || b > 0)
+    {
+        FAssert(idx + dcnt < n->Used);
+        FAssert(n->Digits[idx + dcnt] >= s && n->Digits[idx + dcnt] - s >= b);
+
+        n->Digits[idx + dcnt] = n->Digits[idx + dcnt] - b - s;
+    }
+    else
+    {
+        FAssert(b == 0);
+    }
+
+    while (n->Used > 0 && n->Digits[n->Used - 1] == 0)
+        n->Used -= 1;
+}
+
+/*
+q = 0;
+while (n > d)
+{
+    m = IntegerLength(n) - IntegerLength(d);
+    n -= (d << m);
+    q += (1 << m);
+}
+return(q); // remainder is in n
+*/
+static FBignum * DigitsDivideRemainder(FBignum * n, FBignum * d)
+{
+#ifdef FOMENT_DEBUG
+//    printf("mpz: %s / %s\n", BignumToStringC(n, 10), BignumToStringC(d, 10));
+//    printf("new: %s / %s\n", NBignumToStringC(n, 10), NBignumToStringC(d, 10));
+#endif // FOMENT_DEBUG
+    FBignum * q = MakeBignum(n->Used - d->Used + 1);
+    FBignum * p = MakeBignum(n->Used + 1);
+    for (;;)
+    {
+        long_t m = DigitsCompareShift(n, d);
+        if (m < 0)
+            break;
+
+        UpdateShiftSubtract(n, d, m);
+        DigitsAddUInt32(q, (uint16_t) (m / UINT32_BITS), 1 << (m % UINT32_BITS));
+    }
+
+    q->Sign = n->Sign * d->Sign;
+    return(q);
+}
+
+static FBignum * BignumDivide(FBignum * n, FBignum * d)
+{
+    if (d->Used == 1 && d->Digits[0] == 1)
+        return(CopyBignum(n));
+    else if (d->Used == 0 || n->Used < d->Used)
+        return(MakeBignum(0));
+
+    return(DigitsDivideRemainder(CopyBignum(n), d));
 }
 
 FObject BignumDivide(FObject n, FObject d)
@@ -931,10 +1144,20 @@ FObject BignumDivide(FObject n, FObject d)
     FAssert(BignumP(n));
     FAssert(BignumP(d));
 
-    FObject ret = MakeBignum(0);
-    // XXX
-    mpz_tdiv_q(AsBignum(ret)->MPInteger, AsBignum(n)->MPInteger, AsBignum(d)->MPInteger);
-    return(ret);
+    FBignum * q = BignumDivide(AsBignum(n), AsBignum(d));
+    mpz_tdiv_q(q->MPInteger, AsBignum(n)->MPInteger, AsBignum(d)->MPInteger);
+
+#ifdef FOMENT_DEBUG
+    if (strcmp(BignumToStringC(q, 10), NBignumToStringC(q, 10)) != 0)
+    {
+        printf("BignumDivide\nmpz: %s / %s\n", BignumToStringC(n, 10), BignumToStringC(d, 10));
+        printf("new: %s / %s\n", NBignumToStringC(n, 10), NBignumToStringC(d, 10));
+        printf("mpz: %s new: %s\n\n", BignumToStringC(q, 10), NBignumToStringC(q, 10));
+    }
+#endif // FOMENT_DEBUG
+//    FAssert(strcmp(BignumToStringC(q, 10), NBignumToStringC(q, 10)) == 0);
+
+    return(q);
 }
 
 #ifdef FOMENT_DEBUG
@@ -964,24 +1187,25 @@ static uint32_t UpdateDivideUInt32(FBignum * bn, uint32_t d)
 }
 #endif // FOMENT_DEBUG
 
+static FBignum * BignumRemainder(FBignum * n, FBignum * d)
+{
+    FBignum * rem = CopyBignum(n);
+    if (d->Used > 0 && n->Used >= d->Used)
+        DigitsDivideRemainder(rem, AsBignum(d));
+    return(rem);
+}
+
 FObject BignumRemainder(FObject n, FObject d)
 {
     FAssert(BignumP(n));
     FAssert(BignumP(d));
 
-    FObject ret = MakeBignum(0);
-    // XXX
-    mpz_tdiv_r(AsBignum(ret)->MPInteger, AsBignum(n)->MPInteger, AsBignum(d)->MPInteger);
-    return(ret);
-}
+    FBignum * rem = BignumRemainder(AsBignum(n), AsBignum(d));
+    mpz_tdiv_r(rem->MPInteger, AsBignum(n)->MPInteger, AsBignum(d)->MPInteger);
 
-long_t BignumRemainderLong(FObject n, long_t d)
-{
-    FAssert(BignumP(n));
-    FAssert(d >= 0);
+    FAssert(strcmp(BignumToStringC(rem, 10), NBignumToStringC(rem, 10)) == 0);
 
-    // XXX
-    return(mpz_tdiv_ui(AsBignum(n)->MPInteger, (unsigned long) d));
+    return(rem);
 }
 
 FObject BignumExpt(FObject bn, long_t e)
@@ -1078,7 +1302,7 @@ FObject BignumAnd(FObject bn1, FObject bn2)
     FBignum * ret = BignumAnd(AsBignum(bn1), AsBignum(bn2));
     mpz_and(ret->MPInteger, AsBignum(bn1)->MPInteger, AsBignum(bn2)->MPInteger);
 
-//    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
+    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
 
     return(ret);
 }
@@ -1213,15 +1437,7 @@ static ulong_t BignumIntegerLength(FBignum * bn)
         UpdateAddUInt32(bn, 1);
     }
 
-    uint16_t idx = bn->Used;
-    while (idx > 0)
-    {
-        idx -= 1;
-        if (bn->Digits[idx] != 0)
-            return(idx * UINT32_BITS + HighestBitUInt32(bn->Digits[idx]) + 1);
-    }
-
-    return(0);
+    return(DigitsIntegerLength(bn));
 }
 
 ulong_t BignumIntegerLength(FObject bn)
@@ -1230,12 +1446,12 @@ ulong_t BignumIntegerLength(FObject bn)
 
     ulong_t il = BignumIntegerLength(AsBignum(bn));
 
-//    FAssert(BignumCompareZero(bn) == 0 || il == mpz_sizeinbase(AsBignum(bn)->MPInteger, 2));
+    FAssert(BignumCompareZero(bn) == 0 || il == mpz_sizeinbase(AsBignum(bn)->MPInteger, 2));
 
     return(mpz_sizeinbase(AsBignum(bn)->MPInteger, 2));
 }
 
-static FBignum * BignumLeftShift(FBignum * bn, long_t cnt)
+static FBignum * BignumLeftShift(FBignum * ret, FBignum * bn, long_t cnt)
 {
     FAssert(cnt > 0);
 
@@ -1244,7 +1460,11 @@ static FBignum * BignumLeftShift(FBignum * bn, long_t cnt)
 
     if (bcnt == 0)
     {
-        FBignum * ret = MakeBignum(bn->Used + dcnt);
+        if (ret == 0)
+            ret = MakeBignum(bn->Used + dcnt);
+
+        FAssert(MaximumDigits(ret) >= bn->Used + dcnt);
+
         for (uint16_t idx = 0; idx < bn->Used; idx++)
             ret->Digits[idx + dcnt] = bn->Digits[idx];
 
@@ -1253,14 +1473,21 @@ static FBignum * BignumLeftShift(FBignum * bn, long_t cnt)
         return(ret);
     }
 
-    FBignum * ret = MakeBignum(bn->Used + dcnt + 1);
+    if (ret == 0)
+        ret = MakeBignum(bn->Used + dcnt + 1);
+
+    FAssert(MaximumDigits(ret) >= bn->Used + dcnt + 1);
+
     ret->Digits[bn->Used + dcnt] = bn->Digits[bn->Used - 1] >> (UINT32_BITS - bcnt);
     for (uint16_t idx = 1; idx < bn->Used; idx++)
         ret->Digits[idx + dcnt] = (bn->Digits[idx] << bcnt) |
                 (bn->Digits[idx - 1] >> (UINT32_BITS - bcnt));
     ret->Digits[dcnt] = bn->Digits[0] << bcnt;
 
-    ret->Used = bn->Used + (uint16_t) dcnt + 1;
+    ret->Used = bn->Used + (uint16_t) dcnt;
+    if (ret->Digits[ret->Used] != 0)
+        ret->Used += 1;
+
     ret->Sign = bn->Sign;
     return(ret);
 }
@@ -1311,7 +1538,7 @@ FObject BignumArithmeticShift(FObject bn, long_t cnt)
     {
         FBignum * ret = BignumRightShift(AsBignum(bn), - cnt);
         if (AsBignum(bn)->Sign < 0)
-            DigitsAddUInt32(AsBignum(ret), 1);
+            DigitsAddUInt32(AsBignum(ret), 0, 1);
 
         mpz_fdiv_q_2exp(ret->MPInteger, AsBignum(bn)->MPInteger, (mp_bitcnt_t) - cnt);
 
@@ -1320,7 +1547,7 @@ FObject BignumArithmeticShift(FObject bn, long_t cnt)
         return(Normalize(ret));
     }
 
-    FBignum * ret = BignumLeftShift(AsBignum(bn), cnt);
+    FBignum * ret = BignumLeftShift(0, AsBignum(bn), cnt);
     mpz_mul_2exp(ret->MPInteger, AsBignum(bn)->MPInteger, (mp_bitcnt_t) cnt);
 
     FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
@@ -1804,5 +2031,38 @@ void TestBignums()
     FAssert(strcmp(NBignumToStringC(
             BignumArithmeticShift(MakeBignumFromDouble(-123456789E45), -126), 10),
             "-1451227580401592") == 0);
+
+    FAssert(BignumOddP(MakeBignumFromLong(123456789)));
+    FAssert(BignumOddP(MakeBignumFromLong(12345678)) == 0);
+
+    bn = BignumDivide(MakeBignumFromLong(123456789123456L), MakeBignumFromLong(123));
+    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    bn = BignumDivide(MakeBignumFromDouble(123456789E234), MakeBignumFromLong(12345678));
+    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+
+    bn = BignumRemainder(MakeBignumFromLong(123456789123456L), MakeBignumFromLong(123));
+    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    bn = BignumRemainder(MakeBignumFromDouble(123456789E234), MakeBignumFromLong(12345678));
+    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+
+    bn = BignumDivide(MakeBignumFromLong(-12345678), MakeBignumFromLong(123));
+    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    bn = BignumRemainder(MakeBignumFromLong(-12345678), MakeBignumFromLong(123));
+    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+
+    bn = BignumDivide(MakeBignumFromLong(12345678), MakeBignumFromLong(-123));
+    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    bn = BignumRemainder(MakeBignumFromLong(12345678), MakeBignumFromLong(-123));
+    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+
+    bn = BignumDivide(MakeBignumFromLong(-12345678), MakeBignumFromLong(-123));
+    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    bn = BignumRemainder(MakeBignumFromLong(-12345678), MakeBignumFromLong(-123));
+    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+
+    bn = BignumDivide(MakeBignumFromLong(350032021), MakeBignumFromLong(118300067));
+    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    bn = BignumRemainder(MakeBignumFromLong(350032021), MakeBignumFromLong(118300067));
+    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
 }
 #endif // FOMENT_DEBUG
