@@ -4,6 +4,9 @@ Foment
 
 To Do:
 -- numbers: check going between fixnums and bignums
+-- USE_GMP
+-- replace mini-gmp
+-- increase maximum/minimum fixnum on 64bit
 
 -- CheckObject: check back references from mature objects
 -- partial GC
@@ -41,8 +44,6 @@ Future:
 -- number.cpp: make NumberP, BinaryNumberOp, and UnaryNumberOp faster
 -- Windows: $(APPDATA)\Foment\Libraries
 -- Unix: $(HOME)/.local/foment/lib
--- replace mini-gmp
--- increase maximum/minimum fixnum on 64bit
 -- inline primitives in GPassExpression
 -- debugging information
 -- composable continuations

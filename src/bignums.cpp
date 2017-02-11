@@ -593,16 +593,7 @@ long_t BignumCompare(FObject bn1, FObject bn2)
 
     long_t ret = mpz_cmp(AsBignum(bn1)->MPInteger, AsBignum(bn2)->MPInteger);
 
-#ifdef FOMENT_DEBUG
-    if (NBignumCompare(bn1, bn2) != ret)
-    {
-        printf("BignumCompare(%s, %s) = " LONG_FMT "\n", BignumToStringC(bn1, 10),
-                BignumToStringC(bn2, 10), ret);
-        printf("NBignumCompare(%s, %s) = " LONG_FMT "\n\n", NBignumToStringC(bn1, 10),
-                NBignumToStringC(bn2, 10), NBignumCompare(bn1, bn2));
-    }
-#endif // FOMENT_DEBUG
-//    FAssert(NBignumCompare(bn1, bn2) == ret);
+    FAssert(NBignumCompare(bn1, bn2) == ret);
 
     return(ret);
 }
@@ -613,11 +604,6 @@ long_t BignumSign(FObject bn)
 
     long_t sgn = mpz_sgn(AsBignum(bn)->MPInteger);
 
-#ifdef FOMENT_DEBUG
-    if (NBignumSign(bn) != sgn)
-        printf("BignumSign\nmpz: " LONG_FMT " %s\nnew: " LONG_FMT " %s\n\n", sgn,
-                BignumToStringC(bn, 10), NBignumSign(bn), NBignumToStringC(bn, 10));
-#endif // FOMENT_DEBUG
     FAssert(NBignumSign(bn) == sgn);
 
     return(sgn);
@@ -699,11 +685,11 @@ static void DigitsSubtract(FBignum * ret, uint32_t * digits1, uint16_t used1,
         idx += 1;
     }
 
+    FAssert(b == 0);
+
     FAssert(ret->Used > 0);
     FAssert(ret->Used < 2 || ret->Digits[ret->Used - 1] != 0);
     FAssert(ret->Sign == 1 || ret->Sign == -1);
-// XXX
-//    FAssert(b == 0);
 }
 
 #define SwapDigits(digits1, used1, sgn1, digits2, used2, sgn2) \
@@ -861,19 +847,10 @@ FObject BignumAddLong(FObject bn, long_t n)
         mpz_sub_ui(AsBignum(ret)->MPInteger, AsBignum(bn)->MPInteger, (long) n);
     }
 
-#ifdef FOMENT_DEBUG
-    if (strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) != 0)
-    {
-        printf("BignumAddLong\nmpz: %s + " LONG_FMT " = %s\n", BignumToStringC(bn, 10), n * nsgn,
-                BignumToStringC(ret, 10));
-        printf("new: %s + " LONG_FMT " = %s\n\n", NBignumToStringC(bn, 10), n * nsgn,
-                NBignumToStringC(ret, 10));
-    }
-#endif // FOMENT_DEBUG
     FAssert(ret->Used > 0);
     FAssert(ret->Used < 2 || ret->Digits[ret->Used - 1] != 0);
     FAssert(ret->Sign == 1 || ret->Sign == -1);
-//    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
+    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
 
     return(ret);
 }
@@ -888,19 +865,10 @@ FObject BignumSubtract(FObject bn1, FObject bn2)
             AsBignum(bn2)->Sign * -1);
     mpz_sub(AsBignum(ret)->MPInteger, AsBignum(bn1)->MPInteger, AsBignum(bn2)->MPInteger);
 
-#ifdef FOMENT_DEBUG
-    if (strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) != 0)
-    {
-        printf("BignumSubtract\nmpz: %s - %s = %s\n", BignumToStringC(bn1, 10),
-                BignumToStringC(bn2, 10), BignumToStringC(ret, 10));
-        printf("new: %s - %s = %s\n\n", NBignumToStringC(bn1, 10), NBignumToStringC(bn2, 10),
-                NBignumToStringC(ret, 10));
-    }
-#endif // FOMENT_DEBUG
     FAssert(ret->Used > 0);
     FAssert(ret->Used < 2 || ret->Digits[ret->Used - 1] != 0);
     FAssert(ret->Sign == 1 || ret->Sign == -1);
-//    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
+    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
 
     return(ret);
 }
@@ -948,19 +916,10 @@ FObject BignumMultiply(FObject bn1, FObject bn2)
     AsBignum(ret)->Sign = AsBignum(bn1)->Sign * AsBignum(bn2)->Sign;
     mpz_mul(AsBignum(ret)->MPInteger, AsBignum(bn1)->MPInteger, AsBignum(bn2)->MPInteger);
 
-#ifdef FOMENT_DEBUG
-    if (strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) != 0)
-    {
-        printf("BignumMultiply\nmpz: %s * %s = %s\n", BignumToStringC(bn1, 10),
-                BignumToStringC(bn2, 10), BignumToStringC(ret, 10));
-        printf("new: %s * %s = %s\n\n", NBignumToStringC(bn1, 10), NBignumToStringC(bn2, 10),
-                NBignumToStringC(ret, 10));
-    }
-#endif // FOMENT_DEBUG
     FAssert(ret->Used > 0);
     FAssert(ret->Used < 2 || ret->Digits[ret->Used - 1] != 0);
     FAssert(ret->Sign == 1 || ret->Sign == -1);
-//    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
+    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
 
     return(ret);
 }
@@ -1025,19 +984,10 @@ FObject BignumMultiplyLong(FObject bn, long_t n)
     mpz_mul_si(AsBignum(ret)->MPInteger, AsBignum(bn)->MPInteger, (long) n);
     }
 
-#ifdef FOMENT_DEBUG
-    if (strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) != 0)
-    {
-        printf("BignumMultiplyLong\nmpz: %s * " LONG_FMT " = %s\n", BignumToStringC(bn, 10), n,
-                BignumToStringC(ret, 10));
-        printf("new: %s * " LONG_FMT " = %s\n\n", NBignumToStringC(bn, 10), n,
-                NBignumToStringC(ret, 10));
-    }
-#endif // FOMENT_DEBUG
     FAssert(ret->Used > 0);
     FAssert(ret->Used < 2 || ret->Digits[ret->Used - 1] != 0);
     FAssert(ret->Sign == 1 || ret->Sign == -1);
-//    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
+    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
 
     return(ret);
 }
@@ -1066,8 +1016,12 @@ ulong_t BignumHash(FObject n)
 {
     FAssert(BignumP(n));
 
-    // XXX
-    return(mpz_tdiv_ui(AsBignum(n)->MPInteger, MAXIMUM_FIXNUM));
+    uint32_t h = 0;
+    FBignum * bn = AsBignum(n);
+    for (uint16_t idx = 0; idx < bn->Used; idx++)
+        h = ((h << 5) + h) + bn->Digits[idx];
+
+    return(NormalizeHash(h));
 }
 
 static ulong_t DigitsIntegerLength(FBignum * bn)
@@ -1179,10 +1133,6 @@ static FBignum * DigitsDivideRemainder(FBignum * n, FBignum * d)
     FAssert(d->Used < 2 || d->Digits[d->Used - 1] != 0);
     FAssert(d->Sign == 1 || d->Sign == -1);
 
-#ifdef FOMENT_DEBUG
-//    printf("mpz: %s / %s\n", BignumToStringC(n, 10), BignumToStringC(d, 10));
-//    printf("new: %s / %s\n", NBignumToStringC(n, 10), NBignumToStringC(d, 10));
-#endif // FOMENT_DEBUG
     FBignum * q = MakeBignum(n->Used - d->Used + 1);
     for (;;)
     {
@@ -1225,15 +1175,7 @@ FObject BignumDivide(FObject n, FObject d)
     FBignum * q = BignumDivide(AsBignum(n), AsBignum(d));
     mpz_tdiv_q(q->MPInteger, AsBignum(n)->MPInteger, AsBignum(d)->MPInteger);
 
-#ifdef FOMENT_DEBUG
-    if (strcmp(BignumToStringC(q, 10), NBignumToStringC(q, 10)) != 0)
-    {
-        printf("BignumDivide\nmpz: %s / %s\n", BignumToStringC(n, 10), BignumToStringC(d, 10));
-        printf("new: %s / %s\n", NBignumToStringC(n, 10), NBignumToStringC(d, 10));
-        printf("mpz: %s new: %s\n\n", BignumToStringC(q, 10), NBignumToStringC(q, 10));
-    }
-#endif // FOMENT_DEBUG
-//    FAssert(strcmp(BignumToStringC(q, 10), NBignumToStringC(q, 10)) == 0);
+    FAssert(strcmp(BignumToStringC(q, 10), NBignumToStringC(q, 10)) == 0);
 
     return(q);
 }
@@ -1324,25 +1266,17 @@ FObject BignumSqrt(FObject * rem, FObject bn)
 
     mpz_sqrtrem(AsBignum(ret)->MPInteger, AsBignum(*rem)->MPInteger, AsBignum(bn)->MPInteger);
 
-#ifdef FOMENT_DEBUG
-    if (strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) != 0)
-    {
-        printf("BignumSqrt\nmpz: %s\nnew: %s\n", BignumToStringC(bn, 10), BignumToStringC(bn, 10));
-        printf("mpz: %s\nnew: %s\n", BignumToStringC(ret, 10), NBignumToStringC(ret, 10));
-        printf("mpz: %s\nnew: %s\n\n", BignumToStringC(*rem, 10), NBignumToStringC(*rem, 10));
-    }
-#endif // FOMENT_DEBUG
     FAssert(BignumP(ret));
     FAssert(AsBignum(ret)->Used > 0);
     FAssert(AsBignum(ret)->Used < 2 || AsBignum(ret)->Digits[AsBignum(ret)->Used - 1] != 0);
     FAssert(AsBignum(ret)->Sign == 1 || AsBignum(ret)->Sign == -1);
+    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
 
     FAssert(BignumP(*rem));
     FAssert(AsBignum(*rem)->Used > 0);
     FAssert(AsBignum(*rem)->Used < 2 || AsBignum(*rem)->Digits[AsBignum(*rem)->Used - 1] != 0);
     FAssert(AsBignum(*rem)->Sign == 1 || AsBignum(*rem)->Sign == -1);
-//    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
-//    FAssert(strcmp(BignumToStringC(*rem, 10), NBignumToStringC(*rem, 10)) == 0);
+    FAssert(strcmp(BignumToStringC(*rem, 10), NBignumToStringC(*rem, 10)) == 0);
 
     return(ret);
 }
@@ -1714,6 +1648,7 @@ FObject BignumArithmeticShift(FObject num, long_t cnt)
 #ifdef FOMENT_UNIX
 #define sprintf_s snprintf
 #endif // FOMENT_UNIX
+
 static void TestBignums()
 {
     char buf[128];
@@ -1820,111 +1755,121 @@ static void TestBignums()
 
     FObject bn;
     bn = BignumAddLong(MakeBignumFromDouble(123456.789E10), 10);
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "1234567890000010") == 0);
     bn = BignumAddLong(MakeBignumFromDouble(123456.789E10), -10);
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "1234567889999990") == 0);
     bn = BignumAddLong(MakeBignumFromDouble(123456.789E10), 0xFFFFFFF);
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "1234568158435455") == 0);
 #ifdef FOMENT_64BIT
     bn = BignumAddLong(MakeBignumFromDouble(123456.789E10), 0x1000000000000L);
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "1516042866710656") == 0);
     bn = BignumAddLong(MakeBignumFromDouble(123456.789E100), 0x1000000000000L);
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10),
+            "1234567890000000001537469168791568995799993272654218995459730853079927810644254175633310245606655042519040") == 0);
 #else // FOMENT_64BIT
     bn = BignumAddLong(MakeBignumFromDouble(123456.789E10), 0x10000000);
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "1234568158435456") == 0);
     bn = BignumAddLong(MakeBignumFromDouble(123456.789E100), 0x10000000);
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10),
+            "1234567890000000001537469168791568995799993272654218995459730853079927810644254175633310245325180334243840") == 0);
 #endif // FOMENT_64BIT
 
     bn = BignumAdd(MakeBignumFromDouble(1234567.89E20), MakeBignumFromDouble(2828282.5789E20));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "406285046889999986642124800") == 0);
     bn = BignumAdd(MakeBignumFromDouble(1234567.89E10), MakeBignumFromDouble(2828282.5789E20));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "282828257902345664723449088") == 0);
     bn = BignumAdd(MakeBignumFromDouble(1234567.89E100), MakeBignumFromDouble(2828282.5789E20));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10),
+            "12345678899999998996856703520672646823777088521853109428863111697831152788372317361970710461583433389834240") == 0);
     bn = BignumAdd(MakeBignumFromDouble(1234567.89E10), MakeBignumFromDouble(2828282.5789E200));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10),
+            "282828257890000004526290298268743756150690964540314843263733384857039797216333735239900650174952455279767955336361249131837485335910138355479238143124751482238642313862231089570308628036732421317582204204288") == 0);
     bn = BignumAdd(MakeBignumFromDouble(1234567.89), MakeBignumFromDouble(2828282.5789E20));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "282828257889999985824683655") == 0);
     bn = BignumAdd(MakeBignumFromDouble(1234567.89E10), MakeBignumFromDouble(2828282.5789E10));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "40628504689000000") == 0);
 
     bn = BignumAdd(MakeBignumFromDouble(-1234567.89E20), MakeBignumFromDouble(2828282.5789E20));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "159371468889999985004773376") == 0);
     bn = BignumAdd(MakeBignumFromDouble(1234567.89E10), MakeBignumFromDouble(-2828282.5789E20));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "-282828257877654306923449088") == 0);
     bn = BignumAdd(MakeBignumFromDouble(-1234567.89E100), MakeBignumFromDouble(-2828282.5789E20));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10),
+            "-12345678899999998996856703520672646823777088521853109428863111697831152788372317361970710461583433389834240") == 0);
     bn = BignumAdd(MakeBignumFromDouble(-1234567.89E10), MakeBignumFromDouble(2828282.5789E200));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10),
+            "282828257890000004526290298268743756150690964540314843263733384857039797216333735239900650174952455279767955336361249131837485335910138355479238143124751482238642313862231089570308628036732396626224404204288") == 0);
     bn = BignumAdd(MakeBignumFromDouble(1234567.89), MakeBignumFromDouble(-2828282.5789E20));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "-282828257889999985822214521") == 0);
     bn = BignumAdd(MakeBignumFromDouble(-1234567.89E10), MakeBignumFromDouble(2828282.5789E10));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "15937146889000000") == 0);
 
     bn = BignumSubtract(MakeBignumFromDouble(1234567.89E20), MakeBignumFromDouble(2828282.5789E20));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "-159371468889999985004773376") == 0);
     bn = BignumSubtract(MakeBignumFromDouble(1234567.89E10), MakeBignumFromDouble(2828282.5789E20));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "-282828257877654306923449088") == 0);
     bn = BignumSubtract(MakeBignumFromDouble(1234567.89E100), MakeBignumFromDouble(2828282.5789E20));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10),
+            "12345678899999998996856703520672646823777088521853109428863111697831152788372316796314194681583461742936064") == 0);
     bn = BignumSubtract(MakeBignumFromDouble(1234567.89E10), MakeBignumFromDouble(2828282.5789E200));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10),
+            "-282828257890000004526290298268743756150690964540314843263733384857039797216333735239900650174952455279767955336361249131837485335910138355479238143124751482238642313862231089570308628036732396626224404204288") == 0);
     bn = BignumSubtract(MakeBignumFromDouble(1234567.89), MakeBignumFromDouble(2828282.5789E20));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "-282828257889999985822214521") == 0);
     bn = BignumSubtract(MakeBignumFromDouble(1234567.89E10), MakeBignumFromDouble(2828282.5789E10));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "-15937146889000000") == 0);
 
     bn = BignumSubtract(MakeBignumFromDouble(-1234567.89E20), MakeBignumFromDouble(2828282.5789E20));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "-406285046889999986642124800") == 0);
     bn = BignumSubtract(MakeBignumFromDouble(1234567.89E10), MakeBignumFromDouble(-2828282.5789E20));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "282828257902345664723449088") == 0);
     bn = BignumSubtract(MakeBignumFromDouble(-1234567.89E100),
             MakeBignumFromDouble(-2828282.5789E20));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10),
+            "-12345678899999998996856703520672646823777088521853109428863111697831152788372316796314194681583461742936064") == 0);
     bn = BignumSubtract(MakeBignumFromDouble(-1234567.89E10),
             MakeBignumFromDouble(2828282.5789E200));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10),
+            "-282828257890000004526290298268743756150690964540314843263733384857039797216333735239900650174952455279767955336361249131837485335910138355479238143124751482238642313862231089570308628036732421317582204204288") == 0);
     bn = BignumSubtract(MakeBignumFromDouble(1234567.89), MakeBignumFromDouble(-2828282.5789E20));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "282828257889999985824683655") == 0);
     bn = BignumSubtract(MakeBignumFromDouble(-1234567.89E10), MakeBignumFromDouble(2828282.5789E10));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "-40628504689000000") == 0);
 
     bn = BignumMultiply(MakeBignumFromDouble(1234567.89E10), MakeBignumFromDouble(2828282.5789E10));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "349170685575633152100000000000000") == 0);
 #ifdef FOMENT_64BIT
     bn = BignumMultiply(MakeBignumFromLong(123456789012345678L),
             MakeBignumFromLong(123456789012345678L));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "15241578753238836527968299765279684") == 0);
     bn = BignumMultiply(MakeBignumFromLong(-123456789012345678L),
             MakeBignumFromLong(123456789012345678L));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "-15241578753238836527968299765279684") == 0);
     bn = BignumMultiply(MakeBignumFromLong(123456789012345678L),
             MakeBignumFromLong(-123456789012345678L));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "-15241578753238836527968299765279684") == 0);
     bn = BignumMultiply(MakeBignumFromLong(-123456789012345678L),
             MakeBignumFromLong(-123456789012345678L));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "15241578753238836527968299765279684") == 0);
     bn = BignumMultiply(MakeBignumFromLong(123456789012345678L),
             MakeBignumFromDouble(2828282.5789E10));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "3491706856105502181121089942000000") == 0);
 #else // FOMENT_64BIT
     bn = BignumMultiply(MakeBignumFromLong(123456789),
             MakeBignumFromLong(123456789));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "15241578750190521") == 0);
     bn = BignumMultiply(MakeBignumFromLong(-123456789),
             MakeBignumFromLong(123456789));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "-15241578750190521") == 0);
     bn = BignumMultiply(MakeBignumFromLong(123456789),
             MakeBignumFromLong(-123456789));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "-15241578750190521") == 0);
     bn = BignumMultiply(MakeBignumFromLong(-123456789),
             MakeBignumFromLong(-123456789));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "15241578750190521") == 0);
     bn = BignumMultiply(MakeBignumFromLong(123456789),
             MakeBignumFromDouble(2828282.5789E10));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "3491706855756331521000000") == 0);
 #endif // FOMENT_64BIT
 
     FAssert(strcmp(NBignumToStringC(BignumAnd(MakeBignumFromDouble(1234567890E10),
@@ -2195,40 +2140,53 @@ static void TestBignums()
     FAssert(BignumOddP(MakeBignumFromLong(123456789)));
     FAssert(BignumOddP(MakeBignumFromLong(12345678)) == 0);
 
+#ifdef FOMENT_64BIT
     bn = BignumDivide(MakeBignumFromLong(123456789123456L), MakeBignumFromLong(123));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "1003713732711") == 0);
+#else // FOMENT_64BIT
+    bn = BignumDivide(MakeBignumFromLong(12345678), MakeBignumFromLong(123));
+    FAssert(strcmp(NBignumToStringC(bn, 10), "100371") == 0);
+#endif // FOMENT_64BIT
     bn = BignumDivide(MakeBignumFromDouble(123456789E234), MakeBignumFromLong(12345678));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10),
+            "10000000729000060251021788975185444797215470538612452148300701789193852719394791608983715092373718070717246616480871203428724051774597396413200998525146951689912312603414171628438595710384293802179265996204507032057001658274769113077794") == 0);
 
+#ifdef FOMENT_64BIT
     bn = BignumRemainder(MakeBignumFromLong(123456789123456L), MakeBignumFromLong(123));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "3") == 0);
+#else // FOMENT_64BIT
+    bn = BignumRemainder(MakeBignumFromLong(12345678), MakeBignumFromLong(123));
+    FAssert(strcmp(NBignumToStringC(bn, 10), "45") == 0);
+#endif // FOMENT_64BIT
     bn = BignumRemainder(MakeBignumFromDouble(123456789E234), MakeBignumFromLong(12345678));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "10240932") == 0);
 
     bn = BignumDivide(MakeBignumFromLong(-12345678), MakeBignumFromLong(123));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "-100371") == 0);
     bn = BignumRemainder(MakeBignumFromLong(-12345678), MakeBignumFromLong(123));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "-45") == 0);
 
     bn = BignumDivide(MakeBignumFromLong(12345678), MakeBignumFromLong(-123));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "-100371") == 0);
     bn = BignumRemainder(MakeBignumFromLong(12345678), MakeBignumFromLong(-123));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "45") == 0);
 
     bn = BignumDivide(MakeBignumFromLong(-12345678), MakeBignumFromLong(-123));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "100371") == 0);
     bn = BignumRemainder(MakeBignumFromLong(-12345678), MakeBignumFromLong(-123));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "-45") == 0);
 
     bn = BignumDivide(MakeBignumFromLong(350032021), MakeBignumFromLong(118300067));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "2") == 0);
     bn = BignumRemainder(MakeBignumFromLong(350032021), MakeBignumFromLong(118300067));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10), "113431887") == 0);
 
     FObject rem;
     bn = BignumSqrt(&rem, MakeBignumFromDouble(12345678E123));
-    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
-    FAssert(strcmp(BignumToStringC(rem, 10), NBignumToStringC(rem, 10)) == 0);
+    FAssert(strcmp(NBignumToStringC(bn, 10),
+            "111111106555555458316412719633318487621304932710933317128753943278") == 0);
+    FAssert(strcmp(NBignumToStringC(rem, 10),
+            "129088011604870407248584010584220916596366128639400887987058485948") == 0);
     bn = BignumSqrt(&rem,
             BignumAdd(BignumMultiply(MakeBignumFromLong(12345678), MakeBignumFromLong(12345678)),
                     MakeBignumFromLong(98765)));
