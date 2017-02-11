@@ -124,6 +124,8 @@ inline double64_t Truncate(double64_t n)
 #endif // FOMENT_WINDOWS
 }
 
+long_t IsFinite(double64_t d);
+
 FObject MakeBignumFromLong(long_t n);
 FObject MakeBignumFromDouble(double64_t d);
 FObject CopyBignum(FObject n);
@@ -146,7 +148,6 @@ long_t BignumOddP(FObject n);
 ulong_t BignumHash(FObject n);
 FObject BignumDivide(FObject n, FObject d);
 FObject BignumRemainder(FObject n, FObject d);
-FObject BignumExpt(FObject bn, long_t e);
 FObject BignumSqrt(FObject * rem, FObject bn);
 FObject BignumAnd(FObject bn1, FObject bn2);
 FObject BignumIOr(FObject bn1, FObject bn2);
@@ -155,9 +156,6 @@ FObject BignumNot(FObject bn);
 ulong_t BignumBitCount(FObject bn);
 ulong_t BignumIntegerLength(FObject bn);
 FObject BignumArithmeticShift(FObject bn, long_t cnt);
-
-#ifdef FOMENT_DEBUG
-void TestBignums();
-#endif // FOMENT_DEBUG
+void SetupBignums();
 
 #endif // __BIGNUMS_HPP__

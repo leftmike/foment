@@ -16,6 +16,10 @@ Foment
 #include "bignums.hpp"
 #include "mini-gmp.h"
 
+// ---- Root ----
+
+static FObject MaximumDoubleBignum = NoValueObject;
+
 #define AsBignum(obj) ((FBignum *) (obj))
 
 #define MAXIMUM_DIGIT_COUNT (((ulong_t) 1 << sizeof(uint16_t) * 8) - 1)
@@ -47,11 +51,10 @@ static void UpdateMultiplyUInt32(FBignum * bn, uint32_t n);
 static uint32_t UpdateDivideUInt32(FBignum * bn, uint32_t d);
 #endif // FOMENT_DEBUG
 static void BignumNegate(FBignum * bn);
-static FBignum * BignumLeftShift(FBignum * ret, FBignum * bn, long_t cnt);
+static FBignum * BignumLeftShift(FBignum * bn, long_t cnt);
 
 static FBignum * MakeBignum(ulong_t dc)
 {
-//    FAssert(dc > 0);
     FAssert(dc < MAXIMUM_DIGIT_COUNT);
 
     FBignum * bn = (FBignum *) MakeObject(BignumTag, sizeof(FBignum) + (dc - 1) * sizeof(uint32_t),
@@ -105,6 +108,8 @@ static FBignum * MakeBignumFromLong(long_t n, ulong_t adc)
     bn->Used = 1;
 
     FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(BignumP(bn));
+
     return(bn);
 #endif // FOMENT_32BIT
 #ifdef FOMENT_64BIT
@@ -118,6 +123,8 @@ static FBignum * MakeBignumFromLong(long_t n, ulong_t adc)
     bn->Sign = -1;
 
     FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    FAssert(BignumP(bn));
+
     return(bn);
 #endif // FOMENT_64BIT
 }
@@ -582,11 +589,11 @@ long_t BignumSign(FObject bn)
     long_t sgn = mpz_sgn(AsBignum(bn)->MPInteger);
 
 #ifdef FOMENT_DEBUG
-    if (AsBignum(bn)->Sign != sgn)
-        printf("BignumSign\nmpz: %lld %s\nnew: %d %s\n\n", sgn, BignumToStringC(bn, 10),
-                AsBignum(bn)->Sign, NBignumToStringC(bn, 10));
+    if (NBignumCompareZero(bn) != sgn)
+        printf("BignumSign\nmpz: %lld %s\nnew: %lld %s\n\n", sgn, BignumToStringC(bn, 10),
+                NBignumCompareZero(bn), NBignumToStringC(bn, 10));
 #endif // FOMENT_DEBUG
-//    FAssert(AsBignum(bn)->Sign == sgn);
+    FAssert(NBignumCompareZero(bn) == sgn);
 
     return(sgn);
 }
@@ -797,15 +804,17 @@ FObject BignumAddLong(FObject bn, long_t n)
 #ifdef FOMENT_32BIT
     uint32_t digits[1];
     digits[0] = n;
+    uint16_t used = 1;
 #endif // FOMENT_32BIT
 #ifdef FOMENT_64BIT
     uint32_t digits[2];
     digits[0] = n & 0xFFFFFFFF;
     digits[1] = n >> 32;
+    uint16_t used = (digits[1] != 0 ? 2 : 1);
 #endif // FOMENT_64BIT
 
     FObject ret = BignumAddDigits(AsBignum(bn)->Digits, AsBignum(bn)->Used, AsBignum(bn)->Sign,
-            digits, sizeof(digits) / sizeof(uint32_t), nsgn);
+            digits, used, nsgn);
 #if defined(FOMENT_WINDOWS) && defined(FOMENT_64BIT)
     FObject bn2 = MakeIntegerFromInt64(n * nsgn);
     if (BignumP(bn2))
@@ -822,9 +831,10 @@ FObject BignumAddLong(FObject bn, long_t n)
 #ifdef FOMENT_DEBUG
     if (strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) != 0)
     {
-        printf("BignumAddLong\nmpz: %s + %lld = %s\n", BignumToStringC(bn, 10), n,
+        printf("BignumAddLong\nmpz: %s + %lld = %s\n", BignumToStringC(bn, 10), n * nsgn,
                 BignumToStringC(ret, 10));
-        printf("new: %s + %lld = %s\n\n", NBignumToStringC(bn, 10), n, NBignumToStringC(ret, 10));
+        printf("new: %s + %lld = %s\n\n", NBignumToStringC(bn, 10), n * nsgn,
+                NBignumToStringC(ret, 10));
     }
 #endif // FOMENT_DEBUG
 //    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
@@ -1208,25 +1218,57 @@ FObject BignumRemainder(FObject n, FObject d)
     return(rem);
 }
 
-FObject BignumExpt(FObject bn, long_t e)
-{
-    FAssert(BignumP(bn));
-    FAssert(e >= 0);
-
-    FObject ret = MakeBignum(0);
-    // XXX
-    mpz_pow_ui(AsBignum(ret)->MPInteger, AsBignum(bn)->MPInteger, (unsigned long) e);
-    return(ret);
-}
-
 FObject BignumSqrt(FObject * rem, FObject bn)
 {
     FAssert(BignumP(bn));
+    FAssert(BignumSign(bn) > 0);
 
-    FObject ret = MakeBignum(0);
-    *rem = MakeBignum(0);
-    // XXX
+    FObject ret;
+    if (BignumCompare(bn, MaximumDoubleBignum) < 0)
+    {
+        ret = MakeBignumFromDouble(sqrt(BignumToDouble(bn)));
+        *rem = BignumSubtract(bn, BignumMultiply(ret, ret));
+    }
+    else
+    {
+        // Use Newton - Rhapson
+        double64_t d = BignumToDouble(bn);
+        FObject x = IsFinite(sqrt(d)) ? MakeBignumFromDouble(sqrt(d)) :
+                BignumLeftShift(AsBignum(MakeBignumFromLong(1)), (BignumIntegerLength(bn) / 2));
+        for (;;)
+        {
+            FObject xsq = BignumMultiply(x, x);
+            if (BignumCompare(bn, xsq) < 0)
+                x = BignumDivide(BignumAdd(xsq, bn), BignumMultiplyLong(x, 2));
+            else
+            {
+                if (BignumCompare(bn,
+                        BignumAddLong(BignumAdd(xsq, BignumMultiplyLong(x, 2)), 1)) < 0)
+                {
+                    ret = x;
+                    *rem = BignumSubtract(bn, xsq);
+                    break;
+                }
+                x = BignumDivide(BignumAdd(xsq, bn), BignumMultiplyLong(x, 2));
+            }
+        }
+    }
+
     mpz_sqrtrem(AsBignum(ret)->MPInteger, AsBignum(*rem)->MPInteger, AsBignum(bn)->MPInteger);
+
+#ifdef FOMENT_DEBUG
+    if (strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) != 0)
+    {
+        printf("BignumSqrt\nmpz: %s\nnew: %s\n", BignumToStringC(bn, 10), BignumToStringC(bn, 10));
+        printf("mpz: %s\nnew: %s\n", BignumToStringC(ret, 10), NBignumToStringC(ret, 10));
+        printf("mpz: %s\nnew: %s\n\n", BignumToStringC(*rem, 10), NBignumToStringC(*rem, 10));
+    }
+#endif // FOMENT_DEBUG
+//    FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
+//    FAssert(strcmp(BignumToStringC(*rem, 10), NBignumToStringC(*rem, 10)) == 0);
+
+// add BignumSqrt tests to TestBignums
+
     return(ret);
 }
 
@@ -1451,7 +1493,7 @@ ulong_t BignumIntegerLength(FObject bn)
     return(mpz_sizeinbase(AsBignum(bn)->MPInteger, 2));
 }
 
-static FBignum * BignumLeftShift(FBignum * ret, FBignum * bn, long_t cnt)
+static FBignum * BignumLeftShift(FBignum * bn, long_t cnt)
 {
     FAssert(cnt > 0);
 
@@ -1460,10 +1502,7 @@ static FBignum * BignumLeftShift(FBignum * ret, FBignum * bn, long_t cnt)
 
     if (bcnt == 0)
     {
-        if (ret == 0)
-            ret = MakeBignum(bn->Used + dcnt);
-
-        FAssert(MaximumDigits(ret) >= bn->Used + dcnt);
+        FBignum * ret = MakeBignum(bn->Used + dcnt);
 
         for (uint16_t idx = 0; idx < bn->Used; idx++)
             ret->Digits[idx + dcnt] = bn->Digits[idx];
@@ -1473,10 +1512,7 @@ static FBignum * BignumLeftShift(FBignum * ret, FBignum * bn, long_t cnt)
         return(ret);
     }
 
-    if (ret == 0)
-        ret = MakeBignum(bn->Used + dcnt + 1);
-
-    FAssert(MaximumDigits(ret) >= bn->Used + dcnt + 1);
+    FBignum * ret = MakeBignum(bn->Used + dcnt + 1);
 
     ret->Digits[bn->Used + dcnt] = bn->Digits[bn->Used - 1] >> (UINT32_BITS - bcnt);
     for (uint16_t idx = 1; idx < bn->Used; idx++)
@@ -1544,10 +1580,10 @@ FObject BignumArithmeticShift(FObject bn, long_t cnt)
 
         FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
 
-        return(Normalize(ret));
+        return(ret);
     }
 
-    FBignum * ret = BignumLeftShift(0, AsBignum(bn), cnt);
+    FBignum * ret = BignumLeftShift(AsBignum(bn), cnt);
     mpz_mul_2exp(ret->MPInteger, AsBignum(bn)->MPInteger, (mp_bitcnt_t) cnt);
 
     FAssert(strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) == 0);
@@ -1556,7 +1592,7 @@ FObject BignumArithmeticShift(FObject bn, long_t cnt)
 }
 
 #ifdef FOMENT_DEBUG
-void TestBignums()
+static void TestBignums()
 {
     char buf[128];
 
@@ -1662,6 +1698,8 @@ void TestBignums()
 
     FObject bn;
     bn = BignumAddLong(MakeBignumFromDouble(123456.789E10), 10);
+    FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
+    bn = BignumAddLong(MakeBignumFromDouble(123456.789E10), -10);
     FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
     bn = BignumAddLong(MakeBignumFromDouble(123456.789E10), 0xFFFFFFF);
     FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
@@ -2066,3 +2104,15 @@ void TestBignums()
     FAssert(strcmp(BignumToStringC(bn, 10), NBignumToStringC(bn, 10)) == 0);
 }
 #endif // FOMENT_DEBUG
+
+void SetupBignums()
+{
+    RegisterRoot(&MaximumDoubleBignum, "maximum-double-bignum");
+    MaximumDoubleBignum = MakeIntegerFromUInt64(0x0010000000000000ULL); // 2 ^ 52
+
+    FAssert(BignumP(MaximumDoubleBignum));
+
+#ifdef FOMENT_DEBUG
+    TestBignums();
+#endif // FOMENT_DEBUG
+}

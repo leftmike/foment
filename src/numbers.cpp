@@ -38,6 +38,11 @@ static long_t GenericSign(FObject x);
 static FObject GenericSubtract(FObject z1, FObject z2);
 static FObject GenericDivide(FObject z1, FObject z2);
 
+long_t IsFinite(double64_t d)
+{
+    return(isfinite(d));
+}
+
 long_t IntegerP(FObject obj)
 {
     if (FlonumP(obj))
@@ -273,7 +278,7 @@ static long_t ParseUInteger(FCh * s, long_t sl, long_t sdx, long_t rdx, int16_t 
         for (n = 0; sdx < sl; sdx++)
         {
             int64_t t;
-            long_t dv = DigitValue(s[sdx]);
+            int64_t dv = DigitValue(s[sdx]);
 
             if (dv >= 0 && dv <= 9)
                 t = n * 16 + dv;
@@ -295,7 +300,7 @@ static long_t ParseUInteger(FCh * s, long_t sl, long_t sdx, long_t rdx, int16_t 
 
         for (n = 0; sdx < sl; sdx++)
         {
-            long_t dv = DigitValue(s[sdx]);
+            int64_t dv = DigitValue(s[sdx]);
             if (dv >= 0 && dv < rdx)
             {
                 int64_t t = n * rdx + dv;
@@ -1021,7 +1026,7 @@ static long_t GenericCompare(const char * who, FObject x1, FObject x2, long_t cf
 
         case BOP_FIXED_FIXED:
         {
-            int64_t n = AsFixnum(x1) - AsFixnum(x2);
+            int64_t n = (int64_t) AsFixnum(x1) - AsFixnum(x2);
             return(n > 0 ? 1 : (n < 0 ? -1 : 0));
         }
 
@@ -1184,7 +1189,7 @@ FObject GenericAdd(FObject z1, FObject z2)
 
         case BOP_FIXED_FIXED:
         {
-            int64_t n = AsFixnum(z1) + AsFixnum(z2);
+            int64_t n = (int64_t) AsFixnum(z1) + AsFixnum(z2);
             if (n < MINIMUM_FIXNUM || n > MAXIMUM_FIXNUM)
                 return(Normalize(BignumAddLong(MakeBignumFromLong(AsFixnum(z1)),
                         AsFixnum(z2))));
@@ -1306,7 +1311,7 @@ FObject GenericMultiply(FObject z1, FObject z2)
 
         case BOP_FIXED_FIXED:
         {
-            int64_t n = AsFixnum(z1) * AsFixnum(z2);
+            int64_t n = (int64_t) AsFixnum(z1) * AsFixnum(z2);
             if (n < MINIMUM_FIXNUM || n > MAXIMUM_FIXNUM)
                 return(Normalize(BignumMultiplyLong(MakeBignumFromLong(AsFixnum(z1)),
                         AsFixnum(z2))));
@@ -1432,7 +1437,7 @@ static FObject GenericSubtract(FObject z1, FObject z2)
 
         case BOP_FIXED_FIXED:
         {
-            int64_t n = AsFixnum(z1) - AsFixnum(z2);
+            int64_t n = (int64_t) AsFixnum(z1) - AsFixnum(z2);
             if (n < MINIMUM_FIXNUM || n > MAXIMUM_FIXNUM)
                 return(Normalize(BignumAddLong(MakeBignumFromLong(AsFixnum(z1)),
                         - AsFixnum(z2))));
@@ -2556,6 +2561,24 @@ Define("%exact-integer-sqrt", ExactIntegerSqrtPrimitive)(long_t argc, FObject ar
     return(MakePair(Normalize(rt), Normalize(rem)));
 }
 
+static FObject ArithmeticShift(FObject num, long_t cnt)
+{
+    if (cnt == 0)
+        return(num);
+
+    if (FixnumP(num))
+    {
+        if (cnt < 0)
+            return(MakeFixnum((int64_t) AsFixnum(num) >> -cnt));
+
+        int64_t n = (int64_t) AsFixnum(num) << cnt;
+        if ((n >> cnt) == AsFixnum(num) && n >= MINIMUM_FIXNUM && n <= MAXIMUM_FIXNUM)
+            return(MakeFixnum(n));
+    }
+
+    return(Normalize(BignumArithmeticShift(ToBignum(num), cnt)));
+}
+
 Define("expt", ExptPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("expt", argc);
@@ -2589,12 +2612,8 @@ Define("expt", ExptPrimitive)(long_t argc, FObject argv[])
         long_t e = AsFixnum(argv[1]);
         if (e < 0)
             e = - e;
-
-        if (FixnumP(argv[0]) || BignumP(argv[0]))
-        {
-            FObject rbn = BignumExpt(ToBignum(argv[0]), e);
-            return(AsFixnum(argv[1]) < 0 ? MakeRatio(MakeFixnum(1), rbn) : Normalize(rbn));
-        }
+        else if (FixnumP(argv[0]) && AsFixnum(argv[0]) == 2)
+            return(ArithmeticShift(MakeFixnum(1), e));
 
         FObject ret = MakeFixnum(1);
         FObject n = argv[0];
@@ -2853,21 +2872,7 @@ Define("arithmetic-shift", ArithmeticShiftPrimitive)(long_t argc, FObject argv[]
     IntegerArgCheck("arithmetic-shift", argv[0]);
     FixnumArgCheck("arithmetic-shift", argv[1]);
 
-    long_t cnt = AsFixnum(argv[1]);
-    if (cnt == 0)
-        return(argv[0]);
-
-    if (FixnumP(argv[0]))
-    {
-        if (cnt < 0)
-            return(MakeFixnum((int64_t) AsFixnum(argv[0]) >> -cnt));
-
-        int64_t n = AsFixnum(argv[0]) << cnt;
-        if ((n >> cnt) == AsFixnum(argv[0]) && n >= MINIMUM_FIXNUM && n <= MAXIMUM_FIXNUM)
-            return(MakeFixnum(n));
-    }
-
-    return(BignumArithmeticShift(ToBignum(argv[0]), cnt));
+    return(ArithmeticShift(argv[0], AsFixnum(argv[1])));
 }
 
 static FObject Primitives[] =
@@ -2944,10 +2949,8 @@ void SetupNumbers()
 {
     FAssert(sizeof(double64_t) == 8);
 
-#ifdef FOMENT_DEBUG
-    TestBignums();
-#endif // FOMENT_DEBUG
-
     for (ulong_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
+
+    SetupBignums();
 }
