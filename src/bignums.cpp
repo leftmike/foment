@@ -483,7 +483,7 @@ long_t ParseBignum(FCh * s, long_t sl, long_t sdx, long_t rdx, int16_t sgn, long
     {
         for (n = 0; sdx < sl; sdx++)
         {
-            uint32_t dv = DigitValue(s[sdx]);
+            int32_t dv = DigitValue(s[sdx]);
 
             if (dv < 0 || dv > 9)
             {
@@ -704,11 +704,6 @@ static void DigitsSubtract(FBignum * ret, uint32_t * digits1, uint16_t used1,
     FAssert(ret->Sign == 1 || ret->Sign == -1);
 // XXX
 //    FAssert(b == 0);
-}
-
-static inline void DigitsSubtract(FBignum * bn1, FBignum * bn2)
-{
-    DigitsSubtract(bn1, bn1->Digits, bn1->Used, bn2->Digits, bn2->Used);
 }
 
 #define SwapDigits(digits1, used1, sgn1, digits2, used2, sgn2) \
