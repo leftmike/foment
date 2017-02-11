@@ -137,7 +137,6 @@ FObject ToExactRatio(double64_t d);
 long_t ParseBignum(FCh * s, long_t sl, long_t sdx, long_t rdx, int16_t sgn, long_t n,
     FObject * punt);
 long_t BignumCompare(FObject bn1, FObject bn2);
-long_t BignumCompareZero(FObject bn);
 long_t BignumSign(FObject bn);
 FObject BignumAdd(FObject bn1, FObject bn2);
 FObject BignumAddLong(FObject bn, long_t n);

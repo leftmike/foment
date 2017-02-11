@@ -115,7 +115,7 @@ FObject MakeRatio(FObject nmr, FObject dnm)
         nmr = ToBignum(nmr);
         dnm = ToBignum(dnm);
 
-        while (BignumCompareZero(d) != 0)
+        while (BignumSign(d) != 0)
         {
             FObject t = BignumRemainder(n, d);
             n = d;
@@ -703,7 +703,7 @@ static long_t NeedImaginaryPlusSignP(FObject n)
 
     FAssert(BignumP(n));
 
-    return(BignumCompareZero(n) >= 0);
+    return(BignumSign(n) >= 0);
 }
 
 static void WriteNumber(FObject port, FObject obj, long_t rdx)

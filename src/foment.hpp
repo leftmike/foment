@@ -3,6 +3,8 @@
 Foment
 
 To Do:
+-- numbers: check going between fixnums and bignums
+
 -- CheckObject: check back references from mature objects
 -- partial GC
 -- after partial GC, test for objects pointing to Babies
