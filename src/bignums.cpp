@@ -38,7 +38,7 @@ typedef struct
 #ifdef FOMENT_DEBUG
 static char * NBignumToStringC(FObject bn, uint32_t rdx);
 static long_t NBignumSign(FObject num);
-static inline long_t MaximumDigits(FObject bn)
+static inline ulong_t MaximumDigits(FObject bn)
 {
     FAssert(BignumP(bn));
 
@@ -596,9 +596,9 @@ long_t BignumCompare(FObject bn1, FObject bn2)
 #ifdef FOMENT_DEBUG
     if (NBignumCompare(bn1, bn2) != ret)
     {
-        printf("BignumCompare(%s, %s) = %lld\n", BignumToStringC(bn1, 10),
+        printf("BignumCompare(%s, %s) = " LONG_FMT "\n", BignumToStringC(bn1, 10),
                 BignumToStringC(bn2, 10), ret);
-        printf("NBignumCompare(%s, %s) = %lld\n\n", NBignumToStringC(bn1, 10),
+        printf("NBignumCompare(%s, %s) = " LONG_FMT "\n\n", NBignumToStringC(bn1, 10),
                 NBignumToStringC(bn2, 10), NBignumCompare(bn1, bn2));
     }
 #endif // FOMENT_DEBUG
@@ -615,8 +615,8 @@ long_t BignumSign(FObject bn)
 
 #ifdef FOMENT_DEBUG
     if (NBignumSign(bn) != sgn)
-        printf("BignumSign\nmpz: %lld %s\nnew: %lld %s\n\n", sgn, BignumToStringC(bn, 10),
-                NBignumSign(bn), NBignumToStringC(bn, 10));
+        printf("BignumSign\nmpz: " LONG_FMT " %s\nnew: " LONG_FMT " %s\n\n", sgn,
+                BignumToStringC(bn, 10), NBignumSign(bn), NBignumToStringC(bn, 10));
 #endif // FOMENT_DEBUG
     FAssert(NBignumSign(bn) == sgn);
 
@@ -869,9 +869,9 @@ FObject BignumAddLong(FObject bn, long_t n)
 #ifdef FOMENT_DEBUG
     if (strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) != 0)
     {
-        printf("BignumAddLong\nmpz: %s + %lld = %s\n", BignumToStringC(bn, 10), n * nsgn,
+        printf("BignumAddLong\nmpz: %s + " LONG_FMT " = %s\n", BignumToStringC(bn, 10), n * nsgn,
                 BignumToStringC(ret, 10));
-        printf("new: %s + %lld = %s\n\n", NBignumToStringC(bn, 10), n * nsgn,
+        printf("new: %s + " LONG_FMT " = %s\n\n", NBignumToStringC(bn, 10), n * nsgn,
                 NBignumToStringC(ret, 10));
     }
 #endif // FOMENT_DEBUG
@@ -1033,9 +1033,10 @@ FObject BignumMultiplyLong(FObject bn, long_t n)
 #ifdef FOMENT_DEBUG
     if (strcmp(BignumToStringC(ret, 10), NBignumToStringC(ret, 10)) != 0)
     {
-        printf("BignumMultiplyLong\nmpz: %s * %lld = %s\n", BignumToStringC(bn, 10), n,
+        printf("BignumMultiplyLong\nmpz: %s * " LONG_FMT " = %s\n", BignumToStringC(bn, 10), n,
                 BignumToStringC(ret, 10));
-        printf("new: %s * %lld = %s\n\n", NBignumToStringC(bn, 10), n, NBignumToStringC(ret, 10));
+        printf("new: %s * " LONG_FMT " = %s\n\n", NBignumToStringC(bn, 10), n,
+                NBignumToStringC(ret, 10));
     }
 #endif // FOMENT_DEBUG
     FAssert(ret->Used > 0);
@@ -1046,6 +1047,7 @@ FObject BignumMultiplyLong(FObject bn, long_t n)
     return(ret);
 }
 
+#ifdef FOMENT_DEBUG
 static long_t BignumOddP(FBignum * bn)
 {
     FAssert(bn->Used > 0);
@@ -1054,6 +1056,7 @@ static long_t BignumOddP(FBignum * bn)
 
     return(bn->Used != 0 && (bn->Digits[0] & 0x1));
 }
+#endif // FOMENT_DEBUG
 
 long_t BignumOddP(FObject n)
 {
@@ -1186,7 +1189,6 @@ static FBignum * DigitsDivideRemainder(FBignum * n, FBignum * d)
 //    printf("new: %s / %s\n", NBignumToStringC(n, 10), NBignumToStringC(d, 10));
 #endif // FOMENT_DEBUG
     FBignum * q = MakeBignum(n->Used - d->Used + 1);
-    FBignum * p = MakeBignum(n->Used + 1);
     for (;;)
     {
         long_t m = DigitsCompareShift(n, d);
@@ -1561,6 +1563,7 @@ ulong_t BignumBitCount(FObject bn)
     return(bc);
 }
 
+#ifdef FOMENT_DEBUG
 static ulong_t BignumIntegerLength(FBignum * bn)
 {
     if (bn->Sign < 0)
@@ -1571,12 +1574,15 @@ static ulong_t BignumIntegerLength(FBignum * bn)
 
     return(DigitsIntegerLength(bn));
 }
+#endif // FOMENT_DEBUG
 
 ulong_t BignumIntegerLength(FObject bn)
 {
     FAssert(BignumP(bn));
 
+#ifdef FOMENT_DEBUG
     ulong_t il = BignumIntegerLength(AsBignum(bn));
+#endif // FOMENT_DEBUG
 
     FAssert(BignumSign(bn) == 0 || il == mpz_sizeinbase(AsBignum(bn)->MPInteger, 2));
 
@@ -1710,6 +1716,9 @@ FObject BignumArithmeticShift(FObject num, long_t cnt)
 }
 
 #ifdef FOMENT_DEBUG
+#ifdef FOMENT_UNIX
+#define sprintf_s snprintf
+#endif // FOMENT_UNIX
 static void TestBignums()
 {
     char buf[128];
