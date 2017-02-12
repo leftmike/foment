@@ -15,7 +15,7 @@ Foment
 #include "unicode.hpp"
 #include "bignums.hpp"
 
-//#define USE_GMP 1
+#define USE_GMP 1
 #ifdef USE_GMP
 #include "mini-gmp.h"
 #endif // USE_GMP
@@ -383,7 +383,9 @@ double64_t BignumToDouble(FObject bn)
     FAssert(BignumP(bn));
 
 #ifdef USE_GMP
+#ifdef FOMENT_DEBUG
     double64_t od = mpz_get_d(AsBignum(bn)->MPInteger);
+#endif // FOMENT_DEBUG
 #endif // USE_GMP
 
     double64_t d = 0;
@@ -409,10 +411,12 @@ double64_t BignumToDouble(FObject bn)
 }
 
 #ifdef USE_GMP
+#ifdef FOMENT_DEBUG
 static char * MBignumToStringC(FObject bn, uint32_t rdx)
 {
     return(mpz_get_str(0, (int) rdx, AsBignum(bn)->MPInteger));
 }
+#endif // FOMENT_DEBUG
 #endif // USE_GMP
 
 static const char DigitTable[] = "0123456789abcdefghijklmnopqrstuvwxyz";
@@ -612,7 +616,9 @@ long_t BignumSign(FObject num)
     FAssert(BignumP(num));
 
 #ifdef USE_GMP
+#ifdef FOMENT_DEBUG
     long_t sgn = mpz_sgn(AsBignum(num)->MPInteger);
+#endif // FOMENT_DEBUG
 #endif // USE_GMP
 
     FBignum * bn = AsBignum(num);
