@@ -5,9 +5,13 @@ Foment
 To Do:
 -- numbers: check going between fixnums and bignums
 -- USE_GMP
--- replace mini-gmp
+-- remove mini-gmp
 -- increase maximum/minimum fixnum on 64bit
 
+-- out of memory exception
+-- win32: test-all (no-collector)
+-- change no-collector to not use huge babies -- just allocate another one if necessary
+-- fix generational collector
 -- CheckObject: check back references from mature objects
 -- partial GC
 -- after partial GC, test for objects pointing to Babies

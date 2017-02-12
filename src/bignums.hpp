@@ -132,7 +132,7 @@ FObject CopyBignum(FObject n);
 FObject ToBignum(FObject obj); // should be static
 FObject Normalize(FObject num); // should be static inline
 double64_t BignumToDouble(FObject bn); // check who calls
-char * BignumToStringC(FObject bn, long_t rdx);
+char * BignumToStringC(FObject bn, uint32_t rdx);
 FObject ToExactRatio(double64_t d);
 long_t ParseBignum(FCh * s, long_t sl, long_t sdx, long_t rdx, int16_t sgn, long_t n,
     FObject * punt);

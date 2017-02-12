@@ -770,7 +770,7 @@ static void WriteNumber(FObject port, FObject obj, long_t rdx)
     {
         FAssert(BignumP(obj));
 
-        char * s = BignumToStringC(obj, rdx);
+        char * s = BignumToStringC(obj, (uint32_t) rdx);
         WriteStringC(port, s);
         free(s);
     }
