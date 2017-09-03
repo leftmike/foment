@@ -3619,7 +3619,8 @@ void SetupIO()
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-    if (isatty(0) && isatty(1) && SetupConsole())
+    char * term = getenv("TERM");
+    if (isatty(0) && isatty(1) && term != 0 && strcasecmp(term, "dumb") != 0 && SetupConsole())
     {
         StandardInput = MakeConsoleInputPort(MakeStringC("console-input"), 0, 1);
         StandardOutput = MakeConsoleOutputPort(MakeStringC("console-output"), 1);
