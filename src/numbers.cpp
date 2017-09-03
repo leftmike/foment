@@ -2948,6 +2948,10 @@ static FObject Primitives[] =
 void SetupNumbers()
 {
     FAssert(sizeof(double64_t) == 8);
+    FAssert(AsFixnum(MakeFixnum(1)) == 1);
+    FAssert(AsFixnum(MakeFixnum(-1)) == -1);
+    FAssert(AsFixnum(MakeFixnum(MAXIMUM_FIXNUM)) == MAXIMUM_FIXNUM);
+    FAssert(AsFixnum(MakeFixnum(MINIMUM_FIXNUM)) == MINIMUM_FIXNUM);
 
     for (ulong_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);

@@ -908,10 +908,14 @@ FObject ReadLine(FObject port)
     FAlive ap(&port);
     FObject lst = EmptyListObject;
     FAlive al(&lst);
-    FCh ch = 0;
+    FCh ch;
+    ulong_t ret;
 
-    while (ReadCh(port, &ch))
+    for (;;)
     {
+        ret = ReadCh(port, &ch);
+        if (ret == 0)
+            break;
         if (ch == 0x0A || ch == 0x0D)
             break;
 
@@ -935,7 +939,7 @@ FObject ReadLine(FObject port)
         }
     }
 
-    if (ch == 0 && lst == EmptyListObject)
+    if (ret == 0 && lst == EmptyListObject)
         return(EndOfFileObject);
 
     return(ListToString(lst));
@@ -3615,7 +3619,8 @@ void SetupIO()
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-    if (isatty(0) && isatty(1) && SetupConsole())
+    char * term = getenv("TERM");
+    if (isatty(0) && isatty(1) && term != 0 && strcasecmp(term, "dumb") != 0 && SetupConsole())
     {
         StandardInput = MakeConsoleInputPort(MakeStringC("console-input"), 0, 1);
         StandardOutput = MakeConsoleOutputPort(MakeStringC("console-output"), 1);

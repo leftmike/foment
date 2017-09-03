@@ -237,7 +237,7 @@ typedef enum
 
 #define FixnumP(obj) ImmediateP(obj, FixnumTag)
 #define MakeFixnum(n)\
-    ((FObject *) ((((long_t) (n)) << 3) | (FixnumTag & 0x7)))
+    ((FObject *) ((((ulong_t) (n)) << 3) | (FixnumTag & 0x7)))
 #define AsFixnum(obj) (((long_t) (obj)) >> 3)
 
 #define MAXIMUM_FIXNUM ((((long_t) 1) << (sizeof(int32_t) * 8 - 4)) - 1)
