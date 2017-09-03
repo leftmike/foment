@@ -416,6 +416,8 @@
         make-encoded-port
         file-encoding
         want-identifiers
+        console-port?
+        interactive-console-port?
         set-console-input-editline!
         set-console-input-echo!
         with-continuation-mark
@@ -1430,7 +1432,7 @@
                     (lambda (exit)
                         (set-ctrl-c-notify! 'broadcast)
                         (let ((port (current-input-port)))
-                            (if (console-port? port)
+                            (if (interactive-console-port? port)
                                 (dynamic-wind
                                     (lambda ()
                                         (set-console-input-editline! port #t)

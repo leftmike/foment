@@ -643,18 +643,19 @@ FObject U8ListToBytevector(FObject obj);
 
 // ---- Ports ----
 
-#define PORT_FLAG_INPUT              0x800
-#define PORT_FLAG_INPUT_OPEN         0x400
-#define PORT_FLAG_OUTPUT             0x200
-#define PORT_FLAG_OUTPUT_OPEN        0x100
-#define PORT_FLAG_STRING_OUTPUT      0x080
-#define PORT_FLAG_BYTEVECTOR_OUTPUT  0x040
-#define PORT_FLAG_FOLDCASE           0x020
-#define PORT_FLAG_WANT_IDENTIFIERS   0x010
-#define PORT_FLAG_CONSOLE            0x008
-#define PORT_FLAG_SOCKET             0x004
-#define PORT_FLAG_BUFFERED           0x002
-#define PORT_FLAG_POSITIONING        0x001
+#define PORT_FLAG_INPUT              0x1000
+#define PORT_FLAG_INPUT_OPEN         0x0800
+#define PORT_FLAG_OUTPUT             0x0400
+#define PORT_FLAG_OUTPUT_OPEN        0x0200
+#define PORT_FLAG_STRING_OUTPUT      0x0100
+#define PORT_FLAG_BYTEVECTOR_OUTPUT  0x0080
+#define PORT_FLAG_FOLDCASE           0x0040
+#define PORT_FLAG_WANT_IDENTIFIERS   0x0020
+#define PORT_FLAG_INTERACTIVE        0x0010
+#define PORT_FLAG_CONSOLE            0x0008
+#define PORT_FLAG_SOCKET             0x0004
+#define PORT_FLAG_BUFFERED           0x0002
+#define PORT_FLAG_POSITIONING        0x0001
 
 typedef enum
 {
@@ -748,6 +749,12 @@ inline long_t WantIdentifiersPortP(FObject port)
 inline long_t ConsolePortP(FObject port)
 {
     return(TextualPortP(port) && (AsGenericPort(port)->Flags & PORT_FLAG_CONSOLE));
+}
+
+inline long_t InteractiveConsolePortP(FObject port)
+{
+    return(TextualPortP(port) && (AsGenericPort(port)->Flags & PORT_FLAG_CONSOLE)
+            && (AsGenericPort(port)->Flags & PORT_FLAG_INTERACTIVE));
 }
 
 inline long_t SocketPortP(FObject port)
@@ -1778,6 +1785,13 @@ inline void ConsoleInputPortArgCheck(const char * who, FObject obj)
 {
     if (ConsolePortP(obj) == 0 || InputPortOpenP(obj) == 0)
         RaiseExceptionC(Assertion, who, "expected an open console input port", List(obj));
+}
+
+inline void InteractiveConsoleInputPortArgCheck(const char * who, FObject obj)
+{
+    if (InteractiveConsolePortP(obj) == 0 || InputPortOpenP(obj) == 0)
+        RaiseExceptionC(Assertion, who, "expected an open interactive console input port",
+                List(obj));
 }
 
 inline void SocketPortArgCheck(const char * who, FObject obj)
