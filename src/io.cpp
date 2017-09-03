@@ -3613,8 +3613,8 @@ void SetupIO()
         if (GetConsoleMode(herr, &emd) != 0)
             StandardError = MakeConsoleOutputPort(MakeStringC("console-output"), herr);
         else
-            StandardError = MakeLatin1Port(MakeBufferedPort(
-                    MakeHandleOutputPort(MakeStringC("standard-error"), herr)));
+            StandardError = MakeLatin1Port(
+                    MakeHandleOutputPort(MakeStringC("standard-error"), herr));
     }
 #endif // FOMENT_WINDOWS
 
@@ -3633,8 +3633,8 @@ void SetupIO()
                 MakeFileDescOutputPort(MakeStringC("standard-output"), 1)));
     }
 
-    StandardError = MakeUtf8Port(MakeBufferedPort(
-            MakeFileDescOutputPort(MakeStringC("standard-error"), 2)));
+    StandardError = MakeUtf8Port(
+            MakeFileDescOutputPort(MakeStringC("standard-error"), 2));
 #endif // FOMENT_UNIX
 
     FileErrorSymbol = InternSymbol(FileErrorSymbol);
