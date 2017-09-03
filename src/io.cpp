@@ -908,10 +908,14 @@ FObject ReadLine(FObject port)
     FAlive ap(&port);
     FObject lst = EmptyListObject;
     FAlive al(&lst);
-    FCh ch = 0;
+    FCh ch;
+    ulong_t ret;
 
-    while (ReadCh(port, &ch))
+    for (;;)
     {
+        ret = ReadCh(port, &ch);
+        if (ret == 0)
+            break;
         if (ch == 0x0A || ch == 0x0D)
             break;
 
@@ -935,7 +939,7 @@ FObject ReadLine(FObject port)
         }
     }
 
-    if (ch == 0 && lst == EmptyListObject)
+    if (ret == 0 && lst == EmptyListObject)
         return(EndOfFileObject);
 
     return(ListToString(lst));
