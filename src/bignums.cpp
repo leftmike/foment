@@ -1753,6 +1753,15 @@ static void TestBignums()
 {
     char buf[128];
 
+    FAssert(FixnumP(Normalize(MakeBignumFromLong(0))));
+    FAssert(FixnumP(Normalize(MakeBignumFromLong(9999))));
+    FAssert(FixnumP(Normalize(MakeBignumFromLong(MAXIMUM_FIXNUM))));
+    FAssert(FixnumP(Normalize(MakeBignumFromLong(-9999))));
+    FAssert(FixnumP(Normalize(MakeBignumFromLong(MINIMUM_FIXNUM))));
+
+    FAssert(BignumP(Normalize(MakeBignumFromLong(MAXIMUM_FIXNUM + 1))));
+    FAssert(BignumP(Normalize(MakeBignumFromLong(MINIMUM_FIXNUM - 1))));
+
     FAssert(strcmp(BignumToStringC(MakeBignumFromLong(0), 10), "0") == 0);
     sprintf_s(buf, sizeof(buf), LONG_FMT, MAXIMUM_FIXNUM);
     FAssert(strcmp(BignumToStringC(MakeBignumFromLong(MAXIMUM_FIXNUM), 10), buf) == 0);

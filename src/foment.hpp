@@ -3,9 +3,7 @@
 Foment
 
 To Do:
--- numbers: check going between fixnums and bignums
--- USE_GMP
--- remove mini-gmp
+-- remove mini-gmp and USE_GMP
 -- increase maximum/minimum fixnum on 64bit
 
 -- out of memory exception
