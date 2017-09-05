@@ -3,8 +3,8 @@
 Foment
 
 To Do:
--- remove mini-gmp and USE_GMP
 -- increase maximum/minimum fixnum on 64bit
+-- remove mini-gmp and USE_GMP
 
 -- out of memory exception
 -- win32: test-all (no-collector)

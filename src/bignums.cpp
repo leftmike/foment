@@ -15,7 +15,6 @@ Foment
 #include "unicode.hpp"
 #include "bignums.hpp"
 
-#define USE_GMP 1
 #ifdef USE_GMP
 #include "mini-gmp.h"
 #endif // USE_GMP
@@ -601,8 +600,8 @@ long_t BignumCompare(FObject bn1, FObject bn2)
     FAssert(BignumP(bn1));
     FAssert(BignumP(bn2));
 
-    long_t ret = BignumCompareDigits(AsBignum(bn1)->Digits, AsBignum(bn1)->Used, AsBignum(bn1)->Sign,
-            AsBignum(bn2)->Digits, AsBignum(bn2)->Used, AsBignum(bn2)->Sign);
+    long_t ret = BignumCompareDigits(AsBignum(bn1)->Digits, AsBignum(bn1)->Used,
+            AsBignum(bn1)->Sign, AsBignum(bn2)->Digits, AsBignum(bn2)->Used, AsBignum(bn2)->Sign);
 
 #ifdef USE_GMP
     FAssert(mpz_cmp(AsBignum(bn1)->MPInteger, AsBignum(bn2)->MPInteger) == ret);
