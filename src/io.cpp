@@ -2253,6 +2253,8 @@ static ulong_t ConReadRawCh(FConsoleInput * ci, FCh * ch)
     {
         if (ConReadRaw(ci, 1) == 0)
             return(0);
+        if (ci->RawAvailable == 0)
+            return(0);
     }
 
     FAssert(ci->RawAvailable > 0 && ci->RawUsed < ci->RawAvailable);
@@ -2713,7 +2715,7 @@ static FObject MakeConsoleInputPort(FObject nam, HANDLE hin, HANDLE hout)
 
     FObject port = MakeTextualPort(nam, NoValueObject, ci, ConCloseInput, 0, 0, ConReadCh,
             ConCharReadyP, 0, 0, 0);
-    AsGenericPort(port)->Flags |= PORT_FLAG_CONSOLE;
+    AsGenericPort(port)->Flags |= PORT_FLAG_CONSOLE | PORT_FLAG_INTERACTIVE;
     AsConsoleInput(port)->Mode = CONSOLE_INPUT_ECHO;
 
     return(port);
@@ -2756,7 +2758,7 @@ static FObject MakeConsoleOutputPort(FObject nam, HANDLE h)
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-static FObject MakeConsoleInputPort(FObject nam, long_t ifd, long_t ofd)
+static FObject MakeConsoleInputPort(FObject nam, long_t ifd, long_t ofd, int fi)
 {
     FConsoleInput * ci = MakeConsoleInput();
     if (ci == 0)
@@ -2768,7 +2770,11 @@ static FObject MakeConsoleInputPort(FObject nam, long_t ifd, long_t ofd)
     FObject port = MakeTextualPort(nam, NoValueObject, ci, ConCloseInput, 0, 0, ConReadCh,
             ConCharReadyP, 0, 0, 0);
     AsGenericPort(port)->Flags |= PORT_FLAG_CONSOLE;
-    AsConsoleInput(port)->Mode = CONSOLE_INPUT_ECHO;
+    if (fi)
+    {
+        AsGenericPort(port)->Flags |= PORT_FLAG_INTERACTIVE;
+        AsConsoleInput(port)->Mode = CONSOLE_INPUT_ECHO;
+    }
 
     return(port);
 }
@@ -3029,10 +3035,17 @@ Define("console-port?", ConsolePortPPrimitive)(long_t argc, FObject argv[])
     return(ConsolePortP(argv[0]) ? TrueObject : FalseObject);
 }
 
+Define("interactive-console-port?", InteractiveConsolePortPPrimitive)(long_t argc, FObject argv[])
+{
+    OneArgCheck("interactive-console-port?", argc);
+
+    return(InteractiveConsolePortP(argv[0]) ? TrueObject : FalseObject);
+}
+
 Define("set-console-input-editline!", SetConsoleInputEditlinePrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("set-console-input-editline!", argc);
-    ConsoleInputPortArgCheck("set-console-input-editline!", argv[0]);
+    InteractiveConsoleInputPortArgCheck("set-console-input-editline!", argv[0]);
     BooleanArgCheck("set-console-input-editline!", argv[1]);
 
     if (argv[1] == TrueObject)
@@ -3505,6 +3518,7 @@ static FObject Primitives[] =
     MakeEncodedPortPrimitive,
     WantIdentifiersPrimitive,
     ConsolePortPPrimitive,
+    InteractiveConsolePortPPrimitive,
     SetConsoleInputEditlinePrimitive,
     SetConsoleInputEchoPrimitive,
     SaveHistoryPrimitive,
@@ -3613,16 +3627,17 @@ void SetupIO()
         if (GetConsoleMode(herr, &emd) != 0)
             StandardError = MakeConsoleOutputPort(MakeStringC("console-output"), herr);
         else
-            StandardError = MakeLatin1Port(MakeBufferedPort(
-                    MakeHandleOutputPort(MakeStringC("standard-error"), herr)));
+            StandardError = MakeLatin1Port(
+                    MakeHandleOutputPort(MakeStringC("standard-error"), herr));
     }
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-    char * term = getenv("TERM");
-    if (isatty(0) && isatty(1) && term != 0 && strcasecmp(term, "dumb") != 0 && SetupConsole())
+    if (isatty(0) && isatty(1))
     {
-        StandardInput = MakeConsoleInputPort(MakeStringC("console-input"), 0, 1);
+        char * term = getenv("TERM");
+        int fi = (term != 0 && strcasecmp(term, "dumb") != 0 && SetupConsole());
+        StandardInput = MakeConsoleInputPort(MakeStringC("console-input"), 0, 1, fi);
         StandardOutput = MakeConsoleOutputPort(MakeStringC("console-output"), 1);
     }
     else
@@ -3633,8 +3648,8 @@ void SetupIO()
                 MakeFileDescOutputPort(MakeStringC("standard-output"), 1)));
     }
 
-    StandardError = MakeUtf8Port(MakeBufferedPort(
-            MakeFileDescOutputPort(MakeStringC("standard-error"), 2)));
+    StandardError = MakeUtf8Port(
+            MakeFileDescOutputPort(MakeStringC("standard-error"), 2));
 #endif // FOMENT_UNIX
 
     FileErrorSymbol = InternSymbol(FileErrorSymbol);
