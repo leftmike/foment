@@ -329,6 +329,7 @@ FObject Normalize(FObject num)
         FAssert(bn->Used < 2 || bn->Digits[bn->Used - 1] != 0);
         FAssert(bn->Sign == 1 || bn->Sign == -1);
 
+#if defined(FOMENT_32BIT) || defined(USE_GMP)
         if (bn->Used == 1 && bn->Digits[0] <= MAXIMUM_FIXNUM)
         {
 #ifdef USE_GMP
@@ -338,6 +339,18 @@ FObject Normalize(FObject num)
 
             return(MakeFixnum((long_t) bn->Digits[0] * bn->Sign));
         }
+#endif
+
+#ifdef FOMENT_64BIT
+        if (bn->Used == 1)
+            return(MakeFixnum((long_t) bn->Digits[0] * bn->Sign));
+        else if (bn->Used == 2)
+        {
+            ulong_t n = ((ulong_t) bn->Digits[0]) | (((ulong_t) bn->Digits[1]) << 32);
+            if (n <= (ulong_t) MAXIMUM_FIXNUM)
+                return(MakeFixnum((long_t) n * bn->Sign));
+        }
+#endif // FOMENT_64BIT
     }
 
     return(num);
@@ -2282,7 +2295,7 @@ static void TestBignums()
 void SetupBignums()
 {
     RegisterRoot(&MaximumDoubleBignum, "maximum-double-bignum");
-    MaximumDoubleBignum = MakeIntegerFromUInt64(0x0010000000000000ULL); // 2 ^ 52
+    MaximumDoubleBignum = MakeBignumFromLong(0x0010000000000000LL); // 2 ^ 52
 
     FAssert(BignumP(MaximumDoubleBignum));
 

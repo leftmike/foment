@@ -238,9 +238,15 @@ typedef enum
     ((FObject *) ((((ulong_t) (n)) << 3) | (FixnumTag & 0x7)))
 #define AsFixnum(obj) (((long_t) (obj)) >> 3)
 
+#if defined(FOMENT_32BIT) || defined(USE_GMP)
 #define MAXIMUM_FIXNUM ((((long_t) 1) << (sizeof(int32_t) * 8 - 4)) - 1)
 #define MINIMUM_FIXNUM (- MAXIMUM_FIXNUM)
-#define FIXNUM_BITS (sizeof(long_t) * 8)
+#endif
+
+#ifdef FOMENT_64BIT
+#define MAXIMUM_FIXNUM ((((long_t) 1) << (sizeof(int64_t) * 8 - 4)) - 1)
+#define MINIMUM_FIXNUM (- MAXIMUM_FIXNUM)
+#endif // FOMENT_64BIT
 
 #define NormalizeHash(hsh) ((hsh) & MAXIMUM_FIXNUM)
 
