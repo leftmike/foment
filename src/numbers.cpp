@@ -782,7 +782,7 @@ FObject NumberToString(FObject obj, long_t rdx)
 
     if (FixnumP(obj))
     {
-        FCh s[32];
+        FCh s[64];
         long_t sl = FixnumAsString(AsFixnum(obj), s, rdx);
 
         return(MakeString(s, sl));
