@@ -239,16 +239,16 @@ typedef enum
 #define AsFixnum(obj) (((long_t) (obj)) >> 3)
 
 #if defined(FOMENT_32BIT) || defined(USE_GMP)
-#define MAXIMUM_FIXNUM ((((long_t) 1) << (sizeof(int32_t) * 8 - 4)) - 1)
+#define FIXNUM_BITS (sizeof(int32_t) * 8 - 4)
+#define MAXIMUM_FIXNUM ((((long_t) 1) << FIXNUM_BITS) - 1)
 #define MINIMUM_FIXNUM (- MAXIMUM_FIXNUM)
-#endif
-
-#ifdef FOMENT_64BIT
-#define MAXIMUM_FIXNUM ((((long_t) 1) << (sizeof(int64_t) * 8 - 4)) - 1)
+#else // FOMENT_64BIT
+#define FIXNUM_BITS (sizeof(int64_t) * 8 - 4)
+#define MAXIMUM_FIXNUM ((((long_t) 1) << FIXNUM_BITS) - 1)
 #define MINIMUM_FIXNUM (- MAXIMUM_FIXNUM)
 #endif // FOMENT_64BIT
 
-#define NormalizeHash(hsh) ((hsh) & MAXIMUM_FIXNUM)
+#define NormalizeHash(hsh) ((uint32_t) ((hsh) & MAXIMUM_FIXNUM))
 
 // ---- Memory Management ----
 

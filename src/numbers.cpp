@@ -2571,9 +2571,14 @@ static FObject ArithmeticShift(FObject num, long_t cnt)
         if (cnt < 0)
             return(MakeFixnum((int64_t) AsFixnum(num) >> -cnt));
 
-        int64_t n = (int64_t) AsFixnum(num) << cnt;
-        if ((n >> cnt) == AsFixnum(num) && n >= MINIMUM_FIXNUM && n <= MAXIMUM_FIXNUM)
-            return(MakeFixnum(n));
+#ifdef FOMENT_32BIT
+        if (HighestBitUInt32(AsFixnum(num)) + cnt + 1 < FIXNUM_BITS)
+            return(MakeFixnum(AsFixnum(num) << cnt));
+#endif // FOMENT_32BIT
+#ifdef FOMENT_64BIT
+        if (HighestBitUInt64(AsFixnum(num)) + cnt + 1 < FIXNUM_BITS)
+            return(MakeFixnum(AsFixnum(num) << cnt));
+#endif // FOMENT_64BIT
     }
 
     return(Normalize(BignumArithmeticShift(ToBignum(num), cnt)));

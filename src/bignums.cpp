@@ -339,9 +339,7 @@ FObject Normalize(FObject num)
 
             return(MakeFixnum((long_t) bn->Digits[0] * bn->Sign));
         }
-#endif
-
-#ifdef FOMENT_64BIT
+#else // FOMENT_64BIT
         if (bn->Used == 1)
             return(MakeFixnum((long_t) bn->Digits[0] * bn->Sign));
         else if (bn->Used == 2)
@@ -2295,7 +2293,12 @@ static void TestBignums()
 void SetupBignums()
 {
     RegisterRoot(&MaximumDoubleBignum, "maximum-double-bignum");
+#ifdef FOMENT_32BIT
+    MaximumDoubleBignum = MakeIntegerFromInt64(0x0010000000000000LL); // 2 ^ 52
+#endif // FOMENT_32BIT
+#ifdef FOMENT_64BIT
     MaximumDoubleBignum = MakeBignumFromLong(0x0010000000000000LL); // 2 ^ 52
+#endif // FOMENT_64BIT
 
     FAssert(BignumP(MaximumDoubleBignum));
 
