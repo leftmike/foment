@@ -3,7 +3,6 @@
 Foment
 
 To Do:
--- increase maximum/minimum fixnum on 64bit
 -- remove mini-gmp and USE_GMP
 
 -- out of memory exception
