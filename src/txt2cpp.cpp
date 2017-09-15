@@ -8,9 +8,7 @@ txt2cpp <input> <output> <name>
 
 #ifdef FOMENT_WINDOWS
 #define _CRT_SECURE_NO_WARNINGS
-#define StringDuplicate(s) _strdup(s)
-#else // FOMENT_WINDOWS
-#define StringDuplicate(s) strdup(s)
+#define strdup(s) _strdup(s)
 #endif // FOMENT_WINDOWS
 
 #include <stdio.h>
@@ -44,10 +42,34 @@ void print_name(FILE * outf, char * nam)
     }
 }
 
+char * parse_name(char * s)
+{
+    int idx = 0;
+
+    while (s[idx] != 0 && s[idx] != '(')
+        idx += 1;
+
+    if (s[idx] != 0)
+    {
+        char * nam = strdup(s + idx);
+        for (idx = 0; nam[idx] != 0; idx++)
+            if (nam[idx] == ')')
+            {
+                nam[idx + 1] = 0;
+                break;
+            }
+
+        return(nam);
+    }
+
+    return(0);
+}
+
 int main(int argc, char * argv[])
 {
     char buf[256];
     char * libs[256];
+    char * names[256];
     int num_libs = 0;
     int idx;
 
@@ -76,22 +98,22 @@ int main(int argc, char * argv[])
         if (fgets(buf, sizeof(buf), inf) == 0)
             break;
 
-        if (strncmp(buf, "(define-library", 15) == 0)
+        char * s = buf;
+        int cnt = 0;
+        while (*s)
         {
-            idx = 15;
-            while (buf[idx] != 0 && buf[idx] != '(')
-                idx += 1;
+            if (*s != ' ')
+                break;
 
-            if (buf[idx] != 0)
+            s += 1;
+            cnt += 1;
+        }
+
+        if (strncmp(s, "(define-library", 15) == 0)
+        {
+            char * nam = parse_name(s + 15);
+            if (nam != 0)
             {
-                char * nam = StringDuplicate(buf + idx);
-                for (idx = 0; nam[idx] != 0; idx++)
-                    if (nam[idx] == ')')
-                    {
-                        nam[idx + 1] = 0;
-                        break;
-                    }
-
                 if (num_libs > 0)
                 {
                     fputc(';', outf);
@@ -102,19 +124,19 @@ int main(int argc, char * argv[])
                 print_name(outf, nam);
                 fprintf(outf, "[] =");
                 libs[num_libs] = nam;
+                names[num_libs] = nam;
                 num_libs += 1;
             }
         }
-
-        char * s = buf;
-        int cnt = 0;
-        while (*s)
+        else if (strncmp(s, "(aka", 4) == 0 && num_libs > 0)
         {
-            if (*s != ' ')
-                break;
-
-            s += 1;
-            cnt += 1;
+            char * nam = parse_name(s + 4);
+            if (nam != 0)
+            {
+                libs[num_libs] = libs[num_libs - 1];
+                names[num_libs] = nam;
+                num_libs += 1;
+            }
         }
 
         if (*s != 0 && *s != '\n')
@@ -163,7 +185,7 @@ int main(int argc, char * argv[])
 
     fprintf(outf, "char FomentLibraryNames[] =\n\"#(\"\n");
     for (idx = 1; idx < num_libs; idx++)
-        fprintf(outf, "\"    %s\"\n", libs[idx]);
+        fprintf(outf, "\"    %s\"\n", names[idx]);
     fprintf(outf, "\")\";\n");
 
     if (fclose(inf) != 0)
