@@ -35,7 +35,7 @@ Foment
 const static ulong_t Align[8] = {0, 7, 6, 5, 4, 3, 2, 1};
 
 FCollectorType CollectorType = MarkSweepCollector;
-ulong_t MaximumStackSize = 1024 * 1024 * 4 * sizeof(FObject);
+ulong_t MaximumStackSize = 1024 * 1024 * sizeof(FObject);
 ulong_t MaximumBabiesSize = 0;
 ulong_t MaximumKidsSize = 0;
 ulong_t MaximumGenerationalBaby = 1024 * 64;
@@ -403,6 +403,17 @@ static void InitializeObjHdr(FObjHdr * oh, ulong_t tsz, ulong_t tag, ulong_t gen
     FAssert(oh->Generation() == gen);
 }
 
+static void * InitializeBabies(FThreadState * ts)
+{
+    void * mem = InitializeMemRegion(&ts->Babies, MaximumBabiesSize);
+    if (mem == 0)
+        return(0);
+    if (GrowMemRegionUp(&ts->Babies, GC_PAGE_SIZE * 8) == 0)
+        return(0);
+    ts->BabiesUsed = 0;
+    return(mem);
+}
+
 static FObjHdr * MakeBaby(ulong_t tsz, ulong_t tag, ulong_t sz, ulong_t sc, const char * who)
 {
     FThreadState * ts = GetThreadState();
@@ -410,8 +421,19 @@ static FObjHdr * MakeBaby(ulong_t tsz, ulong_t tag, ulong_t sz, ulong_t sc, cons
     if (ts->BabiesUsed + tsz > ts->Babies.BottomUsed)
     {
         if (ts->BabiesUsed + tsz > ts->Babies.MaximumSize)
-            RaiseExceptionC(Assertion, who, "babies too small; increase maximum-babies-size",
-                    EmptyListObject);
+        {
+            if (CollectorType == NoCollector)
+            {
+                if (InitializeBabies(ts) == 0)
+                    RaiseExceptionC(Assertion, who, "babies: out of memory", EmptyListObject);
+                goto Allocate;
+            }
+            else
+            {
+                RaiseExceptionC(Assertion, who, "babies too small; increase maximum-babies-size",
+                        EmptyListObject);
+            }
+        }
 
         ulong_t gsz = GC_PAGE_SIZE * 8;
         if (tsz > gsz)
@@ -423,6 +445,7 @@ static FObjHdr * MakeBaby(ulong_t tsz, ulong_t tag, ulong_t sz, ulong_t sc, cons
             RaiseExceptionC(Assertion, who, "babies: out of memory", EmptyListObject);
     }
 
+Allocate:
     FObjHdr * oh = (FObjHdr *) (((char *) ts->Babies.Base) + ts->BabiesUsed);
     ts->BabiesUsed += tsz;
 
@@ -1825,14 +1848,9 @@ long_t EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprm
     ts->ObjectsSinceLast = 0;
     ts->BytesSinceLast = 0;
 
-    if (CollectorType == NoCollector || CollectorType == GenerationalCollector)
-    {
-        if (InitializeMemRegion(&ts->Babies, MaximumBabiesSize) == 0)
-            goto Failed;
-        if (GrowMemRegionUp(&ts->Babies, GC_PAGE_SIZE * 8) == 0)
-            goto Failed;
-        ts->BabiesUsed = 0;
-    }
+    if ((CollectorType == NoCollector || CollectorType == GenerationalCollector)
+            && InitializeBabies(ts) == 0)
+        goto Failed;
 
     if (InitializeMemRegion(&ts->Stack, MaximumStackSize) == 0)
         goto Failed;
@@ -1980,7 +1998,7 @@ long_t SetupCore(FThreadState * ts)
 #endif // FOMENT_DEBUG
 
     if (CollectorType == NoCollector && MaximumBabiesSize == 0)
-        MaximumBabiesSize = 1024 * 1024 * 256;
+        MaximumBabiesSize = 1024 * 1024 * 64;
     if (CollectorType == MarkSweepCollector && MaximumBabiesSize != 0)
         MaximumBabiesSize = 0;
     if (CollectorType == GenerationalCollector)

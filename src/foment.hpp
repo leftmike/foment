@@ -6,8 +6,6 @@ To Do:
 -- remove mini-gmp and USE_GMP
 
 -- out of memory exception
--- win32: test-all (no-collector)
--- change no-collector to not use huge babies -- just allocate another one if necessary
 -- fix generational collector
 -- CheckObject: check back references from mature objects
 -- partial GC

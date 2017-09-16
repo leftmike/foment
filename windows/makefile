@@ -20,13 +20,17 @@ clean: debug release manual
 
 test: all foment-test stress-test chibi-test
 
-test-all: all
+test-all: all test-no-collector test-mark-sweep
+
+test-no-collector: all
     $(MAKE) test TEST_BUILD=debug TEST_OPTIONS=--no-collector
     $(MAKE) test TEST_BUILD=release TEST_OPTIONS=--no-collector
-    $(MAKE) test TEST_BUILD=debug TEST_OPTIONS=--mark-sweep
-    $(MAKE) test TEST_BUILD=release TEST_OPTIONS=--mark-sweep
     $(MAKE) test TEST_BUILD=debug "TEST_OPTIONS=--no-collector --check-heap"
     $(MAKE) test TEST_BUILD=release "TEST_OPTIONS=--no-collector --check-heap"
+
+test-mark-sweep: all
+    $(MAKE) test TEST_BUILD=debug TEST_OPTIONS=--mark-sweep
+    $(MAKE) test TEST_BUILD=release TEST_OPTIONS=--mark-sweep
     $(MAKE) test TEST_BUILD=debug "TEST_OPTIONS=--mark-sweep --check-heap"
     $(MAKE) test TEST_BUILD=release "TEST_OPTIONS=--mark-sweep --check-heap"
 
@@ -115,7 +119,8 @@ debug\foment.exe: debug\foment.obj debug\gc.obj debug\syncthrd.obj debug\compile
         debug\library.obj debug\execute.obj debug\numbers.obj debug\mini-gmp.obj debug\write.obj\
         debug\read.obj debug\filesys.obj debug\compare.obj debug\main.obj debug\hashtbl.obj\
         debug\bignums.obj debug\base.obj
-    link /nologo /subsystem:console /out:debug\foment.exe /debug /pdb:debug\foment.pdb $** $(LIBS)
+    link /nologo /subsystem:console /out:debug\foment.exe /debug /pdb:debug\foment.pdb\
+        /largeaddressaware $** $(LIBS)
 
 release\foment.exe: release\foment.obj release\gc.obj release\syncthrd.obj release\compile.obj\
         release\io.obj release\synrules.obj release\synpass.obj release\midpass.obj\
@@ -125,8 +130,8 @@ release\foment.exe: release\foment.obj release\gc.obj release\syncthrd.obj relea
         release\filesys.obj release\compare.obj release\main.obj release\hashtbl.obj\
         release\bignums.obj release\base.obj
 #    link /nologo /subsystem:console /out:release\foment.exe $**
-    link /nologo /subsystem:console /out:release\foment.exe /debug /pdb:release\foment.pdb $**\
-        $(LIBS)
+    link /nologo /subsystem:console /out:release\foment.exe /debug /pdb:release\foment.pdb\
+        /largeaddressaware $** $(LIBS)
 
 debug\txt2cpp.exe: debug\txt2cpp.obj
     link /nologo /subsystem:console /out:debug\txt2cpp.exe\
