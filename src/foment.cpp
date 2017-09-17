@@ -82,6 +82,7 @@ FObject LibraryPath = EmptyListObject;
 FObject LibraryExtensions = NoValueObject;
 
 static FObject FomentLibrariesVector = NoValueObject;
+static FObject OutOfMemoryMsg = NoValueObject;
 
 void ErrorExitFoment()
 {
@@ -382,6 +383,27 @@ void RaiseExceptionC(FObject typ, const char * who, FObject knd, const char * ms
 
     ts->ExceptionCount -= 1;
     Raise(exc);
+}
+
+void RaiseOutOfMemory(FObject who)
+{
+    if (StringP(OutOfMemoryMsg) == 0)
+    {
+        printf("error: out of memory setting up foment\n");
+        ErrorExitFoment();
+    }
+
+    FThreadState * ts = GetThreadState();
+
+    FAssert(ExceptionP(ts->ExceptionObject));
+
+    AsException(ts->ExceptionObject)->Type = Assertion;
+    AsException(ts->ExceptionObject)->Who = who;
+    AsException(ts->ExceptionObject)->Kind = NoValueObject;
+    AsException(ts->ExceptionObject)->Message = OutOfMemoryMsg;
+    AsException(ts->ExceptionObject)->Irritants = EmptyListObject;
+
+    Raise(ts->ExceptionObject);
 }
 
 void Raise(FObject obj)
@@ -1283,7 +1305,9 @@ long_t SetupFoment(FThreadState * ts)
     RegisterRoot(&LibraryPath, "library-path");
     RegisterRoot(&LibraryExtensions, "library-extensions");
     RegisterRoot(&FomentLibrariesVector, "foment-libraries-vector");
+    RegisterRoot(&OutOfMemoryMsg, "out-of-memory");
 
+    OutOfMemoryMsg = MakeStringC("out of memory");
     SymbolHashTable = MakeStringHashTable(4096, HASH_TABLE_THREAD_SAFE);
 
     ts->Parameters = MakeEqHashTable(32, 0);

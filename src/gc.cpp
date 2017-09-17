@@ -120,6 +120,11 @@ static ulong_t LiveEphemerons;
 static FEphemeron ** KeyEphemeronMap;
 static ulong_t KeyEphemeronMapSize;
 
+EternalSymbol(InstallGuardianSymbol, "install-guardian");
+EternalSymbol(InstallTrackerSymbol, "install-tracker");
+
+// ---- Roots ----
+
 FObject CleanupTConc = NoValueObject;
 
 // ---- Counts ----
@@ -1558,6 +1563,7 @@ static void Collect()
             LiveObject(ts->IndexParameters + idx);
 
         LiveObject(&ts->NotifyObject);
+        LiveObject(&ts->ExceptionObject);
 
         ts->ObjectsSinceLast = 0;
         ts->BytesSinceLast = 0;
@@ -1755,7 +1761,7 @@ void InstallGuardian(FObject obj, FObject tconc)
 
         FGuardian * grd = (FGuardian *) malloc(sizeof(FGuardian));
         if (grd == 0)
-            RaiseExceptionC(Assertion, "install-guardian", "out of memory", EmptyListObject);
+            RaiseOutOfMemory(InstallGuardianSymbol);
 
         grd->Object = obj;
         grd->TConc = tconc;
@@ -1782,7 +1788,7 @@ void InstallTracker(FObject obj, FObject ret, FObject tconc)
             FTracker * trkr = (FTracker *) malloc(sizeof(FTracker));
 
             if (trkr == 0)
-                RaiseExceptionC(Assertion, "install-tracker", "out of memory", EmptyListObject);
+                RaiseOutOfMemory(InstallTrackerSymbol);
 
             trkr->Object = obj;
             trkr->Return = ret;
@@ -1884,6 +1890,8 @@ long_t EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprm
 
     ts->NotifyFlag = 0;
     ts->ExceptionCount = 0;
+    ts->ExceptionObject = MakeException(NoValueObject, NoValueObject, NoValueObject, NoValueObject,
+        EmptyListObject);
     return(1);
 
 Failed:
@@ -2310,6 +2318,9 @@ static FObject Primitives[] =
 
 void SetupGC()
 {
+    InstallGuardianSymbol = InternSymbol(InstallGuardianSymbol);
+    InstallTrackerSymbol = InternSymbol(InstallTrackerSymbol);
+
     for (ulong_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 }

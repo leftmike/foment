@@ -7,6 +7,7 @@ To Do:
 
 -- out of memory exception
 -- fix generational collector
+-- babies need to be cleaned up when thread exits
 -- CheckObject: check back references from mature objects
 -- partial GC
 -- after partial GC, test for objects pointing to Babies
@@ -1426,6 +1427,8 @@ inline void RaiseExceptionC(FObject typ, const char * who, const char * msg, FOb
     RaiseExceptionC(typ, who, NoValueObject, msg, lst);
 }
 
+void RaiseOutOfMemory(FObject who);
+
 // ---- Thread State ----
 
 typedef struct _FYoungSection
@@ -1481,6 +1484,7 @@ typedef struct _FThreadState
     FObject NotifyObject;
 
     ulong_t ExceptionCount;
+    FObject ExceptionObject;
 } FThreadState;
 
 // ---- Argument Checking ----
