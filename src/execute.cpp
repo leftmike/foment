@@ -26,7 +26,6 @@ EternalSymbol(UndefinedMessage, "variable is undefined");
 EternalSymbol(ExceptionHandlerSymbol, "exception-handler");
 EternalSymbol(NotifyHandlerSymbol, "notify-handler");
 EternalSymbol(SigIntSymbol, "sigint");
-EternalSymbol(StackSymbol, "stack");
 
 // ---- Roots ----
 
@@ -601,14 +600,16 @@ CallProcedure:
                     {
                         if (GrowMemRegionUp(&ts->Stack,
                                 (ts->AStackPtr + 128) * sizeof(FObject)) == 0)
-                            RaiseOutOfMemory(StackSymbol);
+                            RaiseExceptionC(Assertion, "foment", "stack: out of memory",
+                                    EmptyListObject);
                     }
 
                     if ((ulong_t) ts->CStackPtr + 128 > ts->Stack.TopUsed / sizeof(FObject))
                     {
                         if (GrowMemRegionDown(&ts->Stack,
                                 (ts->CStackPtr + 128) * sizeof(FObject)) == 0)
-                            RaiseOutOfMemory(StackSymbol);
+                            RaiseExceptionC(Assertion, "foment", "stack: out of memory",
+                                    EmptyListObject);
                     }
 
                     if (ts->AStackPtr > ts->AStackUsed)
@@ -894,7 +895,8 @@ TailCallPrimitive:
                 {
                     if (GrowMemRegionDown(&ts->Stack,
                             (ts->CStackPtr + 128) * sizeof(FObject)) == 0)
-                        RaiseOutOfMemory(StackSymbol);
+                        RaiseExceptionC(Assertion, "foment", "stack: out of memory",
+                                EmptyListObject);
                 }
 
                 long_t ll = ListLength("apply", lst);
@@ -902,7 +904,8 @@ TailCallPrimitive:
                 {
                     if (GrowMemRegionUp(&ts->Stack,
                             (ts->AStackPtr + ll + 128) * sizeof(FObject)) == 0)
-                        RaiseOutOfMemory(StackSymbol);
+                        RaiseExceptionC(Assertion, "foment", "stack: out of memory",
+                                EmptyListObject);
                 }
 
                 if (ts->AStackPtr > ts->AStackUsed)
@@ -1444,7 +1447,6 @@ void SetupExecute()
     ExceptionHandlerSymbol = InternSymbol(ExceptionHandlerSymbol);
     NotifyHandlerSymbol = InternSymbol(NotifyHandlerSymbol);
     SigIntSymbol = InternSymbol(SigIntSymbol);
-    StackSymbol = InternSymbol(StackSymbol);
 
     FAssert(WrongNumberOfArguments == StringCToSymbol("wrong number of arguments"));
     FAssert(NotCallable == StringCToSymbol("not callable"));

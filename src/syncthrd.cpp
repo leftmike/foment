@@ -22,8 +22,6 @@ Foment
 #include "execute.hpp"
 #include "syncthrd.hpp"
 
-EternalSymbol(ThreadSymbol, "thread");
-
 // ---- Threads ----
 
 FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms, FObject idxprms)
@@ -148,7 +146,7 @@ static void FomentThread(FObject obj)
     try
     {
         if (EnterThread(&ts, obj, AsThread(obj)->Parameters, AsThread(obj)->IndexParameters) == 0)
-            RaiseOutOfMemory(ThreadSymbol);
+            RaiseExceptionC(Assertion, "foment", "out of memory", EmptyListObject);
 
         FAssert(ts.Thread == obj);
         FAssert(ThreadP(ts.Thread));
@@ -618,8 +616,6 @@ static FObject Primitives[] =
 
 void SetupThreads()
 {
-    ThreadSymbol = InternSymbol(ThreadSymbol);
-
     for (ulong_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
 
