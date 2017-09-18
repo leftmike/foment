@@ -146,7 +146,7 @@ static void FomentThread(FObject obj)
     try
     {
         if (EnterThread(&ts, obj, AsThread(obj)->Parameters, AsThread(obj)->IndexParameters) == 0)
-            RaiseExceptionC(Assertion, "foment", "out of memory", EmptyListObject);
+            Raise(StartThreadOutOfMemory);
 
         FAssert(ts.Thread == obj);
         FAssert(ThreadP(ts.Thread));

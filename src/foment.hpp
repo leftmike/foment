@@ -5,7 +5,8 @@ Foment
 To Do:
 -- remove mini-gmp and USE_GMP
 
--- out of memory exception
+-- change ErrorExitFoment to take a string msg
+
 -- fix generational collector
 -- CheckObject: check back references from mature objects
 -- partial GC
@@ -1171,6 +1172,11 @@ extern FObject Restriction;
 extern FObject Lexical;
 extern FObject Syntax;
 extern FObject Error;
+extern FObject MakeObjectSymbol;
+extern FObject MakeObjectOutOfMemory;
+extern FObject CollectOutOfMemory;
+extern FObject StartThreadOutOfMemory;
+extern FObject ExecuteStackOverflow;
 extern FObject FileErrorSymbol;
 extern FObject NoValuePrimitive;
 

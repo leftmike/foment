@@ -600,16 +600,14 @@ CallProcedure:
                     {
                         if (GrowMemRegionUp(&ts->Stack,
                                 (ts->AStackPtr + 128) * sizeof(FObject)) == 0)
-                            RaiseExceptionC(Assertion, "foment", "stack: out of memory",
-                                    EmptyListObject);
+                            Raise(ExecuteStackOverflow);
                     }
 
                     if ((ulong_t) ts->CStackPtr + 128 > ts->Stack.TopUsed / sizeof(FObject))
                     {
                         if (GrowMemRegionDown(&ts->Stack,
                                 (ts->CStackPtr + 128) * sizeof(FObject)) == 0)
-                            RaiseExceptionC(Assertion, "foment", "stack: out of memory",
-                                    EmptyListObject);
+                            Raise(ExecuteStackOverflow);
                     }
 
                     if (ts->AStackPtr > ts->AStackUsed)
@@ -895,8 +893,7 @@ TailCallPrimitive:
                 {
                     if (GrowMemRegionDown(&ts->Stack,
                             (ts->CStackPtr + 128) * sizeof(FObject)) == 0)
-                        RaiseExceptionC(Assertion, "foment", "stack: out of memory",
-                                EmptyListObject);
+                        Raise(ExecuteStackOverflow);
                 }
 
                 long_t ll = ListLength("apply", lst);
@@ -904,8 +901,7 @@ TailCallPrimitive:
                 {
                     if (GrowMemRegionUp(&ts->Stack,
                             (ts->AStackPtr + ll + 128) * sizeof(FObject)) == 0)
-                        RaiseExceptionC(Assertion, "foment", "stack: out of memory",
-                                EmptyListObject);
+                        Raise(ExecuteStackOverflow);
                 }
 
                 if (ts->AStackPtr > ts->AStackUsed)

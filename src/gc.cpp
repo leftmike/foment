@@ -120,6 +120,8 @@ static ulong_t LiveEphemerons;
 static FEphemeron ** KeyEphemeronMap;
 static ulong_t KeyEphemeronMapSize;
 
+// ---- Roots ----
+
 FObject CleanupTConc = NoValueObject;
 
 // ---- Counts ----
@@ -414,7 +416,7 @@ static void * InitializeBabies(FThreadState * ts)
     return(mem);
 }
 
-static FObjHdr * MakeBaby(ulong_t tsz, ulong_t tag, ulong_t sz, ulong_t sc, const char * who)
+static FObjHdr * MakeBaby(ulong_t tsz, ulong_t tag, ulong_t sz, ulong_t sc, FObject exc)
 {
     FThreadState * ts = GetThreadState();
 
@@ -425,14 +427,11 @@ static FObjHdr * MakeBaby(ulong_t tsz, ulong_t tag, ulong_t sz, ulong_t sc, cons
             if (CollectorType == NoCollector)
             {
                 if (InitializeBabies(ts) == 0)
-                    RaiseExceptionC(Assertion, who, "babies: out of memory", EmptyListObject);
+                    Raise(exc);
                 goto Allocate;
             }
             else
-            {
-                RaiseExceptionC(Assertion, who, "babies too small; increase maximum-babies-size",
-                        EmptyListObject);
-            }
+                Raise(exc);
         }
 
         ulong_t gsz = GC_PAGE_SIZE * 8;
@@ -442,7 +441,7 @@ static FObjHdr * MakeBaby(ulong_t tsz, ulong_t tag, ulong_t sz, ulong_t sc, cons
             gsz = ts->Babies.MaximumSize - ts->Babies.BottomUsed;
 
         if (GrowMemRegionUp(&ts->Babies, ts->Babies.BottomUsed + gsz) == 0)
-            RaiseExceptionC(Assertion, who, "babies: out of memory", EmptyListObject);
+            Raise(exc);
     }
 
 Allocate:
@@ -476,7 +475,7 @@ static FObjHdr * AllocateKid(ulong_t tsz)
     return(oh);
 }
 
-static FObjHdr * AllocateAdult(ulong_t tsz, const char * who)
+static FObjHdr * AllocateAdult(ulong_t tsz, FObject exc)
 {
     ulong_t bkt = tsz / OBJECT_ALIGNMENT;
     FObjHdr * oh = 0;
@@ -538,15 +537,14 @@ static FObjHdr * AllocateAdult(ulong_t tsz, const char * who)
         {
             if (AdultsUsed + tsz > Adults.MaximumSize)
             {
-                if (who == 0)
+                if (ExceptionP(exc) == 0)
                 {
                     printf("error: adults too small; increase maximum-adults-size\n");
                     ErrorExitFoment();
                 }
 
                 LeaveExclusive(&GCExclusive);
-                RaiseExceptionC(Assertion, who, "adults too small; increase maximum-adults-size",
-                        EmptyListObject);
+                Raise(exc);
             }
 
             ulong_t gsz = 1024 * 1024;
@@ -556,14 +554,14 @@ static FObjHdr * AllocateAdult(ulong_t tsz, const char * who)
                 gsz = Adults.MaximumSize - Adults.BottomUsed;
             if (GrowMemRegionUp(&Adults, Adults.BottomUsed + gsz) == 0)
             {
-                if (who == 0)
+                if (ExceptionP(exc) == 0)
                 {
                     printf("error: adults: out of memory\n");
                     ErrorExitFoment();
                 }
 
                 LeaveExclusive(&GCExclusive);
-                RaiseExceptionC(Assertion, who, "adults: out of memory", EmptyListObject);
+                Raise(exc);
             }
         }
 
@@ -574,10 +572,10 @@ static FObjHdr * AllocateAdult(ulong_t tsz, const char * who)
     return(oh);
 }
 
-static FObjHdr * MakeAdult(ulong_t tsz, ulong_t tag, ulong_t sz, ulong_t sc, const char * who)
+static FObjHdr * MakeAdult(ulong_t tsz, ulong_t tag, ulong_t sz, ulong_t sc, FObject exc)
 {
     EnterExclusive(&GCExclusive);
-    FObjHdr * oh = AllocateAdult(tsz, who);
+    FObjHdr * oh = AllocateAdult(tsz, exc);
     LeaveExclusive(&GCExclusive);
 
     InitializeObjHdr(oh, tsz, tag, OBJHDR_GEN_ADULTS, sz, sc);
@@ -604,9 +602,10 @@ FObject MakeObject(ulong_t tag, ulong_t sz, ulong_t sc, const char * who, long_t
     FAssert(sz >= sizeof(FObject) * sc);
 
     if (tsz > MAXIMUM_TOTAL_LENGTH)
-        RaiseExceptionC(Restriction, who, "object too big", EmptyListObject);
+        RaiseException(Restriction, MakeObjectSymbol, NoValueObject, MakeStringC("object too big"),
+                EmptyListObject);
     if (sc > OBJHDR_COUNT_MASK)
-        RaiseExceptionC(Restriction, who, "too many slots", EmptyListObject);
+        RaiseException(Restriction, MakeObjectSymbol, NoValueObject, MakeStringC("too many slots"),            EmptyListObject);
 
     TagCounts[tag] += 1;
     if (tsz / OBJECT_ALIGNMENT < SIZE_COUNTS)
@@ -617,16 +616,16 @@ FObject MakeObject(ulong_t tag, ulong_t sz, ulong_t sc, const char * who, long_t
     if (CollectorType == GenerationalCollector)
     {
         if (pf || sz > MaximumGenerationalBaby)
-            oh = MakeAdult(tsz, tag, sz, sc, who);
+            oh = MakeAdult(tsz, tag, sz, sc, MakeObjectOutOfMemory);
         else
-            oh = MakeBaby(tsz, tag, sz, sc, who);
+            oh = MakeBaby(tsz, tag, sz, sc, MakeObjectOutOfMemory);
     }
     else if (CollectorType == MarkSweepCollector)
-        oh = MakeAdult(tsz, tag, sz, sc, who);
+        oh = MakeAdult(tsz, tag, sz, sc, MakeObjectOutOfMemory);
     else
     {
         FAssert(CollectorType == NoCollector);
-        oh = MakeBaby(tsz, tag, sz, sc, who);
+        oh = MakeBaby(tsz, tag, sz, sc, MakeObjectOutOfMemory);
     }
 
     FAssert(oh != 0);
@@ -1312,7 +1311,7 @@ Again:
 
         if (noh == 0)
         {
-            noh = AllocateAdult(tsz, 0);
+            noh = AllocateAdult(tsz, CollectOutOfMemory);
             memcpy(noh, oh, tsz);
             SetGeneration(noh, OBJHDR_GEN_ADULTS);
             SetMark(noh);

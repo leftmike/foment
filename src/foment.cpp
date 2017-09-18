@@ -70,6 +70,10 @@ EternalSymbol(Restriction, "implementation-restriction");
 EternalSymbol(Lexical, "lexical-violation");
 EternalSymbol(Syntax, "syntax-violation");
 EternalSymbol(Error, "error-violation");
+EternalSymbol(MakeObjectSymbol, "%make-object");
+EternalSymbol(CollectSymbol, "%collect");
+EternalSymbol(StartThreadSymbol, "%start-thread");
+EternalSymbol(ExecuteSymbol, "%execute");
 
 // ---- Roots ----
 
@@ -80,6 +84,10 @@ FObject LoadedLibraries = EmptyListObject;
 FObject Features = EmptyListObject;
 FObject LibraryPath = EmptyListObject;
 FObject LibraryExtensions = NoValueObject;
+FObject MakeObjectOutOfMemory = NoValueObject;
+FObject CollectOutOfMemory = NoValueObject;
+FObject StartThreadOutOfMemory = NoValueObject;
+FObject ExecuteStackOverflow = NoValueObject;
 
 static FObject FomentLibrariesVector = NoValueObject;
 
@@ -1307,6 +1315,9 @@ long_t SetupFoment(FThreadState * ts)
     Lexical = InternSymbol(Lexical);
     Syntax = InternSymbol(Syntax);
     Error = InternSymbol(Error);
+    MakeObjectSymbol = InternSymbol(MakeObjectSymbol);
+    StartThreadSymbol = InternSymbol(StartThreadSymbol);
+    ExecuteSymbol = InternSymbol(ExecuteSymbol);
 
     FAssert(BeginSymbol == StringCToSymbol("begin"));
     FAssert(QuoteSymbol == StringCToSymbol("quote"));
@@ -1318,6 +1329,19 @@ long_t SetupFoment(FThreadState * ts)
     FAssert(Lexical == StringCToSymbol("lexical-violation"));
     FAssert(Syntax == StringCToSymbol("syntax-violation"));
     FAssert(Error == StringCToSymbol("error-violation"));
+    FAssert(MakeObjectSymbol == StringCToSymbol("%make-object"));
+    FAssert(CollectSymbol = StringCToSymbol("%collect"));
+    FAssert(StartThreadSymbol == StringCToSymbol("%start-thread"));
+    FAssert(ExecuteSymbol == StringCToSymbol("%execute"));
+
+    MakeObjectOutOfMemory = MakeException(Assertion, MakeObjectSymbol, NoValueObject,
+            MakeStringC("%make-object: out of memory"), EmptyListObject);
+    CollectOutOfMemory = MakeException(Assertion, CollectSymbol, NoValueObject,
+            MakeStringC("%collect: out of memory"), EmptyListObject);
+    StartThreadOutOfMemory = MakeException(Assertion, StartThreadSymbol, NoValueObject,
+            MakeStringC("%start-thread: out of memory"), EmptyListObject);
+    ExecuteStackOverflow =  MakeException(Assertion, ExecuteSymbol, NoValueObject,
+            MakeStringC("%execute: stack overflow"), EmptyListObject);
 
     for (ulong_t n = 0; n < sizeof(SpecialSyntaxes) / sizeof(char *); n++)
         LibraryExport(BedrockLibrary, EnvironmentSetC(Bedrock, SpecialSyntaxes[n],
