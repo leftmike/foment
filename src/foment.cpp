@@ -91,8 +91,9 @@ FObject ExecuteStackOverflow = NoValueObject;
 
 static FObject FomentLibrariesVector = NoValueObject;
 
-void ErrorExitFoment()
+void ErrorExitFoment(const char * what, const char * msg)
 {
+    printf("\n%s: %s\n", what, msg);
     if (SetupComplete)
     {
         if (CheckHeapFlag || VerboseFlag)
@@ -103,16 +104,18 @@ void ErrorExitFoment()
     exit(1);
 }
 
+static char FailedMessage[512];
+
 void FAssertFailed(const char * fn, long_t ln, const char * expr)
 {
-    printf("FAssert: %s (%d)%s\n", expr, (int) ln, fn);
-    ErrorExitFoment();
+    sprintf_s(FailedMessage, sizeof(FailedMessage), "%s (%d)%s", expr, (int) ln, fn);
+    ErrorExitFoment("assert", FailedMessage);
 }
 
 void FMustBeFailed(const char * fn, long_t ln, const char * expr)
 {
-    printf("FMustBe: %s (%d)%s\n", expr, (int) ln, fn);
-    ErrorExitFoment();
+    sprintf_s(FailedMessage, sizeof(FailedMessage), "%s (%d)%s", expr, (int) ln, fn);
+    ErrorExitFoment("must-be", FailedMessage);
 }
 
 // ---- Immediates ----
@@ -347,10 +350,7 @@ void RaiseException(FObject typ, FObject who, FObject knd, FObject msg, FObject 
     FThreadState * ts = GetThreadState();
 
     if (ts->ExceptionCount > 0)
-    {
-        printf("error: recursive exception\n");
-        ErrorExitFoment();
-    }
+        ErrorExitFoment("error", "recursive exception");
     ts->ExceptionCount += 1;
     FObject exc = MakeException(typ, who, knd, msg, lst);
 
@@ -368,8 +368,8 @@ void RaiseExceptionC(FObject typ, const char * who, FObject knd, const char * ms
 
     if (ts->ExceptionCount > 0)
     {
-        printf("error: recursive exception: %s: %s\n", who, msg);
-        ErrorExitFoment();
+        sprintf_s(FailedMessage, sizeof(FailedMessage), "recursive exception: %s: %s\n", who, msg);
+        ErrorExitFoment("error", FailedMessage);
     }
     ts->ExceptionCount += 1;
 

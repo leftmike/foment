@@ -5,14 +5,10 @@ Foment
 To Do:
 -- remove mini-gmp and USE_GMP
 
--- change ErrorExitFoment to take a string msg
-
 -- fix generational collector
 -- CheckObject: check back references from mature objects
 -- partial GC
 -- after partial GC, test for objects pointing to Babies
--- Use extra generation for immortal objects which are precompiled libraries
--- split base.scm into separate files
 
 -- document process-times[-reset!], object-counts[-reset!], stack-used[-reset!]
 -- add time and time-apply same as racket
@@ -36,6 +32,8 @@ Red Edition:
 -- SRFI 135 (scheme textual)
 
 Future:
+-- Use extra generation for immortal objects which are precompiled libraries
+-- split base.scm into separate files
 -- change EternalSymbol (and Define) to set Symbol->Hash at compile time
 -- allow larger objects by using BlockSize > 1 in FObjHdr
 -- pull options from FOMENT_OPTIONS environment variable
@@ -121,6 +119,8 @@ typedef FCh16 FChS;
 #include <sys/param.h>
 typedef uint16_t FCh16;
 typedef char FChS;
+
+#define sprintf_s snprintf
 
 #define FALIGN __attribute__ ((aligned(8)))
 
@@ -1889,7 +1889,7 @@ FObject ExecuteProc(FObject op);
 long_t SetupFoment(FThreadState * ts);
 extern ulong_t SetupComplete;
 void ExitFoment();
-void ErrorExitFoment();
+void ErrorExitFoment(const char * what, const char * msg);
 
 // ---- Do Not Call Directly ----
 

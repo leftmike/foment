@@ -16,7 +16,6 @@ Foment
 #include <unistd.h>
 #endif // FOMENT_UNIX
 
-#include <stdio.h>
 #include <time.h>
 #include "foment.hpp"
 #include "execute.hpp"
@@ -483,10 +482,7 @@ static void NotifySigInt()
             SigIntCount += 1;
 
             if (SigIntCount > 2)
-            {
-                printf("\naborted: repeated control-C\n");
-                exit(-1);
-            }
+                ErrorExitFoment("aborted", "repeated control-C\n");
         }
         else
         {

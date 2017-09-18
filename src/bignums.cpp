@@ -1755,10 +1755,6 @@ FObject BignumArithmeticShift(FObject num, long_t cnt)
 }
 
 #ifdef FOMENT_DEBUG
-#ifdef FOMENT_UNIX
-#define sprintf_s snprintf
-#endif // FOMENT_UNIX
-
 static void TestBignums()
 {
     char buf[128];

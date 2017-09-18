@@ -751,7 +751,9 @@ int main(int argc, FChS * argv[])
     catch (FObject obj)
     {
         printf("error: unexpected exception setting up foment: %p\n", obj);
-        WriteSimple(StandardOutput, obj, 0);
+        if ((BinaryPortP(StandardOutput) || TextualPortP(StandardOutput))
+                && OutputPortOpenP(StandardOutput))
+            WriteSimple(StandardOutput, obj, 0);
         ExitFoment();
         return(1);
     }

@@ -538,10 +538,7 @@ static FObjHdr * AllocateAdult(ulong_t tsz, FObject exc)
             if (AdultsUsed + tsz > Adults.MaximumSize)
             {
                 if (ExceptionP(exc) == 0)
-                {
-                    printf("error: adults too small; increase maximum-adults-size\n");
-                    ErrorExitFoment();
-                }
+                    ErrorExitFoment("error", "adults too small; increase maximum-adults-size");
 
                 LeaveExclusive(&GCExclusive);
                 Raise(exc);
@@ -555,10 +552,7 @@ static FObjHdr * AllocateAdult(ulong_t tsz, FObject exc)
             if (GrowMemRegionUp(&Adults, Adults.BottomUsed + gsz) == 0)
             {
                 if (ExceptionP(exc) == 0)
-                {
-                    printf("error: adults: out of memory\n");
-                    ErrorExitFoment();
-                }
+                    ErrorExitFoment("error", "out of memory during setup");
 
                 LeaveExclusive(&GCExclusive);
                 Raise(exc);

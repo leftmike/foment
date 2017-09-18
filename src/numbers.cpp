@@ -27,7 +27,6 @@ q: rational
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-#define sprintf_s snprintf
 #ifndef isfinite
 #define isfinite finite
 #endif // isfinite
