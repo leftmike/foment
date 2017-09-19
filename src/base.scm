@@ -558,6 +558,9 @@
         lookup-type-tags
         comparator-context
         comparator-context-set!
+        current-milliseconds
+        time-apply
+        time
         process-times
         process-times-reset!
         object-counts
@@ -1328,6 +1331,25 @@
                                 (alist-lookup n message-type-alist 'message-type
                                         "message-type: expected a message type flag"))
                             '(name ...))))))
+
+        (define current-milliseconds current-jiffy)
+
+        (define (time-apply proc lst)
+            (let ((now (current-milliseconds)))
+                (process-times-reset!)
+                (let-values ((ret (apply proc lst)))
+                    (let ((times (process-times)))
+                        (values ret (+ (car times) (cadr times)) (- (current-milliseconds) now)
+                            (+ (caddr times) (cadddr times)))))))
+
+        (define-syntax time
+            (syntax-rules ()
+                ((time expr1 expr2 ...)
+                   (let-values (((ret cpu real gc) (time-apply (lambda () expr1 expr2 ...) '())))
+                       (display "total cpu time (ms): ") (display cpu) (newline)
+                       (display "collection time (ms): ") (display gc) (newline)
+                       (display "elapsed time (ms): ") (display real) (newline)
+                       (apply values ret)))))
 
         (define (build-path path1 path2)
             (string-append path1 (cond-expand (windows "\\") (else "/")) path2))
