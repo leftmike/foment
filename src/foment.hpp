@@ -10,9 +10,6 @@ To Do:
 -- partial GC
 -- after partial GC, test for objects pointing to Babies
 
--- document process-times[-reset!], object-counts[-reset!], stack-used[-reset!]
--- add time and time-apply same as racket
-
 HashTable:
 -- test hash tables
 
