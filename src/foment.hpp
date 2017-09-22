@@ -10,9 +10,6 @@ To Do:
 -- partial GC
 -- after partial GC, test for objects pointing to Babies
 
-HashTable:
--- test hash tables
-
 Red Edition:
 -- SRFI 41 (scheme stream)
 -- SRFI 101 (scheme list random-access)
@@ -21,7 +18,6 @@ Red Edition:
 -- SRFI 116 (scheme list immutable)
 -- SRFI 117 (scheme list queue)
 -- SRFI 121 (scheme generator)
--- SRFI 125 (scheme hash-table)
 -- SRFI 128 (scheme lazy-seq)
 -- SRFI 132 (scheme sorting)
 -- SRFI 133 (scheme vector)

@@ -967,10 +967,10 @@ Define("%hash-table-pop!", HashTablePopPrimitive)(long_t argc, FObject argv[])
     return(HashTablePop(argv[0]));
 }
 
-Define("hash-table-clear!", HashTableClearPrimitive)(long_t argc, FObject argv[])
+Define("%hash-table-clear!", HashTableClearPrimitive)(long_t argc, FObject argv[])
 {
-    OneArgCheck("hash-table-clear!", argc);
-    HashTableArgCheck("hash-table-clear!", argv[0]);
+    OneArgCheck("%hash-table-clear!", argc);
+    HashTableArgCheck("%hash-table-clear!", argv[0]);
 
     HashTableClear(argv[0]);
     return(NoValueObject);

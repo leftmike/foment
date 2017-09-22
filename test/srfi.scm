@@ -1188,3 +1188,396 @@
     (check-equal #t (< (hash-salt) (hash-bound)))
 )
 
+;;
+;; ---- SRFI 125: Hash Tables ----
+;;
+
+(import (foment base))
+(import (scheme hash-table))
+(import (scheme comparator))
+(import (scheme list))
+
+(define default (make-default-comparator))
+
+(check-equal #t (hash-table? (make-eq-hash-table)))
+(check-equal #f (hash-table? #(1 2 3 4)))
+(check-equal #f (hash-table? '(1 2 3 4)))
+(check-equal #t (hash-table? (make-hash-table default)))
+(check-equal #t (hash-table? (make-hash-table string=? string-hash 2345)))
+(check-equal #t (hash-table? (make-hash-table string-ci=?)))
+(check-equal #t (hash-table? (make-hash-table string=? string-hash 2345 'weak-keys)))
+(check-equal #t (hash-table? (make-hash-table string-ci=? 'thread-safe)))
+
+(check-error (assertion-violation make-hash-table) (make-hash-table char=?))
+(check-error (assertion-violation make-hash-table) (make-hash-table 1234))
+(check-error (assertion-violation make-hash-table) (make-hash-table string=? 'bad-food))
+(check-error (assertion-violation make-hash-table)
+        (make-hash-table string=? string-hash 'weak-knees))
+(check-error (assertion-violation make-hash-table)
+        (make-hash-table string=? string-hash 'weak-keys 'ephemeral-keys))
+
+(check-error (assertion-violation hash-table) (hash-table))
+(check-error (assertion-violation make-hash-table) (hash-table char=?))
+
+(check-equal #t (hash-table? (hash-table default)))
+
+(define htbl (hash-table default 'a "a" 'b "b" 'c "c" 'd "d"))
+(check-equal "a" (hash-table-ref/default htbl 'a #f))
+(check-equal "b" (hash-table-ref/default htbl 'b #f))
+(check-equal "c" (hash-table-ref/default htbl 'c #f))
+(check-equal "d" (hash-table-ref/default htbl 'd #f))
+(check-equal #f (hash-table-ref/default htbl 'e #f))
+
+(check-error (assertion-violation hash-table-set!) (hash-table-set! htbl 'e "e"))
+(check-equal #f (hash-table-ref/default htbl 'e #f))
+
+(check-equal #t
+    (hash-table=? default
+        (hash-table default 'a 1 'b 2 'c 3 'd 4)
+        (hash-table default 'a 1 'b 2 'c 3 'd 4)))
+(check-equal #f
+    (hash-table=? default
+        (hash-table default 'a 1 'b 2 'c 3 'd 5)
+        (hash-table default 'a 1 'b 2 'c 3 'd 4)))
+(check-equal #f
+    (hash-table=? default
+        (hash-table default 'a 1 'b 2 'c 3)
+        (hash-table default 'a 1 'b 2 'c 3 'd 4)))
+(check-equal #f
+    (hash-table=? default
+        (hash-table default 'a 1 'b 2 'c 3 'd 4)
+        (hash-table default 'a 1 'b 2 'c 3)))
+(check-equal #f
+    (hash-table=? default
+        (hash-table default 'a 1 'b 2 'c 3 'e 4)
+        (hash-table default 'a 1 'b 2 'c 3 'd 4)))
+
+(check-error (assertion-violation hash-table-unfold) (hash-table-unfold))
+(check-error (assertion-violation make-hash-table)
+    (hash-table-unfold
+        (lambda (seed) (> seed 8))
+        (lambda (seed) (values (number->string seed) seed))
+        (lambda (seed) (+ seed 1))
+        1 char=?))
+
+(check-equal #t
+    (hash-table=? default
+        (hash-table default "1" 1 "2" 2 "3" 3 "4" 4 "5" 5 "6" 6 "7" 7 "8" 8)
+        (hash-table-unfold
+            (lambda (seed) (> seed 8))
+            (lambda (seed) (values (number->string seed) seed))
+            (lambda (seed) (+ seed 1))
+            1 default)))
+
+(check-equal 8
+    (hash-table-size
+        (hash-table-unfold
+            (lambda (seed) (> seed 8))
+            (lambda (seed) (values (number->string seed) seed))
+            (lambda (seed) (+ seed 1))
+            1 default)))
+
+(check-error (assertion-violation alist->hash-table) (alist->hash-table '()))
+(check-error (assertion-violation make-hash-table) (alist->hash-table '() char=?))
+(check-error (assertion-violation car) (alist->hash-table '(a) default))
+
+(check-equal #t
+    (hash-table=? default
+        (hash-table default 'a 1 'b 2 'c 3 'd 4 'e 5)
+        (alist->hash-table '((a . 1) (b . 2) (c . 3) (d . 4) (e . 5)) default)))
+
+(check-equal #t
+    (hash-table=? default
+        (hash-table default 'a 1 'b 2 'c 3)
+        (alist->hash-table '((a . 1) (b . 2) (c . 3) (a . 4) (b . 5)) default)))
+
+(check-error (assertion-violation hash-table-contains?)
+    (hash-table-contains? htbl))
+(check-error (assertion-violation hash-table-contains?)
+    (hash-table-contains? htbl 123 456))
+(check-equal #t (hash-table-contains? (hash-table default 'a 1) 'a))
+(check-equal #f (hash-table-contains? (hash-table default 'a 1) 'b))
+
+(check-equal #t (hash-table-empty? (hash-table default)))
+(check-equal #f (hash-table-empty? (hash-table default 'a 1)))
+
+(check-equal #t (hash-table-mutable? (make-hash-table default)))
+(check-equal #f (hash-table-mutable? (hash-table default)))
+(check-equal #t
+    (hash-table-mutable?
+        (hash-table-unfold
+            (lambda (seed) (> seed 8))
+            (lambda (seed) (values (number->string seed) seed))
+            (lambda (seed) (+ seed 1))
+            1 default)))
+(check-equal #t (hash-table-mutable? (alist->hash-table '() default)))
+
+(define htbl2 (hash-table default 'a 1 'b 2 'c 3 'd 4))
+
+(check-error (assertion-violation hash-table-ref) (hash-table-ref))
+(check-error (assertion-violation hash-table-ref) (hash-table-ref htbl2))
+(check-error (assertion-violation hash-table-ref) (hash-table-ref htbl2 'e))
+(check-equal 1 (hash-table-ref htbl2 'a))
+(check-equal 10 (hash-table-ref htbl2 'e (lambda () 10)))
+(check-equal 30 (hash-table-ref htbl2 'c (lambda () #f) (lambda (val) (* val 10))))
+
+(check-error (assertion-violation hash-table-ref/default) (hash-table-ref/default htbl2))
+(check-error (assertion-violation hash-table-ref/default) (hash-table-ref/default htbl2 'e))
+(check-equal 1 (hash-table-ref/default htbl2 'a 10))
+(check-equal 10 (hash-table-ref/default htbl2 'e 10))
+
+(define (test-hash-table initial test expected)
+    (let ((htbl (alist->hash-table initial default)))
+        (test htbl)
+        (hash-table=? default htbl (alist->hash-table expected default))))
+
+(check-equal #t
+    (test-hash-table
+        '((a . 1) (b . 2) (c . 3) (d . 4) (e . 5))
+        (lambda (htbl)
+            (hash-table-set! htbl 'a 10)
+            (hash-table-set! htbl 'b 20 'c 30)
+            (hash-table-set! htbl))
+        '((a . 10) (b . 20) (c . 30) (d . 4) (e . 5))))
+(check-error (assertion-violation hash-table-set!)
+    (hash-table-set! (hash-table default 'a 1) 'a 10))
+
+(check-equal #t
+    (test-hash-table
+        '((a . 1) (b . 2) (c . 3) (d . 4) (e . 5))
+        (lambda (htbl)
+            (hash-table-delete! htbl 'a)
+            (hash-table-delete! htbl 'b 'c)
+            (hash-table-delete! htbl)
+            (hash-table-delete! htbl 'f))
+        '((d . 4) (e . 5))))
+(check-error (assertion-violation hash-table-delete!)
+    (hash-table-delete! (hash-table default 'a 1) 'a))
+
+(check-equal #t
+    (test-hash-table
+        '((a . 1) (b . 2) (c . 3) (d . 4) (e . 5))
+        (lambda (htbl)
+            (hash-table-intern! htbl 'a (lambda () 100))
+            (hash-table-intern! htbl 'f (lambda () 6)))
+        '((a . 1) (b . 2) (c . 3) (d . 4) (e . 5) (f . 6))))
+(check-error (assertion-violation hash-table-intern!)
+    (hash-table-intern! (hash-table default 'a 1) 'b 2))
+
+(check-equal #t
+    (test-hash-table
+        '((a . 1) (b . 2) (c . 3) (d . 4) (e . 5))
+        (lambda (htbl)
+            (hash-table-update! htbl 'a (lambda (val) (* val 100)))
+            (hash-table-update! htbl 'f (lambda (val) (- val)) (lambda () 6)))
+        '((a . 100) (b . 2) (c . 3) (d . 4) (e . 5) (f . -6))))
+(check-error (assertion-violation hash-table-set!)
+    (hash-table-update! (hash-table default 'a 1) 'a (lambda (val) (* val 10))))
+
+(check-equal #t
+    (test-hash-table
+        '((a . 1) (b . 2) (c . 3) (d . 4) (e . 5))
+        (lambda (htbl)
+            (hash-table-update!/default htbl 'a (lambda (val) (* val 100)) -1)
+            (hash-table-update!/default htbl 'f (lambda (val) (- val)) 6))
+        '((a . 100) (b . 2) (c . 3) (d . 4) (e . 5) (f . -6))))
+(check-error (assertion-violation hash-table-set!)
+    (hash-table-update!/default (hash-table default 'a 1) 'a (lambda (val) (* val 10)) 6))
+
+(check-equal #t
+    (let* ((alist '((a . 1) (b . 2) (c . 3) (d . 4) (e . 5)))
+            (htbl (alist->hash-table alist default)))
+        (define (accum lst)
+            (if (> (hash-table-size htbl) 0)
+                (accum (cons (let-values (((key val) (hash-table-pop! htbl)))
+                                 (cons key val)) lst))
+                lst))
+        (hash-table=? default (alist->hash-table (accum '()) default)
+            (alist->hash-table alist default))))
+
+(check-equal (a . 1)
+    (let-values (((key val) (hash-table-pop! (alist->hash-table '((a . 1)) default))))
+        (cons key val)))
+(check-error (assertion-violation hash-table-pop!) (hash-table-pop! (hash-table default 'a 1)))
+(check-error (assertion-violation %hash-table-pop!)
+    (hash-table-pop! (alist->hash-table '() default)))
+
+(check-equal 0
+    (let ((htbl (alist->hash-table '((a . 1) (b . 2)) default)))
+        (hash-table-clear! htbl)
+        (hash-table-size htbl)))
+(check-error (assertion-violation hash-table-clear!) (hash-table-clear! (hash-table default 'a 1)))
+
+(check-equal 0 (hash-table-size (hash-table default)))
+(check-equal 3 (hash-table-size (hash-table default 'a 1 'b 2 'c 3)))
+
+(check-equal #t
+    (lset= eq? '(a b c d)
+        (hash-table-keys (hash-table default 'a 1 'b 2 'c 3 'd 4))))
+
+(check-equal #t
+    (lset= eq? '(1 2 3 4)
+        (hash-table-values (hash-table default 'a 1 'b 2 'c 3 'd 4))))
+
+(check-equal #t
+    (lset= equal? '((a . 1) (b . 2) (c . 3) (d . 4))
+        (let-values (((keys values) (hash-table-entries (hash-table default 'a 1 'b 2 'c 3 'd 4))))
+            (map cons keys values))))
+
+(check-equal 4
+    (hash-table-find
+        (lambda (key val) (if (eq? key 'd) val #f))
+        (hash-table default 'a 1 'b 2 'c 3 'd 4)
+        (lambda () 'not-found)))
+
+(check-equal not-found
+    (hash-table-find
+        (lambda (key val) (if (eq? key 'e) val #f))
+        (hash-table default 'a 1 'b 2 'c 3 'd 4)
+        (lambda () 'not-found)))
+
+(check-equal 3
+    (hash-table-count (lambda (key val) (odd? val))
+        (hash-table default 'a 1 'b 2 'c 3 'd 4 'e 5)))
+
+(check-equal #t
+    (hash-table=? default (hash-table default 'a 10 'b 20 'c 30 'd 40)
+        (hash-table-map
+            (lambda (val) (* val 10))
+            default
+            (hash-table default 'a 1 'b 2 'c 3 'd 4))))
+
+(check-equal #t
+    (lset= equal? '((a . 1) (b . 2) (c . 3) (d . 4))
+        (let ((lst '()))
+            (hash-table-for-each (lambda (key val) (set! lst (cons (cons key val) lst)))
+                    (alist->hash-table '((a . 1) (b . 2) (c . 3) (d . 4)) default))
+            lst)))
+
+(check-error (assertion-violation hash-table-map!)
+    (hash-table-map! (lambda (key val) (* val 10)) (hash-table default 'a 1 'b 2)))
+
+(check-equal #t
+    (hash-table=? default (alist->hash-table '((a . 1) (b . 4) (c . 9) (d . 16)) default)
+        (let ((htbl (alist->hash-table '((a . 1) (b . 2) (c . 3) (d . 4)) default)))
+            (hash-table-map! (lambda (key val) (* val val)) htbl)
+            htbl)))
+
+(check-equal #t
+    (lset= equal? '((a . 1) (b . 2) (c . 3) (d . 4))
+        (hash-table-map->list (lambda (key val) (cons key val))
+            (alist->hash-table '((a . 1) (b . 2) (c . 3) (d . 4)) default))))
+
+(check-equal #t
+    (lset= equal? '((a . 1) (b . 2) (c . 3) (d . 4))
+        (hash-table-fold (lambda (key val lst) (cons (cons key val) lst)) '()
+            (alist->hash-table '((a . 1) (b . 2) (c . 3) (d . 4)) default))))
+
+(check-equal #t
+    (hash-table=? default (alist->hash-table '((a . 1) (c . 3)) default)
+        (let ((htbl (alist->hash-table '((a . 1) (b . 2) (c . 3) (d . 4)) default)))
+            (hash-table-prune! (lambda (key val) (even? val)) htbl)
+            htbl)))
+
+(check-equal #t
+    (let ((htbl (alist->hash-table '((a . 1) (b . 2) (c . 3) (d . 4)) default)))
+        (hash-table=? default htbl (hash-table-copy htbl))))
+
+(check-equal #t
+    (let ((htbl (alist->hash-table '((a . 1) (b . 2) (c . 3) (d . 4)) default)))
+        (hash-table=? default htbl (hash-table-copy htbl #t))))
+
+(check-equal #t
+    (let ((htbl (alist->hash-table '((a . 1) (b . 2) (c . 3) (d . 4)) default)))
+        (hash-table=? default htbl (hash-table-copy htbl #f))))
+
+(check-error (assertion-violation hash-table-set!)
+    (let ((htbl (alist->hash-table '((a . 1) (b . 2) (c . 3) (d . 4)) default)))
+        (hash-table-set! (hash-table-copy htbl) 'a 10)))
+
+(check-error (assertion-violation hash-table-set!)
+    (let ((htbl (alist->hash-table '((a . 1) (b . 2) (c . 3) (d . 4)) default)))
+        (hash-table-set! (hash-table-copy htbl #f) 'a 10)))
+
+(check-equal #f
+    (let* ((htbl (alist->hash-table '((a . 1) (b . 2) (c . 3) (d . 4)) default))
+            (copy (hash-table-copy htbl #t)))
+        (hash-table-set! copy 'a 10)
+        (hash-table=? default htbl copy)))
+
+(check-equal #t
+    (lset= equal? '((a . 1) (b . 2) (c . 3) (d . 4))
+        (hash-table->alist (alist->hash-table '((a . 1) (b . 2) (c . 3) (d . 4)) default))))
+
+(define (test-hash-set initial1 initial2 proc expected)
+    (let ((htbl1 (alist->hash-table initial1 default))
+            (htbl2 (alist->hash-table initial2 default)))
+        (if (not (eq? htbl1 (proc htbl1 htbl2)))
+            #f
+            (lset= equal? expected (hash-table->alist htbl1)))))
+
+(check-equal #t
+    (test-hash-set
+        '((a . 1) (b . 2) (c . 3))
+        '((c . 4) (d . 5) (e . 6))
+        hash-table-union!
+        '((a . 1) (b . 2) (c . 3) (d . 5) (e . 6))))
+
+(check-equal #t
+    (test-hash-set
+        '((a . 1) (b . 2) (c . 3))
+        '((c . 4) (d . 5) (e . 6))
+        hash-table-intersection!
+        '((c . 3))))
+
+(check-equal #t
+    (test-hash-set
+        '((a . 1) (b . 2) (c . 3))
+        '((c . 4) (d . 5) (e . 6))
+        hash-table-difference!
+        '((a . 1) (b . 2))))
+
+(check-equal #t
+    (test-hash-set
+        '((a . 1) (b . 2) (c . 3))
+        '((c . 4) (d . 5) (e . 6))
+        hash-table-xor!
+        '((a . 1) (b . 2) (d . 5) (e . 6))))
+
+(define (test-hash-table-add htbl size max make-key)
+    (let ((vec (make-vector size #f)))
+        (define (test-add n)
+            (if (< n max)
+                (let* ((idx (random size))
+                        (key (make-key idx)))
+                    (if (not (vector-ref vec idx))
+                        (begin
+                            (vector-set! vec idx #t)
+                            (hash-table-set! htbl key idx)))
+                    (test-add (+ n 1)))))
+        (test-add 0)
+        vec))
+
+(define (test-hash-table-ref htbl vec size make-key)
+    (define (test-ref idx cnt)
+        (if (< idx size)
+            (begin
+                (if (vector-ref vec idx)
+                    (let ((key (make-key idx)))
+                        (if (not (= (hash-table-ref/default htbl key 'fail) idx))
+                            (begin
+                                (display "failed: hash-table-ref/default: ")
+                                (display idx)
+                                (newline)
+                                (test-ref (+ idx 1) cnt))
+                            (test-ref (+ idx 1) (+ cnt 1))))
+                    (test-ref (+ idx 1) cnt)))
+            cnt))
+    (test-ref 0 0))
+
+(define (make-string-key idx)
+    (number->string idx))
+
+(define htbl (make-hash-table string=? string-hash))
+(define vec (test-hash-table-add htbl 1024 512 make-string-key))
+(check-equal #t (= (test-hash-table-ref htbl vec 1024 make-string-key) (hash-table-size htbl)))
