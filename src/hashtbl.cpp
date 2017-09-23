@@ -1114,7 +1114,8 @@ Define("%hash-table-entries", HashTableEntriesPrimitive)(long_t argc, FObject ar
     HashTableArgCheck("%hash-table-entries", argv[0]);
 
     FObject vlst = EmptyListObject;
-    return(MakePair(HashTableFold(argv[0], FoldEntries, &vlst, EmptyListObject), vlst));
+    FObject klst = HashTableFold(argv[0], FoldEntries, &vlst, EmptyListObject);
+    return(MakePair(klst, vlst));
 }
 
 // ---- Symbols ----
