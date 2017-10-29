@@ -27,7 +27,7 @@ q: rational
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-#ifndef isfinite
+#if !defined(isfinite) && !defined(FOMENT_OSX)
 #define isfinite finite
 #endif // isfinite
 #endif // FOMENT_UNIX
