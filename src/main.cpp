@@ -58,7 +58,14 @@ int StringCompareS(FChS * s1, const char * s2)
 #define STRING_FORMAT "%s"
 #endif // FOMENT_UNIX
 
-static int InteractiveFlag = 0;
+typedef enum
+{
+    ProgramMode = 0,
+    BatchMode,
+    InteractiveMode
+} FRunMode;
+
+static FRunMode RunMode = ProgramMode;
 
 static FChS * Appends[16];
 static int NumAppends = 0;
@@ -130,7 +137,7 @@ static void AddToLibraryPath(FChS * prog)
 }
 #endif // FOMENT_UNIX
 
-static int ProgramMode(FChS * arg)
+static int RunProgram(FChS * arg)
 {
     FObject nam = MakeStringS(arg);
     FObject port = OpenInputFile(nam);
@@ -147,9 +154,7 @@ static int ProgramMode(FChS * arg)
     if (PeekCh(port, &ch) && ch == '#')
         ReadLine(port);
 
-    FObject proc = CompileProgram(nam, port);
-
-    ExecuteProc(proc);
+    ExecuteProc(CompileProgram(nam, port));
     ExitFoment();
     return(0);
 }
@@ -284,15 +289,21 @@ static int VersionAction(FConfigWhen when)
     exit(0);
 }
 
+static int SetBatch(FConfigWhen when)
+{
+    RunMode = BatchMode;
+    return(1);
+}
+
 static int SetInteractive(FConfigWhen when)
 {
-    InteractiveFlag = 1;
+    RunMode = InteractiveMode;
     return(1);
 }
 
 static int LoadAction(FConfigWhen when, FChS * s)
 {
-    InteractiveFlag = 1;
+    RunMode = InteractiveMode;
     InteractiveOptions = MakePair(MakePair(StringCToSymbol("load"), MakeStringS(s)),
             InteractiveOptions);
     return(1);
@@ -300,7 +311,7 @@ static int LoadAction(FConfigWhen when, FChS * s)
 
 static int PrintAction(FConfigWhen when, FChS * s)
 {
-    InteractiveFlag = 1;
+    RunMode = InteractiveMode;
     InteractiveOptions = MakePair(MakePair(StringCToSymbol("print"), MakeStringS(s)),
             InteractiveOptions);
     return(1);
@@ -308,7 +319,7 @@ static int PrintAction(FConfigWhen when, FChS * s)
 
 static int EvalAction(FConfigWhen when, FChS * s)
 {
-    InteractiveFlag = 1;
+    RunMode = InteractiveMode;
     InteractiveOptions = MakePair(MakePair(StringCToSymbol("eval"), MakeStringS(s)),
             InteractiveOptions);
     return(1);
@@ -394,6 +405,10 @@ static FConfigOption ConfigOptions[] =
 "        Perform the specified number of partial garbage collections\n"
 "        before performing a full collection.",
         AnytimeConfig, ULongConfig, &PartialPerFull, 0, 0, 0, 0, 0},
+
+    {'b', 0, "batch", 0, 0,
+"        Run foment in batch mode: standard input is treated as a program.",
+        LateConfig, ActionConfig, 0, 0, 0, 0, SetBatch, 0},
 
     {'i', 0, "interactive", "repl", 0,
 "        Run foment in an interactive session (repl).",
@@ -643,7 +658,7 @@ int ProcessOptions(FConfigWhen when, int argc, FChS * argv[], int * pdx)
                 if (argv[adx][2] == 0)
                 {
                     if (adx + 1 == argc)
-                        InteractiveFlag = 1;
+                        RunMode = InteractiveMode;
 
                     *pdx = adx + 1;
                     break;
@@ -769,25 +784,45 @@ int main(int argc, FChS * argv[])
         }
 
         FullCommandLine = MakeCommandLine(argc, argv);
-        if (pdx != 0)
+        if (pdx > 0)
         {
             FAssert(pdx < argc);
 
             CommandLine = MakeCommandLine(argc - pdx, argv + pdx);
         }
+        else if (RunMode == ProgramMode)
+            RunMode = InteractiveMode;
 
-        if (InteractiveFlag == 0 && pdx > 0)
-        {
+        if (RunMode == ProgramMode)
             AddToLibraryPath(argv[pdx]);
-            LibraryPathOptions();
-            return(ProgramMode(argv[pdx]));
-        }
-
-        LibraryPath = ReverseListModify(MakePair(MakeStringC("."), LibraryPath));
+        else if (RunMode == InteractiveMode)
+            LibraryPath = ReverseListModify(MakePair(MakeStringC("."), LibraryPath));
         LibraryPathOptions();
 
-        ExecuteProc(InteractiveThunk);
-        ExitFoment();
+        switch (RunMode)
+        {
+        case ProgramMode:
+            return(RunProgram(argv[pdx]));
+
+        case BatchMode:
+            if (TextualPortP(StandardInput) == 0)
+            {
+                printf("error: standard input is not a textual port\n");
+                return(1);
+            }
+            ExecuteProc(CompileProgram(AsGenericPort(StandardInput)->Name, StandardInput));
+            ExitFoment();
+            break;
+
+        case InteractiveMode:
+            ExecuteProc(InteractiveThunk);
+            ExitFoment();
+            break;
+
+        default:
+            FAssert(0);
+        }
+
         return(0);
     }
     catch (FObject obj)
