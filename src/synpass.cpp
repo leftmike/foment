@@ -1719,7 +1719,9 @@ FObject CondExpand(FObject se, FObject expr, FObject clst)
 
 static FObject MungeIncludeName(FObject source, FObject target)
 {
-    FAssert(StringP(source));
+    if (StringP(source) == 0)
+        return(target);
+
     FAssert(StringP(target));
 
     FCh * src = AsString(source)->String;
