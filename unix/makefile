@@ -9,20 +9,26 @@ CCDEBUG = -c -ggdb -Wall -DFOMENT_DEBUG -DFOMENT_UNIX
 CCRELEASE = -c -Wall -DFOMENT_UNIX
 CCPROFILE = -pg $(CCRELEASE)
 
+.PHONY: all
 all: debug release debug/foment release/foment
 
+.PHONY: prof
 prof: profile profile/foment
 
+.PHONY: install
 install: all
 	sudo cp debug/foment /usr/local/bin
 
+.PHONY: clean
 clean: debug release profile
 	-rm debug/*
 	-rm release/*
 	-rm profile/*
 
+.PHONY: test
 test: all foment-test stress-test chibi-test
 
+.PHONY: test-all
 test-all: all
 	$(MAKE) test TEST_BUILD=debug TEST_OPTIONS=--no-collector
 	$(MAKE) test TEST_BUILD=release TEST_OPTIONS=--no-collector
@@ -33,19 +39,23 @@ test-all: all
 	$(MAKE) test TEST_BUILD=debug "TEST_OPTIONS=--mark-sweep --check-heap"
 	$(MAKE) test TEST_BUILD=release "TEST_OPTIONS=--mark-sweep --check-heap"
 
+.PHONY: test-generational
 test-generational: all
 	$(MAKE) test TEST_BUILD=debug TEST_OPTIONS=--generational
 	$(MAKE) test TEST_BUILD=release TEST_OPTIONS=--generational
 	$(MAKE) test TEST_BUILD=debug "TEST_OPTIONS=--generational --check-heap"
 	$(MAKE) test TEST_BUILD=release "TEST_OPTIONS=--generational --check-heap"
 
+.PHONY: foment-test
 foment-test: all
 	cd ../test ; ../unix/$(TEST_BUILD)/foment $(TEST_OPTIONS) runtests.scm r7rs.scm r7rs-eval.scm foment.scm eccentric.scm r5rs_pitfall.scm unicode.scm srfi.scm
 	cd ../test ; ../unix/$(TEST_BUILD)/foment $(TEST_OPTIONS) r7rs.scm
 
+.PHONY: stress-test
 stress-test: all
 	cd ../test ; ../unix/$(TEST_BUILD)/foment $(TEST_OPTIONS) runtests.scm stress.scm r7rs.scm
 
+.PHONY: chibi-test
 chibi-test: all
 	cd ../test ; ../unix/$(TEST_BUILD)/foment $(TEST_OPTIONS) r7rs-tests.scm
 
