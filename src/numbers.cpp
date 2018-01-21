@@ -346,6 +346,12 @@ static long_t ParseDecimal10(FCh * s, long_t sl, long_t sdx, long_t sgn, FObject
         double64_t scl = 0.1;
 
         sdx += 1;
+        if (sdx == sl)
+        {
+            // This is necessary for -0. to parse correctly to -0.0
+            d += 0;
+        }
+
         while (sdx < sl)
         {
             long_t dv = DigitValue(s[sdx]);
@@ -950,7 +956,7 @@ long_t GenericEqvP(FObject x1, FObject x2)
             break;
 
         case BOP_FLOAT_FLOAT:
-            return(AsFlonum(x1) == AsFlonum(x2));
+            return(memcmp(x1, x2, sizeof(double64_t)) == 0);
 
         case BOP_FLOAT_FIXED:
         case BOP_FIXED_BIGRAT:
