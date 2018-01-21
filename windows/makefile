@@ -6,8 +6,7 @@ TEST_OPTIONS = --check-heap
 TEST_BUILD = debug
 
 CLDEBUG = /nologo /MD /W3 /Gm /EHsc /Zi /Od /c /Fodebug/ /DFOMENT_DEBUG /DFOMENT_WINDOWS
-#CLRELEASE = /nologo /MD /W3 /O1sy /Gs /GA /EHsc /Forelease/ /c /DFOMENT_WINDOWS
-CLRELEASE = /nologo /MD /W3 /O1sy /Zi /Gs /GA /EHsc /Forelease/ /c /DFOMENT_WINDOWS
+CLRELEASE = /nologo /MD /W3 /Ox /Zi /GA /EHsc /Forelease/ /c /DFOMENT_WINDOWS
 
 LIBS = ws2_32.lib iphlpapi.lib
 
