@@ -673,7 +673,7 @@ FObject SPassDo(FObject enc, FObject se, FObject expr)
     //                (begin cmd ... (tag step ...)))))) tag) init ...)
 
     if (PairP(Rest(expr)) == 0 || PairP(Rest(Rest(expr))) == 0
-            || PairP(First(Rest(expr))) == 0 || PairP(First(Rest(Rest(expr)))) == 0)
+            || PairP(First(Rest(Rest(expr)))) == 0)
         RaiseExceptionC(Syntax, "do",
                 "expected (do ((<var> <init> [<step>]) ...) (<test> <expr> ...) <cmd> ...)",
                 List(expr));
