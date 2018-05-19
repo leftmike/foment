@@ -272,11 +272,38 @@ int FixnumMultiply(long_t n1, long_t n2, long_t *ret)
     *ret = (long_t) n;
     return(1);
 #else // FOMENT_64BIT
+#ifdef FOMENT_WINDOWS
+    int64_t hi = 0;
+    int64_t lo = _mul128(n1 , n2, &hi);
+
+    if (lo != 0 || hi != 0)
+    {
+        // Check for negative.
+        if ((n1 ^ n2) < 0)
+        {
+            FAssert((n1 < 0 && n2 > 0) || (n1 > 0 && n2 < 0));
+
+            if (hi != -1 || lo >= 0 || lo < MINIMUM_FIXNUM)
+                return(0);
+        }
+        else
+        {
+            FAssert((n1 > 0 && n2 > 0) || (n1 < 0 && n2 < 0));
+
+            if (hi > 0 || lo > MAXIMUM_FIXNUM || lo < 0)
+                return(0);
+            FAssert(hi == 0);
+        }
+    }
+    *ret = lo;
+    return(1);
+#else // FOMENT_WINDOWS
     __int128 n = (__int128) n1 * n2;
     if (n < MINIMUM_FIXNUM || n > MAXIMUM_FIXNUM)
         return(0);
     *ret = (long_t) n;
     return(1);
+#endif // FOMENT_WINDOWS
 #endif // FOMENT_64BIT
 }
 
