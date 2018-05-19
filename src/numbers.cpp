@@ -263,7 +263,25 @@ FObject ToExact(FObject n)
     return(n);
 }
 
-static long_t ParseUInteger(FCh * s, long_t sl, long_t sdx, long_t rdx, int16_t sgn, FObject * punt)
+int FixnumMultiply(long_t n1, long_t n2, long_t *ret)
+{
+#if defined(FOMENT_32BIT)
+    int64_t n = (int64_t) n1 * n2;
+    if (n < MINIMUM_FIXNUM || n > MAXIMUM_FIXNUM)
+        return(0);
+    *ret = (long_t) n;
+    return(1);
+#else // FOMENT_64BIT
+    __int128 n = (__int128) n1 * n2;
+    if (n < MINIMUM_FIXNUM || n > MAXIMUM_FIXNUM)
+        return(0);
+    *ret = (long_t) n;
+    return(1);
+#endif // FOMENT_64BIT
+}
+
+static long_t ParseUInteger(FCh * s, long_t sl, long_t sdx, long_t rdx, int16_t sgn,
+    FObject * punt)
 {
     // <uinteger> : <digit> <digit> ...
 
@@ -272,44 +290,27 @@ static long_t ParseUInteger(FCh * s, long_t sl, long_t sdx, long_t rdx, int16_t 
     long_t n;
     long_t strt = sdx;
 
-    if (rdx == 16)
+    for (n = 0; sdx < sl; sdx++)
     {
-        for (n = 0; sdx < sl; sdx++)
+        long_t dv, t;
+
+        if (rdx == 16 && (s[sdx] >= 'a' && s[sdx] <= 'f'))
+            dv = s[sdx] - 'a' + 10;
+        else if (rdx == 16 && (s[sdx] >= 'A' && s[sdx] <= 'F'))
+            dv = s[sdx] - 'A' + 10;
+        else
         {
-            int64_t t;
-            int64_t dv = DigitValue(s[sdx]);
-
-            if (dv >= 0 && dv <= 9)
-                t = n * 16 + dv;
-            else if (s[sdx] >= 'a' && s[sdx] <= 'f')
-                t = n * 16 + s[sdx] - 'a' + 10;
-            else if (s[sdx] >= 'A' && s[sdx] <= 'F')
-                t = n * 16 + s[sdx] - 'A' + 10;
-            else
-                break;
-
-            if (t < MINIMUM_FIXNUM || t > MAXIMUM_FIXNUM)
-                return(ParseBignum(s, sl, sdx, rdx, sgn, n, punt));
-            n = (long_t) t;
-        }
-    }
-    else
-    {
-        FAssert(rdx == 2 || rdx == 8 || rdx == 10);
-
-        for (n = 0; sdx < sl; sdx++)
-        {
-            int64_t dv = DigitValue(s[sdx]);
-            if (dv >= 0 && dv < rdx)
-            {
-                int64_t t = n * rdx + dv;
-                if (t < MINIMUM_FIXNUM || t > MAXIMUM_FIXNUM)
-                    return(ParseBignum(s, sl, sdx, rdx, sgn, n, punt));
-                n = (long_t) t;
-            }
-            else
+            dv = DigitValue(s[sdx]);
+            if (dv < 0 || dv >= rdx || dv > 9)
                 break;
         }
+
+        if (!FixnumMultiply(n, rdx, &t))
+            return(ParseBignum(s, sl, sdx, rdx, sgn, n, punt));
+        t += dv;
+        if (t < MINIMUM_FIXNUM || t > MAXIMUM_FIXNUM)
+            return(ParseBignum(s, sl, sdx, rdx, sgn, n, punt));
+        n = (long_t) t;
     }
 
     if (sdx == strt)
@@ -1316,8 +1317,8 @@ FObject GenericMultiply(FObject z1, FObject z2)
 
         case BOP_FIXED_FIXED:
         {
-            int64_t n = (int64_t) AsFixnum(z1) * AsFixnum(z2);
-            if (n < MINIMUM_FIXNUM || n > MAXIMUM_FIXNUM)
+            long_t n;
+            if (!FixnumMultiply(AsFixnum(z1), AsFixnum(z2), &n))
                 return(Normalize(BignumMultiplyLong(MakeBignumFromLong(AsFixnum(z1)),
                         AsFixnum(z2))));
 

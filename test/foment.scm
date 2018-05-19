@@ -796,3 +796,12 @@
     (collect)
     (check-equal 1000 (count-broken blst))
     (check-equal 1000 (count-broken flst)))
+
+;;
+;; Number tests
+;;
+
+(check-equal 18446744073709551615 (string->number "#xFFFFFFFFFFFFFFFF"))
+(check-equal 18446744073709551600 (* (string->number "#xFFFFFFFFFFFFFFF") 16))
+(check-equal -18446744073709551600 (* (string->number "#xFFFFFFFFFFFFFFF") -16))
+(check-equal 18446462598732775425 (* (string->number "#xFFFFFFFFFFFF") #xFFFF))
