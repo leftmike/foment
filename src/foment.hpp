@@ -132,7 +132,9 @@ typedef char FChS;
 #endif // BSD
 #endif // FOMENT_UNIX
 
+#ifndef FOMENT_LITTLE_ENDIAN
 #define FOMENT_LITTLE_ENDIAN 1
+#endif
 
 typedef void * FObject;
 typedef uint32_t FCh;
