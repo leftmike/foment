@@ -2089,6 +2089,18 @@ static void ConFillExtra(FConsoleInput * ci)
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
+static FConCh TypeaheadBuffer[16];
+static int TypeaheadCount = 0;
+static int TypeaheadRear = 0;
+
+static void Typeahead(char ch)
+{
+    int idx = (TypeaheadRear + TypeaheadCount) % sizeof(TypeaheadBuffer);
+    TypeaheadBuffer[idx] = ch;
+    if (TypeaheadCount < sizeof(TypeaheadBuffer))
+        TypeaheadCount += 1;
+}
+
 static void ConCloseInput(FObject port)
 {
     FAssert(InputPortP(port) && ConsolePortP(port));
@@ -2099,53 +2111,73 @@ static void ConCloseInput(FObject port)
     FreeConsoleInput(AsConsoleInput(port));
 }
 
+static void TranslateRaw(FConsoleInput * ci)
+{
+    for (long_t idx = 0; idx < ci->RawAvailable; idx += 1)
+    {
+        if (ci->RawBuffer[idx] == 13) // Carriage Return
+            ci->RawBuffer[idx] = 10; // Linefeed
+        else if (ci->RawBuffer[idx] == 127) // Backspace
+            ci->RawBuffer[idx] = 8; // ctrl-h
+    }
+}
+
 static ulong_t ConReadRaw(FConsoleInput * ci, long_t wif)
 {
     FAssert(ci->RawAvailable == 0);
 
     long_t ret;
 
-    for (;;)
+    if (TypeaheadCount > 0)
     {
-        fd_set fds;
-        timeval tv;
-
-        FD_ZERO(&fds);
-        FD_SET(0, &fds);
-
-        tv.tv_sec = 0;
-        tv.tv_usec = 0;
-
-        EnterWait();
-        ret = select(1, &fds, 0, 0, wif ? 0 : &tv);
-        LeaveWait();
-
-        if (ret > 0)
-            break;
-
-        if (ret == 0)
+        ret = 0;
+        while (TypeaheadCount > 0 && ret < sizeof(ci->RawBuffer))
         {
-            FAssert(wif == 0);
-
-            return(1);
+            ci->RawBuffer[ret] = TypeaheadBuffer[TypeaheadRear];
+            ret += 1;
+            TypeaheadCount -= 1;
+            TypeaheadRear = (TypeaheadRear + 1) % sizeof(TypeaheadBuffer);
         }
-
-        if (GetThreadState()->NotifyFlag)
-            ConNotifyThrow(ci);
     }
+    else
+    {
+        for (;;)
+            {
+                fd_set fds;
+                timeval tv;
 
-    ret = read(0, ci->RawBuffer, sizeof(ci->RawBuffer));
+                FD_ZERO(&fds);
+                FD_SET(0, &fds);
 
-    if (ret < 1)
-        return(1);
+                tv.tv_sec = 0;
+                tv.tv_usec = 0;
 
-    if (ci->RawBuffer[0] == 13) // Carriage Return
-        ci->RawBuffer[0] = 10; // Linefeed
-    else if (ci->RawBuffer[0] == 127) // Backspace
-        ci->RawBuffer[0] = 8; // ctrl-h
+                EnterWait();
+                ret = select(1, &fds, 0, 0, wif ? 0 : &tv);
+                LeaveWait();
+
+                if (ret > 0)
+                    break;
+
+                if (ret == 0)
+                    {
+                        FAssert(wif == 0);
+
+                        return(1);
+                    }
+
+                if (GetThreadState()->NotifyFlag)
+                    ConNotifyThrow(ci);
+            }
+
+        ret = read(0, ci->RawBuffer, sizeof(ci->RawBuffer));
+        if (ret < 1)
+            return(1);
+    }
 
     ci->RawUsed = 0;
     ci->RawAvailable = ret;
+    TranslateRaw(ci);
 
     return(1);
 }
@@ -2167,13 +2199,32 @@ static long_t ConGetCursor(long_t * x, long_t * y)
 {
     char buf[16];
     char * str;
-    long_t ret;
+    long_t ret = 0;
 
     strcpy(buf, "\x1B[6n");
     write(1, buf, strlen(buf));
-    ret = read(0, buf, sizeof(buf));
-    if (ret < 6)
+
+    for (;;)
+    {
+        if (read(0, buf, 1) != 1)
+            return(0);
+        if (buf[0] == 27)
+        {
+            if (read(0, buf + 1, 1) != 1)
+                return(0);
+            if (buf[1] == '[')
+                break;
+            Typeahead(buf[0]);
+            Typeahead(buf[1]);
+        }
+        else
+            Typeahead(buf[0]);
+    }
+
+    ret = read(0, buf + 2, sizeof(buf));
+    if (ret < 4)
         return(0);
+    ret += 2;
 
     buf[ret] = 0;
     if (buf[0] != 27 || buf[1] != '[')
