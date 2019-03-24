@@ -1639,6 +1639,10 @@ typedef wchar_t FConCh;
 
 #ifdef FOMENT_UNIX
 typedef unsigned char FConCh;
+
+static FConCh TypeaheadBuffer[128];
+static int TypeaheadCount = 0;
+static int TypeaheadRear = 0;
 #endif // FOMENT_UNIX
 
 typedef struct
@@ -1698,6 +1702,9 @@ static void ResetConsoleInput(FConsoleInput * ci)
 {
     ci->RawUsed = 0;
     ci->RawAvailable = 0;
+#ifdef FOMENT_UNIX
+    TypeaheadCount = 0;
+#endif // FOMENT_UNIX
 
     ci->Used = 0;
     ci->Available = 0;
@@ -1918,6 +1925,9 @@ static void ConNotifyThrow(FConsoleInput * ci)
 {
     ci->RawUsed = 0;
     ci->RawAvailable = 0;
+#ifdef FOMENT_UNIX
+    TypeaheadCount = 0;
+#endif // FOMENT_UNIX
 
     ci->Used = 0;
     ci->Available = 0;
@@ -2089,10 +2099,6 @@ static void ConFillExtra(FConsoleInput * ci)
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-static FConCh TypeaheadBuffer[16];
-static int TypeaheadCount = 0;
-static int TypeaheadRear = 0;
-
 static void Typeahead(char ch)
 {
     int idx = (TypeaheadRear + TypeaheadCount) % sizeof(TypeaheadBuffer);
