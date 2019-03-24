@@ -2,12 +2,25 @@
 # Foment
 #
 
+CC ?= gcc
+CXX ?= g++
+BUILD_CXX ?= g++ 
+
 TEST_OPTIONS = --check-heap
 TEST_BUILD = debug
 
-CCDEBUG = -c -ggdb -Wall -DFOMENT_DEBUG -DFOMENT_UNIX
-CCRELEASE = -c -Wall -DFOMENT_UNIX
-CCPROFILE = -pg $(CCRELEASE)
+# FOMENT_LITTLE_ENDIAN is defined in foment.hpp as 1,
+# EXCEPT if already defined. So if FOMENT_BIG_ENDIAN was
+# set when calling make, we define FOMENT_LITTLE_ENDIAN=0
+ifdef FOMENT_BIG_ENDIAN
+	CFLAGS += -DFOMENT_LITTLE_ENDIAN=0
+endif
+
+CFLAGS += -c -Wall -DFOMENT_UNIX
+
+CCDEBUG   := -ggdb -DFOMENT_DEBUG $(CFLAGS)
+CCRELEASE := $(CFLAGS)
+CCPROFILE := -pg $(CCRELEASE)
 
 .PHONY: all
 all: debug release debug/foment release/foment
@@ -77,7 +90,7 @@ debug/foment: debug/foment.o debug/gc.o debug/syncthrd.o debug/compile.o debug/i
 		debug/library.o debug/execute.o debug/numbers.o	debug/mini-gmp.o debug/write.o\
 		debug/read.o debug/filesys.o debug/compare.o debug/main.o debug/hashtbl.o\
 		debug/bignums.o debug/base.o
-	g++ -o debug/foment $^ -lpthread
+	$(CXX)  $(LDFLAGS) -o debug/foment $^ -lpthread
 
 release/foment: release/foment.o release/gc.o release/syncthrd.o release/compile.o release/io.o\
 		release/synrules.o release/synpass.o release/midpass.o release/genpass.o\
@@ -85,7 +98,7 @@ release/foment: release/foment.o release/gc.o release/syncthrd.o release/compile
 		release/vectors.o release/library.o release/execute.o release/numbers.o\
 		release/mini-gmp.o release/write.o release/read.o release/filesys.o\
 		release/compare.o release/main.o release/hashtbl.o release/bignums.o release/base.o
-	g++ -o release/foment $^ -lpthread
+	$(CXX) $(LDFLAGS) -o release/foment $^ -lpthread
 
 profile/foment: profile/foment.o profile/gc.o profile/syncthrd.o profile/compile.o profile/io.o\
 		profile/synrules.o profile/synpass.o profile/midpass.o profile/genpass.o\
@@ -93,7 +106,7 @@ profile/foment: profile/foment.o profile/gc.o profile/syncthrd.o profile/compile
 		profile/vectors.o profile/library.o profile/execute.o profile/numbers.o\
 		profile/mini-gmp.o profile/write.o profile/read.o profile/filesys.o\
 		profile/compare.o profile/main.o profile/hashtbl.o profile/bignums.o profile/base.o
-	g++ -pg -o profile/foment $^ -lpthread
+	$(CXX)  $(LDFLAGS) -pg -o profile/foment $^ -lpthread
 
 debug/foment.o: ../src/foment.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/unicode.hpp
 debug/gc.o: ../src/gc.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp
@@ -156,41 +169,41 @@ release/main.o: ../src/main.cpp ../src/foment.hpp
 release/base.o: debug/base.cpp
 
 debug/%.o: %.cpp
-	cc $(CCDEBUG) -I ../src -o $@ $<
+	$(CXX) $(CCDEBUG) -I ../src -o $@ $<
 
 debug/%.o: ../src/%.cpp
-	cc $(CCDEBUG) -I ../src -o $@ $<
+	$(CXX) $(CCDEBUG) -I ../src -o $@ $<
 
 debug/%.o: ../src/%.c
-	cc $(CCDEBUG) -I ../src -o $@ $<
+	$(CC) $(CCDEBUG) -I ../src -o $@ $<
 
 debug/%.o: debug/%.cpp
-	cc $(CCDEBUG) -I ../src -o $@ $<
+	$(CXX) $(CCDEBUG) -I ../src -o $@ $<
 
 release/%.o: %.cpp
-	cc $(CCRELEASE) -I ../src -o $@ $<
+	$(CXX) $(CCRELEASE) -I ../src -o $@ $<
 
 release/%.o: ../src/%.cpp
-	cc $(CCRELEASE) -I ../src -o $@ $<
+	$(CXX) $(CCRELEASE) -I ../src -o $@ $<
 
 release/%.o: ../src/%.c
-	cc $(CCRELEASE) -I ../src -o $@ $<
+	$(CC) $(CCRELEASE) -I ../src -o $@ $<
 
 release/%.o: debug/%.cpp
-	cc $(CCRELEASE) -I ../src -o $@ $<
+	$(CXX) $(CCRELEASE) -I ../src -o $@ $<
 
 profile/%.o: %.cpp
-	cc $(CCPROFILE) -I ../src -o $@ $<
+	$(CXX) $(CCPROFILE) -I ../src -o $@ $<
 
 profile/%.o: ../src/%.cpp
-	cc $(CCPROFILE) -I ../src -o $@ $<
+	$(CXX) $(CCPROFILE) -I ../src -o $@ $<
 
 profile/%.o: ../src/%.c
-	cc $(CCPROFILE) -I ../src -o $@ $<
+	$(CC) $(CCPROFILE) -I ../src -o $@ $<
 
 profile/%.o: debug/%.cpp
-	cc $(CCPROFILE) -I ../src -o $@ $<
+	$(CXX) $(CCPROFILE) -I ../src -o $@ $<
 
 debug/txt2cpp: ../src/txt2cpp.cpp
-	g++ $(CCDEBUG) ../src/txt2cpp.cpp -o debug/txt2cpp.o
-	g++ debug/txt2cpp.o -o debug/txt2cpp
+	$(BUILD_CXX) $(CCDEBUG) ../src/txt2cpp.cpp -o debug/txt2cpp.o
+	$(BUILD_CXX) debug/txt2cpp.o -o debug/txt2cpp
