@@ -4,7 +4,7 @@
 
 CC ?= gcc
 CXX ?= g++
-BUILD_CXX ?= g++ 
+BUILD_CXX ?= g++
 
 TEST_OPTIONS = --check-heap
 TEST_BUILD = debug
@@ -87,7 +87,7 @@ debug/base.cpp: debug/txt2cpp ../src/base.scm makefile
 debug/foment: debug/foment.o debug/gc.o debug/syncthrd.o debug/compile.o debug/io.o\
 		debug/synrules.o debug/synpass.o debug/midpass.o debug/genpass.o\
 		debug/pairs.o debug/unicode.o debug/chars.o debug/strings.o debug/vectors.o\
-		debug/library.o debug/execute.o debug/numbers.o	debug/mini-gmp.o debug/write.o\
+		debug/library.o debug/execute.o debug/numbers.o debug/write.o\
 		debug/read.o debug/filesys.o debug/compare.o debug/main.o debug/hashtbl.o\
 		debug/bignums.o debug/base.o
 	$(CXX)  $(LDFLAGS) -o debug/foment $^ -lpthread
@@ -96,7 +96,7 @@ release/foment: release/foment.o release/gc.o release/syncthrd.o release/compile
 		release/synrules.o release/synpass.o release/midpass.o release/genpass.o\
 		release/pairs.o release/unicode.o release/chars.o release/strings.o\
 		release/vectors.o release/library.o release/execute.o release/numbers.o\
-		release/mini-gmp.o release/write.o release/read.o release/filesys.o\
+		release/write.o release/read.o release/filesys.o\
 		release/compare.o release/main.o release/hashtbl.o release/bignums.o release/base.o
 	$(CXX) $(LDFLAGS) -o release/foment $^ -lpthread
 
@@ -104,7 +104,7 @@ profile/foment: profile/foment.o profile/gc.o profile/syncthrd.o profile/compile
 		profile/synrules.o profile/synpass.o profile/midpass.o profile/genpass.o\
 		profile/pairs.o profile/unicode.o profile/chars.o profile/strings.o\
 		profile/vectors.o profile/library.o profile/execute.o profile/numbers.o\
-		profile/mini-gmp.o profile/write.o profile/read.o profile/filesys.o\
+		profile/write.o profile/read.o profile/filesys.o\
 		profile/compare.o profile/main.o profile/hashtbl.o profile/bignums.o profile/base.o
 	$(CXX)  $(LDFLAGS) -pg -o profile/foment $^ -lpthread
 
@@ -125,7 +125,6 @@ debug/library.o: ../src/library.cpp ../src/foment.hpp ../src/compile.hpp
 debug/execute.o: ../src/execute.cpp ../src/foment.hpp ../src/execute.hpp ../src/syncthrd.hpp
 debug/numbers.o: ../src/numbers.cpp ../src/foment.hpp ../src/unicode.hpp ../src/bignums.hpp
 debug/bignums.o: ../src/bignums.cpp ../src/foment.hpp ../src/unicode.hpp ../src/bignums.hpp
-debug/mini-gmp.o: ../src/mini-gmp.c ../src/mini-gmp.h
 debug/io.o: ../src/io.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
 	../src/unicode.hpp
 debug/write.o: ../src/write.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
@@ -155,7 +154,6 @@ release/library.o: ../src/library.cpp ../src/foment.hpp ../src/compile.hpp
 release/execute.o: ../src/execute.cpp ../src/foment.hpp ../src/execute.hpp ../src/syncthrd.hpp
 release/numbers.o: ../src/numbers.cpp ../src/foment.hpp ../src/unicode.hpp ../src/bignums.hpp
 release/bignums.o: ../src/bignums.cpp ../src/foment.hpp ../src/unicode.hpp ../src/bignums.hpp
-debug/mini-gmp.o: ../src/mini-gmp.c ../src/mini-gmp.h
 release/io.o: ../src/io.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
 	../src/unicode.hpp
 release/write.o: ../src/write.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\

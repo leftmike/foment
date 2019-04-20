@@ -3,8 +3,6 @@
 Foment
 
 To Do:
--- remove mini-gmp and USE_GMP
-
 -- fix generational collector
 -- CheckObject: check back references from mature objects
 -- partial GC
@@ -243,7 +241,7 @@ typedef enum
     ((FObject *) ((((ulong_t) (n)) << 3) | (FixnumTag & 0x7)))
 #define AsFixnum(obj) (((long_t) (obj)) >> 3)
 
-#if defined(FOMENT_32BIT) || defined(USE_GMP)
+#if defined(FOMENT_32BIT)
 #define FIXNUM_BITS (sizeof(int32_t) * 8 - 4)
 #define MAXIMUM_FIXNUM ((((long_t) 1) << FIXNUM_BITS) - 1)
 #define MINIMUM_FIXNUM (- MAXIMUM_FIXNUM)

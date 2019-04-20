@@ -15,10 +15,6 @@ Foment
 #include "unicode.hpp"
 #include "bignums.hpp"
 
-#ifdef USE_GMP
-#include "mini-gmp.h"
-#endif // USE_GMP
-
 // ---- Root ----
 
 static FObject MaximumDoubleBignum = NoValueObject;
@@ -32,19 +28,12 @@ static FObject MaximumDoubleBignum = NoValueObject;
 
 typedef struct
 {
-#ifdef USE_GMP
-    mpz_t MPInteger;
-#endif // USE_GMP
     int16_t Sign;
     uint16_t Used;
     uint32_t Digits[1];
 } FBignum;
 
 #ifdef FOMENT_DEBUG
-#ifdef USE_GMP
-static char * MBignumToStringC(FObject bn, uint32_t rdx);
-#endif // USE_GMP
-
 static inline ulong_t MaximumDigits(FObject bn)
 {
     FAssert(BignumP(bn));
@@ -66,11 +55,6 @@ static FBignum * MakeBignum(ulong_t dc)
 
     FBignum * bn = (FBignum *) MakeObject(BignumTag, sizeof(FBignum) + (dc - 1) * sizeof(uint32_t),
             0, "%make-bignum");
-#ifdef USE_GMP
-    mpz_init(bn->MPInteger);
-    InstallGuardian(bn, CleanupTConc);
-#endif // USE_GMP
-
     bn->Sign = 1;
     bn->Used = 1;
     memset(bn->Digits, 0, dc * sizeof(uint32_t));
@@ -92,15 +76,6 @@ static FBignum * BignumFromUInt64(uint64_t n, ulong_t adc)
     bn->Digits[1] = n >> 32;
     bn->Used = (bn->Digits[1] > 0 ? 2 : 1);
     bn->Sign = 1;
-
-#ifdef USE_GMP
-    mpz_set_ui(bn->MPInteger, n >> 32);
-    mpz_mul_2exp(bn->MPInteger, bn->MPInteger, 32);
-    mpz_add_ui(bn->MPInteger, bn->MPInteger, n & 0xFFFFFFFF);
-
-    FAssert(strcmp(MBignumToStringC(bn, 10), BignumToStringC(bn, 10)) == 0);
-#endif // USE_GMP
-
     return(bn);
 }
 
@@ -110,11 +85,6 @@ static FBignum * MakeBignumFromLong(long_t n, ulong_t adc)
     FAssert(sizeof(long_t) == sizeof(uint32_t));
 
     FBignum * bn = MakeBignum(1 + adc);
-
-#ifdef USE_GMP
-    mpz_init_set_si(bn->MPInteger, n);
-#endif // USE_GMP
-
     if (n >= 0)
         bn->Sign = 1;
     else
@@ -128,10 +98,6 @@ static FBignum * MakeBignumFromLong(long_t n, ulong_t adc)
 
     FAssert(BignumP(bn));
 
-#ifdef USE_GMP
-    FAssert(strcmp(MBignumToStringC(bn, 10), BignumToStringC(bn, 10)) == 0);
-#endif // USE_GMP
-
     return(bn);
 #endif // FOMENT_32BIT
 #ifdef FOMENT_64BIT
@@ -142,13 +108,6 @@ static FBignum * MakeBignumFromLong(long_t n, ulong_t adc)
 
     FBignum * bn = BignumFromUInt64(-n, adc);
     bn->Sign = -1;
-
-#ifdef USE_GMP
-    mpz_mul_si(bn->MPInteger, bn->MPInteger, -1);
-
-    FAssert(strcmp(MBignumToStringC(bn, 10), BignumToStringC(bn, 10)) == 0);
-#endif // USE_GMP
-
     return(bn);
 #endif // FOMENT_64BIT
 }
@@ -250,12 +209,6 @@ FObject MakeBignumFromDouble(double64_t d)
     else
         bn->Sign = sign;
 
-#ifdef USE_GMP
-    mpz_init_set_d(bn->MPInteger, d);
-
-    FAssert(strcmp(MBignumToStringC(bn, 10), BignumToStringC(bn, 10)) == 0);
-#endif // USE_GMP
-
     FAssert(bn->Used > 0);
     FAssert(bn->Used < 2 || bn->Digits[bn->Used - 1] != 0);
     FAssert(bn->Sign == 1 || bn->Sign == -1);
@@ -270,11 +223,6 @@ static FBignum * CopyBignum(FBignum * bn, uint16_t xtr)
     FAssert(bn->Sign == 1 || bn->Sign == -1);
 
     FBignum * ret = MakeBignum(bn->Used + xtr);
-
-#ifdef USE_GMP
-    mpz_init_set(ret->MPInteger, bn->MPInteger);
-#endif // USE_GMP
-
     ret->Sign = bn->Sign;
     memcpy(ret->Digits, bn->Digits, bn->Used * sizeof(uint32_t));
     ret->Used = bn->Used;
@@ -301,10 +249,6 @@ FObject CopyBignum(FObject n)
 void DeleteBignum(FObject obj)
 {
     FAssert(BignumP(obj));
-
-#ifdef USE_GMP
-    mpz_clear(AsBignum(obj)->MPInteger);
-#endif // USE_GMP
 }
 
 FObject ToBignum(FObject obj)
@@ -329,16 +273,9 @@ FObject Normalize(FObject num)
         FAssert(bn->Used < 2 || bn->Digits[bn->Used - 1] != 0);
         FAssert(bn->Sign == 1 || bn->Sign == -1);
 
-#if defined(FOMENT_32BIT) || defined(USE_GMP)
+#if defined(FOMENT_32BIT)
         if (bn->Used == 1 && bn->Digits[0] <= MAXIMUM_FIXNUM)
-        {
-#ifdef USE_GMP
-            FAssert((bn->Sign > 0 && bn->Digits[0] == mpz_get_si(bn->MPInteger)) ||
-                    (bn->Sign < 0 && bn->Digits[0] == - mpz_get_si(bn->MPInteger)));
-#endif // USE_GMP
-
             return(MakeFixnum((long_t) bn->Digits[0] * bn->Sign));
-        }
 #else // FOMENT_64BIT
         if (bn->Used == 1)
             return(MakeFixnum((long_t) bn->Digits[0] * bn->Sign));
@@ -361,17 +298,7 @@ FObject MakeIntegerFromInt64(int64_t n)
 
     FBignum * bn = BignumFromUInt64(n < 0 ? -n : n, 0);
     if (n < 0)
-    {
         bn->Sign = -1;
-
-#ifdef USE_GMP
-        mpz_mul_si(bn->MPInteger, bn->MPInteger, -1);
-#endif // USE_GMP
-    }
-
-#ifdef USE_GMP
-    FAssert(strcmp(MBignumToStringC(bn, 10), BignumToStringC(bn, 10)) == 0);
-#endif // USE_GMP
 
     FAssert(bn->Used > 0);
     FAssert(bn->Used < 2 || bn->Digits[bn->Used - 1] != 0);
@@ -392,12 +319,6 @@ double64_t BignumToDouble(FObject bn)
 {
     FAssert(BignumP(bn));
 
-#ifdef USE_GMP
-#ifdef FOMENT_DEBUG
-    double64_t od = mpz_get_d(AsBignum(bn)->MPInteger);
-#endif // FOMENT_DEBUG
-#endif // USE_GMP
-
     double64_t d = 0;
 
     if (AsBignum(bn)->Used > 0)
@@ -413,21 +334,8 @@ double64_t BignumToDouble(FObject bn)
         d *= AsBignum(bn)->Sign;
     }
 
-#ifdef USE_GMP
-    FAssert(od == d);
-#endif // USE_GMP
-
     return(d);
 }
-
-#ifdef USE_GMP
-#ifdef FOMENT_DEBUG
-static char * MBignumToStringC(FObject bn, uint32_t rdx)
-{
-    return(mpz_get_str(0, (int) rdx, AsBignum(bn)->MPInteger));
-}
-#endif // FOMENT_DEBUG
-#endif // USE_GMP
 
 static const char DigitTable[] = "0123456789abcdefghijklmnopqrstuvwxyz";
 
@@ -571,10 +479,6 @@ long_t ParseBignum(FCh * s, long_t sl, long_t sdx, long_t rdx, int16_t sgn, long
     FAssert(bn->Used < 2 || bn->Digits[bn->Used - 1] != 0);
     FAssert(bn->Sign == 1 || bn->Sign == -1);
 
-#ifdef USE_GMP
-    FAssert(strcmp(MBignumToStringC(bn, 10), BignumToStringC(bn, 10)) == 0);
-#endif // USE_GMP
-
     *punt = bn;
     return(sdx);
 }
@@ -614,22 +518,12 @@ long_t BignumCompare(FObject bn1, FObject bn2)
     long_t ret = BignumCompareDigits(AsBignum(bn1)->Digits, AsBignum(bn1)->Used,
             AsBignum(bn1)->Sign, AsBignum(bn2)->Digits, AsBignum(bn2)->Used, AsBignum(bn2)->Sign);
 
-#ifdef USE_GMP
-    FAssert(mpz_cmp(AsBignum(bn1)->MPInteger, AsBignum(bn2)->MPInteger) == ret);
-#endif // USE_GMP
-
     return(ret);
 }
 
 long_t BignumSign(FObject num)
 {
     FAssert(BignumP(num));
-
-#ifdef USE_GMP
-#ifdef FOMENT_DEBUG
-    long_t sgn = mpz_sgn(AsBignum(num)->MPInteger);
-#endif // FOMENT_DEBUG
-#endif // USE_GMP
 
     FBignum * bn = AsBignum(num);
 
@@ -638,27 +532,11 @@ long_t BignumSign(FObject num)
     FAssert(bn->Sign == 1 || bn->Sign == -1);
 
     if (AsBignum(bn)->Used == 1 && AsBignum(bn)->Digits[0] == 0)
-    {
         return(0);
-
-#ifdef USE_GMP
-        FAssert(sgn == 0);
-#endif // USE_GMP
-    }
     else if (AsBignum(bn)->Sign > 0)
-    {
         return(1);
 
-#ifdef USE_GMP
-        FAssert(sgn == 1);
-#endif // USE_GMP
-    }
-
     FAssert(AsBignum(bn)->Sign < 0);
-
-#ifdef USE_GMP
-        FAssert(sgn == -1);
-#endif // USE_GMP
 
     return(-1);
 }
@@ -668,10 +546,6 @@ static void BignumNegate(FBignum * bn)
     FAssert(bn->Used > 0);
     FAssert(bn->Used < 2 || bn->Digits[bn->Used - 1] != 0);
     FAssert(bn->Sign == 1 || bn->Sign == -1);
-
-#ifdef USE_GMP
-    mpz_neg(bn->MPInteger, bn->MPInteger);
-#endif // USE_GMP
 
     if (bn->Used > 1 || bn->Digits[0] != 0)
         bn->Sign *= -1;
@@ -794,12 +668,6 @@ FObject BignumAdd(FObject bn1, FObject bn2)
     FBignum * ret = BignumAddDigits(AsBignum(bn1)->Digits, AsBignum(bn1)->Used, AsBignum(bn1)->Sign,
             AsBignum(bn2)->Digits, AsBignum(bn2)->Used, AsBignum(bn2)->Sign);
 
-#ifdef USE_GMP
-    mpz_add(ret->MPInteger, AsBignum(bn1)->MPInteger, AsBignum(bn2)->MPInteger);
-
-    FAssert(strcmp(MBignumToStringC(ret, 10), BignumToStringC(ret, 10)) == 0);
-#endif // USE_GMP
-
     FAssert(ret->Used > 0);
     FAssert(ret->Used < 2 || ret->Digits[ret->Used - 1] != 0);
     FAssert(ret->Sign == 1 || ret->Sign == -1);
@@ -864,12 +732,6 @@ static void UpdateAddUInt32(FBignum * bn, uint32_t n)
             FAssert(idx < bn->Used);
         }
     }
-
-#ifdef USE_GMP
-    mpz_add_ui(bn->MPInteger, bn->MPInteger, n);
-
-    FAssert(strcmp(MBignumToStringC(bn, 10), BignumToStringC(bn, 10)) == 0);
-#endif // USE_GMP
 }
 
 FObject BignumAddLong(FObject bn, long_t n)
@@ -898,23 +760,6 @@ FObject BignumAddLong(FObject bn, long_t n)
     FBignum * ret = BignumAddDigits(AsBignum(bn)->Digits, AsBignum(bn)->Used, AsBignum(bn)->Sign,
             digits, used, nsgn);
 
-#ifdef USE_GMP
-#if defined(FOMENT_WINDOWS) && defined(FOMENT_64BIT)
-    FObject bn2 = MakeIntegerFromInt64(n * nsgn);
-    if (BignumP(bn2))
-        mpz_add(AsBignum(ret)->MPInteger, AsBignum(bn)->MPInteger, AsBignum(bn2)->MPInteger);
-    else
-#endif
-    {
-    if (nsgn > 0)
-        mpz_add_ui(AsBignum(ret)->MPInteger, AsBignum(bn)->MPInteger, (long) n);
-    else
-        mpz_sub_ui(AsBignum(ret)->MPInteger, AsBignum(bn)->MPInteger, (long) n);
-    }
-
-    FAssert(strcmp(MBignumToStringC(ret, 10), BignumToStringC(ret, 10)) == 0);
-#endif // USE_GMP
-
     FAssert(ret->Used > 0);
     FAssert(ret->Used < 2 || ret->Digits[ret->Used - 1] != 0);
     FAssert(ret->Sign == 1 || ret->Sign == -1);
@@ -930,12 +775,6 @@ FObject BignumSubtract(FObject bn1, FObject bn2)
     FBignum * ret = BignumAddDigits(AsBignum(bn1)->Digits, AsBignum(bn1)->Used,
             AsBignum(bn1)->Sign, AsBignum(bn2)->Digits, AsBignum(bn2)->Used,
             AsBignum(bn2)->Sign * -1);
-
-#ifdef USE_GMP
-    mpz_sub(AsBignum(ret)->MPInteger, AsBignum(bn1)->MPInteger, AsBignum(bn2)->MPInteger);
-
-    FAssert(strcmp(MBignumToStringC(ret, 10), BignumToStringC(ret, 10)) == 0);
-#endif // USE_GMP
 
     FAssert(ret->Used > 0);
     FAssert(ret->Used < 2 || ret->Digits[ret->Used - 1] != 0);
@@ -986,12 +825,6 @@ FObject BignumMultiply(FObject bn1, FObject bn2)
             AsBignum(bn2)->Digits, AsBignum(bn2)->Used);
     AsBignum(ret)->Sign = AsBignum(bn1)->Sign * AsBignum(bn2)->Sign;
 
-#ifdef USE_GMP
-    mpz_mul(AsBignum(ret)->MPInteger, AsBignum(bn1)->MPInteger, AsBignum(bn2)->MPInteger);
-
-    FAssert(strcmp(MBignumToStringC(ret, 10), BignumToStringC(ret, 10)) == 0);
-#endif // USE_GMP
-
     FAssert(ret->Used > 0);
     FAssert(ret->Used < 2 || ret->Digits[ret->Used - 1] != 0);
     FAssert(ret->Sign == 1 || ret->Sign == -1);
@@ -1018,12 +851,6 @@ static void UpdateMultiplyUInt32(FBignum * bn, uint32_t n)
         bn->Digits[bn->Used] = carry;
         bn->Used += 1;
     }
-
-#ifdef USE_GMP
-    mpz_mul_si(bn->MPInteger, bn->MPInteger, n);
-
-    FAssert(strcmp(MBignumToStringC(bn, 10), BignumToStringC(bn, 10)) == 0);
-#endif // USE_GMP
 }
 
 FObject BignumMultiplyLong(FObject bn, long_t n)
@@ -1052,20 +879,6 @@ FObject BignumMultiplyLong(FObject bn, long_t n)
             sizeof(digits) / sizeof(uint32_t));
     AsBignum(ret)->Sign = sgn;
 
-#ifdef USE_GMP
-#if defined(FOMENT_WINDOWS) && defined(FOMENT_64BIT)
-    FObject bn2 = MakeIntegerFromInt64(n);
-    if (BignumP(bn2))
-        mpz_mul(AsBignum(ret)->MPInteger, AsBignum(bn)->MPInteger, AsBignum(bn2)->MPInteger);
-    else
-#endif
-    {
-    mpz_mul_si(AsBignum(ret)->MPInteger, AsBignum(bn)->MPInteger, (long) n);
-    }
-
-    FAssert(strcmp(MBignumToStringC(ret, 10), BignumToStringC(ret, 10)) == 0);
-#endif // USE_GMP
-
     FAssert(ret->Used > 0);
     FAssert(ret->Used < 2 || ret->Digits[ret->Used - 1] != 0);
     FAssert(ret->Sign == 1 || ret->Sign == -1);
@@ -1084,10 +897,6 @@ long_t BignumOddP(FObject n)
     FAssert(bn->Sign == 1 || bn->Sign == -1);
 
     long_t op = (bn->Used != 0 && (bn->Digits[0] & 0x1));
-
-#ifdef USE_GMP
-    FAssert((mpz_tdiv_ui(AsBignum(n)->MPInteger, 2) != 0) == op);
-#endif // USE_GMP
 
     return(op);
 }
@@ -1253,13 +1062,6 @@ FObject BignumDivide(FObject n, FObject d)
     FAssert(BignumP(d));
 
     FBignum * q = BignumDivide(AsBignum(n), AsBignum(d));
-
-#ifdef USE_GMP
-    mpz_tdiv_q(q->MPInteger, AsBignum(n)->MPInteger, AsBignum(d)->MPInteger);
-
-    FAssert(strcmp(MBignumToStringC(q, 10), BignumToStringC(q, 10)) == 0);
-#endif // USE_GMP
-
     return(q);
 }
 
@@ -1302,13 +1104,6 @@ FObject BignumRemainder(FObject n, FObject d)
     FAssert(BignumP(d));
 
     FBignum * rem = BignumRemainder(AsBignum(n), AsBignum(d));
-
-#ifdef USE_GMP
-    mpz_tdiv_r(rem->MPInteger, AsBignum(n)->MPInteger, AsBignum(d)->MPInteger);
-
-    FAssert(strcmp(MBignumToStringC(rem, 10), BignumToStringC(rem, 10)) == 0);
-#endif // USE_GMP
-
     return(rem);
 }
 
@@ -1350,13 +1145,6 @@ FObject BignumSqrt(FObject * rem, FObject bn)
 
     FAssert(BignumP(ret));
     FAssert(BignumP(*rem));
-
-#ifdef USE_GMP
-    mpz_sqrtrem(AsBignum(ret)->MPInteger, AsBignum(*rem)->MPInteger, AsBignum(bn)->MPInteger);
-
-    FAssert(strcmp(MBignumToStringC(ret, 10), BignumToStringC(ret, 10)) == 0);
-    FAssert(strcmp(MBignumToStringC(*rem, 10), BignumToStringC(*rem, 10)) == 0);
-#endif // USE_GMP
 
     FAssert(AsBignum(ret)->Used > 0);
     FAssert(AsBignum(ret)->Used < 2 || AsBignum(ret)->Digits[AsBignum(ret)->Used - 1] != 0);
@@ -1440,12 +1228,6 @@ FObject BignumAnd(FObject bn1, FObject bn2)
 
     FBignum * ret = BignumAnd(AsBignum(bn1), AsBignum(bn2));
 
-#ifdef USE_GMP
-    mpz_and(ret->MPInteger, AsBignum(bn1)->MPInteger, AsBignum(bn2)->MPInteger);
-
-    FAssert(strcmp(MBignumToStringC(ret, 10), BignumToStringC(ret, 10)) == 0);
-#endif // USE_GMP
-
     FAssert(ret->Used > 0);
     FAssert(ret->Used < 2 || ret->Digits[ret->Used - 1] != 0);
     FAssert(ret->Sign == 1 || ret->Sign == -1);
@@ -1513,12 +1295,6 @@ FObject BignumIOr(FObject bn1, FObject bn2)
 
     FBignum * ret = BignumIOr(AsBignum(bn1), AsBignum(bn2));
 
-#ifdef USE_GMP
-    mpz_ior(ret->MPInteger, AsBignum(bn1)->MPInteger, AsBignum(bn2)->MPInteger);
-
-    FAssert(strcmp(MBignumToStringC(ret, 10), BignumToStringC(ret, 10)) == 0);
-#endif // USE_GMP
-
     FAssert(ret->Used > 0);
     FAssert(ret->Used < 2 || ret->Digits[ret->Used - 1] != 0);
     FAssert(ret->Sign == 1 || ret->Sign == -1);
@@ -1532,12 +1308,6 @@ FObject BignumXOr(FObject bn1, FObject bn2)
     FAssert(BignumP(bn2));
 
     FObject ret = BignumAnd(BignumIOr(bn1, bn2), BignumNot(BignumAnd(bn1, bn2)));
-
-#ifdef USE_GMP
-    mpz_xor(AsBignum(ret)->MPInteger, AsBignum(bn1)->MPInteger, AsBignum(bn2)->MPInteger);
-
-    FAssert(strcmp(MBignumToStringC(ret, 10), BignumToStringC(ret, 10)) == 0);
-#endif // USE_GMP
 
     FAssert(AsBignum(ret)->Used > 0);
     FAssert(AsBignum(ret)->Used < 2 || AsBignum(ret)->Digits[AsBignum(ret)->Used - 1] != 0);
@@ -1557,10 +1327,6 @@ FObject BignumNot(FObject bn)
     FAssert(ret->Used > 0);
     FAssert(ret->Used < 2 || ret->Digits[ret->Used - 1] != 0);
     FAssert(ret->Sign == 1 || ret->Sign == -1);
-
-#ifdef USE_GMP
-    FAssert(strcmp(MBignumToStringC(ret, 10), BignumToStringC(ret, 10)) == 0);
-#endif // USE_GMP
 
     return(ret);
 }
@@ -1589,11 +1355,6 @@ ulong_t BignumBitCount(FObject bn)
     FAssert(BignumP(bn));
 
     ulong_t bc = BignumBitCount(AsBignum(bn));
-
-#ifdef USE_GMP
-    FAssert(BignumSign(bn) < 0 || bc == mpz_popcount(AsBignum(bn)->MPInteger));
-#endif // USE_GMP
-
     return(bc);
 }
 
@@ -1613,11 +1374,6 @@ ulong_t BignumIntegerLength(FObject bn)
     FAssert(BignumP(bn));
 
     ulong_t il = BignumIntegerLength(AsBignum(bn));
-
-#ifdef USE_GMP
-    FAssert(BignumSign(bn) == 0 || il == mpz_sizeinbase(AsBignum(bn)->MPInteger, 2));
-#endif // USE_GMP
-
     return(il);
 }
 
@@ -1726,12 +1482,6 @@ FObject BignumArithmeticShift(FObject num, long_t cnt)
         if (bn->Sign < 0)
             DigitsAddUInt32(ret, 0, 1);
 
-#ifdef USE_GMP
-        mpz_fdiv_q_2exp(ret->MPInteger, bn->MPInteger, (mp_bitcnt_t) - cnt);
-
-        FAssert(strcmp(MBignumToStringC(ret, 10), BignumToStringC(ret, 10)) == 0);
-#endif // USE_GMP
-
         FAssert(ret->Used > 0);
         FAssert(ret->Used < 2 || ret->Digits[ret->Used - 1] != 0);
         FAssert(ret->Sign == 1 || ret->Sign == -1);
@@ -1740,12 +1490,6 @@ FObject BignumArithmeticShift(FObject num, long_t cnt)
     }
 
     FBignum * ret = BignumLeftShift(bn, cnt);
-
-#ifdef USE_GMP
-    mpz_mul_2exp(ret->MPInteger, bn->MPInteger, (mp_bitcnt_t) cnt);
-
-    FAssert(strcmp(MBignumToStringC(ret, 10), BignumToStringC(ret, 10)) == 0);
-#endif // USE_GMP
 
     FAssert(ret->Used > 0);
     FAssert(ret->Used < 2 || ret->Digits[ret->Used - 1] != 0);
