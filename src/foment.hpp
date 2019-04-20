@@ -36,7 +36,6 @@ Tangerine Edition:
 
 Future:
 -- Use extra generation for immortal objects which are precompiled libraries
--- split base.scm into separate files
 -- change EternalSymbol (and Define) to set Symbol->Hash at compile time
 -- allow larger objects by using BlockSize > 1 in FObjHdr
 -- pull options from FOMENT_OPTIONS environment variable

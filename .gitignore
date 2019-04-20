@@ -1,0 +1,5 @@
+test/output*
+unix/debug
+unix/release
+windows/debug
+windows/release
