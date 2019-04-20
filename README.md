@@ -9,6 +9,7 @@
 * Network support.
 * Editing at the REPL including ( ) matching.
 * Portable: Windows, Mac OS X, Linux, and FreeBSD.
+* [Package](https://gitlab.com/jpellegrini/openwrt-packages) for OpenWRT.
 * 32 bit and 64 bit.
 * SRFI 1: List Library
 * SRFI 60: Integers as Bits
