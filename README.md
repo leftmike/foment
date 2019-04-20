@@ -17,6 +17,7 @@
 * SRFI 112: Environment Inquiry.
 * SRFI 124: Ephemerons.
 * SRFI 128: Comparators.
+* SRFI 133: Vector Library (R7RS-compatible).
 
 See [Foment](https://github.com/leftmike/foment/wiki/Foment) for more details.
 

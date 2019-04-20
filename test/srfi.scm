@@ -1581,3 +1581,213 @@
 (define htbl (make-hash-table string=? string-hash))
 (define vec (test-hash-table-add htbl 1024 512 make-string-key))
 (check-equal #t (= (test-hash-table-ref htbl vec 1024 make-string-key) (hash-table-size htbl)))
+
+;;
+;; ---- SRFI 133: Vector Library (R7RS-compatible) ----
+;;
+
+(import (scheme vector))
+
+(check-equal #(a b c d) (vector-concatenate '(#(a b) #(c d))))
+
+(check-equal #f (vector-empty? '#(a)))
+(check-equal #f (vector-empty? '#(())))
+(check-equal #f (vector-empty? '#(#())))
+(check-equal #t (vector-empty? '#()))
+
+(check-equal #t (vector= eq? '#(a b c d) '#(a b c d)))
+(check-equal #f (vector= eq? '#(a b c d) '#(a b d c)))
+(check-equal #f (vector= = '#(1 2 3 4 5) '#(1 2 3 4)))
+(check-equal #t (vector= = '#(1 2 3 4) '#(1 2 3 4)))
+(check-equal #t (vector= eq?))
+(check-equal #t (vector= eq? '#(a)))
+(check-equal #f (vector= eq? (vector (vector 'a)) (vector (vector 'a))))
+(check-equal #t (vector= equal? (vector (vector 'a)) (vector (vector 'a))))
+(check-equal #t
+    (vector= = '#(1 2 3 4) '#(1 2 3 4) '#(1 2 3 4) '#(1 2 3 4)))
+(check-equal #f
+    (vector= = '#(1 2 3 4 5) '#(1 2 3 4) '#(1 2 3 4) '#(1 2 3 4)))
+(check-equal #f
+    (vector= = '#(1 2 3 4) '#(1 2 3) '#(1 2 3 4) '#(1 2 3 4)))
+(check-equal #f
+    (vector= = '#(1 2 3 4) '#(1 2 3 4) '#(1 2 3 4 5) '#(1 2 3 4)))
+(check-equal #f
+    (vector= = '#(1 2 3 4) '#(1 2 3 4) '#(1 2 3 4) '#(1 2 3)))
+(check-equal #f
+    (vector= = '#(9 2 3 4) '#(1 2 3 4) '#(1 2 3 4) '#(1 2 3 4)))
+(check-equal #f
+    (vector= = '#(1 2 3 4) '#(1 9 3 4) '#(1 2 3 4) '#(1 2 3 4)))
+(check-equal #f
+    (vector= = '#(1 2 3 4) '#(1 2 3 4) '#(1 2 9 4) '#(1 2 3 4)))
+(check-equal #f
+    (vector= = '#(1 2 3 4) '#(1 2 3 4) '#(1 2 3 4) '#(1 2 3 9)))
+
+(check-equal 6
+    (vector-fold (lambda (len str) (max (string-length str) len)) 0
+            '#("abc" "defghi" "jklmn" "pqrs")))
+(check-equal (d c b a) (vector-fold (lambda (tail elt) (cons elt tail)) '() '#(a b c d)))
+(check-equal 4
+    (vector-fold (lambda (counter n) (if (even? n) (+ counter 1) counter)) 0
+            '#(1 2 3 4 5 6 7 8)))
+
+(check-equal (a b c d)
+    (vector-fold-right (lambda (tail elt) (cons elt tail)) '() '#(a b c d)))
+
+(check-equal #(1 4 9 16)
+    (vector-map (lambda (x) (* x x)) (vector-unfold (lambda (i x) (values x (+ x 1))) 4 1)))
+(check-equal #(5 8 9 8 5)
+    (vector-map (lambda (x y) (* x y))
+            (vector-unfold (lambda (i x) (values x (+ x 1))) 5 1)
+            (vector-unfold (lambda (i x) (values x (- x 1))) 5 5)))
+(check-equal #t
+    (let* ((count 0)
+           (ret (vector-map (lambda (ignored-elt) (set! count (+ count 1)) count) '#(a b))))
+        (or (equal? ret #(1 2)) (equal? ret #(2 1)))))
+
+(check-equal #(1 4 9 16)
+    (vector-map (lambda (x) (* x x)) (vector-unfold (lambda (i x) (values x (+ x 1))) 4 1)))
+(check-equal #(5 8 9 8 5)
+    (vector-map (lambda (x y) (* x y))
+            (vector-unfold (lambda (i x) (values x (+ x 1))) 5 1)
+            (vector-unfold (lambda (i x) (values x (- x 1))) 5 5)))
+(check-equal #t
+    (let* ((count 0)
+           (ret (vector-map (lambda (ignored-elt) (set! count (+ count 1)) count) '#(a b))))
+        (or (equal? ret #(1 2)) (equal? ret #(2 1)))))
+
+(check-equal #(1 4 9 16)
+    (let ((vec (vector-unfold (lambda (i x) (values x (+ x 1))) 4 1)))
+        (vector-map! (lambda (x) (* x x)) vec)
+        vec))
+(check-equal #(5 8 9 8 5)
+    (let ((vec1 (vector-unfold (lambda (i x) (values x (+ x 1))) 5 1))
+          (vec2 (vector-unfold (lambda (i x) (values x (- x 1))) 5 5)))
+        (vector-map! (lambda (x y) (* x y)) vec1 vec2)
+        vec1))
+(check-equal #t
+    (let* ((count 0)
+           (ret (vector 'a 'b)))
+        (vector-map! (lambda (ignored-elt) (set! count (+ count 1)) count) ret)
+        (or (equal? ret #(1 2)) (equal? ret #(2 1)))))
+
+(check-equal 3 (vector-count even? '#(3 1 4 1 5 9 2 5 6)))
+(check-equal 2 (vector-count < '#(1 3 6 9) '#(2 4 6 8 10 12)))
+
+(check-equal #(3 4 8 9 14 23 25 30 36) (vector-cumulate + 0 '#(3 1 4 1 5 9 2 5 6)))
+
+(check-equal 2 (vector-index even? '#(3 1 4 1 5 9)))
+(check-equal 1 (vector-index < '#(3 1 4 1 5 9 2 5 6) '#(2 7 1 8 2)))
+(check-equal #f (vector-index = '#(3 1 4 1 5 9 2 5 6) '#(2 7 1 8 2)))
+
+(check-equal 5 (vector-index-right odd? '#(3 1 4 1 5 9 6)))
+(check-equal 3 (vector-index-right < '#(3 1 4 1 5) '#(2 7 1 8 2)))
+
+(check-equal 2 (vector-skip number? '#(1 2 a b 3 4 c d)))
+(check-equal 2 (vector-skip = '#(1 2 3 4 5) '#(1 2 -3 4)))
+
+(check-equal 7 (vector-skip-right number? '#(1 2 a b 3 4 c d)))
+(check-equal 3 (vector-skip-right = '#(1 2 3 4 5) '#(1 2 -3 -4 5)))
+
+(check-equal (#f 0 1 2 3 4 5 6 7 #f)
+    (let ((vec '#(1 2 3 4 5 6 7 8)))
+        (map (lambda (val) (vector-binary-search vec val -)) '(0 1 2 3 4 5 6 7 8 9))))
+(check-equal (#f 0 1 2 3 4 5 6 #f)
+    (let ((vec '#(1 2 3 4 5 6 7)))
+        (map (lambda (val) (vector-binary-search vec val -)) '(0 1 2 3 4 5 6 7 8))))
+
+(check-equal #t (vector-any number? '#(1 2 x y z)))
+(check-equal #t (vector-any < '#(1 2 3 4 5) '#(2 1 3 4 5)))
+(check-equal #f (vector-any number? '#(a b c d e)))
+(check-equal #f (vector-any > '#(1 2 3 4 5) '#(1 2 3 4 5)))
+(check-equal yes (vector-any (lambda (x) (if (number? x) 'yes #f)) '#(1 2 x y z)))
+
+(check-equal #f (vector-every number? '#(1 2 x y z)))
+(check-equal #t (vector-every number? '#(1 2 3 4 5)))
+(check-equal #f (vector-every < '#(1 2 3) '#(2 3 3)))
+(check-equal #t (vector-every < '#(1 2 3) '#(2 3 4)))
+(check-equal nope
+    (vector-every (lambda (x) (if (= x 1) 'yeah 'nope)) '#(1 2 3 4 5)))
+
+(check-equal #(2 1 3)
+    (let ((v (vector 1 2 3)))
+        (vector-swap! v 0 1)
+        v))
+(check-equal #(1 3 2)
+    (let ((v (vector 1 2 3)))
+        (vector-swap! v 2 1)
+        v))
+
+(check-equal #(4 3 2 1)
+    (let ((v (vector 1 2 3 4)))
+        (vector-reverse! v)
+        v))
+(check-equal #(5 4 3 2 1)
+    (let ((v (vector 1 2 3 4 5)))
+        (vector-reverse! v)
+        v))
+(check-equal #(1 4 3 2)
+    (let ((v (vector 1 2 3 4)))
+        (vector-reverse! v 1)
+        v))
+(check-equal #(1 5 4 3 2)
+    (let ((v (vector 1 2 3 4 5)))
+        (vector-reverse! v 1)
+        v))
+(check-equal #(1 3 2 4)
+    (let ((v (vector 1 2 3 4)))
+        (vector-reverse! v 1 3)
+        v))
+(check-equal #(1 4 3 2 5)
+    (let ((v (vector 1 2 3 4 5)))
+        (vector-reverse! v 1 4)
+        v))
+
+(check-equal (#(1 2 3 a b c d) 3)
+    (call-with-values
+        (lambda () (vector-partition number? '#(a 1 b 2 c 3 d)))
+        (lambda (vec cnt) (list vec cnt))))
+(check-equal (#(1 2 3 4 5) 5)
+    (call-with-values
+        (lambda () (vector-partition number? '#(1 2 3 4 5)))
+        (lambda (vec cnt) (list vec cnt))))
+(check-equal (#(a b c d) 0)
+    (call-with-values
+        (lambda () (vector-partition number? '#(a b c d)))
+        (lambda (vec cnt) (list vec cnt))))
+
+(check-equal #(0 -1 -2 -3 -4 -5 -6 -7 -8 -9)
+    (vector-unfold (lambda (i x) (values x (- x 1))) 10 0))
+(check-equal #(0 1 2 3 4 5) (vector-unfold values 6))
+(check-equal #(0 3 4 9 8 15 12 21)
+    (vector-unfold (lambda (i x y z) (values (if (even? x) y z) (+ x 1) (+ y 2) (+ z 3))) 8 0 0 0))
+
+(check-equal #(0 0 3 4 9 8 15 12 21 0)
+    (let ((vec (make-vector 10 0)))
+        (vector-unfold!
+            (lambda (i x y z) (values (if (even? x) y z) (+ x 1) (+ y 2) (+ z 3)))
+            vec 1 9 0 0 0)
+        vec))
+
+(check-equal #((0 . 4) (1 . 3) (2 . 2) (3 . 1) (4 . 0))
+    (vector-unfold-right (lambda (i x) (values (cons i x) (+ x 1))) 5 0))
+(check-equal #(5 4 3 2 1 0)
+    (let ((vec (vector 0 1 2 3 4 5)))
+        (vector-unfold-right
+            (lambda (i x) (values (vector-ref vec x) (+ x 1)))
+            (vector-length vec)
+            0)))
+
+(check-equal #(1 2 3 4) (vector-reverse-copy '#(5 4 3 2 1 0) 1 5))
+(check-equal #(10 5 4 3 2 60)
+    (let ((vec (vector 10 20 30 40 50 60)))
+        (vector-reverse-copy! vec 1 #(0 1 2 3 4 5 6 7 8) 2 6)
+        vec))
+
+(check-equal #(a b h i) (vector-append-subvectors '#(a b c d e) 0 2 '#(f g h i j) 2 4))
+(check-equal #(b c d h i j q r)
+    (vector-append-subvectors '#(a b c d e) 1 4 '#(f g h i j) 2 5 #(k l m n o p q r s t) 6 8))
+
+(check-equal (3 2 1) (reverse-vector->list '#(1 2 3)))
+(check-equal (3 2) (reverse-vector->list '#(1 2 3) 1))
+(check-equal (2 1) (reverse-vector->list '#(1 2 3) 0 2))
+(check-equal #(3 2 1) (reverse-list->vector '(1 2 3)))

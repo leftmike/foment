@@ -90,7 +90,7 @@ Define("make-vector", MakeVectorPrimitive)(long_t argc, FObject argv[])
     NonNegativeArgCheck("make-vector", argv[0], 1);
 
     if (FixnumP(argv[0]) == 0)
-        RaiseExceptionC(Restriction, "make-vector", "object too big", argv[0]);
+        RaiseExceptionC(Restriction, "make-vector", "object too big", List(argv[0]));
     return(MakeVector(AsFixnum(argv[0]), 0, argc == 2 ? argv[1] : NoValueObject));
 }
 
@@ -137,6 +137,21 @@ Define("vector-set!", VectorSetPrimitive)(long_t argc, FObject argv[])
 
 //    AsVector(argv[0])->Vector[AsFixnum(argv[1])] = argv[2];
     ModifyVector(argv[0], AsFixnum(argv[1]), argv[2]);
+    return(NoValueObject);
+}
+
+Define("vector-swap!", VectorSwapPrimitive)(long_t argc, FObject argv[])
+{
+    ThreeArgsCheck("vector-swap!", argc);
+    VectorArgCheck("vector-swap!", argv[0]);
+    IndexArgCheck("vector-swap!", argv[1], VectorLength(argv[0]));
+    IndexArgCheck("vector-swap!", argv[2], VectorLength(argv[0]));
+
+    FObject tmp = AsVector(argv[0])->Vector[AsFixnum(argv[1])];
+//    AsVector(argv[0])->Vector[AsFixnum(argv[1])] = AsVector(argv[0])->Vector[AsFixnum(argv[2])];
+    ModifyVector(argv[0], AsFixnum(argv[1]), AsVector(argv[0])->Vector[AsFixnum(argv[2])]);
+//    AsVector(argv[0])->Vector[AsFixnum(argv[2])] = tmp;
+    ModifyVector(argv[0], AsFixnum(argv[2]), tmp);
     return(NoValueObject);
 }
 
@@ -341,13 +356,110 @@ Define("vector-copy!", VectorCopyModifyPrimitive)(long_t argc, FObject argv[])
 
     if (at > strt)
     {
-        for (long_t idx = end - strt; idx > 0; idx--)
-            ModifyVector(argv[0], idx + at - 1, AsVector(argv[2])->Vector[idx + strt - 1]);
+        for (long_t idx = end - strt - 1; idx >= 0; idx--)
+            ModifyVector(argv[0], idx + at, AsVector(argv[2])->Vector[idx + strt]);
     }
     else
     {
         for (long_t idx = 0; idx < end - strt; idx++)
             ModifyVector(argv[0], idx + at, AsVector(argv[2])->Vector[idx + strt]);
+    }
+
+    return(NoValueObject);
+}
+
+Define("vector-reverse-copy", VectorReverseCopyPrimitive)(long_t argc, FObject argv[])
+{
+    long_t strt;
+    long_t end;
+
+    OneToThreeArgsCheck("vector-reverse-copy", argc);
+    VectorArgCheck("vector-reverse-copy", argv[0]);
+
+    if (argc > 1)
+    {
+        IndexArgCheck("vector-reverse-copy", argv[1], VectorLength(argv[0]));
+
+        strt = AsFixnum(argv[1]);
+
+        if (argc > 2)
+        {
+            EndIndexArgCheck("vector-reverse-copy", argv[2], strt, VectorLength(argv[0]));
+
+            end = AsFixnum(argv[2]);
+        }
+        else
+            end = (long_t) VectorLength(argv[0]);
+    }
+    else
+    {
+        strt = 0;
+        end = (long_t) VectorLength(argv[0]);
+    }
+
+    FAssert(end >= strt);
+
+    ulong_t idx;
+    ulong_t vl = end - strt;
+    FObject * v = AsVector(argv[0])->Vector + strt;
+
+    FVector * nv = MakeVector(vl, "vector-reverse-copy");
+    if (MatureP(nv))
+        for (idx = 0; idx < vl; idx++)
+            ModifyVector(nv, idx, v[vl - idx - 1]);
+    else
+        for (idx = 0; idx < vl; idx++)
+            nv->Vector[idx] = v[vl - idx - 1];
+    return(nv);
+}
+
+Define("vector-reverse-copy!", VectorReverseCopyModifyPrimitive)(long_t argc, FObject argv[])
+{
+    long_t strt;
+    long_t end;
+
+    ThreeToFiveArgsCheck("vector-reverse-copy!", argc);
+    VectorArgCheck("vector-reverse-copy!", argv[0]);
+    IndexArgCheck("vector-reverse-copy!", argv[1], VectorLength(argv[0]));
+    VectorArgCheck("vector-reverse-copy!", argv[2]);
+
+    if (argc > 3)
+    {
+        IndexArgCheck("vector-reverse-copy!", argv[3], VectorLength(argv[2]));
+
+        strt = AsFixnum(argv[3]);
+
+        if (argc > 4)
+        {
+            EndIndexArgCheck("vector-reverse-copy!", argv[4], strt, VectorLength(argv[2]));
+
+            end = AsFixnum(argv[4]);
+        }
+        else
+            end = (long_t) VectorLength(argv[2]);
+    }
+    else
+    {
+        strt = 0;
+        end = (long_t) VectorLength(argv[2]);
+    }
+
+    if ((long_t) VectorLength(argv[0]) - AsFixnum(argv[1]) < end - strt)
+        RaiseExceptionC(Assertion, "vector-reverse-copy!", "expected a valid index", List(argv[1]));
+
+    FAssert(end >= strt);
+
+    long_t at = AsFixnum(argv[1]);
+
+    if (at > strt)
+    {
+        for (long_t idx = 0; idx < end - strt; idx++)
+            ModifyVector(argv[0], idx + at, AsVector(argv[2])->Vector[end - idx - 1]);
+    }
+    else
+    {
+        for (long_t idx = end - strt - 1; idx >= 0; idx--)
+            ModifyVector(argv[0], idx + at, AsVector(argv[2])->Vector[end - idx - 1]);
     }
 
     return(NoValueObject);
@@ -377,6 +489,50 @@ Define("vector-append", VectorAppendPrimitive)(long_t argc, FObject argv[])
     }
 
     return(v);
+}
+
+Define("vector-append-subvectors", VectorAppendSubvectorsPrimitive)(long_t argc, FObject argv[])
+{
+    if (argc % 3 != 0)
+        RaiseExceptionC(Assertion, "vector-append-subvectors",
+                        "expected a multiple of 3 arguments", EmptyListObject);
+
+    ulong_t vl = 0;
+    for (long_t adx = 0; adx < argc; adx += 3)
+    {
+        VectorArgCheck("vector-append-subvectors", argv[adx]);
+        IndexArgCheck("vector-append-subvectors", argv[adx + 1], VectorLength(argv[adx]));
+        long_t strt = AsFixnum(argv[adx + 1]);
+        EndIndexArgCheck("vector-append-subvectors", argv[adx + 2], strt, VectorLength(argv[adx]));
+        long_t end = AsFixnum(argv[adx + 2]);
+
+        FAssert(end >= strt);
+
+        vl += (end - strt);
+    }
+
+    ulong_t idx = 0;
+    FVector * nv = MakeVector(vl, "vector-append-subvectors");
+    for (long_t adx = 0; adx < argc; adx += 3)
+    {
+        long_t strt = AsFixnum(argv[adx + 1]);
+        long_t end = AsFixnum(argv[adx + 2]);
+        if (MatureP(nv))
+            while (strt < end)
+            {
+                ModifyVector(nv, idx, AsVector(argv[adx])->Vector[strt]);
+                strt += 1;
+                idx += 1;
+            }
+        else
+            while (strt < end)
+            {
+                nv->Vector[idx] = AsVector(argv[adx])->Vector[strt];
+                strt += 1;
+                idx += 1;
+            }
+    }
+    return(nv);
 }
 
 Define("vector-fill!", VectorFillPrimitive)(long_t argc, FObject argv[])
@@ -413,6 +569,62 @@ Define("vector-fill!", VectorFillPrimitive)(long_t argc, FObject argv[])
     for (long_t idx = strt; idx < end; idx++)
         ModifyVector(argv[0], idx, argv[1]);
 
+    return(NoValueObject);
+}
+
+Define("vector-reverse!", VectorReversePrimitive)(long_t argc, FObject argv[])
+{
+    long_t strt;
+    long_t end;
+
+    OneToThreeArgsCheck("vector-reverse!", argc);
+    VectorArgCheck("vector-reverse!", argv[0]);
+
+    if (argc > 1)
+    {
+        IndexArgCheck("vector-reverse!", argv[1], VectorLength(argv[0]));
+
+        strt = AsFixnum(argv[1]);
+
+        if (argc > 2)
+        {
+            EndIndexArgCheck("vector-reverse!", argv[2], strt, VectorLength(argv[0]));
+
+            end = AsFixnum(argv[2]);
+        }
+        else
+            end = (long_t) VectorLength(argv[0]);
+    }
+    else
+    {
+        strt = 0;
+        end = (long_t) VectorLength(argv[0]);
+    }
+
+    FAssert(end >= strt);
+
+    end -= 1;
+    if (MatureP(argv[0]))
+        while (strt < end)
+        {
+            FObject tmp = AsVector(argv[0])->Vector[strt];
+            ModifyVector(argv[0], strt, AsVector(argv[0])->Vector[end]);
+            ModifyVector(argv[0], end, tmp);
+            strt += 1;
+            end -= 1;
+        }
+    else
+    {
+        FObject * v = AsVector(argv[0])->Vector;
+        while (strt < end)
+        {
+            FObject tmp = v[strt];
+            v[strt] = v[end];
+            v[end] = tmp;
+            strt += 1;
+            end -= 1;
+        }
+    }
     return(NoValueObject);
 }
 
@@ -695,14 +907,19 @@ static FObject Primitives[] =
     VectorLengthPrimitive,
     VectorRefPrimitive,
     VectorSetPrimitive,
+    VectorSwapPrimitive,
     VectorToListPrimitive,
     ListToVectorPrimitive,
     VectorToStringPrimitive,
     StringToVectorPrimitive,
     VectorCopyPrimitive,
     VectorCopyModifyPrimitive,
+    VectorReverseCopyPrimitive,
+    VectorReverseCopyModifyPrimitive,
     VectorAppendPrimitive,
+    VectorAppendSubvectorsPrimitive,
     VectorFillPrimitive,
+    VectorReversePrimitive,
     BytevectorPPrimitive,
     MakeBytevectorPrimitive,
     BytevectorPrimitive,
