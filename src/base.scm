@@ -223,19 +223,14 @@
         vector->list
         vector->string
         vector-append
-        vector-append-subvectors
         vector-copy
         vector-copy!
-        vector-reverse-copy
-        vector-reverse-copy!
         vector-fill!
         vector-for-each
         vector-length
         vector-map
         vector-ref
         vector-set!
-        vector-swap!
-        vector-reverse!
         vector?
         when
         with-exception-handler
@@ -420,6 +415,13 @@
         hash-table-keys
         hash-table-values
         hash-table-mutable?
+    )
+    (export ;; (scheme vector) and (srfi 133)
+        vector-append-subvectors
+        vector-reverse-copy
+        vector-reverse-copy!
+        vector-swap!
+        vector-reverse!
     )
     (export
         make-ascii-port
