@@ -39,7 +39,7 @@ FObject MakeSyntacticEnv(FObject obj)
 {
     FAssert(EnvironmentP(obj) || SyntacticEnvP(obj));
 
-    FSyntacticEnv * se = (FSyntacticEnv *) MakeBuiltin(SyntacticEnvType, sizeof(FSyntacticEnv), 3,
+    FSyntacticEnv * se = (FSyntacticEnv *) MakeBuiltin(SyntacticEnvType, 3,
             "make-syntactic-environment");
     if (EnvironmentP(obj))
     {
@@ -65,7 +65,7 @@ FObject MakeBinding(FObject se, FObject id, FObject ra)
     FAssert(IdentifierP(id));
     FAssert(ra == TrueObject || ra == FalseObject);
 
-    FBinding * b = (FBinding *) MakeBuiltin(BindingType, sizeof(FBinding), 11, "make-binding");
+    FBinding * b = (FBinding *) MakeBuiltin(BindingType, 11, "make-binding");
     b->Identifier = id;
     b->Syntax = NoValueObject;
     b->SyntacticEnv = se;
@@ -175,7 +175,7 @@ FObject MakeLambda(FObject enc, FObject nam, FObject bs, FObject body)
 {
     FAssert(LambdaP(enc) || enc == NoValueObject);
 
-    FLambda * l = (FLambda *) MakeBuiltin(LambdaType, sizeof(FLambda), 16, "make-lambda");
+    FLambda * l = (FLambda *) MakeBuiltin(LambdaType, 16, "make-lambda");
     l->Name = nam;
     l->Bindings = bs;
     l->Body = body;
@@ -213,8 +213,7 @@ EternalBuiltinType(CaseLambdaType, "case-lambda", 0);
 
 FObject MakeCaseLambda(FObject cases)
 {
-    FCaseLambda * cl = (FCaseLambda *) MakeBuiltin(CaseLambdaType, sizeof(FCaseLambda), 4,
-            "make-case-lambda");
+    FCaseLambda * cl = (FCaseLambda *) MakeBuiltin(CaseLambdaType, 4, "make-case-lambda");
     cl->Cases = cases;
     cl->Name = NoValueObject;
     cl->Escapes = FalseObject;
@@ -230,8 +229,8 @@ FObject MakeInlineVariable(long_t idx)
 {
     FAssert(idx >= 0);
 
-    FInlineVariable * iv = (FInlineVariable *) MakeBuiltin(InlineVariableType,
-            sizeof(FInlineVariable), 2, "make-inline-variable");
+    FInlineVariable * iv = (FInlineVariable *) MakeBuiltin(InlineVariableType, 2,
+            "make-inline-variable");
     iv->Index = MakeFixnum(idx);
 
     return(iv);
@@ -246,8 +245,7 @@ FObject MakeReference(FObject be, FObject id)
     FAssert(BindingP(be) || EnvironmentP(be));
     FAssert(IdentifierP(id));
 
-    FReference * r = (FReference *) MakeBuiltin(ReferenceType, sizeof(FReference), 3,
-            "make-reference");
+    FReference * r = (FReference *) MakeBuiltin(ReferenceType, 3, "make-reference");
     r->Binding = be;
     r->Identifier = id;
 

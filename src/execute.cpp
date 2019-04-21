@@ -70,7 +70,7 @@ static FObject MakeDynamic(FObject who, FObject cdx, FObject adx, FObject ml)
     FAssert(FixnumP(cdx));
     FAssert(FixnumP(adx));
 
-    FDynamic * dyn = (FDynamic *) MakeBuiltin(DynamicType, sizeof(FDynamic), 5, "make-dynamic");
+    FDynamic * dyn = (FDynamic *) MakeBuiltin(DynamicType, 5, "make-dynamic");
     dyn->Who = who;
     dyn->CStackPtr = cdx;
     dyn->AStackPtr = adx;
@@ -109,8 +109,7 @@ static FObject MakeContinuation(FObject cdx, FObject cv, FObject adx, FObject av
     FAssert(FixnumP(adx));
     FAssert(VectorP(av));
 
-    FContinuation * cont = (FContinuation *) MakeBuiltin(ContinuationType, sizeof(FContinuation), 5,
-            "make-continuation");
+    FContinuation * cont = (FContinuation *) MakeBuiltin(ContinuationType, 5, "make-continuation");
     cont->CStackPtr = cdx;
     cont->CStack = cv;
     cont->AStackPtr = adx;

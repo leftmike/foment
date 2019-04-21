@@ -41,8 +41,7 @@ EternalBuiltinType(ComparatorType, "comparator", 0);
 
 static FObject MakeComparator(FObject ttp, FObject eqp, FObject orderp, FObject hashfn)
 {
-    FComparator * comp = (FComparator *) MakeBuiltin(ComparatorType, sizeof(FComparator), 6,
-            "make-comparator");
+    FComparator * comp = (FComparator *) MakeBuiltin(ComparatorType, 6, "make-comparator");
     comp->TypeTestP = ttp;
     comp->EqualityP = eqp;
     comp->OrderingP = (orderp == FalseObject ? NoOrderingPredicatePrimitive : orderp);

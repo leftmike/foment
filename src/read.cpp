@@ -42,8 +42,8 @@ static FObject MakeDatumReference(FObject lbl)
 {
     FAssert(FixnumP(lbl));
 
-    FDatumReference * dref = (FDatumReference *) MakeBuiltin(DatumReferenceType,
-            sizeof(FDatumReference), 2, "make-datum-reference");
+    FDatumReference * dref = (FDatumReference *) MakeBuiltin(DatumReferenceType, 2,
+            "make-datum-reference");
     dref->Label = lbl;
 
     return(dref);

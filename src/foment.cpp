@@ -334,8 +334,7 @@ EternalBuiltinType(ExceptionType, "exception", WriteException);
 
 FObject MakeException(FObject typ, FObject who, FObject knd, FObject msg, FObject lst)
 {
-    FException * exc = (FException *) MakeBuiltin(ExceptionType, sizeof(FException), 6,
-            "make-exception");
+    FException * exc = (FException *) MakeBuiltin(ExceptionType, 6, "make-exception");
     exc->Type = typ;
     exc->Who = who;
     exc->Kind = knd;
@@ -617,13 +616,11 @@ FObject MakeBox(FObject val, ulong_t idx)
 
 // ---- Builtins ----
 
-FObject MakeBuiltin(FObject bt, ulong_t sz, ulong_t sc, const char * who)
+FObject MakeBuiltin(FObject bt, ulong_t sc, const char * who)
 {
     FAssert(BuiltinTypeP(bt));
-    FAssert(sz >= sizeof(FBuiltin));
-    FAssert(sc > 0);
 
-    FBuiltin * bltn = (FBuiltin *) MakeObject(BuiltinTag, sz, sc, who);
+    FBuiltin * bltn = (FBuiltin *) MakeObject(BuiltinTag, sc * sizeof(FObject), sc, who);
     bltn->BuiltinType = bt;
 
     return(bltn);

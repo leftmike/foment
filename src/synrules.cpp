@@ -23,8 +23,7 @@ typedef struct
 
 static FObject MakeSyntaxRules(FObject lits, FObject rules, FObject se)
 {
-    FSyntaxRules * sr = (FSyntaxRules *) MakeBuiltin(SyntaxRulesType, sizeof(FSyntaxRules), 4,
-            "make-syntax-rules");
+    FSyntaxRules * sr = (FSyntaxRules *) MakeBuiltin(SyntaxRulesType, 4, "make-syntax-rules");
     sr->Literals = lits;
     sr->Rules = rules;
     sr->SyntacticEnv = se;
@@ -50,8 +49,8 @@ static FObject MakePatternVariable(long_t rd, FObject var)
 {
     FAssert(ReferenceP(var));
 
-    FPatternVariable * pv = (FPatternVariable *) MakeBuiltin(PatternVariableType,
-            sizeof(FPatternVariable), 4, "make-pattern-variable");
+    FPatternVariable * pv = (FPatternVariable *) MakeBuiltin(PatternVariableType, 4,
+            "make-pattern-variable");
     pv->RepeatDepth = MakeFixnum(rd);
     pv->Index = MakeFixnum(-1);
     pv->Variable = var;
@@ -78,8 +77,8 @@ typedef struct
 static FObject MakePatternRepeat(long_t lc, FObject ellip, FObject vars, FObject pat,
     FObject rest)
 {
-    FPatternRepeat * pr = (FPatternRepeat *) MakeBuiltin(PatternRepeatType, sizeof(FPatternRepeat),
-            6, "make-pattern-repeat");
+    FPatternRepeat * pr = (FPatternRepeat *) MakeBuiltin(PatternRepeatType, 6,
+            "make-pattern-repeat");
     pr->LeaveCount = MakeFixnum(lc);
     pr->Ellipsis = ellip;
     pr->Variables = vars;
@@ -107,8 +106,8 @@ typedef struct
 
 static FObject MakeTemplateRepeat(FObject ellip, long_t rc)
 {
-    FTemplateRepeat * tr = (FTemplateRepeat *) MakeBuiltin(TemplateRepeatType,
-            sizeof(FTemplateRepeat), 6, "make-template-repeat");
+    FTemplateRepeat * tr = (FTemplateRepeat *) MakeBuiltin(TemplateRepeatType, 6,
+            "make-template-repeat");
     tr->Ellipsis = ellip;
     tr->RepeatCount = MakeFixnum(rc);
     tr->Variables = MakeVector(AsFixnum(tr->RepeatCount), 0, EmptyListObject);
@@ -135,8 +134,7 @@ typedef struct
 
 static FObject MakeSyntaxRule(long_t nv, FObject vars, FObject pat, FObject tpl)
 {
-    FSyntaxRule * sr = (FSyntaxRule *) MakeBuiltin(SyntaxRuleType, sizeof(FSyntaxRule), 5,
-            "make-syntax-rule");
+    FSyntaxRule * sr = (FSyntaxRule *) MakeBuiltin(SyntaxRuleType, 5, "make-syntax-rule");
     sr->NumVariables = MakeFixnum(nv);
     sr->Variables = vars;
     sr->Pattern = pat;

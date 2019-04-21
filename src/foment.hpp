@@ -912,7 +912,7 @@ typedef struct
     FObject BuiltinType; // must be FBuiltinType
 } FBuiltin;
 
-FObject MakeBuiltin(FObject bt, ulong_t sz, ulong_t sc, const char * who);
+FObject MakeBuiltin(FObject bt, ulong_t sc, const char * who);
 
 inline long_t BuiltinP(FObject obj, FObject bt)
 {
