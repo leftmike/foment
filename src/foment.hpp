@@ -37,7 +37,6 @@ Tangerine Edition:
 Future:
 -- Use extra generation for immortal objects which are precompiled libraries
 -- change EternalSymbol (and Define) to set Symbol->Hash at compile time
--- allow larger objects by using BlockSize > 1 in FObjHdr
 -- pull options from FOMENT_OPTIONS environment variable
 -- features, command-line, full-command-line, interactive options,
     environment-variables, etc passed to scheme as a single assoc list
@@ -278,69 +277,76 @@ void DeleteMemRegion(FMemRegion * mrgn);
 long_t GrowMemRegionUp(FMemRegion * mrgn, ulong_t sz);
 long_t GrowMemRegionDown(FMemRegion * mrgn, ulong_t sz);
 
-#define OBJHDR_SIZE_SHIFT 28
-#define OBJHDR_COUNT_MASK 0x0FFFFFFF
+#define OBJHDR_PADDING_MASK       0x0F
+#define OBJHDR_PADDING_SHIFT      28
+#define OBJHDR_EXTRA_MASK         0x1F
+#define OBJHDR_EXTRA_SHIFT        23
 
-#define OBJHDR_GEN_MASK           0xC000
-#define OBJHDR_GEN_BABIES         0x0000
-#define OBJHDR_GEN_KIDS           0x4000
-#define OBJHDR_GEN_ADULTS         0x8000
-#define OBJHDR_GEN_ETERNAL        0xC000
-#define OBJHDR_MARK_FORWARD       0x2000
-#define OBJHDR_CHECK_MARK         0x1000
-#define OBJHDR_HAS_SLOTS          0x0800
-#define OBJHDR_EPHEMERON_KEY_MARK 0x0400
+#define OBJHDR_GEN_MASK           0x00600000
+#define OBJHDR_GEN_BABIES         0x00000000
+#define OBJHDR_GEN_KIDS           0x00200000
+#define OBJHDR_GEN_ADULTS         0x00400000
+#define OBJHDR_GEN_ETERNAL        0x00600000
 
-#define OBJHDR_TAG_MASK           0x001F
+#define OBJHDR_MARK_FORWARD       0x00100000
+#define OBJHDR_CHECK_MARK         0x00080000
+#define OBJHDR_ALL_SLOTS          0x00040000
+#define OBJHDR_EPHEMERON_KEY_MARK 0x00020000
+
+#define OBJHDR_TAG_MASK           0x00000FFF
 
 typedef struct _FObjHdr
 {
-    uint32_t BlockSizeAndCount;
-    uint16_t ExtraCount;
-    uint16_t FlagsAndTag;
+    // Size of the object in 8 byte chunks.
+    uint32_t Size;
+
+    // Layed out as follows:
+    // Padding: 4 bits
+    // Extra Slots: 5 bits
+    // Flags: 11 bits
+    // Tag: 12 bits
+    uint32_t Meta;
 
 private:
-    ulong_t BlockSize() {return(((ulong_t) 1) << (BlockSizeAndCount >> OBJHDR_SIZE_SHIFT));}
-    ulong_t BlockCount() {return(BlockSizeAndCount & OBJHDR_COUNT_MASK);}
+    uint32_t Padding() {return((Meta >> OBJHDR_PADDING_SHIFT) & OBJHDR_PADDING_MASK);}
+    uint32_t AllSlots() {return(Meta & OBJHDR_ALL_SLOTS ? 1 : 0);}
 public:
-    ulong_t ObjectSize();
+    uint32_t ExtraSlots() {return((Meta >> OBJHDR_EXTRA_SHIFT) & OBJHDR_EXTRA_MASK);}
+
+    // Size of the object in bytes, not including the ObjHdr and ObjFtr.
+    ulong_t ObjectSize() {return(Size * sizeof(struct _FObjHdr));}
+
+    // Size in bytes including the ObjHdr and ObjFtr; defined in gc.cpp.
     ulong_t TotalSize();
+
     ulong_t SlotCount();
     ulong_t ByteLength();
-    uint32_t Tag() {return(FlagsAndTag & OBJHDR_TAG_MASK);}
+    uint32_t Tag() {return(Meta & OBJHDR_TAG_MASK);}
     FObject * Slots() {return((FObject *) (this + 1));}
-    uint32_t Generation() {return(FlagsAndTag & OBJHDR_GEN_MASK);}
+    uint32_t Generation() {return(Meta & OBJHDR_GEN_MASK);}
 } FObjHdr;
-
-// Allocated size of the object in bytes, not including the ObjHdr and ObjFtr.
-inline ulong_t FObjHdr::ObjectSize()
-{
-    FAssert(BlockSize() * BlockCount() > 0);
-
-    return(BlockSize() * BlockCount() * sizeof(struct _FObjHdr));
-}
 
 // Number of FObjects which must be at the beginning of the object.
 inline ulong_t FObjHdr::SlotCount()
 {
-    if (FlagsAndTag & OBJHDR_HAS_SLOTS)
-    {
-        FAssert(ObjectSize() / sizeof(FObject) >= ExtraCount);
+#if defined(FOMENT_32BIT)
+    FAssert(Size * AllSlots() * 2 + ExtraSlots() >= Padding() / sizeof(FObject));
 
-        return(ObjectSize() / sizeof(FObject) - ExtraCount);
-    }
-
-    return(0);
+    return(Size * AllSlots() * 2 + ExtraSlots() - Padding() / sizeof(FObject));
+#else // FOMENT_64BIT
+    return(Size * AllSlots() + ExtraSlots());
+#endif // FOMENT_64BIT
 }
 
 // Number of bytes requested when the object was allocated; makes sense only for objects
 // without slots.
 inline ulong_t FObjHdr::ByteLength()
 {
-    FAssert((FlagsAndTag & OBJHDR_HAS_SLOTS) == 0);
-    FAssert(ObjectSize() >= ExtraCount);
+    FAssert((Meta & OBJHDR_ALL_SLOTS) == 0);
+    FAssert(ExtraSlots() == 0);
+    FAssert(ObjectSize() >= Padding());
 
-    return(ObjectSize() - ExtraCount);
+    return(ObjectSize() - Padding());
 }
 
 inline FObjHdr * AsObjHdr(FObject obj)
@@ -362,12 +368,11 @@ typedef struct
 
 #define OBJFTR_FEET 0xDEADFEE7
 
-#define EternalObjHdr(type, tag) \
-    {sizeof(type) / sizeof(FObjHdr), 0, tag | OBJHDR_GEN_ETERNAL}
-
-#define EternalObjHdrSlots(type, sc, tag) \
-    {sizeof(type) / sizeof(FObjHdr), (sizeof(type) / sizeof(FObject)) - sc, \
-            tag | OBJHDR_GEN_ETERNAL | OBJHDR_HAS_SLOTS}
+#define EternalObjHdr(type, sc, tag) \
+    { \
+        sizeof(type) / sizeof(FObjHdr), \
+        tag | OBJHDR_GEN_ETERNAL | ((sc & OBJHDR_EXTRA_MASK) << OBJHDR_EXTRA_SHIFT) \
+    }
 
 #define EternalObjFtr \
     {{OBJFTR_FEET, OBJFTR_FEET}}
@@ -390,7 +395,7 @@ void ReadyForGC();
 
 inline long_t MatureP(FObject obj)
 {
-    return(ObjectP(obj) && (AsObjHdr(obj)->FlagsAndTag & OBJHDR_GEN_MASK) == OBJHDR_GEN_ADULTS);
+    return(ObjectP(obj) && (AsObjHdr(obj)->Meta & OBJHDR_GEN_MASK) == OBJHDR_GEN_ADULTS);
 }
 
 void ModifyVector(FObject obj, ulong_t idx, FObject val);
@@ -889,7 +894,7 @@ typedef struct FALIGN
 #define EternalBuiltinType(name, string, writefn) \
     static FEternalBuiltinType name ## Object = \
     { \
-        EternalObjHdr(FBuiltinType, BuiltinTypeTag), \
+        EternalObjHdr(FBuiltinType, 0, BuiltinTypeTag),  \
         {string, writefn}, \
         EternalObjFtr \
     }; \
@@ -1048,13 +1053,13 @@ typedef struct FALIGN
 #define EternalSymbol(name, string) \
     static FEternalCString name ## String = \
     { \
-        EternalObjHdr(FCString, CStringTag), \
+        EternalObjHdr(FCString, 0, CStringTag),  \
         {string}, \
         EternalObjFtr \
     }; \
     static FEternalSymbol name ## Object = \
     { \
-        EternalObjHdrSlots(FSymbol, 1, SymbolTag), \
+        EternalObjHdr(FSymbol, 1, SymbolTag), \
         {&name ## String.String}, \
         EternalObjFtr \
     }; \
@@ -1107,7 +1112,7 @@ typedef struct FALIGN
     EternalSymbol(prim ## Symbol, name); \
     FObject prim ## Fn(long_t argc, FObject argv[]);\
     static FEternalPrimitive prim ## Object = { \
-        EternalObjHdrSlots(FPrimitive, 1, PrimitiveTag), \
+        EternalObjHdr(FPrimitive, 1, PrimitiveTag), \
         {prim ## Symbol, prim ## Fn, __FILE__, __LINE__}, \
         EternalObjFtr \
     }; \

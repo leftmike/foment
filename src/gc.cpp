@@ -94,7 +94,13 @@ static ulong_t ClockTicksPerSecond;
 #define OBJECT_HDRFTR_LENGTH sizeof(FObjHdr)
 #endif // FOMENT_OBJFTR
 
-#define MAXIMUM_TOTAL_LENGTH (OBJECT_HDRFTR_LENGTH + OBJHDR_COUNT_MASK * OBJECT_ALIGNMENT)
+#define OBJHDR_MAXIMUM_SIZE 0xFFFFFFFF
+
+#ifdef FOMENT_32BIT
+#define MAXIMUM_TOTAL_LENGTH OBJHDR_MAXIMUM_SIZE
+#else // FOMENT_32BIT
+#define MAXIMUM_TOTAL_LENGTH (OBJECT_HDRFTR_LENGTH + OBJHDR_MAXIMUM_SIZE * OBJECT_ALIGNMENT)
+#endif // FOMENT_32BIT
 #define MINIMUM_TOTAL_LENGTH (OBJECT_HDRFTR_LENGTH + OBJECT_ALIGNMENT)
 
 typedef struct _Guardian
@@ -280,32 +286,32 @@ long_t GrowMemRegionDown(FMemRegion * mrgn, ulong_t sz)
 
 static inline void SetGeneration(FObjHdr * oh, ulong_t gen)
 {
-    oh->FlagsAndTag = ((oh->FlagsAndTag & ~OBJHDR_GEN_MASK) | ((uint16_t) gen));
+    oh->Meta = ((oh->Meta & ~OBJHDR_GEN_MASK) | ((uint16_t) gen));
 }
 
 static inline void SetMark(FObjHdr * oh)
 {
-    oh->FlagsAndTag |= OBJHDR_MARK_FORWARD;
+    oh->Meta |= OBJHDR_MARK_FORWARD;
 }
 
 static inline void ClearMark(FObjHdr * oh)
 {
-    oh->FlagsAndTag &= ~OBJHDR_MARK_FORWARD;
+    oh->Meta &= ~OBJHDR_MARK_FORWARD;
 }
 
 static inline int MarkP(FObjHdr * oh)
 {
-    return(oh->FlagsAndTag & OBJHDR_MARK_FORWARD);
+    return(oh->Meta & OBJHDR_MARK_FORWARD);
 }
 
 static inline void SetForward(FObjHdr * oh)
 {
-    oh->FlagsAndTag |= OBJHDR_MARK_FORWARD;
+    oh->Meta |= OBJHDR_MARK_FORWARD;
 }
 
 static inline int ForwardP(FObjHdr * oh)
 {
-    return(oh->FlagsAndTag & OBJHDR_MARK_FORWARD);
+    return(oh->Meta & OBJHDR_MARK_FORWARD);
 }
 
 static inline int AliveP(FObject obj)
@@ -317,32 +323,32 @@ static inline int AliveP(FObject obj)
 
 static inline void SetCheckMark(FObject obj)
 {
-    AsObjHdr(obj)->FlagsAndTag |= OBJHDR_CHECK_MARK;
+    AsObjHdr(obj)->Meta |= OBJHDR_CHECK_MARK;
 }
 
 static inline void ClearCheckMark(FObjHdr * oh)
 {
-    oh->FlagsAndTag &= ~OBJHDR_CHECK_MARK;
+    oh->Meta &= ~OBJHDR_CHECK_MARK;
 }
 
 static inline int CheckMarkP(FObject obj)
 {
-    return(AsObjHdr(obj)->FlagsAndTag & OBJHDR_CHECK_MARK);
+    return(AsObjHdr(obj)->Meta & OBJHDR_CHECK_MARK);
 }
 
 static inline void SetEphemeronKeyMark(FObject obj)
 {
-    AsObjHdr(obj)->FlagsAndTag |= OBJHDR_EPHEMERON_KEY_MARK;
+    AsObjHdr(obj)->Meta |= OBJHDR_EPHEMERON_KEY_MARK;
 }
 
 static inline void ClearEphemeronKeyMark(FObjHdr * oh)
 {
-    oh->FlagsAndTag &= ~OBJHDR_EPHEMERON_KEY_MARK;
+    oh->Meta &= ~OBJHDR_EPHEMERON_KEY_MARK;
 }
 
 static inline int EphemeronKeyMarkP(FObjHdr * oh)
 {
-    return(oh->FlagsAndTag & OBJHDR_EPHEMERON_KEY_MARK);
+    return(oh->Meta & OBJHDR_EPHEMERON_KEY_MARK);
 }
 
 inline ulong_t FObjHdr::TotalSize()
@@ -374,32 +380,46 @@ static void InitializeObjHdr(FObjHdr * oh, ulong_t tsz, ulong_t tag, ulong_t gen
     osz -= sizeof(FObjFtr);
 #endif // FOMENT_OBJFTR
 
-    FAssert(osz < (OBJHDR_COUNT_MASK * OBJECT_ALIGNMENT));
     FAssert(osz % OBJECT_ALIGNMENT == 0);
 
-    oh->BlockSizeAndCount = (uint32_t) (osz / OBJECT_ALIGNMENT);
-    oh->FlagsAndTag = (uint16_t) (gen | tag);
+    oh->Size = (uint32_t) (osz / OBJECT_ALIGNMENT);
+    oh->Meta = (uint32_t) (gen | tag);
 
     FAssert(oh->ObjectSize() == osz);
 
     if (sc > 0)
     {
-        oh->ExtraCount = (uint16_t) (osz / sizeof(FObject) - sc);
-        oh->FlagsAndTag |= OBJHDR_HAS_SLOTS;
+        if (sc * sizeof(FObject) == sz)
+        {
+            oh->Meta |= OBJHDR_ALL_SLOTS;
+
+#ifdef FOMENT_32BIT
+            if (sz < osz)
+            {
+                FAssert(sz + sizeof(FObject) == osz);
+
+                oh->Meta |= (uint32_t) (sizeof(FObject) << OBJHDR_PADDING_SHIFT);
+            }
+#endif // FOMENT_32BIT
+        }
+        else
+        {
+            FAssert(sc <= OBJHDR_EXTRA_MASK);
+
+            oh->Meta |= (uint32_t) ((sc & OBJHDR_EXTRA_MASK) << OBJHDR_EXTRA_SHIFT);
+        }
 
         FAssert(oh->SlotCount() == sc);
     }
     else if (tag != FreeTag)
     {
         FAssert(osz >= sz);
-        FAssert(osz - sz <= 0xFFFF);
+        FAssert(osz - sz <= OBJHDR_PADDING_MASK);
 
-        oh->ExtraCount = (uint16_t) (osz - sz);
+        oh->Meta |= (uint32_t) (((osz - sz) & OBJHDR_PADDING_MASK) << OBJHDR_PADDING_SHIFT);
 
         FAssert(oh->ByteLength() == sz);
     }
-    else
-        oh->ExtraCount = 0;
 
     FAssert(oh->Tag() == tag);
     FAssert(oh->Generation() == gen);
@@ -516,7 +536,7 @@ static FObjHdr * AllocateAdult(ulong_t tsz, FObject exc)
                 FAssert(foh->TotalSize() - tsz >= OBJECT_ALIGNMENT);
 
                 oh = (FObjHdr *) (((char *) foh) + ftsz - tsz);
-                foh->BlockSizeAndCount = (uint32_t) ((foh->ObjectSize() - tsz) / OBJECT_ALIGNMENT);
+                foh->Size = (uint32_t) ((foh->ObjectSize() - tsz) / OBJECT_ALIGNMENT);
 
 #ifdef FOMENT_OBJFTR
                 FObjFtr * of = AsObjFtr(foh);
@@ -598,7 +618,7 @@ FObject MakeObject(ulong_t tag, ulong_t sz, ulong_t sc, const char * who, long_t
     if (tsz > MAXIMUM_TOTAL_LENGTH)
         RaiseException(Restriction, MakeObjectSymbol, NoValueObject, MakeStringC("object too big"),
                 EmptyListObject);
-    if (sc > OBJHDR_COUNT_MASK)
+    if (sc > OBJHDR_MAXIMUM_SIZE)
         RaiseException(Restriction, MakeObjectSymbol, NoValueObject, MakeStringC("too many slots"),            EmptyListObject);
 
     TagCounts[tag] += 1;
@@ -1081,7 +1101,7 @@ Again:
         }
         else if (AsObjHdr(obj)->SlotCount() > 0)
         {
-            FAssert(AsObjHdr(obj)->FlagsAndTag & OBJHDR_HAS_SLOTS);
+            FAssert(AsObjHdr(obj)->Meta & OBJHDR_ALL_SLOTS || AsObjHdr(obj)->ExtraSlots() > 0);
 
             for (ulong_t idx = 0; idx < AsObjHdr(obj)->SlotCount(); idx++)
                 CheckObject(((FObject *) obj)[idx], idx, ef);
@@ -1163,7 +1183,7 @@ static void CheckMemRegion(FMemRegion * mrgn, ulong_t used, ulong_t gen)
 #endif // FOMENT_OBJFTR
 
         FCheck(oh->Generation() == gen, oh);
-        FCheck(gen == OBJHDR_GEN_ADULTS || (oh->FlagsAndTag & OBJHDR_MARK_FORWARD) == 0, oh);
+        FCheck(gen == OBJHDR_GEN_ADULTS || (oh->Meta & OBJHDR_MARK_FORWARD) == 0, oh);
         FCheck(oh->SlotCount() * sizeof(FObject) <= oh->ObjectSize(), oh);
         FCheck(oh->Tag() > 0 && oh->Tag() < BadDogTag, oh);
         FCheck(oh->Tag() != FreeTag || oh->Generation() == OBJHDR_GEN_ADULTS, oh);
@@ -1331,7 +1351,7 @@ Again:
         ulong_t sc = oh->SlotCount();
         if (sc > 0)
         {
-            FAssert(oh->FlagsAndTag & OBJHDR_HAS_SLOTS);
+            FAssert(oh->Meta & OBJHDR_ALL_SLOTS || oh->ExtraSlots() > 0);
 
             ulong_t sdx = 0;
             while (sdx < sc - 1)
