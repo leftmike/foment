@@ -459,6 +459,10 @@ void FWriteContext::WriteObject(FObject obj)
         }
         break;
 
+    case IdentifierTag:
+        WriteIdentifier(this, obj);
+        break;
+
     case RecordTypeTag:
     {
         FCh s[16];

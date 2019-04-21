@@ -212,6 +212,7 @@ typedef enum
     TextualPortTag,
     ProcedureTag,
     SymbolTag,
+    IdentifierTag,
     RecordTypeTag,
     RecordTag,
     PrimitiveTag,
@@ -1354,12 +1355,10 @@ extern FObject SyntaxRulesType;
 // ---- Identifiers ----
 
 #define AsIdentifier(obj) ((FIdentifier *) (obj))
-#define IdentifierP(obj) BuiltinP(obj, IdentifierType)
-extern FObject IdentifierType;
+#define IdentifierP(obj) (IndirectTag(obj) == IdentifierTag)
 
 typedef struct
 {
-    FObject BuiltinType;
     FObject Symbol;
     FObject Filename;
     FObject SyntacticEnv;
@@ -1371,6 +1370,7 @@ typedef struct
 FObject MakeIdentifier(FObject sym, FObject fn, long_t ln);
 FObject MakeIdentifier(FObject sym);
 FObject WrapIdentifier(FObject id, FObject se);
+void WriteIdentifier(FWriteContext * wctx, FObject obj);
 
 // ---- Procedures ----
 

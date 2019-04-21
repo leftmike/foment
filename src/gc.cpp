@@ -741,6 +741,7 @@ static const char * IndirectTagString[] =
     "textual-port",
     "procedure",
     "symbol",
+    "identifier",
     "record-type",
     "record",
     "primitive",

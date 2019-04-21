@@ -83,8 +83,7 @@ FObject MakeBinding(FObject se, FObject id, FObject ra)
 
 // ---- Identifier ----
 
-static void
-WriteIdentifier(FWriteContext * wctx, FObject obj)
+void WriteIdentifier(FWriteContext * wctx, FObject obj)
 {
     obj = AsIdentifier(obj)->Symbol;
 
@@ -101,15 +100,13 @@ WriteIdentifier(FWriteContext * wctx, FObject obj)
     }
 }
 
-EternalBuiltinType(IdentifierType, "identifier", WriteIdentifier);
-
 static long_t IdentifierMagic = 0;
 
 FObject MakeIdentifier(FObject sym, FObject fn, long_t ln)
 {
     FAssert(SymbolP(sym));
 
-    FIdentifier * nid = (FIdentifier *) MakeBuiltin(IdentifierType, sizeof(FIdentifier), 5,
+    FIdentifier * nid = (FIdentifier *) MakeObject(IdentifierTag, sizeof(FIdentifier), 4,
             "%make-identifier");
     nid->Symbol = sym;
     nid->Filename = fn;
@@ -133,7 +130,7 @@ FObject WrapIdentifier(FObject id, FObject se)
     FAssert(IdentifierP(id));
     FAssert(SyntacticEnvP(se));
 
-    FIdentifier * nid = (FIdentifier *) MakeBuiltin(IdentifierType, sizeof(FIdentifier), 5,
+    FIdentifier * nid = (FIdentifier *) MakeObject(IdentifierTag, sizeof(FIdentifier), 4,
             "%wrap-identifier");
     nid->Symbol = AsIdentifier(id)->Symbol;
     nid->Filename = AsIdentifier(id)->Filename;
