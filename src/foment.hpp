@@ -185,7 +185,7 @@ typedef enum
 {
     // Direct Types
 
-    // ObjectTag = 0x0,
+    ObjectTag = 0x00,
     FixnumTag = 0x01,
     CharacterTag = 0x02,
     MiscellaneousTag = 0x03,
@@ -1256,6 +1256,7 @@ typedef struct
 long_t GenericEqvP(FObject x1, FObject x2);
 
 FObject StringToNumber(FCh * s, long_t sl, long_t rdx);
+void WriteNumber(FWriteContext * wctx, FObject obj);
 FObject NumberToString(FObject obj, long_t rdx);
 
 long_t FixnumAsString(long_t n, FCh * s, long_t rdx);

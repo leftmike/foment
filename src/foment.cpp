@@ -1370,10 +1370,10 @@ static void FixupUName(char * s)
 FIndirectType IndirectTypes[] =
 {
     {0, 0},
-    {"bignum", 0},
-    {"ratio", 0},
-    {"complex", 0},
-    {"flonum", 0},
+    {"bignum", WriteNumber},
+    {"ratio", WriteNumber},
+    {"complex", WriteNumber},
+    {"flonum", WriteNumber},
     {"box", WriteBox},
     {"pair", WritePair},
     {"string", WriteStringObject},

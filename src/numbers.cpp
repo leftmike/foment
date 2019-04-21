@@ -739,7 +739,7 @@ static long_t NeedImaginaryPlusSignP(FObject n)
     return(BignumSign(n) >= 0);
 }
 
-static void WriteNumber(FObject port, FObject obj, long_t rdx)
+static void WriteNumberRadix(FWriteContext * wctx, FObject obj, long_t rdx)
 {
     FAssert(NumberP(obj));
 
@@ -748,27 +748,27 @@ static void WriteNumber(FObject port, FObject obj, long_t rdx)
         FCh s[32];
         long_t sl = FixnumAsString(AsFixnum(obj), s, rdx);
 
-        WriteString(port, s, sl);
+        wctx->WriteString(s, sl);
     }
     else if (RatioP(obj))
     {
-        WriteNumber(port, AsRatio(obj)->Numerator, rdx);
-        WriteCh(port, '/');
-        WriteNumber(port, AsRatio(obj)->Denominator, rdx);
+        WriteNumberRadix(wctx, AsRatio(obj)->Numerator, rdx);
+        wctx->WriteCh('/');
+        WriteNumberRadix(wctx, AsRatio(obj)->Denominator, rdx);
     }
     else if (ComplexP(obj))
     {
-        WriteNumber(port, AsComplex(obj)->Real, rdx);
+        WriteNumberRadix(wctx, AsComplex(obj)->Real, rdx);
         if (NeedImaginaryPlusSignP(AsComplex(obj)->Imaginary))
-            WriteCh(port, '+');
+            wctx->WriteCh('+');
         if (FixnumP(AsComplex(obj)->Imaginary) == 0 || AsFixnum(AsComplex(obj)->Imaginary) != 1)
         {
             if (FixnumP(AsComplex(obj)->Imaginary) && AsFixnum(AsComplex(obj)->Imaginary) == -1)
-                WriteCh(port, '-');
+                wctx->WriteCh('-');
             else
-                WriteNumber(port, AsComplex(obj)->Imaginary, rdx);
+                WriteNumberRadix(wctx, AsComplex(obj)->Imaginary, rdx);
         }
-        WriteCh(port, 'i');
+        wctx->WriteCh('i');
     }
     else if (FlonumP(obj))
     {
@@ -779,9 +779,9 @@ static void WriteNumber(FObject port, FObject obj, long_t rdx)
         double64_t d = AsFlonum(obj);
 
         if (isnan(d))
-            WriteStringC(port, "+nan.0");
+            wctx->WriteStringC("+nan.0");
         else if (isfinite(d) == 0)
-            WriteStringC(port, d > 0 ? "+inf.0" : "-inf.0");
+            wctx->WriteStringC(d > 0 ? "+inf.0" : "-inf.0");
         else
         {
             char s[128];
@@ -796,7 +796,7 @@ static void WriteNumber(FObject port, FObject obj, long_t rdx)
                 s[idx] = 0;
             }
 
-            WriteStringC(port, s);
+            wctx->WriteStringC(s);
         }
     }
     else
@@ -804,9 +804,14 @@ static void WriteNumber(FObject port, FObject obj, long_t rdx)
         FAssert(BignumP(obj));
 
         char * s = BignumToStringC(obj, (uint32_t) rdx);
-        WriteStringC(port, s);
+        wctx->WriteStringC(s);
         free(s);
     }
+}
+
+void WriteNumber(FWriteContext * wctx, FObject obj)
+{
+    WriteNumberRadix(wctx, obj, 10);
 }
 
 FObject NumberToString(FObject obj, long_t rdx)
@@ -853,7 +858,10 @@ FObject NumberToString(FObject obj, long_t rdx)
     FAssert(RatioP(obj) || ComplexP(obj) || BignumP(obj));
 
     FObject port = MakeStringOutputPort();
-    WriteNumber(port, obj, rdx);
+    FWriteContext wctx(port, 0);
+
+    wctx.Prepare(obj, SimpleWrite);
+    WriteNumberRadix(&wctx, obj, rdx);
     return(GetOutputString(port));
 }
 

@@ -4768,6 +4768,12 @@
         (close-port p)
         (get-output-string p)))
 
+(check-equal "(1234 5678.90123 456/78901 234+567i 890123456789012345678901234567890)"
+    (let ((p (open-output-string)))
+        (write '(1234 5678.90123 456/78901 234+567i 890123456789012345678901234567890) p)
+        (close-port p)
+        (get-output-string p)))
+
 (check-error (assertion-violation open-output-string) (open-output-string "a string"))
 (check-error (assertion-violation get-output-string) (get-output-string))
 (check-error (assertion-violation get-output-string)

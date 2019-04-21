@@ -199,15 +199,45 @@ Again:
     }
 }
 
+static void WriteUnknown(FWriteContext * wctx, FObject obj)
+{
+    FCh s[16];
+    long_t sl = FixnumAsString((long_t) obj, s, 16);
+
+    wctx->WriteStringC("#<unknown: ");
+    wctx->WriteString(s, sl);
+    wctx->WriteCh('>');
+}
+
 void FWriteContext::WriteSimple(FObject obj)
 {
-    if (NumberP(obj))
+    switch (ImmediateTag(obj))
     {
-        obj = NumberToString(obj, 10);
-        WriteString(AsString(obj)->String, StringLength(obj));
+    case ObjectTag:
+    {
+        uint32_t tag = IndirectTag(obj);
+
+        if (tag < BadDogTag)
+        {
+            FAssert(IndirectTypes[tag].Write != 0);
+
+            IndirectTypes[tag].Write(this, obj);
+        }
+        else
+            WriteUnknown(this, obj);
+        break;
     }
-    else if (CharacterP(obj))
+
+    case FixnumTag:
     {
+        FCh s[64];
+        long_t sl = FixnumAsString(AsFixnum(obj), s, 10);
+
+        WriteString(s, sl);
+        break;
+    }
+
+    case CharacterTag:
         if (AsCharacter(obj) < 128)
         {
             if (DisplayFlag == 0)
@@ -226,12 +256,34 @@ void FWriteContext::WriteSimple(FObject obj)
                 WriteString(s, sl);
             }
         }
-    }
-    else if (SpecialSyntaxP(obj))
+        break;
+
+    case MiscellaneousTag:
+        if (obj == EmptyListObject)
+            WriteStringC("()");
+        else if (obj == EndOfFileObject)
+            WriteStringC("#<end-of-file>");
+        else if (obj == NoValueObject)
+            WriteStringC("#<no-value>");
+        else if (obj == WantValuesObject)
+            WriteStringC("#<want-values>");
+        else if (obj == NotFoundObject)
+            WriteStringC("#<not-found>");
+        else if (obj == MatchAnyObject)
+            WriteStringC("#<match-any>");
+        else
+            WriteUnknown(this, obj);
+        break;
+
+    case SpecialSyntaxTag:
         WriteSpecialSyntax(this, obj);
-    else if (InstructionP(obj))
+        break;
+
+    case InstructionTag:
         WriteInstruction(this, obj);
-    else if (ValuesCountP(obj))
+        break;
+
+    case ValuesCountTag:
     {
         WriteStringC("#<values-count: ");
 
@@ -240,51 +292,20 @@ void FWriteContext::WriteSimple(FObject obj)
         WriteString(s, sl);
 
         WriteCh('>');
+        break;
     }
-    else if (ObjectP(obj))
-    {
-        uint32_t tag = IndirectTag(obj);
 
-        if (tag < BadDogTag)
-        {
-            FAssert(IndirectTypes[tag].Write != 0);
-
-            IndirectTypes[tag].Write(this, obj);
-        }
+    case BooleanTag:
+        if (obj == FalseObject)
+            WriteStringC("#f");
+        else if (obj == TrueObject)
+            WriteStringC("#t");
         else
-        {
-            FCh s[16];
-            long_t sl = FixnumAsString((long_t) obj, s, 16);
+            WriteUnknown(this, obj);
+        break;
 
-            WriteStringC("#<unknown: ");
-            WriteString(s, sl);
-            WriteCh('>');
-        }
-    }
-    else if (obj == EmptyListObject)
-        WriteStringC("()");
-    else if (obj == FalseObject)
-        WriteStringC("#f");
-    else if (obj == TrueObject)
-        WriteStringC("#t");
-    else if (obj == EndOfFileObject)
-        WriteStringC("#<end-of-file>");
-    else if (obj == NoValueObject)
-        WriteStringC("#<no-value>");
-    else if (obj == WantValuesObject)
-        WriteStringC("#<want-values>");
-    else if (obj == NotFoundObject)
-        WriteStringC("#<not-found>");
-    else if (obj == MatchAnyObject)
-        WriteStringC("#<match-any>");
-    else
-    {
-        FCh s[16];
-        long_t sl = FixnumAsString((long_t) obj, s, 16);
-
-        WriteStringC("#<unknown: ");
-        WriteString(s, sl);
-        WriteCh('>');
+    default:
+        FAssert(0);
     }
 }
 
