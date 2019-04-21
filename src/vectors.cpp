@@ -44,6 +44,19 @@ FObject MakeVector(ulong_t vl, FObject * v, FObject obj)
     return(nv);
 }
 
+void WriteVector(FWriteContext * wctx, FObject obj)
+{
+     wctx->WriteStringC("#(");
+     for (ulong_t idx = 0; idx < VectorLength(obj); idx++)
+     {
+         if (idx > 0)
+             wctx->WriteCh(' ');
+         wctx->Write(AsVector(obj)->Vector[idx]);
+     }
+
+     wctx->WriteCh(')');
+}
+
 FObject ListToVector(FObject obj)
 {
     ulong_t vl = ListLength("list->vector", obj);
@@ -639,6 +652,24 @@ static inline FBytevector * MakeBytevector(ulong_t vl, const char * who)
 FObject MakeBytevector(ulong_t vl)
 {
     return(MakeBytevector(vl, "make-bytevector"));
+}
+
+void WriteBytevector(FWriteContext * wctx, FObject obj)
+{
+    FCh s[8];
+    long_t sl;
+
+    wctx->WriteStringC("#u8(");
+    for (ulong_t idx = 0; idx < BytevectorLength(obj); idx++)
+    {
+        if (idx > 0)
+            wctx->WriteCh(' ');
+
+        sl = FixnumAsString((long_t) AsBytevector(obj)->Vector[idx], s, 10);
+        wctx->WriteString(s, sl);
+    }
+
+    wctx->WriteCh(')');
 }
 
 FObject U8ListToBytevector(FObject obj)

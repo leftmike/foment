@@ -50,6 +50,43 @@ FObject MakeProcedure(FObject nam, FObject fn, FObject ln, FObject cv, long_t ac
     return(p);
 }
 
+void WriteProcedure(FWriteContext * wctx, FObject obj)
+{
+    FCh s[16];
+    long_t sl = FixnumAsString((long_t) obj, s, 16);
+
+    wctx->WriteStringC("#<procedure: ");
+    wctx->WriteString(s, sl);
+
+    if (AsProcedure(obj)->Name != NoValueObject)
+    {
+        wctx->WriteCh(' ');
+        wctx->Write(AsProcedure(obj)->Name);
+    }
+
+    if (AsProcedure(obj)->Flags & PROCEDURE_FLAG_CLOSURE)
+        wctx->WriteStringC(" closure");
+
+    if (AsProcedure(obj)->Flags & PROCEDURE_FLAG_PARAMETER)
+        wctx->WriteStringC(" parameter");
+
+    if (AsProcedure(obj)->Flags & PROCEDURE_FLAG_CONTINUATION)
+        wctx->WriteStringC(" continuation");
+
+    if (StringP(AsProcedure(obj)->Filename) && FixnumP(AsProcedure(obj)->LineNumber))
+    {
+        wctx->WriteCh(' ');
+        wctx->Write(AsProcedure(obj)->Filename);
+        wctx->WriteCh('[');
+        wctx->Write(AsProcedure(obj)->LineNumber);
+        wctx->WriteCh(']');
+    }
+
+//    wctx->WriteCh(' ');
+//    wctx->Write(AsProcedure(obj)->Code);
+    wctx->WriteCh('>');
+}
+
 // ---- Dynamic ----
 
 #define AsDynamic(obj) ((FDynamic *) (obj))

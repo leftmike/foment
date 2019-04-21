@@ -614,6 +614,27 @@ FObject MakeBox(FObject val, ulong_t idx)
     return(bx);
 }
 
+static void WriteBox(FWriteContext * wctx, FObject obj)
+{
+    FCh s[16];
+    long_t sl = FixnumAsString((long_t) obj, s, 16);
+
+    wctx->WriteStringC("#<box: #x");
+    wctx->WriteString(s, sl);
+    wctx->WriteCh(' ');
+    wctx->Write(Unbox(obj));
+    wctx->WriteStringC(">");
+}
+
+// ---- Builtin Types ----
+
+static void WriteBuiltinType(FWriteContext * wctx, FObject obj)
+{
+    wctx->WriteStringC("#<");
+    wctx->WriteStringC(AsBuiltinType(obj)->Name);
+    wctx->WriteStringC("-type>");
+}
+
 // ---- Builtins ----
 
 FObject MakeBuiltin(FObject bt, ulong_t sc, const char * who)
@@ -624,6 +645,26 @@ FObject MakeBuiltin(FObject bt, ulong_t sc, const char * who)
     bltn->BuiltinType = bt;
 
     return(bltn);
+}
+
+static void WriteBuiltin(FWriteContext * wctx, FObject obj)
+{
+    FAssert(BuiltinObjectP(obj));
+    FAssert(BuiltinTypeP(AsBuiltin(obj)->BuiltinType));
+
+    if (AsBuiltinType(AsBuiltin(obj)->BuiltinType)->Write != 0)
+        AsBuiltinType(AsBuiltin(obj)->BuiltinType)->Write(wctx, obj);
+    else
+    {
+        FCh s[16];
+        long_t sl = FixnumAsString((long_t) obj, s, 16);
+
+        wctx->WriteStringC("#<");
+        wctx->WriteStringC(AsBuiltinType(AsBuiltin(obj)->BuiltinType)->Name);
+        wctx->WriteStringC(": #x");
+        wctx->WriteString(s, sl);
+        wctx->WriteStringC(">");
+    }
 }
 
 // ---- Record Types ----
@@ -644,6 +685,25 @@ FObject MakeRecordType(FObject nam, ulong_t nf, FObject flds[])
     }
 
     return(rt);
+}
+
+static void WriteRecordType(FWriteContext * wctx, FObject obj)
+{
+    FCh s[16];
+    long_t sl = FixnumAsString((long_t) obj, s, 16);
+
+    wctx->WriteStringC("#<record-type: #x");
+    wctx->WriteString(s, sl);
+    wctx->WriteCh(' ');
+    wctx->Write(RecordTypeName(obj));
+
+    for (ulong_t fdx = 1; fdx < RecordTypeNumFields(obj); fdx += 1)
+    {
+        wctx->WriteCh(' ');
+        wctx->Write(AsRecordType(obj)->Fields[fdx]);
+    }
+
+    wctx->WriteStringC(">");
 }
 
 Define("%make-record-type", MakeRecordTypePrimitive)(long_t argc, FObject argv[])
@@ -767,6 +827,28 @@ FObject MakeRecord(FObject rt)
     return(r);
 }
 
+static void WriteRecord(FWriteContext * wctx, FObject obj)
+{
+    FObject rt = AsGenericRecord(obj)->Fields[0];
+    FCh s[16];
+    long_t sl = FixnumAsString((long_t) obj, s, 16);
+
+    wctx->WriteStringC("#<");
+    wctx->Write(RecordTypeName(rt));
+    wctx->WriteStringC(": #x");
+    wctx->WriteString(s, sl);
+
+    for (ulong_t fdx = 1; fdx < RecordNumFields(obj); fdx++)
+    {
+        wctx->WriteCh(' ');
+        wctx->Write(AsRecordType(rt)->Fields[fdx]);
+        wctx->WriteStringC(": ");
+        wctx->Write(AsGenericRecord(obj)->Fields[fdx]);
+    }
+
+    wctx->WriteStringC(">");
+}
+
 // ---- Primitives ----
 
 void DefinePrimitive(FObject env, FObject lib, FObject prim)
@@ -778,6 +860,33 @@ void DefinePrimitive(FObject env, FObject lib, FObject prim)
     FAssert(AsObjHdr(prim)->ObjectSize() >= sizeof(FPrimitive));
 
     LibraryExport(lib, EnvironmentSet(env, InternSymbol(AsPrimitive(prim)->Name), prim));
+}
+
+static void WritePrimitive(FWriteContext * wctx, FObject obj)
+{
+    FAssert(SymbolP(AsPrimitive(obj)->Name));
+    FAssert(CStringP(AsSymbol(AsPrimitive(obj)->Name)->String));
+
+    wctx->WriteStringC("#<primitive: ");
+    wctx->WriteStringC(AsCString(AsSymbol(AsPrimitive(obj)->Name)->String)->String);
+    wctx->WriteCh(' ');
+
+    const char * fn = AsPrimitive(obj)->Filename;
+    const char * p = fn;
+    while (*p != 0)
+    {
+        if (*p == '/' || *p == '\\')
+            fn = p + 1;
+
+        p += 1;
+    }
+
+    wctx->WriteStringC(fn);
+    wctx->WriteCh('@');
+    FCh s[16];
+    long_t sl = FixnumAsString(AsPrimitive(obj)->LineNumber, s, 10);
+    wctx->WriteString(s, sl);
+    wctx->WriteCh('>');
 }
 
 // Foment specific
@@ -1256,6 +1365,40 @@ static void FixupUName(char * s)
 }
 #endif // FOMENT_UNIX
 
+// ---- Indirect Object Types ----
+
+FIndirectType IndirectTypes[] =
+{
+    {0, 0},
+    {"bignum", 0},
+    {"ratio", 0},
+    {"complex", 0},
+    {"flonum", 0},
+    {"box", WriteBox},
+    {"pair", WritePair},
+    {"string", WriteStringObject},
+    {"string-c", WriteCStringObject},
+    {"vector", WriteVector},
+    {"bytevector", WriteBytevector},
+    {"binary-port", WritePortObject},
+    {"textual-port", WritePortObject},
+    {"procedure", WriteProcedure},
+    {"symbol", WriteSymbol},
+    {"identifier", WriteIdentifier},
+    {"record-type", WriteRecordType},
+    {"record", WriteRecord},
+    {"primitive", WritePrimitive},
+    {"thread", WriteThread},
+    {"exclusive", WriteExclusive},
+    {"condition", WriteCondition},
+    {"hash-node", WriteHashNode},
+    {"hash-table", WriteHashTable},
+    {"ephemeron", WriteEphemeron},
+    {"builtin-type", WriteBuiltinType},
+    {"builtin", WriteBuiltin},
+    {"free", 0}
+};
+
 long_t SetupFoment(FThreadState * ts)
 {
 #ifdef FOMENT_WINDOWS
@@ -1279,6 +1422,13 @@ long_t SetupFoment(FThreadState * ts)
 
     if (SetupCore(ts) == 0)
         return(0);
+
+    // Likely a new indirect tag was added, but a corresponding entry is
+    // missing from IndirectTypes just about this procedure in this file.
+    FAssert(sizeof(IndirectTypes) / sizeof(FIndirectType) == BadDogTag);
+    FAssert(FreeTag + 1 == BadDogTag);
+    FAssert(strcmp(IndirectTypes[FreeTag].Name, "free") == 0);
+    FAssert(IndirectTypes[FreeTag].Write == 0);
 
     RegisterRoot(&SymbolHashTable, "symbol-hash-table");
     RegisterRoot(&Bedrock, "bedrock");

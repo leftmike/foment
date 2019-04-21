@@ -17,6 +17,32 @@ FObject MakePair(FObject first, FObject rest)
     return(pair);
 }
 
+void WritePair(FWriteContext * wctx, FObject obj)
+{
+    wctx->WriteCh('(');
+    for (;;)
+    {
+        wctx->Write(First(obj));
+        if (PairP(Rest(obj)))
+        {
+            wctx->WriteCh(' ');
+            obj = Rest(obj);
+        }
+        else if (Rest(obj) == EmptyListObject)
+        {
+            wctx->WriteCh(')');
+            break;
+        }
+        else
+        {
+            wctx->WriteStringC(" . ");
+            wctx->Write(Rest(obj));
+            wctx->WriteCh(')');
+            break;
+        }
+    }
+}
+
 typedef enum
 {
     ProperList,

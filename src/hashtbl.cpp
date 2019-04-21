@@ -162,6 +162,16 @@ static FObject MakeHashTable(ulong_t cap, FObject ttp, FObject eqp, FObject hash
     return(htbl);
 }
 
+void WriteHashTable(FWriteContext * wctx, FObject obj)
+{
+    FCh s[16];
+    long_t sl = FixnumAsString((long_t) obj, s, 16);
+
+    wctx->WriteStringC("#<hash-table: ");
+    wctx->WriteString(s, sl);
+    wctx->WriteCh('>');
+}
+
 // ---- Hash Nodes ----
 
 #define HASH_NODE_NORMAL_KEYS      HASH_TABLE_NORMAL_KEYS
@@ -224,6 +234,16 @@ static FObject MakeHashNode(FObject htbl, FObject key, FObject val, FObject next
     node->Flags = ktype | vtype;
 
     return(node);
+}
+
+void WriteHashNode(FWriteContext * wctx, FObject obj)
+{
+    FCh s[16];
+    long_t sl = FixnumAsString((long_t) obj, s, 16);
+
+    wctx->WriteStringC("#<hash-node: ");
+    wctx->WriteString(s, sl);
+    wctx->WriteCh('>');
 }
 
 static FObject CopyHashNode(FObject node, FObject next, const char * who)
@@ -1224,6 +1244,19 @@ FObject InternSymbol(FObject sym)
     }
 
     return(obj);
+}
+
+void WriteSymbol(FWriteContext * wctx, FObject obj)
+{
+    if (StringP(AsSymbol(obj)->String))
+        wctx->WriteString(AsString(AsSymbol(obj)->String)->String,
+                StringLength(AsSymbol(obj)->String));
+    else
+    {
+        FAssert(CStringP(AsSymbol(obj)->String));
+
+        wctx->WriteStringC(AsCString(AsSymbol(obj)->String)->String);
+    }
 }
 
 // ---- Hash Nodes ----

@@ -724,38 +724,6 @@ static ulong_t CheckStackPtr;
 static FCheckStack CheckStack[WALK_STACK_SIZE];
 static const char * CheckFrom;
 
-static const char * IndirectTagString[] =
-{
-    0,
-    "bignum",
-    "ratio",
-    "complex",
-    "flonum",
-    "box",
-    "pair",
-    "string",
-    "string-c",
-    "vector",
-    "bytevector",
-    "binary-port",
-    "textual-port",
-    "procedure",
-    "symbol",
-    "identifier",
-    "record-type",
-    "record",
-    "primitive",
-    "thread",
-    "exclusive",
-    "condition",
-    "hash-node",
-    "hash-table",
-    "ephemeron",
-    "builtin-type",
-    "builtin",
-    "free"
-};
-
 static const char * WhereFrom(FObject obj, long_t * idx)
 {
     const char * from;
@@ -874,7 +842,7 @@ static const char * WhereFrom(FObject obj, long_t * idx)
 
         default:
             if (IndirectTag(obj) > 0 && IndirectTag(obj) < BadDogTag)
-                from = IndirectTagString[IndirectTag(obj)];
+                from = IndirectTypes[IndirectTag(obj)].Name;
             else
                 from = "unknown";
             break;
@@ -950,7 +918,7 @@ static void PrintCheckStack()
     {
         if (IndirectTag(obj) > 0 && IndirectTag(obj) < BadDogTag)
         {
-            printf("%s: %p", IndirectTagString[IndirectTag(obj)], obj);
+            printf("%s: %p", IndirectTypes[IndirectTag(obj)].Name, obj);
             PrintObjectString(obj);
         }
         else
@@ -978,7 +946,7 @@ static void FCheckFailed(const char * fn, long_t ln, const char * expr, FObjHdr 
     ulong_t tsz = oh->TotalSize();
     const char * tag = "unknown";
     if (oh->Tag() > 0 && oh->Tag() < BadDogTag)
-        tag = IndirectTagString[oh->Tag()];
+        tag = IndirectTypes[oh->Tag()].Name;
     printf("tsz: " ULONG_FMT " osz: " ULONG_FMT " blen: " ULONG_FMT " slots: " ULONG_FMT
             " tag: %s gen: 0x%x", tsz, oh->ObjectSize(),
             oh->ByteLength(), oh->SlotCount(), tag, oh->Generation());
@@ -1199,8 +1167,6 @@ static void CheckMemRegion(FMemRegion * mrgn, ulong_t used, ulong_t gen)
 void CheckHeap(const char * fn, int ln)
 {
     EnterExclusive(&GCExclusive);
-
-    FMustBe(sizeof(IndirectTagString) / sizeof(char *) == BadDogTag);
 
     if (VerboseFlag)
         printf("CheckHeap: %s(%d)\n", fn, ln);
@@ -2167,6 +2133,18 @@ void EphemeronDatumSet(FObject eph, FObject dat)
     }
 }
 
+void WriteEphemeron(FWriteContext * wctx, FObject obj)
+{
+    FCh s[16];
+    long_t sl = FixnumAsString((long_t) obj, s, 16);
+
+    wctx->WriteStringC("#<ephemeron: ");
+    wctx->WriteString(s, sl);
+    if (EphemeronBrokenP(obj))
+        wctx->WriteStringC(" (broken)");
+    wctx->WriteCh('>');
+}
+
 Define("ephemeron?", EphemeronPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("ephemeron?", argc);
@@ -2255,7 +2233,7 @@ Define("object-counts", ObjectCountsPrimitive)(long_t argc, FObject argv[])
 
     for (int tdx = 1; tdx < FreeTag; tdx++)
         if (TagCounts[tdx] > 0)
-            lst = MakePair(MakePair(StringCToSymbol(IndirectTagString[tdx]),
+            lst = MakePair(MakePair(StringCToSymbol(IndirectTypes[tdx].Name),
                     MakeIntegerFromUInt64(TagCounts[tdx])), lst);
 
     for (int sdx = 0; sdx < SIZE_COUNTS; sdx++)

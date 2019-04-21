@@ -146,6 +146,7 @@ typedef char FChS;
 
 typedef void * FObject;
 typedef uint32_t FCh;
+typedef unsigned char FByte;
 
 #ifdef FOMENT_32BIT
 typedef int32_t long_t;
@@ -519,150 +520,6 @@ const char * SpecialSyntaxToName(FObject obj);
 // ---- Object Types ----
 //
 
-// ---- Pairs ----
-
-#define PairP(obj) (IndirectTag(obj) == PairTag)
-#define AsPair(obj) ((FPair *) (obj))
-
-typedef struct
-{
-    FObject First;
-    FObject Rest;
-} FPair;
-
-inline FObject First(FObject obj)
-{
-    FAssert(PairP(obj));
-    return(AsPair(obj)->First);
-}
-
-inline FObject Rest(FObject obj)
-{
-    FAssert(PairP(obj));
-    return(AsPair(obj)->Rest);
-}
-
-void SetFirst(FObject obj, FObject val);
-void SetRest(FObject obj, FObject val);
-
-FObject MakePair(FObject first, FObject rest);
-long_t ListLength(FObject lst);
-long_t ListLength(const char * nam, FObject lst);
-FObject ReverseListModify(FObject list);
-
-FObject List(FObject obj);
-FObject List(FObject obj1, FObject obj2);
-FObject List(FObject obj1, FObject obj2, FObject obj3);
-FObject List(FObject obj1, FObject obj2, FObject obj3, FObject obj4);
-FObject List(FObject obj1, FObject obj2, FObject obj3, FObject obj4, FObject obj5);
-FObject List(FObject obj1, FObject obj2, FObject obj3, FObject obj4, FObject obj5,
-    FObject obj6);
-FObject List(FObject obj1, FObject obj2, FObject obj3, FObject obj4, FObject obj5,
-    FObject obj6, FObject obj7);
-
-FObject Memq(FObject obj, FObject lst);
-FObject Assq(FObject obj, FObject alst);
-FObject Assoc(FObject obj, FObject alst);
-
-FObject MakeTConc();
-long_t TConcEmptyP(FObject tconc);
-void TConcAdd(FObject tconc, FObject obj);
-FObject TConcRemove(FObject tconc);
-
-// ---- Boxes ----
-
-#define BoxP(obj) (IndirectTag(obj) == BoxTag)
-#define AsBox(obj) ((FBox *) (obj))
-
-typedef struct
-{
-    FObject Value;
-    ulong_t Index;
-} FBox;
-
-FObject MakeBox(FObject val);
-FObject MakeBox(FObject val, ulong_t idx);
-inline FObject Unbox(FObject bx)
-{
-    FAssert(BoxP(bx));
-
-    return(AsBox(bx)->Value);
-}
-
-void SetBox(FObject bx, FObject val);
-#define BoxIndex(bx) (AsBox(bx)->Index)
-
-// ---- Strings ----
-
-#define StringP(obj) (IndirectTag(obj) == StringTag)
-#define AsString(obj) ((FString *) (obj))
-
-typedef struct
-{
-    FCh String[1];
-} FString;
-
-FObject MakeString(FCh * s, ulong_t sl);
-FObject MakeStringCh(ulong_t sl, FCh ch);
-FObject MakeStringC(const char * s);
-FObject MakeStringS(FChS * ss);
-FObject MakeStringS(FChS * ss, ulong_t ssl);
-
-inline ulong_t StringLength(FObject obj)
-{
-    FAssert(StringP(obj));
-    FAssert(ByteLength(obj) % sizeof(FCh) == 0);
-    FAssert(ByteLength(obj) >= sizeof(FCh));
-
-    return((ByteLength(obj) / sizeof(FCh)) - 1);
-}
-
-void StringToC(FObject s, char * b, long_t bl);
-FObject FoldcaseString(FObject s);
-uint32_t StringLengthHash(FCh * s, ulong_t sl);
-uint32_t StringHash(FObject obj);
-uint32_t StringCiHash(FObject obj);
-uint32_t CStringHash(const char * s);
-long_t StringLengthEqualP(FCh * s, long_t sl, FObject obj);
-long_t StringCEqualP(const char * s1, FCh * s2, long_t sl2);
-long_t StringCompare(FObject obj1, FObject obj2);
-
-extern FObject StringPPrimitive;
-extern FObject StringEqualPPrimitive;
-extern FObject StringHashPrimitive;
-
-// ---- Vectors ----
-
-#define VectorP(obj) (IndirectTag(obj) == VectorTag)
-#define AsVector(obj) ((FVector *) (obj))
-
-typedef struct
-{
-    FObject Vector[1];
-} FVector;
-
-FObject MakeVector(ulong_t vl, FObject * v, FObject obj);
-FObject ListToVector(FObject obj);
-FObject VectorToList(FObject vec);
-
-#define VectorLength(obj) (AsObjHdr(obj)->SlotCount())
-
-// ---- Bytevectors ----
-
-#define BytevectorP(obj) (IndirectTag(obj) == BytevectorTag)
-#define AsBytevector(obj) ((FBytevector *) (obj))
-
-typedef unsigned char FByte;
-typedef struct
-{
-    FByte Vector[1];
-} FBytevector;
-
-FObject MakeBytevector(ulong_t vl);
-FObject U8ListToBytevector(FObject obj);
-
-#define BytevectorLength(obj) ByteLength(obj)
-
 // ---- Ports ----
 
 #define PORT_FLAG_INPUT              0x1000
@@ -852,6 +709,7 @@ struct FWriteContext
     void WriteCh(FCh ch);
     void WriteString(FCh * s, ulong_t sl);
     void WriteStringC(const char * s);
+    long_t IsDisplay() {return(DisplayFlag);}
 
 private:
 
@@ -863,9 +721,6 @@ private:
     long_t PreviousLabel;
 
     void FindSharedObjects(FObject obj, FWriteType wt);
-    void WritePair(FObject obj);
-    void WriteRecord(FObject obj);
-    void WriteObject(FObject obj);
     void WriteSimple(FObject obj);
 };
 
@@ -873,17 +728,178 @@ void Write(FObject port, FObject obj, long_t df);
 void WriteShared(FObject port, FObject obj, long_t df);
 void WriteSimple(FObject port, FObject obj, long_t df);
 
+void WritePortObject(FWriteContext * wctx, FObject obj);
+
+// ---- Pairs ----
+
+#define PairP(obj) (IndirectTag(obj) == PairTag)
+#define AsPair(obj) ((FPair *) (obj))
+
+typedef struct
+{
+    FObject First;
+    FObject Rest;
+} FPair;
+
+inline FObject First(FObject obj)
+{
+    FAssert(PairP(obj));
+    return(AsPair(obj)->First);
+}
+
+inline FObject Rest(FObject obj)
+{
+    FAssert(PairP(obj));
+    return(AsPair(obj)->Rest);
+}
+
+void SetFirst(FObject obj, FObject val);
+void SetRest(FObject obj, FObject val);
+
+FObject MakePair(FObject first, FObject rest);
+void WritePair(FWriteContext * wctx, FObject obj);
+long_t ListLength(FObject lst);
+long_t ListLength(const char * nam, FObject lst);
+FObject ReverseListModify(FObject list);
+
+FObject List(FObject obj);
+FObject List(FObject obj1, FObject obj2);
+FObject List(FObject obj1, FObject obj2, FObject obj3);
+FObject List(FObject obj1, FObject obj2, FObject obj3, FObject obj4);
+FObject List(FObject obj1, FObject obj2, FObject obj3, FObject obj4, FObject obj5);
+FObject List(FObject obj1, FObject obj2, FObject obj3, FObject obj4, FObject obj5,
+    FObject obj6);
+FObject List(FObject obj1, FObject obj2, FObject obj3, FObject obj4, FObject obj5,
+    FObject obj6, FObject obj7);
+
+FObject Memq(FObject obj, FObject lst);
+FObject Assq(FObject obj, FObject alst);
+FObject Assoc(FObject obj, FObject alst);
+
+FObject MakeTConc();
+long_t TConcEmptyP(FObject tconc);
+void TConcAdd(FObject tconc, FObject obj);
+FObject TConcRemove(FObject tconc);
+
+// ---- Boxes ----
+
+#define BoxP(obj) (IndirectTag(obj) == BoxTag)
+#define AsBox(obj) ((FBox *) (obj))
+
+typedef struct
+{
+    FObject Value;
+    ulong_t Index;
+} FBox;
+
+FObject MakeBox(FObject val);
+FObject MakeBox(FObject val, ulong_t idx);
+inline FObject Unbox(FObject bx)
+{
+    FAssert(BoxP(bx));
+
+    return(AsBox(bx)->Value);
+}
+
+void SetBox(FObject bx, FObject val);
+#define BoxIndex(bx) (AsBox(bx)->Index)
+
+// ---- Strings ----
+
+#define StringP(obj) (IndirectTag(obj) == StringTag)
+#define AsString(obj) ((FString *) (obj))
+
+typedef struct
+{
+    FCh String[1];
+} FString;
+
+FObject MakeString(FCh * s, ulong_t sl);
+FObject MakeStringCh(ulong_t sl, FCh ch);
+FObject MakeStringC(const char * s);
+FObject MakeStringS(FChS * ss);
+FObject MakeStringS(FChS * ss, ulong_t ssl);
+
+inline ulong_t StringLength(FObject obj)
+{
+    FAssert(StringP(obj));
+    FAssert(ByteLength(obj) % sizeof(FCh) == 0);
+    FAssert(ByteLength(obj) >= sizeof(FCh));
+
+    return((ByteLength(obj) / sizeof(FCh)) - 1);
+}
+
+void StringToC(FObject s, char * b, long_t bl);
+FObject FoldcaseString(FObject s);
+uint32_t StringLengthHash(FCh * s, ulong_t sl);
+uint32_t StringHash(FObject obj);
+uint32_t StringCiHash(FObject obj);
+uint32_t CStringHash(const char * s);
+long_t StringLengthEqualP(FCh * s, long_t sl, FObject obj);
+long_t StringCEqualP(const char * s1, FCh * s2, long_t sl2);
+long_t StringCompare(FObject obj1, FObject obj2);
+
+void WriteStringObject(FWriteContext * wctx, FObject obj);
+void WriteCStringObject(FWriteContext * wctx, FObject obj);
+
+extern FObject StringPPrimitive;
+extern FObject StringEqualPPrimitive;
+extern FObject StringHashPrimitive;
+
+// ---- Vectors ----
+
+#define VectorP(obj) (IndirectTag(obj) == VectorTag)
+#define AsVector(obj) ((FVector *) (obj))
+
+typedef struct
+{
+    FObject Vector[1];
+} FVector;
+
+FObject MakeVector(ulong_t vl, FObject * v, FObject obj);
+void WriteVector(FWriteContext * wctx, FObject obj);
+FObject ListToVector(FObject obj);
+FObject VectorToList(FObject vec);
+
+#define VectorLength(obj) (AsObjHdr(obj)->SlotCount())
+
+// ---- Bytevectors ----
+
+#define BytevectorP(obj) (IndirectTag(obj) == BytevectorTag)
+#define AsBytevector(obj) ((FBytevector *) (obj))
+
+typedef struct
+{
+    FByte Vector[1];
+} FBytevector;
+
+FObject MakeBytevector(ulong_t vl);
+void WriteBytevector(FWriteContext * wctx, FObject obj);
+FObject U8ListToBytevector(FObject obj);
+
+#define BytevectorLength(obj) ByteLength(obj)
+
+// ---- Indirect Object Types ----
+
+typedef void (*FObjectWriteFn)(FWriteContext * wctx, FObject obj);
+
+typedef struct
+{
+    const char * Name;
+    FObjectWriteFn Write;
+} FIndirectType;
+
+extern FIndirectType IndirectTypes[];
+
 // ---- Builtin Types ----
 
 #define BuiltinTypeP(obj) (IndirectTag(obj) == BuiltinTypeTag)
 #define AsBuiltinType(obj) ((FBuiltinType *) (obj))
 
-typedef void (*FBuiltinWriteFn)(FWriteContext * wctx, FObject obj);
-
 typedef struct
 {
     const char * Name;
-    FBuiltinWriteFn Write;
+    FObjectWriteFn Write;
 } FBuiltinType;
 
 typedef struct FALIGN
@@ -1011,6 +1027,8 @@ void HashTableSet(FObject htbl, FObject key, FObject val);
 void HashTableDelete(FObject htbl, FObject key);
 FObject HashTableFold(FObject htbl, FFoldFn vfn, void * ctx, FObject seed);
 void HashTableEphemeronBroken(FObject htbl);
+void WriteHashNode(FWriteContext * wctx, FObject obj);
+void WriteHashTable(FWriteContext * wctx, FObject obj);
 
 // ---- Symbols ----
 
@@ -1070,6 +1088,7 @@ FObject SymbolToString(FObject sym);
 FObject StringToSymbol(FObject str);
 FObject StringLengthToSymbol(FCh * s, long_t sl);
 FObject InternSymbol(FObject sym);
+void WriteSymbol(FWriteContext * wctx, FObject obj);
 
 FObject StringCToSymbol(const char * s);
 FObject AddPrefixToSymbol(FObject str, FObject sym);
@@ -1138,6 +1157,7 @@ typedef struct _FEphemeron
 FObject MakeEphemeron(FObject key, FObject dat, FObject htbl);
 void EphemeronKeySet(FObject eph, FObject key);
 void EphemeronDatumSet(FObject eph, FObject dat);
+void WriteEphemeron(FWriteContext * wctx, FObject obj);
 
 #define EPHEMERON_BROKEN ((FEphemeron *) -1)
 
@@ -1388,6 +1408,7 @@ typedef struct
 #define ProcedureP(obj) (IndirectTag(obj) == ProcedureTag)
 
 FObject MakeProcedure(FObject nam, FObject fn, FObject ln, FObject cv, long_t ac, ulong_t fl);
+void WriteProcedure(FWriteContext * wctx, FObject obj);
 
 #define PROCEDURE_FLAG_CLOSURE      0x8
 #define PROCEDURE_FLAG_PARAMETER    0x4

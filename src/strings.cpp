@@ -75,6 +75,54 @@ void StringToC(FObject s, char * b, long_t bl)
     b[idx] = 0;
 }
 
+void WriteStringObject(FWriteContext * wctx, FObject obj)
+{
+    if (wctx->IsDisplay())
+        wctx->WriteString(AsString(obj)->String, StringLength(obj));
+    else
+    {
+        wctx->WriteCh('"');
+
+        for (ulong_t idx = 0; idx < StringLength(obj); idx++)
+        {
+            FCh ch = AsString(obj)->String[idx];
+            if (ch == '\\' || ch == '"')
+                wctx->WriteCh('\\');
+            wctx->WriteCh(ch);
+        }
+
+        wctx->WriteCh('"');
+    }
+}
+
+void WriteCStringObject(FWriteContext * wctx, FObject obj)
+{
+    const char * s = AsCString(obj)->String;
+
+    if (wctx->IsDisplay())
+    {
+        while (*s)
+        {
+            wctx->WriteCh(*s);
+            s += 1;
+        }
+    }
+    else
+    {
+        wctx->WriteCh('"');
+
+        while (*s)
+        {
+            if (*s == '\\' || *s == '"')
+                wctx->WriteCh('\\');
+            wctx->WriteCh(*s);
+            s += 1;
+        }
+
+        wctx->WriteCh('"');
+    }
+}
+
 FObject FoldcaseString(FObject s)
 {
     FAssert(StringP(s));
