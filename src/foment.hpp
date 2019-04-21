@@ -220,6 +220,7 @@ typedef enum
     ExclusiveTag,
     ConditionTag,
     HashNodeTag,
+    HashTableTag,
     EphemeronTag,
     BuiltinTypeTag,
     BuiltinTag,
@@ -998,8 +999,7 @@ extern FObject EqHashPrimitive;
 #define HASH_TABLE_IMMUTABLE        0x10
 #define HASH_TABLE_THREAD_SAFE      0x20
 
-#define HashTableP(obj) BuiltinP(obj, HashTableType)
-extern FObject HashTableType;
+#define HashTableP(obj) (IndirectTag(obj) == HashTableTag)
 
 typedef FObject (*FFoldFn)(FObject key, FObject val, void * ctx, FObject accum);
 

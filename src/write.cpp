@@ -538,6 +538,17 @@ void FWriteContext::WriteObject(FObject obj)
         break;
     }
 
+    case HashTableTag:
+    {
+        FCh s[16];
+        long_t sl = FixnumAsString((long_t) obj, s, 16);
+
+        WriteStringC("#<hash-table: ");
+        WriteString(s, sl);
+        WriteCh('>');
+        break;
+    }
+
     case EphemeronTag:
     {
         FCh s[16];

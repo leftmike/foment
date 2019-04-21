@@ -72,8 +72,6 @@ static uint32_t SpecialStringHash(FObject obj)
 
 // ---- Hash Tables ----
 
-EternalBuiltinType(HashTableType, "hash-table", 0);
-
 #define AsHashTable(obj) ((FHashTable *) (obj))
 
 typedef uint32_t (*FHashFn)(FObject obj);
@@ -81,7 +79,6 @@ typedef long_t (*FEqualityP)(FObject obj1, FObject obj2);
 
 typedef struct
 {
-    FObject BuiltinType;
     FObject Buckets; // VectorP
     FObject TypeTestP; // Comparator.TypeTestP
     FObject EqualityP; // Comparator.EqualityP
@@ -121,7 +118,7 @@ static FObject MakeHashTable(ulong_t cap, FObject ttp, FObject eqp, FObject hash
             (flags &  HASH_TABLE_VALUES_MASK) == HASH_TABLE_WEAK_VALUES ||
             (flags &  HASH_TABLE_VALUES_MASK) == HASH_TABLE_EPHEMERAL_VALUES);
 
-    FHashTable * htbl = (FHashTable *) MakeBuiltin(HashTableType, sizeof(FHashTable), 7,
+    FHashTable * htbl = (FHashTable *) MakeObject(HashTableTag, sizeof(FHashTable), 6,
             "%make-hash-table");
     htbl->Buckets = MakeVector(cap, 0, NoValueObject);
     htbl->TypeTestP = ttp;

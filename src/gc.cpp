@@ -749,6 +749,7 @@ static const char * IndirectTagString[] =
     "exclusive",
     "condition",
     "hash-node",
+    "hash-table",
     "ephemeron",
     "builtin-type",
     "builtin",
