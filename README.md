@@ -12,13 +12,14 @@
 * [Package](https://gitlab.com/jpellegrini/openwrt-packages) for OpenWRT.
 * 32 bit and 64 bit.
 * SRFI 1: List Library
+* SRFI 14: Character-set Library
 * SRFI 60: Integers as Bits
-* SRFI 106: Basic socket interface.
-* SRFI 111: Boxes.
-* SRFI 112: Environment Inquiry.
-* SRFI 124: Ephemerons.
-* SRFI 128: Comparators.
-* SRFI 133: Vector Library (R7RS-compatible).
+* SRFI 106: Basic socket interface
+* SRFI 111: Boxes
+* SRFI 112: Environment Inquiry
+* SRFI 124: Ephemerons
+* SRFI 128: Comparators
+* SRFI 133: Vector Library (R7RS-compatible)
 
 See [Foment](https://github.com/leftmike/foment/wiki/Foment) for more details.
 

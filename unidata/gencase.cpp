@@ -2,7 +2,7 @@
 
 Generate Upcase, Downcase and Foldcase Unicode Tables
 
-genudf <file> Upcase|Downcase|Foldcase|Fullfold|Fullup|Fulldown <field> <max-gap>
+gencase <file> Upcase|Downcase|Foldcase|Fullfold|Fullup|Fulldown <field> <max-gap>
 
 */
 
@@ -55,7 +55,7 @@ unsigned int ParseCodePoint(char * fld)
             n = n * 16 + *fld - 'A' + 10;
         else
         {
-            fprintf(stderr, "error: genudf: unable to parse field: %s\n", s);
+            fprintf(stderr, "error: gencase: unable to parse field: %s\n", s);
             return(0);
         }
 
@@ -94,7 +94,7 @@ unsigned int ParseSeveralPoints(char * fld, unsigned int chars[MAX_FULL_CHARS])
 void Usage()
 {
     fprintf(stderr,
-            "usage: genudf <file> Upcase|Downcase|Foldcase|Fullfold|Fullup|Fulldown  <field> <max-gap>\n");
+            "usage: gencase <file> Upcase|Downcase|Foldcase|Fullfold|Fullup|Fulldown  <field> <max-gap>\n");
 }
 
 typedef struct
@@ -131,7 +131,7 @@ int main(int argc, char * argv[])
             && strcmp(argv[2], "Fulldown"))
     {
         fprintf(stderr,
-                "error: genudf: expected 'Upcase', 'Downcase', 'Foldcase', 'Fullfold', 'Fullup', or 'Fulldown'\n");
+                "error: gencase: expected 'Upcase', 'Downcase', 'Foldcase', 'Fullfold', 'Fullup', or 'Fulldown'\n");
         return(1);
     }
 
@@ -145,7 +145,7 @@ int main(int argc, char * argv[])
     FILE * fp = fopen(argv[1], "rt");
     if (fp == 0)
     {
-        fprintf(stderr, "error: genudf: unable to open %s\n", argv[1]);
+        fprintf(stderr, "error: gencase: unable to open %s\n", argv[1]);
         return(1);
     }
 
@@ -173,7 +173,7 @@ int main(int argc, char * argv[])
 
             if (fdx >= nflds)
             {
-                fprintf(stderr, "error: genudf: <field> too large: %d\n", fdx);
+                fprintf(stderr, "error: gencase: <field> too large: %d\n", fdx);
                 return(1);
             }
 
@@ -188,7 +188,7 @@ int main(int argc, char * argv[])
 
                     if (FullMap[idx].Count == 0)
                     {
-                        fprintf(stderr, "error: genudf: unexpected full mapping: 0x%04x\n", idx);
+                        fprintf(stderr, "error: gencase: unexpected full mapping: 0x%04x\n", idx);
                         return(1);
                     }
                 }

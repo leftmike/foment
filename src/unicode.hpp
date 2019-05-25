@@ -40,8 +40,16 @@ inline FObject ConvertStringToUtf16(FObject s)
     return(ConvertStringToUtf16(AsString(s)->String, StringLength(s), 1, 0));
 }
 
-int WhitespaceP(FCh ch);
+typedef struct
+{
+    FCh Start;
+    FCh End; // Inclusive
+} FCharRange;
+
 int32_t DigitValue(FCh ch);
+unsigned int DigitP(FCh ch);
+
+int WhitespaceP(FCh ch);
 unsigned int AlphabeticP(FCh ch);
 unsigned int UppercaseP(FCh ch);
 unsigned int LowercaseP(FCh ch);

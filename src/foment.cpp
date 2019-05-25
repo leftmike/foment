@@ -1396,6 +1396,7 @@ FIndirectType IndirectTypes[] =
     {"ephemeron", WriteEphemeron},
     {"builtin-type", WriteBuiltinType},
     {"builtin", WriteBuiltin},
+    {"char-set", WriteCharSet},
     {"free", 0}
 };
 
@@ -1500,6 +1501,7 @@ long_t SetupFoment(FThreadState * ts)
     SetupCharacters();
     SetupStrings();
     SetupVectors();
+    SetupCharSets();
     SetupIO();
     SetupFileSys();
     SetupCompile();

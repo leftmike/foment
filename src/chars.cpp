@@ -189,10 +189,7 @@ Define("char-numeric?", CharNumericPPrimitive)(long_t argc, FObject argv[])
     OneArgCheck("char-numeric?", argc);
     CharacterArgCheck("char-numeric?", argv[0]);
 
-    long_t dv = DigitValue(AsCharacter(argv[0]));
-    if (dv < 0 || dv > 9)
-        return(FalseObject);
-    return(TrueObject);
+    return(DigitP(AsCharacter(argv[0])) ? TrueObject : FalseObject);
 }
 
 Define("char-whitespace?", CharWhitespacePPrimitive)(long_t argc, FObject argv[])

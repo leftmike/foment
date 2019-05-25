@@ -3,3 +3,5 @@ unix/debug
 unix/release
 windows/debug
 windows/release
+unidata/*.txt
+unidata/debug

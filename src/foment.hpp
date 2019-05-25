@@ -9,7 +9,6 @@ To Do:
 -- after partial GC, test for objects pointing to Babies
 
 Red Edition:
--- SRFI 14 (scheme charset)
 -- SRFI 41 (scheme stream)
 -- SRFI 101 (scheme rlist)
 -- SRFI 113 (scheme set)
@@ -225,6 +224,7 @@ typedef enum
     EphemeronTag,
     BuiltinTypeTag,
     BuiltinTag,
+    CharSetTag,
     FreeTag, // Only on Adult Generation
     BadDogTag // Invalid Tag
 } FIndirectTag;
@@ -1168,6 +1168,10 @@ inline long_t EphemeronBrokenP(FObject obj)
     return(AsEphemeron(obj)->Next == EPHEMERON_BROKEN);
 }
 
+// ---- Char Sets ----
+
+void WriteCharSet(FWriteContext * wctx, FObject obj);
+
 // ---- Roots ----
 
 void RegisterRoot(FObject * root, const char * name);
@@ -1930,6 +1934,7 @@ void SetupPairs();
 void SetupCharacters();
 void SetupStrings();
 void SetupVectors();
+void SetupCharSets();
 void SetupHashTables();
 void SetupCompare();
 void SetupIO();

@@ -423,6 +423,35 @@
         vector-swap!
         vector-reverse!
     )
+    (export ;; (scheme charset) and (srfi 14)
+        char-set?
+        char-set=
+        char-set<=
+        char-set-hash
+        char-set-cursor
+        char-set-cursor-next
+        list->char-set
+        string->char-set
+        ucs-range->char-set
+        char-set-contains?
+        char-set-complement
+        char-set-union
+        %char-set-intersection
+        char-set:lower-case
+        char-set:upper-case
+        char-set:title-case
+        char-set:letter
+        char-set:digit
+        char-set:whitespace
+        char-set:iso-control
+        char-set:punctuation
+        char-set:symbol
+        char-set:hex-digit
+        char-set:blank
+        char-set:ascii
+        char-set:empty
+        char-set:full
+    )
     (export
         make-ascii-port
         make-latin1-port

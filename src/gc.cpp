@@ -619,7 +619,8 @@ FObject MakeObject(ulong_t tag, ulong_t sz, ulong_t sc, const char * who, long_t
         RaiseException(Restriction, MakeObjectSymbol, NoValueObject, MakeStringC("object too big"),
                 EmptyListObject);
     if (sc > OBJHDR_MAXIMUM_SIZE)
-        RaiseException(Restriction, MakeObjectSymbol, NoValueObject, MakeStringC("too many slots"),            EmptyListObject);
+        RaiseException(Restriction, MakeObjectSymbol, NoValueObject, MakeStringC("too many slots"),
+                EmptyListObject);
 
     TagCounts[tag] += 1;
     if (tsz / OBJECT_ALIGNMENT < SIZE_COUNTS)
