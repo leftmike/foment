@@ -698,7 +698,7 @@ static FObject DoImportSet(FObject env, FObject is, FObject form)
                         "expected (rename <import-set> (<identifier> <identifier>) ...)",
                         List(is, form));
 
-                rlst = Rest(rlst);
+            rlst = Rest(rlst);
         }
 
         if (rlst != EmptyListObject)

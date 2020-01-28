@@ -2103,7 +2103,7 @@ static void Typeahead(char ch)
 {
     int idx = (TypeaheadRear + TypeaheadCount) % sizeof(TypeaheadBuffer);
     TypeaheadBuffer[idx] = ch;
-    if (TypeaheadCount < sizeof(TypeaheadBuffer))
+    if (TypeaheadCount < (int) sizeof(TypeaheadBuffer))
         TypeaheadCount += 1;
 }
 
@@ -2137,7 +2137,7 @@ static ulong_t ConReadRaw(FConsoleInput * ci, long_t wif)
     if (TypeaheadCount > 0)
     {
         ret = 0;
-        while (TypeaheadCount > 0 && ret < sizeof(ci->RawBuffer))
+        while (TypeaheadCount > 0 && ret < (long_t) sizeof(ci->RawBuffer))
         {
             ci->RawBuffer[ret] = TypeaheadBuffer[TypeaheadRear];
             ret += 1;
