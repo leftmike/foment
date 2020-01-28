@@ -16,6 +16,7 @@ Foment
 #include <sys/utsname.h>
 #include <ctype.h>
 #include <pthread.h>
+#include <execinfo.h>
 #endif // FOMENT_UNIX
 
 #include <stdlib.h>
@@ -93,13 +94,21 @@ static FObject FomentLibrariesVector = NoValueObject;
 
 void ErrorExitFoment(const char * what, const char * msg)
 {
-    printf("\n%s: %s\n", what, msg);
+    fprintf(stderr, "\n%s: %s\n", what, msg);
     if (SetupComplete)
     {
         if (CheckHeapFlag || VerboseFlag)
-            printf("RandomSeed: " ULONG_FMT "\n", RandomSeed);
+            fprintf(stderr, "RandomSeed: " ULONG_FMT "\n", RandomSeed);
         ExitFoment();
     }
+
+#ifdef FOMENT_UNIX
+    void *stack[256];
+    size_t cnt;
+
+    cnt = backtrace(stack, sizeof(stack) / sizeof(void *));
+    backtrace_symbols_fd(stack, cnt, STDERR_FILENO);
+#endif // FOMENT_UNIX
 
     exit(1);
 }

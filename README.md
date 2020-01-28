@@ -10,6 +10,7 @@
 * Editing at the REPL including ( ) matching.
 * Portable: Windows, Mac OS X, Linux, and FreeBSD.
 * [Package](https://gitlab.com/jpellegrini/openwrt-packages) for OpenWRT.
+* [Dockerfile](https://github.com/weinholt/scheme-docker/tree/foment/foment).
 * 32 bit and 64 bit.
 * SRFI 1: List Library
 * SRFI 14: Character-set Library
@@ -18,6 +19,7 @@
 * SRFI 111: Boxes
 * SRFI 112: Environment Inquiry
 * SRFI 124: Ephemerons
+* SRFI 125: Hash Tables
 * SRFI 128: Comparators
 * SRFI 133: Vector Library (R7RS-compatible)
 
