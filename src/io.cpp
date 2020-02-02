@@ -66,9 +66,22 @@ FObject StandardError = NoValueObject;
 
 // ---- Binary Ports ----
 
+static FFileHandle InvalidFileHandle(FObject port)
+{
+    return(INVALID_FILE_HANDLE);
+}
+
+static FFileHandle GetObjectFileHandle(FObject port)
+{
+    FAssert(BinaryPortP(port) || TextualPortP(port));
+
+    return(GetFileHandle(AsGenericPort(port)->Object));
+}
+
 FObject MakeBinaryPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn,
     FCloseOutputFn cofn, FFlushOutputFn fofn, FReadBytesFn rbfn, FByteReadyPFn brpfn,
-    FWriteBytesFn wbfn, FGetPositionFn gpfn, FSetPositionFn spfn)
+    FWriteBytesFn wbfn, FGetPositionFn gpfn, FSetPositionFn spfn,
+    FGetFileHandleFn gfhfn, ulong_t flgs)
 {
     FAssert((cifn == 0 && rbfn == 0 && brpfn == 0) || (cifn != 0 && rbfn != 0 && brpfn != 0));
     FAssert((cofn == 0 && wbfn == 0 && fofn == 0) || (cofn != 0 && wbfn != 0 && fofn != 0));
@@ -79,7 +92,8 @@ FObject MakeBinaryPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn,
             "%make-binary-port");
     port->Generic.Flags = (cifn != 0 ? (PORT_FLAG_INPUT | PORT_FLAG_INPUT_OPEN) : 0)
             | (cofn != 0 ? (PORT_FLAG_OUTPUT | PORT_FLAG_OUTPUT_OPEN) : 0)
-            | (gpfn != 0 ? PORT_FLAG_POSITIONING : 0);
+            | (gpfn != 0 ? PORT_FLAG_POSITIONING : 0)
+            | flgs;
     port->Generic.Name = nam;
     port->Generic.Object = obj;
     port->Generic.Context = ctx;
@@ -88,6 +102,7 @@ FObject MakeBinaryPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn,
     port->Generic.FlushOutputFn = fofn;
     port->Generic.GetPositionFn = gpfn;
     port->Generic.SetPositionFn = spfn;
+    port->Generic.GetFileHandleFn = gfhfn == 0 ? InvalidFileHandle : gfhfn;
     port->ReadBytesFn = rbfn;
     port->ByteReadyPFn = brpfn;
     port->WriteBytesFn = wbfn;
@@ -403,7 +418,7 @@ static FObject MakeBufferedPort(FObject port)
     }
 
     port = HandOffPort(port);
-    FObject nport = MakeBinaryPort(AsGenericPort(port)->Name, port, bc,
+    return(MakeBinaryPort(AsGenericPort(port)->Name, port, bc,
             InputPortOpenP(port) ? BufferedCloseInput : 0,
             OutputPortOpenP(port) ? BufferedCloseOutput : 0,
             OutputPortOpenP(port) ? BufferedFlushOutput : 0,
@@ -411,10 +426,9 @@ static FObject MakeBufferedPort(FObject port)
             InputPortOpenP(port) ? BufferedByteReadyP : 0,
             OutputPortOpenP(port) ? BufferedWriteBytes : 0,
             PositioningPortP(port) ? BufferedGetPosition : 0,
-            PositioningPortP(port) ? BufferedSetPosition : 0);
-    AsGenericPort(nport)->Flags |= PORT_FLAG_BUFFERED;
-
-    return(nport);
+            PositioningPortP(port) ? BufferedSetPosition : 0,
+            GetObjectFileHandle,
+            PORT_FLAG_BUFFERED));
 }
 
 static void SocketCloseInput(FObject port)
@@ -494,12 +508,9 @@ static void SocketWriteBytes(FObject port, void * b, ulong_t bl)
 
 static FObject MakeSocketPort(SOCKET s)
 {
-    FObject port = MakeBinaryPort(NoValueObject, NoValueObject, (void *) s, SocketCloseInput,
+    return(MakeBinaryPort(NoValueObject, NoValueObject, (void *) s, SocketCloseInput,
             SocketCloseOutput, SocketFlushOutput, SocketReadBytes, SocketByteReadyP,
-            SocketWriteBytes, 0, 0);
-    AsGenericPort(port)->Flags |= PORT_FLAG_SOCKET;
-
-    return(port);
+            SocketWriteBytes, 0, 0, 0, PORT_FLAG_SOCKET));
 }
 
 #ifdef FOMENT_WINDOWS
@@ -592,24 +603,31 @@ static void HandleSetPosition(FObject port, int64_t pos, FPositionFrom frm)
             frm == FromBegin ? FILE_BEGIN : (frm == FromCurrent ? FILE_CURRENT : FILE_END));
 }
 
+static FFileHandle HandleGetFileHandle(FObject port)
+{
+    FAssert(BinaryPortP(port) || TextualPortP(port));
+
+    return(AsGenericPort(port)->Context);
+}
+
 static FObject MakeHandleInputPort(FObject nam, HANDLE h)
 {
     if (GetFileType(h) == FILE_TYPE_PIPE)
         return(MakeBinaryPort(nam, NoValueObject, h, HandleCloseInput, 0, 0, HandleReadBytes,
-            PipeByteReadyP, 0, 0, 0));
+                PipeByteReadyP, 0, 0, 0, HandleGetFileHandle, 0));
 
     return(MakeBinaryPort(nam, NoValueObject, h, HandleCloseInput, 0, 0, HandleReadBytes,
-            FileByteReadyP, 0, HandleGetPosition, HandleSetPosition));
+            FileByteReadyP, 0, HandleGetPosition, HandleSetPosition, HandleGetFileHandle, 0));
 }
 
 static FObject MakeHandleOutputPort(FObject nam, HANDLE h)
 {
     if (GetFileType(h) == FILE_TYPE_PIPE)
         return(MakeBinaryPort(nam, NoValueObject, h, 0, HandleCloseOutput, HandleFlushOutput, 0, 0,
-                HandleWriteBytes, 0, 0));
+                HandleWriteBytes, 0, 0, HandleGetFileHandle, 0));
 
     return(MakeBinaryPort(nam, NoValueObject, h, 0, HandleCloseOutput, HandleFlushOutput, 0, 0,
-            HandleWriteBytes, HandleGetPosition, HandleSetPosition));
+            HandleWriteBytes, HandleGetPosition, HandleSetPosition, HandleGetFileHandle, 0));
 }
 #endif // FOMENT_WINDOWS
 
@@ -680,26 +698,34 @@ static int64_t FileDescGetPosition(FObject port)
     return(lseek((long_t) AsGenericPort(port)->Context, 0, SEEK_CUR));
 }
 
+static FFileHandle FileDescGetFileHandle(FObject port)
+{
+    FAssert(BinaryPortP(port) || TextualPortP(port));
+
+    return((FFileHandle) (AsGenericPort(port)->Context));
+}
+
 static void FileDescSetPosition(FObject port, int64_t pos, FPositionFrom frm)
 {
     FAssert(BinaryPortP(port) && PortOpenP(port) && PositioningPortP(port));
     FAssert(frm == FromBegin || frm == FromCurrent || frm == FromEnd);
 
-    lseek((long_t) AsGenericPort(port)->Context, pos, 
+    lseek((long_t) AsGenericPort(port)->Context, pos,
             frm == FromBegin ? SEEK_SET : (frm == FromCurrent ? SEEK_CUR : SEEK_END));
 }
 
 static FObject MakeFileDescInputPort(FObject nam, long_t fd)
 {
     return(MakeBinaryPort(nam, NoValueObject, (void *) fd, FileDescCloseInput, 0, 0,
-            FileDescReadBytes, FileDescByteReadyP, 0, FileDescGetPosition, FileDescSetPosition));
+            FileDescReadBytes, FileDescByteReadyP, 0, FileDescGetPosition, FileDescSetPosition,
+            FileDescGetFileHandle, 0));
 }
 
 static FObject MakeFileDescOutputPort(FObject nam, long_t fd)
 {
     return(MakeBinaryPort(nam, NoValueObject, (void *) fd, 0, FileDescCloseOutput,
             FileDescFlushOutput, 0, 0, FileDescWriteBytes, FileDescGetPosition,
-            FileDescSetPosition));
+            FileDescSetPosition, FileDescGetFileHandle, 0));
 }
 #endif // FOMENT_UNIX
 
@@ -744,7 +770,7 @@ static FObject MakeBytevectorInputPort(FObject bv)
     FAssert(BytevectorP(bv));
 
     return(MakeBinaryPort(NoValueObject, bv, 0, BvinCloseInput, 0, 0, BvinReadBytes,
-            BvinByteReadyP, 0, 0, 0));
+            BvinByteReadyP, 0, 0, 0, 0, 0));
 }
 
 static void BvoutCloseOutput(FObject port)
@@ -799,17 +825,16 @@ static FObject GetOutputBytevector(FObject port)
 
 static FObject MakeBytevectorOutputPort()
 {
-    FObject port = MakeBinaryPort(NoValueObject, EmptyListObject, 0, 0, BvoutCloseOutput,
-            BvoutFlushOutput, 0, 0, BvoutWriteBytes, 0, 0);
-    AsGenericPort(port)->Flags |= PORT_FLAG_BYTEVECTOR_OUTPUT;
-    return(port);
+    return(MakeBinaryPort(NoValueObject, EmptyListObject, 0, 0, BvoutCloseOutput,
+            BvoutFlushOutput, 0, 0, BvoutWriteBytes, 0, 0, 0, PORT_FLAG_BYTEVECTOR_OUTPUT));
 }
 
 // ---- Textual Ports ----
 
 FObject MakeTextualPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn,
     FCloseOutputFn cofn, FFlushOutputFn fofn, FReadChFn rcfn, FCharReadyPFn crpfn,
-    FWriteStringFn wsfn, FGetPositionFn gpfn, FSetPositionFn spfn)
+    FWriteStringFn wsfn, FGetPositionFn gpfn, FSetPositionFn spfn, FGetFileHandleFn gfhfn,
+    ulong_t flgs)
 {
     FAssert((cifn == 0 && rcfn == 0 && crpfn == 0) || (cifn != 0 && rcfn != 0 && crpfn != 0));
     FAssert((cofn == 0 && wsfn == 0 && fofn == 0) || (cofn != 0 && wsfn != 0 && fofn != 0));
@@ -820,7 +845,8 @@ FObject MakeTextualPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn
             "%make-textual-port");
     port->Generic.Flags = (cifn != 0 ? (PORT_FLAG_INPUT | PORT_FLAG_INPUT_OPEN) : 0)
             | (cofn != 0 ? (PORT_FLAG_OUTPUT | PORT_FLAG_OUTPUT_OPEN) : 0)
-            | (gpfn != 0 ? PORT_FLAG_POSITIONING : 0);
+            | (gpfn != 0 ? PORT_FLAG_POSITIONING : 0)
+            | flgs;
     port->Generic.Name = nam;
     port->Generic.Object = obj;
     port->Generic.Context = ctx;
@@ -829,6 +855,7 @@ FObject MakeTextualPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn
     port->Generic.FlushOutputFn = fofn;
     port->Generic.GetPositionFn = gpfn;
     port->Generic.SetPositionFn = spfn;
+    port->Generic.GetFileHandleFn = gfhfn == 0 ? InvalidFileHandle : gfhfn;
     port->ReadChFn = rcfn;
     port->CharReadyPFn = crpfn;
     port->WriteStringFn = wsfn;
@@ -1099,6 +1126,13 @@ void SetPosition(FObject port, int64_t pos, FPositionFrom frm)
     AsGenericPort(port)->SetPositionFn(port, pos, frm);
 }
 
+FFileHandle GetFileHandle(FObject port)
+{
+    FAssert(BinaryPortP(port) || TextualPortP(port));
+
+    return(AsGenericPort(port)->GetFileHandleFn(port));
+}
+
 static void TranslatorCloseInput(FObject port)
 {
     FAssert(BinaryPortP(AsGenericPort(port)->Object));
@@ -1132,7 +1166,7 @@ static FObject MakeTranslatorPort(FObject port, FReadChFn rcfn, FCharReadyPFn cr
             OutputPortP(port) ? TranslatorFlushOutput : 0,
             InputPortP(port) ? rcfn : 0,
             InputPortP(port) ? crpfn : 0,
-            OutputPortP(port) ? wsfn : 0, 0, 0));
+            OutputPortP(port) ? wsfn : 0, 0, 0, GetObjectFileHandle, 0));
 }
 
 static ulong_t AsciiReadCh(FObject port, FCh * ch)
@@ -1497,6 +1531,32 @@ FObject OpenOutputFile(FObject fn)
     return(port);
 }
 
+FObject OpenInputPipe(FFileHandle fh)
+{
+#ifdef FOMENT_WINDOWS
+    return(MakeLatin1Port(MakeBufferedPort(
+            MakeHandleInputPort(MakeStringC("input-pipe"), fh))));
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    return(MakeUtf8Port(MakeBufferedPort(
+            MakeFileDescInputPort(MakeStringC("input-pipe"), fh))));
+#endif // FOMENT_UNIX
+}
+
+FObject OpenOutputPipe(FFileHandle fh)
+{
+#ifdef FOMENT_WINDOWS
+    return(MakeLatin1Port(MakeBufferedPort(
+            MakeHandleOutputPort(MakeStringC("output-pipe"), fh))));
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    return(MakeUtf8Port(MakeBufferedPort(
+            MakeFileDescOutputPort(MakeStringC("output-pipe"), fh))));
+#endif // FOMENT_UNIX
+}
+
 static void SinCloseInput(FObject port)
 {
     FAssert(TextualPortP(port));
@@ -1533,7 +1593,7 @@ FObject MakeStringInputPort(FObject s)
     FAssert(StringP(s));
 
     return(MakeTextualPort(NoValueObject, s, 0, SinCloseInput, 0, 0, SinReadCh, SinCharReadyP,
-            0, 0, 0));
+            0, 0, 0, 0, 0));
 }
 
 static void SoutCloseOutput(FObject port)
@@ -1588,10 +1648,8 @@ FObject GetOutputString(FObject port)
 
 FObject MakeStringOutputPort()
 {
-    FObject port = MakeTextualPort(NoValueObject, EmptyListObject, 0, 0, SoutCloseOutput,
-            SoutFlushOutput, 0, 0, SoutWriteString, 0, 0);
-    AsGenericPort(port)->Flags |= PORT_FLAG_STRING_OUTPUT;
-    return(port);
+    return(MakeTextualPort(NoValueObject, EmptyListObject, 0, 0, SoutCloseOutput,
+            SoutFlushOutput, 0, 0, SoutWriteString, 0, 0, 0, PORT_FLAG_STRING_OUTPUT));
 }
 
 static void CinCloseInput(FObject port)
@@ -1622,7 +1680,7 @@ static long_t CinCharReadyP(FObject port)
 FObject MakeStringCInputPort(const char * s)
 {
     return(MakeTextualPort(NoValueObject, NoValueObject, (void *) s, CinCloseInput, 0, 0,
-            CinReadCh, CinCharReadyP, 0, 0, 0));
+            CinReadCh, CinCharReadyP, 0, 0, 0, 0, 0));
 }
 
 // ---- Console Input and Output ----
@@ -2761,6 +2819,13 @@ static long_t ConCharReadyP(FObject port)
 }
 
 #ifdef FOMENT_WINDOWS
+static FFileHandle ConGetFileHandle(FObject port)
+{
+    FAssert(InputPortP(port) && ConsolePortP(port));
+
+    return(AsConsoleInput(port)->InputHandle);
+}
+
 static FObject MakeConsoleInputPort(FObject nam, HANDLE hin, HANDLE hout)
 {
     FConsoleInput * ci = MakeConsoleInput();
@@ -2771,8 +2836,7 @@ static FObject MakeConsoleInputPort(FObject nam, HANDLE hin, HANDLE hout)
     ci->OutputHandle = hout;
 
     FObject port = MakeTextualPort(nam, NoValueObject, ci, ConCloseInput, 0, 0, ConReadCh,
-            ConCharReadyP, 0, 0, 0);
-    AsGenericPort(port)->Flags |= PORT_FLAG_CONSOLE | PORT_FLAG_INTERACTIVE;
+            ConCharReadyP, 0, 0, 0, ConGetFileHandle, PORT_FLAG_CONSOLE | PORT_FLAG_INTERACTIVE);
     AsConsoleInput(port)->Mode = CONSOLE_INPUT_ECHO;
 
     return(port);
@@ -2806,15 +2870,19 @@ static void ConWriteString(FObject port, FCh * s, ulong_t sl)
 
 static FObject MakeConsoleOutputPort(FObject nam, HANDLE h)
 {
-    FObject port = MakeTextualPort(nam, NoValueObject, h, 0, ConCloseOutput, ConFlushOutput, 0,
-            0, ConWriteString, 0, 0);
-    AsGenericPort(port)->Flags |= PORT_FLAG_CONSOLE;
-
-    return(port);
+    return(MakeTextualPort(nam, NoValueObject, h, 0, ConCloseOutput, ConFlushOutput, 0,
+            0, ConWriteString, 0, 0, HandleGetFileHandle, PORT_FLAG_CONSOLE));
 }
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
+static FFileHandle ConGetFileHandle(FObject port)
+{
+    FAssert(InputPortP(port) && ConsolePortP(port));
+
+    return(AsConsoleInput(port)->InputFd);
+}
+
 static FObject MakeConsoleInputPort(FObject nam, long_t ifd, long_t ofd, int fi)
 {
     FConsoleInput * ci = MakeConsoleInput();
@@ -2825,8 +2893,7 @@ static FObject MakeConsoleInputPort(FObject nam, long_t ifd, long_t ofd, int fi)
     ci->OutputFd = ofd;
 
     FObject port = MakeTextualPort(nam, NoValueObject, ci, ConCloseInput, 0, 0, ConReadCh,
-            ConCharReadyP, 0, 0, 0);
-    AsGenericPort(port)->Flags |= PORT_FLAG_CONSOLE;
+            ConCharReadyP, 0, 0, 0, ConGetFileHandle, PORT_FLAG_CONSOLE);
     if (fi)
     {
         AsGenericPort(port)->Flags |= PORT_FLAG_INTERACTIVE;
@@ -2862,11 +2929,8 @@ static void ConWriteString(FObject port, FCh * s, ulong_t sl)
 
 static FObject MakeConsoleOutputPort(FObject nam, long_t ofd)
 {
-    FObject port = MakeTextualPort(nam, NoValueObject, (void *) ofd, 0, ConCloseOutput,
-            ConFlushOutput, 0, 0, ConWriteString, 0, 0);
-    AsGenericPort(port)->Flags |= PORT_FLAG_CONSOLE;
-
-    return(port);
+    return(MakeTextualPort(nam, NoValueObject, (void *) ofd, 0, ConCloseOutput,
+            ConFlushOutput, 0, 0, ConWriteString, 0, 0, FileDescGetFileHandle, PORT_FLAG_CONSOLE));
 }
 #endif // FOMENT_UNIX
 
@@ -3186,6 +3250,44 @@ Define("set-port-position!", SetPortPositionPrimitive)(long_t argc, FObject argv
     }
 
     SetPosition(argv[0], AsFixnum(argv[1]), frm);
+    return(NoValueObject);
+}
+
+Define("%copy-port", CopyPortPrimitive)(long_t argc, FObject argv[])
+{
+    TwoArgsCheck("%copy-port", argc);
+    InputPortArgCheck("%copy-port", argv[0]);
+    if (TextualPortP(argv[0]))
+    {
+        TextualInputPortArgCheck("%copy-port", argv[0]);
+        TextualOutputPortArgCheck("%copy-port", argv[1]);
+
+        for (;;)
+        {
+            FCh ch;
+
+            if (ReadCh(argv[0], &ch) == 0)
+                break;
+            WriteCh(argv[1], ch);
+        }
+    }
+    else
+    {
+        FAssert(BinaryPortP(argv[0]));
+
+        BinaryInputPortArgCheck("%copy-port", argv[0]);
+        BinaryOutputPortArgCheck("%copy-port", argv[1]);
+
+        for (;;)
+        {
+            FByte buf[1024];
+            ulong_t bl = ReadBytes(argv[0], buf, sizeof(buf));
+            if (bl == 0)
+                break;
+            WriteBytes(argv[1], buf, bl);
+        }
+    }
+
     return(NoValueObject);
 }
 
@@ -3583,6 +3685,7 @@ static FObject Primitives[] =
     PositioningPortPPrimitive,
     PortPositionPrimitive,
     SetPortPositionPrimitive,
+    CopyPortPrimitive,
     SocketMergeFlagsPrimitive,
     SocketPurgeFlagsPrimitive,
     SocketPPrimitive,
@@ -3599,18 +3702,11 @@ static FObject Primitives[] =
 
 #ifdef FOMENT_UNIX
 static struct termios OriginalTios;
+static int InteractiveConsole = 0;
 
-static void FomentAtExit(void)
-{
-    tcsetattr(0, TCSANOW, &OriginalTios);
-}
-
-static long_t SetupConsole()
+static void SetupTios(void)
 {
     struct termios tios;
-
-    tcgetattr(0, &OriginalTios);
-    atexit(FomentAtExit);
 
     tcgetattr(0, &tios);
     tios.c_iflag = BRKINT;
@@ -3618,6 +3714,31 @@ static long_t SetupConsole()
     tios.c_cc[VMIN] = 1;
     tios.c_cc[VTIME] = 1;
     tcsetattr(0, TCSANOW, &tios);
+}
+
+static void RestoreTios(void)
+{
+    tcsetattr(0, TCSANOW, &OriginalTios);
+}
+
+void SetupConsoleAgain()
+{
+    if (InteractiveConsole)
+        SetupTios();
+}
+
+void RestoreConsole()
+{
+    if (InteractiveConsole)
+        RestoreTios();
+}
+
+static long_t SetupConsole()
+{
+    tcgetattr(0, &OriginalTios);
+    atexit(RestoreTios);
+
+    SetupTios();
 
     long_t x;
     long_t y;
@@ -3634,7 +3755,7 @@ static void DefineConstant(FObject env, FObject lib, const char * nam, FObject v
     LibraryExport(lib, EnvironmentSetC(env, nam, val));
 }
 
-void ExitFoment()
+void FlushStandardPorts()
 {
     if (TextualPortP(StandardOutput) || BinaryPortP(StandardOutput))
         FlushOutput(StandardOutput);
@@ -3693,8 +3814,9 @@ void SetupIO()
     if (isatty(0) && isatty(1))
     {
         char * term = getenv("TERM");
-        int fi = (term != 0 && strcasecmp(term, "dumb") != 0 && SetupConsole());
-        StandardInput = MakeConsoleInputPort(MakeStringC("console-input"), 0, 1, fi);
+        InteractiveConsole = (term != 0 && strcasecmp(term, "dumb") != 0 && SetupConsole());
+        StandardInput = MakeConsoleInputPort(MakeStringC("console-input"), 0, 1,
+                InteractiveConsole);
         StandardOutput = MakeConsoleOutputPort(MakeStringC("console-output"), 1);
     }
     else

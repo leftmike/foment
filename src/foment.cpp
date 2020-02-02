@@ -99,7 +99,7 @@ void ErrorExitFoment(const char * what, const char * msg)
     {
         if (CheckHeapFlag || VerboseFlag)
             fprintf(stderr, "RandomSeed: " ULONG_FMT "\n", RandomSeed);
-        ExitFoment();
+        FlushStandardPorts();
     }
 
 #ifdef FOMENT_UNIX
@@ -1163,6 +1163,8 @@ FObject ThreadPPrimitiveFn(long_t argc, FObject argv[]);
 FObject ExclusivePPrimitiveFn(long_t argc, FObject argv[]);
 FObject ConditionPPrimitiveFn(long_t argc, FObject argv[]);
 FObject EphemeronPPrimitiveFn(long_t argc, FObject argv[]);
+FObject CharSetPPrimitiveFn(long_t argc, FObject argv[]);
+FObject SubprocessPPrimitiveFn(long_t argc, FObject argv[]);
 
 static FObject LookupTypeTags(FObject ttp)
 {
@@ -1208,6 +1210,10 @@ static FObject LookupTypeTags(FObject ttp)
             return(List(MakeFixnum(ConditionTag + INDIRECT_TAG_OFFSET)));
         else if (AsPrimitive(ttp)->PrimitiveFn == EphemeronPPrimitiveFn)
             return(List(MakeFixnum(EphemeronTag + INDIRECT_TAG_OFFSET)));
+        else if (AsPrimitive(ttp)->PrimitiveFn == CharSetPPrimitiveFn)
+            return(List(MakeFixnum(CharSetTag + INDIRECT_TAG_OFFSET)));
+        else if (AsPrimitive(ttp)->PrimitiveFn == SubprocessPPrimitiveFn)
+            return(List(MakeFixnum(SubprocessTag + INDIRECT_TAG_OFFSET)));
     }
 
     return(EmptyListObject);
@@ -1406,6 +1412,7 @@ FIndirectType IndirectTypes[] =
     {"builtin-type", WriteBuiltinType},
     {"builtin", WriteBuiltin},
     {"char-set", WriteCharSet},
+    {"subprocess", WriteSubprocess},
     {"free", 0}
 };
 
@@ -1511,6 +1518,7 @@ long_t SetupFoment(FThreadState * ts)
     SetupStrings();
     SetupVectors();
     SetupCharSets();
+    SetupProcess();
     SetupIO();
     SetupFileSys();
     SetupCompile();

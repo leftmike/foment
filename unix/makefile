@@ -2,7 +2,6 @@
 # Foment
 #
 
-CC ?= gcc
 CXX ?= g++
 BUILD_CXX ?= g++
 
@@ -39,7 +38,7 @@ clean: debug release profile
 	-rm profile/*
 
 .PHONY: test
-test: all foment-test stress-test chibi-test
+test: all foment-test stress-test chibi-test process-test
 
 .PHONY: test-all
 test-all: all
@@ -72,6 +71,10 @@ stress-test: all
 chibi-test: all
 	cd ../test ; ../unix/$(TEST_BUILD)/foment $(TEST_OPTIONS) r7rs-tests.scm
 
+.PHONY: process-test
+process-test: all debug/stdread debug/stdwrite debug/exitcode debug/hang
+	PATH=../unix/debug:$(PATH) ; cd ../test ; ../unix/$(TEST_BUILD)/foment $(TEST_OPTIONS) runtests.scm process.scm
+
 debug:
 	-mkdir debug
 
@@ -93,7 +96,7 @@ debug/foment: debug/foment.o debug/gc.o debug/syncthrd.o debug/compile.o debug/i
 		debug/pairs.o debug/unicode.o debug/chars.o debug/strings.o debug/vectors.o\
 		debug/library.o debug/execute.o debug/numbers.o debug/write.o\
 		debug/read.o debug/filesys.o debug/compare.o debug/main.o debug/hashtbl.o\
-		debug/bignums.o debug/charset.o debug/base.o
+		debug/bignums.o debug/charset.o debug/process.o debug/base.o
 	$(CXX)  $(LDFLAGS) -o debug/foment $^ -lpthread
 
 release/foment: release/foment.o release/gc.o release/syncthrd.o release/compile.o release/io.o\
@@ -102,7 +105,7 @@ release/foment: release/foment.o release/gc.o release/syncthrd.o release/compile
 		release/vectors.o release/library.o release/execute.o release/numbers.o\
 		release/write.o release/read.o release/filesys.o\
 		release/compare.o release/main.o release/hashtbl.o release/bignums.o release/charset.o\
-		release/base.o
+		release/process.o release/base.o
 	$(CXX) $(LDFLAGS) -o release/foment $^ -lpthread
 
 profile/foment: profile/foment.o profile/gc.o profile/syncthrd.o profile/compile.o profile/io.o\
@@ -111,7 +114,7 @@ profile/foment: profile/foment.o profile/gc.o profile/syncthrd.o profile/compile
 		profile/vectors.o profile/library.o profile/execute.o profile/numbers.o\
 		profile/write.o profile/read.o profile/filesys.o\
 		profile/compare.o profile/main.o profile/hashtbl.o profile/bignums.o profile/charset.o\
-		profile/base.o
+		profile/process.o profile/base.o
 	$(CXX)  $(LDFLAGS) -pg -o profile/foment $^ -lpthread
 
 debug/foment.o: ../src/foment.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/unicode.hpp
@@ -132,6 +135,8 @@ debug/execute.o: ../src/execute.cpp ../src/foment.hpp ../src/execute.hpp ../src/
 debug/numbers.o: ../src/numbers.cpp ../src/foment.hpp ../src/unicode.hpp ../src/bignums.hpp
 debug/bignums.o: ../src/bignums.cpp ../src/foment.hpp ../src/unicode.hpp ../src/bignums.hpp
 debug/charset.o: ../src/charset.cpp ../src/foment.hpp ../src/unicode.hpp ../src/unicrng.hpp
+debug/process.o: ../src/process.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
+	../src/unicode.hpp
 debug/io.o: ../src/io.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
 	../src/unicode.hpp
 debug/write.o: ../src/write.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
@@ -162,6 +167,8 @@ release/execute.o: ../src/execute.cpp ../src/foment.hpp ../src/execute.hpp ../sr
 release/numbers.o: ../src/numbers.cpp ../src/foment.hpp ../src/unicode.hpp ../src/bignums.hpp
 release/bignums.o: ../src/bignums.cpp ../src/foment.hpp ../src/unicode.hpp ../src/bignums.hpp
 release/charset.o: ../src/charset.cpp ../src/foment.hpp ../src/unicode.hpp ../src/unicrng.hpp
+release/process.o: ../src/process.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
+	../src/unicode.hpp
 release/io.o: ../src/io.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
 	../src/unicode.hpp
 release/write.o: ../src/write.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
@@ -180,9 +187,6 @@ debug/%.o: %.cpp
 debug/%.o: ../src/%.cpp
 	$(CXX) $(CCDEBUG) -I ../src -o $@ $<
 
-debug/%.o: ../src/%.c
-	$(CC) $(CCDEBUG) -I ../src -o $@ $<
-
 debug/%.o: debug/%.cpp
 	$(CXX) $(CCDEBUG) -I ../src -o $@ $<
 
@@ -191,9 +195,6 @@ release/%.o: %.cpp
 
 release/%.o: ../src/%.cpp
 	$(CXX) $(CCRELEASE) -I ../src -o $@ $<
-
-release/%.o: ../src/%.c
-	$(CC) $(CCRELEASE) -I ../src -o $@ $<
 
 release/%.o: debug/%.cpp
 	$(CXX) $(CCRELEASE) -I ../src -o $@ $<
@@ -204,12 +205,14 @@ profile/%.o: %.cpp
 profile/%.o: ../src/%.cpp
 	$(CXX) $(CCPROFILE) -I ../src -o $@ $<
 
-profile/%.o: ../src/%.c
-	$(CC) $(CCPROFILE) -I ../src -o $@ $<
-
 profile/%.o: debug/%.cpp
 	$(CXX) $(CCPROFILE) -I ../src -o $@ $<
+
+debug/%: ../test/%.cpp
+	$(BUILD_CXX) $(CCDEBUG) -o debug/$*.o $<
+	$(BUILD_CXX) debug/$*.o -o $@
 
 debug/txt2cpp: ../src/txt2cpp.cpp
 	$(BUILD_CXX) $(CCDEBUG) ../src/txt2cpp.cpp -o debug/txt2cpp.o
 	$(BUILD_CXX) debug/txt2cpp.o -o debug/txt2cpp
+

@@ -253,7 +253,7 @@ void ThreadExit(FObject obj)
 
     if (LeaveThread(ts) == 0)
     {
-        ExitFoment();
+        FlushStandardPorts();
 
         exit(0);
     }
@@ -281,7 +281,7 @@ Define("%exit", ExitPrimitive)(long_t argc, FObject argv[])
 {
     ZeroOrOneArgsCheck("exit", argc);
 
-    ExitFoment();
+    FlushStandardPorts();
     if (argc == 0 || argv[0] == TrueObject)
         exit(0);
     if (FixnumP(argv[0]))

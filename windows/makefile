@@ -2,22 +2,25 @@
 # Foment
 #
 
+PATH = $(PATH);../windows/debug
+
 TEST_OPTIONS = --check-heap
 TEST_BUILD = debug
 
-CLDEBUG = /nologo /MD /W3 /Gm /EHsc /Zi /Od /c /Fodebug/ /DFOMENT_DEBUG /DFOMENT_WINDOWS
-CLRELEASE = /nologo /MD /W3 /Ox /Zi /GA /EHsc /Forelease/ /c /DFOMENT_WINDOWS
+CLDEBUG = /nologo /MD /W3 /EHsc /Zi /Od /c /Fodebug\ /DFOMENT_DEBUG /DFOMENT_WINDOWS
+CLRELEASE = /nologo /MD /W3 /Ox /Zi /GA /EHsc /Forelease\ /c /DFOMENT_WINDOWS
 
 LIBS = ws2_32.lib iphlpapi.lib
 
-all: debug release debug\foment.exe release\foment.exe
+all: debug release debug\foment.exe release\foment.exe debug\stdread.exe debug\stdwrite.exe\
+        debug\exitcode.exe debug\hang.exe
 
 clean: debug release manual
     del /Q debug\*
     del /Q release\*
     del /Q manual\*
 
-test: all foment-test stress-test chibi-test
+test: all foment-test stress-test chibi-test process-test
 
 test-all: all test-no-collector test-mark-sweep
 
@@ -53,6 +56,10 @@ chibi-test: all
     cd ..\test
     ..\windows\$(TEST_BUILD)\foment $(TEST_OPTIONS) runtests.scm stress.scm r7rs-tests.scm
 
+process-test: all
+    cd ..\test
+    ..\windows\$(TEST_BUILD)\foment $(TEST_OPTIONS) runtests.scm process.scm
+
 debug:
     -mkdir debug
 
@@ -74,7 +81,7 @@ debug\foment.exe: debug\foment.obj debug\gc.obj debug\syncthrd.obj debug\compile
         debug\pairs.obj debug\unicode.obj debug\chars.obj debug\strings.obj debug\vectors.obj\
         debug\library.obj debug\execute.obj debug\numbers.obj debug\write.obj\
         debug\read.obj debug\filesys.obj debug\compare.obj debug\main.obj debug\hashtbl.obj\
-        debug\bignums.obj debug\charset.obj debug\base.obj
+        debug\bignums.obj debug\charset.obj debug\process.obj debug\base.obj
     link /nologo /subsystem:console /out:debug\foment.exe /debug /pdb:debug\foment.pdb\
         /largeaddressaware $** $(LIBS)
 
@@ -84,14 +91,25 @@ release\foment.exe: release\foment.obj release\gc.obj release\syncthrd.obj relea
         release\strings.obj release\vectors.obj release\library.obj release\execute.obj\
         release\numbers.obj release\write.obj release\read.obj\
         release\filesys.obj release\compare.obj release\main.obj release\hashtbl.obj\
-        release\bignums.obj release\charset.obj release\base.obj
+        release\bignums.obj release\charset.obj release\process.obj release\base.obj
 #    link /nologo /subsystem:console /out:release\foment.exe $**
     link /nologo /subsystem:console /out:release\foment.exe /debug /pdb:release\foment.pdb\
         /largeaddressaware $** $(LIBS)
 
 debug\txt2cpp.exe: debug\txt2cpp.obj
-    link /nologo /subsystem:console /out:debug\txt2cpp.exe\
-    debug\txt2cpp.obj
+    link /nologo /subsystem:console /out:debug\txt2cpp.exe debug\txt2cpp.obj
+
+debug\stdread.exe: debug\stdread.obj
+    link /nologo /subsystem:console /out:debug\stdread.exe debug\stdread.obj
+
+debug\stdwrite.exe: debug\stdwrite.obj
+    link /nologo /subsystem:console /out:debug\stdwrite.exe debug\stdwrite.obj
+
+debug\exitcode.exe: debug\exitcode.obj
+    link /nologo /subsystem:console /out:debug\exitcode.exe debug\exitcode.obj
+
+debug\hang.exe: debug\hang.obj
+    link /nologo /subsystem:console /out:debug\hang.exe debug\hang.obj
 
 debug\foment.obj: ..\src\foment.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\unicode.hpp
 debug\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp
@@ -111,6 +129,8 @@ debug\execute.obj: ..\src\execute.cpp ..\src\foment.hpp ..\src\execute.hpp ..\sr
 debug\numbers.obj: ..\src\numbers.cpp ..\src\foment.hpp ..\src\unicode.hpp ..\src\bignums.hpp
 debug\bignums.obj: ..\src\bignums.cpp ..\src\foment.hpp ..\src\unicode.hpp ..\src\bignums.hpp
 debug\charset.obj: ..\src\charset.cpp ..\src\foment.hpp ..\src\unicode.hpp  ..\src\unicrng.hpp
+debug\process.obj: ..\src\process.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
+    ..\src\unicode.hpp
 debug\io.obj: ..\src\io.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp ..\src\unicode.hpp
 debug\write.obj: ..\src\write.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
     ..\src\compile.hpp
@@ -140,6 +160,8 @@ release\execute.obj: ..\src\execute.cpp ..\src\foment.hpp ..\src\execute.hpp ..\
 release\numbers.obj: ..\src\numbers.cpp ..\src\foment.hpp ..\src\unicode.hpp ..\src\bignums.hpp
 release\bignums.obj: ..\src\bignums.cpp ..\src\foment.hpp ..\src\unicode.hpp ..\src\bignums.hpp
 release\charset.obj: ..\src\charset.cpp ..\src\foment.hpp ..\src\unicode.hpp  ..\src\unicrng.hpp
+release\process.obj: ..\src\process.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
+    ..\src\unicode.hpp
 release\io.obj: ..\src\io.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
     ..\src\unicode.hpp
 release\write.obj: ..\src\write.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
@@ -153,6 +175,11 @@ release\main.obj: ..\src\main.cpp ..\src\foment.hpp
 release\base.obj: debug\base.cpp
 
 debug\txt2cpp.obj: ..\src\txt2cpp.cpp
+
+debug\stdread.obj: ..\test\stdread.cpp
+debug\stdwrite.obj: ..\test\stdwrite.cpp
+debug\exitcode.obj: ..\test\exitcode.cpp
+debug\hang.obj: ..\test\hang.cpp
 
 {.}.cpp.{debug}.obj:
     cl $(CLDEBUG) $(*B).cpp
@@ -178,3 +205,5 @@ debug\txt2cpp.obj: ..\src\txt2cpp.cpp
 {debug\}.cpp.{release}.obj:
     cl $(CLRELEASE) debug\$(*B).cpp
 
+{..\test\}.cpp.{debug}.obj:
+    cl $(CLDEBUG) ..\test\$(*B).cpp

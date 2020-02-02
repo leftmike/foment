@@ -495,8 +495,8 @@ Define("ucs-range->char-set", UCSRangeToCharSetPrimitive)(long_t argc, FObject a
     FixnumArgCheck("ucs-range->char-set", argv[0]);
     FixnumArgCheck("ucs-range->char-set", argv[1]);
 
-    FCh lower = AsFixnum(argv[0]);
-    FCh upper = AsFixnum(argv[1]);
+    FCh lower = (FCh) AsFixnum(argv[0]);
+    FCh upper = (FCh) AsFixnum(argv[1]);
     FObject base = EmptyCharSet;
 
     if (argc > 2)

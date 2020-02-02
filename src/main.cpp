@@ -155,7 +155,7 @@ static int RunProgram(FChS * arg)
         ReadLine(port);
 
     ExecuteProc(CompileProgram(nam, port));
-    ExitFoment();
+    FlushStandardPorts();
     return(0);
 }
 
@@ -769,7 +769,7 @@ int main(int argc, FChS * argv[])
         if ((BinaryPortP(StandardOutput) || TextualPortP(StandardOutput))
                 && OutputPortOpenP(StandardOutput))
             WriteSimple(StandardOutput, obj, 0);
-        ExitFoment();
+        FlushStandardPorts();
         return(1);
     }
 
@@ -779,7 +779,7 @@ int main(int argc, FChS * argv[])
     {
         if (ProcessOptions(LateConfig, argc, argv, &pdx) == 0)
         {
-            ExitFoment();
+            FlushStandardPorts();
             return(1);
         }
 
@@ -811,12 +811,12 @@ int main(int argc, FChS * argv[])
                 return(1);
             }
             ExecuteProc(CompileProgram(AsGenericPort(StandardInput)->Name, StandardInput));
-            ExitFoment();
+            FlushStandardPorts();
             break;
 
         case InteractiveMode:
             ExecuteProc(InteractiveThunk);
-            ExitFoment();
+            FlushStandardPorts();
             break;
 
         default:
@@ -831,7 +831,7 @@ int main(int argc, FChS * argv[])
             WriteStringC(StandardOutput, "exception: ");
         WriteSimple(StandardOutput, obj, 0);
         WriteCh(StandardOutput, '\n');
-        ExitFoment();
+        FlushStandardPorts();
         return(1);
     }
 }

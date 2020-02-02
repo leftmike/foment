@@ -596,6 +596,20 @@
         lookup-type-tags
         comparator-context
         comparator-context-set!
+        subprocess
+        subprocess-wait
+        subprocess-status
+        subprocess-kill
+        subprocess-pid
+        subprocess?
+        system
+        system*
+        system/exit-code
+        system*/exit-code
+        process
+        process*
+        process/ports
+        process*/ports
         current-milliseconds
         time-apply
         time
@@ -943,6 +957,126 @@
                         (lambda () (enter-exclusive exclusive))
                         (lambda () expr1 expr2 ...)
                         (lambda () (leave-exclusive exclusive))))))
+
+        (define (subprocess stdout stdin stderr command . args)
+            (apply values (apply %subprocess #f stdout stdin stderr command args)))
+
+        (define (shell-cmd/args cmd)
+            (cond-expand
+                (windows (list (get-environment-variable "ComSpec") (string-append "/c " cmd)))
+                (else (list "/bin/sh" "-c" cmd))))
+
+        (define (system cmd)
+            (apply system* (shell-cmd/args cmd)))
+
+        (define (system* cmd . args)
+            (= (apply system*/exit-code cmd args) 0))
+
+        (define (system/exit-code cmd)
+            (apply system*/exit-code (shell-cmd/args cmd)))
+
+        (define (system*/exit-code cmd . args)
+            (let* ((lst (apply process*/ports (current-output-port) (current-input-port)
+                        (current-error-port) cmd args))
+                    (ctrl (cadddr (cdr lst))))
+                (ctrl 'wait)
+                (ctrl 'exit-code)))
+
+        (define (process cmd)
+            (apply process*/ports (current-output-port) (current-input-port) (current-error-port)
+                    (shell-cmd/args cmd)))
+
+        (define (process* cmd . args)
+            (apply process*/ports (current-output-port) (current-input-port) (current-error-port)
+                    cmd args))
+
+        (define (process/ports out in err cmd)
+            (apply process*/ports out in err (shell-cmd/args cmd)))
+
+        (define (process-pipes out chldin in chldout err chlderr)
+          (if (or
+                  (and (output-port? out) (input-port? chldin))
+                  (and (input-port? in) (output-port? chldout))
+                  (and (output-port? err) (input-port? chlderr)))
+              (let ((lock (make-exclusive))
+                      (done (make-condition))
+                      (cnt 0))
+                  (if (and (output-port? out) (input-port? chldin))
+                      (run-thread
+                          (lambda ()
+                              (with-exclusive lock (set! cnt (+ cnt 1)))
+                              (%copy-port chldin out)
+                              (close-port chldin)
+                              (with-exclusive lock
+                                  (set! cnt (- cnt 1))
+                                  (if (= cnt 0)
+                                      (condition-wake done))))))
+                  (if (and (input-port? in) (output-port? chldout))
+                      (run-thread
+                          (lambda ()
+                              (with-exclusive lock (set! cnt (+ cnt 1)))
+                              (%copy-port in chldout)
+                              (close-port chldout)
+                              (with-exclusive lock
+                                  (set! cnt (- cnt 1))
+                                  (if (= cnt 0)
+                                      (condition-wake done))))))
+                  (if (and (output-port? err) (input-port? chlderr))
+                      (run-thread
+                          (lambda ()
+                              (with-exclusive lock (set! cnt (+ cnt 1)))
+                              (%copy-port chlderr err)
+                              (close-port chlderr)
+                              (with-exclusive lock
+                                  (set! cnt (- cnt 1))
+                                  (if (= cnt 0)
+                                      (condition-wake done))))))
+                  (lambda ()
+                      (define (wait)
+                          (if (= cnt 0)
+                              (leave-exclusive lock)
+                              (begin
+                                (condition-wait done lock)
+                                (wait))))
+                      (enter-exclusive lock)
+                      (wait)))
+              (lambda () #t)))
+
+        (define (process*/ports out in err cmd . args)
+            (let* ((ret (apply %subprocess #t out in err cmd args))
+                    (sub (car ret))
+                    (chldout (cadr ret))
+                    (chldin (caddr ret))
+                    (chlderr (cadddr ret))
+                    (pipes-wait (process-pipes out chldout in chldin err chlderr)))
+                (list
+                    (if out #f chldout)
+                    (if in #f chldin)
+                    (subprocess-pid sub)
+                    (if err #f chlderr)
+                    (lambda (what)
+                        (case what
+                            ((status)
+                                (let ((ret (subprocess-status sub)))
+                                    (if (integer? ret)
+                                        (if (zero? ret)
+                                            'done-ok
+                                            'done-error)
+                                        ret)))
+                            ((exit-code)
+                                (let ((ret (subprocess-status sub)))
+                                    (and (integer? ret) ret)))
+                            ((wait)
+                                (subprocess-wait sub)
+                                (pipes-wait))
+                            ((interrupt)
+                                (subprocess-kill sub #f))
+                            ((kill)
+                                (subprocess-kill sub #t))
+                            (else
+                                (full-error 'assertion-violation '<control-process> #f
+                        "<control-process>: expected status, exit-code, wait, interrupt, or kill"
+                                        what)))))))
 
         (define push-parameter (cons #f #f))
         (define pop-parameter (cons #f #f))

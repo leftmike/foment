@@ -27,7 +27,8 @@ typedef struct
 
 FObject MakeBinaryPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn,
     FCloseOutputFn cofn, FFlushOutputFn fofn, FReadBytesFn rbfn, FByteReadyPFn brpfn,
-    FWriteBytesFn wbfn, FGetPositionFn gpfn, FSetPositionFn spfn);
+    FWriteBytesFn wbfn, FGetPositionFn gpfn, FSetPositionFn spfn,
+    FGetFileHandleFn gfhfn, ulong_t flgs);
 
 // ---- Textual Ports ----
 
@@ -50,7 +51,8 @@ typedef struct
 
 FObject MakeTextualPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn,
     FCloseOutputFn cofn, FFlushOutputFn fofn, FReadChFn rcfn, FCharReadyPFn crpfn,
-    FWriteStringFn wsfn, FGetPositionFn gpfn, FSetPositionFn spfn);
+    FWriteStringFn wsfn, FGetPositionFn gpfn, FSetPositionFn spfn, FGetFileHandleFn gfhfn,
+    ulong_t flgs);
 
 inline FObject CurrentInputPort()
 {
@@ -74,10 +76,18 @@ inline FObject CurrentOutputPort()
     return(port);
 }
 
+FObject OpenInputPipe(FFileHandle fh);
+FObject OpenOutputPipe(FFileHandle fh);
+
 // ----------------
 
 void SetupWrite();
 void SetupRead();
 long_t IdentifierSubsequentP(FCh ch);
+
+#ifdef FOMENT_UNIX
+void SetupConsoleAgain();
+void RestoreConsole();
+#endif // FOMENT_UNIX
 
 #endif // __IO_HPP__

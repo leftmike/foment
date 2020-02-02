@@ -225,6 +225,7 @@ typedef enum
     BuiltinTypeTag,
     BuiltinTag,
     CharSetTag,
+    SubprocessTag,
     FreeTag, // Only on Adult Generation
     BadDogTag // Invalid Tag
 } FIndirectTag;
@@ -543,11 +544,22 @@ typedef enum
     FromEnd
 } FPositionFrom;
 
+#ifdef FOMENT_WINDOWS
+typedef void * FFileHandle;
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+typedef long_t FFileHandle;
+#endif // FOMENT_UNIX
+
+#define INVALID_FILE_HANDLE ((FFileHandle) -1)
+
 typedef void (*FCloseInputFn)(FObject port);
 typedef void (*FCloseOutputFn)(FObject port);
 typedef void (*FFlushOutputFn)(FObject port);
 typedef int64_t (*FGetPositionFn)(FObject port);
 typedef void (*FSetPositionFn)(FObject port, int64_t pos, FPositionFrom frm);
+typedef FFileHandle (*FGetFileHandleFn)(FObject port);
 
 typedef struct
 {
@@ -560,6 +572,7 @@ typedef struct
     FFlushOutputFn FlushOutputFn;
     FGetPositionFn GetPositionFn;
     FSetPositionFn SetPositionFn;
+    FGetFileHandleFn GetFileHandleFn;
 } FGenericPort;
 
 #define AsGenericPort(obj) ((FGenericPort *) obj)
@@ -648,6 +661,8 @@ inline long_t PositioningPortP(FObject obj)
     return(AsGenericPort(obj)->Flags & PORT_FLAG_POSITIONING);
 }
 
+void FlushStandardPorts();
+
 // Binary and textual ports
 
 FObject HandOffPort(FObject port);
@@ -656,6 +671,7 @@ void CloseOutput(FObject port);
 void FlushOutput(FObject port);
 int64_t GetPosition(FObject port);
 void SetPosition(FObject port, int64_t pos, FPositionFrom frm);
+FFileHandle GetFileHandle(FObject port);
 
 // Binary ports
 
@@ -729,6 +745,10 @@ void WriteShared(FObject port, FObject obj, long_t df);
 void WriteSimple(FObject port, FObject obj, long_t df);
 
 void WritePortObject(FWriteContext * wctx, FObject obj);
+
+// ---- Subprocesses ----
+
+void WriteSubprocess(FWriteContext * wctx, FObject obj);
 
 // ---- Pairs ----
 
@@ -1598,6 +1618,12 @@ inline void AtLeastFourArgsCheck(const char * who, long_t argc)
         RaiseExceptionC(Assertion, who, "expected at least four arguments", EmptyListObject);
 }
 
+inline void AtLeastFiveArgsCheck(const char * who, long_t argc)
+{
+    if (argc < 5)
+        RaiseExceptionC(Assertion, who, "expected at least five arguments", EmptyListObject);
+}
+
 inline void ZeroOrOneArgsCheck(const char * who, long_t argc)
 {
     if (argc > 1)
@@ -1923,7 +1949,6 @@ FObject ExecuteProc(FObject op);
 
 long_t SetupFoment(FThreadState * ts);
 extern ulong_t SetupComplete;
-void ExitFoment();
 void ErrorExitFoment(const char * what, const char * msg);
 
 // ---- Do Not Call Directly ----
@@ -1935,6 +1960,7 @@ void SetupCharacters();
 void SetupStrings();
 void SetupVectors();
 void SetupCharSets();
+void SetupProcess();
 void SetupHashTables();
 void SetupCompare();
 void SetupIO();
