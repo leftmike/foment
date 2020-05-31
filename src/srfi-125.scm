@@ -58,7 +58,8 @@
                     ((eq? eqp eq?)
                             (%make-hash-table (if ttp ttp (lambda (obj) #t)) eq? eq-hash args))
                     ((eq? eqp eqv?)
-                            (%make-hash-table (if ttp ttp (lambda (obj) #t)) eqv? eq-hash args))
+                            (%make-hash-table (if ttp ttp (lambda (obj) #t)) eqv? default-hash
+                                    args))
                     ((eq? eqp equal?)
                             (%make-hash-table (if ttp ttp (lambda (obj) #t)) equal?
                                     default-hash args))
