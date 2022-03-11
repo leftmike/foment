@@ -355,7 +355,7 @@
          write
          write-shared
          write-simple)
-    (export ;; (scheme inquiry) and (srfi 112)
+    (export ;; (srfi 112)
         implementation-name
         implementation-version
         cpu-architecture
@@ -535,6 +535,8 @@
         (rename positioning-port? port-has-set-port-position!?)
         port-position
         set-port-position!
+        make-i/o-invalid-position-error
+        i/o-invalid-position-error?
         get-ip-addresses
         socket?
         make-socket
@@ -903,6 +905,13 @@
 
         (define (file-error? obj)
             (and (error-object? obj) (eq? (error-object-kind obj) 'file-error)))
+
+        (define (i/o-invalid-position-error? obj)
+            (and (error-object? obj) (eq? (error-object-kind obj) 'position-error)))
+
+        (define (make-i/o-invalid-position-error pos)
+            (make-error-object 'assertion-violation 'make-i/o-invalid-position-error
+                    'position-error "invalid position error" pos))
 
         (define-record-type promise
             (%make-promise state)
@@ -2035,7 +2044,6 @@
          write-simple))
 
 (define-library (srfi 112)
-;    (aka (scheme inquiry))
     (import (foment base))
     (export
         implementation-name
@@ -2309,4 +2317,15 @@
         ephemeron-datum
         set-ephemeron-key!
         set-ephemeron-datum!)
+    )
+
+(define-library (srfi 192)
+    (import (foment base))
+    (export
+        port-has-port-position?
+        port-has-set-port-position!?
+        port-position
+        set-port-position!
+        make-i/o-invalid-position-error
+        i/o-invalid-position-error?)
     )

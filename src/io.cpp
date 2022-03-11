@@ -55,6 +55,7 @@ typedef long_t SOCKET;
 #define LF 10
 
 EternalSymbol(FileErrorSymbol, "file-error");
+EternalSymbol(PositionErrorSymbol, "position-error");
 EternalSymbol(CurrentSymbol, "current");
 EternalSymbol(EndSymbol, "end");
 
@@ -3841,10 +3842,12 @@ void SetupIO()
 #endif // FOMENT_UNIX
 
     FileErrorSymbol = InternSymbol(FileErrorSymbol);
+    PositionErrorSymbol = InternSymbol(PositionErrorSymbol);
     CurrentSymbol = InternSymbol(CurrentSymbol);
     EndSymbol = InternSymbol(EndSymbol);
 
     FAssert(FileErrorSymbol == StringCToSymbol("file-error"));
+    FAssert(PositionErrorSymbol == StringCToSymbol("position-error"));
     FAssert(CurrentSymbol == StringCToSymbol("current"));
     FAssert(EndSymbol == StringCToSymbol("end"));
 

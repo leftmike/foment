@@ -8,22 +8,6 @@ To Do:
 -- partial GC
 -- after partial GC, test for objects pointing to Babies
 
-Red Edition:
--- SRFI 41 (scheme stream)
--- SRFI 101 (scheme rlist)
--- SRFI 113 (scheme set)
--- SRFI 116 (scheme ilist)
--- SRFI 117 (scheme list-queue)
--- SRFI 121 (scheme generator)
--- SRFI 128 (scheme lseq)
--- SRFI 132 (scheme sorting)
--- SRFI 134 (scheme ideque)
--- SRFI 135 (scheme text)
-
-Tangerine Edition:
--- SRFI 146 (scheme mapping) and (scheme mapping hash)
--- SRFI 115 (scheme regex)
--- SRFI 158 (scheme generator) replaces SRFI 121 in Red Edition
 -- SRFI 141 (scheme division)
 -- SRFI 151 (scheme bitwise)
 -- SRFI 143 (scheme fixnum)
@@ -31,7 +15,6 @@ Tangerine Edition:
 -- R6RS (rnrs bytevectors) as (scheme bytevector) (note singular form)
 -- SRFI 160 (scheme vector @) where @ is any of base:
     u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, c64, c128
--- SRFI 159 (scheme show)
 
 Future:
 -- Use extra generation for immortal objects which are precompiled libraries
@@ -1232,6 +1215,7 @@ extern FObject CollectOutOfMemory;
 extern FObject StartThreadOutOfMemory;
 extern FObject ExecuteStackOverflow;
 extern FObject FileErrorSymbol;
+extern FObject PositionErrorSymbol;
 extern FObject NoValuePrimitive;
 
 // ---- Flonums ----

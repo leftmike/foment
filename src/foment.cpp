@@ -494,6 +494,23 @@ Define("full-error", FullErrorPrimitive)(long_t argc, FObject argv[])
     return(NoValueObject);
 }
 
+Define("make-error-object", MakeErrorObjectPrimitive)(long_t argc, FObject argv[])
+{
+    AtLeastFourArgsCheck("make-error-object", argc);
+    SymbolArgCheck("make-error-object", argv[0]);
+    SymbolArgCheck("make-error-object", argv[1]);
+    StringArgCheck("make-error-object", argv[3]);
+
+    FObject lst = EmptyListObject;
+    while (argc > 4)
+    {
+        argc -= 1;
+        lst = MakePair(argv[argc], lst);
+    }
+
+    return(MakeException(argv[0], argv[1], argv[2], argv[3], lst));
+}
+
 // ---- System interface ----
 
 Define("command-line", CommandLinePrimitive)(long_t argc, FObject argv[])
@@ -1257,6 +1274,7 @@ static FObject Primitives[] =
     ErrorObjectMessagePrimitive,
     ErrorObjectIrritantsPrimitive,
     FullErrorPrimitive,
+    MakeErrorObjectPrimitive,
     CommandLinePrimitive,
     FullCommandLinePrimitive,
     GetEnvironmentVariablePrimitive,

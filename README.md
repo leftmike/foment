@@ -24,6 +24,7 @@
 * SRFI 125: Hash Tables
 * SRFI 128: Comparators
 * SRFI 133: Vector Library (R7RS-compatible)
+* SRFI 192: Port Positioning
 
 See [Foment](https://github.com/leftmike/foment/wiki/Foment) for more details.
 
