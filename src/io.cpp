@@ -2262,50 +2262,59 @@ static void ConSetCursor(FConsoleInput * ci, long_t x, long_t y)
 static long_t ConGetCursor(long_t * x, long_t * y)
 {
     char buf[16];
-    char * str;
-    long_t ret = 0;
 
     strcpy(buf, "\x1B[6n");
     write(1, buf, strlen(buf));
 
     for (;;)
     {
-        if (read(0, buf, 1) != 1)
+        char ch1, ch2;
+
+        if (read(0, &ch1, 1) != 1)
             return(0);
-        if (buf[0] == 27)
+        if (ch1 == 27)
         {
-            if (read(0, buf + 1, 1) != 1)
+            if (read(0, &ch2, 1) != 1)
                 return(0);
-            if (buf[1] == '[')
+            if (ch2 == '[')
                 break;
-            Typeahead(buf[0]);
-            Typeahead(buf[1]);
+            Typeahead(ch1);
+            Typeahead(ch2);
         }
         else
-            Typeahead(buf[0]);
+            Typeahead(ch1);
     }
 
-    ret = read(0, buf + 2, sizeof(buf));
-    if (ret < 4)
-        return(0);
-    ret += 2;
+    *x = 0;
+    *y = 0;
 
-    buf[ret] = 0;
-    if (buf[0] != 27 || buf[1] != '[')
-        return(0);
+    for (;;)
+    {
+        char ch;
 
-    str = buf + 2;
-    if (strstr(str, ";") == 0)
-        return(0);
+        if (read(0, &ch, 1) != 1)
+            return(0);
+        if (ch == ';')
+            break;
+        if (ch < '0' || ch > '9')
+            return(0);
 
-    *strstr(str, ";") = 0;
-    *y = atoi(str);
-    str += strlen(str) + 1;
-    if (strstr(str, "R") == 0)
-        return(0);
+        *y = *y * 10 + (ch - '0');
+    }
 
-    *strstr(str, "R") = 0;
-    *x = atoi(str);
+    for (;;)
+    {
+        char ch;
+
+        if (read(0, &ch, 1) != 1)
+            return(0);
+        if (ch == 'R')
+            break;
+        if (ch < '0' || ch > '9')
+            return(0);
+
+        *x = *x * 10 + (ch - '0');
+    }
 
     return(1);
 }
