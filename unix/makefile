@@ -73,7 +73,7 @@ chibi-test: all
 
 .PHONY: process-test
 process-test: all debug/stdread debug/stdwrite debug/exitcode debug/hang
-	PATH=../unix/debug:$(PATH) ; cd ../test ; ../unix/$(TEST_BUILD)/foment $(TEST_OPTIONS) runtests.scm process.scm
+	export PATH=../unix/debug:"$$PATH" ; cd ../test ; ../unix/$(TEST_BUILD)/foment $(TEST_OPTIONS) runtests.scm process.scm
 
 debug:
 	-mkdir debug
