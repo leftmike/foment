@@ -368,7 +368,7 @@ static int64_t BufferedGetPosition(FObject port)
     return(0);
 }
 
-static void BufferedSetPosition(FObject port, int64_t pos, FPositionFrom frm)
+static long_t BufferedSetPosition(FObject port, int64_t pos, FPositionFrom frm)
 {
     FAssert(BinaryPortP(port) && PortOpenP(port) && PositioningPortP(port));
     FAssert(AsGenericPort(port)->Context != 0);
@@ -383,14 +383,16 @@ static void BufferedSetPosition(FObject port, int64_t pos, FPositionFrom frm)
         bc->Available = 0;
         bc->Used = 0;
 
-        SetPosition(AsGenericPort(port)->Object, pos, frm);
+        return(SetPosition(AsGenericPort(port)->Object, pos, frm));
     }
     else if (OutputPortOpenP(port))
     {
         BufferedFlushOutput(port);
 
-        SetPosition(AsGenericPort(port)->Object, pos, frm);
+        return(SetPosition(AsGenericPort(port)->Object, pos, frm));
     }
+
+    return(0);
 }
 
 static FObject MakeBufferedPort(FObject port)
@@ -592,7 +594,7 @@ static int64_t HandleGetPosition(FObject port)
     return(pos.QuadPart);
 }
 
-static void HandleSetPosition(FObject port, int64_t pos, FPositionFrom frm)
+static long_t HandleSetPosition(FObject port, int64_t pos, FPositionFrom frm)
 {
     FAssert(BinaryPortP(port) && PortOpenP(port) && PositioningPortP(port));
     FAssert(frm == FromBegin || frm == FromCurrent || frm == FromEnd);
@@ -600,8 +602,8 @@ static void HandleSetPosition(FObject port, int64_t pos, FPositionFrom frm)
     LARGE_INTEGER off;
 
     off.QuadPart = pos;
-    SetFilePointerEx((HANDLE) AsGenericPort(port)->Context, off, 0,
-            frm == FromBegin ? FILE_BEGIN : (frm == FromCurrent ? FILE_CURRENT : FILE_END));
+    return(SetFilePointerEx((HANDLE) AsGenericPort(port)->Context, off, 0,
+            frm == FromBegin ? FILE_BEGIN : (frm == FromCurrent ? FILE_CURRENT : FILE_END)));
 }
 
 static FFileHandle HandleGetFileHandle(FObject port)
@@ -706,13 +708,13 @@ static FFileHandle FileDescGetFileHandle(FObject port)
     return((FFileHandle) (AsGenericPort(port)->Context));
 }
 
-static void FileDescSetPosition(FObject port, int64_t pos, FPositionFrom frm)
+static long_t FileDescSetPosition(FObject port, int64_t pos, FPositionFrom frm)
 {
     FAssert(BinaryPortP(port) && PortOpenP(port) && PositioningPortP(port));
     FAssert(frm == FromBegin || frm == FromCurrent || frm == FromEnd);
 
-    lseek((long_t) AsGenericPort(port)->Context, pos,
-            frm == FromBegin ? SEEK_SET : (frm == FromCurrent ? SEEK_CUR : SEEK_END));
+    return(lseek((long_t) AsGenericPort(port)->Context, pos,
+            frm == FromBegin ? SEEK_SET : (frm == FromCurrent ? SEEK_CUR : SEEK_END)) >= 0);
 }
 
 static FObject MakeFileDescInputPort(FObject nam, long_t fd)
@@ -1120,11 +1122,11 @@ int64_t GetPosition(FObject port)
     return(AsGenericPort(port)->GetPositionFn(port));
 }
 
-void SetPosition(FObject port, int64_t pos, FPositionFrom frm)
+long_t SetPosition(FObject port, int64_t pos, FPositionFrom frm)
 {
     FAssert(PositioningPortP(port));
 
-    AsGenericPort(port)->SetPositionFn(port, pos, frm);
+    return(AsGenericPort(port)->SetPositionFn(port, pos, frm));
 }
 
 FFileHandle GetFileHandle(FObject port)
@@ -3259,7 +3261,10 @@ Define("set-port-position!", SetPortPositionPrimitive)(long_t argc, FObject argv
                     "expected begin, current, or end", List(argv[2]));
     }
 
-    SetPosition(argv[0], AsFixnum(argv[1]), frm);
+    if (SetPosition(argv[0], AsFixnum(argv[1]), frm) == 0)
+        RaiseExceptionC(Assertion, "set-port-position!", PositionErrorSymbol,
+                "unable to set port position", List(argv[0], argv[1], argv[2]));
+
     return(NoValueObject);
 }
 

@@ -541,7 +541,7 @@ typedef void (*FCloseInputFn)(FObject port);
 typedef void (*FCloseOutputFn)(FObject port);
 typedef void (*FFlushOutputFn)(FObject port);
 typedef int64_t (*FGetPositionFn)(FObject port);
-typedef void (*FSetPositionFn)(FObject port, int64_t pos, FPositionFrom frm);
+typedef long_t (*FSetPositionFn)(FObject port, int64_t pos, FPositionFrom frm);
 typedef FFileHandle (*FGetFileHandleFn)(FObject port);
 
 typedef struct
@@ -653,7 +653,7 @@ void CloseInput(FObject port);
 void CloseOutput(FObject port);
 void FlushOutput(FObject port);
 int64_t GetPosition(FObject port);
-void SetPosition(FObject port, int64_t pos, FPositionFrom frm);
+long_t SetPosition(FObject port, int64_t pos, FPositionFrom frm);
 FFileHandle GetFileHandle(FObject port);
 
 // Binary ports
