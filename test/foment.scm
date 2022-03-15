@@ -836,3 +836,6 @@
 
 (check-equal 6 (%execute-proc test-execute-three 1 2 3))
 (check-equal three test-execute-global)
+
+(check-error (implementation-restriction call-with-current-continuation)
+    (%execute-proc (lambda () (call/cc (lambda (k) k)))))

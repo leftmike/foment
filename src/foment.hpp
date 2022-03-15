@@ -4,7 +4,6 @@ Foment
 
 To Do:
 -- nested executions
---- fail capturing a continuation from a nested execute
 --- unwind C++ stack when applying a continuation in a nested execute
 
 -- remove generational collector

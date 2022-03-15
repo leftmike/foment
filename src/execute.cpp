@@ -1011,6 +1011,11 @@ TailCallPrimitive:
 
             case CaptureContinuationOpcode:
             {
+                if (ts->NestedExecute > 0)
+                    RaiseExceptionC(Restriction, "call-with-current-continuation",
+                            "continuation may not be captured in nested execution",
+                            EmptyListObject);
+
                 FAssert(ts->AStackPtr > 0);
                 FMustBe(ts->ArgCount == 1);
 
