@@ -327,6 +327,11 @@ static long_t PrepareHandler(FThreadState * ts, FObject hdlr, FObject key, FObje
     return(0);
 }
 
+typedef struct
+{
+    long_t Unused;
+} FUnwindNestedExecute;
+
 static FObject Execute(FThreadState * ts)
 {
     FObject op;
@@ -1040,7 +1045,7 @@ TailCallPrimitive:
                 op = ts->AStack[ts->AStackPtr - 1];
 
                 FMustBe(ContinuationP(cont));
-                FMustBe(ProcedureP(op) || PrimitiveP(op));
+                FMustBe(ProcedureP(op));
 
                 FAssert(FixnumP(AsContinuation(cont)->AStackPtr));
                 ts->AStackPtr = AsFixnum(AsContinuation(cont)->AStackPtr);
@@ -1057,7 +1062,18 @@ TailCallPrimitive:
                 for (long_t cdx = 0; cdx < ts->CStackPtr; cdx++)
                     cs[cdx] = AsVector(AsContinuation(cont)->CStack)->Vector[cdx];
                 ts->ArgCount = 0;
-                goto TailCall;
+
+                if (ts->NestedExecute == 0)
+                    goto TailCallProcedure;
+
+                ts->Proc = op;
+                FAssert(VectorP(AsProcedure(ts->Proc)->Code));
+
+                ts->IP = 0;
+                ts->Frame = NoValueObject;
+
+                FUnwindNestedExecute une;
+                throw une;
             }
 
             case AbortOpcode:
@@ -1193,6 +1209,10 @@ FObject ExecuteProc(FObject op)
             if (PrepareHandler(ts, NotifyHandler, NotifyHandlerSymbol, ts->NotifyObject) == 0)
                 ThreadExit(ts->NotifyObject);
         }
+        catch (FUnwindNestedExecute une)
+        {
+            ((FUnwindNestedExecute) une);
+        }
     }
 }
 
@@ -1271,6 +1291,11 @@ FObject ExecuteProc(FObject op, long_t argc, FObject argv[])
     {
         ts->NestedExecute -= 1;
         throw nt;
+    }
+    catch (FUnwindNestedExecute une)
+    {
+        ts->NestedExecute -= 1;
+        throw une;
     }
 }
 

@@ -839,3 +839,13 @@
 
 (check-error (implementation-restriction call-with-current-continuation)
     (%execute-proc (lambda () (call/cc (lambda (k) k)))))
+
+(define (test-execute-call/cc k a1 a2)
+    (let ((total (+ a1 a2)))
+        (k total)))
+
+(check-equal 30
+    (call/cc
+        (lambda (k)
+            (%execute-proc test-execute-call/cc k 10 20)
+            'call/cc)))

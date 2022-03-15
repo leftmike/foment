@@ -3,9 +3,6 @@
 Foment
 
 To Do:
--- nested executions
---- unwind C++ stack when applying a continuation in a nested execute
-
 -- remove generational collector
 --- CheckObject: check back references from mature objects
 --- partial GC
