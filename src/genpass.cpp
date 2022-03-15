@@ -38,7 +38,7 @@ static FObject GPassReturnValue(FLambda * lam, FObject cdl, FContFlag cf)
 
     if (cf == TailCallFlag)
     {
-        if (lam->UseStack == TrueObject)
+        if (lam->UseStack == TrueObject && AsFixnum(lam->SlotCount) > 0)
             cdl = MakePair(MakeInstruction(PopCStackOpcode, AsFixnum(lam->SlotCount)), cdl);
 
         cdl = MakePair(MakeInstruction(ReturnOpcode, 0), cdl);
@@ -590,7 +590,7 @@ static FObject GPassMakeCall(FLambda * lam, FObject cdl, FObject op, long_t argc
 
     if (cf == TailCallFlag)
     {
-        if (lam->UseStack == TrueObject)
+        if (lam->UseStack == TrueObject && AsFixnum(lam->SlotCount) > 0)
             cdl = MakePair(MakeInstruction(PopCStackOpcode, AsFixnum(lam->SlotCount)), cdl);
 
         if (ProcedureP(op))

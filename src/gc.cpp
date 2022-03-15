@@ -1866,6 +1866,7 @@ long_t EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprm
 
     ts->NotifyFlag = 0;
     ts->ExceptionCount = 0;
+    ts->NestedExecute = 0;
     return(1);
 
 Failed:

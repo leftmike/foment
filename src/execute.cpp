@@ -31,6 +31,10 @@ EternalSymbol(SigIntSymbol, "sigint");
 
 FObject InteractiveThunk = NoValueObject;
 static FObject ExecuteThunk = NoValueObject;
+static FObject ExecuteZero = NoValueObject;
+static FObject ExecuteOne = NoValueObject;
+static FObject ExecuteTwo = NoValueObject;
+static FObject ExecuteThree = NoValueObject;
 static FObject NotifyHandler = NoValueObject;
 static FObject RaiseHandler = NoValueObject;
 
@@ -82,8 +86,8 @@ void WriteProcedure(FWriteContext * wctx, FObject obj)
         wctx->WriteCh(']');
     }
 
-//    wctx->WriteCh(' ');
-//    wctx->Write(AsProcedure(obj)->Code);
+    //    wctx->WriteCh(' ');
+    //    wctx->Write(AsProcedure(obj)->Code);
     wctx->WriteCh('>');
 }
 
@@ -349,12 +353,13 @@ static FObject Execute(FThreadState * ts)
         {
             ts->AStack[ts->AStackPtr] = obj;
             ts->AStackPtr += 1;
-//WritePretty(StandardOutput, obj, 0);
-//printf("\n");
+            //Write(StandardOutput, obj, 0);
+            //printf("\n");
         }
         else
         {
-//printf("%s.%d %d %d\n", Opcodes[InstructionOpcode(obj)], InstructionArg(obj), ts->CStackPtr, ts->AStackPtr);
+            //printf("%s.%ld; csp = %ld; asp = %ld\n", Opcodes[InstructionOpcode(obj)],
+            //        InstructionArg(obj), ts->CStackPtr, ts->AStackPtr);
             switch (InstructionOpcode(obj))
             {
             case CheckCountOpcode:
@@ -667,9 +672,10 @@ CallProcedure:
 CallPrimitive:
                     FAssert(ts->AStackPtr >= ts->ArgCount);
 
-                    FObject ret = AsPrimitive(op)->PrimitiveFn(ts->ArgCount,
-                            ts->AStack + ts->AStackPtr - ts->ArgCount);
-                    ts->AStackPtr -= ts->ArgCount;
+                    long_t ac = ts->ArgCount;
+                    FObject ret = AsPrimitive(op)->PrimitiveFn(ac,
+                            ts->AStack + ts->AStackPtr - ac);
+                    ts->AStackPtr -= ac;
                     ts->AStack[ts->AStackPtr] = ret;
                     ts->AStackPtr += 1;
                 }
@@ -716,9 +722,10 @@ TailCallProcedure:
 TailCallPrimitive:
                     FAssert(ts->AStackPtr >= ts->ArgCount);
 
-                    FObject ret = AsPrimitive(op)->PrimitiveFn(ts->ArgCount,
-                            ts->AStack + ts->AStackPtr - ts->ArgCount);
-                    ts->AStackPtr -= ts->ArgCount;
+                    long_t ac = ts->ArgCount;
+                    FObject ret = AsPrimitive(op)->PrimitiveFn(ac,
+                            ts->AStack + ts->AStackPtr - ac);
+                    ts->AStackPtr -= ac;
                     ts->AStack[ts->AStackPtr] = ret;
                     ts->AStackPtr += 1;
 
@@ -1073,10 +1080,10 @@ TailCallPrimitive:
             }
 
             case ReturnFromOpcode:
-                FAssert(ts->AStackPtr == 1);
-                FAssert(ts->CStackPtr == 0);
+                FAssert(ts->AStackPtr > 0);
 
-                return(ts->AStack[0]);
+                ts->AStackPtr -= 1;
+                return(ts->AStack[ts->AStackPtr]);
 
             case MarkContinuationOpcode:
             {
@@ -1144,18 +1151,28 @@ FObject ExecuteProc(FObject op)
     ts->ArgCount = 1;
     ts->CStackPtr = 0;
     ts->Proc = ExecuteThunk;
+    ts->IP = 0;
+
     FAssert(ProcedureP(ts->Proc));
     FAssert(VectorP(AsProcedure(ts->Proc)->Code));
 
-    ts->IP = 0;
     ts->Frame = NoValueObject;
     ts->DynamicStack = EmptyListObject;
 
     for (;;)
     {
+        FAssert(ts->NestedExecute == 0);
+
         try
         {
-            return(Execute(ts));
+            FObject obj;
+
+            obj = Execute(ts);
+
+            FAssert(ts->AStackPtr == 0);
+            FAssert(ts->CStackPtr == 0);
+
+            return(obj);
         }
         catch (FObject obj)
         {
@@ -1171,6 +1188,84 @@ FObject ExecuteProc(FObject op)
             if (PrepareHandler(ts, NotifyHandler, NotifyHandlerSymbol, ts->NotifyObject) == 0)
                 ThreadExit(ts->NotifyObject);
         }
+    }
+}
+
+FObject ExecuteProc(FObject op, long_t argc, FObject argv[])
+{
+    FThreadState * ts = GetThreadState();
+#ifdef FOMENT_DEBUG
+    long_t asp = ts->AStackPtr;
+    long_t csp = ts->CStackPtr;
+#endif // FOMENT_DEBUG
+
+    for (long_t adx = 0; adx < argc; adx += 1)
+    {
+        ts->AStack[ts->AStackPtr] = argv[adx];
+        ts->AStackPtr += 1;
+    }
+    ts->AStack[ts->AStackPtr] = op;
+    ts->AStackPtr += 1;
+    ts->ArgCount = argc + 1;
+
+    FObject proc = ts->Proc;
+    long_t ip = ts->IP;
+
+    ts->IP = 0;
+    ts->Frame = NoValueObject;
+
+    switch (argc)
+    {
+    case 0:
+        ts->Proc = ExecuteZero;
+        break;
+
+    case 1:
+        ts->Proc = ExecuteOne;
+        break;
+
+    case 2:
+        ts->Proc = ExecuteTwo;
+        break;
+
+    case 3:
+        ts->Proc = ExecuteThree;
+        break;
+
+    default:
+        FAssert(0);
+        return(NoValueObject);
+    }
+
+    FAssert(ProcedureP(ts->Proc));
+    FAssert(VectorP(AsProcedure(ts->Proc)->Code));
+
+    ts->NestedExecute += 1;
+
+    try
+    {
+        FObject obj;
+
+        obj = Execute(ts);
+
+        FAssert(ts->AStackPtr == asp);
+        FAssert(ts->CStackPtr == csp);
+        FAssert(ts->NestedExecute > 0);
+
+        ts->NestedExecute -= 1;
+        ts->Proc = proc;
+        ts->IP = ip;
+        return(obj);
+    }
+    catch (FObject obj)
+    {
+        ts->NestedExecute -= 1;
+        throw obj;
+    }
+    catch (FNotifyThrow nt)
+    {
+        ts->NestedExecute -= 1;
+        throw nt;
     }
 }
 
@@ -1423,6 +1518,22 @@ Define("%find-mark", FindMarkPrimitive)(long_t argc, FObject argv[])
     return(FindMark(argv[0], argv[1]));
 }
 
+Define("%execute-proc", ExecuteProcPrimitive)(long_t argc, FObject argv[])
+{
+    AtLeastOneArgCheck("%execute-proc", argc);
+    ProcedureArgCheck("%execute-proc", argv[0]);
+
+    return(ExecuteProc(argv[0], argc - 1, argv + 1));
+}
+
+Define("%procedure-code", ProcedureCodePrimitive)(long_t argc, FObject argv[])
+{
+    OneArgCheck("%procedure-code", argc);
+    ProcedureArgCheck("%procedure-code", argv[0]);
+
+    return(AsProcedure(argv[0])->Code);
+}
+
 static FObject Fold(FObject key, FObject val, void * ctx, FObject htbl)
 {
     FAssert(ParameterP(key));
@@ -1460,7 +1571,9 @@ static FObject Primitives[] =
     ProcedureToParameterPrimitive,
     ParameterPPrimitive,
     IndexParameterPrimitive,
-    FindMarkPrimitive
+    FindMarkPrimitive,
+    ExecuteProcPrimitive,
+    ProcedureCodePrimitive
 };
 
 void SetupExecute()
@@ -1469,6 +1582,10 @@ void SetupExecute()
 
     RegisterRoot(&InteractiveThunk, "interactive-thunk");
     RegisterRoot(&ExecuteThunk, "execute-thunk");
+    RegisterRoot(&ExecuteZero, "execute-zero");
+    RegisterRoot(&ExecuteOne, "execute-one");
+    RegisterRoot(&ExecuteTwo, "execute-two");
+    RegisterRoot(&ExecuteThree, "execute-three");
     RegisterRoot(&NotifyHandler, "notify-handler");
     RegisterRoot(&RaiseHandler, "raise-handler");
 
@@ -1511,12 +1628,36 @@ void SetupExecute()
     ExecuteThunk = MakeProcedure(NoValueObject, MakeStringC(__FILE__), MakeFixnum(__LINE__),
             MakeVector(3, v, NoValueObject), 1, 0);
 
+    v[0] = MakeInstruction(SetArgCountOpcode, 0);
+    v[1] = MakeInstruction(CallOpcode, 0);
+    v[2] = MakeInstruction(ReturnFromOpcode, 0);
+    ExecuteZero = MakeProcedure(NoValueObject, MakeStringC(__FILE__), MakeFixnum(__LINE__),
+            MakeVector(3, v, NoValueObject), 1, 0);
+
+    v[0] = MakeInstruction(SetArgCountOpcode, 1);
+    v[1] = MakeInstruction(CallOpcode, 0);
+    v[2] = MakeInstruction(ReturnFromOpcode, 0);
+    ExecuteOne = MakeProcedure(NoValueObject, MakeStringC(__FILE__), MakeFixnum(__LINE__),
+            MakeVector(3, v, NoValueObject), 1, 0);
+
+    v[0] = MakeInstruction(SetArgCountOpcode, 2);
+    v[1] = MakeInstruction(CallOpcode, 0);
+    v[2] = MakeInstruction(ReturnFromOpcode, 0);
+    ExecuteTwo = MakeProcedure(NoValueObject, MakeStringC(__FILE__), MakeFixnum(__LINE__),
+            MakeVector(3, v, NoValueObject), 1, 0);
+
+    v[0] = MakeInstruction(SetArgCountOpcode, 3);
+    v[1] = MakeInstruction(CallOpcode, 0);
+    v[2] = MakeInstruction(ReturnFromOpcode, 0);
+    ExecuteThree = MakeProcedure(NoValueObject, MakeStringC(__FILE__), MakeFixnum(__LINE__),
+            MakeVector(3, v, NoValueObject), 1, 0);
+
     // (%return <value>)
 
     v[0] = MakeInstruction(ReturnFromOpcode, 0);
     LibraryExport(BedrockLibrary,
             EnvironmentSetC(Bedrock, "%return",
-            MakeProcedure(StringCToSymbol("%return-from"), MakeStringC(__FILE__),
+            MakeProcedure(StringCToSymbol("%return"), MakeStringC(__FILE__),
             MakeFixnum(__LINE__), MakeVector(1, v, NoValueObject), 1, 0)));
 
     // (%capture-continuation <proc>)

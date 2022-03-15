@@ -3,10 +3,14 @@
 Foment
 
 To Do:
--- fix generational collector
--- CheckObject: check back references from mature objects
--- partial GC
--- after partial GC, test for objects pointing to Babies
+-- nested executions
+--- fail capturing a continuation from a nested execute
+--- unwind C++ stack when applying a continuation in a nested execute
+
+-- remove generational collector
+--- CheckObject: check back references from mature objects
+--- partial GC
+--- after partial GC, test for objects pointing to Babies
 
 -- SRFI 141 (scheme division)
 -- SRFI 151 (scheme bitwise)
@@ -1526,6 +1530,8 @@ typedef struct _FThreadState
     FObject NotifyObject;
 
     ulong_t ExceptionCount;
+
+    long_t NestedExecute;
 } FThreadState;
 
 // ---- Argument Checking ----
@@ -1930,6 +1936,7 @@ FObject GetInteractionEnv();
 FObject SyntaxToDatum(FObject obj);
 
 FObject ExecuteProc(FObject op);
+FObject ExecuteProc(FObject op, long_t argc, FObject argv[]);
 
 long_t SetupFoment(FThreadState * ts);
 extern ulong_t SetupComplete;

@@ -620,7 +620,9 @@
         object-counts
         object-counts-reset!
         stack-used
-        stack-used-reset!)
+        stack-used-reset!
+        %execute-proc
+        %procedure-code)
     (cond-expand
         (unix
             (export

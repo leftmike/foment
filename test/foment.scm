@@ -805,3 +805,34 @@
 (check-equal 18446744073709551600 (* (string->number "#xFFFFFFFFFFFFFFF") 16))
 (check-equal -18446744073709551600 (* (string->number "#xFFFFFFFFFFFFFFF") -16))
 (check-equal 18446462598732775425 (* (string->number "#xFFFFFFFFFFFF") #xFFFF))
+
+;;
+;; %execute-proc
+;;
+
+(check-equal zero (%execute-proc (lambda () 'zero)))
+
+(define test-execute-global '())
+(define (test-execute-zero) 'zero)
+(define (test-execute-zero-set) (set! test-execute-global 'zero) (list 'zero))
+
+(check-equal zero (%execute-proc test-execute-zero))
+(check-equal (zero) (%execute-proc test-execute-zero-set))
+(check-equal zero test-execute-global)
+
+(define (test-execute-one arg1) (list 'one arg1))
+
+(check-equal (one 1) (%execute-proc test-execute-one 1))
+
+(define (test-execute-two arg1 arg2) (set! test-execute-global 'two) (+ arg1 arg2))
+
+(check-equal 3 (%execute-proc test-execute-two 1 2))
+(check-equal two test-execute-global)
+
+(define (test-execute-three arg1 arg2 arg3)
+    (let ((total (+ arg1 arg2 arg3)))
+        (set! test-execute-global 'three)
+        total))
+
+(check-equal 6 (%execute-proc test-execute-three 1 2 3))
+(check-equal three test-execute-global)
