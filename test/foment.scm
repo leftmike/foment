@@ -849,3 +849,187 @@
         (lambda (k)
             (%execute-proc test-execute-call/cc k 10 20)
             'call/cc)))
+
+;;
+;; Custom binary and textual ports
+;;
+
+;; Tests from github.comm/scheme-requests-for-implementation/srfi-192
+
+; To avoid importing srfi-1
+(define (list-tabulate n proc)
+    (define (tabulate i)
+        (if (< i n)
+            (cons (proc i) (tabulate (+ i 1)))
+            '()))
+    (tabulate 0))
+
+; binary input, no port positioning
+(define data (apply bytevector (list-tabulate 1000 (lambda (i) (modulo i 256)))))
+(define pos 0)
+(define closed #f)
+(define p (make-custom-binary-input-port "binary-input"
+    (lambda (buf start count)   ; read!
+        (let ((size (min count (- (bytevector-length data) pos))))
+            (bytevector-copy! buf start data pos (+ pos size))
+            (set! pos (+ pos size))
+            size))
+    #f                          ; get-position
+    #f                          ; set-position
+    (lambda () (set! closed #t)) ; close
+    ))
+
+(check-equal #t (port? p))
+(check-equal #t (input-port? p))
+(check-equal #f (output-port? p))
+(check-equal #f (port-has-port-position? p))
+(check-equal #f (port-has-set-port-position!? p))
+
+(check-equal 0 (read-u8 p))
+(check-equal 1 (read-u8 p))
+(check-equal 2 (peek-u8 p))
+(check-equal 2 (read-u8 p))
+(check-equal #t (equal? (bytevector-copy data 3) (read-bytevector 997 p)))
+
+(check-equal #t (eq? (eof-object) (read-u8 p)))
+(check-equal #t (begin (close-port p) closed))
+
+; binary input, with port positioning
+(define pos 0)
+(define saved-pos #f)
+(define saved-pos2 #f)
+(define closed #f)
+(define p (make-custom-binary-input-port "binary-input"
+    (lambda (buf start count)   ; read!
+        (let ((size (min count (- (bytevector-length data) pos))))
+            (bytevector-copy! buf start data pos (+ pos size))
+            (set! pos (+ pos size))
+            size))
+    (lambda () pos)             ; get-position
+    (lambda (k) (set! pos k))   ; set-position
+    (lambda () (set! closed #t)) ;close
+    ))
+
+(check-equal #t (port? p))
+(check-equal #t (input-port? p))
+(check-equal #f (output-port? p))
+(check-equal #t (port-has-port-position? p))
+(check-equal #t (port-has-set-port-position!? p))
+
+(check-equal 0 (read-u8 p))
+(check-equal 1 (read-u8 p))
+(check-equal 2 (peek-u8 p))
+(set! saved-pos (port-position p))
+(check-equal 2 (read-u8 p))
+(set! saved-pos2 (port-position p))
+
+(check-equal #t (equal? (bytevector-copy data 3) (read-bytevector 997 p)))
+
+(check-equal #t (eq? (eof-object) (read-u8 p)))
+
+(set-port-position! p saved-pos)
+(check-equal 2 (read-u8 p))
+
+(set-port-position! p saved-pos2)
+(check-equal 3 (read-u8 p))
+
+(check-equal #t (begin (close-port p) closed))
+
+; binary output, with port positioning
+(define sink (make-vector 2000 #f))
+(define pos 0)
+(define saved-pos #f)
+(define closed #f)
+(define flushed #f)
+(define p (make-custom-binary-output-port "binary-output"
+    (lambda (buf start count)   ;write!
+        (do ((i start (+ i 1))
+                (j pos (+ j 1)))
+            ((>= i (+ start count)) (set! pos j))
+            (vector-set! sink j (bytevector-u8-ref buf i)))
+        count)
+    (lambda () pos)             ;get-position
+    (lambda (k) (set! pos k))   ;set-position!
+    (lambda () (set! closed #t)) ; close
+    (lambda () (set! flushed #t)) ; flush
+    ))
+
+(check-equal #t (port? p))
+(check-equal #f (input-port? p))
+(check-equal #t (output-port? p))
+(check-equal #t (port-has-port-position? p))
+(check-equal #t (port-has-set-port-position!? p))
+
+(write-u8 3 p)
+(write-u8 1 p)
+(write-u8 4 p)
+(flush-output-port p)
+(check-equal #t flushed)
+
+(set! saved-pos (port-position p))
+
+(check-equal #(3 1 4) (vector-copy sink 0 pos))
+
+(write-bytevector '#u8(1 5 9 2 6) p)
+(flush-output-port p)
+(check-equal #(3 1 4 1 5 9 2 6) (vector-copy sink 0 pos))
+
+(set-port-position! p saved-pos)
+(for-each (lambda (b) (write-u8 b p)) '(5 3 5))
+(flush-output-port p)
+(check-equal #(3 1 4 5 3 5) (vector-copy sink 0 pos))
+(check-equal #(3 1 4 5 3 5 2 6) (vector-copy sink 0 (+ pos 2)))
+
+(check-equal #t (begin (close-port p) closed))
+
+; binary input/output, with port positioning
+(define original-size 500)             ;writing may extend the size
+(define pos 0)
+(define saved-pos #f)
+(define flushed #f)
+(define closed #f)
+(define p (make-custom-binary-input/output-port "binary i/o"
+    (lambda (buf start count)   ; read!
+        (let ((size (min count (- original-size pos))))
+                (bytevector-copy! buf start data pos (+ pos size))
+                (set! pos (+ pos size))
+            size))
+    (lambda (buf start count)   ;write!
+        (let ((size (min count (- (bytevector-length data) pos))))
+                (bytevector-copy! data pos buf start (+ start size))
+                (set! pos (+ pos size))
+                (set! original-size (max original-size pos))
+            size))
+    (lambda () pos)             ;get-position
+    (lambda (k) (set! pos k))   ;set-position!
+    (lambda () (set! closed #t)) ; close
+    (lambda () (set! flushed #t)) ; flush
+    ))
+
+(check-equal #t (port? p))
+(check-equal #t (input-port? p))
+(check-equal #t (output-port? p))
+(check-equal #t (port-has-port-position? p))
+(check-equal #t (port-has-set-port-position!? p))
+
+(check-equal 0 (read-u8 p))
+(check-equal 1 (read-u8 p))
+(check-equal 2 (read-u8 p))
+(set! saved-pos (port-position p))
+(check-equal #t (equal? (bytevector-copy data 3 original-size) (read-bytevector 997 p)))
+
+(write-bytevector '#u8(255 255 255) p)
+(check-equal #u8(255 255 255) (bytevector-copy data 500 503))
+(write-u8 254 p)
+(check-equal #u8(255 255 255 254) (bytevector-copy data 500 504))
+(write-u8 254 p)
+
+(check-equal #t (eq? (eof-object) (read-u8 p)))
+
+(set-port-position! p saved-pos)
+(check-equal 3 (peek-u8 p))
+
+(write-u8 100 p)
+(set-port-position! p saved-pos)
+(check-equal 100 (read-u8 p))
+(check-equal 4 (read-u8 p))

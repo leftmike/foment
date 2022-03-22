@@ -3,6 +3,11 @@
 Foment
 
 To Do:
+-- custom ports
+--- check FAlive throughout IO code; likely necessary more places
+--- change port-position to potential return an arbitrary object
+--- change set-port-position! to take an arbitrary object
+
 -- remove generational collector
 --- CheckObject: check back references from mature objects
 --- partial GC
@@ -15,6 +20,10 @@ To Do:
 -- R6RS (rnrs bytevectors) as (scheme bytevector) (note singular form)
 -- SRFI 160 (scheme vector @) where @ is any of base:
     u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, c64, c128
+
+-- add R6RS library form
+-- SRFI 229: Tagged Procedures
+-- fixes from https://gitlab.com/dpk/presrfis/-/blob/master/cleanup-consent-docket.org
 
 Future:
 -- Use extra generation for immortal objects which are precompiled libraries

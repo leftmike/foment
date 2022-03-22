@@ -1235,6 +1235,10 @@ FObject ExecuteProc(FObject op, long_t argc, FObject argv[])
 
     FObject proc = ts->Proc;
     long_t ip = ts->IP;
+    FObject frame = ts->Frame;
+
+    FAlive ap(&proc);
+    FAlive af(&frame);
 
     ts->IP = 0;
     ts->Frame = NoValueObject;
@@ -1280,6 +1284,7 @@ FObject ExecuteProc(FObject op, long_t argc, FObject argv[])
         ts->NestedExecute -= 1;
         ts->Proc = proc;
         ts->IP = ip;
+        ts->Frame = frame;
         return(obj);
     }
     catch (FObject obj)

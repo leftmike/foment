@@ -537,6 +537,13 @@
         set-port-position!
         make-i/o-invalid-position-error
         i/o-invalid-position-error?
+        make-custom-binary-input-port
+        make-custom-textual-input-port
+        make-custom-binary-output-port
+        make-custom-textual-output-port
+        make-custom-binary-input/output-port
+        make-custom-textual-input/output-port
+        make-file-error
         get-ip-addresses
         socket?
         make-socket
@@ -914,6 +921,10 @@
         (define (make-i/o-invalid-position-error pos)
             (make-error-object 'assertion-violation 'make-i/o-invalid-position-error
                     'position-error "invalid position error" pos))
+
+        (define (make-file-error . objs)
+            (apply make-error-object 'assertion-violation 'make-file-error
+                    'file-error "file error" objs))
 
         (define-record-type promise
             (%make-promise state)
