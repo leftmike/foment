@@ -880,6 +880,8 @@
     ))
 
 (check-equal #t (port? p))
+(check-equal #t (binary-port? p))
+(check-equal #f (textual-port? p))
 (check-equal #t (input-port? p))
 (check-equal #f (output-port? p))
 (check-equal #f (port-has-port-position? p))
@@ -911,6 +913,8 @@
     ))
 
 (check-equal #t (port? p))
+(check-equal #t (binary-port? p))
+(check-equal #f (textual-port? p))
 (check-equal #t (input-port? p))
 (check-equal #f (output-port? p))
 (check-equal #t (port-has-port-position? p))
@@ -955,6 +959,8 @@
     ))
 
 (check-equal #t (port? p))
+(check-equal #t (binary-port? p))
+(check-equal #f (textual-port? p))
 (check-equal #f (input-port? p))
 (check-equal #t (output-port? p))
 (check-equal #t (port-has-port-position? p))
@@ -983,7 +989,7 @@
 (check-equal #t (begin (close-port p) closed))
 
 ; binary input/output, with port positioning
-(define original-size 500)             ;writing may extend the size
+(define original-size 500)             ; writing may extend the size
 (define pos 0)
 (define saved-pos #f)
 (define flushed #f)
@@ -1007,6 +1013,8 @@
     ))
 
 (check-equal #t (port? p))
+(check-equal #t (binary-port? p))
+(check-equal #f (textual-port? p))
 (check-equal #t (input-port? p))
 (check-equal #t (output-port? p))
 (check-equal #t (port-has-port-position? p))
@@ -1033,3 +1041,154 @@
 (set-port-position! p saved-pos)
 (check-equal 100 (read-u8 p))
 (check-equal 4 (read-u8 p))
+
+(define (string-tabulate n proc)
+    (define s (make-string n))
+    (define (tabulate i)
+        (if (< i n)
+            (begin
+                (string-set! s i (proc i))
+                (tabulate (+ i 1)))
+            s))
+    (tabulate 0))
+
+; textual input, no port positioning
+(define data (string-tabulate 1000 (lambda (i) (integer->char (+ #x3000 i)))))
+
+(define pos 0)
+(define closed #f)
+(define p (make-custom-textual-input-port "textual-input"
+    (lambda (buf start count)   ; read!
+        (let ((size (min count (- (string-length data) pos))))
+            (unless (zero? size)
+                (if (string? buf)
+                    (begin
+                        (string-copy! buf start data pos (+ pos size))
+                        (set! pos (+ pos size)))
+                    (do ((i 0 (+ i 1))
+                            (j pos (+ j 1)))
+                        ((= i size) (set! pos j))
+                    (vector-set! buf (+ start i) (string-ref data j)))))
+            size))
+    #f                          ; get-position
+    #f                          ; set-position
+    (lambda () (set! closed #t)); close
+    ))
+
+(check-equal #t (port? p))
+(check-equal #f (binary-port? p))
+(check-equal #t (textual-port? p))
+(check-equal #t (input-port? p))
+(check-equal #f (output-port? p))
+(check-equal #f (port-has-port-position? p))
+(check-equal #f (port-has-set-port-position!? p))
+
+(check-equal #t (eqv? (string-ref data 0) (read-char p)))
+(check-equal #t (eqv? (string-ref data 1) (read-char p)))
+(check-equal #t (eqv? (string-ref data 2) (peek-char p)))
+(check-equal #t (eqv? (string-ref data 2) (read-char p)))
+
+(check-equal #t (equal? (string-copy data 3) (read-string 997 p)))
+(check-equal #t (equal? (eof-object) (read-char p)))
+
+(close-port p)
+(check-equal #t closed)
+
+; textual input, port positioning
+(define pos 0)
+(define saved-pos #f)
+(define closed #f)
+(define p (make-custom-textual-input-port "textual-input"
+    (lambda (buf start count)   ; read!
+        (let ((size (min count (- (string-length data) pos))))
+            (unless (zero? size)
+                (if (string? buf)
+                    (begin
+                        (string-copy! buf start data pos (+ pos size))
+                        (set! pos (+ pos size)))
+                    (do ((i 0 (+ i 1))
+                            (j pos (+ j 1)))
+                        ((= i size) (set! pos j))
+                    (vector-set! buf (+ start i) (string-ref data j)))))
+            size))
+    (lambda () pos)             ; get-position
+    (lambda (k) (set! pos k))   ; set-position
+    (lambda () (set! closed #t)); close
+    ))
+
+(check-equal #t (port? p))
+(check-equal #f (binary-port? p))
+(check-equal #t (textual-port? p))
+(check-equal #t (input-port? p))
+(check-equal #f (output-port? p))
+(check-equal #t (port-has-port-position? p))
+(check-equal #t (port-has-set-port-position!? p))
+
+(check-equal #t (eqv? (string-ref data 0) (read-char p)))
+(check-equal #t (eqv? (string-ref data 1) (read-char p)))
+(check-equal #t (eqv? (string-ref data 2) (peek-char p)))
+(set! saved-pos (port-position p))
+(check-equal #t (eqv? (string-ref data 2) (read-char p)))
+(check-equal #t (eqv? (string-ref data 3) (peek-char p)))
+
+(check-equal #t (equal? (string-copy data 3) (read-string 997 p)))
+(check-equal #t (equal? (eof-object) (read-char p)))
+
+(set-port-position! p saved-pos)
+(check-equal #t (eqv? (string-ref data 2) (peek-char p)))
+
+(close-port p)
+(check-equal #t closed)
+
+; textual output, port positioning
+(define data (apply bytevector (list-tabulate 1000 (lambda (i) (modulo i 256)))))
+(define sink (make-vector 2000 #f))
+(define pos 0)
+(define saved-pos #f)
+(define closed #f)
+(define flushed #f)
+(define p (make-custom-textual-output-port "textual-output"
+    (lambda (buf start count)   ;write!
+        (do ((i start (+ i 1))
+                (j pos (+ j 1)))
+            ((>= i (+ start count)) (set! pos j))
+            (vector-set! sink j (if (string? buf) (string-ref buf i) (vector-ref buf i))))
+        count)
+    (lambda () pos)             ;get-position
+    (lambda (k) (set! pos k))   ;set-position!
+    (lambda () (set! closed #t)) ; close
+    (lambda () (set! flushed #t)) ; flush
+    ))
+
+(check-equal #t (port? p))
+(check-equal #f (binary-port? p))
+(check-equal #t (textual-port? p))
+(check-equal #f (input-port? p))
+(check-equal #t (output-port? p))
+(check-equal #t (port-has-port-position? p))
+(check-equal #t (port-has-set-port-position!? p))
+
+(write-char #\a p)
+(write-char #\b p)
+(write-char #\c p)
+(flush-output-port p)
+(check-equal #t flushed)
+(set! saved-pos (port-position p))
+(check-equal #(#\a #\b #\c) (vector-copy sink 0 pos))
+
+(write-string "Quack" p)
+(flush-output-port p)
+(check-equal #(#\a #\b #\c #\Q #\u #\a #\c #\k) (vector-copy sink 0 pos))
+
+(set-port-position! p saved-pos)
+(write-string "Cli" p)
+(flush-output-port p)
+(check-equal #(#\a #\b #\c #\C #\l #\i) (vector-copy sink 0 pos))
+(check-equal #(#\a #\b #\c #\C #\l #\i #\c #\k) (vector-copy sink 0 (+ pos 2)))
+
+(close-port p)
+(check-equal #t closed)
+
+(check-equal #t (file-error? (make-file-error "bad")))
+
+(check-equal #t (i/o-invalid-position-error? (make-i/o-invalid-position-error 0)))

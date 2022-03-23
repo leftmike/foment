@@ -150,10 +150,23 @@ long_t PeekByte(FObject port, FByte * b)
 
     FAlive ap(&port);
 
-    if (AsBinaryPort(port)->ReadBytesFn(port, b, 1) == 0)
-        return(0);
+    if (PositioningPortP(port))
+    {
+        int64_t pos = GetPosition(port);
 
-    AsBinaryPort(port)->PeekedByte = *b;
+        if (AsBinaryPort(port)->ReadBytesFn(port, b, 1) == 0)
+            return(0);
+
+        SetPosition(port, pos, FromBegin);
+    }
+    else
+    {
+        if (AsBinaryPort(port)->ReadBytesFn(port, b, 1) == 0)
+            return(0);
+
+        AsBinaryPort(port)->PeekedByte = *b;
+    }
+
     return(1);
 }
 
@@ -515,12 +528,11 @@ static void CustomWriteBytes(FObject port, void * b, ulong_t bl)
         FObject obj = ExecuteProc(custom->WriteFn, 3, argv);
         if (FixnumP(obj) == 0 || AsFixnum(obj) <= 0)
             RaiseExceptionC(Assertion, "make-custom-binary-output-port",
-                    "expected positive integer from calls to write!",
-                    List(custom->WriteFn, obj));
+                    "expected positive integer from calls to write!", List(custom->WriteFn, obj));
 
         wl = AsFixnum(obj);
 
-        FAssert(wl >= bl);
+        FAssert(wl <= bl);
 
         bl -= wl;
         b = ((char *) b) + wl;
@@ -529,7 +541,8 @@ static void CustomWriteBytes(FObject port, void * b, ulong_t bl)
 
 static int64_t CustomGetPosition(FObject port)
 {
-    FAssert(BinaryPortP(port) && PortOpenP(port) && PositioningPortP(port));
+    FAssert(BinaryPortP(port) || TextualPortP(port));
+    FAssert(PortOpenP(port) && PositioningPortP(port));
 
     FCustomPort * custom = AsCustomPort(port);
 
@@ -540,14 +553,13 @@ static int64_t CustomGetPosition(FObject port)
                 "expected non-negative integer from calls to get-position",
                 List(custom->GetPositionFn, obj));
 
-    if (FixnumP(obj) && AsFixnum(obj) > 0 && AsBinaryPort(port)->PeekedByte != NOT_PEEKED)
-        return(AsFixnum(obj) - 1);
     return(AsFixnum(obj));
 }
 
 static long_t CustomSetPosition(FObject port, int64_t pos, FPositionFrom frm)
 {
-    FAssert(BinaryPortP(port) && PortOpenP(port) && PositioningPortP(port));
+    FAssert(BinaryPortP(port) || TextualPortP(port));
+    FAssert(PortOpenP(port) && PositioningPortP(port));
 
     FCustomPort * custom = AsCustomPort(port);
 
@@ -565,7 +577,7 @@ static long_t CustomSetPosition(FObject port, int64_t pos, FPositionFrom frm)
 
 static void CustomCloseInput(FObject port)
 {
-    FAssert(BinaryPortP(port));
+    FAssert(BinaryPortP(port) || TextualPortP(port));
 
     FCustomPort * custom = AsCustomPort(port);
 
@@ -576,7 +588,7 @@ static void CustomCloseInput(FObject port)
 
 static void CustomCloseOutput(FObject port)
 {
-    FAssert(BinaryPortP(port));
+    FAssert(BinaryPortP(port) || TextualPortP(port));
 
     FCustomPort * custom = AsCustomPort(port);
 
@@ -587,13 +599,77 @@ static void CustomCloseOutput(FObject port)
 
 static void CustomFlushOutput(FObject port)
 {
-    FAssert(BinaryPortP(port));
+    FAssert(BinaryPortP(port) || TextualPortP(port));
 
     FCustomPort * custom = AsCustomPort(port);
 
     // (flush)
     if (custom->FlushFn != FalseObject)
         ExecuteProc(custom->FlushFn, 0, 0);
+}
+
+static ulong_t CustomReadCh(FObject port, FCh * ch)
+{
+    FAssert(TextualPortP(port) && InputPortOpenP(port));
+
+    FCustomPort * custom = AsCustomPort(port);
+    FObject argv[3];
+
+    argv[0] = custom->Buffer;
+    argv[1] = MakeFixnum(0);
+    argv[2] = MakeFixnum(1);
+
+    // (read! string-or-char-vector start count)
+    FObject obj = ExecuteProc(custom->ReadFn, 3, argv);
+    if (FixnumP(obj) == 0 || AsFixnum(obj) < 0)
+        RaiseExceptionC(Assertion, "make-custom-textual-input-port",
+                "expected non-negative integer from calls to read!", List(custom->ReadFn, obj));
+
+    if (AsFixnum(obj) == 0)
+        return(0);
+
+    *ch = AsString(custom->Buffer)->String[0];
+    return(1);
+}
+
+static long_t CustomCharReadyP(FObject port)
+{
+    FAssert(TextualPortP(port) && InputPortOpenP(port));
+
+    return(1);
+}
+
+static void CustomWriteString(FObject port, FCh * s, ulong_t sl)
+{
+    FAssert(TextualPortP(port) && OutputPortOpenP(port));
+
+    FCustomPort * custom = AsCustomPort(port);
+    ulong_t bl = StringLength(custom->Buffer);
+
+    while (sl > 0)
+    {
+        ulong_t wl = sl < bl ? sl : bl;
+        memcpy(AsString(custom->Buffer)->String, s, wl * sizeof(FCh));
+
+        FObject argv[3];
+
+        argv[0] = custom->Buffer;
+        argv[1] = MakeFixnum(0);
+        argv[2] = MakeFixnum(wl);
+
+        // (write! string-or-char-vector start count) => number of characters written
+        FObject obj = ExecuteProc(custom->WriteFn, 3, argv);
+        if (FixnumP(obj) == 0 || AsFixnum(obj) <= 0)
+            RaiseExceptionC(Assertion, "make-custom-textual-output-port",
+                    "expected positive integer from calls to write!", List(custom->WriteFn, obj));
+
+        wl = AsFixnum(obj);
+
+        FAssert(wl <= sl);
+
+        sl -= wl;
+        s += wl;
+    }
 }
 
 static FObject MakeCustomBinaryPort(FObject nam, FObject rfn, FObject wfn, FObject gpfn,
@@ -615,7 +691,11 @@ static FObject MakeCustomBinaryPort(FObject nam, FObject rfn, FObject wfn, FObje
     custom->SetPositionFn = spfn;
     custom->CloseFn = cfn;
     custom->FlushFn = ffn;
+#ifdef FOMENT_DEBUG
+    custom->Buffer = MakeBytevector(4);
+#else // FOMENT_DEBUG
     custom->Buffer = MakeBytevector(512);
+#endif // FOMENT_DEBUG
 
     return(MakeBinaryPort(nam, custom, 0,
             rfn != FalseObject ? CustomCloseInput : 0,
@@ -628,13 +708,43 @@ static FObject MakeCustomBinaryPort(FObject nam, FObject rfn, FObject wfn, FObje
             spfn != FalseObject ? CustomSetPosition : 0,
             0, 0));
 }
-/*
-static FObject MakeCustomTextualPort()
+
+static FObject MakeCustomTextualPort(FObject nam, FObject rfn, FObject wfn, FObject gpfn,
+    FObject spfn, FObject cfn, FObject ffn)
 {
-    // XXX
-    return(NoValueObject);
+    FAssert(ProcedureP(rfn) || PrimitiveP(rfn) || ProcedureP(wfn) || PrimitiveP(wfn));
+    FAssert(rfn == FalseObject || ProcedureP(rfn) || PrimitiveP(rfn));
+    FAssert(wfn == FalseObject || ProcedureP(wfn) || PrimitiveP(wfn));
+    FAssert(gpfn == FalseObject || ProcedureP(gpfn) || PrimitiveP(gpfn));
+    FAssert(spfn == FalseObject || ProcedureP(spfn) || PrimitiveP(spfn));
+    FAssert(cfn == FalseObject || ProcedureP(cfn) || PrimitiveP(cfn));
+    FAssert(ffn == FalseObject || ProcedureP(ffn) || PrimitiveP(ffn));
+
+    FCustomPort * custom = (FCustomPort *) MakeBuiltin(CustomPortType, 7,
+            "%make-custom-textual-port");
+    custom->ReadFn = rfn;
+    custom->WriteFn = wfn;
+    custom->GetPositionFn = gpfn;
+    custom->SetPositionFn = spfn;
+    custom->CloseFn = cfn;
+    custom->FlushFn = ffn;
+#ifdef FOMENT_DEBUG
+    custom->Buffer = MakeStringCh(4, 0);
+#else // FOMENT_DEBUG
+    custom->Buffer = MakeStringCh(128, 0);
+#endif // FOMENT_DEBUG
+
+    return(MakeTextualPort(nam, custom, 0,
+            rfn != FalseObject ? CustomCloseInput : 0,
+            wfn != FalseObject ? CustomCloseOutput : 0,
+            ffn != FalseObject ? CustomFlushOutput : 0,
+            rfn != FalseObject ? CustomReadCh : 0,
+            rfn != FalseObject ? CustomCharReadyP : 0,
+            wfn != FalseObject ? CustomWriteString : 0,
+            gpfn != FalseObject ? CustomGetPosition : 0,
+            spfn != FalseObject ? CustomSetPosition : 0,
+            0, 0));
 }
-*/
 
 static void SocketCloseInput(FObject port)
 {
@@ -1100,10 +1210,23 @@ ulong_t PeekCh(FObject port, FCh * ch)
 
     FAlive ap(&port);
 
-    if (ReadCh(port, ch) == 0)
-        return(0);
+    if (PositioningPortP(port))
+    {
+        int64_t pos = GetPosition(port);
 
-    AsTextualPort(port)->PeekedChar = *ch;
+        if (ReadCh(port, ch) == 0)
+            return(0);
+
+        SetPosition(port, pos, FromBegin);
+    }
+    else
+    {
+        if (ReadCh(port, ch) == 0)
+            return(0);
+
+        AsTextualPort(port)->PeekedChar = *ch;
+    }
+
     return(1);
 }
 
@@ -3536,8 +3659,8 @@ Define("make-custom-textual-input-port",
     if (argv[4] != FalseObject) // close
         ProcedureArgCheck("make-custom-textual-input-port", argv[4]);
 
-    // XXX
-    return(NoValueObject);
+    return(MakeCustomTextualPort(argv[0], argv[1], FalseObject, argv[2], argv[3], argv[4],
+            FalseObject));
 }
 
 Define("make-custom-binary-output-port",
@@ -3578,8 +3701,8 @@ Define("make-custom-textual-output-port",
     if (argc == 6 && argv[5] != FalseObject) // flush
         ProcedureArgCheck("make-custom-textual-output-port", argv[5]);
 
-    // XXX
-    return(NoValueObject);
+    return(MakeCustomTextualPort(argv[0], FalseObject, argv[1], argv[2], argv[3], argv[4],
+            argc == 6 ? argv[5] : FalseObject));
 }
 
 Define("make-custom-binary-input/output-port",
@@ -3622,8 +3745,8 @@ Define("make-custom-textual-input/output-port",
     if (argc == 7 && argv[6] != FalseObject) // flush
         ProcedureArgCheck("make-custom-textual-input/output-port", argv[6]);
 
-    // XXX
-    return(NoValueObject);
+    return(MakeCustomTextualPort(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
+            argc == 7 ? argv[6] : FalseObject));
 }
 
 Define("socket-merge-flags", SocketMergeFlagsPrimitive)(long_t argc, FObject argv[])
