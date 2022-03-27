@@ -1391,12 +1391,12 @@ FObject HandOffPort(FObject port)
 
     if (BinaryPortP(port))
     {
-        nport = MakeObject(BinaryPortTag, sizeof(FBinaryPort), 2, "%make-translator-port");
+        nport = MakeObject(BinaryPortTag, sizeof(FBinaryPort), 2, "transcoded-port");
         memcpy(nport, port, sizeof(FBinaryPort));
     }
     else
     {
-        nport = MakeObject(TextualPortTag, sizeof(FTextualPort), 2, "%make-translator-port");
+        nport = MakeObject(TextualPortTag, sizeof(FTextualPort), 2, "transcoded-port");
         memcpy(nport, port, sizeof(FTextualPort));
     }
 
@@ -1461,168 +1461,97 @@ FFileHandle GetFileHandle(FObject port)
     return(AsGenericPort(port)->GetFileHandleFn(port));
 }
 
-static void TranslatorCloseInput(FObject port)
+// ---- Transcoded Ports ----
+
+typedef enum
 {
-    FAssert(BinaryPortP(AsGenericPort(port)->Object));
+    StyleNone = 0,
+    StyleLF = 1,
+    StyleCRLF = 2
+} FEOLStyle;
 
-    CloseInput(AsGenericPort(port)->Object);
-}
-
-static void TranslatorCloseOutput(FObject port)
+typedef enum
 {
-    FAssert(BinaryPortP(AsGenericPort(port)->Object));
+    ModeReplace = 0,
+    ModeRaise = 1
+} FErrorMode;
 
-    CloseOutput(AsGenericPort(port)->Object);
-}
-
-static void TranslatorFlushOutput(FObject port)
+static ulong_t AsciiReadCh(FObject port, FErrorMode mode, FCh * ch)
 {
-    FAssert(BinaryPortP(AsGenericPort(port)->Object));
-
-    FlushOutput(AsGenericPort(port)->Object);
-}
-
-static FObject MakeTranslatorPort(FObject port, FReadChFn rcfn, FCharReadyPFn crpfn,
-    FWriteStringFn wsfn)
-{
-    FAssert(BinaryPortP(port));
-
-    port = HandOffPort(port);
-    return(MakeTextualPort(AsGenericPort(port)->Name, port, 0,
-            InputPortP(port) ? TranslatorCloseInput : 0,
-            OutputPortP(port) ? TranslatorCloseOutput : 0,
-            OutputPortP(port) ? TranslatorFlushOutput : 0,
-            InputPortP(port) ? rcfn : 0,
-            InputPortP(port) ? crpfn : 0,
-            OutputPortP(port) ? wsfn : 0, 0, 0, GetObjectFileHandle, 0));
-}
-
-static ulong_t AsciiReadCh(FObject port, FCh * ch)
-{
-    FAssert(BinaryPortP(AsGenericPort(port)->Object));
-
-    FAlive ap(&port);
     unsigned char b;
 
-    if (ReadBytes(AsGenericPort(port)->Object, &b, 1) != 1)
+    if (ReadBytes(port, &b, 1) != 1)
         return(0);
 
     if (b > 127)
-        *ch = '?';
+    {
+        if (mode == ModeReplace)
+            *ch = '?';
+        //else // mode == ModeRaise
+            // XXX: RaiseException
+    }
     else
         *ch = b;
-
-    if (b == CR)
-    {
-        if (PeekByte(AsGenericPort(port)->Object, &b) != 0 && b != LF)
-        {
-            AsTextualPort(port)->Line += 1;
-            AsTextualPort(port)->Column = 0;
-        }
-    }
-    else if (b == LF)
-    {
-        AsTextualPort(port)->Line += 1;
-        AsTextualPort(port)->Column = 0;
-    }
 
     return(1);
 }
 
-static long_t AsciiCharReadyP(FObject port)
+static void AsciiWriteString(FObject port, FErrorMode mode, FCh * s, ulong_t sl)
 {
-    FAssert(BinaryPortP(AsGenericPort(port)->Object));
-
-    return(ByteReadyP(AsGenericPort(port)->Object));
-}
-
-static void AsciiWriteString(FObject port, FCh * s, ulong_t sl)
-{
-    FAssert(BinaryPortP(AsGenericPort(port)->Object));
-
     for (ulong_t sdx = 0; sdx < sl; sdx++)
     {
         unsigned char b;
 
         if (s[sdx] > 0x7F)
-            b = '?';
+        {
+            if (mode == ModeReplace)
+                b = '?';
+            // else // mode == ModeRaise
+            // XXX: RaiseException
+        }
         else
             b = (unsigned char) s[sdx];
 
-        WriteBytes(AsGenericPort(port)->Object, &b, 1);
+        WriteBytes(port, &b, 1);
     }
 }
 
-static FObject MakeAsciiPort(FObject port)
+static ulong_t Latin1ReadCh(FObject port, FErrorMode mode, FCh * ch)
 {
-    return(MakeTranslatorPort(port, AsciiReadCh, AsciiCharReadyP, AsciiWriteString));
-}
-
-static ulong_t Latin1ReadCh(FObject port, FCh * ch)
-{
-    FAssert(BinaryPortP(AsGenericPort(port)->Object));
-
-    FAlive ap(&port);
     unsigned char b;
 
-    if (ReadBytes(AsGenericPort(port)->Object, &b, 1) != 1)
+    if (ReadBytes(port, &b, 1) != 1)
         return(0);
 
     *ch = b;
-    if (b == CR)
-    {
-        if (PeekByte(AsGenericPort(port)->Object, &b) != 0 && b != LF)
-        {
-            AsTextualPort(port)->Line += 1;
-            AsTextualPort(port)->Column = 0;
-        }
-    }
-    else if (b == LF)
-    {
-        AsTextualPort(port)->Line += 1;
-        AsTextualPort(port)->Column = 0;
-    }
-
     return(1);
 }
 
-static long_t Latin1CharReadyP(FObject port)
+static void Latin1WriteString(FObject port, FErrorMode mode, FCh * s, ulong_t sl)
 {
-    FAssert(BinaryPortP(AsGenericPort(port)->Object));
-
-    return(ByteReadyP(AsGenericPort(port)->Object));
-}
-
-static void Latin1WriteString(FObject port, FCh * s, ulong_t sl)
-{
-    FAssert(BinaryPortP(AsGenericPort(port)->Object));
-
     for (ulong_t sdx = 0; sdx < sl; sdx++)
     {
         unsigned char b;
 
         if (s[sdx] > 0xFF)
-            b = '?';
+        {
+            if (mode == ModeReplace)
+                b = '?';
+            // else // mode == ModeRaise
+            // XXX: RaiseException
+        }
         else
             b = (unsigned char) s[sdx];
 
-        WriteBytes(AsGenericPort(port)->Object, &b, 1);
+        WriteBytes(port, &b, 1);
     }
 }
 
-static FObject MakeLatin1Port(FObject port)
+static ulong_t Utf8ReadCh(FObject port, FErrorMode mode, FCh * ch)
 {
-    return(MakeTranslatorPort(port, Latin1ReadCh, Latin1CharReadyP, Latin1WriteString));
-}
-
-static ulong_t Utf8ReadCh(FObject port, FCh * ch)
-{
-    FAssert(BinaryPortP(AsGenericPort(port)->Object));
-
-    FAlive ap(&port);
     unsigned char ub[6];
 
-    if (ReadBytes(AsGenericPort(port)->Object, ub, 1) != 1)
+    if (ReadBytes(port, ub, 1) != 1)
         return(0);
 
     ulong_t tb = Utf8TrailingBytes[ub[0]];
@@ -1632,87 +1561,330 @@ static ulong_t Utf8ReadCh(FObject port, FCh * ch)
         return(1);
     }
 
-    if (ReadBytes(AsGenericPort(port)->Object, ub + 1, tb) != tb)
+    if (ReadBytes(port, ub + 1, tb) != tb)
         return(0);
 
     *ch = ConvertUtf8ToCh(ub, tb + 1);
     return(1);
 }
 
-static long_t Utf8CharReadyP(FObject port)
+static void Utf8WriteString(FObject port, FErrorMode mode, FCh * s, ulong_t sl)
 {
-    FAssert(BinaryPortP(AsGenericPort(port)->Object));
-
-    return(ByteReadyP(AsGenericPort(port)->Object));
-}
-
-static void Utf8WriteString(FObject port, FCh * s, ulong_t sl)
-{
-    FAssert(BinaryPortP(AsGenericPort(port)->Object));
-
+    // XXX: mode
     FObject bv = ConvertStringToUtf8(s, sl, 0);
 
     FAssert(BytevectorP(bv));
 
-    WriteBytes(AsGenericPort(port)->Object, AsBytevector(bv)->Vector, BytevectorLength(bv));
+    WriteBytes(port, AsBytevector(bv)->Vector, BytevectorLength(bv));
 }
 
-static FObject MakeUtf8Port(FObject port)
+static ulong_t Utf16ReadCh(FObject port, FErrorMode mode, FCh * pch)
 {
-    return(MakeTranslatorPort(port, Utf8ReadCh, Utf8CharReadyP, Utf8WriteString));
-}
-
-static ulong_t Utf16ReadCh(FObject port, FCh * pch)
-{
-    FAssert(BinaryPortP(AsGenericPort(port)->Object));
-
-    FAlive ap(&port);
     FCh16 ch16;
 
-    if (ReadBytes(AsGenericPort(port)->Object, (FByte *) &ch16, 2) != 2)
+    if (ReadBytes(port, (FByte *) &ch16, 2) != 2)
         return(0);
 
     FCh ch = ch16;
 
     if (ch >= Utf16HighSurrogateStart && ch <= Utf16HighSurrogateEnd)
     {
-        if (ReadBytes(AsGenericPort(port)->Object, (FByte *) &ch16, 2) != 2)
+        if (ReadBytes(port, (FByte *) &ch16, 2) != 2)
             return(0);
 
         if (ch16 >= Utf16LowSurrogateStart && ch16 <= Utf16LowSurrogateEnd)
             ch = ((ch - Utf16HighSurrogateStart) << Utf16HalfShift)
                     + (((FCh) ch16) - Utf16LowSurrogateStart) + Utf16HalfBase;
-        else
+        else if (mode == ModeReplace)
             ch = UnicodeReplacementCharacter;
+        // else // mode == ModeRaise
+        // XXX: RaiseException
     }
     else if (ch >= Utf16LowSurrogateStart && ch <= Utf16LowSurrogateEnd)
-        ch = UnicodeReplacementCharacter;
+    {
+        if (mode == ModeReplace)
+            ch = UnicodeReplacementCharacter;
+        // else // mode == ModeRaise
+        // XXX: RaiseException
+    }
 
     *pch = ch;
     return(1);
 }
 
-static long_t Utf16CharReadyP(FObject port)
+static void Utf16WriteString(FObject port, FErrorMode mode, FCh * s, ulong_t sl)
+{
+    // XXX: mode
+    FObject bv = ConvertStringToUtf16(s, sl, 0, 0);
+
+    FAssert(BytevectorP(bv));
+
+    WriteBytes(port, AsBytevector(bv)->Vector, BytevectorLength(bv));
+}
+
+typedef ulong_t (*FReadChModeFn)(FObject port, FErrorMode mode, FCh * ch);
+typedef void (*FWriteStringModeFn)(FObject port, FErrorMode mode, FCh * s, ulong_t sl);
+
+typedef struct
+{
+    const char * Name;
+    const char * Constant;
+    FReadChModeFn ReadChFn;
+    FWriteStringModeFn WriteStringFn;
+} FCodecType;
+
+#define ASCII_CODEC_INDEX 0
+#define LATIN1_CODEC_INDEX 1
+#define UTF8_CODEC_INDEX 2
+#define UTF16_CODEC_INDEX 3
+
+static FCodecType CodecTypes[] =
+{
+    [ASCII_CODEC_INDEX] = {"ascii", "*ascii-codec*", AsciiReadCh, AsciiWriteString},
+    [LATIN1_CODEC_INDEX] = {"latin-1", "*latin-1-codec*", Latin1ReadCh, Latin1WriteString},
+    [UTF8_CODEC_INDEX] = {"utf-8", "*utf-8-codec*", Utf8ReadCh, Utf8WriteString},
+    [UTF16_CODEC_INDEX] = {"utf-16", "*utf-16-codec*", Utf16ReadCh, Utf16WriteString},
+};
+
+#define AsCodec(obj) ((FCodec *) (obj))
+#define CodecP(obj) BuiltinP(obj, CodecType)
+
+typedef struct
+{
+    FObject BuiltinType;
+    FObject Index;
+} FCodec;
+
+static const char * CodecName(FObject obj);
+
+static void WriteCodec(FWriteContext * wctx, FObject obj)
+{
+    wctx->WriteStringC("#<codec: ");
+    wctx->WriteStringC(CodecName(obj));
+    wctx->WriteStringC(">");
+}
+
+EternalBuiltinType(CodecType, "codec", WriteCodec);
+
+static const char * CodecName(FObject obj)
+{
+    FAssert(CodecP(obj));
+    FAssert(FixnumP(AsCodec(obj)->Index));
+
+    ulong_t idx = AsFixnum(AsCodec(obj)->Index);
+
+    FAssert(idx >= 0 && idx < sizeof(CodecTypes) / sizeof(FCodecType));
+
+    return(CodecTypes[idx].Name);
+}
+
+static FObject MakeCodec(ulong_t idx)
+{
+    FAssert(idx >= 0 && idx < sizeof(CodecTypes) / sizeof(FCodecType));
+
+    FCodec * codec = (FCodec *) MakeBuiltin(CodecType, 2, "%make-codec");
+    codec->Index = MakeFixnum(idx);
+    return(codec);
+}
+
+#define AsTranscoder(obj) ((FTranscoder *) (obj))
+#define TranscoderP(obj) BuiltinP(obj, TranscoderType)
+
+typedef struct
+{
+    FObject BuiltinType;
+    FObject Codec;
+    FObject EOLStyle;
+    FObject ErrorMode;
+} FTranscoder;
+
+static void WriteTranscoder(FWriteContext * wctx, FObject obj)
+{
+    FAssert(CodecP(AsTranscoder(obj)->Codec));
+    FAssert(FixnumP(AsTranscoder(obj)->EOLStyle));
+    FAssert(FixnumP(AsTranscoder(obj)->ErrorMode));
+
+    wctx->WriteStringC("#<transcoder: ");
+    wctx->WriteStringC(CodecName(AsTranscoder(obj)->Codec));
+
+    switch (AsFixnum(AsTranscoder(obj)->EOLStyle))
+    {
+    case StyleNone:
+        wctx->WriteStringC(" none");
+        break;
+
+    case StyleLF:
+        wctx->WriteStringC(" lf");
+        break;
+
+    case StyleCRLF:
+        wctx->WriteStringC(" crlf");
+        break;
+
+    default:
+        FAssert(0);
+    }
+
+    switch (AsFixnum(AsTranscoder(obj)->ErrorMode))
+    {
+    case ModeReplace:
+        wctx->WriteStringC(" replace");
+        break;
+
+    case ModeRaise:
+        wctx->WriteStringC(" raise");
+        break;
+
+    default:
+        FAssert(0);
+    }
+    wctx->WriteStringC(">");
+}
+
+EternalBuiltinType(TranscoderType, "transcoder", WriteTranscoder);
+
+static FObject MakeTranscoder(FObject codec, FEOLStyle style, FErrorMode mode)
+{
+    FAssert(CodecP(codec));
+    FAssert(style == StyleNone || style == StyleLF || style == StyleCRLF);
+    FAssert(mode == ModeReplace || mode == ModeRaise);
+
+    FTranscoder * tc = (FTranscoder *) MakeBuiltin(TranscoderType, 4, "make-transcoder");
+    tc->Codec = codec;
+    tc->EOLStyle = MakeFixnum(style);
+    tc->ErrorMode = MakeFixnum(mode);
+    return(tc);
+}
+
+typedef struct
+{
+    FEOLStyle Style;
+    FErrorMode Mode;
+    FReadChModeFn ReadChFn;
+    FWriteStringModeFn WriteStringFn;
+} FTranscodedContext;
+
+#define AsTranscodedContext(port) ((FTranscodedContext *) AsGenericPort(port)->Context)
+
+static void TranscodedCloseInput(FObject port)
+{
+    FAssert(BinaryPortP(AsGenericPort(port)->Object));
+
+    if (OutputPortOpenP(port) == 0)
+        free(AsTranscodedContext(port));
+
+    CloseInput(AsGenericPort(port)->Object);
+}
+
+static void TranscodedCloseOutput(FObject port)
+{
+    FAssert(BinaryPortP(AsGenericPort(port)->Object));
+
+    if (InputPortOpenP(port) == 0)
+        free(AsTranscodedContext(port));
+
+    CloseOutput(AsGenericPort(port)->Object);
+}
+
+static void TranscodedFlushOutput(FObject port)
+{
+    FAssert(BinaryPortP(AsGenericPort(port)->Object));
+
+    FlushOutput(AsGenericPort(port)->Object);
+}
+
+static ulong_t TranscodedReadCh(FObject port, FCh * ch)
+{
+    FAssert(BinaryPortP(AsGenericPort(port)->Object));
+
+    FTranscodedContext * tc = AsTranscodedContext(port);
+
+    if (tc->ReadChFn(AsGenericPort(port)->Object, tc->Mode, ch) == 0)
+        return(0);
+
+    // XXX: handle style here
+    /*
+    if (b == CR)
+    {
+        if (PeekByte(port, &b) != 0 && b != LF)
+        {
+            AsTextualPort(port)->Line += 1;
+            AsTextualPort(port)->Column = 0;
+        }
+    }
+    else if (b == LF)
+    {
+        AsTextualPort(port)->Line += 1;
+        AsTextualPort(port)->Column = 0;
+    }
+    */
+    return(1);
+}
+
+static long_t TranscodedCharReadyP(FObject port)
 {
     FAssert(BinaryPortP(AsGenericPort(port)->Object));
 
     return(ByteReadyP(AsGenericPort(port)->Object));
 }
 
-static void Utf16WriteString(FObject port, FCh * s, ulong_t sl)
+static void TranscodedWriteString(FObject port, FCh * s, ulong_t sl)
 {
     FAssert(BinaryPortP(AsGenericPort(port)->Object));
 
-    FObject bv = ConvertStringToUtf16(s, sl, 0, 0);
+    FTranscodedContext * tc = AsTranscodedContext(port);
 
-    FAssert(BytevectorP(bv));
+    // XXX: need to handle tc->Style
 
-    WriteBytes(AsGenericPort(port)->Object, AsBytevector(bv)->Vector, BytevectorLength(bv));
+    tc->WriteStringFn(AsGenericPort(port)->Object, tc->Mode, s, sl);
+}
+
+static FObject MakeTranscodedPort(FObject port, ulong_t cdx, FEOLStyle style, FErrorMode mode)
+{
+    FAssert(BinaryPortP(port));
+    FAssert(cdx >= 0 && cdx < sizeof(CodecTypes) / sizeof(FCodecType));
+
+    FTranscodedContext * tc = (FTranscodedContext *) malloc(sizeof(FTranscodedContext));
+    if (tc == 0)
+        return(NoValueObject);
+
+    tc->Style = style;
+    tc->Mode = mode;
+    tc->WriteStringFn = CodecTypes[cdx].WriteStringFn;
+    tc->ReadChFn = CodecTypes[cdx].ReadChFn;
+
+    // XXX: port = HandOffPort(port);
+    return(MakeTextualPort(AsGenericPort(port)->Name, port, tc,
+            InputPortP(port) ? TranscodedCloseInput : 0,
+            OutputPortP(port) ? TranscodedCloseOutput : 0,
+            OutputPortP(port) ? TranscodedFlushOutput : 0,
+            InputPortP(port) ? TranscodedReadCh : 0,
+            InputPortP(port) ? TranscodedCharReadyP : 0,
+            OutputPortP(port) ? TranscodedWriteString : 0, 0, 0, GetObjectFileHandle, 0));
+}
+
+static FObject MakeAsciiPort(FObject port)
+{
+    // XXX: still needed; remove make-ascii-port primitive
+    return(MakeTranscodedPort(port, ASCII_CODEC_INDEX, StyleNone, ModeReplace));
+}
+
+static FObject MakeLatin1Port(FObject port)
+{
+    // XXX: still needed?; remove make-latin1-port primitive
+    return(MakeTranscodedPort(port, LATIN1_CODEC_INDEX, StyleNone, ModeReplace));
+}
+
+static FObject MakeUtf8Port(FObject port)
+{
+    // XXX: still needed?; remove make-utf8-port primitive
+    return(MakeTranscodedPort(port, UTF8_CODEC_INDEX, StyleNone, ModeReplace));
 }
 
 static FObject MakeUtf16Port(FObject port)
 {
-    return(MakeTranslatorPort(port, Utf16ReadCh, Utf16CharReadyP, Utf16WriteString));
+    // XXX: still needed?; remove make-utf16-port primitive
+    return(MakeTranscodedPort(port, UTF16_CODEC_INDEX, StyleNone, ModeReplace));
 }
 
 static long_t EncodingChP(char ch)
@@ -1748,7 +1920,7 @@ static FObject MakeEncodedPort(FObject port)
 //    if (bl >= 2 && b[0] == 0xFE && b[1] == 0xFF) // Big Endian
 //        return(MakeUtf16Port(port));
 
-    // Search "coding:" but strstr will not work because b is not null terminated.
+    // Search for "coding:" but strstr will not work because b is not null terminated.
 
     for (ulong_t bdx = 6; bdx < bl; bdx += 7)
     {
@@ -3429,6 +3601,43 @@ Define("get-output-bytevector", GetOutputBytevectorPrimitive)(long_t argc, FObje
     return(GetOutputBytevector(argv[0]));
 }
 
+Define("%make-transcoder", MakeTranscoderPrimitive)(long_t argc, FObject argv[])
+{
+    FMustBe(argc == 3);
+
+    if (CodecP(argv[0]) == 0)
+        RaiseExceptionC(Assertion, "make-transcoder", "expected a codec", List(argv[0]));
+
+    FMustBe(FixnumP(argv[1]));
+    FMustBe(FixnumP(argv[2]));
+
+    FEOLStyle style = (FEOLStyle) AsFixnum(argv[1]);
+    FErrorMode mode = (FErrorMode) AsFixnum(argv[2]);
+
+    FMustBe(style == StyleNone || style == StyleLF || style == StyleCRLF);
+    FMustBe(mode == ModeReplace || mode == ModeRaise);
+
+    return(MakeTranscoder(argv[0], style, mode));
+}
+
+Define("transcoded-port", TranscodedPortPrimitive)(long_t argc, FObject argv[])
+{
+    TwoArgsCheck("transcoded-port", argc);
+    BinaryPortArgCheck("transcoded-port", argv[0]);
+
+    if (TranscoderP(argv[1]) == 0)
+        RaiseExceptionC(Assertion, "transcoded-port", "expected a transcoder", List(argv[1]));
+
+    FObject codec = AsTranscoder(argv[1])->Codec;
+
+    FAssert(CodecP(codec));
+    FAssert(FixnumP(AsCodec(codec)->Index));
+
+    return(MakeTranscodedPort(argv[0], AsFixnum(AsCodec(codec)->Index),
+            (FEOLStyle) AsFixnum(AsTranscoder(argv[1])->EOLStyle),
+            (FErrorMode) AsFixnum(AsTranscoder(argv[1])->ErrorMode)));
+}
+
 Define("make-ascii-port", MakeAsciiPortPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("make-ascii-port", argc);
@@ -4127,6 +4336,8 @@ static FObject Primitives[] =
     OpenInputBytevectorPrimitive,
     OpenOutputBytevectorPrimitive,
     GetOutputBytevectorPrimitive,
+    MakeTranscoderPrimitive,
+    TranscodedPortPrimitive,
     MakeAsciiPortPrimitive,
     MakeLatin1PortPrimitive,
     MakeUtf8PortPrimitive,
@@ -4307,6 +4518,9 @@ void SetupIO()
 
     for (ulong_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
+
+    for (ulong_t idx = 0; idx < sizeof(CodecTypes) / sizeof(FCodecType); idx++)
+        DefineConstant(Bedrock, BedrockLibrary, CodecTypes[idx].Constant, MakeCodec(idx));
 
     DefineConstant(Bedrock, BedrockLibrary, "*af-unspec*", MakeFixnum(AF_UNSPEC));
     DefineConstant(Bedrock, BedrockLibrary, "*af-inet*", MakeFixnum(AF_INET));

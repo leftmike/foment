@@ -145,13 +145,12 @@ FObject WrapIdentifier(FObject id, FObject se)
 // ---- Lambda ----
 
 
-static void
-WriteLambda(FWriteContext * wctx, FObject obj)
+static void WriteLambda(FWriteContext * wctx, FObject obj)
 {
     FCh s[16];
     long_t sl = FixnumAsString((long_t) obj, s, 16);
 
-    wctx->WriteStringC("#<library: #x");
+    wctx->WriteStringC("#<lambda: #x");
     wctx->WriteString(s, sl);
 
     wctx->WriteCh(' ');

@@ -629,7 +629,19 @@
         stack-used
         stack-used-reset!
         %execute-proc
-        %procedure-code)
+        %procedure-code
+        make-codec
+        ascii-codec
+        latin-1-codec
+        utf-8-codec
+        utf-16-codec
+        unknown-encoding-error?
+        unknown-encoding-error-name
+        native-eol-style
+        make-transcoder
+        transcoded-port
+        bytevector->string
+        string->bytevector)
     (cond-expand
         (unix
             (export
@@ -908,23 +920,6 @@
                 (full-error 'assertion-violation 'vector-for-each #f
                         "vector-for-each: expected at least one argument")
                 (for-each proc 0 vectors)))
-
-        (define (read-error? obj)
-            (and (error-object? obj) (eq? (error-object-who obj) 'read)))
-
-        (define (file-error? obj)
-            (and (error-object? obj) (eq? (error-object-kind obj) 'file-error)))
-
-        (define (i/o-invalid-position-error? obj)
-            (and (error-object? obj) (eq? (error-object-kind obj) 'position-error)))
-
-        (define (make-i/o-invalid-position-error pos)
-            (make-error-object 'assertion-violation 'make-i/o-invalid-position-error
-                    'position-error "invalid position error" pos))
-
-        (define (make-file-error . objs)
-            (apply make-error-object 'assertion-violation 'make-file-error
-                    'file-error "file error" objs))
 
         (define-record-type promise
             (%make-promise state)
@@ -1398,6 +1393,83 @@
                                 (car first))))
                     ((obj) (install-tracker obj obj tconc))
                     ((obj ret) (install-tracker obj ret tconc)))))
+
+        (define (read-error? obj)
+            (and (error-object? obj) (eq? (error-object-who obj) 'read)))
+
+        (define (file-error? obj)
+            (and (error-object? obj) (eq? (error-object-kind obj) 'file-error)))
+
+        (define (i/o-invalid-position-error? obj)
+            (and (error-object? obj) (eq? (error-object-kind obj) 'position-error)))
+
+        (define (make-i/o-invalid-position-error pos)
+            (make-error-object 'assertion-violation 'make-i/o-invalid-position-error
+                    'position-error "invalid position error" pos))
+
+        (define (make-file-error . objs)
+            (apply make-error-object 'assertion-violation 'make-file-error
+                    'file-error "file error" objs))
+
+        (define (ascii-codec) *ascii-codec*)
+        (define (latin-1-codec) *latin-1-codec*)
+        (define (utf-8-codec) *utf-8-codec*)
+        (define (utf-16-codec) *utf-16-codec*)
+
+        (define (make-codec nam)
+            (cond
+                ((member nam '("ascii" "us-ascii" "iso-ir-6" "ansi_x3.4-1968" "ansi_x3.4-1986"
+                        "iso-646.irv:1991" "iso-646-us" "us" "ibm367" "cp367" "csascii"))
+                     *ascii-codec*)
+                ((member nam '("cp1252" "cp819" "csisolatin1" "ibm819" "iso-8859-1" "iso-ir-100"
+                        "iso8859-1" "iso88591" "iso_8859-1" "iso_8859-1:1987" "l1" "latin1"
+                        "windows-1252" "x-cp1252"))
+                    *latin-1-codec*)
+                ((member nam '("unicode-1-1-utf-8" "unicode11utf8" "unicode20utf8" "utf-8" "utf8"
+                        "x-unicode20utf8" "csutf8"))
+                    *utf-8-codec*)
+                ((member nam '("csunicode" "iso-10646-ucs-2" "ucs-2" "unicode" "unicodefeff"
+                        "utf-16" "utf-16le" "csutf16"))
+                    *utf-16-codec*)
+                (else
+                    (full-error 'assertion-violation 'make-codec 'unknown-encoding-error
+                            "make-codec: unknown encoding" nam))))
+
+        (define (unknown-encoding-error? obj)
+            (and (error-object? obj) (eq? (error-object-kind obj) 'unknown-encoding-error)))
+
+        (define (unknown-encoding-error-name obj)
+            (if (unknown-encoding-error? obj)
+                (car (error-object-irritants obj))
+                ""))
+
+        (define (native-eol-style)
+            (cond-expand
+                (windows 'crlf)
+                (else 'lf)))
+
+        (define (make-transcoder codec style mode)
+            (%make-transcoder codec
+                    (case style
+                        ((none) 0) ((lf) 1) ((crlf) 2)
+                        (else
+                            (full-error 'assertion-violation 'make-transcoder #f
+                                    "make-transcoder: expected none, lf, or crlf" style)))
+                    (case mode
+                        ((replace) 0) ((raise) 1)
+                        (else
+                            (full-error 'assertion-violation 'make-transcoder #f
+                                    "make-transcoder: expected replace or raise" mode)))))
+
+        (define (bytevector->string bv tc)
+            (let ((output (open-output-string)))
+                (%copy-port (transcoded-port (open-input-bytevector bv) tc) output)
+                (get-output-string output)))
+
+        (define (string->bytevector s tc)
+            (let ((output (open-output-bytevector)))
+                (%copy-port (open-input-string s) (transcoded-port output tc))
+                (get-output-bytevector output)))
 
         (define current-input-port
             (make-index-parameter 0 %standard-input

@@ -21,60 +21,6 @@
 
 (check-error (assertion-violation) (let () (set!-values () (values 1))))
 
-;; make-latin1-port
-;; make-utf8-port
-;; make-utf16-port
-
-(check-error (assertion-violation make-latin1-port) (make-latin1-port))
-(check-error (assertion-violation make-latin1-port) (make-latin1-port (current-input-port)))
-(check-error (assertion-violation make-latin1-port) (make-latin1-port (current-output-port)))
-(check-error (assertion-violation make-latin1-port)
-        (make-latin1-port (open-binary-input-file "foment.scm") #t))
-
-(define (tst-string m)
-    (let ((s (make-string m)))
-        (define (set-ch n m o)
-            (if (< n m)
-                (begin
-                    (string-set! s n (integer->char (+ n o)))
-                    (set-ch (+ n 1) m o))))
-        (set-ch 0 m (char->integer #\!))
-        s))
-
-(define (tst-read-port port)
-    (define (read-port port n)
-        (let ((obj (read-char port)))
-            (if (not (eof-object? obj))
-                (begin
-                    (if (or (not (char? obj)) (not (= n (char->integer obj))))
-                        (error "expected character" (integer->char n) obj))
-                    (read-port port (+ n 1))))))
-    (read-port port (char->integer #\!)))
-
-(call-with-port (make-utf8-port (open-binary-output-file "output.utf8"))
-    (lambda (port)
-        (display (tst-string 5000) port)))
-
-(call-with-port (make-utf8-port (open-binary-input-file "output.utf8")) tst-read-port)
-
-(check-error (assertion-violation make-utf8-port) (make-utf8-port))
-(check-error (assertion-violation make-utf8-port) (make-utf8-port (current-input-port)))
-(check-error (assertion-violation make-utf8-port) (make-utf8-port (current-output-port)))
-(check-error (assertion-violation make-utf8-port)
-        (make-utf8-port (open-binary-input-file "foment.scm") #t))
-
-(call-with-port (make-utf16-port (open-binary-output-file "output.utf16"))
-    (lambda (port)
-        (display (tst-string 5000) port)))
-
-(call-with-port (make-utf16-port (open-binary-input-file "output.utf16")) tst-read-port)
-
-(check-error (assertion-violation make-utf16-port) (make-utf16-port))
-(check-error (assertion-violation make-utf16-port) (make-utf16-port (current-input-port)))
-(check-error (assertion-violation make-utf16-port) (make-utf16-port (current-output-port)))
-(check-error (assertion-violation make-utf16-port)
-        (make-utf16-port (open-binary-input-file "foment.scm") #t))
-
 ;; with-continuation-mark
 ;; current-continuation-marks
 
@@ -1192,3 +1138,96 @@
 (check-equal #t (file-error? (make-file-error "bad")))
 
 (check-equal #t (i/o-invalid-position-error? (make-i/o-invalid-position-error 0)))
+
+;;
+;; Transcoded Ports
+;;
+
+;; make-codec
+;; make-transcorder
+;; transcoded-port
+
+(check-equal #t (eq? (make-codec "iso_8859-1") (latin-1-codec)))
+(check-equal #f (eq? (make-codec "us-ascii") (latin-1-codec)))
+(check-equal #t (eq? (make-codec "unicode-1-1-utf-8") (utf-8-codec)))
+(check-equal #t (eq? (make-codec "utf8") (utf-8-codec)))
+(check-equal #f (eq? (utf-8-codec) (utf-16-codec)))
+(check-equal #t (eq? (make-codec "utf-16") (utf-16-codec)))
+
+(check-error (assertion-violation) (make-codec "not-a-valid-codec"))
+
+(define exc #f)
+(check-error (assertion-violation) (with-exception-handler
+    (lambda (e) (set! exc e))
+    (lambda () (make-codec "not-a-valid-codec"))))
+(check-equal #t (unknown-encoding-error? exc))
+(check-equal "not-a-valid-codec" (unknown-encoding-error-name exc))
+
+(check-equal #t (eq? (native-eol-style) (cond-expand (windows 'crlf) (else 'lf))))
+
+(define (tst-string m)
+    (let ((s (make-string m)))
+        (define (set-ch n m o)
+            (if (< n m)
+                (begin
+                    (string-set! s n (integer->char (+ n o)))
+                    (set-ch (+ n 1) m o))))
+        (set-ch 0 m (char->integer #\!))
+        s))
+
+(define (tst-read-port port)
+    (define (read-port port n)
+        (let ((obj (read-char port)))
+            (if (not (eof-object? obj))
+                (begin
+                    (if (or (not (char? obj)) (not (= n (char->integer obj))))
+                        (error "expected character" (integer->char n) obj))
+                    (read-port port (+ n 1))))))
+    (read-port port (char->integer #\!)))
+
+(define utf-8-tc (make-transcoder (utf-8-codec) 'none 'replace))
+(call-with-port (transcoded-port (open-binary-output-file "output.utf8") utf-8-tc)
+    (lambda (port)
+        (display (tst-string 5000) port)))
+
+(call-with-port (transcoded-port (open-binary-input-file "output.utf8") utf-8-tc) tst-read-port)
+
+(define utf-16-tc (make-transcoder (utf-16-codec) 'none 'replace))
+(call-with-port (transcoded-port (open-binary-output-file "output.utf16") utf-16-tc)
+    (lambda (port)
+        (display (tst-string 5000) port)))
+
+(call-with-port (transcoded-port (open-binary-input-file "output.utf16") utf-16-tc) tst-read-port)
+
+;; Tests from github.comm/scheme-requests-for-implementation/srfi-192
+
+(define *native-tc* (make-transcoder (utf-8-codec) 'lf 'replace))
+(define (native-transcoder) *native-tc*)
+
+(check-equal "ABCD" (bytevector->string '#u8(#x41 #x42 #x43 #x44) (native-transcoder)))
+(check-equal
+    (#\A #\B #\C #\xa1 #\xa2 #\xa3 #\X #\Y #\Z #\xc1 #\xc2 #\xc3)
+    (string->list
+        (bytevector->string '#u8(#x41 #x42 #x43 #xa1 #xa2 #xa3 #x58 #x59 #x5a #xc1 #xc2 #xc3)
+                (make-transcoder (latin-1-codec) (native-eol-style) 'replace))))
+
+; XXX: need to remove the byte order mark if there
+;(check-equal
+;    (#\A #\B #\x3000 #\xc1 #\C #\D)
+(check-equal
+    (#\xfeff #\A #\B #\x3000 #\xc1 #\C #\D)
+    (string->list
+        (bytevector->string
+                '#u8(#xff #xfe #x41 #x00 #x42 #x00 #x00 #x30 #xc1 #x00 #x43 #x00 #x44 #x00)
+                (make-transcoder (utf-16-codec) (native-eol-style) 'replace))))
+
+(check-equal
+    (#\A #\B #\x3000 #\xc1 #\C #\D)
+    (string->list
+        (bytevector->string '#u8(#x41 #x00 #x42 #x00 #x00 #x30 #xc1 #x00 #x43 #x00 #x44 #x00)
+                (make-transcoder (utf-16-codec) (native-eol-style) 'replace))))
+
+(check-equal #u8(#x41 #x42 #x43 #x44)
+    (string->bytevector "ABCD" (native-transcoder)))
+(check-equal #u8(#x41 #x42 #x43 #x44)
+     (string->bytevector "ABCD" (make-transcoder (latin-1-codec) (native-eol-style) 'raise)))

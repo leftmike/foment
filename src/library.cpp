@@ -26,8 +26,7 @@ static FObject LibraryStartupList = EmptyListObject;
 
 // ---- Environments ----
 
-static void
-WriteEnvironment(FWriteContext * wctx, FObject obj)
+static void WriteEnvironment(FWriteContext * wctx, FObject obj)
 {
     FCh s[16];
     long_t sl = FixnumAsString((long_t) obj, s, 16);
