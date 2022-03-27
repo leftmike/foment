@@ -1044,14 +1044,14 @@ static FObject MakeFileDescOutputPort(FObject nam, long_t fd)
 }
 #endif // FOMENT_UNIX
 
-static void BvinCloseInput(FObject port)
+static void BytevectorInputCloseInput(FObject port)
 {
     FAssert(BinaryPortP(port));
 
     AsGenericPort(port)->Object = NoValueObject;
 }
 
-static ulong_t BvinReadBytes(FObject port, void * b, ulong_t bl)
+static ulong_t BytevectorInputReadBytes(FObject port, void * b, ulong_t bl)
 {
     FAssert(BinaryPortP(port) && InputPortOpenP(port));
 
@@ -1073,7 +1073,7 @@ static ulong_t BvinReadBytes(FObject port, void * b, ulong_t bl)
     return(bl);
 }
 
-static long_t BvinByteReadyP(FObject port)
+static long_t BytevectorInputByteReadyP(FObject port)
 {
     FAssert(BinaryPortP(port) && InputPortOpenP(port));
 
@@ -1084,21 +1084,21 @@ static FObject MakeBytevectorInputPort(FObject bv)
 {
     FAssert(BytevectorP(bv));
 
-    return(MakeBinaryPort(NoValueObject, bv, 0, BvinCloseInput, 0, 0, BvinReadBytes,
-            BvinByteReadyP, 0, 0, 0, 0, 0));
+    return(MakeBinaryPort(NoValueObject, bv, 0, BytevectorInputCloseInput, 0, 0,
+            BytevectorInputReadBytes, BytevectorInputByteReadyP, 0, 0, 0, 0, 0));
 }
 
-static void BvoutCloseOutput(FObject port)
+static void BytevectorOutputCloseOutput(FObject port)
 {
     // Nothing.
 }
 
-static void BvoutFlushOutput(FObject port)
+static void BytevectorOutputFlushOutput(FObject port)
 {
     // Nothing.
 }
 
-static void BvoutWriteBytes(FObject port, void * b, ulong_t bl)
+static void BytevectorOutputWriteBytes(FObject port, void * b, ulong_t bl)
 {
     FAssert(BinaryPortP(port) && OutputPortOpenP(port));
     FAssert(AsGenericPort(port)->Object == EmptyListObject || PairP(AsGenericPort(port)->Object));
@@ -1140,8 +1140,9 @@ static FObject GetOutputBytevector(FObject port)
 
 static FObject MakeBytevectorOutputPort()
 {
-    return(MakeBinaryPort(NoValueObject, EmptyListObject, 0, 0, BvoutCloseOutput,
-            BvoutFlushOutput, 0, 0, BvoutWriteBytes, 0, 0, 0, PORT_FLAG_BYTEVECTOR_OUTPUT));
+    return(MakeBinaryPort(NoValueObject, EmptyListObject, 0, 0, BytevectorOutputCloseOutput,
+            BytevectorOutputFlushOutput, 0, 0, BytevectorOutputWriteBytes, 0, 0, 0,
+            PORT_FLAG_BYTEVECTOR_OUTPUT));
 }
 
 // ---- Textual Ports ----
@@ -2057,14 +2058,14 @@ FObject OpenOutputPipe(FFileHandle fh)
 #endif // FOMENT_UNIX
 }
 
-static void SinCloseInput(FObject port)
+static void StringInputCloseInput(FObject port)
 {
     FAssert(TextualPortP(port));
 
     AsGenericPort(port)->Object = NoValueObject;
 }
 
-static ulong_t SinReadCh(FObject port, FCh * ch)
+static ulong_t StringInputReadCh(FObject port, FCh * ch)
 {
     FAssert(TextualPortP(port) && InputPortOpenP(port));
 
@@ -2083,7 +2084,7 @@ static ulong_t SinReadCh(FObject port, FCh * ch)
     return(1);
 }
 
-static long_t SinCharReadyP(FObject port)
+static long_t StringInputCharReadyP(FObject port)
 {
     return(1);
 }
@@ -2092,21 +2093,21 @@ FObject MakeStringInputPort(FObject s)
 {
     FAssert(StringP(s));
 
-    return(MakeTextualPort(NoValueObject, s, 0, SinCloseInput, 0, 0, SinReadCh, SinCharReadyP,
-            0, 0, 0, 0, 0));
+    return(MakeTextualPort(NoValueObject, s, 0, StringInputCloseInput, 0, 0, StringInputReadCh,
+            StringInputCharReadyP, 0, 0, 0, 0, 0));
 }
 
-static void SoutCloseOutput(FObject port)
+static void StringOutputCloseOutput(FObject port)
 {
     // Nothing.
 }
 
-static void SoutFlushOutput(FObject port)
+static void StringOutputFlushOutput(FObject port)
 {
     // Nothing.
 }
 
-static void SoutWriteString(FObject port, FCh * s, ulong_t sl)
+static void StringOutputWriteString(FObject port, FCh * s, ulong_t sl)
 {
     FAssert(TextualPortP(port) && OutputPortOpenP(port));
     FAssert(AsGenericPort(port)->Object == EmptyListObject || PairP(AsGenericPort(port)->Object));
@@ -2148,16 +2149,17 @@ FObject GetOutputString(FObject port)
 
 FObject MakeStringOutputPort()
 {
-    return(MakeTextualPort(NoValueObject, EmptyListObject, 0, 0, SoutCloseOutput,
-            SoutFlushOutput, 0, 0, SoutWriteString, 0, 0, 0, PORT_FLAG_STRING_OUTPUT));
+    return(MakeTextualPort(NoValueObject, EmptyListObject, 0, 0, StringOutputCloseOutput,
+            StringOutputFlushOutput, 0, 0, StringOutputWriteString, 0, 0, 0,
+            PORT_FLAG_STRING_OUTPUT));
 }
 
-static void CinCloseInput(FObject port)
+static void StringCInputCloseInput(FObject port)
 {
     // Nothing.
 }
 
-static ulong_t CinReadCh(FObject port, FCh * ch)
+static ulong_t StringCInputReadCh(FObject port, FCh * ch)
 {
     FAssert(TextualPortP(port));
 
@@ -2172,15 +2174,15 @@ static ulong_t CinReadCh(FObject port, FCh * ch)
     return(1);
 }
 
-static long_t CinCharReadyP(FObject port)
+static long_t StringCInputCharReadyP(FObject port)
 {
     return(1);
 }
 
 FObject MakeStringCInputPort(const char * s)
 {
-    return(MakeTextualPort(NoValueObject, NoValueObject, (void *) s, CinCloseInput, 0, 0,
-            CinReadCh, CinCharReadyP, 0, 0, 0, 0, 0));
+    return(MakeTextualPort(NoValueObject, NoValueObject, (void *) s, StringCInputCloseInput, 0, 0,
+            StringCInputReadCh, StringCInputCharReadyP, 0, 0, 0, 0, 0));
 }
 
 // ---- Console Input and Output ----
