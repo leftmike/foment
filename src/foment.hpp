@@ -5,7 +5,6 @@ Foment
 To Do:
 -- custom ports
 --- check FAlive throughout IO code; likely necessary more places
---- HandOffPort: fix Sout and Bvout to work correctly with it; add to transcoded ports
 --- change port-position to potential return an arbitrary object
 --- change set-port-position! to take an arbitrary object
 --- libraries: srfi-181, srfi-192, maybe 79, 81, 82, 91, 186

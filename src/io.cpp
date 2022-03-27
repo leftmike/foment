@@ -1101,23 +1101,20 @@ static void BytevectorOutputFlushOutput(FObject port)
 static void BytevectorOutputWriteBytes(FObject port, void * b, ulong_t bl)
 {
     FAssert(BinaryPortP(port) && OutputPortOpenP(port));
-    FAssert(AsGenericPort(port)->Object == EmptyListObject || PairP(AsGenericPort(port)->Object));
 
-    FObject lst = AsGenericPort(port)->Object;
+    FObject lst = Unbox(AsGenericPort(port)->Object);
 
     for (ulong_t bdx = 0; bdx < bl; bdx++)
         lst = MakePair(MakeFixnum(((unsigned char *) b)[bdx]), lst);
 
-//    AsGenericPort(port)->Object = lst;
-    Modify(FGenericPort, port, Object, lst);
+    SetBox(AsGenericPort(port)->Object, lst);
 }
 
 static FObject GetOutputBytevector(FObject port)
 {
     FAssert(BytevectorOutputPortP(port));
-    FAssert(AsGenericPort(port)->Object == EmptyListObject || PairP(AsGenericPort(port)->Object));
 
-    FObject lst = AsGenericPort(port)->Object;
+    FObject lst = Unbox(AsGenericPort(port)->Object);
     long_t bl = ListLength("get-output-bytevector", lst);
     FObject bv = MakeBytevector(bl);
     long_t bdx = bl;
@@ -1140,9 +1137,9 @@ static FObject GetOutputBytevector(FObject port)
 
 static FObject MakeBytevectorOutputPort()
 {
-    return(MakeBinaryPort(NoValueObject, EmptyListObject, 0, 0, BytevectorOutputCloseOutput,
-            BytevectorOutputFlushOutput, 0, 0, BytevectorOutputWriteBytes, 0, 0, 0,
-            PORT_FLAG_BYTEVECTOR_OUTPUT));
+    return(MakeBinaryPort(NoValueObject, MakeBox(EmptyListObject), 0, 0,
+            BytevectorOutputCloseOutput, BytevectorOutputFlushOutput, 0, 0,
+            BytevectorOutputWriteBytes, 0, 0, 0, PORT_FLAG_BYTEVECTOR_OUTPUT));
 }
 
 // ---- Textual Ports ----
@@ -1403,7 +1400,6 @@ FObject HandOffPort(FObject port)
 
     AsGenericPort(port)->Flags &= ~PORT_FLAG_INPUT_OPEN;
     AsGenericPort(port)->Flags &= ~PORT_FLAG_OUTPUT_OPEN;
-    AsGenericPort(port)->Object = NoValueObject;
     AsGenericPort(port)->Context = 0;
 
     return(nport);
@@ -1854,7 +1850,7 @@ static FObject MakeTranscodedPort(FObject port, ulong_t cdx, FEOLStyle style, FE
     tc->WriteStringFn = CodecTypes[cdx].WriteStringFn;
     tc->ReadChFn = CodecTypes[cdx].ReadChFn;
 
-    // XXX: port = HandOffPort(port);
+    port = HandOffPort(port);
     return(MakeTextualPort(AsGenericPort(port)->Name, port, tc,
             InputPortP(port) ? TranscodedCloseInput : 0,
             OutputPortP(port) ? TranscodedCloseOutput : 0,
@@ -2110,23 +2106,20 @@ static void StringOutputFlushOutput(FObject port)
 static void StringOutputWriteString(FObject port, FCh * s, ulong_t sl)
 {
     FAssert(TextualPortP(port) && OutputPortOpenP(port));
-    FAssert(AsGenericPort(port)->Object == EmptyListObject || PairP(AsGenericPort(port)->Object));
 
-    FObject lst = AsGenericPort(port)->Object;
+    FObject lst = Unbox(AsGenericPort(port)->Object);
 
     for (ulong_t sdx = 0; sdx < sl; sdx++)
         lst = MakePair(MakeCharacter(s[sdx]), lst);
 
-//    AsGenericPort(port)->Object = lst;
-    Modify(FGenericPort, port, Object, lst);
+    SetBox(AsGenericPort(port)->Object, lst);
 }
 
 FObject GetOutputString(FObject port)
 {
     FAssert(StringOutputPortP(port));
-    FAssert(AsGenericPort(port)->Object == EmptyListObject || PairP(AsGenericPort(port)->Object));
 
-    FObject lst = AsGenericPort(port)->Object;
+    FObject lst = Unbox(AsGenericPort(port)->Object);
     long_t sl = ListLength("get-output-string", lst);
     FObject s = MakeString(0, sl);
     long_t sdx = sl;
@@ -2149,7 +2142,7 @@ FObject GetOutputString(FObject port)
 
 FObject MakeStringOutputPort()
 {
-    return(MakeTextualPort(NoValueObject, EmptyListObject, 0, 0, StringOutputCloseOutput,
+    return(MakeTextualPort(NoValueObject, MakeBox(EmptyListObject), 0, 0, StringOutputCloseOutput,
             StringOutputFlushOutput, 0, 0, StringOutputWriteString, 0, 0, 0,
             PORT_FLAG_STRING_OUTPUT));
 }
