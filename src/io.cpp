@@ -1860,30 +1860,6 @@ static FObject MakeTranscodedPort(FObject port, ulong_t cdx, FEOLStyle style, FE
             OutputPortP(port) ? TranscodedWriteString : 0, 0, 0, GetObjectFileHandle, 0));
 }
 
-static FObject MakeAsciiPort(FObject port)
-{
-    // XXX: still needed; remove make-ascii-port primitive
-    return(MakeTranscodedPort(port, ASCII_CODEC_INDEX, StyleNone, ModeReplace));
-}
-
-static FObject MakeLatin1Port(FObject port)
-{
-    // XXX: still needed?; remove make-latin1-port primitive
-    return(MakeTranscodedPort(port, LATIN1_CODEC_INDEX, StyleNone, ModeReplace));
-}
-
-static FObject MakeUtf8Port(FObject port)
-{
-    // XXX: still needed?; remove make-utf8-port primitive
-    return(MakeTranscodedPort(port, UTF8_CODEC_INDEX, StyleNone, ModeReplace));
-}
-
-static FObject MakeUtf16Port(FObject port)
-{
-    // XXX: still needed?; remove make-utf16-port primitive
-    return(MakeTranscodedPort(port, UTF16_CODEC_INDEX, StyleNone, ModeReplace));
-}
-
 static long_t EncodingChP(char ch)
 {
     return((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9')
@@ -1896,10 +1872,10 @@ static FObject MakeEncodedPort(FObject port)
 
     if (InputPortOpenP(port) == 0)
 #ifdef FOMENT_WINDOWS
-        return(MakeLatin1Port(port));
+        return(MakeTranscodedPort(port, LATIN1_CODEC_INDEX, StyleNone, ModeReplace));
 #endif // FOMENT_WINDOWS
 #ifdef FOMENT_UNIX
-        return(MakeUtf8Port(port));
+        return(MakeTranscodedPort(port, UTF8_CODEC_INDEX, StyleNone, ModeReplace));
 #endif // FOMENT_UNIX
 
     FAlive ap(&port);
@@ -1907,15 +1883,15 @@ static FObject MakeEncodedPort(FObject port)
     char * b = (char *) LookaheadBytes(port, &bl);
 
     if (b == 0)
-        return(MakeAsciiPort(port));
+        return(MakeTranscodedPort(port, ASCII_CODEC_INDEX, StyleNone, ModeReplace));
 
     FAssert(b != 0);
 
     if (bl >= 2 && (unsigned char) b[0] == 0xFF && (unsigned char) b[1] == 0xFE) // Little Endian
-        return(MakeUtf16Port(port));
+        return(MakeTranscodedPort(port, UTF16_CODEC_INDEX, StyleNone, ModeReplace));
 
 //    if (bl >= 2 && b[0] == 0xFE && b[1] == 0xFF) // Big Endian
-//        return(MakeUtf16Port(port));
+//        return(MakeTranscodedPort(port, UTF16_CODEC_INDEX, StyleNone, ModeReplace));
 
     // Search for "coding:" but strstr will not work because b is not null terminated.
 
@@ -1935,20 +1911,20 @@ static FObject MakeEncodedPort(FObject port)
             if (edx > bdx)
             {
                 if (edx - bdx == 5 && strncmp("utf-8", b + bdx, 5) == 0)
-                    return(MakeUtf8Port(port));
+                    return(MakeTranscodedPort(port, UTF8_CODEC_INDEX, StyleNone, ModeReplace));
                 else if (edx - bdx == 7 && strncmp("latin-1", b + bdx, 7) == 0)
-                    return(MakeLatin1Port(port));
+                    return(MakeTranscodedPort(port, LATIN1_CODEC_INDEX, StyleNone, ModeReplace));
                 else if (edx - bdx == 10 && strncmp("iso-8859-1", b + bdx, 10) == 0)
-                    return(MakeLatin1Port(port));
+                    return(MakeTranscodedPort(port, LATIN1_CODEC_INDEX, StyleNone, ModeReplace));
                 else if (edx - bdx == 5 && strncmp("ascii", b + bdx, 5) == 0)
-                    return(MakeAsciiPort(port));
+                    return(MakeTranscodedPort(port, ASCII_CODEC_INDEX, StyleNone, ModeReplace));
             }
 
             break;
         }
     }
 
-    return(MakeAsciiPort(port));
+    return(MakeTranscodedPort(port, ASCII_CODEC_INDEX, StyleNone, ModeReplace));
 }
 
 static FObject OpenBinaryInputFile(FObject fn)
@@ -2031,26 +2007,30 @@ FObject OpenOutputFile(FObject fn)
 FObject OpenInputPipe(FFileHandle fh)
 {
 #ifdef FOMENT_WINDOWS
-    return(MakeLatin1Port(MakeBufferedPort(
-            MakeHandleInputPort(MakeStringC("input-pipe"), fh))));
+    return(MakeTranscodedPort(
+            MakeBufferedPort(MakeHandleInputPort(MakeStringC("input-pipe"), fh)),
+            LATIN1_CODEC_INDEX, StyleNode, ModeReplace));
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-    return(MakeUtf8Port(MakeBufferedPort(
-            MakeFileDescInputPort(MakeStringC("input-pipe"), fh))));
+    return(MakeTranscodedPort(
+            MakeBufferedPort(MakeFileDescInputPort(MakeStringC("input-pipe"), fh)),
+            UTF8_CODEC_INDEX, StyleNone, ModeReplace));
 #endif // FOMENT_UNIX
 }
 
 FObject OpenOutputPipe(FFileHandle fh)
 {
 #ifdef FOMENT_WINDOWS
-    return(MakeLatin1Port(MakeBufferedPort(
-            MakeHandleOutputPort(MakeStringC("output-pipe"), fh))));
+    return(MakeTranscodedPort(
+            MakeBufferedPort(MakeHandleOutputPort(MakeStringC("output-pipe"), fh)),
+            LATIN1_CODEC_INDEX, StyleNone, ModeReplace));
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-    return(MakeUtf8Port(MakeBufferedPort(
-            MakeFileDescOutputPort(MakeStringC("output-pipe"), fh))));
+    return(MakeTranscodedPort(MakeBufferedPort(
+            MakeFileDescOutputPort(MakeStringC("output-pipe"), fh)),
+            UTF8_CODEC_INDEX, StyleNone, ModeReplace));
 #endif // FOMENT_UNIX
 }
 
@@ -3633,38 +3613,6 @@ Define("transcoded-port", TranscodedPortPrimitive)(long_t argc, FObject argv[])
             (FErrorMode) AsFixnum(AsTranscoder(argv[1])->ErrorMode)));
 }
 
-Define("make-ascii-port", MakeAsciiPortPrimitive)(long_t argc, FObject argv[])
-{
-    OneArgCheck("make-ascii-port", argc);
-    BinaryPortArgCheck("make-ascii-port", argv[0]);
-
-    return(MakeAsciiPort(argv[0]));
-}
-
-Define("make-latin1-port", MakeLatin1PortPrimitive)(long_t argc, FObject argv[])
-{
-    OneArgCheck("make-latin1-port", argc);
-    BinaryPortArgCheck("make-latin1-port", argv[0]);
-
-    return(MakeLatin1Port(argv[0]));
-}
-
-Define("make-utf8-port", MakeUtf8PortPrimitive)(long_t argc, FObject argv[])
-{
-    OneArgCheck("make-utf8-port", argc);
-    BinaryPortArgCheck("make-utf8-port", argv[0]);
-
-    return(MakeUtf8Port(argv[0]));
-}
-
-Define("make-utf16-port", MakeUtf16PortPrimitive)(long_t argc, FObject argv[])
-{
-    OneArgCheck("make-utf16-port", argc);
-    BinaryPortArgCheck("make-utf16-port", argv[0]);
-
-    return(MakeUtf16Port(argv[0]));
-}
-
 Define("make-buffered-port", MakeBufferedPortPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("make-buffered-port", argc);
@@ -4333,10 +4281,6 @@ static FObject Primitives[] =
     GetOutputBytevectorPrimitive,
     MakeTranscoderPrimitive,
     TranscodedPortPrimitive,
-    MakeAsciiPortPrimitive,
-    MakeLatin1PortPrimitive,
-    MakeUtf8PortPrimitive,
-    MakeUtf16PortPrimitive,
     MakeBufferedPortPrimitive,
     MakeEncodedPortPrimitive,
     WantIdentifiersPrimitive,
@@ -4491,14 +4435,17 @@ void SetupIO()
     }
     else
     {
-        StandardInput = MakeUtf8Port(MakeBufferedPort(
-                MakeFileDescInputPort(MakeStringC("standard-input"), 0)));
-        StandardOutput = MakeUtf8Port(MakeBufferedPort(
-                MakeFileDescOutputPort(MakeStringC("standard-output"), 1)));
+        StandardInput = MakeTranscodedPort(MakeBufferedPort(
+                MakeFileDescInputPort(MakeStringC("standard-input"), 0)),
+                UTF8_CODEC_INDEX, StyleNone, ModeReplace);
+        StandardOutput = MakeTranscodedPort(MakeBufferedPort(
+                MakeFileDescOutputPort(MakeStringC("standard-output"), 1)),
+                UTF8_CODEC_INDEX, StyleNone, ModeReplace);
     }
 
-    StandardError = MakeUtf8Port(
-            MakeFileDescOutputPort(MakeStringC("standard-error"), 2));
+    StandardError = MakeTranscodedPort(
+            MakeFileDescOutputPort(MakeStringC("standard-error"), 2),
+            UTF8_CODEC_INDEX, StyleNone, ModeReplace);
 #endif // FOMENT_UNIX
 
     FileErrorSymbol = InternSymbol(FileErrorSymbol);
