@@ -637,7 +637,10 @@
         make-transcoder
         transcoded-port
         bytevector->string
-        string->bytevector)
+        string->bytevector
+        i/o-decoding-error?
+        i/o-encoding-error?
+        i/o-encoding-error-char)
     (cond-expand
         (unix
             (export
@@ -1466,6 +1469,17 @@
             (let ((output (open-output-bytevector)))
                 (%copy-port (open-input-string s) (transcoded-port output tc))
                 (get-output-bytevector output)))
+
+        (define (i/o-decoding-error? obj)
+            (and (error-object? obj) (eq? (error-object-kind obj) 'decoding-error)))
+
+        (define (i/o-encoding-error? obj)
+            (and (error-object? obj) (eq? (error-object-kind obj) 'encoding-error)))
+
+        (define (i/o-encoding-error-char obj)
+            (if (i/o-encoding-error? obj)
+                (cadr (error-object-irritants obj))
+                ))
 
         (define current-input-port
             (make-index-parameter 0 %standard-input

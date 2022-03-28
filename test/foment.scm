@@ -1156,10 +1156,7 @@
 
 (check-error (assertion-violation) (make-codec "not-a-valid-codec"))
 
-(define exc #f)
-(check-error (assertion-violation) (with-exception-handler
-    (lambda (e) (set! exc e))
-    (lambda () (make-codec "not-a-valid-codec"))))
+(define exc (guard (o (else o)) (make-codec "not-a-valid-codec")))
 (check-equal #t (unknown-encoding-error? exc))
 (check-equal "not-a-valid-codec" (unknown-encoding-error-name exc))
 
@@ -1231,3 +1228,40 @@
     (string->bytevector "ABCD" (native-transcoder)))
 (check-equal #u8(#x41 #x42 #x43 #x44)
      (string->bytevector "ABCD" (make-transcoder (latin-1-codec) (native-eol-style) 'raise)))
+
+;        (define (i/o-decoding-error? obj)
+;        (define (i/o-encoding-error? obj)
+;        (define (i/o-encoding-error-char obj)
+
+(check-error (assertion-violation)
+    (string->bytevector "ABC\xFF;DEF"
+            (make-transcoder (make-codec "ascii") (native-eol-style) 'raise)))
+
+(define exc
+    (guard (o (else o))
+        (string->bytevector "ABC\xFF;DEF"
+                (make-transcoder (make-codec "ascii") (native-eol-style) 'raise))))
+(check-equal #t (i/o-encoding-error? exc))
+(check-equal #\xFF (i/o-encoding-error-char exc))
+
+(check-error (assertion-violation)
+    (string->bytevector "ABC\x100;DEF"
+            (make-transcoder (latin-1-codec) (native-eol-style) 'raise)))
+
+(define exc
+    (guard (o (else o))
+        (string->bytevector "ABC\x100;DEF"
+                (make-transcoder (latin-1-codec) (native-eol-style) 'raise))))
+(check-equal #t (i/o-encoding-error? exc))
+(check-equal #\x100 (i/o-encoding-error-char exc))
+
+(check-error (assertion-violation)
+    (bytevector->string #u8(60 61 62 128 63 64)
+            (make-transcoder (make-codec "ascii") (native-eol-style) 'raise)))
+
+(define exc
+    (guard (o (else o))
+        (bytevector->string #u8(60 61 62 128 63 64)
+                (make-transcoder (make-codec "ascii") (native-eol-style) 'raise))))
+(check-equal #t (i/o-decoding-error? exc))
+(check-equal #f (i/o-encoding-error? exc))

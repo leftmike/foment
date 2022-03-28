@@ -56,6 +56,8 @@ typedef long_t SOCKET;
 
 EternalSymbol(FileErrorSymbol, "file-error");
 EternalSymbol(PositionErrorSymbol, "position-error");
+EternalSymbol(DecodingErrorSymbol, "decoding-error");
+EternalSymbol(EncodingErrorSymbol, "encoding-error");
 EternalSymbol(CurrentSymbol, "current");
 EternalSymbol(EndSymbol, "end");
 
@@ -1484,8 +1486,9 @@ static ulong_t AsciiReadCh(FObject port, FErrorMode mode, FCh * ch)
     {
         if (mode == ModeReplace)
             *ch = '?';
-        //else // mode == ModeRaise
-            // XXX: RaiseException
+        else // mode == ModeRaise
+            RaiseExceptionC(Assertion, "read-char", DecodingErrorSymbol,
+                    "unable to decode byte to ascii", List(port, MakeFixnum(b)));
     }
     else
         *ch = b;
@@ -1503,8 +1506,9 @@ static void AsciiWriteString(FObject port, FErrorMode mode, FCh * s, ulong_t sl)
         {
             if (mode == ModeReplace)
                 b = '?';
-            // else // mode == ModeRaise
-            // XXX: RaiseException
+            else // mode == ModeRaise
+                RaiseExceptionC(Assertion, "write-char", EncodingErrorSymbol,
+                        "unable to encode byte to ascii", List(port, MakeCharacter(s[sdx])));
         }
         else
             b = (unsigned char) s[sdx];
@@ -1534,8 +1538,9 @@ static void Latin1WriteString(FObject port, FErrorMode mode, FCh * s, ulong_t sl
         {
             if (mode == ModeReplace)
                 b = '?';
-            // else // mode == ModeRaise
-            // XXX: RaiseException
+            else // mode == ModeRaise
+                RaiseExceptionC(Assertion, "write-char", EncodingErrorSymbol,
+                        "unable to encode byte to latin1", List(port, MakeCharacter(s[sdx])));
         }
         else
             b = (unsigned char) s[sdx];
@@ -1594,15 +1599,20 @@ static ulong_t Utf16ReadCh(FObject port, FErrorMode mode, FCh * pch)
                     + (((FCh) ch16) - Utf16LowSurrogateStart) + Utf16HalfBase;
         else if (mode == ModeReplace)
             ch = UnicodeReplacementCharacter;
-        // else // mode == ModeRaise
-        // XXX: RaiseException
+        else // mode == ModeRaise
+            RaiseExceptionC(Assertion, "read-char", DecodingErrorSymbol,
+                    "unable to decode byte to utf-16",
+                    List(port, MakeFixnum(ch >> 8), MakeFixnum(ch & 0xFF),
+                            MakeFixnum(ch16 >> 8), MakeFixnum(ch16 & 0xFF)));
     }
     else if (ch >= Utf16LowSurrogateStart && ch <= Utf16LowSurrogateEnd)
     {
         if (mode == ModeReplace)
             ch = UnicodeReplacementCharacter;
-        // else // mode == ModeRaise
-        // XXX: RaiseException
+        else // mode == ModeRaise
+            RaiseExceptionC(Assertion, "read-char", DecodingErrorSymbol,
+                    "unable to decode byte to utf-16",
+                    List(port, MakeFixnum(ch >> 8), MakeFixnum(ch & 0xFF)));
     }
 
     *pch = ch;
@@ -4450,11 +4460,15 @@ void SetupIO()
 
     FileErrorSymbol = InternSymbol(FileErrorSymbol);
     PositionErrorSymbol = InternSymbol(PositionErrorSymbol);
+    DecodingErrorSymbol = InternSymbol(DecodingErrorSymbol);
+    EncodingErrorSymbol = InternSymbol(EncodingErrorSymbol);
     CurrentSymbol = InternSymbol(CurrentSymbol);
     EndSymbol = InternSymbol(EndSymbol);
 
     FAssert(FileErrorSymbol == StringCToSymbol("file-error"));
     FAssert(PositionErrorSymbol == StringCToSymbol("position-error"));
+    FAssert(DecodingErrorSymbol == StringCToSymbol("decoding-error"));
+    FAssert(EncodingErrorSymbol == StringCToSymbol("encoding-error"));
     FAssert(CurrentSymbol == StringCToSymbol("current"));
     FAssert(EndSymbol == StringCToSymbol("end"));
 
