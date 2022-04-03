@@ -105,10 +105,6 @@ FCh ConvertUtf8ToCh(FByte * b, ulong_t bl)
 
     ch -= Utf8Offsets[eb];
 
-    if (ch > MaximumUnicodeCharacter
-            || (ch >= Utf16HighSurrogateStart && ch <= Utf16LowSurrogateEnd))
-        ch = UnicodeReplacementCharacter;
-
     return(ch);
 }
 
@@ -147,7 +143,7 @@ FObject ConvertUtf8ToString(FByte * b, ulong_t bl)
     return(s);
 }
 
-FObject ConvertStringToUtf8(FCh * s, ulong_t sl, long_t ztf)
+FObject ConvertStringToUtf8(FCh * s, ulong_t sl, long_t ztf, FCh * pch)
 {
     ulong_t bl = Utf8LengthOfCh(s, sl);
     FObject b = MakeBytevector(bl + (ztf ? 1 : 0));
@@ -166,6 +162,11 @@ FObject ConvertStringToUtf8(FCh * s, ulong_t sl, long_t ztf)
             bw = 3;
         else if (ch <= MaximumUnicodeCharacter)
             bw = 4;
+        else if (pch != 0)
+        {
+            *pch = ch;
+            return(NoValueObject);
+        }
         else
         {
             ch = UnicodeReplacementCharacter;
@@ -270,7 +271,7 @@ FObject ConvertUtf16ToString(FCh16 * b, ulong_t bl)
     return(s);
 }
 
-FObject ConvertStringToUtf16(FCh * s, ulong_t sl, long_t ztf, ulong_t el)
+FObject ConvertStringToUtf16(FCh * s, ulong_t sl, long_t ztf, ulong_t el, FCh * pch)
 {
     ulong_t ul = Utf16LengthOfCh(s, sl);
     FObject b = MakeBytevector((ul + (ztf ? 1 : 0) + el) * sizeof(FCh16));
@@ -286,12 +287,28 @@ FObject ConvertStringToUtf16(FCh * s, ulong_t sl, long_t ztf, ulong_t el)
         if (ch <= 0xFFFF)
         {
             if (ch >= Utf16HighSurrogateStart && ch <= Utf16LowSurrogateEnd)
+            {
+                if (pch != 0)
+                {
+                    *pch = ch;
+                    return(NoValueObject);
+                }
+
                 ch = UnicodeReplacementCharacter;
+            }
 
             u[udx] = (FCh16) ch;
         }
         else if (ch > MaximumUnicodeCharacter)
+        {
+            if (pch != 0)
+            {
+                *pch = ch;
+                return(NoValueObject);
+            }
+
             u[udx] = UnicodeReplacementCharacter;
+        }
         else
         {
             FAssert(udx + 1 < ul);

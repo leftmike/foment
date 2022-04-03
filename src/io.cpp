@@ -1508,7 +1508,7 @@ static void AsciiWriteString(FObject port, FErrorMode mode, FCh * s, ulong_t sl)
                 b = '?';
             else // mode == ModeRaise
                 RaiseExceptionC(Assertion, "write-char", EncodingErrorSymbol,
-                        "unable to encode byte to ascii", List(port, MakeCharacter(s[sdx])));
+                        "unable to encode character to ascii", List(port, MakeCharacter(s[sdx])));
         }
         else
             b = (unsigned char) s[sdx];
@@ -1540,7 +1540,7 @@ static void Latin1WriteString(FObject port, FErrorMode mode, FCh * s, ulong_t sl
                 b = '?';
             else // mode == ModeRaise
                 RaiseExceptionC(Assertion, "write-char", EncodingErrorSymbol,
-                        "unable to encode byte to latin1", List(port, MakeCharacter(s[sdx])));
+                        "unable to encode character to latin1", List(port, MakeCharacter(s[sdx])));
         }
         else
             b = (unsigned char) s[sdx];
@@ -1549,7 +1549,7 @@ static void Latin1WriteString(FObject port, FErrorMode mode, FCh * s, ulong_t sl
     }
 }
 
-static ulong_t Utf8ReadCh(FObject port, FErrorMode mode, FCh * ch)
+static ulong_t Utf8ReadCh(FObject port, FErrorMode mode, FCh * pch)
 {
     unsigned char ub[6];
 
@@ -1559,21 +1559,51 @@ static ulong_t Utf8ReadCh(FObject port, FErrorMode mode, FCh * ch)
     ulong_t tb = Utf8TrailingBytes[ub[0]];
     if (tb == 0)
     {
-        *ch = ub[0];
+        *pch = ub[0];
         return(1);
     }
 
     if (ReadBytes(port, ub + 1, tb) != tb)
         return(0);
 
-    *ch = ConvertUtf8ToCh(ub, tb + 1);
+    FCh ch = ConvertUtf8ToCh(ub, tb + 1);
+    if (ch > MaximumUnicodeCharacter
+            || (ch >= Utf16HighSurrogateStart && ch <= Utf16LowSurrogateEnd))
+    {
+        if (mode == ModeReplace)
+            ch = UnicodeReplacementCharacter;
+        else // mode == ModeRaise
+        {
+            FObject lst = EmptyListObject;
+            for (ulong_t bc = tb; bc > 0; bc -= 1)
+                lst = MakePair(MakeFixnum(ub[tb]), lst);
+            lst = MakePair(port, MakePair(MakeFixnum(ub[0]), lst));
+
+            RaiseExceptionC(Assertion, "read-char", DecodingErrorSymbol,
+                   "unable to decode byte to utf-8", lst);
+
+        }
+    }
+
+    *pch = ch;
     return(1);
 }
 
 static void Utf8WriteString(FObject port, FErrorMode mode, FCh * s, ulong_t sl)
 {
-    // XXX: mode
-    FObject bv = ConvertStringToUtf8(s, sl, 0);
+    FObject bv;
+
+    if (mode == ModeReplace)
+        bv = ConvertStringToUtf8(s, sl, 0);
+    else // mode == ModeRaise
+    {
+        FCh ch;
+
+        bv = ConvertStringToUtf8(s, sl, 0, &ch);
+        if (BytevectorP(bv) == 0)
+            RaiseExceptionC(Assertion, "write-char", EncodingErrorSymbol,
+                    "unable to encode character to utf-8", List(port, MakeCharacter(ch)));
+    }
 
     FAssert(BytevectorP(bv));
 
@@ -1621,8 +1651,19 @@ static ulong_t Utf16ReadCh(FObject port, FErrorMode mode, FCh * pch)
 
 static void Utf16WriteString(FObject port, FErrorMode mode, FCh * s, ulong_t sl)
 {
-    // XXX: mode
-    FObject bv = ConvertStringToUtf16(s, sl, 0, 0);
+    FObject bv;
+
+    if (mode == ModeReplace)
+        bv = ConvertStringToUtf16(s, sl, 0, 0);
+    else // mode == ModeRaise
+    {
+        FCh ch;
+
+        bv = ConvertStringToUtf16(s, sl, 0, 0, &ch);
+        if (BytevectorP(bv) == 0)
+            RaiseExceptionC(Assertion, "write-char", EncodingErrorSymbol,
+                    "unable to encode character to utf-16", List(port, MakeCharacter(ch)));
+    }
 
     FAssert(BytevectorP(bv));
 

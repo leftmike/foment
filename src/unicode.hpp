@@ -22,22 +22,32 @@ extern unsigned char Utf8TrailingBytes[256];
 
 FCh ConvertUtf8ToCh(FByte * b, ulong_t bl);
 FObject ConvertUtf8ToString(FByte * b, ulong_t bl);
-FObject ConvertStringToUtf8(FCh * s, ulong_t sl, long_t ztf);
+FObject ConvertStringToUtf8(FCh * s, ulong_t sl, long_t ztf, FCh * pch);
 FObject ConvertUtf16ToString(FCh16 * b, ulong_t bl);
-FObject ConvertStringToUtf16(FCh * s, ulong_t sl, long_t ztf, ulong_t el);
+FObject ConvertStringToUtf16(FCh * s, ulong_t sl, long_t ztf, ulong_t el, FCh * pch);
 
 inline FObject ConvertStringToUtf8(FObject s)
 {
     FAssert(StringP(s));
 
-    return(ConvertStringToUtf8(AsString(s)->String, StringLength(s), 1));
+    return(ConvertStringToUtf8(AsString(s)->String, StringLength(s), 1, 0));
+}
+
+inline FObject ConvertStringToUtf8(FCh * s, ulong_t sl, long_t ztf)
+{
+    return(ConvertStringToUtf8(s, sl, ztf, 0));
 }
 
 inline FObject ConvertStringToUtf16(FObject s)
 {
     FAssert(StringP(s));
 
-    return(ConvertStringToUtf16(AsString(s)->String, StringLength(s), 1, 0));
+    return(ConvertStringToUtf16(AsString(s)->String, StringLength(s), 1, 0, 0));
+}
+
+inline FObject ConvertStringToUtf16(FCh * s, ulong_t sl, long_t ztf, ulong_t el)
+{
+    return(ConvertStringToUtf16(s, sl, ztf, el, 0));
 }
 
 typedef struct

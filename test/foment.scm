@@ -1229,10 +1229,6 @@
 (check-equal #u8(#x41 #x42 #x43 #x44)
      (string->bytevector "ABCD" (make-transcoder (latin-1-codec) (native-eol-style) 'raise)))
 
-;        (define (i/o-decoding-error? obj)
-;        (define (i/o-encoding-error? obj)
-;        (define (i/o-encoding-error-char obj)
-
 (check-error (assertion-violation)
     (string->bytevector "ABC\xFF;DEF"
             (make-transcoder (make-codec "ascii") (native-eol-style) 'raise)))
