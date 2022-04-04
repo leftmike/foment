@@ -1261,3 +1261,21 @@
                 (make-transcoder (make-codec "ascii") (native-eol-style) 'raise))))
 (check-equal #t (i/o-decoding-error? exc))
 (check-equal #f (i/o-encoding-error? exc))
+
+(check-equal
+    (#\A #\B #\return #\C #\return #\newline #\X #\newline #\Y #\Z)
+    (string->list
+        (bytevector->string '#u8(#x41 #x42 #x0d #x43 #x0d #x0a #x58 #x0a #x59 #x5a)
+                (make-transcoder (latin-1-codec) 'none 'replace))))
+
+(check-equal
+    (#\A #\B #\newline #\C #\newline #\X #\newline #\Y #\Z)
+    (string->list
+        (bytevector->string '#u8(#x41 #x42 #x0d #x43 #x0d #x0a #x58 #x0a #x59 #x5a)
+                (make-transcoder (latin-1-codec) 'lf 'replace))))
+
+(check-equal
+    (#\A #\B #\newline #\C #\newline #\X #\newline #\Y #\Z)
+    (string->list
+        (bytevector->string '#u8(#x41 #x42 #x0d #x43 #x0d #x0a #x58 #x0a #x59 #x5a)
+                (make-transcoder (latin-1-codec) 'crlf 'replace))))

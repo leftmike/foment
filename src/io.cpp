@@ -1808,6 +1808,7 @@ typedef struct
 {
     FEOLStyle Style;
     FErrorMode Mode;
+    unsigned char PreviousCR;
     FReadChModeFn ReadChFn;
     FWriteStringModeFn WriteStringFn;
 } FTranscodedContext;
@@ -1847,25 +1848,31 @@ static ulong_t TranscodedReadCh(FObject port, FCh * ch)
 
     FTranscodedContext * tc = AsTranscodedContext(port);
 
-    if (tc->ReadChFn(AsGenericPort(port)->Object, tc->Mode, ch) == 0)
-        return(0);
-
-    // XXX: handle style here
-    /*
-    if (b == CR)
+    for (;;)
     {
-        if (PeekByte(port, &b) != 0 && b != LF)
-        {
-            AsTextualPort(port)->Line += 1;
-            AsTextualPort(port)->Column = 0;
-        }
+        if (tc->ReadChFn(AsGenericPort(port)->Object, tc->Mode, ch) == 0)
+            return(0);
+
+        if (*ch != LF || tc->PreviousCR == 0)
+            break;
+        tc->PreviousCR = 0;
     }
-    else if (b == LF)
+
+    if (tc->Style == StyleNone)
+        return(1);
+
+    if (*ch == CR)
+    {
+        *ch = LF;
+        tc->PreviousCR = 1;
+    }
+
+    if (*ch == LF)
     {
         AsTextualPort(port)->Line += 1;
         AsTextualPort(port)->Column = 0;
     }
-    */
+
     return(1);
 }
 
@@ -1900,6 +1907,7 @@ static FObject MakeTranscodedPort(FObject port, ulong_t cdx, FEOLStyle style, FE
     tc->Mode = mode;
     tc->WriteStringFn = CodecTypes[cdx].WriteStringFn;
     tc->ReadChFn = CodecTypes[cdx].ReadChFn;
+    tc->PreviousCR = 0;
 
     port = HandOffPort(port);
     return(MakeTextualPort(AsGenericPort(port)->Name, port, tc,
