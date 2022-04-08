@@ -238,23 +238,37 @@ void FWriteContext::WriteSimple(FObject obj)
     }
 
     case CharacterTag:
-        if (AsCharacter(obj) < 128)
+        if (DisplayFlag)
+            WriteCh(AsCharacter(obj));
+        else if (AsCharacter(obj) == 0x07)
+            WriteStringC("#\\alarm");
+        else if (AsCharacter(obj) == 0x08)
+            WriteStringC("#\\backspace");
+        else if (AsCharacter(obj) == 0x7F)
+            WriteStringC("#\\delete");
+        else if (AsCharacter(obj) == 0x1B)
+            WriteStringC("#\\escape");
+        else if (AsCharacter(obj) == 0x0A)
+            WriteStringC("#\\newline");
+        else if (AsCharacter(obj) == 0x00)
+            WriteStringC("#\\null");
+        else if (AsCharacter(obj) == 0x0D)
+            WriteStringC("#\\return");
+        else if (AsCharacter(obj) == 0x20)
+            WriteStringC("#\\space");
+        else if (AsCharacter(obj) == 0x09)
+            WriteStringC("#\\tab");
+        else if (AsCharacter(obj) < 128)
         {
-            if (DisplayFlag == 0)
-                WriteStringC("#\\");
+            WriteStringC("#\\");
             WriteCh(AsCharacter(obj));
         }
         else
         {
-            if (DisplayFlag)
-                WriteCh(AsCharacter(obj));
-            else
-            {
-                FCh s[16];
-                long_t sl = FixnumAsString(AsCharacter(obj), s, 16);
-                WriteStringC("#\\x");
-                WriteString(s, sl);
-            }
+            FCh s[16];
+            long_t sl = FixnumAsString(AsCharacter(obj), s, 16);
+            WriteStringC("#\\x");
+            WriteString(s, sl);
         }
         break;
 
