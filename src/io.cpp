@@ -1614,8 +1614,13 @@ static ulong_t Utf16ReadCh(FObject port, FErrorMode mode, FCh * pch)
 {
     FCh16 ch16;
 
-    if (ReadBytes(port, (FByte *) &ch16, 2) != 2)
-        return(0);
+    for (;;)
+    {
+        if (ReadBytes(port, (FByte *) &ch16, 2) != 2)
+            return(0);
+        if (ch16 != 0xFEFF)
+            break;
+    }
 
     FCh ch = ch16;
 

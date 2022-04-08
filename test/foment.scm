@@ -1208,11 +1208,8 @@
         (bytevector->string '#u8(#x41 #x42 #x43 #xa1 #xa2 #xa3 #x58 #x59 #x5a #xc1 #xc2 #xc3)
                 (make-transcoder (latin-1-codec) (native-eol-style) 'replace))))
 
-; XXX: need to remove the byte order mark if there
-;(check-equal
-;    (#\A #\B #\x3000 #\xc1 #\C #\D)
 (check-equal
-    (#\xfeff #\A #\B #\x3000 #\xc1 #\C #\D)
+    (#\A #\B #\x3000 #\xc1 #\C #\D)
     (string->list
         (bytevector->string
                 '#u8(#xff #xfe #x41 #x00 #x42 #x00 #x00 #x30 #xc1 #x00 #x43 #x00 #x44 #x00)
@@ -1307,4 +1304,3 @@
             (list->string '(#\A #\newline #\return #\B #\return #\newline #\C #\newline
                     #\D #\return #\E #\newline #\return #\return #\newline #\return #\F))
             (make-transcoder (latin-1-codec) 'crlf 'replace)))
-
