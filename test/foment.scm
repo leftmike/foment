@@ -1279,3 +1279,32 @@
     (string->list
         (bytevector->string '#u8(#x41 #x42 #x0d #x43 #x0d #x0a #x58 #x0a #x59 #x5a)
                 (make-transcoder (latin-1-codec) 'crlf 'replace))))
+
+(check-equal
+    #u8(#x41 #x0a #x0d #x42 #x0d #x0a #x43 #x0a #x44 #x0d #x45 #x0a #x0d #x0d #x0a #x0d #x46)
+    (string->bytevector
+            (list->string '(#\A #\newline #\return #\B #\return #\newline #\C #\newline
+                    #\D #\return #\E #\newline #\return #\return #\newline #\return #\F))
+            (make-transcoder (latin-1-codec) 'none 'replace)))
+
+(check-equal
+    #u8(#x41 #x0a #x0a #x42 #x0a #x43 #x0a #x44 #x0a #x45 #x0a #x0a #x0a #x0a #x46)
+    (string->bytevector
+            (list->string '(#\A #\newline #\return #\B #\return #\newline #\C #\newline
+                    #\D #\return #\E #\newline #\return #\return #\newline #\return #\F))
+            (make-transcoder (latin-1-codec) 'lf 'replace)))
+
+(check-equal
+    (#\A #\newline #\return #\B #\return #\newline #\C #\newline
+            #\D #\return #\E #\newline #\return #\return #\newline #\return #\F)
+    (string->list (list->string '(#\A #\newline #\return #\B #\return #\newline #\C #\newline
+            #\D #\return #\E #\newline #\return #\return #\newline #\return #\F))))
+
+(check-equal
+    #u8(#x41 #x0d #x0a #x0d #x0a #x42 #x0d #x0a #x43 #x0d #x0a #x44 #x0d #x0a #x45
+            #x0d #x0a #x0d #x0a #x0d #x0a #x0d #x0a #x46)
+    (string->bytevector
+            (list->string '(#\A #\newline #\return #\B #\return #\newline #\C #\newline
+                    #\D #\return #\E #\newline #\return #\return #\newline #\return #\F))
+            (make-transcoder (latin-1-codec) 'crlf 'replace)))
+

@@ -1811,6 +1811,7 @@ typedef struct
     unsigned char PreviousCR;
     FReadChModeFn ReadChFn;
     FWriteStringModeFn WriteStringFn;
+    FCh PreviousCh;
 } FTranscodedContext;
 
 #define AsTranscodedContext(port) ((FTranscodedContext *) AsGenericPort(port)->Context)
@@ -1889,9 +1890,45 @@ static void TranscodedWriteString(FObject port, FCh * s, ulong_t sl)
 
     FTranscodedContext * tc = AsTranscodedContext(port);
 
-    // XXX: need to handle tc->Style
+    if (tc->Style == StyleNone)
+        tc->WriteStringFn(AsGenericPort(port)->Object, tc->Mode, s, sl);
+    else if (tc->Style == StyleLF)
+    {
+        for (ulong_t sdx = 0; sdx < sl; sdx += 1)
+        {
+            FCh ch = s[sdx];
+            if (ch == LF && tc->PreviousCh == CR)
+            {
+                tc->PreviousCh = s[sdx];
+                continue;
+            }
+            if (ch == CR)
+                ch = LF;
 
-    tc->WriteStringFn(AsGenericPort(port)->Object, tc->Mode, s, sl);
+            tc->WriteStringFn(AsGenericPort(port)->Object, tc->Mode, &ch, 1);
+            tc->PreviousCh = s[sdx];
+        }
+    }
+    else // tc->Style == StyleCRLF
+    {
+        for (ulong_t sdx = 0; sdx < sl; sdx += 1)
+        {
+            if (tc->PreviousCh == CR && s[sdx] != LF)
+            {
+                FCh ch = LF;
+                tc->WriteStringFn(AsGenericPort(port)->Object, tc->Mode, &ch, 1);
+            }
+            else if (s[sdx] == LF && tc->PreviousCh != CR)
+            {
+                FCh ch = CR;
+                tc->WriteStringFn(AsGenericPort(port)->Object, tc->Mode, &ch, 1);
+            }
+
+            FCh ch = s[sdx];
+            tc->WriteStringFn(AsGenericPort(port)->Object, tc->Mode, &ch, 1);
+            tc->PreviousCh = s[sdx];
+        }
+    }
 }
 
 static FObject MakeTranscodedPort(FObject port, ulong_t cdx, FEOLStyle style, FErrorMode mode)
@@ -1908,6 +1945,7 @@ static FObject MakeTranscodedPort(FObject port, ulong_t cdx, FEOLStyle style, FE
     tc->WriteStringFn = CodecTypes[cdx].WriteStringFn;
     tc->ReadChFn = CodecTypes[cdx].ReadChFn;
     tc->PreviousCR = 0;
+    tc->PreviousCh = 0;
 
     port = HandOffPort(port);
     return(MakeTextualPort(AsGenericPort(port)->Name, port, tc,
