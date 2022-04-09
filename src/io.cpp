@@ -470,7 +470,7 @@ static ulong_t CustomReadBytes(FObject port, void * b, ulong_t bl)
 {
     FAssert(BinaryPortP(port) && InputPortOpenP(port));
 
-    // XXX: FAlive ap(&port);
+    FAlive ap(&port);
     FCustomPort * custom = AsCustomPort(port);
     ulong_t vl = BytevectorLength(custom->Buffer);
     ulong_t rl = 0;
