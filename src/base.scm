@@ -2421,6 +2421,32 @@
         set-ephemeron-datum!)
     )
 
+(define-library (srfi 181)
+    (import (foment base))
+    (export
+        make-custom-binary-input-port
+        make-custom-textual-input-port
+        make-custom-binary-output-port
+        make-custom-textual-output-port
+        make-custom-binary-input/output-port
+        make-file-error
+        make-transcoder
+        native-transcoder
+        transcoded-port
+        bytevector->string
+        string->bytevector
+        make-codec
+        latin-1-codec
+        utf-8-codec
+        utf-16-codec
+        unknown-encoding-error?
+        unknown-encoding-error-name
+        native-eol-style
+        i/o-decoding-error?
+        i/o-encoding-error?
+        i/o-encoding-error-char)
+    )
+
 (define-library (srfi 192)
     (import (foment base))
     (export

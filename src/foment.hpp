@@ -3,9 +3,6 @@
 Foment
 
 To Do:
--- custom ports
---- libraries: srfi-181, srfi-192, maybe 79, 81, 82, 91, 186
-
 -- remove generational collector
 --- CheckObject: check back references from mature objects
 --- partial GC
@@ -23,8 +20,9 @@ To Do:
 -- SRFI 229: Tagged Procedures
 -- fixes from https://gitlab.com/dpk/presrfis/-/blob/master/cleanup-consent-docket.org
 
-Future:
 -- IO: FAlive, EnterWait, and LeaveWait
+
+Future:
 -- Use extra generation for immortal objects which are precompiled libraries
 -- change EternalSymbol (and Define) to set Symbol->Hash at compile time
 -- pull options from FOMENT_OPTIONS environment variable
