@@ -190,16 +190,16 @@
 ;;
 
 (test-when (memq 'guardians (features))
-    (collect #t)
-    (collect #t)
-    (collect #t)
-    (collect #t)
+    (collect)
+    (collect)
+    (collect)
+    (collect)
 
     (define g (make-guardian))
     (check-equal #f (g))
     (collect)
     (check-equal #f (g))
-    (collect #t)
+    (collect)
     (check-equal #f (g))
 
     (g (cons 'a 'b))
@@ -217,10 +217,10 @@
     (define y '#(g h i))
     (collect)
     (collect)
-    (collect #t)
+    (collect)
     (check-equal #f (g))
 
-    (collect #t)
+    (collect)
     (define h (make-guardian))
     (check-equal #f (h))
     (g x)
@@ -229,7 +229,7 @@
     (define y #f)
     (check-equal #f (g))
     (check-equal #f (h))
-    (collect #t)
+    (collect)
     (check-equal #(a b c) (g))
     (check-equal #(g h i) (h))
     (check-equal #f (g))
@@ -247,7 +247,7 @@
     (check-equal #t (let ((v (g))) (or (equal? v "789") (equal? v "456") (equal? v "123"))))
     (check-equal #f (g))
     (collect)
-    (collect #t)
+    (collect)
     (check-equal #f (g))
     (check-equal #t
         (let ((v (h))) (or (equal? v #(1 2 3)) (equal? v #(4 5 6)) (equal? v #(7 8 9)))))

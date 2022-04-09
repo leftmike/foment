@@ -2082,9 +2082,9 @@ Define("install-tracker", InstallTrackerPrimitive)(long_t argc, FObject argv[])
 
 Define("collect", CollectPrimitive)(long_t argc, FObject argv[])
 {
-    // (collect [<full>])
+    // (collect)
 
-    ZeroOrOneArgsCheck("collect", argc);
+    ZeroArgsCheck("collect", argc);
 
     if (CollectorType != NoCollector)
         GCRequired = 1;

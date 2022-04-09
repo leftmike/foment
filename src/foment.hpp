@@ -4,6 +4,7 @@ Foment
 
 To Do:
 -- remove generational collector
+--- remove trackers
 --- CheckObject: check back references from mature objects
 --- partial GC
 --- after partial GC, test for objects pointing to Babies
@@ -18,7 +19,6 @@ To Do:
 
 -- add R6RS library form
 -- SRFI 229: Tagged Procedures
--- fixes from https://gitlab.com/dpk/presrfis/-/blob/master/cleanup-consent-docket.org
 
 -- IO: FAlive, EnterWait, and LeaveWait
 
