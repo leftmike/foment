@@ -5,7 +5,6 @@ Foment
 To Do:
 -- custom ports
 --- check FAlive throughout IO code; likely necessary more places
---- add native-transcoder
 --- change port-position to potential return an arbitrary object
 --- change set-port-position! to take an arbitrary object
 --- libraries: srfi-181, srfi-192, maybe 79, 81, 82, 91, 186

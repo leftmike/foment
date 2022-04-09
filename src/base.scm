@@ -635,6 +635,7 @@
         unknown-encoding-error-name
         native-eol-style
         make-transcoder
+        native-transcoder
         transcoded-port
         bytevector->string
         string->bytevector
@@ -1459,6 +1460,12 @@
                         (else
                             (full-error 'assertion-violation 'make-transcoder #f
                                     "make-transcoder: expected replace or raise" mode)))))
+
+        (define *native-transcoder*
+            (make-transcoder (cond-expand (windows (latin-1-codec)) (else (utf-8-codec)))
+                    (native-eol-style) 'replace))
+
+        (define (native-transcoder) *native-transcoder*)
 
         (define (bytevector->string bv tc)
             (let ((output (open-output-string)))

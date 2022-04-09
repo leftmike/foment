@@ -1198,9 +1198,6 @@
 
 ;; Tests from github.comm/scheme-requests-for-implementation/srfi-192
 
-(define *native-tc* (make-transcoder (utf-8-codec) 'lf 'replace))
-(define (native-transcoder) *native-tc*)
-
 (check-equal "ABCD" (bytevector->string '#u8(#x41 #x42 #x43 #x44) (native-transcoder)))
 (check-equal
     (#\A #\B #\C #\xa1 #\xa2 #\xa3 #\X #\Y #\Z #\xc1 #\xc2 #\xc3)
