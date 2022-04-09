@@ -470,7 +470,6 @@
         current-continuation-marks
         collect
         make-guardian
-        make-tracker
         make-exclusive
         make-condition
         current-thread
@@ -1381,18 +1380,6 @@
                                 (set-car! tconc (cdr first))
                                 (car first))))
                     ((obj) (install-guardian obj tconc)))))
-
-        (define (make-tracker)
-            (let ((tconc (let ((last (cons #f '()))) (cons last last))))
-                (case-lambda
-                    (()
-                        (if (eq? (car tconc) (cdr tconc))
-                            #f
-                            (let ((first (car tconc)))
-                                (set-car! tconc (cdr first))
-                                (car first))))
-                    ((obj) (install-tracker obj obj tconc))
-                    ((obj ret) (install-tracker obj ret tconc)))))
 
         (define (read-error? obj)
             (and (error-object? obj) (eq? (error-object-who obj) 'read)))

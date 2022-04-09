@@ -112,16 +112,6 @@ typedef struct _Guardian
 
 static FGuardian * Guardians;
 
-typedef struct _Tracker
-{
-    struct _Tracker * Next;
-    FObject Object;
-    FObject Return;
-    FObject TConc;
-} FTracker;
-
-static FTracker * Trackers;
-
 static ulong_t LiveEphemerons;
 static FEphemeron ** KeyEphemeronMap;
 static ulong_t KeyEphemeronMapSize;
@@ -1206,16 +1196,6 @@ void CheckHeap(const char * fn, int ln)
         grd = grd->Next;
     }
 
-    FTracker * trkr = Trackers;
-    while (trkr)
-    {
-        CheckRoot(trkr->Object, "tracker.object", -1);
-        CheckRoot(trkr->Return, "tracker.return", -1);
-        CheckRoot(trkr->TConc, "tracker.tconc", -1);
-
-        trkr = trkr->Next;
-    }
-
     if (CheckTooDeep > 0)
         printf("CheckHeap: %d object too deep to walk\n", (int) CheckTooDeep);
     if (VerboseFlag)
@@ -1442,36 +1422,6 @@ static FGuardian * CollectGuardians()
     return(final);
 }
 
-static FTracker * CollectTrackers()
-{
-    FTracker * moved = 0;
-    FTracker * maybe = Trackers;
-
-    Trackers = 0;
-    while (maybe != 0)
-    {
-        FTracker * trkr = maybe;
-        maybe = maybe->Next;
-
-        FAssert(AsObjHdr(trkr->Object)->Generation() == OBJHDR_GEN_BABIES
-                || AsObjHdr(trkr->Object)->Generation() == OBJHDR_GEN_KIDS);
-
-        if (ForwardP(AsObjHdr(trkr->Object)) && AliveP(trkr->Return) && AliveP(trkr->TConc))
-        {
-            LiveObject(&trkr->Return);
-            LiveObject(&trkr->TConc);
-
-            trkr->Object = NoValueObject;
-            trkr->Next = moved;
-            moved = trkr;
-        }
-        else
-            free(trkr);
-    }
-
-    return(moved);
-}
-
 static void Collect()
 {
     FAssert(CollectorType != NoCollector);
@@ -1548,7 +1498,6 @@ static void Collect()
     }
 
     FGuardian * final = CollectGuardians();
-    FTracker * moved = CollectTrackers();
 
     BigFreeAdults = 0;
     for (long_t idx = 0; idx < FREE_ADULTS; idx++)
@@ -1597,15 +1546,6 @@ static void Collect()
 
         TConcAdd(grd->TConc, grd->Object);
         free(grd);
-    }
-
-    while (moved != 0)
-    {
-        FTracker * trkr = moved;
-        moved = moved->Next;
-
-        TConcAdd(trkr->TConc, trkr->Return);
-        free(trkr);
     }
 
     if (KeyEphemeronMap != 0)
@@ -1746,35 +1686,6 @@ void InstallGuardian(FObject obj, FObject tconc)
         grd->Next = Guardians;
         Guardians = grd;
         LeaveExclusive(&GCExclusive);
-    }
-}
-
-void InstallTracker(FObject obj, FObject ret, FObject tconc)
-{
-    if (CollectorType == GenerationalCollector)
-    {
-        FObjHdr * oh = AsObjHdr(obj);
-        if (oh->Generation() == OBJHDR_GEN_BABIES || oh->Generation() == OBJHDR_GEN_KIDS)
-        {
-            FAssert(ObjectP(obj));
-            FAssert(PairP(tconc));
-            FAssert(PairP(First(tconc)));
-            FAssert(PairP(Rest(tconc)));
-
-            FTracker * trkr = (FTracker *) malloc(sizeof(FTracker));
-
-            if (trkr == 0)
-                RaiseExceptionC(Assertion, "install-tracker", "out of memory", EmptyListObject);
-
-            trkr->Object = obj;
-            trkr->Return = ret;
-            trkr->TConc = tconc;
-
-            EnterExclusive(&GCExclusive);
-            trkr->Next = Trackers;
-            Trackers = trkr;
-            LeaveExclusive(&GCExclusive);
-        }
     }
 }
 
@@ -2067,19 +1978,6 @@ Define("install-guardian", InstallGuardianPrimitive)(long_t argc, FObject argv[]
     return(NoValueObject);
 }
 
-Define("install-tracker", InstallTrackerPrimitive)(long_t argc, FObject argv[])
-{
-    // (install-tracker <obj> <ret> <tconc>)
-
-    ThreeArgsCheck("install-tracker", argc);
-    TConcArgCheck("install-tracker", argv[2]);
-
-    if (ObjectP(argv[0]))
-        InstallTracker(argv[0], argv[1], argv[2]);
-
-    return(NoValueObject);
-}
-
 Define("collect", CollectPrimitive)(long_t argc, FObject argv[])
 {
     // (collect)
@@ -2286,7 +2184,6 @@ Define("stack-used-reset!", StackUsedResetPrimitive)(long_t argc, FObject argv[]
 static FObject Primitives[] =
 {
     InstallGuardianPrimitive,
-    InstallTrackerPrimitive,
     CollectPrimitive,
     EphemeronPPrimitive,
     MakeEphemeronPrimitive,

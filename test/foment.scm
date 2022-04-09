@@ -301,30 +301,6 @@
     (check-equal (a . b) ((G))))
 
 ;;
-;; trackers
-;;
-
-(test-when (memq 'trackers (features))
-    (define t (make-tracker))
-    (check-equal #f (t))
-    (define v1 #(1 2 3))
-    (define v2 (cons 'a 'b))
-    (define r2 "(cons 'a 'b)")
-    (define v3 "123")
-    (define r3 '((a b) (c d)))
-    (t v1)
-    (t v2 r2)
-    (t v3 r3)
-    (check-equal #f (t))
-    (collect)
-    (check-equal #(1 2 3) (t))
-    (check-equal "(cons 'a 'b)" (t))
-    (check-equal ((a b) (c d)) (t))
-    (check-equal #f (t))
-    (collect)
-    (check-equal #f (t)))
-
-;;
 ;; Collector and Back References
 ;;
 

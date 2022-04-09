@@ -5,7 +5,7 @@
 * Native threads and some synchronization primitives.
 * [Proccess](Processes) is a subset of the [Racket](https://racket-lang.org/)
 [Processes API](https://docs.racket-lang.org/reference/subprocess.html).
-* Memory management featuring guardians and trackers. Guardians protect objects from being collected and trackers follow objects as they get moved by the copying part of the collector.
+* Memory management including guardians. Guardians protect objects from being collected.
 * Full Unicode including reading and writing unicode characters to the console. Files in UTF-8 and UTF-16 encoding can be read and written.
 * The system is built around a compiler and VM. There is support for prompts and continuation marks.
 * Network support.

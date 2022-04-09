@@ -4,10 +4,6 @@ Foment
 
 To Do:
 -- remove generational collector
---- remove trackers
---- CheckObject: check back references from mature objects
---- partial GC
---- after partial GC, test for objects pointing to Babies
 
 -- SRFI 141 (scheme division)
 -- SRFI 151 (scheme bitwise)
@@ -404,7 +400,6 @@ void ModifyVector(FObject obj, ulong_t idx, FObject val);
 void ModifyObject(FObject obj, ulong_t off, FObject val);
 
 void InstallGuardian(FObject obj, FObject tconc);
-void InstallTracker(FObject obj, FObject ret, FObject tconc);
 
 class FAlive
 {

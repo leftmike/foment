@@ -1570,8 +1570,6 @@ long_t SetupFoment(FThreadState * ts)
             Features);
     if (CollectorType == MarkSweepCollector || CollectorType == GenerationalCollector)
         Features = MakePair(StringCToSymbol("guardians"), Features);
-    if (CollectorType == GenerationalCollector)
-        Features = MakePair(StringCToSymbol("trackers"), Features);
 
     GetEnvironmentVariables();
 
