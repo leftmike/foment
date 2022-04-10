@@ -54,7 +54,7 @@ typedef struct
 } FSubprocess;
 
 #define AsSubprocess(obj) ((FSubprocess *) (obj))
-#define SubprocessP(obj) (IndirectTag(obj) == SubprocessTag)
+#define SubprocessP(obj) (ObjectTag(obj) == SubprocessTag)
 
 #ifdef FOMENT_WINDOWS
 static FObject MakeSubprocess(DWORD pid, HANDLE ph, const char * who)

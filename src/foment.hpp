@@ -195,7 +195,7 @@ typedef enum
 {
     // Direct types use 3 bits of tag.
 
-    ObjectTag = 0x00,
+    // ObjectTag = 0x00,
     FixnumTag = 0x01,
     // Unused: 0x02 to 0x06
     ImmediateDirectTag = 0x07,
@@ -215,7 +215,7 @@ typedef enum
 
 typedef enum
 {
-    // Indirect Types
+    // Object type tags
 
     BignumTag = 0x01, // fix order of tags in gc.cpp
     RatioTag,
@@ -247,7 +247,7 @@ typedef enum
     SubprocessTag,
     FreeTag, // Only on Adult Generation
     BadDogTag // Invalid Tag
-} FIndirectTag;
+} FObjectTag;
 
 #define ObjectP(obj) ((((ulong_t) (obj)) & 0x7) == 0x0)
 
@@ -388,9 +388,9 @@ typedef struct
 
 FObject MakeObject(ulong_t tag, ulong_t sz, ulong_t sc, const char * who, long_t pf = 0);
 
-inline FIndirectTag IndirectTag(FObject obj)
+inline FObjectTag ObjectTag(FObject obj)
 {
-    return((FIndirectTag) (ObjectP(obj) ? AsObjHdr(obj)->Tag() : 0));
+    return((FObjectTag) (ObjectP(obj) ? AsObjHdr(obj)->Tag() : 0));
 }
 
 extern volatile long_t GCRequired;
@@ -561,8 +561,8 @@ typedef struct
 
 #define AsGenericPort(obj) ((FGenericPort *) obj)
 
-#define TextualPortP(obj) (IndirectTag(obj) == TextualPortTag)
-#define BinaryPortP(obj) (IndirectTag(obj) == BinaryPortTag)
+#define TextualPortP(obj) (ObjectTag(obj) == TextualPortTag)
+#define BinaryPortP(obj) (ObjectTag(obj) == BinaryPortTag)
 
 inline long_t InputPortP(FObject obj)
 {
@@ -736,7 +736,7 @@ void WriteSubprocess(FWriteContext * wctx, FObject obj);
 
 // ---- Pairs ----
 
-#define PairP(obj) (IndirectTag(obj) == PairTag)
+#define PairP(obj) (ObjectTag(obj) == PairTag)
 #define AsPair(obj) ((FPair *) (obj))
 
 typedef struct
@@ -798,7 +798,7 @@ FObject TConcRemove(FObject tconc);
 
 // ---- Boxes ----
 
-#define BoxP(obj) (IndirectTag(obj) == BoxTag)
+#define BoxP(obj) (ObjectTag(obj) == BoxTag)
 #define AsBox(obj) ((FBox *) (obj))
 
 typedef struct
@@ -827,7 +827,7 @@ inline void SetBox(FObject bx, FObject val)
 
 // ---- Strings ----
 
-#define StringP(obj) (IndirectTag(obj) == StringTag)
+#define StringP(obj) (ObjectTag(obj) == StringTag)
 #define AsString(obj) ((FString *) (obj))
 
 typedef struct
@@ -868,7 +868,7 @@ extern FObject StringHashPrimitive;
 
 // ---- Vectors ----
 
-#define VectorP(obj) (IndirectTag(obj) == VectorTag)
+#define VectorP(obj) (ObjectTag(obj) == VectorTag)
 #define AsVector(obj) ((FVector *) (obj))
 
 typedef struct
@@ -885,7 +885,7 @@ FObject VectorToList(FObject vec);
 
 // ---- Bytevectors ----
 
-#define BytevectorP(obj) (IndirectTag(obj) == BytevectorTag)
+#define BytevectorP(obj) (ObjectTag(obj) == BytevectorTag)
 #define AsBytevector(obj) ((FBytevector *) (obj))
 
 typedef struct
@@ -905,7 +905,7 @@ inline ulong_t BytevectorLength(FObject obj)
     return(AsBytevector(obj)->Length);
 }
 
-// ---- Indirect Object Types ----
+// ---- Object Types ----
 
 typedef void (*FObjectWriteFn)(FWriteContext * wctx, FObject obj);
 
@@ -913,13 +913,13 @@ typedef struct
 {
     const char * Name;
     FObjectWriteFn Write;
-} FIndirectType;
+} FObjectType;
 
-extern FIndirectType IndirectTypes[];
+extern FObjectType ObjectTypes[];
 
 // ---- Builtin Types ----
 
-#define BuiltinTypeP(obj) (IndirectTag(obj) == BuiltinTypeTag)
+#define BuiltinTypeP(obj) (ObjectTag(obj) == BuiltinTypeTag)
 #define AsBuiltinType(obj) ((FBuiltinType *) (obj))
 
 typedef struct
@@ -946,7 +946,7 @@ typedef struct FALIGN
 
 // ---- Builtins ----
 
-#define BuiltinObjectP(obj) (IndirectTag(obj) == BuiltinTag)
+#define BuiltinObjectP(obj) (ObjectTag(obj) == BuiltinTag)
 #define AsBuiltin(obj) ((FBuiltin *) (obj))
 
 typedef struct
@@ -965,7 +965,7 @@ inline long_t BuiltinP(FObject obj, FObject bt)
 
 // ---- Record Types ----
 
-#define RecordTypeP(obj) (IndirectTag(obj) == RecordTypeTag)
+#define RecordTypeP(obj) (ObjectTag(obj) == RecordTypeTag)
 #define AsRecordType(obj) ((FRecordType *) (obj))
 
 typedef struct
@@ -980,7 +980,7 @@ FObject MakeRecordType(FObject nam, ulong_t nf, FObject flds[]);
 
 // ---- Records ----
 
-#define GenericRecordP(obj) (IndirectTag(obj) == RecordTag)
+#define GenericRecordP(obj) (ObjectTag(obj) == RecordTag)
 #define AsGenericRecord(obj) ((FGenericRecord *) (obj))
 
 typedef struct
@@ -1041,7 +1041,7 @@ extern FObject EqHashPrimitive;
 #define HASH_TABLE_IMMUTABLE        0x10
 #define HASH_TABLE_THREAD_SAFE      0x20
 
-#define HashTableP(obj) (IndirectTag(obj) == HashTableTag)
+#define HashTableP(obj) (ObjectTag(obj) == HashTableTag)
 
 typedef FObject (*FFoldFn)(FObject key, FObject val, void * ctx, FObject accum);
 
@@ -1058,7 +1058,7 @@ void WriteHashTable(FWriteContext * wctx, FObject obj);
 
 // ---- Symbols ----
 
-#define SymbolP(obj) (IndirectTag(obj) == SymbolTag)
+#define SymbolP(obj) (ObjectTag(obj) == SymbolTag)
 #define AsSymbol(obj) ((FSymbol *) (obj))
 
 typedef struct
@@ -1070,7 +1070,7 @@ typedef struct
 #endif // FOMENT_64BIT
 } FSymbol;
 
-#define CStringP(obj) (IndirectTag(obj) == CStringTag)
+#define CStringP(obj) (ObjectTag(obj) == CStringTag)
 #define AsCString(obj) ((FCString *) (obj))
 
 typedef struct
@@ -1135,7 +1135,7 @@ extern FObject SymbolHashPrimitive;
 
 // ---- Primitives ----
 
-#define PrimitiveP(obj) (IndirectTag(obj) == PrimitiveTag)
+#define PrimitiveP(obj) (ObjectTag(obj) == PrimitiveTag)
 #define AsPrimitive(obj) ((FPrimitive *) (obj))
 
 typedef FObject (*FPrimitiveFn)(long_t argc, FObject argv[]);
@@ -1169,7 +1169,7 @@ void DefinePrimitive(FObject env, FObject lib, FObject prim);
 
 // ---- Ephemerons ----
 
-#define EphemeronP(obj) (IndirectTag(obj) == EphemeronTag)
+#define EphemeronP(obj) (ObjectTag(obj) == EphemeronTag)
 #define AsEphemeron(obj) ((FEphemeron *) (obj))
 
 typedef struct _FEphemeron
@@ -1243,7 +1243,7 @@ extern FObject NoValuePrimitive;
 
 // ---- Flonums ----
 
-#define FlonumP(obj) (IndirectTag(obj) == FlonumTag)
+#define FlonumP(obj) (ObjectTag(obj) == FlonumTag)
 #define AsFlonum(obj) (((FFlonum *) (obj))->Double)
 
 typedef struct
@@ -1255,12 +1255,12 @@ FObject MakeFlonum(double64_t dbl);
 
 // ---- Bignums ----
 
-#define BignumP(obj) (IndirectTag(obj) == BignumTag)
+#define BignumP(obj) (ObjectTag(obj) == BignumTag)
 void DeleteBignum(FObject obj);
 
 // ---- Ratios ----
 
-#define RatioP(obj) (IndirectTag(obj) == RatioTag)
+#define RatioP(obj) (ObjectTag(obj) == RatioTag)
 #define AsRatio(obj) ((FRatio *) (obj))
 
 typedef struct
@@ -1273,7 +1273,7 @@ FObject MakeRatio(FObject nmr, FObject dnm);
 
 // ---- Complex ----
 
-#define ComplexP(obj) (IndirectTag(obj) == ComplexTag)
+#define ComplexP(obj) (ObjectTag(obj) == ComplexTag)
 #define AsComplex(obj) ((FComplex *) (obj))
 
 typedef struct
@@ -1297,7 +1297,7 @@ inline long_t NumberP(FObject obj)
     if (FixnumP(obj))
         return(1);
 
-    FIndirectTag tag = IndirectTag(obj);
+    FObjectTag tag = ObjectTag(obj);
     return(tag == BignumTag || tag == RatioTag || tag == FlonumTag || tag == ComplexTag);
 }
 
@@ -1306,7 +1306,7 @@ inline long_t RealP(FObject obj)
     if (FixnumP(obj))
         return(1);
 
-    FIndirectTag tag = IndirectTag(obj);
+    FObjectTag tag = ObjectTag(obj);
     return(tag == BignumTag || tag == RatioTag || tag == FlonumTag);
 }
 
@@ -1407,7 +1407,7 @@ extern FObject SyntaxRulesType;
 // ---- Identifiers ----
 
 #define AsIdentifier(obj) ((FIdentifier *) (obj))
-#define IdentifierP(obj) (IndirectTag(obj) == IdentifierTag)
+#define IdentifierP(obj) (ObjectTag(obj) == IdentifierTag)
 
 typedef struct
 {
@@ -1437,7 +1437,7 @@ typedef struct
 } FProcedure;
 
 #define AsProcedure(obj) ((FProcedure *) (obj))
-#define ProcedureP(obj) (IndirectTag(obj) == ProcedureTag)
+#define ProcedureP(obj) (ObjectTag(obj) == ProcedureTag)
 
 FObject MakeProcedure(FObject nam, FObject fn, FObject ln, FObject cv, long_t ac, ulong_t fl);
 void WriteProcedure(FWriteContext * wctx, FObject obj);
@@ -1449,17 +1449,17 @@ void WriteProcedure(FWriteContext * wctx, FObject obj);
 
 // ---- Threads ----
 
-#define ThreadP(obj) (IndirectTag(obj) == ThreadTag)
+#define ThreadP(obj) (ObjectTag(obj) == ThreadTag)
 
 // ---- Exclusives ----
 
-#define ExclusiveP(obj) (IndirectTag(obj) == ExclusiveTag)
+#define ExclusiveP(obj) (ObjectTag(obj) == ExclusiveTag)
 
 FObject MakeExclusive();
 
 // ---- Conditions ----
 
-#define ConditionP(obj) (IndirectTag(obj) == ConditionTag)
+#define ConditionP(obj) (ObjectTag(obj) == ConditionTag)
 
 // ---- Exceptions ----
 

@@ -182,7 +182,7 @@ void WriteHashTable(FWriteContext * wctx, FObject obj)
 #define HASH_NODE_DELETED          0x10
 
 #define AsHashNode(obj) ((FHashNode *) (obj))
-#define HashNodeP(obj) (IndirectTag(obj) == HashNodeTag)
+#define HashNodeP(obj) (ObjectTag(obj) == HashNodeTag)
 
 typedef struct
 {

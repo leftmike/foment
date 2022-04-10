@@ -28,7 +28,7 @@ typedef struct
 } FCharSet;
 
 #define AsCharSet(obj) ((FCharSet *) (obj))
-#define CharSetP(obj) (IndirectTag(obj) == CharSetTag)
+#define CharSetP(obj) (ObjectTag(obj) == CharSetTag)
 
 static FObject MakeCharSet(ulong_t nr, FCharRange * r, const char * who)
 {

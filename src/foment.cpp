@@ -1402,9 +1402,9 @@ static void FixupUName(char * s)
 }
 #endif // FOMENT_UNIX
 
-// ---- Indirect Object Types ----
+// ---- Object Types ----
 
-FIndirectType IndirectTypes[] =
+FObjectType ObjectTypes[] =
 {
     {0, 0},
     {"bignum", WriteNumber},
@@ -1462,12 +1462,12 @@ long_t SetupFoment(FThreadState * ts)
     if (SetupCore(ts) == 0)
         return(0);
 
-    // Likely a new indirect tag was added, but a corresponding entry is
-    // missing from IndirectTypes just about this procedure in this file.
-    FAssert(sizeof(IndirectTypes) / sizeof(FIndirectType) == BadDogTag);
+    // Likely a new object tag was added, but a corresponding entry is
+    // missing from ObjectTypes just above this procedure in this file.
+    FAssert(sizeof(ObjectTypes) / sizeof(FObjectType) == BadDogTag);
     FAssert(FreeTag + 1 == BadDogTag);
-    FAssert(strcmp(IndirectTypes[FreeTag].Name, "free") == 0);
-    FAssert(IndirectTypes[FreeTag].Write == 0);
+    FAssert(strcmp(ObjectTypes[FreeTag].Name, "free") == 0);
+    FAssert(ObjectTypes[FreeTag].Write == 0);
 
     RegisterRoot(&SymbolHashTable, "symbol-hash-table");
     RegisterRoot(&Bedrock, "bedrock");

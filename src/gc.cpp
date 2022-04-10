@@ -594,7 +594,7 @@ static const char * WhereFrom(FObject obj, long_t * idx)
 
     if (ObjectP(obj))
     {
-        switch (IndirectTag(obj))
+        switch (ObjectTag(obj))
         {
         case BoxTag:
             FMustBe(*idx == 0);
@@ -705,8 +705,8 @@ static const char * WhereFrom(FObject obj, long_t * idx)
             break;
 
         default:
-            if (IndirectTag(obj) > 0 && IndirectTag(obj) < BadDogTag)
-                from = IndirectTypes[IndirectTag(obj)].Name;
+            if (ObjectTag(obj) > 0 && ObjectTag(obj) < BadDogTag)
+                from = ObjectTypes[ObjectTag(obj)].Name;
             else
                 from = "unknown";
             break;
@@ -780,13 +780,13 @@ static void PrintCheckStack()
     FObject obj = CheckStack[CheckStackPtr - 1].Object;
     if (ObjectP(obj))
     {
-        if (IndirectTag(obj) > 0 && IndirectTag(obj) < BadDogTag)
+        if (ObjectTag(obj) > 0 && ObjectTag(obj) < BadDogTag)
         {
-            printf("%s: %p", IndirectTypes[IndirectTag(obj)].Name, obj);
+            printf("%s: %p", ObjectTypes[ObjectTag(obj)].Name, obj);
             PrintObjectString(obj);
         }
         else
-            printf("unknown: %p tag: %x", obj, IndirectTag(obj));
+            printf("unknown: %p tag: %x", obj, ObjectTag(obj));
     }
     else
         printf("unknown: %p", obj);
@@ -810,7 +810,7 @@ static void FCheckFailed(const char * fn, long_t ln, const char * expr, FObjHdr 
     ulong_t tsz = oh->TotalSize();
     const char * tag = "unknown";
     if (oh->Tag() > 0 && oh->Tag() < BadDogTag)
-        tag = IndirectTypes[oh->Tag()].Name;
+        tag = ObjectTypes[oh->Tag()].Name;
     printf("tsz: " ULONG_FMT " osz: " ULONG_FMT " blen: " ULONG_FMT " slots: " ULONG_FMT
             " tag: %s gen: 0x%x", tsz, oh->ObjectSize(),
             oh->ByteLength(), oh->SlotCount(), tag, oh->Generation());
@@ -880,8 +880,8 @@ Again:
         FObjHdr * oh = AsObjHdr(obj);
         FCheck(CheckMarkP(obj), oh);
         FCheck(ValidAddress(oh), oh);
-        FCheck(IndirectTag(obj) > 0 && IndirectTag(obj) < BadDogTag, oh);
-        FCheck(IndirectTag(obj) != FreeTag, oh);
+        FCheck(ObjectTag(obj) > 0 && ObjectTag(obj) < BadDogTag, oh);
+        FCheck(ObjectTag(obj) != FreeTag, oh);
         FCheck(oh->ObjectSize() >= oh->SlotCount() * sizeof(FObject), oh);
 
 #ifdef FOMENT_OBJFTR
@@ -1885,7 +1885,7 @@ Define("object-counts", ObjectCountsPrimitive)(long_t argc, FObject argv[])
 
     for (int tdx = 1; tdx < FreeTag; tdx++)
         if (TagCounts[tdx] > 0)
-            lst = MakePair(MakePair(StringCToSymbol(IndirectTypes[tdx].Name),
+            lst = MakePair(MakePair(StringCToSymbol(ObjectTypes[tdx].Name),
                     MakeIntegerFromUInt64(TagCounts[tdx])), lst);
 
     for (int sdx = 0; sdx < SIZE_COUNTS; sdx++)

@@ -213,13 +213,13 @@ void FWriteContext::WriteSimple(FObject obj)
 {
     if (ObjectP(obj))
     {
-        uint32_t tag = IndirectTag(obj);
+        uint32_t tag = ObjectTag(obj);
 
         if (tag < BadDogTag)
         {
-            FAssert(IndirectTypes[tag].Write != 0);
+            FAssert(ObjectTypes[tag].Write != 0);
 
-            IndirectTypes[tag].Write(this, obj);
+            ObjectTypes[tag].Write(this, obj);
         }
         else
             WriteUnknown(this, obj);
