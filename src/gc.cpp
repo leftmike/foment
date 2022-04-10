@@ -268,6 +268,17 @@ long_t GrowMemRegionDown(FMemRegion * mrgn, ulong_t sz)
     return(1);
 }
 
+// Number of bytes requested when the object was allocated; makes sense only for objects
+// without slots.
+inline ulong_t FObjHdr::ByteLength()
+{
+    FAssert((Meta & OBJHDR_ALL_SLOTS) == 0);
+    FAssert(ExtraSlots() == 0);
+    FAssert(ObjectSize() >= Padding());
+
+    return(ObjectSize() - Padding());
+}
+
 static inline void SetMark(FObjHdr * oh)
 {
     oh->Meta |= OBJHDR_MARK_FORWARD;

@@ -30,6 +30,7 @@ typedef struct
 {
     int16_t Sign;
     uint16_t Used;
+    uint16_t Maximum;
     uint32_t Digits[1];
 } FBignum;
 
@@ -38,7 +39,7 @@ static inline ulong_t MaximumDigits(FObject bn)
 {
     FAssert(BignumP(bn));
 
-    return((ByteLength(bn) - (sizeof(FBignum) - sizeof(uint32_t))) / sizeof(uint32_t));
+    return(AsBignum(bn)->Maximum);
 }
 #endif // FOMENT_DEBUG
 
@@ -57,6 +58,7 @@ static FBignum * MakeBignum(ulong_t dc)
             0, "%make-bignum");
     bn->Sign = 1;
     bn->Used = 1;
+    bn->Maximum = dc;
     memset(bn->Digits, 0, dc * sizeof(uint32_t));
 
     FAssert(MaximumDigits(bn) == dc);

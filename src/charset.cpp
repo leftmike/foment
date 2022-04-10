@@ -23,6 +23,7 @@ static FObject FullCharSet = NoValueObject;
 
 typedef struct
 {
+    uint32_t NumRanges;
     FCharRange Ranges[1];
 } FCharSet;
 
@@ -31,17 +32,11 @@ typedef struct
 
 static FObject MakeCharSet(ulong_t nr, FCharRange * r, const char * who)
 {
-    FCharSet * cset = (FCharSet *) MakeObject(CharSetTag, sizeof(FCharRange) * nr, 0, who);
+    FCharSet * cset = (FCharSet *) MakeObject(CharSetTag,
+            sizeof(FCharSet) + sizeof(FCharRange) * (nr - 1), 0, who);
+    cset->NumRanges = nr;
     memcpy(cset->Ranges, r, sizeof(FCharRange) * nr);
     return(cset);
-}
-
-inline ulong_t NumRanges(FObject obj)
-{
-    FAssert(CharSetP(obj));
-    FAssert(ByteLength(obj) % sizeof(FCharRange) == 0);
-
-    return(ByteLength(obj) / sizeof(FCharRange));
 }
 
 inline int InvalidUCSCh(FCh ch)
@@ -57,7 +52,7 @@ static int ValidCharSet(FObject obj)
     if (CharSetP(obj) == 0)
         return(0);
 
-    ulong_t nr = NumRanges(obj);
+    ulong_t nr = AsCharSet(obj)->NumRanges;
     FCharSet * cset = AsCharSet(obj);
     for (ulong_t rdx = 0; rdx < nr; rdx++)
     {
@@ -134,7 +129,7 @@ unsigned int LowercaseP(FCh ch)
 
 inline int CharSetMemberP(FObject cset, FCh ch)
 {
-    return(CharRangeMemberP(NumRanges(cset), AsCharSet(cset)->Ranges, ch));
+    return(CharRangeMemberP(AsCharSet(cset)->NumRanges, AsCharSet(cset)->Ranges, ch));
 }
 
 inline void CharSetArgCheck(const char * who, FObject obj)
@@ -159,14 +154,14 @@ static int CharSetSubset(FObject cset1, FObject cset2)
     FAssert(ValidCharSet(cset1));
     FAssert(ValidCharSet(cset2));
 
-    ulong_t nr1 = NumRanges(cset1);
+    ulong_t nr1 = AsCharSet(cset1)->NumRanges;
 
     if (nr1 == 0)
         return(1); // empty char set is a subset of everything
 
     FCharRange * r1 = AsCharSet(cset1)->Ranges;
     FCharRange * r2 = AsCharSet(cset2)->Ranges;
-    ulong_t nr2 = NumRanges(cset2);
+    ulong_t nr2 = AsCharSet(cset2)->NumRanges;
     ulong_t ndx2 = 0;
     for (ulong_t ndx1 = 0; ndx1 < nr1; ndx1++)
     {
@@ -189,8 +184,8 @@ static FObject CharSetUnion(FObject cset1, FObject cset2, const char * who)
     FAssert(ValidCharSet(cset1));
     FAssert(ValidCharSet(cset2));
 
-    ulong_t nr1 = NumRanges(cset1);
-    ulong_t nr2 = NumRanges(cset2);
+    ulong_t nr1 = AsCharSet(cset1)->NumRanges;
+    ulong_t nr2 = AsCharSet(cset2)->NumRanges;
 
     if (nr1 == 0)
         return(cset2);
@@ -277,12 +272,12 @@ Define("char-set=", CharSetEqualPrimitive)(long_t argc, FObject argv[])
 
     CharSetArgCheck("char-set=", argv[0]);
 
-    ulong_t nr = NumRanges(argv[0]);
+    ulong_t nr = AsCharSet(argv[0])->NumRanges;
     for (long_t adx = 1; adx < argc; adx++)
     {
         CharSetArgCheck("char-set=", argv[adx]);
 
-        if (nr != NumRanges(argv[adx])
+        if (nr != AsCharSet(argv[adx])->NumRanges
             || memcmp(AsCharSet(argv[0])->Ranges, AsCharSet(argv[adx])->Ranges,
                     nr * sizeof(FCharRange)) != 0)
             return(FalseObject);
@@ -311,7 +306,7 @@ Define("char-set<=", CharSetSubsetPrimitive)(long_t argc, FObject argv[])
 
 static uint32_t CharSetHash(FCharSet * cset)
 {
-    ulong_t sl = NumRanges(cset) * 2;
+    ulong_t sl = AsCharSet(cset)->NumRanges * 2;
     FCh * s = (FCh *) cset->Ranges;
     uint32_t h = 0;
 
@@ -342,7 +337,7 @@ Define("char-set-cursor", CharSetCursorPrimitive)(long_t argc, FObject argv[])
     OneArgCheck("char-set-cursor", argc);
     CharSetArgCheck("char-set-cursor", argv[0]);
 
-    if (NumRanges(argv[0]) == 0)
+    if (AsCharSet(argv[0])->NumRanges == 0)
         return(FalseObject);
 
     return(MakeCharacter(AsCharSet(argv[0])->Ranges[0].Start));
@@ -354,7 +349,7 @@ Define("char-set-cursor-next", CharSetCursorNextPrimitive)(long_t argc, FObject 
     CharSetArgCheck("char-set-cursor-next", argv[0]);
     CharacterArgCheck("char-set-cursor-next", argv[1]);
 
-    ulong_t nr = NumRanges(argv[0]);
+    ulong_t nr = AsCharSet(argv[0])->NumRanges;
     FCharRange * r = AsCharSet(argv[0])->Ranges;
     FCh ch = AsCharacter(argv[1]);
     ulong_t ndx;
@@ -532,7 +527,7 @@ Define("char-set-complement", CharSetComplementPrimitive)(long_t argc, FObject a
     OneArgCheck("char-set-complement", argc);
     CharSetArgCheck("char-set-complement", argv[0]);
 
-    ulong_t nr = NumRanges(argv[0]);
+    ulong_t nr = AsCharSet(argv[0])->NumRanges;
 
     if (nr == 0)
         return(FullCharSet);
@@ -599,8 +594,8 @@ Define("%char-set-intersection", CharSetIntersectionPrimitive)(long_t argc, FObj
     CharSetArgCheck("%char-set-intersection", argv[0]);
     CharSetArgCheck("%char-set-intersection", argv[1]);
 
-    ulong_t nr1 = NumRanges(argv[0]);
-    ulong_t nr2 = NumRanges(argv[1]);
+    ulong_t nr1 = AsCharSet(argv[0])->NumRanges;
+    ulong_t nr2 = AsCharSet(argv[1])->NumRanges;
 
     if (nr1 == 0 || nr2 == 0)
         return(EmptyCharSet);

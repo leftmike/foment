@@ -594,8 +594,11 @@ Define("vector-reverse!", VectorReversePrimitive)(long_t argc, FObject argv[])
 
 static inline FBytevector * MakeBytevector(ulong_t vl, const char * who)
 {
-    return((FBytevector *) MakeObject(BytevectorTag,
-            sizeof(FBytevector) + (vl - 1) * sizeof(FByte), 0, who));
+    FBytevector * bv = (FBytevector *) MakeObject(BytevectorTag,
+            sizeof(FBytevector) + (vl - 1) * sizeof(FByte), 0, who);
+    bv->Length = vl;
+
+    return(bv);
 }
 
 FObject MakeBytevector(ulong_t vl)

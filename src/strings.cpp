@@ -14,6 +14,7 @@ FObject MakeString(FCh * s, ulong_t sl)
 {
     FString * ns = (FString *) MakeObject(StringTag, sizeof(FString) + sl * sizeof(FCh), 0,
         "make-string");
+    ns->Length = (uint32_t) sl;
     ns->String[sl] = 0;
 
     if (s != 0)

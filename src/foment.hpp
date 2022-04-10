@@ -3,6 +3,34 @@
 Foment
 
 To Do:
+- Object layout
+-- 8 byte object header because of 8 byte alignment of objects
+-- Execution
+--- Type checking needs tag (12 bits?) of the object
+--- Number of slots for variable length objects: SlotCount
+--- Number of bytes for variable length objects: store on the object
+-- Collector
+--- Total length of the object in 8 byte chunks
+--- Number of slots: lookup based on the tag
+--- Flags: eternal, mark, check, ephemeron_key_mark, pad
+-- SlotCount: Vectors, RecordTypes, Records
+
+uint64_t FHeader;
+#define HEADER_TAG_MASK                0x00FFF
+#define HEADER_FLAGS_MASK              0x1F000
+#define HEADER_FLAG_ETERNAL            0x01000
+#define HEADER_FLAG_MARK               0x02000
+#define HEADER_FLAG_CHECK              0x04000
+#define HEADER_FLAG_EPHEMERON_KEY_MARK 0x08000
+#define HEADER_FLAG_PAD                0x10000
+#define HEADER_PAD_SHIFT               16
+#define HEADER_SIZE_SHIFT              17
+
+-- Convert all builtins to objects
+-- Change HasSlotsP (write)
+-- 64bit: SlotCount() (h >> HEADER_SIZE_SHIFT)
+-- 32bit: SlotCount() (h >> HEADER_SIZE_SHIFT) / 2 - ((h & HEADER_FLAG_PAD) >> HEADER_PAD_SHIFT)
+
 -- SRFI 141 (scheme division)
 -- SRFI 151 (scheme bitwise)
 -- SRFI 143 (scheme fixnum)
@@ -335,27 +363,11 @@ inline ulong_t FObjHdr::SlotCount()
 #endif // FOMENT_64BIT
 }
 
-// Number of bytes requested when the object was allocated; makes sense only for objects
-// without slots.
-inline ulong_t FObjHdr::ByteLength()
-{
-    FAssert((Meta & OBJHDR_ALL_SLOTS) == 0);
-    FAssert(ExtraSlots() == 0);
-    FAssert(ObjectSize() >= Padding());
-
-    return(ObjectSize() - Padding());
-}
-
 inline FObjHdr * AsObjHdr(FObject obj)
 {
     FAssert(ObjectP(obj));
 
     return(((FObjHdr *) obj) - 1);
-}
-
-inline ulong_t ByteLength(FObject obj)
-{
-    return(AsObjHdr(obj)->ByteLength());
 }
 
 typedef struct
@@ -820,6 +832,7 @@ inline void SetBox(FObject bx, FObject val)
 
 typedef struct
 {
+    uint32_t Length;
     FCh String[1];
 } FString;
 
@@ -832,10 +845,8 @@ FObject MakeStringS(FChS * ss, ulong_t ssl);
 inline ulong_t StringLength(FObject obj)
 {
     FAssert(StringP(obj));
-    FAssert(ByteLength(obj) % sizeof(FCh) == 0);
-    FAssert(ByteLength(obj) >= sizeof(FCh));
 
-    return((ByteLength(obj) / sizeof(FCh)) - 1);
+    return(AsString(obj)->Length);
 }
 
 void StringToC(FObject s, char * b, long_t bl);
@@ -879,6 +890,7 @@ FObject VectorToList(FObject vec);
 
 typedef struct
 {
+    ulong_t Length;
     FByte Vector[1];
 } FBytevector;
 
@@ -886,7 +898,12 @@ FObject MakeBytevector(ulong_t vl);
 void WriteBytevector(FWriteContext * wctx, FObject obj);
 FObject U8ListToBytevector(FObject obj);
 
-#define BytevectorLength(obj) ByteLength(obj)
+inline ulong_t BytevectorLength(FObject obj)
+{
+    FAssert(BytevectorP(obj));
+
+    return(AsBytevector(obj)->Length);
+}
 
 // ---- Indirect Object Types ----
 
