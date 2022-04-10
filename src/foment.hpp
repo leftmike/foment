@@ -379,23 +379,6 @@ void CheckHeap(const char * fn, int ln);
 void ReadyForGC();
 #define CheckForGC() if (GCRequired) ReadyForGC()
 
-inline long_t MatureP(FObject obj)
-{
-    return(ObjectP(obj) && (AsObjHdr(obj)->Meta & OBJHDR_GEN_MASK) == OBJHDR_GEN_ADULTS);
-}
-
-void ModifyVector(FObject obj, ulong_t idx, FObject val);
-
-/*
-//    AsProcedure(proc)->Name = nam;
-    Modify(FProcedure, proc, Name, nam);
-*/
-#define Modify(type, obj, slot, val)\
-    ModifyObject(obj, (ulong_t) &(((type *) 0)->slot), val)
-
-// Do not directly call ModifyObject; use Modify instead.
-void ModifyObject(FObject obj, ulong_t off, FObject val);
-
 void InstallGuardian(FObject obj, FObject tconc);
 
 class FAlive
@@ -751,8 +734,19 @@ inline FObject Rest(FObject obj)
     return(AsPair(obj)->Rest);
 }
 
-void SetFirst(FObject obj, FObject val);
-void SetRest(FObject obj, FObject val);
+inline void SetFirst(FObject obj, FObject val)
+{
+    FAssert(PairP(obj));
+
+    AsPair(obj)->First = val;
+}
+
+inline void SetRest(FObject obj, FObject val)
+{
+    FAssert(PairP(obj));
+
+    AsPair(obj)->Rest = val;
+}
 
 FObject MakePair(FObject first, FObject rest);
 void WritePair(FWriteContext * wctx, FObject obj);
@@ -799,7 +793,13 @@ inline FObject Unbox(FObject bx)
     return(AsBox(bx)->Value);
 }
 
-void SetBox(FObject bx, FObject val);
+inline void SetBox(FObject bx, FObject val)
+{
+    FAssert(BoxP(bx));
+
+    AsBox(bx)->Value = val;
+}
+
 #define BoxIndex(bx) (AsBox(bx)->Index)
 
 // ---- Strings ----

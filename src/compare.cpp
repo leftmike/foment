@@ -138,8 +138,7 @@ Define("comparator-context-set!", ComparatorContextSetPrimitive)(long_t argc, FO
     TwoArgsCheck("comparator-context-set!", argc);
     ComparatorArgCheck("comparator-context-set!", argv[0]);
 
-//    AsComparator(argv[0])->Context = argv[1];
-    Modify(FComparator, argv[0], Context, argv[1]);
+    AsComparator(argv[0])->Context = argv[1];
     return(NoValueObject);
 }
 

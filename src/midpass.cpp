@@ -15,15 +15,13 @@ static void UPassBindingList(FObject flst)
 {
     while (PairP(flst))
     {
-        FAssert(BindingP(First(flst)));
-
         FObject bd = First(flst);
-//        bd->UseCount = MakeFixnum(0);
-        Modify(FBinding, bd, UseCount, MakeFixnum(0));
-//        bd->SetCount = MakeFixnum(0);
-        Modify(FBinding, bd, SetCount, MakeFixnum(0));
-//        bd->Escapes = FalseObject;
-        Modify(FBinding, bd, Escapes, FalseObject);
+
+        FAssert(BindingP(bd));
+
+        AsBinding(bd)->UseCount = MakeFixnum(0);
+        AsBinding(bd)->SetCount = MakeFixnum(0);
+        AsBinding(bd)->Escapes = FalseObject;
 
         flst = Rest(flst);
     }
@@ -89,10 +87,7 @@ static void UPassSpecialSyntax(FObject expr, int ef)
 
         FObject bd = AsReference(First(Rest(expr)))->Binding;
         if (BindingP(bd))
-        {
-//            AsBinding(bd)->SetCount = MakeFixnum(AsFixnum(AsBinding(bd)->SetCount) + 1);
-            Modify(FBinding, bd, SetCount, MakeFixnum(AsFixnum(AsBinding(bd)->SetCount) + 1));
-        }
+            AsBinding(bd)->SetCount = MakeFixnum(AsFixnum(AsBinding(bd)->SetCount) + 1);
 
         UPassExpression(First(Rest(Rest(expr))), 1);
     }
@@ -112,10 +107,7 @@ static void UPassSpecialSyntax(FObject expr, int ef)
 
             FObject bd = AsReference(First(lst))->Binding;
             if (BindingP(bd))
-            {
-//                AsBinding(bd)->SetCount = MakeFixnum(AsFixnum(AsBinding(bd)->SetCount) + 1);
-                Modify(FBinding, bd, SetCount, MakeFixnum(AsFixnum(AsBinding(bd)->SetCount) + 1));
-            }
+                AsBinding(bd)->SetCount = MakeFixnum(AsFixnum(AsBinding(bd)->SetCount) + 1);
 
             lst = Rest(lst);
         }
@@ -167,27 +159,21 @@ static void UPassSpecialSyntax(FObject expr, int ef)
                 FObject init = First(Rest(vi));
                 if (LambdaP(init))
                 {
-//                    AsLambda(init)->Escapes = bd->Escapes;
-                    Modify(FLambda, init, Escapes, bd->Escapes);
-//                    AsLambda(init)->Name = bd->Identifier;
-                    Modify(FLambda, init, Name, bd->Identifier);
+                    AsLambda(init)->Escapes = bd->Escapes;
+                    AsLambda(init)->Name = bd->Identifier;
                 }
                 else if (CaseLambdaP(init))
                 {
-//                    AsCaseLambda(init)->Name = bd->Identifier;
-                    Modify(FCaseLambda, init, Name, bd->Identifier);
-//                    AsCaseLambda(init)->Escapes = bd->Escapes;
-                    Modify(FCaseLambda, init, Escapes, bd->Escapes);
+                    AsCaseLambda(init)->Name = bd->Identifier;
+                    AsCaseLambda(init)->Escapes = bd->Escapes;
 
                     FObject cases = AsCaseLambda(init)->Cases;
                     while (PairP(cases))
                     {
                         FAssert(LambdaP(First(cases)));
 
-//                        AsLambda(First(cases))->Name = bd->Identifier;
-                        Modify(FLambda, First(cases), Name, bd->Identifier);
-//                        AsLambda(First(cases))->Escapes = bd->Escapes;
-                        Modify(FLambda, First(cases), Escapes, bd->Escapes);
+                        AsLambda(First(cases))->Name = bd->Identifier;
+                        AsLambda(First(cases))->Escapes = bd->Escapes;
 
                         cases = Rest(cases);
                     }
@@ -196,10 +182,7 @@ static void UPassSpecialSyntax(FObject expr, int ef)
                 }
 
                 if (AsFixnum(bd->SetCount) == 0 && ConstantP(init))
-                {
-//                    bd->Constant = init;
-                    Modify(FBinding, bd, Constant, init);
-                }
+                    bd->Constant = init;
             }
 
             lb = Rest(lb);
@@ -243,13 +226,9 @@ static void UPassExpression(FObject expr, int ef)
         if (BindingP(bd))
         {
             if (ef != 0)
-            {
-//                AsBinding(bd)->Escapes = TrueObject;
-                Modify(FBinding, bd, Escapes, TrueObject);
-            }
+                AsBinding(bd)->Escapes = TrueObject;
 
-//            AsBinding(bd)->UseCount = MakeFixnum(AsFixnum(AsBinding(bd)->UseCount) + 1);
-            Modify(FBinding, bd, UseCount, MakeFixnum(AsFixnum(AsBinding(bd)->UseCount) + 1));
+            AsBinding(bd)->UseCount = MakeFixnum(AsFixnum(AsBinding(bd)->UseCount) + 1);
         }
     }
     else if (LambdaP(expr))
@@ -285,8 +264,7 @@ static void UPassSequence(FObject seq)
 
 static void UPassCaseLambda(FCaseLambda * cl, int ef)
 {
-//    cl->Escapes = (ef != 0 ? TrueObject : FalseObject);
-    Modify(FCaseLambda, cl, Escapes, (ef != 0 ? TrueObject : FalseObject));
+    cl->Escapes = (ef != 0 ? TrueObject : FalseObject);
 
     FObject cases = cl->Cases;
 
@@ -305,20 +283,14 @@ void UPassLambda(FLambda * lam, int ef)
 {
     if (lam->CompilerPass != UsePassSymbol)
     {
-//        lam->CompilerPass = UsePassSymbol;
-        Modify(FLambda, lam, CompilerPass, UsePassSymbol);
-
-//        lam->Escapes = (ef != 0 ? TrueObject : FalseObject);
-        Modify(FLambda, lam, Escapes, (ef != 0 ? TrueObject : FalseObject));
+        lam->CompilerPass = UsePassSymbol;
+        lam->Escapes = (ef != 0 ? TrueObject : FalseObject);
 
         UPassBindingList(lam->Bindings);
         UPassSequence(lam->Body);
 
-//        lam->MayInline = FalseObject;
-        Modify(FLambda, lam, MayInline, FalseObject);
-
-//        lam->ArgCount = MakeFixnum(ListLength(lam->Bindings));
-        Modify(FLambda, lam, ArgCount, MakeFixnum(ListLength(lam->Bindings)));
+        lam->MayInline = FalseObject;
+        lam->ArgCount = MakeFixnum(ListLength(lam->Bindings));
     }
 }
 
@@ -507,11 +479,8 @@ void CPassLambda(FLambda * lam)
 {
     if (lam->CompilerPass != ConstantPassSymbol)
     {
-//        lam->CompilerPass = ConstantPassSymbol;
-        Modify(FLambda, lam, CompilerPass, ConstantPassSymbol);
-
-//        lam->Body = CPassSequence(lam->Body);
-        Modify(FLambda, lam, Body, CPassSequence(lam->Body));
+        lam->CompilerPass = ConstantPassSymbol;
+        lam->Body = CPassSequence(lam->Body);
     }
 }
 
@@ -568,17 +537,13 @@ static void APassSpecialSyntax(FLambda * lam, FObject expr)
             FObject flst = First(vi);
             while (PairP(flst))
             {
-                FAssert(BindingP(First(flst)));
-
                 FObject bd = First(flst);
 
-//                bd->Level = lam->Level;
-                Modify(FBinding, bd, Level, lam->Level);
+                FAssert(BindingP(bd));
 
-//                bd->Slot = lam->SlotCount;
-                Modify(FBinding, bd, Slot, lam->SlotCount);
-//                lam->SlotCount = MakeFixnum(AsFixnum(lam->SlotCount) + 1);
-                Modify(FLambda, lam, SlotCount, MakeFixnum(AsFixnum(lam->SlotCount) + 1));
+                AsBinding(bd)->Level = lam->Level;
+                AsBinding(bd)->Slot = lam->SlotCount;
+                lam->SlotCount = MakeFixnum(AsFixnum(lam->SlotCount) + 1);
 
                 flst = Rest(flst);
             }
@@ -667,39 +632,27 @@ void APassLambda(FLambda * enc, FLambda * lam)
 {
     if (lam->CompilerPass != AnalysisPassSymbol)
     {
-//        lam->CompilerPass = AnalysisPassSymbol;
-        Modify(FLambda, lam, CompilerPass, AnalysisPassSymbol);
+        lam->CompilerPass = AnalysisPassSymbol;
 
         if (enc != 0)
-        {
-//            enc->UseStack = FalseObject;
-            Modify(FLambda, enc, UseStack, FalseObject);
-        }
+            enc->UseStack = FalseObject;
 
-//        lam->SlotCount = MakeFixnum(1); // Slot 0: reserved for enclosing frame.
-        Modify(FLambda, lam, SlotCount, MakeFixnum(1)); // Slot 0: reserved for enclosing frame.
+        lam->SlotCount = MakeFixnum(1); // Slot 0: reserved for enclosing frame.
 
         FObject flst = lam->Bindings;
         while (PairP(flst))
         {
-            FAssert(BindingP(First(flst)));
-
             FObject bd = First(flst);
 
-//            bd->Level = lam->Level;
-            Modify(FBinding, bd, Level, lam->Level);
+            FAssert(BindingP(bd));
 
-//            bd->Slot = MakeFixnum(AsFixnum(lam->ArgCount) - AsFixnum(lam->SlotCount) + 1);
-            Modify(FBinding, bd, Slot,
-                    MakeFixnum(AsFixnum(lam->ArgCount) - AsFixnum(lam->SlotCount) + 1));
-//            lam->SlotCount = MakeFixnum(AsFixnum(lam->SlotCount) + 1);
-            Modify(FLambda, lam, SlotCount, MakeFixnum(AsFixnum(lam->SlotCount) + 1));
+            AsBinding(bd)->Level = lam->Level;
+            AsBinding(bd)->Slot =
+                    MakeFixnum(AsFixnum(lam->ArgCount) - AsFixnum(lam->SlotCount) + 1);
+            lam->SlotCount = MakeFixnum(AsFixnum(lam->SlotCount) + 1);
 
             if (AsBinding(bd)->RestArg == TrueObject)
-            {
-//                lam->RestArg = TrueObject;
-                Modify(FLambda, lam, RestArg, TrueObject);
-            }
+                lam->RestArg = TrueObject;
 
             flst = Rest(flst);
         }

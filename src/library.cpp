@@ -112,15 +112,13 @@ long_t EnvironmentDefine(FObject env, FObject symid, FObject val)
     {
         FAssert(BoxP(AsGlobal(gl)->Box));
 
-//        AsGlobal(gl)->Box = MakeBox(NoValueObject);
-        Modify(FGlobal, gl, Box, MakeBox(NoValueObject));
+        AsGlobal(gl)->Box = MakeBox(NoValueObject);
     }
 
     FAssert(BoxP(AsGlobal(gl)->Box));
 
     SetBox(AsGlobal(gl)->Box, val);
-//    AsGlobal(gl)->State = GlobalDefined;
-    Modify(FGlobal, gl, State, GlobalDefined);
+    AsGlobal(gl)->State = GlobalDefined;
 
     return(0);
 }
@@ -135,16 +133,12 @@ FObject EnvironmentSet(FObject env, FObject sym, FObject val)
 
     SetBox(AsGlobal(gl)->Box, val);
     if (AsGlobal(gl)->State == GlobalUndefined)
-    {
-//        AsGlobal(gl)->State = GlobalDefined;
-        Modify(FGlobal, gl, State, GlobalDefined);
-    }
+        AsGlobal(gl)->State = GlobalDefined;
     else
     {
         FAssert(AsGlobal(gl)->State == GlobalDefined);
 
-//        AsGlobal(gl)->State = GlobalModified;
-        Modify(FGlobal, gl, State, GlobalModified);
+        AsGlobal(gl)->State = GlobalModified;
     }
 
     return(gl);
@@ -187,10 +181,8 @@ static long_t EnvironmentImportGlobal(FObject env, FObject gl)
         if (AsEnvironment(env)->Interactive == FalseObject)
             return(1);
 
-//        AsGlobal(ogl)->Box = AsGlobal(gl)->Box;
-        Modify(FGlobal, ogl, Box, AsGlobal(gl)->Box);
-//        AsGlobal(ogl)->State = AsGlobal(gl)->State;
-        Modify(FGlobal, ogl, State, AsGlobal(gl)->State);
+        AsGlobal(ogl)->Box = AsGlobal(gl)->Box;
+        AsGlobal(ogl)->State = AsGlobal(gl)->State;
     }
     else
        HashTableSet(AsEnvironment(env)->HashTable, AsGlobal(gl)->Name, gl);
@@ -331,8 +323,7 @@ static void LibraryExportByName(FObject lib, FObject gl, FObject nam)
     FAssert(SymbolP(nam));
     FAssert(GlobalP(Assq(nam, AsLibrary(lib)->Exports)) == 0);
 
-//    AsLibrary(lib)->Exports = MakePair(MakePair(nam, gl), AsLibrary(lib)->Exports);
-    Modify(FLibrary, lib, Exports, MakePair(MakePair(nam, gl), AsLibrary(lib)->Exports));
+    AsLibrary(lib)->Exports = MakePair(MakePair(nam, gl), AsLibrary(lib)->Exports);
 }
 
 void LibraryExport(FObject lib, FObject gl)
@@ -669,8 +660,7 @@ static FObject DoImportSet(FObject env, FObject is, FObject form)
         {
             FAssert(GlobalP(First(lst)));
 
-//            AsGlobal(First(lst))->Name = AddPrefixToSymbol(prfx, AsGlobal(First(lst))->Name);
-            Modify(FGlobal, First(lst), Name, AddPrefixToSymbol(prfx, AsGlobal(First(lst))->Name));
+            AsGlobal(First(lst))->Name = AddPrefixToSymbol(prfx, AsGlobal(First(lst))->Name);
             lst = Rest(lst);
         }
 
@@ -712,10 +702,7 @@ static FObject DoImportSet(FObject env, FObject is, FObject form)
 
             FObject nm = CheckForRename(AsGlobal(First(lst))->Name, Rest(Rest(is)));
             if (SymbolP(nm))
-            {
-//                AsGlobal(First(lst))->Name = nm;
-                Modify(FGlobal, First(lst), Name, nm);
-            }
+                AsGlobal(First(lst))->Name = nm;
 
             lst = Rest(lst);
         }

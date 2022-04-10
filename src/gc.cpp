@@ -565,43 +565,6 @@ void RegisterRoot(FObject * root, const char * name)
     RootsUsed += 1;
 }
 
-void ModifyVector(FObject obj, ulong_t idx, FObject val)
-{
-    FAssert(VectorP(obj));
-    FAssert(idx < VectorLength(obj));
-
-    AsVector(obj)->Vector[idx] = val;
-}
-
-void ModifyObject(FObject obj, ulong_t off, FObject val)
-{
-    FAssert(ObjectP(obj));
-    FAssert(off % sizeof(FObject) == 0);
-
-    ((FObject *) obj)[off / sizeof(FObject)] = val;
-}
-
-void SetFirst(FObject obj, FObject val)
-{
-    FAssert(PairP(obj));
-
-    AsPair(obj)->First = val;
-}
-
-void SetRest(FObject obj, FObject val)
-{
-    FAssert(PairP(obj));
-
-    AsPair(obj)->Rest = val;
-}
-
-void SetBox(FObject bx, FObject val)
-{
-    FAssert(BoxP(bx));
-
-    AsBox(bx)->Value = val;
-}
-
 typedef struct
 {
     long_t Index;
@@ -1813,10 +1776,7 @@ void EphemeronKeySet(FObject eph, FObject key)
     FAssert(EphemeronP(eph));
 
     if (AsEphemeron(eph)->Next != EPHEMERON_BROKEN)
-    {
-//        AsEphemeron(eph)->Key = key;
-        Modify(FEphemeron, eph, Key, key);
-    }
+        AsEphemeron(eph)->Key = key;
 }
 
 void EphemeronDatumSet(FObject eph, FObject dat)
@@ -1824,10 +1784,7 @@ void EphemeronDatumSet(FObject eph, FObject dat)
     FAssert(EphemeronP(eph));
 
     if (AsEphemeron(eph)->Next != EPHEMERON_BROKEN)
-    {
-//        AsEphemeron(eph)->Datum = dat;
-        Modify(FEphemeron, eph, Datum, dat);
-    }
+        AsEphemeron(eph)->Datum = dat;
 }
 
 void WriteEphemeron(FWriteContext * wctx, FObject obj)

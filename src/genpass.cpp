@@ -764,11 +764,8 @@ FObject GPassLambda(FLambda * lam)
     if (ProcedureP(lam->Procedure))
         return(lam->Procedure);
 
-//    lam->Procedure = MakeProcedure(lam->Name, lam->Filename, lam->LineNumber, NoValueObject,
-//            AsFixnum(lam->ArgCount), lam->RestArg);
-    Modify(FLambda, lam, Procedure,
-            MakeProcedure(lam->Name, lam->Filename, lam->LineNumber, NoValueObject,
-            AsFixnum(lam->ArgCount), lam->RestArg == TrueObject ? PROCEDURE_FLAG_RESTARG : 0));
+    lam->Procedure = MakeProcedure(lam->Name, lam->Filename, lam->LineNumber, NoValueObject,
+            AsFixnum(lam->ArgCount), lam->RestArg == TrueObject ? PROCEDURE_FLAG_RESTARG : 0);
 
     FObject cdl = EmptyListObject;
 
@@ -813,8 +810,7 @@ FObject GPassLambda(FLambda * lam)
                     AsFixnum(lam->SlotCount) - (AsFixnum(lam->ArgCount) + 1)), cdl);
     }
 
-//    lam->BodyIndex = MakeFixnum(ListLength(cdl));
-    Modify(FLambda, lam, BodyIndex, MakeFixnum(ListLength(cdl)));
+    lam->BodyIndex = MakeFixnum(ListLength(cdl));
 
     for (FObject flst = lam->Bindings; PairP(flst); flst = Rest(flst))
     {
@@ -845,7 +841,6 @@ FObject GPassLambda(FLambda * lam)
 
     FAssert(ProcedureP(lam->Procedure));
 
-//    AsProcedure(lam->Procedure)->Code = ListToVector(ReverseListModify(cdl));
-    Modify(FProcedure, lam->Procedure, Code, ListToVector(ReverseListModify(cdl)));
+    AsProcedure(lam->Procedure)->Code = ListToVector(ReverseListModify(cdl));
     return(lam->Procedure);
 }

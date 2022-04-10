@@ -830,8 +830,7 @@ Define("%record-set!", RecordSetPrimitive)(long_t argc, FObject argv[])
     FMustBe(FixnumP(argv[2]));
     FMustBe(AsFixnum(argv[2]) > 0 && AsFixnum(argv[2]) < (long_t) RecordNumFields(argv[1]));
 
-//    AsGenericRecord(argv[1])->Fields[AsFixnum(argv[2])] = argv[3];
-    Modify(FGenericRecord, argv[1], Fields[AsFixnum(argv[2])], argv[3]);
+    AsGenericRecord(argv[1])->Fields[AsFixnum(argv[2])] = argv[3];
     return(NoValueObject);
 }
 

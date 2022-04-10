@@ -512,8 +512,7 @@ static FObject Execute(FThreadState * ts)
                 FAssert(ts->AStackPtr > 0);
 
                 ts->AStackPtr -= 1;
-//                AsVector(ts->Frame)->Vector[InstructionArg(obj)] = ts->AStack[ts->AStackPtr];
-                ModifyVector(ts->Frame, InstructionArg(obj), ts->AStack[ts->AStackPtr]);
+                AsVector(ts->Frame)->Vector[InstructionArg(obj)] = ts->AStack[ts->AStackPtr];
 
                 break;
 
@@ -533,10 +532,8 @@ static FObject Execute(FThreadState * ts)
                 FAssert((ulong_t) InstructionArg(obj)
                         < VectorLength(ts->AStack[ts->AStackPtr - 1]));
 
-//                AsVector(ts->AStack[ts->AStackPtr - 1])->Vector[InstructionArg(obj)] =
-//                        ts->AStack[ts->AStackPtr - 2];
-                ModifyVector(ts->AStack[ts->AStackPtr - 1], InstructionArg(obj),
-                        ts->AStack[ts->AStackPtr - 2]);
+                AsVector(ts->AStack[ts->AStackPtr - 1])->Vector[InstructionArg(obj)] =
+                        ts->AStack[ts->AStackPtr - 2];
                 ts->AStackPtr -= 2;
                 break;
 
@@ -567,12 +564,9 @@ static FObject Execute(FThreadState * ts)
                 {
                     FAssert(AsGlobal(ts->AStack[ts->AStackPtr - 1])->Interactive == TrueObject);
 
-//                    AsGlobal(ts->AStack[ts->AStackPtr - 1])->Box = MakeBox(
-//                            ts->AStack[ts->AStackPtr - 2]);
-                    Modify(FGlobal, ts->AStack[ts->AStackPtr - 1], Box,
-                            MakeBox(ts->AStack[ts->AStackPtr - 2]));
-//                    AsGlobal(ts->AStack[ts->AStackPtr - 1])->State = GlobalDefined;
-                    Modify(FGlobal, ts->AStack[ts->AStackPtr - 1], State, GlobalDefined);
+                    AsGlobal(ts->AStack[ts->AStackPtr - 1])->Box = MakeBox(
+                            ts->AStack[ts->AStackPtr - 2]);
+                    AsGlobal(ts->AStack[ts->AStackPtr - 1])->State = GlobalDefined;
                 }
 
                 SetBox(AsGlobal(ts->AStack[ts->AStackPtr - 1])->Box,

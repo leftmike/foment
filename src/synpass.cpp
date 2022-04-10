@@ -15,10 +15,8 @@ static FObject EnterScope(FObject bd)
     FAssert(BindingP(bd));
     FAssert(SyntacticEnvP(AsBinding(bd)->SyntacticEnv));
 
-//    AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings = MakePair(bd,
-//            AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings);
-    Modify(FSyntacticEnv, AsBinding(bd)->SyntacticEnv, LocalBindings, MakePair(bd,
-            AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings));
+    AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings = MakePair(bd,
+            AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings);
 
     return(bd);
 }
@@ -42,10 +40,8 @@ static void LeaveScope(FObject bd)
     FAssert(PairP(AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings));
     FAssert(First(AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings) == bd);
 
-//    AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings =
-//            Rest(AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings);
-    Modify(FSyntacticEnv, AsBinding(bd)->SyntacticEnv, LocalBindings,
-            Rest(AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings));
+    AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings =
+            Rest(AsSyntacticEnv(AsBinding(bd)->SyntacticEnv)->LocalBindings);
 }
 
 static long_t IdentifierEqualP(FObject id1, FObject id2)
@@ -166,10 +162,7 @@ static FObject SyntaxToDatum(FObject obj, FObject htbl)
         HashTableSet(htbl, obj, vec);
 
         for (ulong_t idx = 0; idx < VectorLength(vec); idx++)
-        {
-//            AsVector(vec)->Vector[idx] = SyntaxToDatum(AsVector(obj)->Vector[idx], htbl);
-            ModifyVector(vec, idx, SyntaxToDatum(AsVector(obj)->Vector[idx], htbl));
-        }
+            AsVector(vec)->Vector[idx] = SyntaxToDatum(AsVector(obj)->Vector[idx], htbl);
 
         return(vec);
     }
@@ -364,8 +357,7 @@ static FObject SPassLetInit(FObject enc, FObject se, FObject ss, FObject lb, FOb
             RaiseExceptionC(Syntax, SpecialSyntaxToName(ss), "expected a transformer",
                     List(First(Rest(vi)), lb));
 
-//        AsBinding(bd)->Syntax = expr;
-        Modify(FBinding, bd, Syntax, expr);
+        AsBinding(bd)->Syntax = expr;
 
         return(MakePair(MakePair(bd, EmptyListObject), nlb));
     }
@@ -572,8 +564,7 @@ static FObject SPassNamedLet(FObject enc, FObject se, FObject tag, FObject expr)
     //         tag) val ...)
 
     FObject lambda = MakeLambda(enc, tag, bs, NoValueObject);
-//    AsLambda(lambda)->Body = SPassBody(lambda, se, LetSyntax, Rest(Rest(Rest(expr))));
-    Modify(FLambda, lambda, Body, SPassBody(lambda, se, LetSyntax, Rest(Rest(Rest(expr)))));
+    AsLambda(lambda)->Body = SPassBody(lambda, se, LetSyntax, Rest(Rest(Rest(expr))));
 
     LeaveScopeList(bs);
     LeaveScope(tb);
@@ -743,12 +734,9 @@ FObject SPassDo(FObject enc, FObject se, FObject expr)
             : MakePair(BeginSyntax, SPassSequenceLast(lambda, se, DoSyntax, cmds, cmds,
             MakePair(cdo, EmptyListObject))); // (begin cmd ... (tag step ...))
 
-//    AsLambda(lambda)->Body = MakePair(MakePair(IfSyntax,
-//            MakePair(SPassExpression(enc, se, First(tst)), MakePair(ift,
-//            MakePair(iff, EmptyListObject)))), EmptyListObject);
-    Modify(FLambda, lambda, Body, MakePair(MakePair(IfSyntax,
-            MakePair(SPassExpression(lambda, se, First(tst)), MakePair(ift,
-            MakePair(iff, EmptyListObject)))), EmptyListObject));
+    AsLambda(lambda)->Body = MakePair(MakePair(IfSyntax,
+            MakePair(SPassExpression(enc, se, First(tst)), MakePair(ift,
+            MakePair(iff, EmptyListObject)))), EmptyListObject);
 
     LeaveScopeList(bs);
 
@@ -1294,8 +1282,7 @@ static FObject GatherVariablesAndSyntax(FObject enc, FObject se, FObject dlst, F
                 RaiseExceptionC(Syntax, "define-syntax", "expected a transformer",
                         List(First(Rest(Rest(expr))), expr));
 
-//            AsBinding(First(bs))->Syntax = trans;
-            Modify(FBinding, First(bs), Syntax, trans);
+            AsBinding(First(bs))->Syntax = trans;
             bs = Rest(bs);
         }
 
@@ -1573,8 +1560,8 @@ FObject SPassLambda(FObject enc, FObject se, FObject name, FObject formals, FObj
     FObject bs = SPassFormals(se, LambdaSyntax, EmptyListObject, formals, formals);
     EnterScopeList(bs);
     FObject lambda = MakeLambda(enc, name, bs, NoValueObject);
-//    AsLambda(lambda)->Body = SPassBody(lambda, se, LambdaSyntax, body);
-    Modify(FLambda, lambda, Body, SPassBody(lambda, se, LambdaSyntax, body));
+    AsLambda(lambda)->Body = SPassBody(lambda, se, LambdaSyntax, body);
+
     LeaveScopeList(bs);
 
     return(lambda);

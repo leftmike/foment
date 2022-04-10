@@ -302,10 +302,7 @@ inline void HashNodeValueSet(FObject node, FObject val)
     }
 
     if ((AsHashNode(node)->Flags & HASH_NODE_VALUES_MASK) == HASH_NODE_NORMAL_VALUES)
-    {
-//        AsHashNode(node)->Value = val;
-        Modify(FHashNode, node, Value, val);
-    }
+        AsHashNode(node)->Value = val;
     else if ((AsHashNode(node)->Flags & HASH_NODE_VALUES_MASK) == HASH_NODE_EPHEMERAL_VALUES)
     {
         FAssert(EphemeronP(AsHashNode(node)->Value));
@@ -403,14 +400,9 @@ HashTableClean(FObject htbl)
 
     FObject buckets = AsHashTable(htbl)->Buckets;
     for (ulong_t idx = 0; idx < VectorLength(buckets); idx++)
-    {
-//        AsVector(buckets)->Vector[idx] =
-//                CopyHashNodeList(htbl, AsVector(buckets)->Vector[idx], NoValueObject,
-//                        "%hash-table-clean");
-        ModifyVector(buckets, idx,
+        AsVector(buckets)->Vector[idx] =
                 CopyHashNodeList(htbl, AsVector(buckets)->Vector[idx], NoValueObject,
-                        "%hash-table-clean"));
-    }
+                        "%hash-table-clean");
 
     AsHashTable(htbl)->BrokenCount = 0;
 }
@@ -464,21 +456,17 @@ HashTableAdjust(FObject htbl, ulong_t sz)
                 ulong_t ndx = AsHashNode(node)->Hash % cap;
 
                 if (UseHashFn == EqHash)
-                {
-//                    AsHashNode(node)->Next = AsVector(nbuckets)->Vector[ndx];
-                    Modify(FHashNode, node, Next, AsVector(nbuckets)->Vector[ndx]);
-                }
+                    AsHashNode(node)->Next = AsVector(nbuckets)->Vector[ndx];
                 else
-                    node = CopyHashNode(node, AsVector(nbuckets)->Vector[ndx], "%hash-table-adjust");
+                    node = CopyHashNode(node, AsVector(nbuckets)->Vector[ndx],
+                            "%hash-table-adjust");
 
-//                AsVector(nbuckets)->Vector[ndx] = node;
-                ModifyVector(nbuckets, ndx, node);
+                AsVector(nbuckets)->Vector[ndx] = node;
             }
         }
     }
 
-//    AsHashTable(htbl)->Buckets = nbuckets;
-    Modify(FHashTable, htbl, Buckets, nbuckets);
+    AsHashTable(htbl)->Buckets = nbuckets;
     AsHashTable(htbl)->BrokenCount = 0;
 }
 
@@ -568,8 +556,7 @@ static void SetHashTable(FObject htbl, FObject key, FObject val)
     }
 
     node = MakeHashNode(htbl, key, val, nlst, hsh, "hash-table-set!");
-//    AsVector(buckets)->Vector[idx] = node;
-    ModifyVector(buckets, idx, node);
+    AsVector(buckets)->Vector[idx] = node;
 
     HashTableAdjust(htbl, AsHashTable(htbl)->Size + 1);
 }
@@ -615,23 +602,17 @@ static void DeleteHashTable(FObject htbl, FObject key)
             AsHashNode(node)->Flags |= HASH_NODE_DELETED;
 
             if (node == nlst)
-            {
-//                AsVector(buckets)->Vector[idx] = AsHashNode(node)->Next;
-                ModifyVector(buckets, idx, AsHashNode(node)->Next);
-            }
+                AsVector(buckets)->Vector[idx] = AsHashNode(node)->Next;
             else if (UseHashFn == EqHash)
             {
                 FAssert(HashNodeP(prev));
                 FAssert(AsHashNode(prev)->Next == node);
 
-//                AsHashNode(prev)->Next = AsHashNode(node)->Next;
-                Modify(FHashNode, prev, Next, AsHashNode(node)->Next);
+                AsHashNode(prev)->Next = AsHashNode(node)->Next;
             }
             else
-            {
-//                AsVector(buckets)->Vector[idx] = CopyHashNodeList(nlst, node);
-                ModifyVector(buckets, idx, CopyHashNodeList(htbl, nlst, node, "%hash-table-delete"));
-            }
+                AsVector(buckets)->Vector[idx] =
+                        CopyHashNodeList(htbl, nlst, node, "%hash-table-delete");
 
             HashTableAdjust(htbl, AsHashTable(htbl)->Size - 1);
             return;
@@ -694,8 +675,7 @@ static FObject HashTablePop(FObject htbl)
 
         if (HashNodeP(nlst))
         {
-//            AsVector(buckets)->Vector[idx] = AsHashNode(nlst)->Next;
-            ModifyVector(buckets, idx, AsHashNode(nlst)->Next);
+            AsVector(buckets)->Vector[idx] = AsHashNode(nlst)->Next;
 
             HashTableAdjust(htbl, AsHashTable(htbl)->Size - 1);
 
@@ -713,9 +693,7 @@ static void HashTableClear(FObject htbl)
 {
     FAssert(HashTableP(htbl));
 
-//    AsHashTable(htbl)->Buckets = MakeVector(AsHashTable(htbl)->InitialCapacity, 0, NoValueObject);
-    Modify(FHashTable, htbl, Buckets,
-            MakeVector(AsHashTable(htbl)->InitialCapacity, 0, NoValueObject));
+    AsHashTable(htbl)->Buckets = MakeVector(AsHashTable(htbl)->InitialCapacity, 0, NoValueObject);
     AsHashTable(htbl)->Size = 0;
 }
 
@@ -736,10 +714,7 @@ static FObject HashTableCopy(FObject htbl)
     FAssert(VectorLength(buckets) == VectorLength(nbuckets));
 
     for (ulong_t idx = 0; idx < VectorLength(buckets); idx++)
-    {
-//        AsVector(nbuckets)->Vector[idx] = MakeHashNodeList(nhtbl, AsVector(buckets)->Vector[idx]);
-        ModifyVector(nbuckets, idx, MakeHashNodeList(nhtbl, AsVector(buckets)->Vector[idx]));
-    }
+        AsVector(nbuckets)->Vector[idx] = MakeHashNodeList(nhtbl, AsVector(buckets)->Vector[idx]);
 
     return(nhtbl);
 }
@@ -825,8 +800,7 @@ Define("%hash-table-buckets-set!", HashTableBucketsSetPrimitive)(long_t argc, FO
     HashTableArgCheck("%hash-table-buckets-set!", argv[0]);
     VectorArgCheck("%hash-table-buckets-set!", argv[1]);
 
-//    AsHashTable(argv[0])->Buckets = argv[1];
-    Modify(FHashTable, argv[0], Buckets, argv[1]);
+    AsHashTable(argv[0])->Buckets = argv[1];
     return(NoValueObject);
 }
 
@@ -1092,10 +1066,8 @@ FObject StringLengthToSymbol(FCh * s, long_t sl)
     sym->String = MakeString(s, sl);
     sym->Hash = hsh;
 
-//    AsVector(buckets)->Vector[idx] =
-//            MakeHashNode(SymbolHashTable, sym->String, sym, nlst, hsh, "string->symbol");
-    ModifyVector(buckets, idx,
-            MakeHashNode(SymbolHashTable, sym->String, sym, nlst, hsh, "string->symbol"));
+    AsVector(buckets)->Vector[idx] =
+            MakeHashNode(SymbolHashTable, sym->String, sym, nlst, hsh, "string->symbol");
 
     HashTableAdjust(SymbolHashTable, AsHashTable(SymbolHashTable)->Size + 1);
     return(sym);
@@ -1214,8 +1186,7 @@ Define("%hash-node-next-set!", HashNodeNextSetPrimitive)(long_t argc, FObject ar
     TwoArgsCheck("%hash-node-next-set!", argc);
     HashNodeArgCheck("%hash-node-next-set!", argv[0]);
 
-//    AsHashNode(argv[0])->Next = argv[1];
-    Modify(FHashNode, argv[0], Next, argv[1]);
+    AsHashNode(argv[0])->Next = argv[1];
     return(NoValueObject);
 }
 

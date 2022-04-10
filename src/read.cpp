@@ -797,7 +797,7 @@ static void ResolveDatumReferences(FObject port, FObject obj, FObject dlhtbl)
         {
             FObject val = AsVector(obj)->Vector[idx];
             if (DatumReferenceP(val))
-                ModifyVector(obj, idx, ResolveReference(port, val, dlhtbl));
+                AsVector(obj)->Vector[idx] = ResolveReference(port, val, dlhtbl);
             else if (PairP(val) || VectorP(val))
                 ResolveDatumReferences(port, val, dlhtbl);
         }

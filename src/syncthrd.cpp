@@ -127,10 +127,8 @@ static FObject CurrentIndexParameters()
     {
         FAssert(PairP(GetThreadState()->IndexParameters[idx]));
 
-//        AsVector(v)->Vector[idx] = MakePair(First(GetThreadState()->IndexParameters[idx]),
-//                EmptyListObject);
-        ModifyVector(v, idx, MakePair(First(GetThreadState()->IndexParameters[idx]),
-                EmptyListObject));
+        AsVector(v)->Vector[idx] = MakePair(First(GetThreadState()->IndexParameters[idx]),
+                EmptyListObject);
     }
 
     return(v);
@@ -154,18 +152,13 @@ static void FomentThread(FObject obj)
         AsThread(ts.Thread)->IndexParameters = NoValueObject;
 
         if (ProcedureP(AsThread(ts.Thread)->Thunk))
-        {
-//            AsThread(ts.Thread)->Result = ExecuteProc(AsThread(ts.Thread)->Thunk);
-            Modify(FThread, ts.Thread, Result, ExecuteProc(AsThread(ts.Thread)->Thunk));
-        }
+            AsThread(ts.Thread)->Result = ExecuteProc(AsThread(ts.Thread)->Thunk);
         else
         {
             FAssert(PrimitiveP(AsThread(ts.Thread)->Thunk));
 
-//            AsThread(ts.Thread)->Result =
-//                    AsPrimitive(AsThread(ts.Thread)->Thunk)->PrimitiveFn(0, 0);
-            Modify(FThread, ts.Thread, Result,
-                    AsPrimitive(AsThread(ts.Thread)->Thunk)->PrimitiveFn(0, 0));
+            AsThread(ts.Thread)->Result =
+                    AsPrimitive(AsThread(ts.Thread)->Thunk)->PrimitiveFn(0, 0);
         }
     }
     catch (FObject exc)
@@ -175,8 +168,7 @@ static void FomentThread(FObject obj)
         Write(StandardOutput, exc, 0);
         WriteCh(StandardOutput, '\n');
 
-//        AsThread(ts.Thread)->Result = exc;
-        Modify(FThread, ts.Thread, Result, exc);
+        AsThread(ts.Thread)->Result = exc;
     }
 
     LeaveThread(&ts);
@@ -248,8 +240,7 @@ void ThreadExit(FObject obj)
 {
     FThreadState * ts = GetThreadState();
 
-//    AsThread(ts->Thread)->Result = obj;
-    Modify(FThread, ts->Thread, Result, obj);
+    AsThread(ts->Thread)->Result = obj;
 
     if (LeaveThread(ts) == 0)
     {
