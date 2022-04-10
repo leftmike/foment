@@ -19,7 +19,13 @@ Foment
 
 static inline long_t HasSlotsP(FObject obj)
 {
-    return(ObjectP(obj) && AsObjHdr(obj)->SlotCount() > 0);
+    if (ObjectP(obj) == 0)
+        return(0);
+
+    FObjectTag tag = ObjectTag(obj);
+    if (tag >= BadDogTag || ObjectTypes[tag].SlotCount == 0)
+        return(0);
+    return(1);
 }
 
 FWriteContext::FWriteContext(FObject port, long_t df)
@@ -213,14 +219,10 @@ void FWriteContext::WriteSimple(FObject obj)
 {
     if (ObjectP(obj))
     {
-        uint32_t tag = ObjectTag(obj);
+        FObjectTag tag = ObjectTag(obj);
 
-        if (tag < BadDogTag)
-        {
-            FAssert(ObjectTypes[tag].Write != 0);
-
+        if (tag < BadDogTag && ObjectTypes[tag].Write != 0)
             ObjectTypes[tag].Write(this, obj);
-        }
         else
             WriteUnknown(this, obj);
     }

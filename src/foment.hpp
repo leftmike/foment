@@ -27,7 +27,6 @@ uint64_t FHeader;
 #define HEADER_SIZE_SHIFT              17
 
 -- Convert all builtins to objects
--- Change HasSlotsP (write)
 -- 64bit: SlotCount() (h >> HEADER_SIZE_SHIFT)
 -- 32bit: SlotCount() (h >> HEADER_SIZE_SHIFT) / 2 - ((h & HEADER_FLAG_PAD) >> HEADER_PAD_SHIFT)
 
@@ -162,6 +161,8 @@ typedef unsigned char FByte;
 typedef int32_t long_t;
 typedef uint32_t ulong_t;
 
+#define MAXIMUM_ULONG ((ulong_t) 0xFFFFFFFF)
+
 #define LONG_FMT "%d"
 #define ULONG_FMT "%u"
 #endif // FOMENT_32BIT
@@ -169,6 +170,8 @@ typedef uint32_t ulong_t;
 #ifdef FOMENT_64BIT
 typedef int64_t long_t;
 typedef uint64_t ulong_t;
+
+#define MAXIMUM_ULONG ((ulong_t) 0xFFFFFFFFFFFFFFFF)
 
 #if defined(FOMENT_OSX) || defined(FOMENT_WINDOWS)
 #define LONG_FMT "%lld"
@@ -912,6 +915,7 @@ typedef void (*FObjectWriteFn)(FWriteContext * wctx, FObject obj);
 typedef struct
 {
     const char * Name;
+    ulong_t SlotCount;
     FObjectWriteFn Write;
 } FObjectType;
 
