@@ -36,12 +36,6 @@ test-mark-sweep: all
     $(MAKE) test TEST_BUILD=debug "TEST_OPTIONS=--mark-sweep --check-heap"
     $(MAKE) test TEST_BUILD=release "TEST_OPTIONS=--mark-sweep --check-heap"
 
-test-generational: all
-    $(MAKE) test TEST_BUILD=debug TEST_OPTIONS=--generational
-    $(MAKE) test TEST_BUILD=release TEST_OPTIONS=--generational
-    $(MAKE) test TEST_BUILD=debug "TEST_OPTIONS=--generational --check-heap"
-    $(MAKE) test TEST_BUILD=release "TEST_OPTIONS=--generational --check-heap"
-
 foment-test: all
     cd ..\test
     ..\windows\$(TEST_BUILD)\foment $(TEST_OPTIONS) runtests.scm r7rs.scm r7rs-eval.scm foment.scm\

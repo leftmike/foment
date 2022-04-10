@@ -1568,7 +1568,7 @@ long_t SetupFoment(FThreadState * ts)
     Features = MakePair(StringCToSymbol(OSName()), Features);
     Features = MakePair(StringCToSymbol(LittleEndianP() ? "little-endian" : "big-endian"),
             Features);
-    if (CollectorType == MarkSweepCollector || CollectorType == GenerationalCollector)
+    if (CollectorType == MarkSweepCollector)
         Features = MakePair(StringCToSymbol("guardians"), Features);
 
     GetEnvironmentVariables();

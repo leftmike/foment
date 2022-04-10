@@ -734,12 +734,6 @@
 (import (scheme char))
 (import (scheme comparator))
 
-(test-when (eq? (cdr (assq 'collector (config))) 'generational)
-    (display "warning: skipping comparator tests because of bugs in generational collector")
-    (newline))
-
-(test-when (not (eq? (cdr (assq 'collector (config))) 'generational))
-
 (define default-comparator (make-default-comparator))
 (define boolean-comparator
     (make-comparator boolean? eq? (lambda (x y) (and (not x) y)) boolean-hash))
@@ -1186,7 +1180,6 @@
     (check-equal #t (exact-integer? (hash-bound)))
     (check-equal #t (exact-integer? (hash-salt)))
     (check-equal #t (< (hash-salt) (hash-bound)))
-)
 
 ;;
 ;; ---- SRFI 125: Hash Tables ----

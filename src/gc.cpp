@@ -36,15 +36,12 @@ const static ulong_t Align[8] = {0, 7, 6, 5, 4, 3, 2, 1};
 
 FCollectorType CollectorType = MarkSweepCollector;
 ulong_t MaximumStackSize = 1024 * 1024 * sizeof(FObject);
-ulong_t MaximumBabiesSize = 0;
-ulong_t MaximumKidsSize = 0;
-ulong_t MaximumGenerationalBaby = 1024 * 64;
 
 #ifdef FOMENT_64BIT
-ulong_t MaximumAdultsSize = 1024 * 1024 * 1024 * 8LL;
+ulong_t MaximumHeapSize = 1024 * 1024 * 1024 * 8LL;
 #endif // FOMENT_64BIT
 #ifdef FOMENT_32BIT
-ulong_t MaximumAdultsSize = 1024 * 1024 * 1024;
+ulong_t MaximumHeapSize = 1024 * 1024 * 1024;
 #endif // FOMENT_32BIT
 
 ulong_t TriggerObjects = 1024 * 16;
@@ -62,20 +59,17 @@ static volatile ulong_t ReadyThreads;
 static volatile long_t Collecting;
 FThreadState * Threads;
 
-#define FREE_ADULTS 16
-static FMemRegion Adults;
-static ulong_t AdultsUsed;
-static FObjHdr * BigFreeAdults;
-static FObjHdr * FreeAdults[FREE_ADULTS];
+#define FREE_OBJECTS 16
+static FMemRegion Objects;
+static ulong_t ObjectsUsed;
+static FObjHdr * BigFreeObjects;
+static FObjHdr * FreeObjects[FREE_OBJECTS];
 
 typedef struct
 {
     FMemRegion MemRegion;
     ulong_t Used;
 } FMemSpace;
-
-static FMemSpace Kids[2];
-static FMemSpace * ActiveKids;
 
 #ifdef FOMENT_WINDOWS
 unsigned int TlsIndex;
@@ -274,11 +268,6 @@ long_t GrowMemRegionDown(FMemRegion * mrgn, ulong_t sz)
     return(1);
 }
 
-static inline void SetGeneration(FObjHdr * oh, ulong_t gen)
-{
-    oh->Meta = ((oh->Meta & ~OBJHDR_GEN_MASK) | ((uint16_t) gen));
-}
-
 static inline void SetMark(FObjHdr * oh)
 {
     oh->Meta |= OBJHDR_MARK_FORWARD;
@@ -415,87 +404,17 @@ static void InitializeObjHdr(FObjHdr * oh, ulong_t tsz, ulong_t tag, ulong_t gen
     FAssert(oh->Generation() == gen);
 }
 
-static void * InitializeBabies(FThreadState * ts)
-{
-    void * mem = InitializeMemRegion(&ts->Babies, MaximumBabiesSize);
-    if (mem == 0)
-        return(0);
-    if (GrowMemRegionUp(&ts->Babies, GC_PAGE_SIZE * 8) == 0)
-        return(0);
-    ts->BabiesUsed = 0;
-    return(mem);
-}
-
-static FObjHdr * MakeBaby(ulong_t tsz, ulong_t tag, ulong_t sz, ulong_t sc, FObject exc)
-{
-    FThreadState * ts = GetThreadState();
-
-    if (ts->BabiesUsed + tsz > ts->Babies.BottomUsed)
-    {
-        if (ts->BabiesUsed + tsz > ts->Babies.MaximumSize)
-        {
-            if (CollectorType == NoCollector)
-            {
-                if (InitializeBabies(ts) == 0)
-                    Raise(exc);
-                goto Allocate;
-            }
-            else
-                Raise(exc);
-        }
-
-        ulong_t gsz = GC_PAGE_SIZE * 8;
-        if (tsz > gsz)
-            gsz = tsz;
-        if (gsz > ts->Babies.MaximumSize - ts->Babies.BottomUsed)
-            gsz = ts->Babies.MaximumSize - ts->Babies.BottomUsed;
-
-        if (GrowMemRegionUp(&ts->Babies, ts->Babies.BottomUsed + gsz) == 0)
-            Raise(exc);
-    }
-
-Allocate:
-    FObjHdr * oh = (FObjHdr *) (((char *) ts->Babies.Base) + ts->BabiesUsed);
-    ts->BabiesUsed += tsz;
-
-    InitializeObjHdr(oh, tsz, tag, OBJHDR_GEN_BABIES, sz, sc);
-    return(oh);
-}
-
-static FObjHdr * AllocateKid(ulong_t tsz)
-{
-    if (ActiveKids->Used + tsz > ActiveKids->MemRegion.BottomUsed)
-    {
-        if (ActiveKids->Used + tsz > ActiveKids->MemRegion.MaximumSize)
-            return(0);
-
-        ulong_t gsz = GC_PAGE_SIZE * 8;
-        if (tsz > gsz)
-            gsz = tsz;
-        if (gsz > ActiveKids->MemRegion.MaximumSize - ActiveKids->MemRegion.BottomUsed)
-            gsz = ActiveKids->MemRegion.MaximumSize - ActiveKids->MemRegion.BottomUsed;
-
-        if (GrowMemRegionUp(&ActiveKids->MemRegion, ActiveKids->MemRegion.BottomUsed + gsz) == 0)
-            return(0);
-    }
-
-    FObjHdr * oh = (FObjHdr *) (((char *) ActiveKids->MemRegion.Base) + ActiveKids->Used);
-    ActiveKids->Used += tsz;
-
-    return(oh);
-}
-
-static FObjHdr * AllocateAdult(ulong_t tsz, FObject exc)
+static FObjHdr * AllocateObject(ulong_t tsz, FObject exc)
 {
     ulong_t bkt = tsz / OBJECT_ALIGNMENT;
     FObjHdr * oh = 0;
 
-    if (bkt < FREE_ADULTS)
+    if (bkt < FREE_OBJECTS)
     {
-        if (FreeAdults[bkt] != 0)
+        if (FreeObjects[bkt] != 0)
         {
-            oh = FreeAdults[bkt];
-            FreeAdults[bkt] = (FObjHdr *) *oh->Slots();
+            oh = FreeObjects[bkt];
+            FreeObjects[bkt] = (FObjHdr *) *oh->Slots();
 
             FAssert(oh->TotalSize() == tsz);
             FAssert(oh->Tag() == FreeTag);
@@ -505,8 +424,8 @@ static FObjHdr * AllocateAdult(ulong_t tsz, FObject exc)
     else
 //    if (oh == 0)
     {
-        FObjHdr * foh = BigFreeAdults;
-        FObjHdr ** pfoh = &BigFreeAdults;
+        FObjHdr * foh = BigFreeObjects;
+        FObjHdr ** pfoh = &BigFreeObjects;
         while (foh != 0)
         {
             ulong_t ftsz = foh->TotalSize();
@@ -520,7 +439,7 @@ static FObjHdr * AllocateAdult(ulong_t tsz, FObject exc)
                 *pfoh = (FObjHdr *) *foh->Slots();
                 break;
             }
-            else if (ftsz >= tsz + FREE_ADULTS * OBJECT_ALIGNMENT)
+            else if (ftsz >= tsz + FREE_OBJECTS * OBJECT_ALIGNMENT)
             {
                 FAssert(foh->TotalSize() > tsz);
                 FAssert(foh->TotalSize() - tsz >= OBJECT_ALIGNMENT);
@@ -543,12 +462,12 @@ static FObjHdr * AllocateAdult(ulong_t tsz, FObject exc)
 
     if (oh == 0)
     {
-        if (AdultsUsed + tsz > Adults.BottomUsed)
+        if (ObjectsUsed + tsz > Objects.BottomUsed)
         {
-            if (AdultsUsed + tsz > Adults.MaximumSize)
+            if (ObjectsUsed + tsz > Objects.MaximumSize)
             {
                 if (ExceptionP(exc) == 0)
-                    ErrorExitFoment("error", "adults too small; increase maximum-adults-size");
+                    ErrorExitFoment("error", "heap too small; increase maximum-heap-size");
 
                 LeaveExclusive(&GCExclusive);
                 Raise(exc);
@@ -557,9 +476,9 @@ static FObjHdr * AllocateAdult(ulong_t tsz, FObject exc)
             ulong_t gsz = 1024 * 1024;
             if (tsz > gsz)
                 gsz = tsz;
-            if (gsz > Adults.MaximumSize - Adults.BottomUsed)
-                gsz = Adults.MaximumSize - Adults.BottomUsed;
-            if (GrowMemRegionUp(&Adults, Adults.BottomUsed + gsz) == 0)
+            if (gsz > Objects.MaximumSize - Objects.BottomUsed)
+                gsz = Objects.MaximumSize - Objects.BottomUsed;
+            if (GrowMemRegionUp(&Objects, Objects.BottomUsed + gsz) == 0)
             {
                 if (ExceptionP(exc) == 0)
                     ErrorExitFoment("error", "out of memory during setup");
@@ -569,27 +488,16 @@ static FObjHdr * AllocateAdult(ulong_t tsz, FObject exc)
             }
         }
 
-        oh = (FObjHdr *) (((char *) Adults.Base) + AdultsUsed);
-        AdultsUsed += tsz;
+        oh = (FObjHdr *) (((char *) Objects.Base) + ObjectsUsed);
+        ObjectsUsed += tsz;
     }
 
-    return(oh);
-}
-
-static FObjHdr * MakeAdult(ulong_t tsz, ulong_t tag, ulong_t sz, ulong_t sc, FObject exc)
-{
-    EnterExclusive(&GCExclusive);
-    FObjHdr * oh = AllocateAdult(tsz, exc);
-    LeaveExclusive(&GCExclusive);
-
-    InitializeObjHdr(oh, tsz, tag, OBJHDR_GEN_ADULTS, sz, sc);
     return(oh);
 }
 
 FObject MakeObject(ulong_t tag, ulong_t sz, ulong_t sc, const char * who, long_t pf)
 {
     ulong_t tsz = sz;
-    FObjHdr * oh;
 
     tsz += Align[tsz % OBJECT_ALIGNMENT];
     if (tsz == 0)
@@ -618,22 +526,13 @@ FObject MakeObject(ulong_t tag, ulong_t sz, ulong_t sc, const char * who, long_t
     else
         LargeCount += 1;
 
-    if (CollectorType == GenerationalCollector)
-    {
-        if (pf || sz > MaximumGenerationalBaby)
-            oh = MakeAdult(tsz, tag, sz, sc, MakeObjectOutOfMemory);
-        else
-            oh = MakeBaby(tsz, tag, sz, sc, MakeObjectOutOfMemory);
-    }
-    else if (CollectorType == MarkSweepCollector)
-        oh = MakeAdult(tsz, tag, sz, sc, MakeObjectOutOfMemory);
-    else
-    {
-        FAssert(CollectorType == NoCollector);
-        oh = MakeBaby(tsz, tag, sz, sc, MakeObjectOutOfMemory);
-    }
+    EnterExclusive(&GCExclusive);
+    FObjHdr * oh = AllocateObject(tsz, MakeObjectOutOfMemory);
+    LeaveExclusive(&GCExclusive);
 
     FAssert(oh != 0);
+
+    InitializeObjHdr(oh, tsz, tag, OBJHDR_GEN_ADULTS, sz, sc);
 
     FThreadState * ts = GetThreadState();
     BytesAllocated += tsz;
@@ -963,29 +862,11 @@ static long_t ValidAddress(FObjHdr * oh)
         return(1);
 
     ulong_t tsz = oh->TotalSize();
-    FThreadState * ts = Threads;
     void * strt = oh;
     void * end = ((char *) oh) + tsz;
 
-    while (ts != 0)
-    {
-        if (strt >= ts->Babies.Base && strt < ((char *) ts->Babies.Base) + ts->Babies.BottomUsed)
-        {
-            if (end > ((char *) ts->Babies.Base) + ts->Babies.BottomUsed)
-                return(0);
-            return(1);
-        }
-
-        ts = ts->Next;
-    }
-
-    if (Adults.Base != 0 && strt >= Adults.Base && strt < ((char *) Adults.Base + AdultsUsed)
-            && end <= ((char *) Adults.Base) + AdultsUsed)
-        return(1);
-
-    if (ActiveKids != 0 && strt >= ActiveKids->MemRegion.Base
-            && strt < ((char *) ActiveKids->MemRegion.Base + ActiveKids->Used)
-            && end <= ((char *) ActiveKids->MemRegion.Base) + ActiveKids->Used)
+    if (Objects.Base != 0 && strt >= Objects.Base && strt < ((char *) Objects.Base + ObjectsUsed)
+            && end <= ((char *) Objects.Base) + ObjectsUsed)
         return(1);
 
     return(0);
@@ -1167,20 +1048,13 @@ void CheckHeap(const char * fn, int ln)
     CheckTooDeep = 0;
     CheckStackPtr = 0;
 
-    if (Adults.Base != 0)
-        CheckMemRegion(&Adults, AdultsUsed, OBJHDR_GEN_ADULTS);
-
-    FThreadState * ts = Threads;
-    while (ts != 0)
-    {
-        CheckMemRegion(&ts->Babies, ts->BabiesUsed, OBJHDR_GEN_BABIES);
-        ts = ts->Next;
-    }
+    if (Objects.Base != 0)
+        CheckMemRegion(&Objects, ObjectsUsed, OBJHDR_GEN_ADULTS);
 
     for (ulong_t rdx = 0; rdx < RootsUsed; rdx++)
         CheckRoot(*Roots[rdx], RootNames[rdx], -1);
 
-    ts = Threads;
+    FThreadState * ts = Threads;
     while (ts != 0)
     {
         CheckThreadState(ts);
@@ -1220,7 +1094,6 @@ Again:
     FAssert(ObjectP(*pobj));
 
     FObjHdr * oh = AsObjHdr(*pobj);
-    ulong_t gen = oh->Generation();
 
     if (EphemeronKeyMarkP(oh))
     {
@@ -1254,38 +1127,7 @@ Again:
         }
     }
 
-    if (gen == OBJHDR_GEN_BABIES || gen == OBJHDR_GEN_KIDS)
-    {
-        if (ForwardP(oh))
-        {
-            *pobj = oh->Slots()[0];
-            return;
-        }
-
-        ulong_t tsz = oh->TotalSize();
-        FObjHdr * noh = 0;
-
-        if (gen == OBJHDR_GEN_BABIES && ActiveKids != 0)
-        {
-            noh = AllocateKid(tsz);
-            memcpy(noh, oh, tsz);
-            SetGeneration(noh, OBJHDR_GEN_KIDS);
-        }
-
-        if (noh == 0)
-        {
-            noh = AllocateAdult(tsz, CollectOutOfMemory);
-            memcpy(noh, oh, tsz);
-            SetGeneration(noh, OBJHDR_GEN_ADULTS);
-            SetMark(noh);
-        }
-
-        SetForward(oh);
-        oh->Slots()[0] = noh + 1;
-        *pobj = noh + 1;
-        oh = noh;
-    }
-    else if (oh->Generation() != OBJHDR_GEN_ETERNAL)
+    if (oh->Generation() != OBJHDR_GEN_ETERNAL)
     {
         FAssert(oh->Generation() == OBJHDR_GEN_ADULTS);
 
@@ -1436,24 +1278,11 @@ static void Collect()
     if (CheckHeapFlag)
         CheckHeap(__FILE__, __LINE__);
 
-    FObjHdr * oh = (FObjHdr *) Adults.Base;
-    while ((char *) oh < ((char *) Adults.Base) + AdultsUsed)
+    FObjHdr * oh = (FObjHdr *) Objects.Base;
+    while ((char *) oh < ((char *) Objects.Base) + ObjectsUsed)
     {
         ClearMark(oh);
         oh = (FObjHdr *) (((char *) oh) + oh->TotalSize());
-    }
-
-    if (ActiveKids != 0)
-    {
-        if (ActiveKids == &Kids[0])
-            ActiveKids = &Kids[1];
-        else
-        {
-            FAssert(ActiveKids == &Kids[1]);
-
-            ActiveKids = &Kids[0];
-        }
-        ActiveKids->Used = 0;
     }
 
     FAssert(KeyEphemeronMap == 0);
@@ -1493,24 +1322,23 @@ static void Collect()
 
         ts->ObjectsSinceLast = 0;
         ts->BytesSinceLast = 0;
-        ts->BabiesUsed = 0;
         ts = ts->Next;
     }
 
     FGuardian * final = CollectGuardians();
 
-    BigFreeAdults = 0;
-    for (long_t idx = 0; idx < FREE_ADULTS; idx++)
-        FreeAdults[idx] = 0;
+    BigFreeObjects = 0;
+    for (long_t idx = 0; idx < FREE_OBJECTS; idx++)
+        FreeObjects[idx] = 0;
 
-    oh = (FObjHdr *) Adults.Base;
-    while ((char *) oh < ((char *) Adults.Base) + AdultsUsed)
+    oh = (FObjHdr *) Objects.Base;
+    while ((char *) oh < ((char *) Objects.Base) + ObjectsUsed)
     {
         ulong_t tsz = oh->TotalSize();
         if (MarkP(oh) == 0)
         {
             FObjHdr * noh = (FObjHdr *) (((char *) oh) + tsz);
-            while ((char *) noh < ((char *) Adults.Base) + AdultsUsed)
+            while ((char *) noh < ((char *) Objects.Base) + ObjectsUsed)
             {
                 if (MarkP(noh)
                     || ((char *) noh - (char *) oh) + noh->TotalSize() > MAXIMUM_TOTAL_LENGTH)
@@ -1522,15 +1350,15 @@ static void Collect()
 
             tsz = (char *) noh - (char *) oh;
             ulong_t bkt = tsz / OBJECT_ALIGNMENT;
-            if (bkt < FREE_ADULTS)
+            if (bkt < FREE_OBJECTS)
             {
-                *oh->Slots() = FreeAdults[bkt];
-                FreeAdults[bkt] = oh;
+                *oh->Slots() = FreeObjects[bkt];
+                FreeObjects[bkt] = oh;
             }
             else
             {
-                *oh->Slots() = BigFreeAdults;
-                BigFreeAdults = oh;
+                *oh->Slots() = BigFreeObjects;
+                BigFreeObjects = oh;
             }
 
             InitializeObjHdr(oh, tsz, FreeTag, OBJHDR_GEN_ADULTS, 0, 0);
@@ -1741,10 +1569,6 @@ long_t EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprm
     ts->ObjectsSinceLast = 0;
     ts->BytesSinceLast = 0;
 
-    if ((CollectorType == NoCollector || CollectorType == GenerationalCollector)
-            && InitializeBabies(ts) == 0)
-        goto Failed;
-
     if (InitializeMemRegion(&ts->Stack, MaximumStackSize) == 0)
         goto Failed;
 
@@ -1781,8 +1605,6 @@ long_t EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprm
     return(1);
 
 Failed:
-    if (ts->Babies.Base != 0)
-        DeleteMemRegion(&ts->Babies);
     if (ts->Stack.Base != 0)
         DeleteMemRegion(&ts->Stack);
     return(0);
@@ -1863,9 +1685,8 @@ long_t SetupCore(FThreadState * ts)
     FAssert(sizeof(FCString) % OBJECT_ALIGNMENT == 0);
     FAssert(sizeof(FSymbol) % OBJECT_ALIGNMENT == 0);
     FAssert(sizeof(FPrimitive) % OBJECT_ALIGNMENT == 0);
-    FAssert(Adults.Base == 0);
-    FAssert(AdultsUsed == 0);
-    FAssert(ActiveKids == 0);
+    FAssert(Objects.Base == 0);
+    FAssert(ObjectsUsed == 0);
 
 #ifdef FOMENT_DEBUG
     if (strcmp(FOMENT_MEMORYMODEL, "ilp32") == 0)
@@ -1891,41 +1712,17 @@ long_t SetupCore(FThreadState * ts)
     }
 #endif // FOMENT_DEBUG
 
-    if (CollectorType == NoCollector && MaximumBabiesSize == 0)
-        MaximumBabiesSize = 1024 * 1024 * 64;
-    if (CollectorType == MarkSweepCollector && MaximumBabiesSize != 0)
-        MaximumBabiesSize = 0;
-    if (CollectorType == GenerationalCollector)
-    {
-        if (MaximumBabiesSize == 0)
-            MaximumBabiesSize = 1024 * 1024 * 128;
-        if (MaximumKidsSize == 0)
-            MaximumKidsSize = MaximumBabiesSize;
+    FAssert(BigFreeObjects == 0);
 
-        if (InitializeMemRegion(&Kids[0].MemRegion, MaximumKidsSize) == 0)
-            return(0);
-        if (InitializeMemRegion(&Kids[1].MemRegion, MaximumKidsSize) == 0)
-            return(0);
-        if (GrowMemRegionUp(&Kids[0].MemRegion, GC_PAGE_SIZE * 8) == 0)
-            return(0);
-        if (GrowMemRegionUp(&Kids[1].MemRegion, GC_PAGE_SIZE * 8) == 0)
-            return(0);
-        ActiveKids = &Kids[0];
-    }
-    if (CollectorType == MarkSweepCollector || CollectorType == GenerationalCollector)
-    {
-        FAssert(BigFreeAdults == 0);
-
-        if (InitializeMemRegion(&Adults, MaximumAdultsSize) == 0)
-            return(0);
-        if (GrowMemRegionUp(&Adults, GC_PAGE_SIZE * 8) == 0)
-            return(0);
+    if (InitializeMemRegion(&Objects, MaximumHeapSize) == 0)
+        return(0);
+    if (GrowMemRegionUp(&Objects, GC_PAGE_SIZE * 8) == 0)
+        return(0);
 
 #ifdef FOMENT_DEBUG
-        for (ulong_t idx = 0; idx < FREE_ADULTS; idx++)
-            FAssert(FreeAdults[idx] == 0);
+    for (ulong_t idx = 0; idx < FREE_OBJECTS; idx++)
+        FAssert(FreeObjects[idx] == 0);
 #endif // FOMENT_DEBUG
-    }
 
 #ifdef FOMENT_WINDOWS
     TlsIndex = TlsAlloc();

@@ -3,8 +3,6 @@
 Foment
 
 To Do:
--- remove generational collector
-
 -- SRFI 141 (scheme division)
 -- SRFI 151 (scheme bitwise)
 -- SRFI 143 (scheme fixnum)
@@ -247,8 +245,7 @@ typedef enum
 typedef enum
 {
     NoCollector,
-    MarkSweepCollector,
-    GenerationalCollector
+    MarkSweepCollector
 } FCollectorType;
 
 extern FCollectorType CollectorType;
@@ -272,8 +269,8 @@ long_t GrowMemRegionDown(FMemRegion * mrgn, ulong_t sz);
 #define OBJHDR_EXTRA_SHIFT        23
 
 #define OBJHDR_GEN_MASK           0x00600000
-#define OBJHDR_GEN_BABIES         0x00000000
-#define OBJHDR_GEN_KIDS           0x00200000
+//#define OBJHDR_GEN_BABIES         0x00000000
+//#define OBJHDR_GEN_KIDS           0x00200000
 #define OBJHDR_GEN_ADULTS         0x00400000
 #define OBJHDR_GEN_ETERNAL        0x00600000
 
@@ -413,10 +410,7 @@ public:
 };
 
 extern ulong_t MaximumStackSize;
-extern ulong_t MaximumBabiesSize;
-extern ulong_t MaximumKidsSize;
-extern ulong_t MaximumAdultsSize;
-extern ulong_t MaximumGenerationalBaby;
+extern ulong_t MaximumHeapSize;
 extern ulong_t TriggerObjects;
 extern ulong_t TriggerBytes;
 extern ulong_t PartialPerFull;
@@ -1502,9 +1496,6 @@ typedef struct _FThreadState
 
     ulong_t ObjectsSinceLast;
     ulong_t BytesSinceLast;
-
-    FMemRegion Babies;
-    ulong_t BabiesUsed;
 
     FMemRegion Stack;
     long_t AStackPtr;

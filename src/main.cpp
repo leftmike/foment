@@ -207,12 +207,10 @@ static FObject GetCollector()
 {
     if (CollectorType == NoCollector)
         return(StringCToSymbol("none"));
-    else if (CollectorType == MarkSweepCollector)
-        return(StringCToSymbol("mark-sweep"));
 
-    FAssert(CollectorType == GenerationalCollector);
+    FAssert(CollectorType == MarkSweepCollector);
 
-    return(StringCToSymbol("generational"));
+    return(StringCToSymbol("mark-sweep"));
 }
 
 static int SetNoCollector(FConfigWhen when)
@@ -224,12 +222,6 @@ static int SetNoCollector(FConfigWhen when)
 static int SetMarkSweep(FConfigWhen when)
 {
     CollectorType = MarkSweepCollector;
-    return(1);
-}
-
-static int SetGenerational(FConfigWhen when)
-{
-    CollectorType = GenerationalCollector;
     return(1);
 }
 
@@ -365,9 +357,6 @@ static FConfigOption ConfigOptions[] =
     {0, 0, "mark-sweep", 0, 0,
 "        Use the mark and sweep garbage collector.",
         EarlyConfig, ActionConfig, 0, 0, 0, 0, SetMarkSweep, 0},
-    {0, 0, "generational", 0, 0,
-"        Use the generational + mark and sweep garbage collector.",
-        EarlyConfig, ActionConfig, 0, 0, 0, 0, SetGenerational, 0},
     {0, 0, "check-heap", 0, 0,
 "        Check the heap before and after garbage collection.",
         AnytimeConfig, BoolConfig, 0, &CheckHeapFlag, 0, 0, 0, 0},
@@ -376,23 +365,9 @@ static FConfigOption ConfigOptions[] =
 "        Use the specified number-of-bytes as the maximum stack size for each\n"
 "        thread.",
         EarlyConfig, ULongConfig, &MaximumStackSize, 0, 0, 0, 0, 0},
-    {0, 0, "maximum-babies-size", 0, "number-of-bytes",
-"        Use the specified number-of-bytes as the maximum size of generation\n"
-"        zero for each thread.",
-        EarlyConfig, ULongConfig, &MaximumBabiesSize, 0, 0, 0, 0, 0},
-    {0, 0, "maximum-kids-size", 0, "number-of-bytes",
-"        Use the specified number-of-bytes as the maximum size of generation\n"
-"        one; this space is shared by all threads.",
-        EarlyConfig, ULongConfig, &MaximumKidsSize, 0, 0, 0, 0, 0},
-    {0, 0, "maximum-adults-size", 0, "number-of-bytes",
-"        Use the specified number-of-bytes as the maximum size of the mark and\n"
-"        sweep generation.",
-        EarlyConfig, ULongConfig, &MaximumAdultsSize, 0, 0, 0, 0, 0},
-    {0, 0, "maximum-generational-baby", 0, "number-of-bytes",
-"        When using the generational collector, new objects larger than the\n"
-"        specified number-of-bytes are allocated in the mark and sweep\n"
-"        generation rather than generation zero.",
-        AnytimeConfig, ULongConfig, &MaximumGenerationalBaby, 0, 0, 0, 0, 0},
+    {0, 0, "maximum-heap-size", 0, "number-of-bytes",
+"        Use the specified number-of-bytes as the maximum size of the heap.",
+        EarlyConfig, ULongConfig, &MaximumHeapSize, 0, 0, 0, 0, 0},
     {0, 0, "trigger-bytes", 0, "number-of-bytes",
 "        Trigger garbage collection after at least the specified\n"
 "        number-of-bytes have been allocated since the last collection",
