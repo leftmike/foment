@@ -241,7 +241,7 @@
                               (vector-set! ctx tag type-comp)) tlst)))
 
         (define (make-standard-comparator)
-            (let ((vec (make-vector 64 no-comparator)))
+            (let ((vec (make-vector 128 no-comparator)))
                 (define (standard-type-test obj)
                     ((comparator-type-test-predicate (vector-ref vec (object-type-tag obj))) obj))
                 (define (standard=? obj1 obj2)

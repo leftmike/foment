@@ -1137,8 +1137,8 @@ Define("set-box!", SetBoxPrimitive)(long_t argc, FObject argv[])
 
 // ---- Type tags ----
 
-#define MISCELLANEOUS_TAG_OFFSET 8
-#define INDIRECT_TAG_OFFSET 10
+#define MISCELLANEOUS_TAG_OFFSET 0x40
+#define INDIRECT_TAG_OFFSET 0x50
 
 static long_t ObjectTypeTag(FObject obj)
 {
@@ -1150,13 +1150,18 @@ static long_t ObjectTypeTag(FObject obj)
 
         return(tag + INDIRECT_TAG_OFFSET);
     }
-    else if (ImmediateTag(obj) == MiscellaneousTag)
+    else if (FixnumP(obj))
+        return(FixnumTag);
+    else if (DirectTag(obj) == ImmediateDirectTag)
     {
-        if (AsValue(obj) < INDIRECT_TAG_OFFSET - MISCELLANEOUS_TAG_OFFSET)
-            return(AsValue(obj) + MISCELLANEOUS_TAG_OFFSET);
+        if (ImmediateTag(obj) == MiscellaneousTag)
+        {
+            if (AsValue(obj) < INDIRECT_TAG_OFFSET - MISCELLANEOUS_TAG_OFFSET)
+                return(AsValue(obj) + MISCELLANEOUS_TAG_OFFSET);
+        }
+        else
+            return(ImmediateTag(obj));
     }
-    else
-        return(ImmediateTag(obj));
 
     return(-1);
 }

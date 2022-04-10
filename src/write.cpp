@@ -211,9 +211,7 @@ static void WriteUnknown(FWriteContext * wctx, FObject obj)
 
 void FWriteContext::WriteSimple(FObject obj)
 {
-    switch (ImmediateTag(obj))
-    {
-    case ObjectTag:
+    if (ObjectP(obj))
     {
         uint32_t tag = IndirectTag(obj);
 
@@ -225,100 +223,105 @@ void FWriteContext::WriteSimple(FObject obj)
         }
         else
             WriteUnknown(this, obj);
-        break;
     }
-
-    case FixnumTag:
+    else if (FixnumP(obj))
     {
         FCh s[64];
         long_t sl = FixnumAsString(AsFixnum(obj), s, 10);
 
         WriteString(s, sl);
-        break;
     }
-
-    case CharacterTag:
-        if (DisplayFlag)
-            WriteCh(AsCharacter(obj));
-        else if (AsCharacter(obj) == 0x07)
-            WriteStringC("#\\alarm");
-        else if (AsCharacter(obj) == 0x08)
-            WriteStringC("#\\backspace");
-        else if (AsCharacter(obj) == 0x7F)
-            WriteStringC("#\\delete");
-        else if (AsCharacter(obj) == 0x1B)
-            WriteStringC("#\\escape");
-        else if (AsCharacter(obj) == 0x0A)
-            WriteStringC("#\\newline");
-        else if (AsCharacter(obj) == 0x00)
-            WriteStringC("#\\null");
-        else if (AsCharacter(obj) == 0x0D)
-            WriteStringC("#\\return");
-        else if (AsCharacter(obj) == 0x20)
-            WriteStringC("#\\space");
-        else if (AsCharacter(obj) == 0x09)
-            WriteStringC("#\\tab");
-        else if (AsCharacter(obj) < 128)
-        {
-            WriteStringC("#\\");
-            WriteCh(AsCharacter(obj));
-        }
-        else
-        {
-            FCh s[16];
-            long_t sl = FixnumAsString(AsCharacter(obj), s, 16);
-            WriteStringC("#\\x");
-            WriteString(s, sl);
-        }
-        break;
-
-    case MiscellaneousTag:
-        if (obj == EmptyListObject)
-            WriteStringC("()");
-        else if (obj == EndOfFileObject)
-            WriteStringC("#<end-of-file>");
-        else if (obj == NoValueObject)
-            WriteStringC("#<no-value>");
-        else if (obj == WantValuesObject)
-            WriteStringC("#<want-values>");
-        else if (obj == NotFoundObject)
-            WriteStringC("#<not-found>");
-        else if (obj == MatchAnyObject)
-            WriteStringC("#<match-any>");
-        else
-            WriteUnknown(this, obj);
-        break;
-
-    case SpecialSyntaxTag:
-        WriteSpecialSyntax(this, obj);
-        break;
-
-    case InstructionTag:
-        WriteInstruction(this, obj);
-        break;
-
-    case ValuesCountTag:
+    else if (DirectP(obj, ImmediateDirectTag))
     {
-        WriteStringC("#<values-count: ");
+        switch (ImmediateTag(obj))
+        {
+        case CharacterTag:
+            if (DisplayFlag)
+                WriteCh(AsCharacter(obj));
+            else if (AsCharacter(obj) == 0x07)
+                WriteStringC("#\\alarm");
+            else if (AsCharacter(obj) == 0x08)
+                WriteStringC("#\\backspace");
+            else if (AsCharacter(obj) == 0x7F)
+                WriteStringC("#\\delete");
+            else if (AsCharacter(obj) == 0x1B)
+                WriteStringC("#\\escape");
+            else if (AsCharacter(obj) == 0x0A)
+                WriteStringC("#\\newline");
+            else if (AsCharacter(obj) == 0x00)
+                WriteStringC("#\\null");
+            else if (AsCharacter(obj) == 0x0D)
+                WriteStringC("#\\return");
+            else if (AsCharacter(obj) == 0x20)
+                WriteStringC("#\\space");
+            else if (AsCharacter(obj) == 0x09)
+                WriteStringC("#\\tab");
+            else if (AsCharacter(obj) < 128)
+            {
+                WriteStringC("#\\");
+                WriteCh(AsCharacter(obj));
+            }
+            else
+            {
+                FCh s[16];
+                long_t sl = FixnumAsString(AsCharacter(obj), s, 16);
+                WriteStringC("#\\x");
+                WriteString(s, sl);
+            }
+            break;
 
-        FCh s[16];
-        long_t sl = FixnumAsString(AsValuesCount(obj), s, 10);
-        WriteString(s, sl);
+        case MiscellaneousTag:
+            if (obj == EmptyListObject)
+                WriteStringC("()");
+            else if (obj == EndOfFileObject)
+                WriteStringC("#<end-of-file>");
+            else if (obj == NoValueObject)
+                WriteStringC("#<no-value>");
+            else if (obj == WantValuesObject)
+                WriteStringC("#<want-values>");
+            else if (obj == NotFoundObject)
+                WriteStringC("#<not-found>");
+            else if (obj == MatchAnyObject)
+                WriteStringC("#<match-any>");
+            else
+                WriteUnknown(this, obj);
+            break;
 
-        WriteCh('>');
-        break;
+        case SpecialSyntaxTag:
+            WriteSpecialSyntax(this, obj);
+            break;
+
+        case InstructionTag:
+            WriteInstruction(this, obj);
+            break;
+
+        case ValuesCountTag:
+        {
+            WriteStringC("#<values-count: ");
+
+            FCh s[16];
+            long_t sl = FixnumAsString(AsValuesCount(obj), s, 10);
+            WriteString(s, sl);
+
+            WriteCh('>');
+            break;
+        }
+
+        case BooleanTag:
+            if (obj == FalseObject)
+                WriteStringC("#f");
+            else if (obj == TrueObject)
+                WriteStringC("#t");
+            else
+                WriteUnknown(this, obj);
+            break;
+
+        default:
+            FAssert(0);
+        }
     }
-
-    case BooleanTag:
-        if (obj == FalseObject)
-            WriteStringC("#f");
-        else if (obj == TrueObject)
-            WriteStringC("#t");
-        else
-            WriteUnknown(this, obj);
-        break;
-
-    default:
+    else
+    {
         FAssert(0);
     }
 }

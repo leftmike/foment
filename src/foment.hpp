@@ -165,17 +165,25 @@ void FMustBeFailed(const char * fn, long_t ln, const char * expr);
 
 typedef enum
 {
-    // Direct Types
+    // Direct types use 3 bits of tag.
 
     ObjectTag = 0x00,
     FixnumTag = 0x01,
-    CharacterTag = 0x02,
-    MiscellaneousTag = 0x03,
-    SpecialSyntaxTag = 0x04,
-    InstructionTag = 0x05,
-    ValuesCountTag = 0x06,
-    BooleanTag = 0x07
+    // Unused: 0x02 to 0x06
+    ImmediateDirectTag = 0x07,
 } FDirectTag;
+
+typedef enum
+{
+    // Immediate types use 6 bits of tag.
+
+    CharacterTag = (0x00 << 3) | ImmediateDirectTag,
+    MiscellaneousTag = (0x01 << 3) | ImmediateDirectTag,
+    SpecialSyntaxTag = (0x02 << 3) | ImmediateDirectTag,
+    InstructionTag = (0x03 << 3) | ImmediateDirectTag,
+    ValuesCountTag = (0x04 << 3) | ImmediateDirectTag,
+    BooleanTag = (0x05 << 3) | ImmediateDirectTag,
+} FImmediateTag;
 
 typedef enum
 {
@@ -215,16 +223,19 @@ typedef enum
 
 #define ObjectP(obj) ((((ulong_t) (obj)) & 0x7) == 0x0)
 
-#define ImmediateTag(obj) (((ulong_t) (obj)) & 0x7)
-#define ImmediateP(obj, it) (ImmediateTag((obj)) == it)
-#define MakeImmediate(val, it)\
-    ((FObject *) ((((ulong_t) (val)) << 3) | (it & 0x7)))
-#define AsValue(obj) (((ulong_t) (obj)) >> 3)
+#define DirectTag(obj) (((ulong_t) (obj)) & 0x7)
+#define DirectP(obj, dt) (DirectTag((obj)) == dt)
 
-#define FixnumP(obj) ImmediateP(obj, FixnumTag)
+#define FixnumP(obj) DirectP(obj, FixnumTag)
 #define MakeFixnum(n)\
     ((FObject *) ((((ulong_t) (n)) << 3) | (FixnumTag & 0x7)))
 #define AsFixnum(obj) (((long_t) (obj)) >> 3)
+
+#define ImmediateTag(obj) (((ulong_t) (obj)) & 0x3F)
+#define ImmediateP(obj, it) (ImmediateTag((obj)) == it)
+#define MakeImmediate(val, it)\
+    ((FObject *) ((((ulong_t) (val)) << 6) | (it & 0x3F)))
+#define AsValue(obj) (((ulong_t) (obj)) >> 6)
 
 #if defined(FOMENT_32BIT)
 #define FIXNUM_BITS (sizeof(int32_t) * 8 - 4)

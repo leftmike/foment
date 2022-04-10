@@ -857,9 +857,7 @@ static void CheckObject(FObject obj, long_t idx, long_t ef)
     CheckStackPtr += 1;
 
 Again:
-    switch (ImmediateTag(obj))
-    {
-    case 0x00: // ObjectP(obj)
+    if (ObjectP(obj))
     {
         FCheck(ef == 0 || AsObjHdr(obj)->Generation() == OBJHDR_GEN_ETERNAL, AsObjHdr(obj));
 
@@ -911,17 +909,6 @@ Again:
             for (ulong_t idx = 0; idx < AsObjHdr(obj)->SlotCount(); idx++)
                 CheckObject(((FObject *) obj)[idx], idx, ef);
         }
-        break;
-    }
-
-    case FixnumTag: // 0x01
-    case CharacterTag: // 0x02
-    case MiscellaneousTag: // 0x03
-    case SpecialSyntaxTag: // 0x04
-    case InstructionTag: // 0x05
-    case ValuesCountTag: // 0x06
-    case BooleanTag: // 0x07
-        break;
     }
 
 Done:
