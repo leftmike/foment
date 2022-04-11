@@ -259,6 +259,16 @@ typedef enum
     GlobalTag,
     LibraryTag,
     ComparatorTag,
+    SyntacticEnvTag,
+    BindingTag,
+    ReferenceTag,
+    LambdaTag,
+    CaseLambdaTag,
+    SyntaxRulesTag,
+    PatternVariableTag,
+    PatternRepeatTag,
+    TemplateRepeatTag,
+    SyntaxRuleTag,
     FreeTag, // Only on Adult Generation
     BadDogTag // Invalid Tag
 } FObjectTag;
@@ -1408,8 +1418,7 @@ int LittleEndianP();
 
 // ---- Syntax Rules ----
 
-#define SyntaxRulesP(obj) BuiltinP(obj, SyntaxRulesType)
-extern FObject SyntaxRulesType;
+#define SyntaxRulesP(obj) (ObjectTag(obj) == SyntaxRulesTag)
 
 // ---- Identifiers ----
 
@@ -1994,6 +2003,7 @@ void WriteTranscoder(FWriteContext * wctx, FObject obj);
 void WriteEnvironment(FWriteContext * wctx, FObject obj);
 void WriteGlobal(FWriteContext * wctx, FObject obj);
 void WriteLibrary(FWriteContext * wctx, FObject obj);
+void WriteLambda(FWriteContext * wctx, FObject obj);
 
 #ifdef FOMENT_WINDOWS
 #define PathCh '\\'

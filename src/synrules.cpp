@@ -11,11 +11,9 @@ Foment
 // ---- Syntax Rules ----
 
 #define AsSyntaxRules(obj) ((FSyntaxRules *) (obj))
-EternalBuiltinType(SyntaxRulesType, "syntax-rules", 0);
 
 typedef struct
 {
-    FObject BuiltinType;
     FObject Literals;
     FObject Rules;
     FObject SyntacticEnv;
@@ -23,7 +21,8 @@ typedef struct
 
 static FObject MakeSyntaxRules(FObject lits, FObject rules, FObject se)
 {
-    FSyntaxRules * sr = (FSyntaxRules *) MakeBuiltin(SyntaxRulesType, 4, "make-syntax-rules");
+    FSyntaxRules * sr = (FSyntaxRules *) MakeObject(SyntaxRulesTag, sizeof(FSyntaxRules), 3,
+        "make-syntax-rules");
     sr->Literals = lits;
     sr->Rules = rules;
     sr->SyntacticEnv = se;
@@ -34,12 +33,10 @@ static FObject MakeSyntaxRules(FObject lits, FObject rules, FObject se)
 // ---- Pattern Variable ----
 
 #define AsPatternVariable(obj) ((FPatternVariable *) (obj))
-#define PatternVariableP(obj) BuiltinP(obj, PatternVariableType)
-EternalBuiltinType(PatternVariableType, "pattern-variable", 0);
+#define PatternVariableP(obj) (ObjectTag(obj) == PatternVariableTag)
 
 typedef struct
 {
-    FObject BuiltinType;
     FObject RepeatDepth;
     FObject Index;
     FObject Variable;
@@ -49,8 +46,8 @@ static FObject MakePatternVariable(long_t rd, FObject var)
 {
     FAssert(ReferenceP(var));
 
-    FPatternVariable * pv = (FPatternVariable *) MakeBuiltin(PatternVariableType, 4,
-            "make-pattern-variable");
+    FPatternVariable * pv = (FPatternVariable *) MakeObject(PatternVariableTag,
+            sizeof(FPatternVariable), 3, "make-pattern-variable");
     pv->RepeatDepth = MakeFixnum(rd);
     pv->Index = MakeFixnum(-1);
     pv->Variable = var;
@@ -61,12 +58,10 @@ static FObject MakePatternVariable(long_t rd, FObject var)
 // ---- Pattern Repeat ----
 
 #define AsPatternRepeat(obj) ((FPatternRepeat *) (obj))
-#define PatternRepeatP(obj) BuiltinP(obj, PatternRepeatType)
-EternalBuiltinType(PatternRepeatType, "pattern-repeat", 0);
+#define PatternRepeatP(obj) (ObjectTag(obj) == PatternRepeatTag)
 
 typedef struct
 {
-    FObject BuiltinType;
     FObject LeaveCount;
     FObject Ellipsis;
     FObject Variables;
@@ -77,8 +72,8 @@ typedef struct
 static FObject MakePatternRepeat(long_t lc, FObject ellip, FObject vars, FObject pat,
     FObject rest)
 {
-    FPatternRepeat * pr = (FPatternRepeat *) MakeBuiltin(PatternRepeatType, 6,
-            "make-pattern-repeat");
+    FPatternRepeat * pr = (FPatternRepeat *) MakeObject(PatternRepeatTag, sizeof(FPatternRepeat),
+            5, "make-pattern-repeat");
     pr->LeaveCount = MakeFixnum(lc);
     pr->Ellipsis = ellip;
     pr->Variables = vars;
@@ -91,12 +86,10 @@ static FObject MakePatternRepeat(long_t lc, FObject ellip, FObject vars, FObject
 // ---- Template Repeat ----
 
 #define AsTemplateRepeat(obj) ((FTemplateRepeat *) (obj))
-#define TemplateRepeatP(obj) BuiltinP(obj, TemplateRepeatType)
-EternalBuiltinType(TemplateRepeatType, "template-repeat", 0);
+#define TemplateRepeatP(obj) (ObjectTag(obj) == TemplateRepeatTag)
 
 typedef struct
 {
-    FObject BuiltinType;
     FObject Ellipsis;
     FObject RepeatCount;
     FObject Variables;
@@ -106,8 +99,8 @@ typedef struct
 
 static FObject MakeTemplateRepeat(FObject ellip, long_t rc)
 {
-    FTemplateRepeat * tr = (FTemplateRepeat *) MakeBuiltin(TemplateRepeatType, 6,
-            "make-template-repeat");
+    FTemplateRepeat * tr = (FTemplateRepeat *) MakeObject(TemplateRepeatTag,
+            sizeof(FTemplateRepeat), 5, "make-template-repeat");
     tr->Ellipsis = ellip;
     tr->RepeatCount = MakeFixnum(rc);
     tr->Variables = MakeVector(AsFixnum(tr->RepeatCount), 0, EmptyListObject);
@@ -120,12 +113,10 @@ static FObject MakeTemplateRepeat(FObject ellip, long_t rc)
 // ---- Syntax Rule ----
 
 #define AsSyntaxRule(obj) ((FSyntaxRule *) (obj))
-#define SyntaxRuleP(obj) BuiltinP(obj, SyntaxRuleType)
-EternalBuiltinType(SyntaxRuleType, "syntax-rule", 0);
+#define SyntaxRuleP(obj) (ObjectTag(obj) == SyntaxRuleTag)
 
 typedef struct
 {
-    FObject BuiltinType;
     FObject NumVariables;
     FObject Variables; // A list of pattern variables.
     FObject Pattern;
@@ -134,7 +125,8 @@ typedef struct
 
 static FObject MakeSyntaxRule(long_t nv, FObject vars, FObject pat, FObject tpl)
 {
-    FSyntaxRule * sr = (FSyntaxRule *) MakeBuiltin(SyntaxRuleType, 5, "make-syntax-rule");
+    FSyntaxRule * sr = (FSyntaxRule *) MakeObject(SyntaxRuleTag, sizeof(FSyntaxRule), 4,
+        "make-syntax-rule");
     sr->NumVariables = MakeFixnum(nv);
     sr->Variables = vars;
     sr->Pattern = pat;

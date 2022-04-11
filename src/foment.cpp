@@ -1444,6 +1444,16 @@ FObjectType ObjectTypes[] =
     [GlobalTag] = {"global", 5, WriteGlobal},
     [LibraryTag] = {"library", 2, WriteLibrary},
     [ComparatorTag] = {"comparator", 5, 0},
+    [SyntacticEnvTag] = {"syntactic-environment", 2, 0},
+    [BindingTag] = {"binding", 10, 0},
+    [ReferenceTag] = {"reference", 2, 0},
+    [LambdaTag] = {"lambda", 15, WriteLambda},
+    [CaseLambdaTag] = {"case-lambda", 3, 0},
+    [SyntaxRulesTag] = {"syntax-rules", 3, 0},
+    [PatternVariableTag] = {"pattern-variable", 3, 0},
+    [PatternRepeatTag] = {"pattern-repeat", 5, 0},
+    [TemplateRepeatTag] = {"template-repeat", 5, 0},
+    [SyntaxRuleTag] = {"syntax-rule", 4, 0},
     {"free", 0, 0}
 };
 

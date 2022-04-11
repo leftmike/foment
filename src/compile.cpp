@@ -33,13 +33,11 @@ static FObject InteractionEnv = NoValueObject;
 
 // ---- SyntacticEnv ----
 
-EternalBuiltinType(SyntacticEnvType, "syntactic-environment", 0);
-
 FObject MakeSyntacticEnv(FObject obj)
 {
     FAssert(EnvironmentP(obj) || SyntacticEnvP(obj));
 
-    FSyntacticEnv * se = (FSyntacticEnv *) MakeBuiltin(SyntacticEnvType, 3,
+    FSyntacticEnv * se = (FSyntacticEnv *) MakeObject(SyntacticEnvTag, sizeof(FSyntacticEnv), 2,
             "make-syntactic-environment");
     if (EnvironmentP(obj))
     {
@@ -57,15 +55,13 @@ FObject MakeSyntacticEnv(FObject obj)
 
 // ---- Binding ----
 
-EternalBuiltinType(BindingType, "binding", 0);
-
 FObject MakeBinding(FObject se, FObject id, FObject ra)
 {
     FAssert(SyntacticEnvP(se));
     FAssert(IdentifierP(id));
     FAssert(ra == TrueObject || ra == FalseObject);
 
-    FBinding * b = (FBinding *) MakeBuiltin(BindingType, 11, "make-binding");
+    FBinding * b = (FBinding *) MakeObject(BindingTag, sizeof(FBinding), 10, "make-binding");
     b->Identifier = id;
     b->Syntax = NoValueObject;
     b->SyntacticEnv = se;
@@ -144,8 +140,7 @@ FObject WrapIdentifier(FObject id, FObject se)
 
 // ---- Lambda ----
 
-
-static void WriteLambda(FWriteContext * wctx, FObject obj)
+void WriteLambda(FWriteContext * wctx, FObject obj)
 {
     FCh s[16];
     long_t sl = FixnumAsString((long_t) obj, s, 16);
@@ -168,13 +163,11 @@ static void WriteLambda(FWriteContext * wctx, FObject obj)
     wctx->WriteStringC(">");
 }
 
-EternalBuiltinType(LambdaType, "lambda", WriteLambda);
-
 FObject MakeLambda(FObject enc, FObject nam, FObject bs, FObject body)
 {
     FAssert(LambdaP(enc) || enc == NoValueObject);
 
-    FLambda * l = (FLambda *) MakeBuiltin(LambdaType, 16, "make-lambda");
+    FLambda * l = (FLambda *) MakeObject(LambdaTag, sizeof(FLambda), 15, "make-lambda");
     l->Name = nam;
     l->Bindings = bs;
     l->Body = body;
@@ -208,11 +201,10 @@ FObject MakeLambda(FObject enc, FObject nam, FObject bs, FObject body)
 
 // ---- CaseLambda ----
 
-EternalBuiltinType(CaseLambdaType, "case-lambda", 0);
-
 FObject MakeCaseLambda(FObject cases)
 {
-    FCaseLambda * cl = (FCaseLambda *) MakeBuiltin(CaseLambdaType, 4, "make-case-lambda");
+    FCaseLambda * cl = (FCaseLambda *) MakeObject(CaseLambdaTag, sizeof(FCaseLambda), 3,
+            "make-case-lambda");
     cl->Cases = cases;
     cl->Name = NoValueObject;
     cl->Escapes = FalseObject;
@@ -220,31 +212,15 @@ FObject MakeCaseLambda(FObject cases)
     return(cl);
 }
 
-// ---- InlineVariable ----
-
-EternalBuiltinType(InlineVariableType, "inline-variable", 0);
-
-FObject MakeInlineVariable(long_t idx)
-{
-    FAssert(idx >= 0);
-
-    FInlineVariable * iv = (FInlineVariable *) MakeBuiltin(InlineVariableType, 2,
-            "make-inline-variable");
-    iv->Index = MakeFixnum(idx);
-
-    return(iv);
-}
-
 // ---- Reference ----
-
-EternalBuiltinType(ReferenceType, "reference", 0);
 
 FObject MakeReference(FObject be, FObject id)
 {
     FAssert(BindingP(be) || EnvironmentP(be));
     FAssert(IdentifierP(id));
 
-    FReference * r = (FReference *) MakeBuiltin(ReferenceType, 3, "make-reference");
+    FReference * r = (FReference *) MakeObject(ReferenceTag, sizeof(FReference), 2,
+        "make-reference");
     r->Binding = be;
     r->Identifier = id;
 

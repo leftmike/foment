@@ -10,12 +10,10 @@ Foment
 // ---- SyntacticEnv ----
 
 #define AsSyntacticEnv(obj) ((FSyntacticEnv *) (obj))
-#define SyntacticEnvP(obj) BuiltinP(obj, SyntacticEnvType)
-extern FObject SyntacticEnvType;
+#define SyntacticEnvP(obj) (ObjectTag(obj) == SyntacticEnvTag)
 
 typedef struct
 {
-    FObject BuiltinType;
     FObject GlobalBindings;
     FObject LocalBindings;
 } FSyntacticEnv;
@@ -25,13 +23,10 @@ FObject MakeSyntacticEnv(FObject obj);
 // ---- Binding ----
 
 #define AsBinding(obj) ((FBinding *) (obj))
-#define BindingP(obj) BuiltinP(obj, BindingType)
-extern FObject BindingType;
+#define BindingP(obj) (ObjectTag(obj) == BindingTag)
 
 typedef struct
 {
-    FObject BuiltinType;
-
     FObject Identifier;
     FObject Syntax;
     FObject SyntacticEnv;
@@ -50,12 +45,10 @@ FObject MakeBinding(FObject se, FObject id, FObject ra);
 // ---- Reference ----
 
 #define AsReference(obj) ((FReference *) (obj))
-#define ReferenceP(obj) BuiltinP(obj, ReferenceType)
-extern FObject ReferenceType;
+#define ReferenceP(obj) (ObjectTag(obj) == ReferenceTag)
 
 typedef struct
 {
-    FObject BuiltinType;
     FObject Binding;
     FObject Identifier;
 } FReference;
@@ -65,13 +58,10 @@ FObject MakeReference(FObject be, FObject id);
 // ---- Lambda ----
 
 #define AsLambda(obj) ((FLambda *) (obj))
-#define LambdaP(obj) BuiltinP(obj, LambdaType)
-extern FObject LambdaType;
+#define LambdaP(obj) (ObjectTag(obj) == LambdaTag)
 
 typedef struct
 {
-    FObject BuiltinType;
-
     FObject Name;
     FObject Bindings;
     FObject Body;
@@ -98,32 +88,16 @@ FObject MakeLambda(FObject enc, FObject nam, FObject bs, FObject body);
 // ---- CaseLambda ----
 
 #define AsCaseLambda(obj) ((FCaseLambda *) (obj))
-#define CaseLambdaP(obj) BuiltinP(obj, CaseLambdaType)
-extern FObject CaseLambdaType;
+#define CaseLambdaP(obj) (ObjectTag(obj) == CaseLambdaTag)
 
 typedef struct
 {
-    FObject BuiltinType;
     FObject Cases;
     FObject Name;
     FObject Escapes;
 } FCaseLambda;
 
 FObject MakeCaseLambda(FObject cases);
-
-// ---- InlineVariable ----
-
-#define AsInlineVariable(obj) ((FInlineVariable *) (obj))
-#define InlineVariableP(obj) BuiltinP(obj, InlineVariableType)
-extern FObject InlineVariableType;
-
-typedef struct
-{
-    FObject BuiltinType;
-    FObject Index;
-} FInlineVariable;
-
-FObject MakeInlineVariable(long_t idx);
 
 // ----------------
 
