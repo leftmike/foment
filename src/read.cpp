@@ -28,13 +28,10 @@ Foment
 // ---- Datum Reference ----
 
 #define AsDatumReference(obj) ((FDatumReference *) (obj))
-#define DatumReferenceP(obj) BuiltinP(obj, DatumReferenceType)
-
-EternalBuiltinType(DatumReferenceType, "datum-reference", 0);
+#define DatumReferenceP(obj) (ObjectTag(obj) == DatumReferenceTag)
 
 typedef struct
 {
-    FObject BuiltinType;
     FObject Label;
 } FDatumReference;
 
@@ -42,8 +39,8 @@ static FObject MakeDatumReference(FObject lbl)
 {
     FAssert(FixnumP(lbl));
 
-    FDatumReference * dref = (FDatumReference *) MakeBuiltin(DatumReferenceType, 2,
-            "make-datum-reference");
+    FDatumReference * dref = (FDatumReference *) MakeObject(DatumReferenceTag,
+            sizeof(FDatumReference), 1, "make-datum-reference");
     dref->Label = lbl;
 
     return(dref);

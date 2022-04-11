@@ -506,8 +506,11 @@ static FObjHdr * AllocateObject(ulong_t tsz, FObject exc)
     return(oh);
 }
 
-FObject MakeObject(ulong_t tag, ulong_t sz, ulong_t sc, const char * who, long_t pf)
+FObject MakeObject(FObjectTag tag, ulong_t sz, ulong_t sc, const char * who, long_t pf)
 {
+    FAssert(tag < BadDogTag &&
+            (ObjectTypes[tag].SlotCount == MAXIMUM_ULONG || ObjectTypes[tag].SlotCount == sc));
+
     ulong_t tsz = sz;
 
     tsz += Align[tsz % OBJECT_ALIGNMENT];

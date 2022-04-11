@@ -37,11 +37,10 @@ Define("no-hash-function", NoHashFunctionPrimitive)(long_t argc, FObject argv[])
 
 // ---- Comparator ----
 
-EternalBuiltinType(ComparatorType, "comparator", 0);
-
 static FObject MakeComparator(FObject ttp, FObject eqp, FObject orderp, FObject hashfn)
 {
-    FComparator * comp = (FComparator *) MakeBuiltin(ComparatorType, 6, "make-comparator");
+    FComparator * comp = (FComparator *) MakeObject(ComparatorTag, sizeof(FComparator), 5,
+            "make-comparator");
     comp->TypeTestP = ttp;
     comp->EqualityP = eqp;
     comp->OrderingP = (orderp == FalseObject ? NoOrderingPredicatePrimitive : orderp);

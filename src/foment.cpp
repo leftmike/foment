@@ -311,8 +311,7 @@ static void WriteLocation(FWriteContext * wctx, FObject obj)
     }
 }
 
-static void
-WriteException(FWriteContext * wctx, FObject obj)
+static void WriteException(FWriteContext * wctx, FObject obj)
 {
     FCh s[16];
     long_t sl = FixnumAsString((long_t) obj, s, 16);
@@ -339,11 +338,10 @@ WriteException(FWriteContext * wctx, FObject obj)
     wctx->WriteStringC(">");
 }
 
-EternalBuiltinType(ExceptionType, "exception", WriteException);
-
 FObject MakeException(FObject typ, FObject who, FObject knd, FObject msg, FObject lst)
 {
-    FException * exc = (FException *) MakeBuiltin(ExceptionType, 6, "make-exception");
+    FException * exc = (FException *) MakeObject(ExceptionTag, sizeof(FException), 5,
+            "make-exception");
     exc->Type = typ;
     exc->Who = who;
     exc->Kind = knd;
@@ -1435,6 +1433,17 @@ FObjectType ObjectTypes[] =
     [BuiltinTag] = {"builtin", MAXIMUM_ULONG, WriteBuiltin},
     [CharSetTag] = {"char-set", 0, WriteCharSet},
     [SubprocessTag] = {"subprocess", 0, WriteSubprocess},
+    [ExceptionTag] = {"exception", 5, WriteException},
+    [DynamicTag] = {"dynamic", 4, 0},
+    [ContinuationTag] = {"continuation", 4, 0},
+    [CustomPortTag] = {"custom-port", 7, 0},
+    [CodecTag] = {"codec", 0, WriteCodec},
+    [TranscoderTag] = {"transcoder", 1, WriteTranscoder},
+    [DatumReferenceTag] = {"datum-reference", 1, 0},
+    [EnvironmentTag] = {"environment", 4, WriteEnvironment},
+    [GlobalTag] = {"global", 5, WriteGlobal},
+    [LibraryTag] = {"library", 2, WriteLibrary},
+    [ComparatorTag] = {"comparator", 5, 0},
     {"free", 0, 0}
 };
 

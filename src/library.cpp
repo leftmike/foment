@@ -26,7 +26,7 @@ static FObject LibraryStartupList = EmptyListObject;
 
 // ---- Environments ----
 
-static void WriteEnvironment(FWriteContext * wctx, FObject obj)
+void WriteEnvironment(FWriteContext * wctx, FObject obj)
 {
     FCh s[16];
     long_t sl = FixnumAsString((long_t) obj, s, 16);
@@ -39,13 +39,12 @@ static void WriteEnvironment(FWriteContext * wctx, FObject obj)
     wctx->WriteStringC(">");
 }
 
-EternalBuiltinType(EnvironmentType, "environment", WriteEnvironment);
-
 FObject MakeEnvironment(FObject nam, FObject ctv)
 {
     FAssert(BooleanP(ctv));
 
-    FEnvironment * env = (FEnvironment *) MakeBuiltin(EnvironmentType, 5, "make-environment");
+    FEnvironment * env = (FEnvironment *) MakeObject(EnvironmentTag, sizeof(FEnvironment), 4,
+            "make-environment");
     env->HashTable = MakeSymbolHashTable(512, HASH_TABLE_THREAD_SAFE);
     env->Name = nam;
     env->Interactive = ctv;
@@ -223,8 +222,7 @@ void EnvironmentImportLibrary(FObject env, FObject nam)
 
 // ---- Globals ----
 
-static void
-WriteGlobal(FWriteContext * wctx, FObject obj)
+void WriteGlobal(FWriteContext * wctx, FObject obj)
 {
     FCh s[16];
     long_t sl = FixnumAsString((long_t) obj, s, 16);
@@ -239,13 +237,11 @@ WriteGlobal(FWriteContext * wctx, FObject obj)
     wctx->WriteStringC(">");
 }
 
-EternalBuiltinType(GlobalType, "global", WriteGlobal);
-
 static FObject MakeGlobal(FObject nam, FObject mod, FObject ctv)
 {
     FAssert(SymbolP(nam));
 
-    FGlobal * gl = (FGlobal *) MakeBuiltin(GlobalType, 6, "make-global");
+    FGlobal * gl = (FGlobal *) MakeObject(GlobalTag, sizeof(FGlobal), 5, "make-global");
     gl->Box = MakeBox(NoValueObject);
     gl->Name = nam;
     gl->Module = mod;
@@ -261,7 +257,7 @@ static FObject ImportGlobal(FObject env, FObject nam, FObject gl)
     FAssert(SymbolP(nam));
     FAssert(GlobalP(gl));
 
-    FGlobal * ngl = (FGlobal *) MakeBuiltin(GlobalType, 6, "import-global");
+    FGlobal * ngl = (FGlobal *) MakeObject(GlobalTag, sizeof(FGlobal), 5, "import-global");
     ngl->Box = AsGlobal(gl)->Box;
     ngl->Name = nam;
     ngl->Module =  AsEnvironment(env)->Interactive == TrueObject ? env : AsGlobal(gl)->Module;
@@ -281,8 +277,7 @@ static FObject ImportGlobal(FObject env, FObject nam, FObject gl)
 
 // ---- Libraries ----
 
-static void
-WriteLibrary(FWriteContext * wctx, FObject obj)
+void WriteLibrary(FWriteContext * wctx, FObject obj)
 {
     FCh s[16];
     long_t sl = FixnumAsString((long_t) obj, s, 16);
@@ -295,11 +290,9 @@ WriteLibrary(FWriteContext * wctx, FObject obj)
     wctx->WriteStringC(">");
 }
 
-EternalBuiltinType(LibraryType, "library", WriteLibrary);
-
 static FObject MakeLibrary(FObject nam, FObject exports, FObject proc)
 {
-    FLibrary * lib = (FLibrary *) MakeBuiltin(LibraryType, 3, "make-library");
+    FLibrary * lib = (FLibrary *) MakeObject(LibraryTag, sizeof(FLibrary), 2, "make-library");
     lib->Name = nam;
     lib->Exports = exports;
 

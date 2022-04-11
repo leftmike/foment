@@ -248,6 +248,17 @@ typedef enum
     BuiltinTag,
     CharSetTag,
     SubprocessTag,
+    ExceptionTag,
+    DynamicTag,
+    ContinuationTag,
+    CustomPortTag,
+    CodecTag,
+    TranscoderTag,
+    DatumReferenceTag,
+    EnvironmentTag,
+    GlobalTag,
+    LibraryTag,
+    ComparatorTag,
     FreeTag, // Only on Adult Generation
     BadDogTag // Invalid Tag
 } FObjectTag;
@@ -389,7 +400,7 @@ typedef struct
 #define EternalObjFtr \
     {{OBJFTR_FEET, OBJFTR_FEET}}
 
-FObject MakeObject(ulong_t tag, ulong_t sz, ulong_t sc, const char * who, long_t pf = 0);
+FObject MakeObject(FObjectTag tag, ulong_t sz, ulong_t sc, const char * who, long_t pf = 0);
 
 inline FObjectTag ObjectTag(FObject obj)
 {
@@ -1009,12 +1020,10 @@ inline long_t RecordP(FObject obj, FObject rt)
 // ---- Comparators ----
 
 #define AsComparator(obj) ((FComparator *) (obj))
-#define ComparatorP(obj) BuiltinP(obj, ComparatorType)
-extern FObject ComparatorType;
+#define ComparatorP(obj) (ObjectTag(obj) == ComparatorTag)
 
 typedef struct
 {
-    FObject BuiltinType;
     FObject TypeTestP;
     FObject EqualityP;
     FObject OrderingP;
@@ -1338,12 +1347,10 @@ FObject GenericMultiply(FObject z1, FObject z2);
 // ---- Environments ----
 
 #define AsEnvironment(obj) ((FEnvironment *) (obj))
-#define EnvironmentP(obj) BuiltinP(obj, EnvironmentType)
-extern FObject EnvironmentType;
+#define EnvironmentP(obj) (ObjectTag(obj) == EnvironmentTag)
 
 typedef struct
 {
-    FObject BuiltinType;
     FObject Name;
     FObject HashTable;
     FObject Interactive;
@@ -1365,12 +1372,10 @@ void EnvironmentImmutable(FObject env);
 // ---- Globals ----
 
 #define AsGlobal(obj) ((FGlobal *) (obj))
-#define GlobalP(obj) BuiltinP(obj, GlobalType)
-extern FObject GlobalType;
+#define GlobalP(obj) (ObjectTag(obj) == GlobalTag)
 
 typedef struct
 {
-    FObject BuiltinType;
     FObject Box;
     FObject Name;
     FObject Module;
@@ -1388,12 +1393,10 @@ typedef struct
 // ---- Libraries ----
 
 #define AsLibrary(obj) ((FLibrary *) (obj))
-#define LibraryP(obj) BuiltinP(obj, LibraryType)
-extern FObject LibraryType;
+#define LibraryP(obj) (ObjectTag(obj) == LibraryTag)
 
 typedef struct
 {
-    FObject BuiltinType;
     FObject Name;
     FObject Exports;
 } FLibrary;
@@ -1468,12 +1471,10 @@ FObject MakeExclusive();
 // ---- Exceptions ----
 
 #define AsException(obj) ((FException *) (obj))
-#define ExceptionP(obj) BuiltinP(obj, ExceptionType)
-extern FObject ExceptionType;
+#define ExceptionP(obj) (ObjectTag(obj) == ExceptionTag)
 
 typedef struct
 {
-    FObject BuiltinType;
     FObject Type; // error, assertion-violation, implementation-restriction, lexical-violation,
                   // syntax-violation, undefined-violation
     FObject Who;
@@ -1988,6 +1989,11 @@ void WriteInstruction(FWriteContext * wctx, FObject obj);
 void WriteThread(FWriteContext * wctx, FObject obj);
 void WriteExclusive(FWriteContext * wctx, FObject obj);
 void WriteCondition(FWriteContext * wctx, FObject obj);
+void WriteCodec(FWriteContext * wctx, FObject obj);
+void WriteTranscoder(FWriteContext * wctx, FObject obj);
+void WriteEnvironment(FWriteContext * wctx, FObject obj);
+void WriteGlobal(FWriteContext * wctx, FObject obj);
+void WriteLibrary(FWriteContext * wctx, FObject obj);
 
 #ifdef FOMENT_WINDOWS
 #define PathCh '\\'

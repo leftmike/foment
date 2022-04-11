@@ -451,8 +451,6 @@ static FObject MakeBufferedPort(FObject port)
 
 // ---- CustomPort ----
 
-EternalBuiltinType(CustomPortType, "custom-port", 0);
-
 typedef struct
 {
     FObject ReadFn;
@@ -685,7 +683,7 @@ static FObject MakeCustomBinaryPort(FObject nam, FObject rfn, FObject wfn, FObje
     FAssert(cfn == FalseObject || ProcedureP(cfn) || PrimitiveP(cfn));
     FAssert(ffn == FalseObject || ProcedureP(ffn) || PrimitiveP(ffn));
 
-    FCustomPort * custom = (FCustomPort *) MakeBuiltin(CustomPortType, 7,
+    FCustomPort * custom = (FCustomPort *) MakeObject(CustomPortTag, sizeof(FCustomPort), 7,
             "%make-custom-binary-port");
     custom->ReadFn = rfn;
     custom->WriteFn = wfn;
@@ -722,7 +720,7 @@ static FObject MakeCustomTextualPort(FObject nam, FObject rfn, FObject wfn, FObj
     FAssert(cfn == FalseObject || ProcedureP(cfn) || PrimitiveP(cfn));
     FAssert(ffn == FalseObject || ProcedureP(ffn) || PrimitiveP(ffn));
 
-    FCustomPort * custom = (FCustomPort *) MakeBuiltin(CustomPortType, 7,
+    FCustomPort * custom = (FCustomPort *) MakeObject(CustomPortTag, sizeof(FCustomPort), 7,
             "%make-custom-textual-port");
     custom->ReadFn = rfn;
     custom->WriteFn = wfn;
@@ -1700,67 +1698,58 @@ static FCodecType CodecTypes[] =
 };
 
 #define AsCodec(obj) ((FCodec *) (obj))
-#define CodecP(obj) BuiltinP(obj, CodecType)
+#define CodecP(obj) (ObjectTag(obj) == CodecTag)
 
 typedef struct
 {
-    FObject BuiltinType;
-    FObject Index;
+    ulong_t Index;
 } FCodec;
 
 static const char * CodecName(FObject obj);
 
-static void WriteCodec(FWriteContext * wctx, FObject obj)
+void WriteCodec(FWriteContext * wctx, FObject obj)
 {
     wctx->WriteStringC("#<codec: ");
     wctx->WriteStringC(CodecName(obj));
     wctx->WriteStringC(">");
 }
 
-EternalBuiltinType(CodecType, "codec", WriteCodec);
-
 static const char * CodecName(FObject obj)
 {
     FAssert(CodecP(obj));
-    FAssert(FixnumP(AsCodec(obj)->Index));
+    FAssert(AsCodec(obj)->Index >= 0 &&
+            AsCodec(obj)->Index < sizeof(CodecTypes) / sizeof(FCodecType));
 
-    ulong_t idx = AsFixnum(AsCodec(obj)->Index);
-
-    FAssert(idx >= 0 && idx < sizeof(CodecTypes) / sizeof(FCodecType));
-
-    return(CodecTypes[idx].Name);
+    return(CodecTypes[AsCodec(obj)->Index].Name);
 }
 
 static FObject MakeCodec(ulong_t idx)
 {
     FAssert(idx >= 0 && idx < sizeof(CodecTypes) / sizeof(FCodecType));
 
-    FCodec * codec = (FCodec *) MakeBuiltin(CodecType, 2, "%make-codec");
-    codec->Index = MakeFixnum(idx);
+    FCodec * codec = (FCodec *) MakeObject(CodecTag, sizeof(FCodec), 0, "%make-codec");
+    codec->Index = idx;
     return(codec);
 }
 
 #define AsTranscoder(obj) ((FTranscoder *) (obj))
-#define TranscoderP(obj) BuiltinP(obj, TranscoderType)
+#define TranscoderP(obj) (ObjectTag(obj) == TranscoderTag)
 
 typedef struct
 {
-    FObject BuiltinType;
     FObject Codec;
-    FObject EOLStyle;
-    FObject ErrorMode;
+    FEOLStyle Style;
+    FErrorMode Mode;
 } FTranscoder;
 
-static void WriteTranscoder(FWriteContext * wctx, FObject obj)
+void WriteTranscoder(FWriteContext * wctx, FObject obj)
 {
     FAssert(CodecP(AsTranscoder(obj)->Codec));
-    FAssert(FixnumP(AsTranscoder(obj)->EOLStyle));
-    FAssert(FixnumP(AsTranscoder(obj)->ErrorMode));
 
     wctx->WriteStringC("#<transcoder: ");
     wctx->WriteStringC(CodecName(AsTranscoder(obj)->Codec));
 
-    switch (AsFixnum(AsTranscoder(obj)->EOLStyle))
+    switch (AsTranscoder(obj)->Style)
     {
     case StyleNone:
         wctx->WriteStringC(" none");
@@ -1778,7 +1767,7 @@ static void WriteTranscoder(FWriteContext * wctx, FObject obj)
         FAssert(0);
     }
 
-    switch (AsFixnum(AsTranscoder(obj)->ErrorMode))
+    switch (AsTranscoder(obj)->Mode)
     {
     case ModeReplace:
         wctx->WriteStringC(" replace");
@@ -1794,18 +1783,17 @@ static void WriteTranscoder(FWriteContext * wctx, FObject obj)
     wctx->WriteStringC(">");
 }
 
-EternalBuiltinType(TranscoderType, "transcoder", WriteTranscoder);
-
 static FObject MakeTranscoder(FObject codec, FEOLStyle style, FErrorMode mode)
 {
     FAssert(CodecP(codec));
     FAssert(style == StyleNone || style == StyleLF || style == StyleCRLF);
     FAssert(mode == ModeReplace || mode == ModeRaise);
 
-    FTranscoder * tc = (FTranscoder *) MakeBuiltin(TranscoderType, 4, "make-transcoder");
+    FTranscoder * tc = (FTranscoder *) MakeObject(TranscoderTag, sizeof(FTranscoder), 1,
+            "make-transcoder");
     tc->Codec = codec;
-    tc->EOLStyle = MakeFixnum(style);
-    tc->ErrorMode = MakeFixnum(mode);
+    tc->Style = style;
+    tc->Mode = mode;
     return(tc);
 }
 
@@ -3708,11 +3696,9 @@ Define("transcoded-port", TranscodedPortPrimitive)(long_t argc, FObject argv[])
     FObject codec = AsTranscoder(argv[1])->Codec;
 
     FAssert(CodecP(codec));
-    FAssert(FixnumP(AsCodec(codec)->Index));
 
-    return(MakeTranscodedPort(argv[0], AsFixnum(AsCodec(codec)->Index),
-            (FEOLStyle) AsFixnum(AsTranscoder(argv[1])->EOLStyle),
-            (FErrorMode) AsFixnum(AsTranscoder(argv[1])->ErrorMode)));
+    return(MakeTranscodedPort(argv[0], AsCodec(codec)->Index, AsTranscoder(argv[1])->Style,
+            AsTranscoder(argv[1])->Mode));
 }
 
 Define("make-buffered-port", MakeBufferedPortPrimitive)(long_t argc, FObject argv[])

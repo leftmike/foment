@@ -94,12 +94,10 @@ void WriteProcedure(FWriteContext * wctx, FObject obj)
 // ---- Dynamic ----
 
 #define AsDynamic(obj) ((FDynamic *) (obj))
-#define DynamicP(obj) BuiltinP(obj, DynamicType)
-EternalBuiltinType(DynamicType, "dynamic", 0);
+#define DynamicP(obj) (ObjectTag(obj) == DynamicTag)
 
 typedef struct
 {
-    FObject BuiltinType;
     FObject Who;
     FObject CStackPtr;
     FObject AStackPtr;
@@ -111,7 +109,7 @@ static FObject MakeDynamic(FObject who, FObject cdx, FObject adx, FObject ml)
     FAssert(FixnumP(cdx));
     FAssert(FixnumP(adx));
 
-    FDynamic * dyn = (FDynamic *) MakeBuiltin(DynamicType, 5, "make-dynamic");
+    FDynamic * dyn = (FDynamic *) MakeObject(DynamicTag, sizeof(FDynamic), 4, "make-dynamic");
     dyn->Who = who;
     dyn->CStackPtr = cdx;
     dyn->AStackPtr = adx;
@@ -131,12 +129,10 @@ static FObject MakeDynamic(FObject dyn, FObject ml)
 // ---- Continuation ----
 
 #define AsContinuation(obj) ((FContinuation *) (obj))
-#define ContinuationP(obj) BuiltinP(obj, ContinuationType)
-EternalBuiltinType(ContinuationType, "continuation", 0);
+#define ContinuationP(obj) (ObjectTag(obj) == ContinuationTag)
 
 typedef struct
 {
-    FObject BuiltinType;
     FObject CStackPtr;
     FObject CStack;
     FObject AStackPtr;
@@ -150,7 +146,8 @@ static FObject MakeContinuation(FObject cdx, FObject cv, FObject adx, FObject av
     FAssert(FixnumP(adx));
     FAssert(VectorP(av));
 
-    FContinuation * cont = (FContinuation *) MakeBuiltin(ContinuationType, 5, "make-continuation");
+    FContinuation * cont = (FContinuation *) MakeObject(ContinuationTag, sizeof(FContinuation), 4,
+            "make-continuation");
     cont->CStackPtr = cdx;
     cont->CStack = cv;
     cont->AStackPtr = adx;
