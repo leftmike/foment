@@ -650,47 +650,6 @@ static void WriteBox(FWriteContext * wctx, FObject obj)
     wctx->WriteStringC(">");
 }
 
-// ---- Builtin Types ----
-
-static void WriteBuiltinType(FWriteContext * wctx, FObject obj)
-{
-    wctx->WriteStringC("#<");
-    wctx->WriteStringC(AsBuiltinType(obj)->Name);
-    wctx->WriteStringC("-type>");
-}
-
-// ---- Builtins ----
-
-FObject MakeBuiltin(FObject bt, ulong_t sc, const char * who)
-{
-    FAssert(BuiltinTypeP(bt));
-
-    FBuiltin * bltn = (FBuiltin *) MakeObject(BuiltinTag, sc * sizeof(FObject), sc, who);
-    bltn->BuiltinType = bt;
-
-    return(bltn);
-}
-
-static void WriteBuiltin(FWriteContext * wctx, FObject obj)
-{
-    FAssert(BuiltinObjectP(obj));
-    FAssert(BuiltinTypeP(AsBuiltin(obj)->BuiltinType));
-
-    if (AsBuiltinType(AsBuiltin(obj)->BuiltinType)->Write != 0)
-        AsBuiltinType(AsBuiltin(obj)->BuiltinType)->Write(wctx, obj);
-    else
-    {
-        FCh s[16];
-        long_t sl = FixnumAsString((long_t) obj, s, 16);
-
-        wctx->WriteStringC("#<");
-        wctx->WriteStringC(AsBuiltinType(AsBuiltin(obj)->BuiltinType)->Name);
-        wctx->WriteStringC(": #x");
-        wctx->WriteString(s, sl);
-        wctx->WriteStringC(">");
-    }
-}
-
 // ---- Record Types ----
 
 FObject MakeRecordType(FObject nam, ulong_t nf, FObject flds[])
@@ -1429,8 +1388,6 @@ FObjectType ObjectTypes[] =
     [HashNodeTag] = {"hash-node", 3, WriteHashNode},
     [HashTableTag] = {"hash-table", 5, WriteHashTable},
     [EphemeronTag] = {"ephemeron", 0, WriteEphemeron},
-    [BuiltinTypeTag] = {"builtin-type", 0, WriteBuiltinType},
-    [BuiltinTag] = {"builtin", MAXIMUM_ULONG, WriteBuiltin},
     [CharSetTag] = {"char-set", 0, WriteCharSet},
     [SubprocessTag] = {"subprocess", 0, WriteSubprocess},
     [ExceptionTag] = {"exception", 5, WriteException},

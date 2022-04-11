@@ -723,37 +723,28 @@ static const char * WhereFrom(FObject obj, long_t * idx)
 
 static void PrintObjectString(FObject obj)
 {
-    if (BuiltinObjectP(obj))
+    if (TextualPortP(obj) || BinaryPortP(obj))
+        obj = AsGenericPort(obj)->Name;
+    else if (ProcedureP(obj))
+        obj = AsProcedure(obj)->Name;
+    else if (RecordTypeP(obj))
+        obj = AsRecordType(obj)->Fields[0];
+    else if (GenericRecordP(obj))
     {
-        FMustBe(BuiltinTypeP(AsBuiltin(obj)->BuiltinType));
+        FMustBe(RecordTypeP(AsGenericRecord(obj)->Fields[0]));
 
-        printf(" %s", AsBuiltinType(AsBuiltin(obj)->BuiltinType)->Name);
+        obj = AsRecordType(AsGenericRecord(obj)->Fields[0])->Fields[0];
     }
-    else
+
+    if (SymbolP(obj))
+        obj = SymbolToString(obj);
+
+    if (StringP(obj))
     {
-        if (TextualPortP(obj) || BinaryPortP(obj))
-            obj = AsGenericPort(obj)->Name;
-        else if (ProcedureP(obj))
-            obj = AsProcedure(obj)->Name;
-        else if (RecordTypeP(obj))
-            obj = AsRecordType(obj)->Fields[0];
-        else if (GenericRecordP(obj))
-        {
-            FMustBe(RecordTypeP(AsGenericRecord(obj)->Fields[0]));
+        printf(" ");
 
-            obj = AsRecordType(AsGenericRecord(obj)->Fields[0])->Fields[0];
-        }
-
-        if (SymbolP(obj))
-            obj = SymbolToString(obj);
-
-        if (StringP(obj))
-        {
-            printf(" ");
-
-            for (ulong_t idx = 0; idx < StringLength(obj); idx++)
-                putc(AsString(obj)->String[idx], stdout);
-        }
+        for (ulong_t idx = 0; idx < StringLength(obj); idx++)
+            putc(AsString(obj)->String[idx], stdout);
     }
 }
 
@@ -1645,7 +1636,6 @@ long_t SetupCore(FThreadState * ts)
     FAssert(sizeof(FObjFtr) == OBJECT_ALIGNMENT);
     FAssert(BadDogTag <= OBJHDR_TAG_MASK + 1);
     FAssert(sizeof(FObject) <= OBJECT_ALIGNMENT);
-    FAssert(sizeof(FBuiltinType) % OBJECT_ALIGNMENT == 0);
     FAssert(sizeof(FCString) % OBJECT_ALIGNMENT == 0);
     FAssert(sizeof(FSymbol) % OBJECT_ALIGNMENT == 0);
     FAssert(sizeof(FPrimitive) % OBJECT_ALIGNMENT == 0);

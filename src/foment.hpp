@@ -26,7 +26,6 @@ uint64_t FHeader;
 #define HEADER_PAD_SHIFT               16
 #define HEADER_SIZE_SHIFT              17
 
--- Convert all builtins to objects
 -- 64bit: SlotCount() (h >> HEADER_SIZE_SHIFT)
 -- 32bit: SlotCount() (h >> HEADER_SIZE_SHIFT) / 2 - ((h & HEADER_FLAG_PAD) >> HEADER_PAD_SHIFT)
 
@@ -244,8 +243,6 @@ typedef enum
     HashNodeTag,
     HashTableTag,
     EphemeronTag,
-    BuiltinTypeTag,
-    BuiltinTag,
     CharSetTag,
     SubprocessTag,
     ExceptionTag,
@@ -941,52 +938,6 @@ typedef struct
 } FObjectType;
 
 extern FObjectType ObjectTypes[];
-
-// ---- Builtin Types ----
-
-#define BuiltinTypeP(obj) (ObjectTag(obj) == BuiltinTypeTag)
-#define AsBuiltinType(obj) ((FBuiltinType *) (obj))
-
-typedef struct
-{
-    const char * Name;
-    FObjectWriteFn Write;
-} FBuiltinType;
-
-typedef struct FALIGN
-{
-    FObjHdr ObjHdr;
-    FBuiltinType BuiltinType;
-    FObjFtr ObjFtr;
-} FEternalBuiltinType;
-
-#define EternalBuiltinType(name, string, writefn) \
-    static FEternalBuiltinType name ## Object = \
-    { \
-        EternalObjHdr(FBuiltinType, 0, BuiltinTypeTag),  \
-        {string, writefn}, \
-        EternalObjFtr \
-    }; \
-    FObject name = &name ## Object.BuiltinType;
-
-// ---- Builtins ----
-
-#define BuiltinObjectP(obj) (ObjectTag(obj) == BuiltinTag)
-#define AsBuiltin(obj) ((FBuiltin *) (obj))
-
-typedef struct
-{
-    FObject BuiltinType; // must be FBuiltinType
-} FBuiltin;
-
-FObject MakeBuiltin(FObject bt, ulong_t sc, const char * who);
-
-inline long_t BuiltinP(FObject obj, FObject bt)
-{
-    FAssert(BuiltinTypeP(bt));
-
-    return(BuiltinObjectP(obj) && AsBuiltin(obj)->BuiltinType == bt);
-}
 
 // ---- Record Types ----
 
