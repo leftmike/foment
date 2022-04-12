@@ -7,8 +7,8 @@ PATH = $(PATH);../windows/debug
 TEST_OPTIONS = --check-heap
 TEST_BUILD = debug
 
-CLDEBUG = /nologo /MD /W3 /EHsc /Zi /Od /c /Fodebug\ /DFOMENT_DEBUG /DFOMENT_WINDOWS
-CLRELEASE = /nologo /MD /W3 /Ox /Zi /GA /EHsc /Forelease\ /c /DFOMENT_WINDOWS
+CLDEBUG = /nologo /MD /W3 /EHsc /Zi /Od /c /Fodebug\ /DFOMENT_DEBUG /DFOMENT_WINDOWS /std:c++latest
+CLRELEASE = /nologo /MD /W3 /Ox /Zi /GA /EHsc /Forelease\ /c /DFOMENT_WINDOWS /std:c++latest
 
 LIBS = ws2_32.lib iphlpapi.lib
 

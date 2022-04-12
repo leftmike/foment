@@ -2099,7 +2099,7 @@ FObject OpenInputPipe(FFileHandle fh)
 #ifdef FOMENT_WINDOWS
     return(MakeTranscodedPort(
             MakeBufferedPort(MakeHandleInputPort(MakeStringC("input-pipe"), fh)),
-            LATIN1_CODEC_INDEX, StyleNode, ModeReplace));
+            LATIN1_CODEC_INDEX, StyleNone, ModeReplace));
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
@@ -4493,10 +4493,12 @@ void SetupIO()
         }
         else
         {
-            StandardInput = MakeLatin1Port(MakeBufferedPort(
-                    MakeHandleInputPort(MakeStringC("standard-input"), hin)));
-            StandardOutput = MakeLatin1Port(MakeBufferedPort(
-                    MakeHandleOutputPort(MakeStringC("standard-output"), hout)));
+            StandardInput = MakeTranscodedPort(MakeBufferedPort(
+                    MakeHandleInputPort(MakeStringC("standard-input"), hin)),
+                    LATIN1_CODEC_INDEX, StyleCRLF, ModeReplace);
+            StandardOutput = MakeTranscodedPort(MakeBufferedPort(
+                    MakeHandleOutputPort(MakeStringC("standard-output"), hout)),
+                    LATIN1_CODEC_INDEX, StyleCRLF, ModeReplace);
         }
     }
 
@@ -4507,8 +4509,10 @@ void SetupIO()
         if (GetConsoleMode(herr, &emd) != 0)
             StandardError = MakeConsoleOutputPort(MakeStringC("console-output"), herr);
         else
-            StandardError = MakeLatin1Port(
-                    MakeHandleOutputPort(MakeStringC("standard-error"), herr));
+            StandardError = MakeTranscodedPort(
+                    MakeHandleOutputPort(MakeStringC("standard-error"), herr),
+                    LATIN1_CODEC_INDEX, StyleCRLF, ModeReplace);
+
     }
 #endif // FOMENT_WINDOWS
 
