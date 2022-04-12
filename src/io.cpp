@@ -1691,10 +1691,10 @@ typedef struct
 
 static FCodecType CodecTypes[] =
 {
-    [ASCII_CODEC_INDEX] = {"ascii", "*ascii-codec*", AsciiReadCh, AsciiWriteString},
-    [LATIN1_CODEC_INDEX] = {"latin-1", "*latin-1-codec*", Latin1ReadCh, Latin1WriteString},
-    [UTF8_CODEC_INDEX] = {"utf-8", "*utf-8-codec*", Utf8ReadCh, Utf8WriteString},
-    [UTF16_CODEC_INDEX] = {"utf-16", "*utf-16-codec*", Utf16ReadCh, Utf16WriteString},
+    {"ascii", "*ascii-codec*", AsciiReadCh, AsciiWriteString},
+    {"latin-1", "*latin-1-codec*", Latin1ReadCh, Latin1WriteString},
+    {"utf-8", "*utf-8-codec*", Utf8ReadCh, Utf8WriteString},
+    {"utf-16", "*utf-16-codec*", Utf16ReadCh, Utf16WriteString},
 };
 
 #define AsCodec(obj) ((FCodec *) (obj))
