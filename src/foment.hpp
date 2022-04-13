@@ -932,6 +932,7 @@ typedef void (*FObjectWriteFn)(FWriteContext * wctx, FObject obj);
 
 typedef struct
 {
+    FObjectTag Tag;
     const char * Name;
     ulong_t SlotCount;
     FObjectWriteFn Write;

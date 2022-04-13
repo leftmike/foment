@@ -1678,6 +1678,7 @@ typedef void (*FWriteStringModeFn)(FObject port, FErrorMode mode, FCh * s, ulong
 
 typedef struct
 {
+    ulong_t Index;
     const char * Name;
     const char * Constant;
     FReadChModeFn ReadChFn;
@@ -1691,10 +1692,10 @@ typedef struct
 
 static FCodecType CodecTypes[] =
 {
-    {"ascii", "*ascii-codec*", AsciiReadCh, AsciiWriteString},
-    {"latin-1", "*latin-1-codec*", Latin1ReadCh, Latin1WriteString},
-    {"utf-8", "*utf-8-codec*", Utf8ReadCh, Utf8WriteString},
-    {"utf-16", "*utf-16-codec*", Utf16ReadCh, Utf16WriteString},
+    {ASCII_CODEC_INDEX, "ascii", "*ascii-codec*", AsciiReadCh, AsciiWriteString},
+    {LATIN1_CODEC_INDEX, "latin-1", "*latin-1-codec*", Latin1ReadCh, Latin1WriteString},
+    {UTF8_CODEC_INDEX, "utf-8", "*utf-8-codec*", Utf8ReadCh, Utf8WriteString},
+    {UTF16_CODEC_INDEX, "utf-16", "*utf-16-codec*", Utf16ReadCh, Utf16WriteString},
 };
 
 #define AsCodec(obj) ((FCodec *) (obj))
@@ -4467,6 +4468,11 @@ void FlushStandardPorts()
 
 void SetupIO()
 {
+#ifdef FOMENT_DEBUG
+    for (ulong_t idx = 0; idx < sizeof(CodecTypes) / sizeof(FCodecType); idx += 1)
+        FAssert(CodecTypes[idx].Index == idx);
+#endif // FOMENT_DEBUG
+
     RegisterRoot(&StandardInput, "standard-input");
     RegisterRoot(&StandardOutput, "standard-output");
     RegisterRoot(&StandardError, "standard-error");
