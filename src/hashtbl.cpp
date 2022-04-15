@@ -1077,13 +1077,13 @@ FObject InternSymbol(FObject sym)
 {
     FAssert(SymbolP(sym));
     FAssert(((ulong_t) sym) % OBJECT_ALIGNMENT == 0);
-    FAssert(AsObjHdr(sym)->Generation() == OBJHDR_GEN_ETERNAL);
+    FAssert(EternalP(sym));
     FAssert(AsObjHdr(sym)->SlotCount() == 1);
     FAssert(AsObjHdr(sym)->ObjectSize() >= sizeof(FSymbol));
 
     FAssert(CStringP(AsSymbol(sym)->String));
     FAssert(((ulong_t) AsSymbol(sym)->String) % OBJECT_ALIGNMENT == 0);
-    FAssert(AsObjHdr(AsSymbol(sym)->String)->Generation() == OBJHDR_GEN_ETERNAL);
+    FAssert(EternalP(AsSymbol(sym)->String));
     FAssert(AsObjHdr(AsSymbol(sym)->String)->SlotCount() == 0);
     FAssert(AsObjHdr(AsSymbol(sym)->String)->ObjectSize() >= sizeof(FCString));
 

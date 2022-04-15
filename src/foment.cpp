@@ -837,7 +837,7 @@ void DefinePrimitive(FObject env, FObject lib, FObject prim)
 {
     FAssert(PrimitiveP(prim));
     FAssert(((ulong_t) prim) % OBJECT_ALIGNMENT == 0);
-    FAssert(AsObjHdr(prim)->Generation() == OBJHDR_GEN_ETERNAL);
+    FAssert(EternalP(prim));
     FAssert(AsObjHdr(prim)->SlotCount() == 1);
     FAssert(AsObjHdr(prim)->ObjectSize() >= sizeof(FPrimitive));
 

@@ -266,7 +266,7 @@ typedef enum
     PatternRepeatTag,
     TemplateRepeatTag,
     SyntaxRuleTag,
-    FreeTag, // Only on Adult Generation
+    FreeTag, // XXX
     BadDogTag // Invalid Tag
 } FObjectTag;
 
@@ -390,6 +390,8 @@ inline FObjHdr * AsObjHdr(FObject obj)
 
     return(((FObjHdr *) obj) - 1);
 }
+
+#define EternalP(obj) (AsObjHdr(obj)->Generation() == OBJHDR_GEN_ETERNAL)
 
 typedef struct
 {

@@ -864,7 +864,7 @@ static void CheckObject(FObject obj, long_t idx, long_t ef)
 Again:
     if (ObjectP(obj))
     {
-        FCheck(ef == 0 || AsObjHdr(obj)->Generation() == OBJHDR_GEN_ETERNAL, AsObjHdr(obj));
+        FCheck(ef == 0 || EternalP(obj), AsObjHdr(obj));
 
         if (CheckMarkP(obj))
             goto Done;
