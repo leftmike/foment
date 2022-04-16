@@ -1036,19 +1036,19 @@ void CheckHeap(const char * fn, int ln)
     LeaveExclusive(&GCExclusive);
 }
 
-static void ScanObject(FObject * pobj);
-static inline void LiveObject(FObject * pobj)
+static void ScanObject(FObject obj);
+static inline void LiveObject(FObject obj)
 {
-    if (ObjectP(*pobj))
-        ScanObject(pobj);
+    if (ObjectP(obj))
+        ScanObject(obj);
 }
 
-static void ScanObject(FObject * pobj)
+static void ScanObject(FObject obj)
 {
 Again:
-    FAssert(ObjectP(*pobj));
+    FAssert(ObjectP(obj));
 
-    FObjHdr * oh = AsObjHdr(*pobj);
+    FObjHdr * oh = AsObjHdr(obj);
 
     if (EphemeronKeyMarkP(oh))
     {
@@ -1066,9 +1066,9 @@ Again:
             if (eph->Key == key)
             {
                 LiveEphemerons += 1;
-                LiveObject(&eph->Key);
-                LiveObject(&eph->Datum);
-                LiveObject(&eph->HashTable);
+                LiveObject(eph->Key);
+                LiveObject(eph->Datum);
+                LiveObject(eph->HashTable);
 
                 *peph = eph->Next;
                 eph->Next = 0;
@@ -1102,13 +1102,13 @@ Again:
             ulong_t sdx = 0;
             while (sdx < sc - 1)
             {
-                LiveObject(oh->Slots() + sdx);
+                LiveObject(oh->Slots()[sdx]);
                 sdx += 1;
             }
 
             if (ObjectP(oh->Slots()[sdx]))
             {
-                pobj = oh->Slots() + sdx;
+                obj = oh->Slots()[sdx];
                 goto Again;
             }
         }
@@ -1124,9 +1124,9 @@ Again:
             if (KeyEphemeronMap == 0 || ObjectP(eph->Key) == 0 || AliveP(eph->Key))
             {
                 LiveEphemerons += 1;
-                LiveObject(&eph->Key);
-                LiveObject(&eph->Datum);
-                LiveObject(&eph->HashTable);
+                LiveObject(eph->Key);
+                LiveObject(eph->Datum);
+                LiveObject(eph->HashTable);
             }
             else
             {
@@ -1173,8 +1173,8 @@ static FGuardian * CollectGuardians()
                     grd->Next = Guardians;
                     Guardians = grd;
 
-                    LiveObject(&grd->Object);
-                    LiveObject(&grd->TConc);
+                    LiveObject(grd->Object);
+                    LiveObject(grd->TConc);
                 }
                 else
                 {
@@ -1201,8 +1201,8 @@ static FGuardian * CollectGuardians()
 
             grd->Next = final;
             final = grd;
-            LiveObject(&grd->Object);
-            LiveObject(&grd->TConc);
+            LiveObject(grd->Object);
+            LiveObject(grd->TConc);
         }
     }
 
@@ -1249,31 +1249,31 @@ static void Collect()
     LiveEphemerons = 0;
 
     for (ulong_t rdx = 0; rdx < RootsUsed; rdx++)
-        LiveObject(Roots[rdx]);
+        LiveObject(*Roots[rdx]);
 
     FThreadState * ts = Threads;
     while (ts != 0)
     {
-        LiveObject(&ts->Thread);
+        LiveObject(ts->Thread);
 
         for (FAlive * ap = ts->AliveList; ap != 0; ap = ap->Next)
-            LiveObject(ap->Pointer);
+            LiveObject(*(ap->Pointer));
 
         for (long_t adx = 0; adx < ts->AStackPtr; adx++)
-            LiveObject(ts->AStack + adx);
+            LiveObject(ts->AStack[adx]);
 
         for (long_t cdx = 0; cdx < ts->CStackPtr; cdx++)
-            LiveObject(ts->CStack - cdx);
+            LiveObject(*(ts->CStack - cdx));
 
-        LiveObject(&ts->Proc);
-        LiveObject(&ts->Frame);
-        LiveObject(&ts->DynamicStack);
-        LiveObject(&ts->Parameters);
+        LiveObject(ts->Proc);
+        LiveObject(ts->Frame);
+        LiveObject(ts->DynamicStack);
+        LiveObject(ts->Parameters);
 
         for (long_t idx = 0; idx < INDEX_PARAMETERS; idx++)
-            LiveObject(ts->IndexParameters + idx);
+            LiveObject(ts->IndexParameters[idx]);
 
-        LiveObject(&ts->NotifyObject);
+        LiveObject(ts->NotifyObject);
 
         ts->ObjectsSinceLast = 0;
         ts->BytesSinceLast = 0;
