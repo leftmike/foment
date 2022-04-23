@@ -279,6 +279,25 @@ inline ulong_t FObjHdr::ByteLength()
     return(ObjectSize() - Padding());
 }
 
+// Number of FObjects which must be at the beginning of the object.
+inline ulong_t FObjHdr::SlotCount()
+{
+#if defined(FOMENT_32BIT)
+    FAssert(Size * AllSlots() * 2 + ExtraSlots() >= Padding() / sizeof(FObject));
+
+    return(Size * AllSlots() * 2 + ExtraSlots() - Padding() / sizeof(FObject));
+#else // FOMENT_64BIT
+    return(Size * AllSlots() + ExtraSlots());
+#endif // FOMENT_64BIT
+}
+
+ulong_t XXXSlotCount(FObject obj)
+{
+    FAssert(ObjectP(obj));
+
+    return(AsObjHdr(obj)->SlotCount());
+}
+
 static inline void SetMark(FObjHdr * oh)
 {
     oh->Meta |= OBJHDR_MARK_FORWARD;

@@ -1078,14 +1078,15 @@ FObject InternSymbol(FObject sym)
     FAssert(SymbolP(sym));
     FAssert(((ulong_t) sym) % OBJECT_ALIGNMENT == 0);
     FAssert(EternalP(sym));
-    FAssert(AsObjHdr(sym)->SlotCount() == 1);
-    FAssert(AsObjHdr(sym)->ObjectSize() >= sizeof(FSymbol));
+    FAssert(ObjectTag(sym) == SymbolTag && ObjectTypes[ObjectTag(sym)].SlotCount == 1);
+    FAssert(XXXObjectSize(sym) >= sizeof(FSymbol));
 
     FAssert(CStringP(AsSymbol(sym)->String));
     FAssert(((ulong_t) AsSymbol(sym)->String) % OBJECT_ALIGNMENT == 0);
     FAssert(EternalP(AsSymbol(sym)->String));
-    FAssert(AsObjHdr(AsSymbol(sym)->String)->SlotCount() == 0);
-    FAssert(AsObjHdr(AsSymbol(sym)->String)->ObjectSize() >= sizeof(FCString));
+    FAssert(ObjectTag(AsSymbol(sym)->String) == CStringTag &&
+            ObjectTypes[ObjectTag(AsSymbol(sym)->String)].SlotCount == 0);
+    FAssert(XXXObjectSize(AsSymbol(sym)->String) >= sizeof(FCString));
 
     FObject obj = HashTableRef(SymbolHashTable, AsSymbol(sym)->String, NoValueObject);
     if (obj == NoValueObject)

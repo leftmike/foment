@@ -28,6 +28,7 @@ uint64_t FHeader;
 
 -- 64bit: SlotCount() (h >> HEADER_SIZE_SHIFT)
 -- 32bit: SlotCount() (h >> HEADER_SIZE_SHIFT) / 2 - ((h & HEADER_FLAG_PAD) >> HEADER_PAD_SHIFT)
+-- XXXObjectSize to ObjectSize
 
 -- SRFI 141 (scheme division)
 -- SRFI 151 (scheme bitwise)
@@ -372,18 +373,6 @@ public:
     uint32_t Generation() {return(Meta & OBJHDR_GEN_MASK);}
 } FObjHdr;
 
-// Number of FObjects which must be at the beginning of the object.
-inline ulong_t FObjHdr::SlotCount()
-{
-#if defined(FOMENT_32BIT)
-    FAssert(Size * AllSlots() * 2 + ExtraSlots() >= Padding() / sizeof(FObject));
-
-    return(Size * AllSlots() * 2 + ExtraSlots() - Padding() / sizeof(FObject));
-#else // FOMENT_64BIT
-    return(Size * AllSlots() + ExtraSlots());
-#endif // FOMENT_64BIT
-}
-
 inline FObjHdr * AsObjHdr(FObject obj)
 {
     FAssert(ObjectP(obj));
@@ -392,6 +381,8 @@ inline FObjHdr * AsObjHdr(FObject obj)
 }
 
 #define EternalP(obj) (AsObjHdr(obj)->Generation() == OBJHDR_GEN_ETERNAL)
+#define XXXObjectSize(obj) (AsObjHdr(obj)->ObjectSize())
+ulong_t XXXSlotCount(FObject obj);
 
 typedef struct
 {
@@ -904,7 +895,7 @@ void WriteVector(FWriteContext * wctx, FObject obj);
 FObject ListToVector(FObject obj);
 FObject VectorToList(FObject vec);
 
-#define VectorLength(obj) (AsObjHdr(obj)->SlotCount())
+#define VectorLength(obj) (XXXSlotCount(obj))
 
 // ---- Bytevectors ----
 
@@ -955,7 +946,7 @@ typedef struct
 FObject MakeRecordType(FObject nam, ulong_t nf, FObject flds[]);
 
 #define RecordTypeName(obj) AsRecordType(obj)->Fields[0]
-#define RecordTypeNumFields(obj) (AsObjHdr(obj)->SlotCount())
+#define RecordTypeNumFields(obj) (XXXSlotCount(obj))
 
 // ---- Records ----
 
@@ -979,7 +970,7 @@ inline long_t RecordP(FObject obj, FObject rt)
     return(GenericRecordP(obj) && AsGenericRecord(obj)->Fields[0] == rt);
 }
 
-#define RecordNumFields(obj) (AsObjHdr(obj)->SlotCount())
+#define RecordNumFields(obj) (XXXSlotCount(obj))
 
 // ---- Comparators ----
 

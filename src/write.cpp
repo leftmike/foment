@@ -185,7 +185,7 @@ Again:
             }
             else
             {
-                for (ulong_t idx = 0; idx < AsObjHdr(obj)->SlotCount(); idx++)
+                for (ulong_t idx = 0; idx < XXXSlotCount(obj); idx++)
                     FindSharedObjects(((FObject *) obj)[idx], wt);
             }
 

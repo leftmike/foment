@@ -838,8 +838,8 @@ void DefinePrimitive(FObject env, FObject lib, FObject prim)
     FAssert(PrimitiveP(prim));
     FAssert(((ulong_t) prim) % OBJECT_ALIGNMENT == 0);
     FAssert(EternalP(prim));
-    FAssert(AsObjHdr(prim)->SlotCount() == 1);
-    FAssert(AsObjHdr(prim)->ObjectSize() >= sizeof(FPrimitive));
+    FAssert(ObjectTag(prim) == PrimitiveTag && ObjectTypes[ObjectTag(prim)].SlotCount == 1);
+    FAssert(XXXObjectSize(prim) >= sizeof(FPrimitive));
 
     LibraryExport(lib, EnvironmentSet(env, InternSymbol(AsPrimitive(prim)->Name), prim));
 }
@@ -1101,7 +1101,7 @@ static long_t ObjectTypeTag(FObject obj)
 {
     if (ObjectP(obj))
     {
-        uint32_t tag = AsObjHdr(obj)->Tag();
+        FObjectTag tag = ObjectTag(obj);
 
         FAssert(tag >= 1 && tag < FreeTag);
 
