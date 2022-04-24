@@ -24,6 +24,7 @@
 * SRFI 125: Hash Tables
 * SRFI 128: Comparators
 * SRFI 133: Vector Library (R7RS-compatible)
+* SRFI 176: Version flag
 * SRFI 181: Custom ports (including transcoded ports)
 * SRFI 192: Port Positioning
 

@@ -614,14 +614,6 @@ Define("features", FeaturesPrimitive)(long_t argc, FObject argv[])
     return(Features);
 }
 
-Define("%set-features!", SetFeaturesPrimitive)(long_t argc, FObject argv[])
-{
-    FMustBe(argc == 1);
-
-    Features = argv[0];
-    return(NoValueObject);
-}
-
 // ---- Boxes ----
 
 FObject MakeBox(FObject val)
@@ -1244,7 +1236,6 @@ static FObject Primitives[] =
     CurrentJiffyPrimitive,
     JiffiesPerSecondPrimitive,
     FeaturesPrimitive,
-    SetFeaturesPrimitive,
     MakeRecordTypePrimitive,
     MakeRecordPrimitive,
     RecordPredicatePrimitive,

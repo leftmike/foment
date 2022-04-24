@@ -27,6 +27,49 @@ FObject EnvironmentVariables = NoValueObject;
 
 static FObject InteractiveOptions = EmptyListObject;
 
+// ---- Version Properties ----
+
+static const char * VersionProperties[] =
+{
+    "(command \"foment\")",
+    "(website \"https://github.com/leftmike/foment\")",
+    "(languages r7rs scheme)",
+#ifdef FOMENT_WINDOWS
+    "(encodings latin-1 ascii utf-8 utf-16)",
+#else // FOMENT_WINDOWS
+    "(encodings utf-8 ascii latin-1 utf-16)",
+#endif // FOMENT_WINDOWS
+    "(version \"" FOMENT_VERSION "\")",
+    // build.date
+    // build.platform
+    // build.branch: git rev-parse --abbrev-ref HEAD
+    // build.commit: git rev-parse HEAD
+    "(scheme.id foment)",
+    "(scheme.srfi 1 14 60 106 111 112 124 125 128 133 176 181 192)",
+    // c.version: https://sourceforge.net/p/predef/wiki/
+};
+
+typedef struct
+{
+    const char * Type;
+    ulong_t Size;
+} FTypeSize;
+
+static FTypeSize TypeSizes[] =
+{
+    {"int", sizeof(int) * 8},
+    {"unsigned int", sizeof(unsigned int) * 8},
+    {"long_t", sizeof(long_t) * 8},
+    {"ulong_t", sizeof(ulong_t) * 8},
+    {"int32_t", sizeof(int32_t) * 8},
+    {"uint32_t", sizeof(uint32_t) * 8},
+    {"int64_t", sizeof(int64_t) * 8},
+    {"uint64_t", sizeof(uint64_t) * 8},
+    {"void-pointer", sizeof(void *) * 8},
+    {"FCh", sizeof(FCh) * 8},
+    {"FObject", sizeof(FObject) * 8},
+};
+
 // ----------------
 
 #ifdef FOMENT_WINDOWS
@@ -275,10 +318,25 @@ static int UsageAction(FConfigWhen when)
     exit(0);
 }
 
+static int ShowVersion = 0;
 static int VersionAction(FConfigWhen when)
 {
-    printf("foment-" FOMENT_VERSION "\n");
-    exit(0);
+#ifdef FOMENT_DEBUG
+    printf("Foment Scheme " FOMENT_VERSION " (debug)\n\n");
+#else // FOMENT_DEBUG
+    printf("Foment Scheme " FOMENT_VERSION "\n\n");
+#endif // FOMENT_DEBUG
+
+    for (ulong_t idx = 0; idx < sizeof(VersionProperties) / sizeof(const char *); idx += 1)
+        printf("%s\n", VersionProperties[idx]);
+
+    printf("(c.type-bits");
+    for (ulong_t idx = 0; idx < sizeof(TypeSizes) / sizeof(FTypeSize); idx += 1)
+        printf(" (%s " ULONG_FMT ")", TypeSizes[idx].Type, TypeSizes[idx].Size);
+    printf(")\n");
+
+    ShowVersion = 1;
+    return(1);
 }
 
 static int SetBatch(FConfigWhen when)
@@ -346,8 +404,8 @@ static FConfigOption ConfigOptions[] =
     {'h', '?', "help", "usage", 0,
 "        Prints out the usage information for foment.",
         EarlyConfig, ActionConfig, 0, 0, 0, 0, UsageAction, 0},
-    {0, 0, "version", 0, 0,
-"        Prints out the current version number of foment.",
+    {'v', 'V', "version", 0, 0,
+"        Prints out version information about foment.",
         EarlyConfig, ActionConfig, 0, 0, 0, 0, VersionAction, 0},
 
     {0, 0, "collector", 0, 0, 0, NeverConfig, GetConfig, 0, 0, GetCollector, 0, 0, 0},
@@ -577,11 +635,34 @@ static FConfigOption * FindLongName(FChS * ln)
     return(0);
 }
 
+Define("version-alist", VersionAlistPrimitive)(long_t argc, FObject argv[])
+{
+    ZeroArgsCheck("version-alist", argc);
+
+    FObject lst = EmptyListObject;
+
+    for (ulong_t idx = 0; idx < sizeof(VersionProperties) / sizeof(const char *); idx += 1)
+        lst = MakePair(Read(MakeStringCInputPort(VersionProperties[idx])), lst);
+
+    lst = MakePair(MakePair(StringCToSymbol("scheme.features"), Features), lst);
+    lst = MakePair(MakePair(StringCToSymbol("scheme.path"), LibraryPath), lst);
+    lst = MakePair(MakePair(StringCToSymbol("scheme.extensions"), LibraryExtensions), lst);
+
+    FObject types = EmptyListObject;
+    for (ulong_t idx = 0; idx < sizeof(TypeSizes) / sizeof(FTypeSize); idx += 1)
+        types = MakePair(MakePair(StringCToSymbol(TypeSizes[idx].Type),
+                MakePair(MakeFixnum(TypeSizes[idx].Size), EmptyListObject)), types);
+
+    lst = MakePair(MakePair(StringCToSymbol("c.type-bits"), ReverseListModify(types)), lst);
+    return(ReverseListModify(lst));
+}
+
 static FObject Primitives[] =
 {
     ConfigPrimitive,
     SetConfigPrimitive,
-    InteractiveOptionsPrimitive
+    InteractiveOptionsPrimitive,
+    VersionAlistPrimitive
 };
 
 void SetupMain()
@@ -774,30 +855,42 @@ int main(int argc, FChS * argv[])
             LibraryPath = ReverseListModify(MakePair(MakeStringC("."), LibraryPath));
         LibraryPathOptions();
 
-        switch (RunMode)
+        if (ShowVersion != 0)
         {
-        case ProgramMode:
-            return(RunProgram(argv[pdx]));
-
-        case BatchMode:
-            if (TextualPortP(StandardInput) == 0)
+            WriteSimple(StandardOutput, MakePair(StringCToSymbol("scheme.features"), Features), 0);
+            WriteStringC(StandardOutput, "\n");
+            WriteSimple(StandardOutput, MakePair(StringCToSymbol("scheme.path"), LibraryPath), 0);
+            WriteStringC(StandardOutput, "\n");
+            WriteSimple(StandardOutput,
+                    MakePair(StringCToSymbol("scheme.extensions"), LibraryExtensions), 0);
+            WriteStringC(StandardOutput, "\n");
+        }
+        else
+        {
+            switch (RunMode)
             {
-                printf("error: standard input is not a textual port\n");
-                return(1);
+            case ProgramMode:
+                return(RunProgram(argv[pdx]));
+
+            case BatchMode:
+                if (TextualPortP(StandardInput) == 0)
+                {
+                    printf("error: standard input is not a textual port\n");
+                    return(1);
+                }
+                ExecuteProc(CompileProgram(AsGenericPort(StandardInput)->Name, StandardInput));
+                break;
+
+            case InteractiveMode:
+                ExecuteProc(InteractiveThunk);
+                break;
+
+            default:
+                FAssert(0);
             }
-            ExecuteProc(CompileProgram(AsGenericPort(StandardInput)->Name, StandardInput));
-            FlushStandardPorts();
-            break;
-
-        case InteractiveMode:
-            ExecuteProc(InteractiveThunk);
-            FlushStandardPorts();
-            break;
-
-        default:
-            FAssert(0);
         }
 
+        FlushStandardPorts();
         return(0);
     }
     catch (FObject obj)

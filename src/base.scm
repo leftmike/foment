@@ -594,6 +594,7 @@
         build-path
         config
         set-config!
+        version-alist
         reverse!
         full-command-line
         object-type-tag
@@ -2406,6 +2407,12 @@
         ephemeron-datum
         set-ephemeron-key!
         set-ephemeron-datum!)
+    )
+
+(define-library (srfi 176)
+    (import (foment base))
+    (export
+        version-alist)
     )
 
 (define-library (srfi 181)
