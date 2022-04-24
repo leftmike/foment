@@ -433,7 +433,6 @@ extern ulong_t MaximumStackSize;
 extern ulong_t MaximumHeapSize;
 extern ulong_t TriggerObjects;
 extern ulong_t TriggerBytes;
-extern ulong_t PartialPerFull;
 
 //
 // ---- Immediate Types ----

@@ -6,9 +6,6 @@
 
 (import (foment base))
 
-(write (features)) (newline)
-(write (config)) (newline)
-
 (define pass-count 0)
 (define fail-count 0)
 
@@ -79,4 +76,9 @@
                 (run-tests (cdr lst))))))
 
 (run-tests (cdr (command-line)))
+(when (> fail-count 0)
+    (write (features))
+    (newline)
+    (write (config))
+    (newline))
 (display "pass: ") (display pass-count) (display " fail: ") (display fail-count) (newline)

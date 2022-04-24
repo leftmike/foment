@@ -46,7 +46,6 @@ ulong_t MaximumHeapSize = 1024 * 1024 * 1024;
 
 ulong_t TriggerObjects = 1024 * 16;
 ulong_t TriggerBytes = TriggerObjects * (sizeof(FPair) + sizeof(FObjHdr));
-ulong_t PartialPerFull = 4;
 
 volatile ulong_t BytesAllocated = 0;
 volatile long_t GCRequired = 0;

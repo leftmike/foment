@@ -434,15 +434,9 @@ static FConfigOption ConfigOptions[] =
 "        Trigger garbage collection after at least the specified\n"
 "        number-of-objects have been allocated since the last collection",
         AnytimeConfig, ULongConfig, &TriggerObjects, 0, 0, 0, 0, 0},
-    {0, 0, "partial-per-full", 0, "number",
-"        Perform the specified number of partial garbage collections\n"
-"        before performing a full collection.",
-        AnytimeConfig, ULongConfig, &PartialPerFull, 0, 0, 0, 0, 0},
-
     {'b', 0, "batch", 0, 0,
 "        Run foment in batch mode: standard input is treated as a program.",
         LateConfig, ActionConfig, 0, 0, 0, 0, SetBatch, 0},
-
     {'i', 0, "interactive", "repl", 0,
 "        Run foment in an interactive session (repl).",
         LateConfig, ActionConfig, 0, 0, 0, 0, SetInteractive, 0},
@@ -548,9 +542,10 @@ Define("set-config!", SetConfigPrimitive)(long_t argc, FObject argv[])
 
 Define("%interactive-options", InteractiveOptionsPrimitive)(long_t argc, FObject argv[])
 {
+    // Should only be called once at interactive startup.
     FMustBe(argc == 0);
 
-    return(InteractiveOptions);
+    return(ReverseListModify(InteractiveOptions));
 }
 
 static void Usage()

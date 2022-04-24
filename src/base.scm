@@ -1712,6 +1712,10 @@
                 (else (string-append (get-environment-variable "HOME") "/.foment_history"))))
 
         (define (interactive-thunk)
+            (let ((options (%interactive-options)))
+                (when (not (null? options))
+                    (handle-interactive-options options (interaction-environment))
+                    (exit)))
             (when (console-port? (current-output-port))
                 (display "Foment Scheme ")
                 (display (implementation-version))
@@ -1719,7 +1723,6 @@
                     (display " (debug)"))
                 (newline))
             (let ((env (interaction-environment)))
-                (handle-interactive-options (%interactive-options) env)
                 (call-with-current-continuation
                     (lambda (exit)
                         (set-ctrl-c-notify! 'broadcast)
