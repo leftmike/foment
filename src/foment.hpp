@@ -361,10 +361,10 @@ private:
 public:
     uint32_t ExtraSlots() {return((Meta >> OBJHDR_EXTRA_SHIFT) & OBJHDR_EXTRA_MASK);}
 
-    // Size of the object in bytes, not including the ObjHdr and ObjFtr.
+    // Size of the object in bytes, not including the ObjHdr.
     ulong_t ObjectSize() {return(Size * sizeof(struct _FObjHdr));}
 
-    // Size in bytes including the ObjHdr and ObjFtr; defined in gc.cpp.
+    // Size in bytes including the ObjHdr; defined in gc.cpp.
     ulong_t TotalSize();
 
     ulong_t SlotCount();
@@ -385,21 +385,11 @@ inline FObjHdr * AsObjHdr(FObject obj)
 #define XXXObjectSize(obj) (AsObjHdr(obj)->ObjectSize())
 ulong_t XXXSlotCount(FObject obj);
 
-typedef struct
-{
-    uint32_t Feet[2];
-} FObjFtr;
-
-#define OBJFTR_FEET 0xDEADFEE7
-
 #define EternalObjHdr(type, sc, tag) \
     { \
         sizeof(type) / sizeof(FObjHdr), \
         tag | OBJHDR_GEN_ETERNAL | ((sc & OBJHDR_EXTRA_MASK) << OBJHDR_EXTRA_SHIFT) \
     }
-
-#define EternalObjFtr \
-    {{OBJFTR_FEET, OBJFTR_FEET}}
 
 FObject MakeObject(FObjectTag tag, ulong_t sz, ulong_t sc, const char * who, long_t pf = 0);
 
@@ -1052,14 +1042,12 @@ typedef struct FALIGN
 {
     FObjHdr ObjHdr;
     FCString String;
-    FObjFtr ObjFtr;
 } FEternalCString;
 
 typedef struct FALIGN
 {
     FObjHdr ObjHdr;
     FSymbol Symbol;
-    FObjFtr ObjFtr;
 } FEternalSymbol;
 
 #define EternalSymbol(name, string) \
@@ -1067,13 +1055,11 @@ typedef struct FALIGN
     { \
         EternalObjHdr(FCString, 0, CStringTag),  \
         {string}, \
-        EternalObjFtr \
     }; \
     static FEternalSymbol name ## Object = \
     { \
         EternalObjHdr(FSymbol, 1, SymbolTag), \
         {&name ## String.String}, \
-        EternalObjFtr \
     }; \
     FObject name = &name ## Object.Symbol;
 
@@ -1118,7 +1104,6 @@ typedef struct FALIGN
 {
     FObjHdr ObjHdr;
     FPrimitive Primitive;
-    FObjFtr ObjFtr;
 } FEternalPrimitive;
 
 #define Define(name, prim) \
@@ -1127,7 +1112,6 @@ typedef struct FALIGN
     static FEternalPrimitive prim ## Object = { \
         EternalObjHdr(FPrimitive, 1, PrimitiveTag), \
         {prim ## Symbol, prim ## Fn, __FILE__, __LINE__}, \
-        EternalObjFtr \
     }; \
     FObject prim = &prim ## Object.Primitive; \
     FObject prim ## Fn

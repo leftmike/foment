@@ -79,22 +79,14 @@ pthread_key_t ThreadKey;
 static ulong_t ClockTicksPerSecond;
 #endif // FOMENT_UNIX
 
-#define FOMENT_OBJFTR 1
-
-#ifdef FOMENT_OBJFTR
-#define OBJECT_HDRFTR_LENGTH (sizeof(FObjHdr) + sizeof(FObjFtr))
-#else // FOMENT_OBJFTR
-#define OBJECT_HDRFTR_LENGTH sizeof(FObjHdr)
-#endif // FOMENT_OBJFTR
-
 #define OBJHDR_MAXIMUM_SIZE 0xFFFFFFFF
 
 #ifdef FOMENT_32BIT
 #define MAXIMUM_TOTAL_LENGTH OBJHDR_MAXIMUM_SIZE
 #else // FOMENT_32BIT
-#define MAXIMUM_TOTAL_LENGTH (OBJECT_HDRFTR_LENGTH + OBJHDR_MAXIMUM_SIZE * OBJECT_ALIGNMENT)
+#define MAXIMUM_TOTAL_LENGTH (sizeof(FObjHdr) + OBJHDR_MAXIMUM_SIZE * OBJECT_ALIGNMENT)
 #endif // FOMENT_32BIT
-#define MINIMUM_TOTAL_LENGTH (OBJECT_HDRFTR_LENGTH + OBJECT_ALIGNMENT)
+#define MINIMUM_TOTAL_LENGTH (sizeof(FObjHdr) + OBJECT_ALIGNMENT)
 
 typedef struct _Guardian
 {
@@ -361,19 +353,8 @@ static inline int EphemeronKeyMarkP(FObjHdr * oh)
 
 inline ulong_t FObjHdr::TotalSize()
 {
-#ifdef FOMENT_OBJFTR
-    return(ObjectSize() + sizeof(FObjHdr) + sizeof(FObjFtr));
-#else // FOMENT_OBJFTR
     return(ObjectSize() + sizeof(FObjHdr));
-#endif // FOMENT_OBJFTR
 }
-
-#ifdef FOMENT_OBJFTR
-FObjFtr * AsObjFtr(FObjHdr * oh)
-{
-    return((FObjFtr *) (((char *) (oh + 1)) + oh->ObjectSize()));
-}
-#endif // FOMENT_OBJFTR
 
 static void InitializeObjHdr(FObjHdr * oh, ulong_t tsz, ulong_t tag, ulong_t gen, ulong_t sz,
     ulong_t sc)
@@ -381,12 +362,6 @@ static void InitializeObjHdr(FObjHdr * oh, ulong_t tsz, ulong_t tag, ulong_t gen
     FAssert(tsz - sizeof(FObjHdr) >= OBJECT_ALIGNMENT);
 
     ulong_t osz = tsz - sizeof(FObjHdr);
-
-#ifdef FOMENT_OBJFTR
-    FAssert(osz - sizeof(FObjFtr) >= OBJECT_ALIGNMENT);
-
-    osz -= sizeof(FObjFtr);
-#endif // FOMENT_OBJFTR
 
     FAssert(osz % OBJECT_ALIGNMENT == 0);
 
@@ -475,12 +450,6 @@ static FObjHdr * AllocateObject(ulong_t tsz, FObject exc)
 
                 oh = (FObjHdr *) (((char *) foh) + ftsz - tsz);
                 foh->Size = (uint32_t) ((foh->ObjectSize() - tsz) / OBJECT_ALIGNMENT);
-
-#ifdef FOMENT_OBJFTR
-                FObjFtr * of = AsObjFtr(foh);
-                of->Feet[0] = OBJFTR_FEET;
-                of->Feet[1] = OBJFTR_FEET;
-#endif // FOMENT_OBJFTR
                 break;
             }
 
@@ -535,9 +504,6 @@ FObject MakeObject(FObjectTag tag, ulong_t sz, ulong_t sc, const char * who, lon
     if (tsz == 0)
         tsz = OBJECT_ALIGNMENT;
     tsz += sizeof(FObjHdr);
-#ifdef FOMENT_OBJFTR
-    tsz += sizeof(FObjFtr);
-#endif // FOMENT_OBJFTR
 
     FAssert(tsz % OBJECT_ALIGNMENT == 0);
     FAssert(tag > 0);
@@ -574,12 +540,6 @@ FObject MakeObject(FObjectTag tag, ulong_t sz, ulong_t sc, const char * who, lon
     if (CollectorType != NoCollector &&
             (ts->ObjectsSinceLast > TriggerObjects || ts->BytesSinceLast > TriggerBytes))
         GCRequired = 1;
-
-#ifdef FOMENT_OBJFTR
-    FObjFtr * of = AsObjFtr(oh);
-    of->Feet[0] = OBJFTR_FEET;
-    of->Feet[1] = OBJFTR_FEET;
-#endif // FOMENT_OBJFTR
 
     FAssert(oh->ObjectSize() >= sz);
     FAssert(oh->SlotCount() == sc);
@@ -896,13 +856,6 @@ Again:
         FCheck(ObjectTag(obj) != FreeTag, oh);
         FCheck(oh->ObjectSize() >= oh->SlotCount() * sizeof(FObject), oh);
 
-#ifdef FOMENT_OBJFTR
-        FObjFtr * of = AsObjFtr(oh);
-
-        FCheck(of->Feet[0] == OBJFTR_FEET, oh);
-        FCheck(of->Feet[1] == OBJFTR_FEET, oh);
-#endif // FOMENT_OBJFTR
-
         if (PairP(obj))
         {
             CheckObject(AsPair(obj)->First, 0, ef);
@@ -983,20 +936,7 @@ static void CheckMemRegion(FMemRegion * mrgn, ulong_t used, ulong_t gen)
 
         FCheck(tsz >= osz + sizeof(FObjHdr), oh);
         FCheck(tsz % OBJECT_ALIGNMENT == 0, oh);
-
-#ifdef FOMENT_OBJFTR
-        FCheck(tsz >= osz + sizeof(FObjHdr) + sizeof(FObjFtr), oh);
-#endif // FOMENT_OBJFTR
-
         FCheck(cnt + tsz <= mrgn->BottomUsed, oh);
-
-#ifdef FOMENT_OBJFTR
-        FObjFtr * of = AsObjFtr(oh);
-
-        FCheck(of->Feet[0] == OBJFTR_FEET, oh);
-        FCheck(of->Feet[1] == OBJFTR_FEET, oh);
-#endif // FOMENT_OBJFTR
-
         FCheck(oh->Generation() == gen, oh);
         FCheck(gen == OBJHDR_GEN_ADULTS || (oh->Meta & OBJHDR_MARK_FORWARD) == 0, oh);
         FCheck(oh->SlotCount() * sizeof(FObject) <= oh->ObjectSize(), oh);
@@ -1651,7 +1591,6 @@ long_t SetupCore(FThreadState * ts)
     FAssert(sizeof(FObject) == sizeof(char *));
     FAssert(sizeof(FCh) <= sizeof(ulong_t));
     FAssert(sizeof(FObjHdr) == OBJECT_ALIGNMENT);
-    FAssert(sizeof(FObjFtr) == OBJECT_ALIGNMENT);
     FAssert(BadDogTag <= OBJHDR_TAG_MASK + 1);
     FAssert(sizeof(FObject) <= OBJECT_ALIGNMENT);
     FAssert(sizeof(FCString) % OBJECT_ALIGNMENT == 0);
