@@ -42,6 +42,7 @@ uint64_t FHeader;
 -- SRFI 229: Tagged Procedures
 
 -- IO: FAlive, EnterWait, and LeaveWait
+-- Allow GC on nested executions
 
 Future:
 -- Use extra generation for immortal objects which are precompiled libraries
@@ -414,7 +415,6 @@ void LeaveWait();
 
 void CheckHeap(const char * fn, int ln);
 void ReadyForGC();
-#define CheckForGC() if (GCRequired) ReadyForGC()
 
 void InstallGuardian(FObject obj, FObject tconc);
 

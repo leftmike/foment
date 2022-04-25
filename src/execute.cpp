@@ -342,7 +342,8 @@ static FObject Execute(FThreadState * ts)
             PrepareHandler(ts, NotifyHandler, NotifyHandlerSymbol, ts->NotifyObject);
         }
 
-        CheckForGC();
+        if (GCRequired && ts->NestedExecute == 0)
+            ReadyForGC();
 
         FAssert(VectorP(AsProcedure(ts->Proc)->Code));
         FAssert(ts->IP >= 0);
