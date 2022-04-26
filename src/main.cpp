@@ -40,13 +40,23 @@ static const char * VersionProperties[] =
     "(encodings utf-8 ascii latin-1 utf-16)",
 #endif // FOMENT_WINDOWS
     "(version \"" FOMENT_VERSION "\")",
-    // build.date
-    // build.platform
-    // build.branch: git rev-parse --abbrev-ref HEAD
-    // build.commit: git rev-parse HEAD
+#ifdef BUILD_DATE
+    "(build.date \"" BUILD_DATE "\")",
+#endif // BUILD_DATE
+#ifdef BUILD_PLATFORM
+    "(build.platform \"" BUILD_PLATFORM "\")",
+#endif // BUILD_PLATFORM
+#ifdef BUILD_BRANCH
+    "(build.branch \"" BUILD_BRANCH "\")",
+#endif // BUILD_BRANCH
+#ifdef BUILD_COMMIT
+    "(build.commit \"" BUILD_COMMIT "\")",
+#endif // BUILD_COMMIT
     "(scheme.id foment)",
     "(scheme.srfi 1 14 60 106 111 112 124 125 128 133 176 181 192)",
-    // c.version: https://sourceforge.net/p/predef/wiki/
+#ifdef C_VERSION
+    "(c.version \"" C_VERSION "\")",
+#endif // C_VERSION
 };
 
 typedef struct
