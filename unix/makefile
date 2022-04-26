@@ -15,15 +15,14 @@ ifdef FOMENT_BIG_ENDIAN
 	CFLAGS += -DFOMENT_LITTLE_ENDIAN=0
 endif
 
-BUILD_DATE := $(shell date -u '+%Y-%m-%dT%H:%MZ')
 BUILD_PLATFORM := $(shell uname -s -r -v -m)
 BUILD_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 BUILD_COMMIT := $(shell git rev-parse --short HEAD)
 C_VERSION := $(shell g++ -v 2>&1 | tail --lines=1)
 
-CFLAGS += -c -Wall -DFOMENT_UNIX -std=c++2a -DBUILD_DATE='"$(BUILD_DATE)"' \
+CFLAGS += -c -Wall -DFOMENT_UNIX -std=c++2a -DC_VERSION='"$(C_VERSION)"' \
     -DBUILD_PLATFORM='"$(BUILD_PLATFORM)"' -DBUILD_BRANCH='"$(BUILD_BRANCH)"' \
-    -DBUILD_COMMIT='"$(BUILD_COMMIT)"' -DC_VERSION='"$(C_VERSION)"'
+    -DBUILD_COMMIT='"$(BUILD_COMMIT)"'
 
 CCDEBUG   := -ggdb -DFOMENT_DEBUG $(CFLAGS)
 CCRELEASE := $(CFLAGS)

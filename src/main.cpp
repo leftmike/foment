@@ -40,9 +40,9 @@ static const char * VersionProperties[] =
     "(encodings utf-8 ascii latin-1 utf-16)",
 #endif // FOMENT_WINDOWS
     "(version \"" FOMENT_VERSION "\")",
-#ifdef BUILD_DATE
-    "(build.date \"" BUILD_DATE "\")",
-#endif // BUILD_DATE
+#if defined(__DATE__) && defined(__TIME__)
+    "(build.date \"" __DATE__ " " __TIME__ "\")",
+#endif
 #ifdef BUILD_PLATFORM
     "(build.platform \"" BUILD_PLATFORM "\")",
 #endif // BUILD_PLATFORM
