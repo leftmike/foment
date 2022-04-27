@@ -12,11 +12,14 @@ const char * props[] =
 #ifdef FOMENT_WINDOWS
     "build.branch",
     "build.commit",
-    0,
     "build.platform",
+    0,
     "c.version"
 #else // FOMENT_WINDOWS
-
+    "build.branch",
+    "build.commit",
+    "build.platform",
+    "c.version"
 #endif // FOMENT_WINDOWS
 };
 
@@ -27,7 +30,7 @@ int main(int argc, char * argv[])
     printf("// Do not modify; generated file\n\n");
     // Size must match BuildProperties in src/main.cpp
     printf("const char * BuildProperties[4] =\n{\n");
-    for (int idx = 0; idx < sizeof(props) / sizeof(char *); idx += 1)
+    for (unsigned int idx = 0; idx < sizeof(props) / sizeof(char *); idx += 1)
     {
         fgets(buf, sizeof(buf), stdin);
         if (props[idx] == 0)

@@ -15,28 +15,21 @@ ifdef FOMENT_BIG_ENDIAN
 	CFLAGS += -DFOMENT_LITTLE_ENDIAN=0
 endif
 
-BUILD_PLATFORM := $(shell uname -s -r -v -m)
-BUILD_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
-BUILD_COMMIT := $(shell git rev-parse --short HEAD)
-C_VERSION := $(shell g++ -v 2>&1 | tail --lines=1)
-
-CFLAGS += -c -Wall -DFOMENT_UNIX -std=c++2a -DC_VERSION='"$(C_VERSION)"' \
-    -DBUILD_PLATFORM='"$(BUILD_PLATFORM)"' -DBUILD_BRANCH='"$(BUILD_BRANCH)"' \
-    -DBUILD_COMMIT='"$(BUILD_COMMIT)"'
+CFLAGS += -c -Wall -DFOMENT_UNIX -std=c++2a
 
 CCDEBUG   := -ggdb -DFOMENT_DEBUG $(CFLAGS)
 CCRELEASE := $(CFLAGS)
 CCPROFILE := -pg $(CCRELEASE)
 
 .PHONY: all
-all: debug release debug/foment release/foment
+all: debug release debug/genprops debug/foment release/foment
 
 .PHONY: prof
 prof: profile profile/foment
 
 .PHONY: install
 install: all
-	sudo cp debug/foment /usr/local/bin
+	sudo cp release/foment /usr/local/bin
 
 .PHONY: clean
 clean: debug release profile
@@ -97,7 +90,13 @@ debug/foment: debug/foment.o debug/gc.o debug/syncthrd.o debug/compile.o debug/i
 		debug/library.o debug/execute.o debug/numbers.o debug/write.o\
 		debug/read.o debug/filesys.o debug/compare.o debug/main.o debug/hashtbl.o\
 		debug/bignums.o debug/charset.o debug/process.o debug/base.o
-	$(CXX)  $(LDFLAGS) -o debug/foment $^ -lpthread
+	git rev-parse --abbrev-ref HEAD > debug/buildprops.out
+	git rev-parse --short HEAD >> debug/buildprops.out
+	uname -s -r -v -m >> debug/buildprops.out
+	g++ -v 2>&1 | tail --lines=1 >> debug/buildprops.out
+	debug/genprops < debug/buildprops.out > debug/buildprops.cpp
+	$(CXX) $(CCDEBUG) -o debug/buildprops.o debug/buildprops.cpp
+	$(CXX)  $(LDFLAGS) -o debug/foment $^ debug/buildprops.o -lpthread
 
 release/foment: release/foment.o release/gc.o release/syncthrd.o release/compile.o release/io.o\
 		release/synrules.o release/synpass.o release/midpass.o release/genpass.o\
@@ -106,7 +105,13 @@ release/foment: release/foment.o release/gc.o release/syncthrd.o release/compile
 		release/write.o release/read.o release/filesys.o\
 		release/compare.o release/main.o release/hashtbl.o release/bignums.o release/charset.o\
 		release/process.o release/base.o
-	$(CXX) $(LDFLAGS) -o release/foment $^ -lpthread
+	git rev-parse --abbrev-ref HEAD > release/buildprops.out
+	git rev-parse --short HEAD >> release/buildprops.out
+	uname -s -r -v -m >> release/buildprops.out
+	g++ -v 2>&1 | tail --lines=1 >> release/buildprops.out
+	debug/genprops < release/buildprops.out > release/buildprops.cpp
+	$(CXX) $(CCRELEASE) -o release/buildprops.o release/buildprops.cpp
+	$(CXX) $(LDFLAGS) -o release/foment $^ release/buildprops.o -lpthread
 
 profile/foment: profile/foment.o profile/gc.o profile/syncthrd.o profile/compile.o profile/io.o\
 		profile/synrules.o profile/synpass.o profile/midpass.o profile/genpass.o\
@@ -215,4 +220,8 @@ debug/%: ../test/%.cpp
 debug/txt2cpp: ../src/txt2cpp.cpp
 	$(BUILD_CXX) $(CCDEBUG) ../src/txt2cpp.cpp -o debug/txt2cpp.o
 	$(BUILD_CXX) debug/txt2cpp.o -o debug/txt2cpp
+
+debug/genprops: ../src/genprops.cpp
+	$(BUILD_CXX) $(CCDEBUG) ../src/genprops.cpp -o debug/genprops.o
+	$(BUILD_CXX) debug/genprops.o -o debug/genprops
 
