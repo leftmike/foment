@@ -59,6 +59,9 @@ static const char * VersionProperties[] =
 #endif // C_VERSION
 };
 
+// Size must match BuildProperties in src/genprops.cpp
+extern const char * BuildProperties[4];
+
 typedef struct
 {
     const char * Type;
@@ -339,6 +342,9 @@ static int VersionAction(FConfigWhen when)
 
     for (ulong_t idx = 0; idx < sizeof(VersionProperties) / sizeof(const char *); idx += 1)
         printf("%s\n", VersionProperties[idx]);
+
+    for (ulong_t idx = 0; idx < sizeof(BuildProperties) / sizeof(const char *); idx += 1)
+        printf("%s\n", BuildProperties[idx]);
 
     printf("(c.type-bits");
     for (ulong_t idx = 0; idx < sizeof(TypeSizes) / sizeof(FTypeSize); idx += 1)

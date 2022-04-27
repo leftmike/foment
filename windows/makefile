@@ -12,13 +12,12 @@ CLRELEASE = /nologo /MD /W3 /Ox /Zi /GA /EHsc /Forelease\ /c /DFOMENT_WINDOWS /s
 
 LIBS = ws2_32.lib iphlpapi.lib
 
-all: debug release debug\foment.exe release\foment.exe debug\stdread.exe debug\stdwrite.exe\
-        debug\exitcode.exe debug\hang.exe
+all: debug release debug\genprops.exe debug\foment.exe release\foment.exe\
+        debug\stdread.exe debug\stdwrite.exe debug\exitcode.exe debug\hang.exe makefile
 
-clean: debug release manual
+clean: debug release
     del /Q debug\*
     del /Q release\*
-    del /Q manual\*
 
 test: all foment-test stress-test chibi-test process-test
 
@@ -60,9 +59,6 @@ debug:
 release:
     -mkdir release
 
-manual:
-    -mkdir manual
-
 debug\base.cpp: debug\txt2cpp.exe makefile ..\src\base.scm ..\src\srfi-106.scm ..\src\srfi-60.scm\
         ..\src\srfi-1.scm ..\src\srfi-128.scm ..\src\srfi-125.scm ..\src\srfi-133.scm\
         ..\src\srfi-14.scm
@@ -76,8 +72,14 @@ debug\foment.exe: debug\foment.obj debug\gc.obj debug\syncthrd.obj debug\compile
         debug\library.obj debug\execute.obj debug\numbers.obj debug\write.obj\
         debug\read.obj debug\filesys.obj debug\compare.obj debug\main.obj debug\hashtbl.obj\
         debug\bignums.obj debug\charset.obj debug\process.obj debug\base.obj
+    git rev-parse --abbrev-ref HEAD > debug\buildprops.out
+    git rev-parse --short HEAD >> debug\buildprops.out
+    ver >> debug\buildprops.out
+    cl > nul 2>> debug\buildprops.out
+    debug\genprops.exe < debug\buildprops.out > debug\buildprops.cpp
+    cl $(CLDEBUG) debug\buildprops.cpp
     link /nologo /subsystem:console /out:debug\foment.exe /debug /pdb:debug\foment.pdb\
-        /largeaddressaware $** $(LIBS)
+        /largeaddressaware $** debug\buildprops.obj $(LIBS)
 
 release\foment.exe: release\foment.obj release\gc.obj release\syncthrd.obj release\compile.obj\
         release\io.obj release\synrules.obj release\synpass.obj release\midpass.obj\
@@ -86,9 +88,15 @@ release\foment.exe: release\foment.obj release\gc.obj release\syncthrd.obj relea
         release\numbers.obj release\write.obj release\read.obj\
         release\filesys.obj release\compare.obj release\main.obj release\hashtbl.obj\
         release\bignums.obj release\charset.obj release\process.obj release\base.obj
+    git rev-parse --abbrev-ref HEAD > release\buildprops.out
+    git rev-parse --short HEAD >> release\buildprops.out
+    ver >> release\buildprops.out
+    cl > nul 2>> release\buildprops.out
+    debug\genprops.exe < release\buildprops.out > release\buildprops.cpp
+    cl $(CLRELEASE) release\buildprops.cpp
 #    link /nologo /subsystem:console /out:release\foment.exe $**
     link /nologo /subsystem:console /out:release\foment.exe /debug /pdb:release\foment.pdb\
-        /largeaddressaware $** $(LIBS)
+        /largeaddressaware $** release\buildprops.obj $(LIBS)
 
 debug\txt2cpp.exe: debug\txt2cpp.obj
     link /nologo /subsystem:console /out:debug\txt2cpp.exe debug\txt2cpp.obj
@@ -104,6 +112,9 @@ debug\exitcode.exe: debug\exitcode.obj
 
 debug\hang.exe: debug\hang.obj
     link /nologo /subsystem:console /out:debug\hang.exe debug\hang.obj
+
+debug\genprops.exe: debug\genprops.obj
+    link /nologo /subsystem:console /out:debug\genprops.exe debug\genprops.obj
 
 debug\foment.obj: ..\src\foment.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\unicode.hpp
 debug\gc.obj: ..\src\gc.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp
@@ -169,6 +180,7 @@ release\main.obj: ..\src\main.cpp ..\src\foment.hpp
 release\base.obj: debug\base.cpp
 
 debug\txt2cpp.obj: ..\src\txt2cpp.cpp
+debug\genprops.obj: ..\src\genprops.cpp
 
 debug\stdread.obj: ..\test\stdread.cpp
 debug\stdwrite.obj: ..\test\stdwrite.cpp
