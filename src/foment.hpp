@@ -343,7 +343,7 @@ long_t GrowMemRegionDown(FMemRegion * mrgn, ulong_t sz);
 
 #define OBJHDR_TAG_MASK           0x00000FFF
 
-typedef struct _FObjHdr
+typedef struct
 {
     // Size of the object in 8 byte chunks.
     uint32_t Size;
@@ -354,25 +354,47 @@ typedef struct _FObjHdr
     // Flags: 11 bits
     // Tag: 12 bits
     uint32_t Meta;
-
-private:
-    uint32_t Padding() {return((Meta >> OBJHDR_PADDING_SHIFT) & OBJHDR_PADDING_MASK);}
-    uint32_t AllSlots() {return(Meta & OBJHDR_ALL_SLOTS ? 1 : 0);}
-public:
-    uint32_t ExtraSlots() {return((Meta >> OBJHDR_EXTRA_SHIFT) & OBJHDR_EXTRA_MASK);}
-
-    // Size of the object in bytes, not including the ObjHdr.
-    ulong_t ObjectSize() {return(Size * sizeof(struct _FObjHdr));}
-
-    // Size in bytes including the ObjHdr; defined in gc.cpp.
-    ulong_t TotalSize();
-
-    ulong_t SlotCount();
-    ulong_t ByteLength();
-    uint32_t Tag() {return(Meta & OBJHDR_TAG_MASK);}
-    FObject * Slots() {return((FObject *) (this + 1));}
-    uint32_t Generation() {return(Meta & OBJHDR_GEN_MASK);}
 } FObjHdr;
+
+inline uint32_t Padding(FObjHdr * oh)
+{
+    return((oh->Meta >> OBJHDR_PADDING_SHIFT) & OBJHDR_PADDING_MASK);
+}
+
+inline uint32_t AllSlots(FObjHdr * oh)
+{
+    return(oh->Meta & OBJHDR_ALL_SLOTS ? 1 : 0);
+}
+
+inline uint32_t ExtraSlots(FObjHdr * oh)
+{
+    return((oh->Meta >> OBJHDR_EXTRA_SHIFT) & OBJHDR_EXTRA_MASK);
+}
+
+// Size of the object in bytes, not including the ObjHdr.
+inline ulong_t ObjectSize(FObjHdr * oh)
+{
+    return(oh->Size * sizeof(FObjHdr));
+}
+// Size in bytes including the ObjHdr; defined in gc.cpp.
+ulong_t TotalSize();
+
+ulong_t SlotCount();
+ulong_t ByteLength();
+inline uint32_t Tag(FObjHdr * oh)
+{
+    return(oh->Meta & OBJHDR_TAG_MASK);
+}
+
+inline FObject * Slots(FObjHdr * oh)
+{
+    return((FObject *) (oh + 1));
+}
+
+inline uint32_t Generation(FObjHdr * oh)
+{
+    return(oh->Meta & OBJHDR_GEN_MASK);
+}
 
 inline FObjHdr * AsObjHdr(FObject obj)
 {
@@ -381,8 +403,8 @@ inline FObjHdr * AsObjHdr(FObject obj)
     return(((FObjHdr *) obj) - 1);
 }
 
-#define EternalP(obj) (AsObjHdr(obj)->Generation() == OBJHDR_GEN_ETERNAL)
-#define XXXObjectSize(obj) (AsObjHdr(obj)->ObjectSize())
+#define EternalP(obj) (Generation(AsObjHdr(obj)) == OBJHDR_GEN_ETERNAL)
+#define XXXObjectSize(obj) (ObjectSize(AsObjHdr(obj)))
 ulong_t XXXSlotCount(FObject obj);
 
 #define EternalObjHdr(type, sc, tag) \
@@ -395,7 +417,7 @@ FObject MakeObject(FObjectTag tag, ulong_t sz, ulong_t sc, const char * who, lon
 
 inline FObjectTag ObjectTag(FObject obj)
 {
-    return((FObjectTag) (ObjectP(obj) ? AsObjHdr(obj)->Tag() : 0));
+    return((FObjectTag) (ObjectP(obj) ? Tag(AsObjHdr(obj)) : 0));
 }
 
 extern volatile long_t GCRequired;
