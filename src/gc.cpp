@@ -45,7 +45,7 @@ ulong_t MaximumHeapSize = 1024 * 1024 * 1024;
 #endif // FOMENT_32BIT
 
 ulong_t TriggerObjects = 1024 * 16;
-ulong_t TriggerBytes = TriggerObjects * (sizeof(FPair) + sizeof(FObjHdr));
+ulong_t TriggerBytes = TriggerObjects * (sizeof(FPair) + sizeof(FHeader));
 
 volatile ulong_t BytesAllocated = 0;
 volatile long_t GCRequired = 0;
@@ -61,8 +61,8 @@ FThreadState * Threads;
 #define FREE_OBJECTS 16
 static FMemRegion Objects;
 static ulong_t ObjectsUsed;
-static FObjHdr * BigFreeObjects;
-static FObjHdr * FreeObjects[FREE_OBJECTS];
+static FHeader * BigFreeObjects;
+static FHeader * FreeObjects[FREE_OBJECTS];
 
 typedef struct
 {
@@ -79,14 +79,15 @@ pthread_key_t ThreadKey;
 static ulong_t ClockTicksPerSecond;
 #endif // FOMENT_UNIX
 
+// XXX
 #define OBJHDR_MAXIMUM_SIZE 0xFFFFFFFF
 
 #ifdef FOMENT_32BIT
 #define MAXIMUM_TOTAL_LENGTH OBJHDR_MAXIMUM_SIZE
 #else // FOMENT_32BIT
-#define MAXIMUM_TOTAL_LENGTH (sizeof(FObjHdr) + OBJHDR_MAXIMUM_SIZE * OBJECT_ALIGNMENT)
+#define MAXIMUM_TOTAL_LENGTH (sizeof(FHeader) + OBJHDR_MAXIMUM_SIZE * OBJECT_ALIGNMENT)
 #endif // FOMENT_32BIT
-#define MINIMUM_TOTAL_LENGTH (sizeof(FObjHdr) + OBJECT_ALIGNMENT)
+#define MINIMUM_TOTAL_LENGTH (sizeof(FHeader) + OBJECT_ALIGNMENT)
 
 typedef struct _Guardian
 {
@@ -259,103 +260,100 @@ long_t GrowMemRegionDown(FMemRegion * mrgn, ulong_t sz)
     return(1);
 }
 
-// Number of bytes requested when the object was allocated; makes sense only for objects
-// without slots.
-inline ulong_t ByteLength(FObjHdr * oh)
+inline uint32_t Tag(FHeader h)
 {
-    FAssert((oh->Meta & OBJHDR_ALL_SLOTS) == 0);
-    FAssert(ExtraSlots(oh) == 0);
-    FAssert(ObjectSize(oh) >= Padding(oh));
+    return(h & HEADER_TAG_MASK);
+}
 
-    return(ObjectSize(oh) - Padding(oh));
+inline FHeader * ObjHeader(FObject obj)
+{
+    FAssert(ObjectP(obj));
+
+    return(((FHeader *) obj) - 1);
+}
+
+inline FObject * Slots(FHeader * oh)
+{
+    return((FObject *) (oh + 1));
 }
 
 // Number of FObjects which must be at the beginning of the object.
-inline ulong_t SlotCount(FObjHdr * oh)
+inline ulong_t SlotCount(FHeader h)
 {
-#if defined(FOMENT_32BIT)
-    FAssert(oh->Size * AllSlots(oh) * 2 + ExtraSlots(oh) >= Padding(oh) / sizeof(FObject));
+    uint32_t tag = h & HEADER_TAG_MASK;
 
-    return(oh->Size * AllSlots(oh) * 2 + ExtraSlots(oh) - Padding(oh) / sizeof(FObject));
-#else // FOMENT_64BIT
-    return(oh->Size * AllSlots(oh) + ExtraSlots(oh));
-#endif // FOMENT_64BIT
+    FAssert(tag < BadDogTag);
+
+    ulong_t sc = ObjectTypes[tag].SlotCount;
+    if (sc == MAXIMUM_ULONG)
+        return(h >> HEADER_SIZE_SHIFT);
+    return(sc);
+    // XXX: 32 bit: need to take into account pad
 }
 
 ulong_t XXXSlotCount(FObject obj)
 {
     FAssert(ObjectP(obj));
 
-    return(SlotCount(AsObjHdr(obj)));
+    return(SlotCount(AsHeader(obj)));
 }
 
-static inline void SetMark(FObjHdr * oh)
+static inline void SetMark(FHeader * oh)
 {
-    oh->Meta |= OBJHDR_MARK_FORWARD;
+    *oh |= HEADER_FLAG_MARK;
 }
 
-static inline void ClearMark(FObjHdr * oh)
+static inline void ClearMark(FHeader * oh)
 {
-    oh->Meta &= ~OBJHDR_MARK_FORWARD;
+    *oh &= ~HEADER_FLAG_MARK;
 }
 
-static inline int MarkP(FObjHdr * oh)
+static inline int MarkP(FHeader * oh)
 {
-    return(oh->Meta & OBJHDR_MARK_FORWARD);
-}
-
-static inline void SetForward(FObjHdr * oh)
-{
-    oh->Meta |= OBJHDR_MARK_FORWARD;
-}
-
-static inline int ForwardP(FObjHdr * oh)
-{
-    return(oh->Meta & OBJHDR_MARK_FORWARD);
+    return(*oh & HEADER_FLAG_MARK);
 }
 
 static inline int AliveP(FObject obj)
 {
-    FAssert(MarkP(AsObjHdr(obj)) == ForwardP(AsObjHdr(obj)));
-
-    return(MarkP(AsObjHdr(obj)));
+    return(MarkP(ObjHeader(obj)));
 }
 
 static inline void SetCheckMark(FObject obj)
 {
-    AsObjHdr(obj)->Meta |= OBJHDR_CHECK_MARK;
+    *ObjHeader(obj) |= HEADER_FLAG_CHECK;
 }
 
-static inline void ClearCheckMark(FObjHdr * oh)
+static inline void ClearCheckMark(FHeader * oh)
 {
-    oh->Meta &= ~OBJHDR_CHECK_MARK;
+    *oh &= ~HEADER_FLAG_CHECK;
 }
 
 static inline int CheckMarkP(FObject obj)
 {
-    return(AsObjHdr(obj)->Meta & OBJHDR_CHECK_MARK);
+    return(AsHeader(obj) & HEADER_FLAG_CHECK);
 }
 
 static inline void SetEphemeronKeyMark(FObject obj)
 {
-    AsObjHdr(obj)->Meta |= OBJHDR_EPHEMERON_KEY_MARK;
+    *ObjHeader(obj) |= HEADER_FLAG_EPHEMERON_KEY_MARK;
 }
 
-static inline void ClearEphemeronKeyMark(FObjHdr * oh)
+static inline void ClearEphemeronKeyMark(FHeader * oh)
 {
-    oh->Meta &= ~OBJHDR_EPHEMERON_KEY_MARK;
+    *oh &= ~HEADER_FLAG_EPHEMERON_KEY_MARK;
 }
 
-static inline int EphemeronKeyMarkP(FObjHdr * oh)
+static inline int EphemeronKeyMarkP(FHeader * oh)
 {
-    return(oh->Meta & OBJHDR_EPHEMERON_KEY_MARK);
+    return(*oh & HEADER_FLAG_EPHEMERON_KEY_MARK);
 }
 
-inline ulong_t TotalSize(FObjHdr * oh)
+inline ulong_t TotalSize(FHeader * oh)
 {
-    return(ObjectSize(oh) + sizeof(FObjHdr));
+    return(ObjectSize(*oh) + sizeof(FHeader));
 }
-
+#if 0
+// XXX
 static void InitializeObjHdr(FObjHdr * oh, ulong_t tsz, ulong_t tag, ulong_t gen, ulong_t sz,
     ulong_t sc)
 {
@@ -492,6 +490,7 @@ static FObjHdr * AllocateObject(ulong_t tsz, FObject exc)
 
     return(oh);
 }
+#endif // 0
 
 FObject MakeObject(FObjectTag tag, ulong_t sz, ulong_t sc, const char * who, long_t pf)
 {
@@ -501,9 +500,10 @@ FObject MakeObject(FObjectTag tag, ulong_t sz, ulong_t sc, const char * who, lon
     ulong_t tsz = sz;
 
     tsz += Align[tsz % OBJECT_ALIGNMENT];
-    if (tsz == 0)
-        tsz = OBJECT_ALIGNMENT;
-    tsz += sizeof(FObjHdr);
+    // XXX
+    //if (tsz == 0)
+    //    tsz = OBJECT_ALIGNMENT;
+    tsz += sizeof(FHeader);
 
     FAssert(tsz % OBJECT_ALIGNMENT == 0);
     FAssert(tag > 0);
@@ -525,12 +525,14 @@ FObject MakeObject(FObjectTag tag, ulong_t sz, ulong_t sc, const char * who, lon
         LargeCount += 1;
 
     EnterExclusive(&GCExclusive);
-    FObjHdr * oh = AllocateObject(tsz, MakeObjectOutOfMemory);
+    // XXX: AllocateObject(tsz, MakeObjectOutOfMemory);
+    FHeader * oh = (FHeader *) malloc(tsz);
     LeaveExclusive(&GCExclusive);
 
     FAssert(oh != 0);
 
-    InitializeObjHdr(oh, tsz, tag, OBJHDR_GEN_ADULTS, sz, sc);
+    *oh = (((tsz - sizeof(FHeader)) / sizeof(FHeader)) << HEADER_SIZE_SHIFT) | tag;
+    // XXX: InitializeObjHdr(oh, tsz, tag, OBJHDR_GEN_ADULTS, sz, sc);
 
     FThreadState * ts = GetThreadState();
     BytesAllocated += tsz;
@@ -541,9 +543,11 @@ FObject MakeObject(FObjectTag tag, ulong_t sz, ulong_t sc, const char * who, lon
             (ts->ObjectsSinceLast > TriggerObjects || ts->BytesSinceLast > TriggerBytes))
         GCRequired = 1;
 
-    FAssert(ObjectSize(oh) >= sz);
-    FAssert(SlotCount(oh) == sc);
-    FAssert(Tag(oh) == tag);
+    // XXX: printf("tag: %s SlotCount: %d sc: %d\n", ObjectTypes[tag].Name, SlotCount(*oh), sc);
+    // fflush(stdout);
+    FAssert(ObjectSize(*oh) >= sz);
+    FAssert(SlotCount(*oh) == sc);
+    FAssert(Tag(*oh) == tag);
 
     return(oh + 1);
 }
@@ -556,7 +560,7 @@ void RegisterRoot(FObject * root, const char * name)
     RootNames[RootsUsed] = name;
     RootsUsed += 1;
 }
-
+#if 0
 typedef struct
 {
     long_t Index;
@@ -1348,6 +1352,15 @@ static void Collect()
     if (CheckHeapFlag)
         CheckHeap(__FILE__, __LINE__);
 }
+#endif // 0
+static void Collect()
+{
+    // XXX: nothing
+}
+void CheckHeap(const char * fn, int ln)
+{
+    // XXX: nothin
+}
 
 void EnterWait()
 {
@@ -1590,8 +1603,8 @@ long_t SetupCore(FThreadState * ts)
     FAssert(sizeof(FObject) == sizeof(ulong_t));
     FAssert(sizeof(FObject) == sizeof(char *));
     FAssert(sizeof(FCh) <= sizeof(ulong_t));
-    FAssert(sizeof(FObjHdr) == OBJECT_ALIGNMENT);
-    FAssert(BadDogTag <= OBJHDR_TAG_MASK + 1);
+    FAssert(sizeof(FHeader) == OBJECT_ALIGNMENT);
+    FAssert(BadDogTag <= HEADER_TAG_MASK + 1);
     FAssert(sizeof(FObject) <= OBJECT_ALIGNMENT);
     FAssert(sizeof(FCString) % OBJECT_ALIGNMENT == 0);
     FAssert(sizeof(FSymbol) % OBJECT_ALIGNMENT == 0);
