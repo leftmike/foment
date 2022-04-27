@@ -3,32 +3,8 @@
 Foment
 
 To Do:
-- Object layout
--- 8 byte object header because of 8 byte alignment of objects
--- Execution
---- Type checking needs tag (12 bits?) of the object
---- Number of slots for variable length objects: SlotCount
---- Number of bytes for variable length objects: store on the object
--- Collector
---- Total length of the object in 8 byte chunks
---- Number of slots: lookup based on the tag
---- Flags: eternal, mark, check, ephemeron_key_mark, pad
--- SlotCount: Vectors, RecordTypes, Records
-
-uint64_t FHeader;
-#define HEADER_TAG_MASK                0x00FFF
-#define HEADER_FLAGS_MASK              0x1F000
-#define HEADER_FLAG_ETERNAL            0x01000
-#define HEADER_FLAG_MARK               0x02000
-#define HEADER_FLAG_CHECK              0x04000
-#define HEADER_FLAG_EPHEMERON_KEY_MARK 0x08000
-#define HEADER_FLAG_PAD                0x10000
-#define HEADER_PAD_SHIFT               16
-#define HEADER_SIZE_SHIFT              17
-
--- 64bit: SlotCount() (h >> HEADER_SIZE_SHIFT)
--- 32bit: SlotCount() (h >> HEADER_SIZE_SHIFT) / 2 - ((h & HEADER_FLAG_PAD) >> HEADER_PAD_SHIFT)
--- XXXObjectSize to ObjectSize
+-- Remove growing memory regions down
+-- Remove or fix CheckHeap
 
 -- SRFI 141 (scheme division)
 -- SRFI 151 (scheme bitwise)
@@ -221,7 +197,8 @@ typedef enum
 {
     // Object type tags
 
-    BignumTag = 0x01, // fix order of tags in gc.cpp
+    ZeroTag = 0, // Not used, invalid tag.
+    BignumTag = 1,
     RatioTag,
     ComplexTag,
     FlonumTag,
@@ -268,8 +245,7 @@ typedef enum
     PatternRepeatTag,
     TemplateRepeatTag,
     SyntaxRuleTag,
-    FreeTag, // XXX
-    BadDogTag // Invalid Tag
+    FreeTag
 } FObjectTag;
 
 #define ObjectP(obj) ((((ulong_t) (obj)) & 0x7) == 0x0)
@@ -325,99 +301,48 @@ void DeleteMemRegion(FMemRegion * mrgn);
 long_t GrowMemRegionUp(FMemRegion * mrgn, ulong_t sz);
 long_t GrowMemRegionDown(FMemRegion * mrgn, ulong_t sz);
 
-#define OBJHDR_PADDING_MASK       0x0F
-#define OBJHDR_PADDING_SHIFT      28
-#define OBJHDR_EXTRA_MASK         0x1F
-#define OBJHDR_EXTRA_SHIFT        23
+typedef uint64_t FHeader;
+#define HEADER_TAG_MASK                0x00FFF
+#define HEADER_FLAGS_MASK              0x1F000
+#define HEADER_FLAG_ETERNAL            0x01000
+#define HEADER_FLAG_MARK               0x02000
+#define HEADER_FLAG_CHECK              0x04000
+#define HEADER_FLAG_EPHEMERON_KEY_MARK 0x08000
+#define HEADER_FLAG_PAD                0x10000
+#define HEADER_PAD_SHIFT               16
+#define HEADER_SIZE_SHIFT              17
 
-#define OBJHDR_GEN_MASK           0x00600000
-//#define OBJHDR_GEN_BABIES         0x00000000
-//#define OBJHDR_GEN_KIDS           0x00200000
-#define OBJHDR_GEN_ADULTS         0x00400000
-#define OBJHDR_GEN_ETERNAL        0x00600000
+ulong_t SlotCount(FHeader h);
 
-#define OBJHDR_MARK_FORWARD       0x00100000
-#define OBJHDR_CHECK_MARK         0x00080000
-#define OBJHDR_ALL_SLOTS          0x00040000
-#define OBJHDR_EPHEMERON_KEY_MARK 0x00020000
-
-#define OBJHDR_TAG_MASK           0x00000FFF
-
-typedef struct
+// Size of the object in bytes, not including the FHeader.
+inline ulong_t ObjectSize(FHeader h)
 {
-    // Size of the object in 8 byte chunks.
-    uint32_t Size;
-
-    // Layed out as follows:
-    // Padding: 4 bits
-    // Extra Slots: 5 bits
-    // Flags: 11 bits
-    // Tag: 12 bits
-    uint32_t Meta;
-} FObjHdr;
-
-inline uint32_t Padding(FObjHdr * oh)
-{
-    return((oh->Meta >> OBJHDR_PADDING_SHIFT) & OBJHDR_PADDING_MASK);
+    return((ulong_t) ((h >> HEADER_SIZE_SHIFT) * sizeof(FHeader)));
 }
 
-inline uint32_t AllSlots(FObjHdr * oh)
-{
-    return(oh->Meta & OBJHDR_ALL_SLOTS ? 1 : 0);
-}
-
-inline uint32_t ExtraSlots(FObjHdr * oh)
-{
-    return((oh->Meta >> OBJHDR_EXTRA_SHIFT) & OBJHDR_EXTRA_MASK);
-}
-
-// Size of the object in bytes, not including the ObjHdr.
-inline ulong_t ObjectSize(FObjHdr * oh)
-{
-    return(oh->Size * sizeof(FObjHdr));
-}
-// Size in bytes including the ObjHdr; defined in gc.cpp.
-ulong_t TotalSize();
-
-ulong_t SlotCount();
-ulong_t ByteLength();
-inline uint32_t Tag(FObjHdr * oh)
-{
-    return(oh->Meta & OBJHDR_TAG_MASK);
-}
-
-inline FObject * Slots(FObjHdr * oh)
-{
-    return((FObject *) (oh + 1));
-}
-
-inline uint32_t Generation(FObjHdr * oh)
-{
-    return(oh->Meta & OBJHDR_GEN_MASK);
-}
-
-inline FObjHdr * AsObjHdr(FObject obj)
+inline FHeader AsHeader(FObject obj)
 {
     FAssert(ObjectP(obj));
 
-    return(((FObjHdr *) obj) - 1);
+    return(*(((FHeader *) obj) - 1));
 }
 
-#define EternalP(obj) (Generation(AsObjHdr(obj)) == OBJHDR_GEN_ETERNAL)
-#define XXXObjectSize(obj) (ObjectSize(AsObjHdr(obj)))
-ulong_t XXXSlotCount(FObject obj);
+inline ulong_t EternalP(FObject obj)
+{
+    FAssert(ObjectP(obj));
 
-#define EternalObjHdr(type, sc, tag) \
-    { \
-        sizeof(type) / sizeof(FObjHdr), \
-        tag | OBJHDR_GEN_ETERNAL | ((sc & OBJHDR_EXTRA_MASK) << OBJHDR_EXTRA_SHIFT) \
-    }
+    return(AsHeader(obj) & HEADER_FLAG_ETERNAL);
+}
 
-FObject MakeObject(FObjectTag tag, ulong_t sz, ulong_t sc, const char * who, long_t pf = 0);
+#define EternalHeader(type, tag) \
+    (((sizeof(type) / sizeof(FHeader)) << HEADER_SIZE_SHIFT) | tag |   \
+            HEADER_FLAG_ETERNAL)
+
+FObject MakeObject(FObjectTag tag, ulong_t sz, ulong_t sc, const char * who);
 
 inline FObjectTag ObjectTag(FObject obj)
 {
-    return((FObjectTag) (ObjectP(obj) ? Tag(AsObjHdr(obj)) : 0));
+    return((FObjectTag) (ObjectP(obj) ? AsHeader(obj) & HEADER_TAG_MASK : 0));
 }
 
 extern volatile long_t GCRequired;
@@ -906,7 +831,7 @@ void WriteVector(FWriteContext * wctx, FObject obj);
 FObject ListToVector(FObject obj);
 FObject VectorToList(FObject vec);
 
-#define VectorLength(obj) (XXXSlotCount(obj))
+#define VectorLength(obj) (SlotCount(AsHeader(obj)))
 
 // ---- Bytevectors ----
 
@@ -957,7 +882,7 @@ typedef struct
 FObject MakeRecordType(FObject nam, ulong_t nf, FObject flds[]);
 
 #define RecordTypeName(obj) AsRecordType(obj)->Fields[0]
-#define RecordTypeNumFields(obj) (XXXSlotCount(obj))
+#define RecordTypeNumFields(obj) (SlotCount(AsHeader(obj)))
 
 // ---- Records ----
 
@@ -981,7 +906,7 @@ inline long_t RecordP(FObject obj, FObject rt)
     return(GenericRecordP(obj) && AsGenericRecord(obj)->Fields[0] == rt);
 }
 
-#define RecordNumFields(obj) (XXXSlotCount(obj))
+#define RecordNumFields(obj) (SlotCount(AsHeader(obj)))
 
 // ---- Comparators ----
 
@@ -1062,25 +987,25 @@ typedef struct
 
 typedef struct FALIGN
 {
-    FObjHdr ObjHdr;
+    FHeader Header;
     FCString String;
 } FEternalCString;
 
 typedef struct FALIGN
 {
-    FObjHdr ObjHdr;
+    FHeader Header;
     FSymbol Symbol;
 } FEternalSymbol;
 
 #define EternalSymbol(name, string) \
     static FEternalCString name ## String = \
     { \
-        EternalObjHdr(FCString, 0, CStringTag),  \
+        EternalHeader(FCString, CStringTag),  \
         {string}, \
     }; \
     static FEternalSymbol name ## Object = \
     { \
-        EternalObjHdr(FSymbol, 1, SymbolTag), \
+        EternalHeader(FSymbol, SymbolTag), \
         {&name ## String.String}, \
     }; \
     FObject name = &name ## Object.Symbol;
@@ -1124,7 +1049,7 @@ typedef struct
 
 typedef struct FALIGN
 {
-    FObjHdr ObjHdr;
+    FHeader Header;
     FPrimitive Primitive;
 } FEternalPrimitive;
 
@@ -1132,7 +1057,7 @@ typedef struct FALIGN
     EternalSymbol(prim ## Symbol, name); \
     FObject prim ## Fn(long_t argc, FObject argv[]);\
     static FEternalPrimitive prim ## Object = { \
-        EternalObjHdr(FPrimitive, 1, PrimitiveTag), \
+        EternalHeader(FPrimitive, PrimitiveTag), \
         {prim ## Symbol, prim ## Fn, __FILE__, __LINE__}, \
     }; \
     FObject prim = &prim ## Object.Primitive; \

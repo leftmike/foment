@@ -831,7 +831,7 @@ void DefinePrimitive(FObject env, FObject lib, FObject prim)
     FAssert(((ulong_t) prim) % OBJECT_ALIGNMENT == 0);
     FAssert(EternalP(prim));
     FAssert(ObjectTag(prim) == PrimitiveTag && ObjectTypes[ObjectTag(prim)].SlotCount == 1);
-    FAssert(XXXObjectSize(prim) >= sizeof(FPrimitive));
+    FAssert(ObjectSize(AsHeader(prim)) >= sizeof(FPrimitive));
 
     LibraryExport(lib, EnvironmentSet(env, InternSymbol(AsPrimitive(prim)->Name), prim));
 }
@@ -1095,7 +1095,7 @@ static long_t ObjectTypeTag(FObject obj)
     {
         FObjectTag tag = ObjectTag(obj);
 
-        FAssert(tag >= 1 && tag < FreeTag);
+        FAssert(tag > ZeroTag && tag < FreeTag);
 
         return(tag + INDIRECT_TAG_OFFSET);
     }
@@ -1354,7 +1354,7 @@ static void FixupUName(char * s)
 
 FObjectType ObjectTypes[] =
 {
-    {(FObjectTag) 0, 0, 0, 0},
+    {ZeroTag, 0, 0, 0},
     {BignumTag, "bignum", 0, WriteNumber},
     {RatioTag, "ratio", 2, WriteNumber},
     {ComplexTag, "complex", 2, WriteNumber},
@@ -1431,8 +1431,7 @@ long_t SetupFoment(FThreadState * ts)
 
     // Likely a new object tag was added, but a corresponding entry is
     // missing from ObjectTypes just above this procedure in this file.
-    FAssert(sizeof(ObjectTypes) / sizeof(FObjectType) == BadDogTag);
-    FAssert(FreeTag + 1 == BadDogTag);
+    FAssert(sizeof(ObjectTypes) / sizeof(FObjectType) == FreeTag + 1);
 #ifdef FOMENT_DEBUG
     for (ulong_t idx = 0; idx < sizeof(ObjectTypes) / sizeof(FObjectType); idx += 1)
         FAssert(ObjectTypes[idx].Tag == idx);

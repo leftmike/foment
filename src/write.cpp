@@ -23,7 +23,7 @@ static inline long_t HasSlotsP(FObject obj)
         return(0);
 
     FObjectTag tag = ObjectTag(obj);
-    if (tag >= BadDogTag || ObjectTypes[tag].SlotCount == 0)
+    if (tag > FreeTag || ObjectTypes[tag].SlotCount == 0)
         return(0);
     return(1);
 }
@@ -185,7 +185,7 @@ Again:
             }
             else
             {
-                for (ulong_t idx = 0; idx < XXXSlotCount(obj); idx++)
+                for (ulong_t idx = 0; idx < SlotCount(AsHeader(obj)); idx++)
                     FindSharedObjects(((FObject *) obj)[idx], wt);
             }
 
@@ -221,7 +221,7 @@ void FWriteContext::WriteSimple(FObject obj)
     {
         FObjectTag tag = ObjectTag(obj);
 
-        if (tag < BadDogTag && ObjectTypes[tag].Write != 0)
+        if (tag < FreeTag && ObjectTypes[tag].Write != 0)
             ObjectTypes[tag].Write(this, obj);
         else
             WriteUnknown(this, obj);
