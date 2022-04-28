@@ -491,10 +491,6 @@ FObject MakeObject(FObjectTag tag, ulong_t sz, ulong_t sc, const char * who)
             (ts->ObjectsSinceLast > TriggerObjects || ts->BytesSinceLast > TriggerBytes))
         GCRequired = 1;
 
-    if (ObjectSize(*oh) < sz)
-        printf("ObjectSize(*oh): %u sz: %u tsz: %u %u\n", ObjectSize(*oh), sz, tsz,
-               MAXIMUM_ULONG);
-
     FAssert(ObjectSize(*oh) >= sz);
     FAssert(SlotCount(*oh) == sc);
     FAssert(Tag(*oh) == tag);
