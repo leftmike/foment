@@ -506,7 +506,7 @@ void RegisterRoot(FObject * root, const char * name)
     RootNames[RootsUsed] = name;
     RootsUsed += 1;
 }
-#if 0
+
 typedef struct
 {
     long_t Index;
@@ -719,7 +719,7 @@ static long_t CheckFailedCount;
 static long_t CheckCount;
 static long_t CheckTooDeep;
 
-static void FCheckFailed(const char * fn, long_t ln, const char * expr, FObjHdr * oh)
+static void FCheckFailed(const char * fn, long_t ln, const char * expr, FHeader * oh)
 {
     ulong_t idx;
 
@@ -731,13 +731,12 @@ static void FCheckFailed(const char * fn, long_t ln, const char * expr, FObjHdr 
 
     ulong_t tsz = TotalSize(oh);
     const char * tag = "unknown";
-    if (Tag(oh) > ZeroTag && Tag(oh) <= FreeTag)
-        tag = ObjectTypes[Tag(oh)].Name;
-    printf("tsz: " ULONG_FMT " osz: " ULONG_FMT " blen: " ULONG_FMT " slots: " ULONG_FMT
-            " tag: %s gen: 0x%x", tsz, ObjectSize(oh),
-            ByteLength(oh), SlotCount(oh), tag, Generation(oh));
+    if (Tag(*oh) > ZeroTag && Tag(*oh) <= FreeTag)
+        tag = ObjectTypes[Tag(*oh)].Name;
+    printf("tsz: " ULONG_FMT " osz: " ULONG_FMT " slots: " ULONG_FMT " tag: %s",
+            tsz, ObjectSize(*oh), SlotCount(*oh), tag);
     if (MarkP(oh))
-        printf("forward/mark");
+        printf(" mark");
     printf(" |");
     for (idx = 0; idx < tsz && idx < 64; idx++)
         printf(" %x", ((uint8_t *) oh)[idx]);
@@ -752,16 +751,16 @@ static void FCheckFailed(const char * fn, long_t ln, const char * expr, FObjHdr 
 #define FCheck(expr, oh)\
     if (! (expr)) FCheckFailed(__FILE__, __LINE__, #expr, oh)
 
-static long_t ValidAddress(FObjHdr * oh)
+static long_t ValidAddress(FHeader * oh)
 {
-    if (Generation(oh) == OBJHDR_GEN_ETERNAL)
+    if (*oh & HEADER_FLAG_ETERNAL)
         return(1);
 
     ulong_t tsz = TotalSize(oh);
     void * strt = oh;
     void * end = ((char *) oh) + tsz;
 
-    if (Objects.Base != 0 && strt >= Objects.Base && strt < ((char *) Objects.Base + ObjectsUsed)
+    if (Objects.Base != 0 && strt >= Objects.Base && strt < ((char *) Objects.Base) + ObjectsUsed
             && end <= ((char *) Objects.Base) + ObjectsUsed)
         return(1);
 
@@ -792,18 +791,18 @@ static void CheckObject(FObject obj, long_t idx, long_t ef)
 Again:
     if (ObjectP(obj))
     {
-        FCheck(ef == 0 || EternalP(obj), AsObjHdr(obj));
+        FCheck(ef == 0 || EternalP(obj), ObjHeader(obj));
 
         if (CheckMarkP(obj))
             goto Done;
         SetCheckMark(obj);
         CheckCount += 1;
 
-        FObjHdr * oh = AsObjHdr(obj);
+        FHeader * oh = ObjHeader(obj);
         FCheck(CheckMarkP(obj), oh);
         FCheck(ValidAddress(oh), oh);
-        FCheck(ObjectTag(obj) > FreeTag && ObjectTag(obj) < FreeTag, oh);
-        FCheck(ObjectSize(oh) >= SlotCount(oh) * sizeof(FObject), oh);
+        FCheck(ObjectTag(obj) > ZeroTag && ObjectTag(obj) < FreeTag, oh);
+        FCheck(ObjectSize(*oh) >= SlotCount(*oh) * sizeof(FObject), oh);
 
         if (PairP(obj))
         {
@@ -827,11 +826,9 @@ Again:
             CheckObject(AsEphemeron(obj)->Datum, 1, ef);
             CheckObject(AsEphemeron(obj)->HashTable, 2, ef);
         }
-        else if (SlotCount(AsObjHdr(obj)) > 0)
+        else if (SlotCount(AsHeader(obj)) > 0)
         {
-            FAssert(AsObjHdr(obj)->Meta & OBJHDR_ALL_SLOTS || ExtraSlots(AsObjHdr(obj)) > 0);
-
-            for (ulong_t idx = 0; idx < SlotCount(AsObjHdr(obj)); idx++)
+            for (ulong_t idx = 0; idx < SlotCount(AsHeader(obj)); idx++)
                 CheckObject(((FObject *) obj)[idx], idx, ef);
         }
     }
@@ -872,27 +869,25 @@ static void CheckThreadState(FThreadState * ts)
     CheckRoot(ts->NotifyObject, "thread-state.notify-object", -1);
 }
 
-static void CheckMemRegion(FMemRegion * mrgn, ulong_t used, ulong_t gen)
+static void CheckMemRegion(FMemRegion * mrgn, ulong_t used)
 {
-    FObjHdr * oh = (FObjHdr *) mrgn->Base;
+    FHeader * oh = (FHeader *) mrgn->Base;
     ulong_t cnt = 0;
 
     while (cnt < used)
     {
-        FCheck(cnt + sizeof(FObjHdr) <= mrgn->BottomUsed, oh);
-        ulong_t osz = ObjectSize(oh);
+        FCheck(cnt + sizeof(FHeader) <= mrgn->BottomUsed, oh);
+        ulong_t osz = ObjectSize(*oh);
         ulong_t tsz = TotalSize(oh);
 
-        FCheck(tsz >= osz + sizeof(FObjHdr), oh);
+        FCheck(tsz >= osz + sizeof(FHeader), oh);
         FCheck(tsz % OBJECT_ALIGNMENT == 0, oh);
         FCheck(cnt + tsz <= mrgn->BottomUsed, oh);
-        FCheck(Generation(oh) == gen, oh);
-        FCheck(gen == OBJHDR_GEN_ADULTS || (oh->Meta & OBJHDR_MARK_FORWARD) == 0, oh);
-        FCheck(SlotCount(oh) * sizeof(FObject) <= ObjectSize(oh), oh);
-        FCheck(Tag(oh) > FreeTag && Tag(oh) < FreeTag, oh);
+        FCheck(SlotCount(*oh) * sizeof(FObject) <= ObjectSize(*oh), oh);
+        FCheck(Tag(*oh) > ZeroTag && Tag(*oh) <= FreeTag, oh);
 
         ClearCheckMark(oh);
-        oh = (FObjHdr *) (((char *) oh) + tsz);
+        oh = (FHeader *) (((char *) oh) + tsz);
         cnt += tsz;
     }
 }
@@ -910,7 +905,7 @@ void CheckHeap(const char * fn, int ln)
     CheckStackPtr = 0;
 
     if (Objects.Base != 0)
-        CheckMemRegion(&Objects, ObjectsUsed, OBJHDR_GEN_ADULTS);
+        CheckMemRegion(&Objects, ObjectsUsed);
 
     for (ulong_t rdx = 0; rdx < RootsUsed; rdx++)
         CheckRoot(*Roots[rdx], RootNames[rdx], -1);
@@ -940,12 +935,6 @@ void CheckHeap(const char * fn, int ln)
         printf("CheckHeap: %s(%d)\n", fn, ln);
     FMustBe(CheckFailedCount == 0);
     LeaveExclusive(&GCExclusive);
-}
-#endif // 0
-
-void CheckHeap(const char * fn, int ln)
-{
-    // XXX: nothing
 }
 
 static void ScanObject(FObject obj);

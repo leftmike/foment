@@ -3,9 +3,6 @@
 Foment
 
 To Do:
--- Remove growing memory regions down
--- Remove or fix CheckHeap
-
 -- SRFI 141 (scheme division)
 -- SRFI 151 (scheme bitwise)
 -- SRFI 143 (scheme fixnum)
