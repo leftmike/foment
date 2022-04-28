@@ -79,15 +79,8 @@ pthread_key_t ThreadKey;
 static ulong_t ClockTicksPerSecond;
 #endif // FOMENT_UNIX
 
-// XXX
-#define OBJHDR_MAXIMUM_SIZE 0xFFFFFFFF
-
-#ifdef FOMENT_32BIT
-#define MAXIMUM_TOTAL_LENGTH OBJHDR_MAXIMUM_SIZE
-#else // FOMENT_32BIT
-#define MAXIMUM_TOTAL_LENGTH (sizeof(FHeader) + OBJHDR_MAXIMUM_SIZE * OBJECT_ALIGNMENT)
-#endif // FOMENT_32BIT
-#define MINIMUM_TOTAL_LENGTH (sizeof(FHeader) + OBJECT_ALIGNMENT)
+#define OBJECT_MAXIMUM_SLOTS (MAXIMUM_ULONG >> HEADER_SIZE_SHIFT)
+#define MAXIMUM_TOTAL_SIZE (sizeof(FHeader) + OBJECT_MAXIMUM_SLOTS * OBJECT_ALIGNMENT)
 
 typedef struct _Guardian
 {
@@ -277,25 +270,19 @@ inline FObject * Slots(FHeader * oh)
     return((FObject *) (oh + 1));
 }
 
-// Number of FObjects which must be at the beginning of the object.
-inline ulong_t SlotCount(FHeader h)
+// Number of slots (FObjects) which must be at the beginning of the object.
+ulong_t SlotCount(FHeader h)
 {
     uint32_t tag = h & HEADER_TAG_MASK;
 
-    FAssert(tag < BadDogTag);
+    FAssert(tag > ZeroTag);
+    FAssert(tag <= FreeTag);
 
     ulong_t sc = ObjectTypes[tag].SlotCount;
     if (sc == MAXIMUM_ULONG)
         return(h >> HEADER_SIZE_SHIFT);
     return(sc);
     // XXX: 32 bit: need to take into account pad
-}
-
-ulong_t XXXSlotCount(FObject obj)
-{
-    FAssert(ObjectP(obj));
-
-    return(SlotCount(AsHeader(obj)));
 }
 
 static inline void SetMark(FHeader * oh)
@@ -443,30 +430,24 @@ static FHeader * AllocateObject(ulong_t tsz, FObject exc)
     return(oh);
 }
 
-// XXX: remove pf
-FObject MakeObject(FObjectTag tag, ulong_t sz, ulong_t sc, const char * who, long_t pf)
+FObject MakeObject(FObjectTag tag, ulong_t sz, ulong_t sc, const char * who)
 {
-    FAssert(tag < BadDogTag &&
-            (ObjectTypes[tag].SlotCount == MAXIMUM_ULONG || ObjectTypes[tag].SlotCount == sc));
+    FAssert(tag > ZeroTag);
+    FAssert(tag < FreeTag);
+    FAssert(ObjectTypes[tag].SlotCount == MAXIMUM_ULONG || ObjectTypes[tag].SlotCount == sc);
 
     ulong_t tsz = sz;
 
     tsz += Align[tsz % OBJECT_ALIGNMENT];
-    // XXX
-    //if (tsz == 0)
-    //    tsz = OBJECT_ALIGNMENT;
     tsz += sizeof(FHeader);
 
     FAssert(tsz % OBJECT_ALIGNMENT == 0);
-    FAssert(tag > 0);
-    FAssert(tag < BadDogTag);
-    FAssert(tag != FreeTag);
     FAssert(sz >= sizeof(FObject) * sc);
 
-    if (tsz > MAXIMUM_TOTAL_LENGTH)
+    if (tsz > MAXIMUM_TOTAL_SIZE)
         RaiseException(Restriction, MakeObjectSymbol, NoValueObject, MakeStringC("object too big"),
                 EmptyListObject);
-    if (sc > OBJHDR_MAXIMUM_SIZE)
+    if (sc > OBJECT_MAXIMUM_SLOTS)
         RaiseException(Restriction, MakeObjectSymbol, NoValueObject, MakeStringC("too many slots"),
                 EmptyListObject);
 
@@ -494,8 +475,6 @@ FObject MakeObject(FObjectTag tag, ulong_t sz, ulong_t sc, const char * who, lon
             (ts->ObjectsSinceLast > TriggerObjects || ts->BytesSinceLast > TriggerBytes))
         GCRequired = 1;
 
-    // XXX: printf("tag: %s SlotCount: %d sc: %d\n", ObjectTypes[tag].Name, SlotCount(*oh), sc);
-    // fflush(stdout);
     FAssert(ObjectSize(*oh) >= sz);
     FAssert(SlotCount(*oh) == sc);
     FAssert(Tag(*oh) == tag);
@@ -641,7 +620,7 @@ static const char * WhereFrom(FObject obj, long_t * idx)
             break;
 
         default:
-            if (ObjectTag(obj) > 0 && ObjectTag(obj) < BadDogTag)
+            if (ObjectTag(obj) > ZeroTag && ObjectTag(obj) < FreeTag)
                 from = ObjectTypes[ObjectTag(obj)].Name;
             else
                 from = "unknown";
@@ -707,7 +686,7 @@ static void PrintCheckStack()
     FObject obj = CheckStack[CheckStackPtr - 1].Object;
     if (ObjectP(obj))
     {
-        if (ObjectTag(obj) > 0 && ObjectTag(obj) < BadDogTag)
+        if (ObjectTag(obj) > ZeroTag && ObjectTag(obj) <= FreeTag)
         {
             printf("%s: %p", ObjectTypes[ObjectTag(obj)].Name, obj);
             PrintObjectString(obj);
@@ -736,7 +715,7 @@ static void FCheckFailed(const char * fn, long_t ln, const char * expr, FObjHdr 
 
     ulong_t tsz = TotalSize(oh);
     const char * tag = "unknown";
-    if (Tag(oh) > 0 && Tag(oh) < BadDogTag)
+    if (Tag(oh) > ZeroTag && Tag(oh) <= FreeTag)
         tag = ObjectTypes[Tag(oh)].Name;
     printf("tsz: " ULONG_FMT " osz: " ULONG_FMT " blen: " ULONG_FMT " slots: " ULONG_FMT
             " tag: %s gen: 0x%x", tsz, ObjectSize(oh),
@@ -807,8 +786,7 @@ Again:
         FObjHdr * oh = AsObjHdr(obj);
         FCheck(CheckMarkP(obj), oh);
         FCheck(ValidAddress(oh), oh);
-        FCheck(ObjectTag(obj) > 0 && ObjectTag(obj) < BadDogTag, oh);
-        FCheck(ObjectTag(obj) != FreeTag, oh);
+        FCheck(ObjectTag(obj) > FreeTag && ObjectTag(obj) < FreeTag, oh);
         FCheck(ObjectSize(oh) >= SlotCount(oh) * sizeof(FObject), oh);
 
         if (PairP(obj))
@@ -895,8 +873,7 @@ static void CheckMemRegion(FMemRegion * mrgn, ulong_t used, ulong_t gen)
         FCheck(Generation(oh) == gen, oh);
         FCheck(gen == OBJHDR_GEN_ADULTS || (oh->Meta & OBJHDR_MARK_FORWARD) == 0, oh);
         FCheck(SlotCount(oh) * sizeof(FObject) <= ObjectSize(oh), oh);
-        FCheck(Tag(oh) > 0 && Tag(oh) < BadDogTag, oh);
-        FCheck(Tag(oh) != FreeTag || Generation(oh) == OBJHDR_GEN_ADULTS, oh);
+        FCheck(Tag(oh) > FreeTag && Tag(oh) < FreeTag, oh);
 
         ClearCheckMark(oh);
         oh = (FObjHdr *) (((char *) oh) + tsz);
@@ -1210,7 +1187,7 @@ static void Collect()
             while ((char *) noh < ((char *) Objects.Base) + ObjectsUsed)
             {
                 if (MarkP(noh)
-                    || ((char *) noh - (char *) oh) + TotalSize(noh) > MAXIMUM_TOTAL_LENGTH)
+                    || ((char *) noh - (char *) oh) + TotalSize(noh) > MAXIMUM_TOTAL_SIZE)
                     break;
                 noh = (FHeader *) (((char *) noh) + TotalSize(noh));
             }
@@ -1547,7 +1524,7 @@ long_t SetupCore(FThreadState * ts)
     FAssert(sizeof(FObject) == sizeof(char *));
     FAssert(sizeof(FCh) <= sizeof(ulong_t));
     FAssert(sizeof(FHeader) == OBJECT_ALIGNMENT);
-    FAssert(BadDogTag <= HEADER_TAG_MASK + 1);
+    FAssert(FreeTag <= HEADER_TAG_MASK + 1);
     FAssert(sizeof(FObject) <= OBJECT_ALIGNMENT);
     FAssert(sizeof(FCString) % OBJECT_ALIGNMENT == 0);
     FAssert(sizeof(FSymbol) % OBJECT_ALIGNMENT == 0);

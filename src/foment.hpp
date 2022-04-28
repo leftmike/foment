@@ -3,26 +3,15 @@
 Foment
 
 To Do:
-- Object layout
--- 8 byte object header because of 8 byte alignment of objects
--- Execution
---- Type checking needs tag (12 bits?) of the object
---- Number of slots for variable length objects: SlotCount
---- Number of bytes for variable length objects: store on the object
--- Collector
---- Total length of the object in 8 byte chunks
---- Number of slots: lookup based on the tag
---- Flags: eternal, mark, check, ephemeron_key_mark, pad
--- SlotCount: Vectors, RecordTypes, Records
 -- Allow zero length objects, ie. a vector with zero slots: consists of just a header
 -- Change NoCollector to be malloc
 
 #define HEADER_FLAG_PAD                0x10000
 #define HEADER_PAD_SHIFT               16 // need to also change HEADER_SIZE_SHIFT
 
--- 64bit: SlotCount() (h >> HEADER_SIZE_SHIFT)
 -- 32bit: SlotCount() (h >> HEADER_SIZE_SHIFT) / 2 - ((h & HEADER_FLAG_PAD) >> HEADER_PAD_SHIFT)
--- XXXObjectSize to ObjectSize
+-- Remove growing memory regions down
+-- Fix type tags to use ObjectTypes table?
 
 -- SRFI 141 (scheme division)
 -- SRFI 151 (scheme bitwise)
@@ -215,7 +204,8 @@ typedef enum
 {
     // Object type tags
 
-    BignumTag = 0x01, // fix order of tags in gc.cpp
+    ZeroTag = 0, // Not used, invalid tag.
+    BignumTag = 1,
     RatioTag,
     ComplexTag,
     FlonumTag,
@@ -262,8 +252,7 @@ typedef enum
     PatternRepeatTag,
     TemplateRepeatTag,
     SyntaxRuleTag,
-    FreeTag, // XXX
-    BadDogTag // Invalid Tag
+    FreeTag
 } FObjectTag;
 
 #define ObjectP(obj) ((((ulong_t) (obj)) & 0x7) == 0x0)
@@ -328,7 +317,9 @@ typedef uint64_t FHeader;
 #define HEADER_FLAG_EPHEMERON_KEY_MARK 0x08000
 #define HEADER_SIZE_SHIFT              16
 
-// Size of the object in bytes, not including the ObjHdr.
+ulong_t SlotCount(FHeader h);
+
+// Size of the object in bytes, not including the FHeader.
 inline ulong_t ObjectSize(FHeader h)
 {
     return((h >> HEADER_SIZE_SHIFT) * sizeof(FHeader));
@@ -341,15 +332,18 @@ inline FHeader AsHeader(FObject obj)
     return(*(((FHeader *) obj) - 1));
 }
 
-#define EternalP(obj) (AsHeader(obj) & HEADER_FLAG_ETERNAL)
-#define XXXObjectSize(obj) (ObjectSize(AsHeader(obj)))
-ulong_t XXXSlotCount(FObject obj);
+inline ulong_t EternalP(FObject obj)
+{
+    FAssert(ObjectP(obj));
+
+    return(AsHeader(obj) & HEADER_FLAG_ETERNAL);
+}
 
 #define EternalHeader(type, tag) \
     (((sizeof(type) / sizeof(FHeader)) << HEADER_SIZE_SHIFT) | tag |   \
             HEADER_FLAG_ETERNAL)
 
-FObject MakeObject(FObjectTag tag, ulong_t sz, ulong_t sc, const char * who, long_t pf = 0);
+FObject MakeObject(FObjectTag tag, ulong_t sz, ulong_t sc, const char * who);
 
 inline FObjectTag ObjectTag(FObject obj)
 {
@@ -842,7 +836,7 @@ void WriteVector(FWriteContext * wctx, FObject obj);
 FObject ListToVector(FObject obj);
 FObject VectorToList(FObject vec);
 
-#define VectorLength(obj) (XXXSlotCount(obj))
+#define VectorLength(obj) (SlotCount(AsHeader(obj)))
 
 // ---- Bytevectors ----
 
@@ -893,7 +887,7 @@ typedef struct
 FObject MakeRecordType(FObject nam, ulong_t nf, FObject flds[]);
 
 #define RecordTypeName(obj) AsRecordType(obj)->Fields[0]
-#define RecordTypeNumFields(obj) (XXXSlotCount(obj))
+#define RecordTypeNumFields(obj) (SlotCount(AsHeader(obj)))
 
 // ---- Records ----
 
@@ -917,7 +911,7 @@ inline long_t RecordP(FObject obj, FObject rt)
     return(GenericRecordP(obj) && AsGenericRecord(obj)->Fields[0] == rt);
 }
 
-#define RecordNumFields(obj) (XXXSlotCount(obj))
+#define RecordNumFields(obj) (SlotCount(AsHeader(obj)))
 
 // ---- Comparators ----
 

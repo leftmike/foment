@@ -63,7 +63,7 @@ void InitializeExclusive(OSExclusive * ose)
 FObject MakeExclusive()
 {
     FExclusive * e = (FExclusive *) MakeObject(ExclusiveTag, sizeof(FExclusive), 0,
-            "make-exclusive", 1);
+            "make-exclusive");
     InitializeExclusive(&e->Exclusive);
     InstallGuardian(e, CleanupTConc);
 
@@ -87,7 +87,7 @@ void WriteExclusive(FWriteContext * wctx, FObject obj)
 static FObject MakeCondition()
 {
     FCondition * c = (FCondition *) MakeObject(ConditionTag, sizeof(FCondition), 0,
-            "make-condition", 1);
+            "make-condition");
     InitializeCondition(&c->Condition);
 
     return(c);
