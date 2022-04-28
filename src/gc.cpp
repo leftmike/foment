@@ -459,7 +459,6 @@ FObject MakeObject(FObjectTag tag, ulong_t sz, ulong_t sc, const char * who)
 
     EnterExclusive(&GCExclusive);
     FHeader * oh = AllocateObject(tsz, MakeObjectOutOfMemory);
-    // XXX: FHeader * oh = (FHeader *) malloc(tsz);
     LeaveExclusive(&GCExclusive);
 
     FAssert(oh != 0);
@@ -929,7 +928,7 @@ void CheckHeap(const char * fn, int ln)
 
 void CheckHeap(const char * fn, int ln)
 {
-    // XXX: nothin
+    // XXX: nothing
 }
 
 static void ScanObject(FObject obj);

@@ -3,15 +3,12 @@
 Foment
 
 To Do:
--- Allow zero length objects, ie. a vector with zero slots: consists of just a header
--- Change NoCollector to be malloc
-
 #define HEADER_FLAG_PAD                0x10000
 #define HEADER_PAD_SHIFT               16 // need to also change HEADER_SIZE_SHIFT
 
 -- 32bit: SlotCount() (h >> HEADER_SIZE_SHIFT) / 2 - ((h & HEADER_FLAG_PAD) >> HEADER_PAD_SHIFT)
 -- Remove growing memory regions down
--- Fix type tags to use ObjectTypes table?
+-- Remove or fix CheckHeap
 
 -- SRFI 141 (scheme division)
 -- SRFI 151 (scheme bitwise)
