@@ -1195,19 +1195,22 @@ static void Collect()
             FAssert((ulong_t) ((char *) noh - (char *) oh) >= tsz);
 
             tsz = (char *) noh - (char *) oh;
-            ulong_t bkt = tsz / OBJECT_ALIGNMENT;
-            if (bkt < FREE_OBJECTS)
+            if (tsz > OBJECT_ALIGNMENT)
             {
-                *Slots(oh) = FreeObjects[bkt];
-                FreeObjects[bkt] = oh;
-            }
-            else
-            {
-                *Slots(oh) = BigFreeObjects;
-                BigFreeObjects = oh;
-            }
+                ulong_t bkt = tsz / OBJECT_ALIGNMENT;
+                if (bkt < FREE_OBJECTS)
+                {
+                    *Slots(oh) = FreeObjects[bkt];
+                    FreeObjects[bkt] = oh;
+                }
+                else
+                {
+                    *Slots(oh) = BigFreeObjects;
+                    BigFreeObjects = oh;
+                }
 
-            *oh = InitHeader(tsz, FreeTag);
+                *oh = InitHeader(tsz, FreeTag);
+            }
         }
 
         oh = (FHeader *) (((char *) oh) + tsz);
