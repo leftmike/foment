@@ -79,8 +79,14 @@ pthread_key_t ThreadKey;
 static ulong_t ClockTicksPerSecond;
 #endif // FOMENT_UNIX
 
+#ifdef FOMENT_32BIT
+#define OBJECT_MAXIMUM_SLOTS ((MAXIMUM_ULONG >> 4) / sizeof(FObject))
+#define MAXIMUM_TOTAL_SIZE (sizeof(FHeader) + OBJECT_MAXIMUM_SLOTS * sizeof(FObject))
+#endif // FOMENT_32BIT
+#ifdef FOMENT_64BIT
 #define OBJECT_MAXIMUM_SLOTS (MAXIMUM_ULONG >> HEADER_SIZE_SHIFT)
 #define MAXIMUM_TOTAL_SIZE (sizeof(FHeader) + OBJECT_MAXIMUM_SLOTS * OBJECT_ALIGNMENT)
+#endif // FOMENT_64BIT
 
 typedef struct _Guardian
 {
@@ -280,9 +286,14 @@ ulong_t SlotCount(FHeader h)
 
     ulong_t sc = ObjectTypes[tag].SlotCount;
     if (sc == MAXIMUM_ULONG)
-        return(h >> HEADER_SIZE_SHIFT);
+#ifdef FOMENT_64BIT
+        return((ulong_t) (h >> HEADER_SIZE_SHIFT));
+#endif // FOMENT_64BIT
+#ifdef FOMENT_32BIT
+        return((ulong_t) (((h >> HEADER_SIZE_SHIFT) * 2) -
+                ((h & HEADER_FLAG_PAD) >> HEADER_PAD_SHIFT)));
+#endif // FOMENT_32BIT
     return(sc);
-    // XXX: 32 bit: need to take into account pad
 }
 
 static inline void SetMark(FHeader * oh)
@@ -335,13 +346,15 @@ static inline int EphemeronKeyMarkP(FHeader * oh)
     return(*oh & HEADER_FLAG_EPHEMERON_KEY_MARK);
 }
 
-inline ulong_t TotalSize(FHeader * oh)
+static inline ulong_t TotalSize(FHeader * oh)
 {
     return(ObjectSize(*oh) + sizeof(FHeader));
 }
 
-#define InitHeader(tsz, tag) \
-    (((((tsz) - sizeof(FHeader)) / sizeof(FHeader)) << HEADER_SIZE_SHIFT) | tag)
+inline FHeader InitHeader(uint64_t tsz, FObjectTag tag)
+{
+    return((((tsz - sizeof(FHeader)) / sizeof(FHeader)) << HEADER_SIZE_SHIFT) | tag);
+}
 
 static FHeader * AllocateObject(ulong_t tsz, FObject exc)
 {
@@ -464,6 +477,10 @@ FObject MakeObject(FObjectTag tag, ulong_t sz, ulong_t sc, const char * who)
     FAssert(oh != 0);
 
     *oh = InitHeader(tsz, tag);
+#ifdef FOMENT_32BIT
+    if (sc % 2 == 1)
+        *oh |= HEADER_FLAG_PAD;
+#endif // FOMENT_32BIT
 
     FThreadState * ts = GetThreadState();
     BytesAllocated += tsz;
@@ -473,6 +490,10 @@ FObject MakeObject(FObjectTag tag, ulong_t sz, ulong_t sc, const char * who)
     if (CollectorType != NoCollector &&
             (ts->ObjectsSinceLast > TriggerObjects || ts->BytesSinceLast > TriggerBytes))
         GCRequired = 1;
+
+    if (ObjectSize(*oh) < sz)
+        printf("ObjectSize(*oh): %u sz: %u tsz: %u %u\n", ObjectSize(*oh), sz, tsz,
+               MAXIMUM_ULONG);
 
     FAssert(ObjectSize(*oh) >= sz);
     FAssert(SlotCount(*oh) == sc);

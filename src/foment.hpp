@@ -3,10 +3,6 @@
 Foment
 
 To Do:
-#define HEADER_FLAG_PAD                0x10000
-#define HEADER_PAD_SHIFT               16 // need to also change HEADER_SIZE_SHIFT
-
--- 32bit: SlotCount() (h >> HEADER_SIZE_SHIFT) / 2 - ((h & HEADER_FLAG_PAD) >> HEADER_PAD_SHIFT)
 -- Remove growing memory regions down
 -- Remove or fix CheckHeap
 
@@ -312,14 +308,16 @@ typedef uint64_t FHeader;
 #define HEADER_FLAG_MARK               0x02000
 #define HEADER_FLAG_CHECK              0x04000
 #define HEADER_FLAG_EPHEMERON_KEY_MARK 0x08000
-#define HEADER_SIZE_SHIFT              16
+#define HEADER_FLAG_PAD                0x10000
+#define HEADER_PAD_SHIFT               16
+#define HEADER_SIZE_SHIFT              17
 
 ulong_t SlotCount(FHeader h);
 
 // Size of the object in bytes, not including the FHeader.
 inline ulong_t ObjectSize(FHeader h)
 {
-    return((h >> HEADER_SIZE_SHIFT) * sizeof(FHeader));
+    return((ulong_t) ((h >> HEADER_SIZE_SHIFT) * sizeof(FHeader)));
 }
 
 inline FHeader AsHeader(FObject obj)
