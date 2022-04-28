@@ -1083,10 +1083,14 @@ static FObject CompileLibraryCode(FObject env, FObject lst)
 
         FObject form = First(lst);
 
-        if (EqualToSymbol(First(form), BeginSymbol)
-                || EqualToSymbol(First(form), IncludeSymbol)
-                || EqualToSymbol(First(form), IncludeCISymbol))
-            body = CompileEvalExpr(form, env, body);
+        if (EqualToSymbol(First(form), BeginSymbol))
+            body = CompileEvalBegin(Rest(form), env, body, form, BeginSyntax);
+        else if (EqualToSymbol(First(form), IncludeSymbol))
+            body = CompileEvalBegin(ReadInclude(First(form), Rest(form), 0), env, body, form,
+                    IncludeSyntax);
+        else if (EqualToSymbol(First(form), IncludeCISymbol))
+            body = CompileEvalBegin(ReadInclude(First(form), Rest(form), 1), env, body, form,
+                    IncludeCISyntax);
         else
         {
             FAssert(EqualToSymbol(First(form), ImportSymbol)
