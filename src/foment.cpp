@@ -1396,7 +1396,7 @@ FObjectType ObjectTypes[] =
     {SyntacticEnvTag, "syntactic-environment", 2, 0},
     {BindingTag, "binding", 10, 0},
     {ReferenceTag, "reference", 2, 0},
-    {LambdaTag, "lambda", 15, WriteLambda},
+    {LambdaTag, "lambda", 14, WriteLambda},
     {CaseLambdaTag, "case-lambda", 3, 0},
     {SyntaxRulesTag, "syntax-rules", 3, 0},
     {PatternVariableTag, "pattern-variable", 3, 0},

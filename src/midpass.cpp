@@ -289,7 +289,6 @@ void UPassLambda(FLambda * lam, int ef)
         UPassBindingList(lam->Bindings);
         UPassSequence(lam->Body);
 
-        lam->MayInline = FalseObject;
         lam->ArgCount = MakeFixnum(ListLength(lam->Bindings));
     }
 }

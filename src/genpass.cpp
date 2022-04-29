@@ -575,12 +575,7 @@ static FObject GPassMakeCall(FLambda * lam, FObject cdl, FObject op, long_t argc
     }
 /*    else if (PrimitiveP(op))
     {
-        if (InlinePrimitives)
-        {
-            
-            // inline primitives here
-            
-        }
+        // inline primitives here
     }*/
     else
         cdl = GPassExpression(lam, cdl, op, SingleValueFlag);

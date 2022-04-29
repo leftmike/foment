@@ -3,30 +3,34 @@
 Foment
 
 To Do:
--- SRFI 141 (scheme division)
--- SRFI 151 (scheme bitwise)
--- SRFI 143 (scheme fixnum)
--- SRFI 144 (scheme flonum)
--- R6RS (rnrs bytevectors) as (scheme bytevector) (note singular form)
--- SRFI 160 (scheme vector @) where @ is any of base:
-    u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, c64, c128
-
 -- add R6RS library form
+
+-- Bytevectors: R6RS (rnrs bytevectors) as (scheme bytevector) (note singular form)
+-- SRFI 18: Multithreading support
+-- SRFI 22: Running Scheme Scripts on Unix
+-- SRFI 27: Sources of Random Bits
+-- SRFI 62: S-expression comments
+-- SRFI 129: Titlecase Procedures
+-- SRFI 151: Bitwise Operations
+-- SRFI 154: First-class dynamic extents
+-- SRFI 157: Continuation marks
+-- SRFI 159: Combinator Formatting
+-- SRFI 193: Command line
 -- SRFI 229: Tagged Procedures
 
 -- IO: FAlive, EnterWait, and LeaveWait
 -- Allow GC on nested executions
 
-Future:
--- Use extra generation for immortal objects which are precompiled libraries
+-- Benchmarks
+--- http://ecraven.github.io/r7rs-benchmarks/benchmark.html
+--- https://github.com/ecraven/r7rs-benchmarks
+
+-- Precompile libraries (use Eternal flag)
 -- change EternalSymbol (and Define) to set Symbol->Hash at compile time
 -- pull options from FOMENT_OPTIONS environment variable
--- features, command-line, full-command-line, interactive options,
-    environment-variables, etc passed to scheme as a single assoc list
 -- number.cpp: make NumberP, BinaryNumberOp, and UnaryNumberOp faster
 -- Windows: $(APPDATA)\Foment\Libraries
 -- Unix: $(HOME)/.local/foment/lib
--- inline primitives in GPassExpression
 -- debugging information
 -- composable continuations
 -- from Gambit:
@@ -39,15 +43,11 @@ Future:
     > (map #2 ’(1 2 3 4 5))
     (2 4 6 8 10)
 
-Compiler:
--- get rid of -no-inline-procedures and -no-inline-imports
--- genpass: handle multiple values with LetrecValues correctly
--- genpass: LetrecStarValues needs to be compiled correctly
+-- compiler: genpass: handle multiple values with LetrecValues correctly
+-- compile: genpass: LetrecStarValues needs to be compiled correctly
 -- export letrec-values and letrec*-values from (foment base)
--- inlpass: inline lambdas
--- pass all non-local references into each lambda: frames can go away
--- get rid of Level on FLambda
--- treat case-lambda like lambda and have an entry point to compile and to each pass
+-- compiler: get rid of Level on FLambda
+-- compiler: treat case-lambda like lambda and have an entry point to compile and to each pass
 -- make special syntax into an object so that can track location information
 
 Bugs:

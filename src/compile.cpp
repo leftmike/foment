@@ -167,7 +167,7 @@ FObject MakeLambda(FObject enc, FObject nam, FObject bs, FObject body)
 {
     FAssert(LambdaP(enc) || enc == NoValueObject);
 
-    FLambda * l = (FLambda *) MakeObject(LambdaTag, sizeof(FLambda), 15, "make-lambda");
+    FLambda * l = (FLambda *) MakeObject(LambdaTag, sizeof(FLambda), 14, "make-lambda");
     l->Name = nam;
     l->Bindings = bs;
     l->Body = body;
@@ -180,7 +180,6 @@ FObject MakeLambda(FObject enc, FObject nam, FObject bs, FObject body)
     l->Level = LambdaP(enc) ? MakeFixnum(AsFixnum(AsLambda(enc)->Level) + 1) : MakeFixnum(1);
     l->SlotCount = MakeFixnum(-1);
     l->CompilerPass = NoValueObject;
-    l->MayInline = MakeFixnum(0); // Number of procedure calls or FalseObject.
 
     l->Procedure = NoValueObject;
     l->BodyIndex = NoValueObject;

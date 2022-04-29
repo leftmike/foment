@@ -74,7 +74,6 @@ typedef struct
     FObject Level;
     FObject SlotCount;
     FObject CompilerPass;
-    FObject MayInline;
 
     FObject Procedure;
     FObject BodyIndex;
