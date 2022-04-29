@@ -434,6 +434,9 @@ static FConfigOption ConfigOptions[] =
     {0, 0, "check-heap", 0, 0,
 "        Check the heap before and after garbage collection.",
         AnytimeConfig, BoolConfig, 0, &CheckHeapFlag, 0, 0, 0, 0},
+    {0, 0, "zero-heap", 0, 0,
+"        Zero freed objects after garbage collection.",
+        AnytimeConfig, BoolConfig, 0, &ZeroHeapFlag, 0, 0, 0, 0},
 
     {0, 0, "maximum-stack-size", 0, "number-of-bytes",
 "        Use the specified number-of-bytes as the maximum stack size for each\n"

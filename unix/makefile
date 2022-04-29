@@ -5,7 +5,7 @@
 CXX ?= g++
 BUILD_CXX ?= g++
 
-TEST_OPTIONS = --check-heap
+TEST_OPTIONS = --check-heap --zero-heap
 TEST_BUILD = debug
 
 # FOMENT_LITTLE_ENDIAN is defined in foment.hpp as 1,
@@ -46,10 +46,10 @@ test-all: all
 	$(MAKE) test TEST_BUILD=release TEST_OPTIONS=--no-collector
 	$(MAKE) test TEST_BUILD=debug TEST_OPTIONS=--mark-sweep
 	$(MAKE) test TEST_BUILD=release TEST_OPTIONS=--mark-sweep
-	$(MAKE) test TEST_BUILD=debug "TEST_OPTIONS=--no-collector --check-heap"
-	$(MAKE) test TEST_BUILD=release "TEST_OPTIONS=--no-collector --check-heap"
-	$(MAKE) test TEST_BUILD=debug "TEST_OPTIONS=--mark-sweep --check-heap"
-	$(MAKE) test TEST_BUILD=release "TEST_OPTIONS=--mark-sweep --check-heap"
+	$(MAKE) test TEST_BUILD=debug "TEST_OPTIONS=--no-collector --check-heap --zero-heap"
+	$(MAKE) test TEST_BUILD=release "TEST_OPTIONS=--no-collector --check-heap --zero-heap"
+	$(MAKE) test TEST_BUILD=debug "TEST_OPTIONS=--mark-sweep --check-heap --zero-heap"
+	$(MAKE) test TEST_BUILD=release "TEST_OPTIONS=--mark-sweep --check-heap --zero-heap"
 
 .PHONY: foment-test
 foment-test: all

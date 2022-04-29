@@ -1200,6 +1200,10 @@ static void Collect()
             FAssert((ulong_t) ((char *) noh - (char *) oh) >= tsz);
 
             tsz = (char *) noh - (char *) oh;
+
+            if (ZeroHeapFlag)
+                memset(oh + 1, 0, tsz - sizeof(FHeader));
+
             if (tsz > OBJECT_ALIGNMENT)
             {
                 ulong_t bkt = tsz / OBJECT_ALIGNMENT;

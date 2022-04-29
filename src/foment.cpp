@@ -59,6 +59,7 @@ ulong_t SetupComplete = 0;
 ulong_t RandomSeed = 0;
 
 ulong_t CheckHeapFlag = 0;
+ulong_t ZeroHeapFlag = 0;
 ulong_t VerboseFlag = 0;
 
 EternalSymbol(BeginSymbol, "begin");

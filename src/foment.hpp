@@ -1827,6 +1827,7 @@ inline void SymbolStringArgCheck(const char * who, FObject obj)
 // ----------------
 
 extern ulong_t CheckHeapFlag;
+extern ulong_t ZeroHeapFlag;
 extern ulong_t VerboseFlag;
 extern ulong_t RandomSeed;
 extern volatile ulong_t BytesAllocated;

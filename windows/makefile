@@ -4,7 +4,7 @@
 
 PATH = $(PATH);../windows/debug
 
-TEST_OPTIONS = --check-heap
+TEST_OPTIONS = --check-heap --zero-heap
 TEST_BUILD = debug
 
 CLDEBUG = /nologo /MD /W3 /EHsc /Zi /Od /c /Fodebug\ /DFOMENT_DEBUG /DFOMENT_WINDOWS /std:c++latest
@@ -26,14 +26,14 @@ test-all: all test-no-collector test-mark-sweep
 test-no-collector: all
     $(MAKE) test TEST_BUILD=debug TEST_OPTIONS=--no-collector
     $(MAKE) test TEST_BUILD=release TEST_OPTIONS=--no-collector
-    $(MAKE) test TEST_BUILD=debug "TEST_OPTIONS=--no-collector --check-heap"
-    $(MAKE) test TEST_BUILD=release "TEST_OPTIONS=--no-collector --check-heap"
+    $(MAKE) test TEST_BUILD=debug "TEST_OPTIONS=--no-collector --check-heap --zero-heap"
+    $(MAKE) test TEST_BUILD=release "TEST_OPTIONS=--no-collector --check-heap --zero-heap"
 
 test-mark-sweep: all
     $(MAKE) test TEST_BUILD=debug TEST_OPTIONS=--mark-sweep
     $(MAKE) test TEST_BUILD=release TEST_OPTIONS=--mark-sweep
-    $(MAKE) test TEST_BUILD=debug "TEST_OPTIONS=--mark-sweep --check-heap"
-    $(MAKE) test TEST_BUILD=release "TEST_OPTIONS=--mark-sweep --check-heap"
+    $(MAKE) test TEST_BUILD=debug "TEST_OPTIONS=--mark-sweep --check-heap --zero-heap"
+    $(MAKE) test TEST_BUILD=release "TEST_OPTIONS=--mark-sweep --check-heap --zero-heap"
 
 foment-test: all
     cd ..\test
