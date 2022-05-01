@@ -27,8 +27,6 @@ To Do:
 
 -- Precompile libraries (use Eternal flag)
 -- change EternalSymbol (and Define) to set Symbol->Hash at compile time
--- pull options from FOMENT_OPTIONS environment variable
--- number.cpp: make NumberP, BinaryNumberOp, and UnaryNumberOp faster
 -- Windows: $(APPDATA)\Foment\Libraries
 -- Unix: $(HOME)/.local/foment/lib
 -- debugging information
@@ -242,6 +240,7 @@ typedef enum
     PatternRepeatTag,
     TemplateRepeatTag,
     SyntaxRuleTag,
+    RandomSourceTag,
     FreeTag
 } FObjectTag;
 
@@ -1863,6 +1862,7 @@ void SetupCompile();
 void SetupExecute();
 void SetupNumbers();
 void SetupThreads();
+void SetupRandom();
 void SetupGC();
 void SetupMain();
 
@@ -1877,6 +1877,7 @@ void WriteEnvironment(FWriteContext * wctx, FObject obj);
 void WriteGlobal(FWriteContext * wctx, FObject obj);
 void WriteLibrary(FWriteContext * wctx, FObject obj);
 void WriteLambda(FWriteContext * wctx, FObject obj);
+void WriteRandomSource(FWriteContext * wctx, FObject obj);
 
 #ifdef FOMENT_WINDOWS
 #define PathCh '\\'

@@ -89,7 +89,7 @@ debug/foment: debug/foment.o debug/gc.o debug/syncthrd.o debug/compile.o debug/i
 		debug/pairs.o debug/unicode.o debug/chars.o debug/strings.o debug/vectors.o\
 		debug/library.o debug/execute.o debug/numbers.o debug/write.o\
 		debug/read.o debug/filesys.o debug/compare.o debug/main.o debug/hashtbl.o\
-		debug/bignums.o debug/charset.o debug/process.o debug/base.o
+		debug/bignums.o debug/charset.o debug/process.o debug/random.o debug/base.o
 	git rev-parse --abbrev-ref HEAD > debug/buildprops.out
 	git rev-parse --short HEAD >> debug/buildprops.out
 	uname -s -r -v -m >> debug/buildprops.out
@@ -104,7 +104,7 @@ release/foment: release/foment.o release/gc.o release/syncthrd.o release/compile
 		release/vectors.o release/library.o release/execute.o release/numbers.o\
 		release/write.o release/read.o release/filesys.o\
 		release/compare.o release/main.o release/hashtbl.o release/bignums.o release/charset.o\
-		release/process.o release/base.o
+		release/process.o release/random.o release/base.o
 	git rev-parse --abbrev-ref HEAD > release/buildprops.out
 	git rev-parse --short HEAD >> release/buildprops.out
 	uname -s -r -v -m >> release/buildprops.out
@@ -119,7 +119,7 @@ profile/foment: profile/foment.o profile/gc.o profile/syncthrd.o profile/compile
 		profile/vectors.o profile/library.o profile/execute.o profile/numbers.o\
 		profile/write.o profile/read.o profile/filesys.o\
 		profile/compare.o profile/main.o profile/hashtbl.o profile/bignums.o profile/charset.o\
-		profile/process.o profile/base.o
+		profile/process.o profile/random.o profile/base.o
 	$(CXX)  $(LDFLAGS) -pg -o profile/foment $^ -lpthread
 
 debug/foment.o: ../src/foment.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/unicode.hpp
@@ -151,6 +151,7 @@ debug/read.o: ../src/read.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hp
 debug/filesys.o: ../src/filesys.cpp ../src/foment.hpp ../src/unicode.hpp
 debug/hashtbl.o: ../src/hashtbl.cpp ../src/foment.hpp ../src/syncthrd.hpp
 debug/compare.o: ../src/compare.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/unicode.hpp
+debug/random.o: ../src/random.cpp ../src/foment.hpp
 debug/main.o: ../src/main.cpp ../src/foment.hpp
 debug/base.o: debug/base.cpp
 
@@ -183,6 +184,7 @@ release/read.o: ../src/read.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.
 release/filesys.o: ../src/filesys.cpp ../src/foment.hpp ../src/unicode.hpp
 release/hashtbl.o: ../src/hashtbl.cpp ../src/foment.hpp ../src/syncthrd.hpp
 release/compare.o: ../src/compare.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/unicode.hpp
+release/random.o: ../src/random.cpp ../src/foment.hpp
 release/main.o: ../src/main.cpp ../src/foment.hpp
 release/base.o: debug/base.cpp
 

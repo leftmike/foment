@@ -1136,6 +1136,7 @@ FObject ConditionPPrimitiveFn(long_t argc, FObject argv[]);
 FObject EphemeronPPrimitiveFn(long_t argc, FObject argv[]);
 FObject CharSetPPrimitiveFn(long_t argc, FObject argv[]);
 FObject SubprocessPPrimitiveFn(long_t argc, FObject argv[]);
+FObject RandomSourcePPrimitiveFn(long_t argc, FObject argv[]);
 
 static FObject LookupTypeTags(FObject ttp)
 {
@@ -1185,6 +1186,8 @@ static FObject LookupTypeTags(FObject ttp)
             return(List(MakeFixnum(CharSetTag + INDIRECT_TAG_OFFSET)));
         else if (AsPrimitive(ttp)->PrimitiveFn == SubprocessPPrimitiveFn)
             return(List(MakeFixnum(SubprocessTag + INDIRECT_TAG_OFFSET)));
+        else if (AsPrimitive(ttp)->PrimitiveFn == RandomSourcePPrimitiveFn)
+            return(List(MakeFixnum(RandomSourceTag + INDIRECT_TAG_OFFSET)));
     }
 
     return(EmptyListObject);
@@ -1403,6 +1406,7 @@ FObjectType ObjectTypes[] =
     {PatternRepeatTag, "pattern-repeat", 5, 0},
     {TemplateRepeatTag, "template-repeat", 5, 0},
     {SyntaxRuleTag, "syntax-rule", 4, 0},
+    {RandomSourceTag, "random-source", 0, WriteRandomSource},
     {FreeTag, "free", 0, 0}
 };
 
@@ -1519,6 +1523,7 @@ long_t SetupFoment(FThreadState * ts)
     SetupExecute();
     SetupNumbers();
     SetupThreads();
+    SetupRandom();
     SetupGC();
     SetupMain();
 

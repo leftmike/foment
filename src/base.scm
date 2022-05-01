@@ -641,7 +641,15 @@
         string->bytevector
         i/o-decoding-error?
         i/o-encoding-error?
-        i/o-encoding-error-char)
+        i/o-encoding-error-char
+        random-source?
+        make-random-source
+        %random-integer
+        %random-real
+        random-source-state-ref
+        random-source-state-set!
+        random-source-randomize!
+        random-source-pseudo-randomize!)
     (cond-expand
         (unix
             (export

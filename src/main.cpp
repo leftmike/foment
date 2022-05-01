@@ -453,6 +453,7 @@ static FConfigOption ConfigOptions[] =
 "        Trigger garbage collection after at least the specified\n"
 "        number-of-objects have been allocated since the last collection",
         AnytimeConfig, ULongConfig, &TriggerObjects, 0, 0, 0, 0, 0},
+
     {'b', 0, "batch", 0, 0,
 "        Run foment in batch mode: standard input is treated as a program.",
         LateConfig, ActionConfig, 0, 0, 0, 0, SetBatch, 0},
