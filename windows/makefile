@@ -71,7 +71,7 @@ debug\foment.exe: debug\foment.obj debug\gc.obj debug\syncthrd.obj debug\compile
         debug\pairs.obj debug\unicode.obj debug\chars.obj debug\strings.obj debug\vectors.obj\
         debug\library.obj debug\execute.obj debug\numbers.obj debug\write.obj\
         debug\read.obj debug\filesys.obj debug\compare.obj debug\main.obj debug\hashtbl.obj\
-        debug\bignums.obj debug\charset.obj debug\process.obj debug\base.obj
+        debug\bignums.obj debug\charset.obj debug\process.obj debug\random.obj debug\base.obj
     git rev-parse --abbrev-ref HEAD > debug\buildprops.out
     git rev-parse --short HEAD >> debug\buildprops.out
     ver >> debug\buildprops.out
@@ -87,7 +87,8 @@ release\foment.exe: release\foment.obj release\gc.obj release\syncthrd.obj relea
         release\strings.obj release\vectors.obj release\library.obj release\execute.obj\
         release\numbers.obj release\write.obj release\read.obj\
         release\filesys.obj release\compare.obj release\main.obj release\hashtbl.obj\
-        release\bignums.obj release\charset.obj release\process.obj release\base.obj
+        release\bignums.obj release\charset.obj release\process.obj release\random.obj\
+        release\base.obj
     git rev-parse --abbrev-ref HEAD > release\buildprops.out
     git rev-parse --short HEAD >> release\buildprops.out
     ver >> release\buildprops.out
@@ -145,6 +146,7 @@ debug\filesys.obj: ..\src\filesys.cpp ..\src\foment.hpp ..\src\unicode.hpp
 debug\hashtbl.obj: ..\src\hashtbl.cpp ..\src\foment.hpp ..\src\syncthrd.hpp
 debug\compare.obj: ..\src\compare.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\unicode.hpp
 debug\main.obj: ..\src\main.cpp ..\src\foment.hpp
+debug\random.obj: ..\src\random.cpp ..\src\foment.hpp
 debug\base.obj: debug\base.cpp
 
 release\foment.obj: ..\src\foment.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\unicode.hpp
@@ -177,6 +179,7 @@ release\filesys.obj: ..\src\filesys.cpp ..\src\foment.hpp ..\src\unicode.hpp
 release\hashtbl.obj: ..\src\hashtbl.cpp ..\src\foment.hpp ..\src\syncthrd.hpp
 release\compare.obj: ..\src\compare.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\unicode.hpp
 release\main.obj: ..\src\main.cpp ..\src\foment.hpp
+release\random.obj: ..\src\random.cpp ..\src\foment.hpp
 release\base.obj: debug\base.cpp
 
 debug\txt2cpp.obj: ..\src\txt2cpp.cpp
