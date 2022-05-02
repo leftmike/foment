@@ -79,10 +79,10 @@ profile:
 
 debug/base.cpp: debug/txt2cpp makefile ../src/base.scm ../src/srfi-106.scm ../src/srfi-60.scm\
 		../src/srfi-1.scm ../src/srfi-128.scm ../src/srfi-125.scm ../src/srfi-133.scm\
-		../src/srfi-14.scm
+		../src/srfi-14.scm ../src/srfi-193.scm
 	debug/txt2cpp debug/base.cpp ../src/base.scm ../src/srfi-106.scm ../src/srfi-60.scm\
 		../src/srfi-1.scm ../src/srfi-128.scm ../src/srfi-125.scm ../src/srfi-133.scm\
-		../src/srfi-14.scm
+		../src/srfi-14.scm ../src/srfi-193.scm
 
 debug/foment: debug/foment.o debug/gc.o debug/syncthrd.o debug/compile.o debug/io.o\
 		debug/synrules.o debug/synpass.o debug/midpass.o debug/genpass.o\

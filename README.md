@@ -29,6 +29,7 @@
 * SRFI 176: Version flag
 * SRFI 181: Custom ports (including transcoded ports)
 * SRFI 192: Port Positioning
+* SRFI 193: Command line
 
 See [Foment](https://github.com/leftmike/foment/wiki/Foment) for more details.
 

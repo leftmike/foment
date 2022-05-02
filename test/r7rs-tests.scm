@@ -1782,13 +1782,9 @@
 (test '(list (quote a) (quote d)) (read (open-input-string "(list 'a #; #;'b 'c 'd)")))
 
 (test #t
-    (read-error? (guard (exn (else exn)) (read (open-input-string "(#;a . b)")))))
-(test #t
     (read-error? (guard (exn (else exn)) (read (open-input-string "(a . #;b)")))))
 (test #t
     (read-error? (guard (exn (else exn)) (read (open-input-string "(a #;. b)")))))
-(test #t
-    (read-error? (guard (exn (else exn)) (read (open-input-string "(#;x #;y . z)")))))
 (test #t
     (read-error? (guard (exn (else exn)) (read (open-input-string "(#; #;x #;y . z)")))))
 (test #t

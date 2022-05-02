@@ -21,7 +21,7 @@ Foment
 
 // ---- Roots ----
 
-FObject CommandLine = EmptyListObject;
+FObject CommandLine = NoValueObject;
 FObject FullCommandLine = NoValueObject;
 FObject EnvironmentVariables = NoValueObject;
 
@@ -861,8 +861,13 @@ int main(int argc, FChS * argv[])
 
             CommandLine = MakeCommandLine(argc - pdx, argv + pdx);
         }
-        else if (RunMode == ProgramMode)
-            RunMode = InteractiveMode;
+        else
+        {
+            CommandLine = List(MakeStringC(""));
+
+            if (RunMode == ProgramMode)
+                RunMode = InteractiveMode;
+        }
 
         if (RunMode == ProgramMode)
             AddToLibraryPath(argv[pdx]);
