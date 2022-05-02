@@ -1303,7 +1303,8 @@ static FObject CondExpandProgram(FObject lst, FObject prog)
     return(prog);
 }
 
-FObject CompileProgram(FObject nam, FObject port)
+extern FObject ExitPrimitive;
+FObject CompileProgram(FObject nam, FObject port, int mf)
 {
     FAssert(TextualPortP(port) && InputPortOpenP(port));
 
@@ -1371,6 +1372,19 @@ FObject CompileProgram(FObject nam, FObject port)
             WriteStringC(StandardOutput, "exception: ");
         Write(StandardOutput, obj, 0);
         WriteCh(StandardOutput, '\n');
+    }
+
+    if (mf)
+    {
+        FObject main = HashTableRef(AsEnvironment(env)->HashTable, StringCToSymbol("main"),
+                NoValueObject);
+        if (GlobalP(main) && AsGlobal(main)->State == GlobalDefined &&
+                ProcedureP(Unbox(AsGlobal(main)->Box)))
+        {
+            // (%exit (main <command-line>))
+            body = MakePair(List(ExitPrimitive,
+                    List(StringCToSymbol("main"), List(QuoteSymbol, CommandLine))), body);
+        }
     }
 
     FObject proc = CompileLambda(env, NoValueObject, EmptyListObject, ReverseListModify(body));

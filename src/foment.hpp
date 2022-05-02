@@ -1830,7 +1830,7 @@ extern ulong_t VerboseFlag;
 extern ulong_t RandomSeed;
 extern volatile ulong_t BytesAllocated;
 
-FObject CompileProgram(FObject nam, FObject port);
+FObject CompileProgram(FObject nam, FObject port, int mf);
 FObject Eval(FObject obj, FObject env);
 FObject GetInteractionEnv();
 

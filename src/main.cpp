@@ -210,7 +210,7 @@ static int RunProgram(FChS * arg)
     if (PeekCh(port, &ch) && ch == '#')
         ReadLine(port);
 
-    ExecuteProc(CompileProgram(nam, port));
+    ExecuteProc(CompileProgram(nam, port, 1));
     FlushStandardPorts();
     return(0);
 }
@@ -893,7 +893,7 @@ int main(int argc, FChS * argv[])
                     printf("error: standard input is not a textual port\n");
                     return(1);
                 }
-                ExecuteProc(CompileProgram(AsGenericPort(StandardInput)->Name, StandardInput));
+                ExecuteProc(CompileProgram(AsGenericPort(StandardInput)->Name, StandardInput, 0));
                 break;
 
             case InteractiveMode:
