@@ -123,7 +123,7 @@ Define("random-source-pseudo-randomize!",
 
     uint64_t i = AsFixnum(argv[1]);
     uint64_t j = AsFixnum(argv[2]);
-    std::mt19937 seed((i << 32) | (j & 0xFFFFFFFF));
+    std::mt19937 seed((i << 16) | (j & 0xFFFF));
     AsRandomSource(argv[0])->Engine = seed;
     return(NoValueObject);
 }

@@ -1277,3 +1277,110 @@
             (list->string '(#\A #\newline #\return #\B #\return #\newline #\C #\newline
                     #\D #\return #\E #\newline #\return #\return #\newline #\return #\F))
             (make-transcoder (latin-1-codec) 'crlf 'replace)))
+
+;;
+;; ---- SRFI 27: Sources of Random Bits ----
+;;
+
+(check-equal #t (< (random-integer 2) 2))
+(check-equal #t (>= (random-integer 2) 0))
+(check-equal #t (random-source? default-random-source))
+(check-equal #t (random-source? (make-random-source)))
+(check-equal #f (random-source? '(#t . #t)))
+(check-equal #f (random-source? 1234))
+(check-equal #f (random-source? 'random-source))
+
+(define rs1 (make-random-source))
+(define rs2 (make-random-source))
+
+(check-equal #t (random-source? rs1))
+(check-equal #t (random-source? rs2))
+(check-equal #f (eq? rs1 rs2))
+
+(define rs1-integer (random-source-make-integers rs1))
+(define rs2-integer (random-source-make-integers rs2))
+
+(define (gen-rs thunk max)
+    (if (> max 0)
+        (cons (thunk) (gen-rs thunk (- max 1)))
+        '()))
+
+(check-equal #t
+    (equal?
+        (gen-rs (lambda() (rs1-integer 99999)) 10)
+        (gen-rs (lambda() (rs2-integer 99999)) 10)))
+
+(define rs1-real (random-source-make-reals rs1))
+(define rs2-real (random-source-make-reals rs2))
+
+(check-equal #t
+    (equal?
+        (gen-rs rs1-real 10)
+        (gen-rs rs2-real 10)))
+
+(random-source-randomize! rs1)
+(random-source-randomize! rs2)
+
+(check-equal #f
+    (equal?
+        (gen-rs (lambda() (rs1-integer 99999)) 100)
+        (gen-rs (lambda() (rs2-integer 99999)) 100)))
+
+(random-source-pseudo-randomize! rs1 123 456)
+(random-source-pseudo-randomize! rs2 123 456)
+
+(check-equal #t
+    (equal?
+        (gen-rs (lambda() (rs1-integer 99999)) 100)
+        (gen-rs (lambda() (rs2-integer 99999)) 100)))
+
+(random-source-pseudo-randomize! rs1 111 222)
+(random-source-pseudo-randomize! rs2 111 333)
+
+(check-equal #f
+    (equal?
+        (gen-rs (lambda() (rs1-integer 99999)) 100)
+        (gen-rs (lambda() (rs2-integer 99999)) 100)))
+
+(random-source-pseudo-randomize! rs1 333 222)
+(random-source-pseudo-randomize! rs2 111 222)
+
+(check-equal #f
+    (equal?
+        (gen-rs (lambda() (rs1-integer 99999)) 100)
+        (gen-rs (lambda() (rs2-integer 99999)) 100)))
+
+(random-source-pseudo-randomize! rs1 12 34)
+(random-source-pseudo-randomize! rs2 12 34)
+(define rs1-state (random-source-state-ref rs1))
+
+(check-equal #t
+    (equal?
+        (gen-rs rs1-real 10)
+        (gen-rs rs2-real 10)))
+
+(define rs2-state (random-source-state-ref rs2))
+
+(random-source-randomize! rs1)
+
+(check-equal #f
+    (equal?
+        (gen-rs rs1-real 10)
+        (gen-rs rs2-real 10)))
+
+(random-source-state-set! rs1 rs1-state)
+(random-source-pseudo-randomize! rs2 12 34)
+
+(check-equal #t
+    (equal?
+        (gen-rs rs1-real 10)
+        (gen-rs rs2-real 10)))
+
+(define rs3 (make-random-source))
+(random-source-state-set! rs3 rs2-state)
+(define rs3-real (random-source-make-reals rs3))
+
+(check-equal #t
+    (equal?
+        (gen-rs rs3-real 10)
+        (gen-rs rs2-real 10)))

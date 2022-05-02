@@ -8,7 +8,6 @@ To Do:
 -- Bytevectors: R6RS (rnrs bytevectors) as (scheme bytevector) (note singular form)
 -- SRFI 18: Multithreading support
 -- SRFI 22: Running Scheme Scripts on Unix
--- SRFI 27: Sources of Random Bits
 -- SRFI 62: S-expression comments
 -- SRFI 129: Titlecase Procedures
 -- SRFI 151: Bitwise Operations
@@ -20,6 +19,7 @@ To Do:
 
 -- IO: FAlive, EnterWait, and LeaveWait
 -- Allow GC on nested executions
+-- SRFI 27: Sources of Random Bits: seed with more than 32 bits
 
 -- Benchmarks
 --- http://ecraven.github.io/r7rs-benchmarks/benchmark.html

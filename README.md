@@ -16,6 +16,7 @@
 * 32 bit and 64 bit.
 * SRFI 1: List Library
 * SRFI 14: Character-set Library
+* SRFI 27: Sources of Random Bits
 * SRFI 60: Integers as Bits
 * SRFI 106: Basic socket interface
 * SRFI 111: Boxes

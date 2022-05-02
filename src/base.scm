@@ -450,8 +450,19 @@
         char-set:blank
         char-set:ascii
         char-set:empty
-        char-set:full
-    )
+        char-set:full)
+    (export ;; (srfi 27)
+        random-integer
+        random-real
+        default-random-source
+        make-random-source
+        random-source?
+        random-source-state-ref
+        random-source-state-set!
+        random-source-randomize!
+        random-source-pseudo-randomize!
+        random-source-make-integers
+        random-source-make-reals)
     (export
         make-buffered-port
         make-encoded-port
@@ -641,15 +652,7 @@
         string->bytevector
         i/o-decoding-error?
         i/o-encoding-error?
-        i/o-encoding-error-char
-        random-source?
-        make-random-source
-        %random-integer
-        %random-real
-        random-source-state-ref
-        random-source-state-set!
-        random-source-randomize!
-        random-source-pseudo-randomize!)
+        i/o-encoding-error-char)
     (cond-expand
         (unix
             (export
@@ -1611,6 +1614,16 @@
                                         "message-type: expected a message type flag"))
                             '(name ...))))))
 
+        (define (random-source-make-integers rs)
+            (lambda (n) (%random-integer rs n)))
+
+        (define (random-source-make-reals rs . unit)
+            (lambda () (%random-real rs)))
+
+        (define default-random-source (make-random-source))
+        (define random-integer (random-source-make-integers default-random-source))
+        (define random-real (random-source-make-reals default-random-source))
+
         (define current-milliseconds current-jiffy)
 
         (define (time-apply proc lst)
@@ -2461,4 +2474,20 @@
         set-port-position!
         make-i/o-invalid-position-error
         i/o-invalid-position-error?)
+    )
+
+(define-library (srfi 27)
+    (import (foment base))
+    (export
+        random-integer
+        random-real
+        default-random-source
+        make-random-source
+        random-source?
+        random-source-state-ref
+        random-source-state-set!
+        random-source-randomize!
+        random-source-pseudo-randomize!
+        random-source-make-integers
+        random-source-make-reals)
     )
