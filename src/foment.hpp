@@ -8,7 +8,6 @@ To Do:
 -- Bytevectors: R6RS (rnrs bytevectors) as (scheme bytevector) (note singular form)
 -- SRFI 18: Multithreading support
 -- SRFI 22: Running Scheme Scripts on Unix
--- SRFI 62: S-expression comments
 -- SRFI 129: Titlecase Procedures
 -- SRFI 151: Bitwise Operations
 -- SRFI 154: First-class dynamic extents

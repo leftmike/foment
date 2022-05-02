@@ -1772,6 +1772,27 @@
 (test 'def (read (open-input-string "#| abc |# def")))
 (test 'ghi (read (open-input-string "#| abc #| def |# |# ghi")))
 (test 'ghi (read (open-input-string "#; ; abc\n def ghi")))
+(test '(+ 1 4) (read (open-input-string "(+ 1 #;(* 2 3) 4)")))
+(test '(list (quote x) (quote z)) (read (open-input-string "(list 'x #;'y 'z)")))
+(test '(* 3 4) (read (open-input-string "(* 3 4 #;(+ 1 2))")))
+(test '(abs -16) (read (open-input-string "(#;sqrt abs -16)")))
+(test '(list (quote a) (quote e)) (read (open-input-string "(list 'a #;(list 'b #;c 'd) 'e)")))
+(test '(quote (a . c)) (read (open-input-string "'(a . #;b c)")))
+(test '(quote (a . b)) (read (open-input-string "'(a . b #;c)")))
+(test '(list (quote a) (quote d)) (read (open-input-string "(list 'a #; #;'b 'c 'd)")))
+
+(test #t
+    (read-error? (guard (exn (else exn)) (read (open-input-string "(#;a . b)")))))
+(test #t
+    (read-error? (guard (exn (else exn)) (read (open-input-string "(a . #;b)")))))
+(test #t
+    (read-error? (guard (exn (else exn)) (read (open-input-string "(a #;. b)")))))
+(test #t
+    (read-error? (guard (exn (else exn)) (read (open-input-string "(#;x #;y . z)")))))
+(test #t
+    (read-error? (guard (exn (else exn)) (read (open-input-string "(#; #;x #;y . z)")))))
+(test #t
+    (read-error? (guard (exn (else exn)) (read (open-input-string "(#; #;x . z)")))))
 
 (test #\a (read (open-input-string "#\\a")))
 (test #\space (read (open-input-string "#\\space")))
