@@ -99,21 +99,18 @@ void WriteProcedure(FWriteContext * wctx, FObject obj)
 typedef struct
 {
     FObject Who;
-    FObject CStackPtr;
-    FObject AStackPtr;
     FObject Marks;
+    long_t CStackPtr;
+    long_t AStackPtr;
 } FDynamic;
 
-static FObject MakeDynamic(FObject who, FObject cdx, FObject adx, FObject ml)
+static FObject MakeDynamic(FObject who, FObject ml, long_t cdx, long_t adx)
 {
-    FAssert(FixnumP(cdx));
-    FAssert(FixnumP(adx));
-
-    FDynamic * dyn = (FDynamic *) MakeObject(DynamicTag, sizeof(FDynamic), 4, "make-dynamic");
+    FDynamic * dyn = (FDynamic *) MakeObject(DynamicTag, sizeof(FDynamic), 2, "make-dynamic");
     dyn->Who = who;
+    dyn->Marks = ml;
     dyn->CStackPtr = cdx;
     dyn->AStackPtr = adx;
-    dyn->Marks = ml;
 
     return(dyn);
 }
@@ -122,8 +119,8 @@ static FObject MakeDynamic(FObject dyn, FObject ml)
 {
     FAssert(DynamicP(dyn));
 
-    return(MakeDynamic(AsDynamic(dyn)->Who, AsDynamic(dyn)->CStackPtr, AsDynamic(dyn)->AStackPtr,
-            ml));
+    return(MakeDynamic(AsDynamic(dyn)->Who, ml, AsDynamic(dyn)->CStackPtr,
+            AsDynamic(dyn)->AStackPtr));
 }
 
 // ---- Continuation ----
@@ -1080,11 +1077,8 @@ TailCallPrimitive:
                 FMustBe(ProcedureP(thnk));
                 FMustBe(DynamicP(dyn));
 
-                FAssert(FixnumP(AsDynamic(dyn)->CStackPtr));
-                FAssert(FixnumP(AsDynamic(dyn)->AStackPtr));
-
-                ts->CStackPtr = AsFixnum(AsDynamic(dyn)->CStackPtr);
-                ts->AStackPtr = AsFixnum(AsDynamic(dyn)->AStackPtr);
+                ts->CStackPtr = AsDynamic(dyn)->CStackPtr;
+                ts->AStackPtr = AsDynamic(dyn)->AStackPtr;
                 ts->ArgCount = 0;
                 ts->Proc = thnk;
                 ts->IP = 0;
@@ -1117,9 +1111,7 @@ TailCallPrimitive:
 
                     FObject dyn = First(ts->DynamicStack);
 
-                    FAssert(FixnumP(AsDynamic(dyn)->CStackPtr));
-
-                    if (AsDynamic(dyn)->Who == who && AsFixnum(AsDynamic(dyn)->CStackPtr) == idx)
+                    if (AsDynamic(dyn)->Who == who && AsDynamic(dyn)->CStackPtr == idx)
                     {
                         ts->DynamicStack = MakePair(MakeDynamic(dyn,
                                 MarkListSet(AsDynamic(dyn)->Marks, key, val)),
@@ -1131,9 +1123,10 @@ TailCallPrimitive:
                     }
                 }
 
-                ts->DynamicStack = MakePair(MakeDynamic(who, MakeFixnum(ts->CStackPtr),
-                        MakeFixnum(ts->AStackPtr), MarkListSet(EmptyListObject, key, val)),
-                        ts->DynamicStack);
+                ts->DynamicStack = MakePair(
+                        MakeDynamic(who,
+                                MarkListSet(EmptyListObject, key, val), ts->CStackPtr,
+                                ts->AStackPtr), ts->DynamicStack);
 
                 ts->ArgCount = 0;
                 ts->AStack[ts->AStackPtr] = thnk;

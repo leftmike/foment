@@ -1386,7 +1386,7 @@ FObjectType ObjectTypes[] =
     {CharSetTag, "char-set", 0, WriteCharSet},
     {SubprocessTag, "subprocess", 0, WriteSubprocess},
     {ExceptionTag, "exception", 5, WriteException},
-    {DynamicTag, "dynamic", 4, 0},
+    {DynamicTag, "dynamic", 2, 0},
     {ContinuationTag, "continuation", 4, 0},
     {CustomPortTag, "custom-port", 7, 0},
     {CodecTag, "codec", 0, WriteCodec},
