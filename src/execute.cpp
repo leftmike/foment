@@ -1478,15 +1478,6 @@ Define("%dynamic-marks", DynamicMarksPrimitive)(long_t argc, FObject argv[])
     return(AsDynamic(argv[0])->Marks);
 }
 
-Define("%parameters", ParametersPrimitive)(long_t argc, FObject argv[])
-{
-    // (%parameters)
-
-    FMustBe(argc == 0);
-
-    return(GetThreadState()->Parameters);
-}
-
 Define("%procedure->parameter", ProcedureToParameterPrimitive)(long_t argc, FObject argv[])
 {
     // (%procedure->parameter <proc>)
@@ -1508,27 +1499,27 @@ Define("%parameter?", ParameterPPrimitive)(long_t argc, FObject argv[])
     return(ParameterP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("%index-parameter", IndexParameterPrimitive)(long_t argc, FObject argv[])
+Define("%parameter", ParameterPrimitive)(long_t argc, FObject argv[])
 {
-    // (%index-parameter <index>)
-    // (%index-parameter <index> <value>)
+    // (%parameter <index>)
+    // (%parameter <index> <value>)
 
     FThreadState * ts = GetThreadState();
 
     FMustBe(argc >= 1 && argc <= 2);
     FMustBe(FixnumP(argv[0]) && AsFixnum(argv[0]) >= 0 &&
-            (ulong_t) AsFixnum(argv[0]) < ts->IndexParametersLength);
+            (ulong_t) AsFixnum(argv[0]) < ts->ParametersLength);
 
     if (argc == 1)
     {
-        FAssert(PairP(ts->IndexParameters[AsFixnum(argv[0])]));
+        FAssert(PairP(ts->Parameters[AsFixnum(argv[0])]));
 
-        return(ts->IndexParameters[AsFixnum(argv[0])]);
+        return(ts->Parameters[AsFixnum(argv[0])]);
     }
 
     FAssert(PairP(argv[1]));
 
-    ts->IndexParameters[AsFixnum(argv[0])] = argv[1];
+    ts->Parameters[AsFixnum(argv[0])] = argv[1];
     return(NoValueObject);
 }
 
@@ -1557,25 +1548,6 @@ Define("%procedure-code", ProcedureCodePrimitive)(long_t argc, FObject argv[])
     return(AsProcedure(argv[0])->Code);
 }
 
-static FObject Fold(FObject key, FObject val, void * ctx, FObject htbl)
-{
-    FAssert(ParameterP(key));
-
-    HashTableSet(htbl, key, PairP(val) ? MakePair(First(val), EmptyListObject) : EmptyListObject);
-    return(htbl);
-}
-
-FObject CurrentParameters()
-{
-    FObject htbl = MakeEqHashTable(32, 0);
-    FThreadState * ts = GetThreadState();
-
-    if (HashTableP(ts->Parameters))
-        HashTableFold(ts->Parameters, Fold, 0, htbl);
-
-    return(htbl);
-}
-
 static FObject Primitives[] =
 {
     ProcedurePPrimitive,
@@ -1590,10 +1562,9 @@ static FObject Primitives[] =
     BytesAllocatedPrimitive,
     DynamicStackPrimitive,
     DynamicMarksPrimitive,
-    ParametersPrimitive,
     ProcedureToParameterPrimitive,
     ParameterPPrimitive,
-    IndexParameterPrimitive,
+    ParameterPrimitive,
     FindMarkPrimitive,
     ExecuteProcPrimitive,
     ProcedureCodePrimitive

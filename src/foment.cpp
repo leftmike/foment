@@ -1377,7 +1377,7 @@ FObjectType ObjectTypes[] =
     {RecordTypeTag, "record-type", MAXIMUM_ULONG, WriteRecordType},
     {RecordTag, "record", MAXIMUM_ULONG, WriteRecord},
     {PrimitiveTag, "primitive", 1, WritePrimitive},
-    {ThreadTag, "thread", 4, WriteThread},
+    {ThreadTag, "thread", 3, WriteThread},
     {ExclusiveTag, "exclusive", 0, WriteExclusive},
     {ConditionTag, "condition", 0, WriteCondition},
     {HashNodeTag, "hash-node", 3, WriteHashNode},
@@ -1455,8 +1455,6 @@ long_t SetupFoment(FThreadState * ts)
     RegisterRoot(&FomentLibrariesVector, "foment-libraries-vector");
 
     SymbolHashTable = MakeStringHashTable(4096, HASH_TABLE_THREAD_SAFE);
-
-    ts->Parameters = MakeEqHashTable(32, 0);
 
     SetupLibrary();
 

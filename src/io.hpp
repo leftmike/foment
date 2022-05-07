@@ -56,9 +56,9 @@ FObject MakeTextualPort(FObject nam, FObject obj, void * ctx, FCloseInputFn cifn
 
 inline FObject CurrentInputPort()
 {
-    FAssert(PairP(IndexParameter(INDEX_PARAMETER_CURRENT_INPUT_PORT)));
+    FAssert(PairP(Parameter(PARAMETER_CURRENT_INPUT_PORT)));
 
-    FObject port = First(IndexParameter(INDEX_PARAMETER_CURRENT_INPUT_PORT));
+    FObject port = First(Parameter(PARAMETER_CURRENT_INPUT_PORT));
 
     FAssert(InputPortP(port) && InputPortOpenP(port));
 
@@ -67,9 +67,9 @@ inline FObject CurrentInputPort()
 
 inline FObject CurrentOutputPort()
 {
-    FAssert(PairP(IndexParameter(INDEX_PARAMETER_CURRENT_OUTPUT_PORT)));
+    FAssert(PairP(Parameter(PARAMETER_CURRENT_OUTPUT_PORT)));
 
-    FObject port = First(IndexParameter(INDEX_PARAMETER_CURRENT_OUTPUT_PORT));
+    FObject port = First(Parameter(PARAMETER_CURRENT_OUTPUT_PORT));
 
     FAssert(OutputPortP(port) && OutputPortOpenP(port));
 

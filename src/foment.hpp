@@ -12,7 +12,6 @@ To Do:
 -- SRFI 154: First-class dynamic extents
 -- SRFI 157: Continuation marks
 --- Add indirection to parameters: box with value rather than value directly
---- Make all parameters be indexed
 -- SRFI 159: Combinator Formatting
 -- SRFI 229: Tagged Procedures
 
@@ -1391,12 +1390,12 @@ typedef struct _FYoungSection
 #endif // FOMENT_32BIT
 } FYoungSection;
 
-#define INDEX_PARAMETERS 5
-#define INDEX_PARAMETER_CURRENT_INPUT_PORT 0
-#define INDEX_PARAMETER_CURRENT_OUTPUT_PORT 1
-#define INDEX_PARAMETER_CURRENT_ERROR_PORT 2
-#define INDEX_PARAMETER_HASH_BOUND 3
-#define INDEX_PARAMETER_HASH_SALT 4
+#define PARAMETERS 5
+#define PARAMETER_CURRENT_INPUT_PORT 0
+#define PARAMETER_CURRENT_OUTPUT_PORT 1
+#define PARAMETER_CURRENT_ERROR_PORT 2
+#define PARAMETER_HASH_BOUND 3
+#define PARAMETER_HASH_SALT 4
 
 typedef struct _FThreadState
 {
@@ -1424,9 +1423,8 @@ typedef struct _FThreadState
     long_t ArgCount;
 
     FObject DynamicStack;
-    FObject Parameters;
-    FObject * IndexParameters;
-    ulong_t IndexParametersLength;
+    FObject * Parameters;
+    ulong_t ParametersLength;
 
     long_t NotifyFlag;
     FObject NotifyObject;

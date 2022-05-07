@@ -348,18 +348,18 @@ Define("equal?", EqualPPrimitive)(long_t argc, FObject argv[])
 
 inline ulong_t HashBound()
 {
-    FAssert(PairP(IndexParameter(INDEX_PARAMETER_HASH_BOUND)));
-    FAssert(FixnumP(First(IndexParameter(INDEX_PARAMETER_HASH_BOUND))));
+    FAssert(PairP(Parameter(PARAMETER_HASH_BOUND)));
+    FAssert(FixnumP(First(Parameter(PARAMETER_HASH_BOUND))));
 
-    return(AsFixnum(First(IndexParameter(INDEX_PARAMETER_HASH_BOUND))));
+    return(AsFixnum(First(Parameter(PARAMETER_HASH_BOUND))));
 }
 
 inline ulong_t HashSalt()
 {
-    FAssert(PairP(IndexParameter(INDEX_PARAMETER_HASH_SALT)));
-    FAssert(FixnumP(First(IndexParameter(INDEX_PARAMETER_HASH_SALT))));
+    FAssert(PairP(Parameter(PARAMETER_HASH_SALT)));
+    FAssert(FixnumP(First(Parameter(PARAMETER_HASH_SALT))));
 
-    return(AsFixnum(First(IndexParameter(INDEX_PARAMETER_HASH_SALT))));
+    return(AsFixnum(First(Parameter(PARAMETER_HASH_SALT))));
 }
 
 Define("%check-hash-bound", CheckHashBoundPrimitive)(long_t argc, FObject argv[])

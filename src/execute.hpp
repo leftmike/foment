@@ -80,6 +80,4 @@ typedef enum
     PopDynamicStackOpcode
 } FOpcode;
 
-FObject CurrentParameters();
-
 #endif // __EXECUTE_HPP__

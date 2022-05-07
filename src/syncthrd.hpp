@@ -145,11 +145,10 @@ typedef struct
     FObject Result;
     FObject Thunk;
     FObject Parameters;
-    FObject IndexParameters;
     OSThreadHandle Handle;
 } FThread;
 
-FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms, FObject idxprms);
+FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms);
 void ThreadExit(FObject obj);
 
 // ---- Exclusives ----
@@ -208,16 +207,16 @@ extern volatile ulong_t TotalThreads;
 extern FThreadState * Threads;
 extern OSExclusive ThreadsExclusive;
 
-long_t EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms);
+long_t EnterThread(FThreadState * ts, FObject thrd, FObject prms);
 ulong_t LeaveThread(FThreadState * ts);
 
-inline FObject IndexParameter(ulong_t idx)
+inline FObject Parameter(ulong_t idx)
 {
     FThreadState * ts = GetThreadState();
 
-    FAssert(idx < ts->IndexParametersLength);
+    FAssert(idx < ts->ParametersLength);
 
-    return(ts->IndexParameters[idx]);
+    return(ts->Parameters[idx]);
 }
 
 typedef struct

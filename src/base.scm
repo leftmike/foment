@@ -1118,26 +1118,26 @@
                             (full-error 'assertion-violation 'make-parameter #f
                                     "make-parameter: expected one or two arguments"))))
                     (init (converter init)))
-                (%make-index-parameter (%next-parameter-index) init converter)))
+                (%make-parameter (%next-parameter-index) init converter)))
 
-        (define (%make-index-parameter index init converter)
+        (define (%make-parameter index init converter)
             (let ((parameter
                     (case-lambda
-                        (() (car (%index-parameter index)))
+                        (() (car (%parameter index)))
                         ((val)
                             (if (eq? val pop-parameter)
-                                (%index-parameter index (cdr (%index-parameter index)))
-                                (%index-parameter index
-                                        (cons (converter val) (cdr (%index-parameter index))))))
+                                (%parameter index (cdr (%parameter index)))
+                                (%parameter index
+                                        (cons (converter val) (cdr (%parameter index))))))
                         ((val key) ;; used by parameterize
                             (if (eq? key push-parameter)
-                                (%index-parameter index (cons (converter val)
-                                        (%index-parameter index)))
+                                (%parameter index (cons (converter val)
+                                        (%parameter index)))
                                 (full-error 'assertion-violation '<parameter> #f
                                         "<parameter>: expected zero or one arguments")))
                         (val (full-error 'assertion-violation '<parameter> #f
                                 "<parameter>: expected zero or one arguments")))))
-                (%index-parameter index (list (converter init)))
+                (%parameter index (list (converter init)))
                 (%procedure->parameter parameter)
                 parameter))
 
@@ -1462,7 +1462,7 @@
                 ))
 
         (define current-input-port
-            (%make-index-parameter 0 %standard-input
+            (%make-parameter 0 %standard-input
                 (lambda (obj)
                     (if (not (and (input-port? obj) (input-port-open? obj)))
                         (full-error 'assertion-violation 'current-input-port #f
@@ -1470,7 +1470,7 @@
                     obj)))
 
         (define current-output-port
-            (%make-index-parameter 1 %standard-output
+            (%make-parameter 1 %standard-output
                 (lambda (obj)
                     (if (not (and (output-port? obj) (output-port-open? obj)))
                         (full-error 'assertion-violation 'current-output-port #f
@@ -1478,7 +1478,7 @@
                     obj)))
 
         (define current-error-port
-            (%make-index-parameter 2 %standard-error
+            (%make-parameter 2 %standard-error
                 (lambda (obj)
                     (if (not (and (output-port? obj) (output-port-open? obj)))
                         (full-error 'assertion-violation 'current-error-port #f
@@ -1486,10 +1486,10 @@
                     obj)))
 
         (define hash-bound-parameter
-            (%make-index-parameter 3 (- (expt 2 28) 1) %check-hash-bound))
+            (%make-parameter 3 (- (expt 2 28) 1) %check-hash-bound))
 
         (define hash-salt-parameter
-            (%make-index-parameter 4 16064047 %check-hash-salt))
+            (%make-parameter 4 16064047 %check-hash-salt))
 
         (define file-encoding
             (make-parameter make-encoded-port))
