@@ -121,14 +121,15 @@ Define("thread?", ThreadPPrimitive)(long_t argc, FObject argv[])
 
 static FObject CurrentIndexParameters()
 {
-    FObject v = MakeVector(INDEX_PARAMETERS, 0, NoValueObject);
+    FThreadState * ts = GetThreadState();
+    FObject v = MakeVector(ts->IndexParametersLength, 0, NoValueObject);
 
-    for (long_t idx = 0; idx < INDEX_PARAMETERS; idx++)
+    for (ulong_t idx = 0; idx < ts->IndexParametersLength; idx++)
     {
-        FAssert(PairP(GetThreadState()->IndexParameters[idx]));
-
-        AsVector(v)->Vector[idx] = MakePair(First(GetThreadState()->IndexParameters[idx]),
-                EmptyListObject);
+        if (PairP(ts->IndexParameters[idx]))
+            AsVector(v)->Vector[idx] = MakePair(First(ts->IndexParameters[idx]), EmptyListObject);
+        else
+            AsVector(v)->Vector[idx] = ts->IndexParameters[idx];
     }
 
     return(v);

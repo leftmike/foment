@@ -11,6 +11,8 @@ To Do:
 -- SRFI 151: Bitwise Operations
 -- SRFI 154: First-class dynamic extents
 -- SRFI 157: Continuation marks
+--- Add indirection to parameters: box with value rather than value directly
+--- Make all parameters be indexed
 -- SRFI 159: Combinator Formatting
 -- SRFI 229: Tagged Procedures
 
@@ -1423,7 +1425,8 @@ typedef struct _FThreadState
 
     FObject DynamicStack;
     FObject Parameters;
-    FObject IndexParameters[INDEX_PARAMETERS];
+    FObject * IndexParameters;
+    ulong_t IndexParametersLength;
 
     long_t NotifyFlag;
     FObject NotifyObject;

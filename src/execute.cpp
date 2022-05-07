@@ -1513,19 +1513,22 @@ Define("%index-parameter", IndexParameterPrimitive)(long_t argc, FObject argv[])
     // (%index-parameter <index>)
     // (%index-parameter <index> <value>)
 
+    FThreadState * ts = GetThreadState();
+
     FMustBe(argc >= 1 && argc <= 2);
-    FMustBe(FixnumP(argv[0]) && AsFixnum(argv[0]) >= 0 && AsFixnum(argv[0]) < INDEX_PARAMETERS);
+    FMustBe(FixnumP(argv[0]) && AsFixnum(argv[0]) >= 0 &&
+            (ulong_t) AsFixnum(argv[0]) < ts->IndexParametersLength);
 
     if (argc == 1)
     {
-        FAssert(PairP(GetThreadState()->IndexParameters[AsFixnum(argv[0])]));
+        FAssert(PairP(ts->IndexParameters[AsFixnum(argv[0])]));
 
-        return(GetThreadState()->IndexParameters[AsFixnum(argv[0])]);
+        return(ts->IndexParameters[AsFixnum(argv[0])]);
     }
 
     FAssert(PairP(argv[1]));
 
-    GetThreadState()->IndexParameters[AsFixnum(argv[0])] = argv[1];
+    ts->IndexParameters[AsFixnum(argv[0])] = argv[1];
     return(NoValueObject);
 }
 

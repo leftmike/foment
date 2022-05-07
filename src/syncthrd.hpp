@@ -213,9 +213,11 @@ ulong_t LeaveThread(FThreadState * ts);
 
 inline FObject IndexParameter(ulong_t idx)
 {
-    FAssert(idx < INDEX_PARAMETERS);
+    FThreadState * ts = GetThreadState();
 
-    return(GetThreadState()->IndexParameters[idx]);
+    FAssert(idx < ts->IndexParametersLength);
+
+    return(ts->IndexParameters[idx]);
 }
 
 typedef struct
