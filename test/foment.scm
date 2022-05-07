@@ -107,6 +107,8 @@
 ;; srfi-39
 ;; parameterize
 
+(import (srfi 39))
+
 (define radix (make-parameter 10))
 
 (define boolean-parameter (make-parameter #f
@@ -121,6 +123,7 @@
 (check-error (assertion-violation error) (boolean-parameter 0))
 
 (check-equal 16 (parameterize ((radix 16)) (radix)))
+(check-equal 8 (parameterize ((radix 16)) (radix 8) (radix)))
 (check-equal 2 (radix))
 
 (define prompt

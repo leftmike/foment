@@ -2477,3 +2477,10 @@
         random-source-make-integers
         random-source-make-reals)
     )
+
+(define-library (srfi 39)
+    (import (foment base))
+    (export
+        make-parameter
+        parameterize)
+    )

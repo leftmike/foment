@@ -18,6 +18,7 @@
 * SRFI 14: Character-set Library
 * SRFI 22: Running Scheme Scripts on Unix
 * SRFI 27: Sources of Random Bits
+* SRFI 39: Parameter objects
 * SRFI 60: Integers as Bits
 * SRFI 106: Basic socket interface
 * SRFI 111: Boxes
