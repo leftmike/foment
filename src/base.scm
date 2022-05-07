@@ -1106,8 +1106,9 @@
                         "<control-process>: expected status, exit-code, wait, interrupt, or kill"
                                         what)))))))
 
-        (define push-parameter (cons #f #f))
-        (define pop-parameter (cons #f #f))
+        (define get-parameter-box (cons #f #f))
+        (define set-parameter-box (cons #f #f))
+        (define init-parameter-box (cons #f #f))
 
         (define (make-parameter init . converter)
             (let* ((converter
@@ -1123,21 +1124,27 @@
         (define (%make-parameter index init converter)
             (let ((parameter
                     (case-lambda
-                        (() (car (%parameter index)))
+                        (() (if (box? (%parameter index))
+                                (unbox (%parameter index))
+                                (converter init)))
                         ((val)
-                            (if (eq? val pop-parameter)
-                                (%parameter index (cdr (%parameter index)))
-                                (%parameter index
-                                        (cons (converter val) (cdr (%parameter index))))))
+                            (if (eq? val get-parameter-box)
+                                (%parameter index)
+                                (if (box? (%parameter index))
+                                    (set-box! (%parameter index) (converter val))
+                                    (%parameter index (box (converter val))))))
                         ((val key) ;; used by parameterize
-                            (if (eq? key push-parameter)
-                                (%parameter index (cons (converter val)
-                                        (%parameter index)))
-                                (full-error 'assertion-violation '<parameter> #f
-                                        "<parameter>: expected zero or one arguments")))
+                            (if (eq? key set-parameter-box)
+                                (%parameter index val)
+                                (if (eq? key init-parameter-box)
+                                    (let ((b (box (converter val))))
+                                        (%parameter index b)
+                                        b)
+                                    (full-error 'assertion-violation '<parameter> #f
+                                            "<parameter>: expected zero or one arguments"))))
                         (val (full-error 'assertion-violation '<parameter> #f
                                 "<parameter>: expected zero or one arguments")))))
-                (%parameter index (list (converter init)))
+                (%parameter index (box (converter init)))
                 (%procedure->parameter parameter)
                 parameter))
 
@@ -1149,27 +1156,32 @@
                     (call-with-parameterize (list param1 param2 ...) (list value1 value2 ...)
                             (lambda () body1 body2 ...)))))
 
-        (define (before-parameterize params vals)
-            (if (not (null? params))
-                (let ((p (car params)))
-                    (if (not (%parameter? p))
-                        (full-error 'assertion-violation 'parameterize #f
-                                "parameterize: expected a parameter" p))
-                    (p (car vals) push-parameter)
-                    (before-parameterize (cdr params) (cdr vals)))))
-
-        (define (after-parameterize params)
+        (define (set-parameter-boxes params boxes)
             (if (not (null? params))
                 (begin
-                    ((car params) pop-parameter)
-                    (after-parameterize (cdr params)))))
+                    ((car params) (car boxes) set-parameter-box)
+                    (set-parameter-boxes (cdr params) (cdr boxes)))))
 
         (define (call-with-parameterize params vals thunk)
-            (before-parameterize params vals)
-            (let-values ((results (%mark-continuation 'mark 'parameterize (cons params vals)
-                        thunk)))
-                (after-parameterize params)
-                (apply values results)))
+            (define (get-boxes params)
+                (if (null? params)
+                    '()
+                    (let ((p (car params)))
+                        (if (not (%parameter? p))
+                            (full-error 'assertion-violation 'parameterize #f
+                                    "parameterize: expected a parameter" p))
+                        (cons (p get-parameter-box) (get-boxes (cdr params))))))
+            (define (init-parameterize params vals)
+                (if (null? params)
+                    '()
+                    (cons ((car params) (car vals) init-parameter-box)
+                            (init-parameterize (cdr params) (cdr vals)))))
+            (let ((old (get-boxes params))
+                    (new (init-parameterize params vals)))
+                (let-values ((results (%mark-continuation 'mark 'parameterize (list params old new)
+                                 thunk)))
+                    (set-parameter-boxes params old)
+                    (apply values results))))
 
         (define-syntax with-continuation-mark
             (syntax-rules ()
@@ -1196,7 +1208,7 @@
             (if (pair? ml)
                 (begin
                     (if (eq? (car (car ml)) 'parameterize)
-                        (after-parameterize (car (cdr (car ml))))
+                        (set-parameter-boxes (car (cdr (car ml))) (cadr (cdr (car ml))))
                         (if (eq? (car (car ml)) 'dynamic-wind)
                             ((cdr (cdr (car ml)))))) ; dynamic-wind after
                     (unwind-mark-list (cdr ml)))))
@@ -1205,7 +1217,7 @@
             (if (pair? ml)
                 (begin
                     (if (eq? (car (car ml)) 'parameterize)
-                        (before-parameterize (car (cdr (car ml))) (cdr (cdr (car ml))))
+                        (set-parameter-boxes (car (cdr (car ml))) (caddr (cdr (car ml))))
                         (if (eq? (car (car ml)) 'dynamic-wind)
                             ((car (cdr (car ml)))))) ; dynamic-wind before
                     (rewind-mark-list (cdr ml)))))

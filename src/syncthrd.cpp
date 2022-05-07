@@ -124,12 +124,7 @@ static FObject CurrentParameters()
     FObject v = MakeVector(ts->ParametersLength, 0, NoValueObject);
 
     for (ulong_t idx = 0; idx < ts->ParametersLength; idx++)
-    {
-        if (PairP(ts->Parameters[idx]))
-            AsVector(v)->Vector[idx] = MakePair(First(ts->Parameters[idx]), EmptyListObject);
-        else
             AsVector(v)->Vector[idx] = ts->Parameters[idx];
-    }
 
     return(v);
 }

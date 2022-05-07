@@ -215,8 +215,9 @@ inline FObject Parameter(ulong_t idx)
     FThreadState * ts = GetThreadState();
 
     FAssert(idx < ts->ParametersLength);
+    FAssert(BoxP(ts->Parameters[idx]));
 
-    return(ts->Parameters[idx]);
+    return(Unbox(ts->Parameters[idx]));
 }
 
 typedef struct

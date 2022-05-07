@@ -1512,12 +1512,14 @@ Define("%parameter", ParameterPrimitive)(long_t argc, FObject argv[])
 
     if (argc == 1)
     {
-        FAssert(PairP(ts->Parameters[AsFixnum(argv[0])]));
+        FObject obj = ts->Parameters[AsFixnum(argv[0])];
 
-        return(ts->Parameters[AsFixnum(argv[0])]);
+        FAssert(BoxP(obj) || obj == NoValueObject);
+
+        return(obj);
     }
 
-    FAssert(PairP(argv[1]));
+    FAssert(BoxP(argv[1]) || argv[1] == NoValueObject);
 
     ts->Parameters[AsFixnum(argv[0])] = argv[1];
     return(NoValueObject);
