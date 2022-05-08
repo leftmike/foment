@@ -463,6 +463,13 @@
         random-source-pseudo-randomize!
         random-source-make-integers
         random-source-make-reals)
+    (export ;; (srfi 157)
+        current-continuation-marks
+        continuation-marks?
+        continuation-mark-set->list
+        continuation-mark-set->list*
+        continuation-mark-set-first
+        call-with-immediate-continuation-mark)
     (export
         make-buffered-port
         make-encoded-port
@@ -478,12 +485,6 @@
         default-prompt-tag
         (rename default-prompt-tag default-continuation-prompt-tag)
         default-prompt-handler
-        current-continuation-marks
-        continuation-marks?
-        continuation-mark-set->list
-        continuation-mark-set->list*
-        continuation-mark-set-first
-        call-with-immediate-continuation-mark
         collect
         make-guardian
         make-exclusive
@@ -2557,4 +2558,15 @@
     (export
         make-parameter
         parameterize)
+    )
+
+(define-library (srfi 157)
+    (import (foment base))
+    (export
+        current-continuation-marks
+        continuation-marks?
+        continuation-mark-set->list
+        continuation-mark-set->list*
+        continuation-mark-set-first
+        call-with-immediate-continuation-mark)
     )

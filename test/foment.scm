@@ -25,6 +25,8 @@
 ;; ---- SRFI 157: Continuation marks ----
 ;;
 
+(import (srfi 157))
+
 (define (tst mark-set-result)
     (with-continuation-mark 'a 1
         (with-continuation-mark 'a 2
