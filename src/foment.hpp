@@ -10,7 +10,6 @@ To Do:
 -- SRFI 129: Titlecase Procedures
 -- SRFI 151: Bitwise Operations
 -- SRFI 154: First-class dynamic extents
--- SRFI 157: Continuation marks
 -- SRFI 159: Combinator Formatting
 -- SRFI 229: Tagged Procedures
 

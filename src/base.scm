@@ -479,6 +479,11 @@
         (rename default-prompt-tag default-continuation-prompt-tag)
         default-prompt-handler
         current-continuation-marks
+        continuation-marks?
+        continuation-mark-set->list
+        continuation-mark-set->list*
+        continuation-mark-set-first
+        call-with-immediate-continuation-mark
         collect
         make-guardian
         make-exclusive
@@ -1188,7 +1193,76 @@
                 ((_ key val expr) (%mark-continuation 'mark key val (lambda () expr)))))
 
         (define (current-continuation-marks)
-            (reverse (cdr (reverse (map (lambda (dyn) (%dynamic-marks dyn)) (%dynamic-stack))))))
+            (%dynamic-stack))
+
+        (define (continuation-marks? obj)
+            (or (null? obj) (and (pair? obj) (%dynamic? (car obj)))))
+
+        (define (continuation-mark-set->list mark-set key)
+            (define (marks->list marks)
+                (if (not (continuation-marks? marks))
+                    (full-error 'assertion-violation 'continuation-mark-set->list #f
+                            "continuation-mark-set->list: expected a continuation mark set"
+                            mark-set))
+                (if (null? marks)
+                    '()
+                    (if (eq? (%dynamic-who (car marks)) 'mark)
+                        (let ((val (assq key (%dynamic-marks (car marks)))))
+                            (if (pair? val)
+                                (cons (cdr val) (marks->list (cdr marks)))
+                                (marks->list (cdr marks))))
+                        (marks->list (cdr marks)))))
+            (marks->list mark-set))
+
+        (define (continuation-mark-set->list* mark-set keys . default)
+            (define (marks->vector marks alist keys idx len vec)
+                (if (null? keys)
+                    (if (vector? vec)
+                        (cons vec (marks->list* marks))
+                        (marks->list* marks))
+                    (let ((val (assq (car keys) alist)))
+                        (if (pair? val)
+                            (begin
+                                (if (not (vector? vec))
+                                    (set! vec (make-vector len
+                                                    (if (pair? default) (car default) #f))))
+                                (vector-set! vec idx (cdr val))))
+                        (marks->vector marks alist (cdr keys) (+ idx 1) len vec))))
+            (define (marks->list* marks)
+                (if (not (continuation-marks? marks))
+                    (full-error 'assertion-violation 'continuation-mark-set->list* #f
+                            "continuation-mark-set->list*: expected a continuation mark set"
+                            mark-set))
+                (if (null? marks)
+                    '()
+                    (if (eq? (%dynamic-who (car marks)) 'mark)
+                        (marks->vector (cdr marks) (%dynamic-marks (car marks)) keys 0
+                                (length keys) #f)
+                        (marks->list* (cdr marks)))))
+            (marks->list* mark-set))
+
+        (define (continuation-mark-set-first mark-set key . default)
+            (define (marks-first marks)
+                (if (not (continuation-marks? marks))
+                    (full-error 'assertion-violation 'continuation-mark-set-first #f
+                            "continuation-mark-set-first: expected a continuation mark set"
+                            mark-set))
+                (if (null? marks)
+                    (if (pair? default) (car default) #f)
+                    (if (eq? (%dynamic-who (car marks)) 'mark)
+                        (let ((val (assq key (%dynamic-marks (car marks)))))
+                            (if (pair? val)
+                                (cdr val)
+                                (marks-first (cdr marks))))
+                        (marks-first (cdr marks)))))
+            (marks-first mark-set))
+
+        (define (call-with-immediate-continuation-mark key proc . default)
+            (with-continuation-mark '(#f . #f) #t
+                (let ((val (assq key (%dynamic-marks (car (%dynamic-stack))))))
+                    (if (pair? val)
+                        (proc (cdr val))
+                        (proc (if (pair? default) (car default) #f))))))
 
         (define default-prompt-tag-key (cons #f #f))
 

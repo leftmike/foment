@@ -1460,12 +1460,21 @@ Define("%dynamic-stack", DynamicStackPrimitive)(long_t argc, FObject argv[])
 
     if (argc == 1)
     {
-        FMustBe(argv[0] == EmptyListObject || PairP(argv[0]));
+        FMustBe(argv[0] == EmptyListObject || (PairP(argv[0]) && DynamicP(First(argv[0]))));
 
         ts->DynamicStack = argv[0];
     }
 
     return(ds);
+}
+
+Define("%dynamic?", DynamicPPrimitive)(long_t argc, FObject argv[])
+{
+    // (%dynamic? <obj>)
+
+    FMustBe(argc == 1);
+
+    return(DynamicP(argv[0]) ? TrueObject : FalseObject);
 }
 
 Define("%dynamic-marks", DynamicMarksPrimitive)(long_t argc, FObject argv[])
@@ -1476,6 +1485,16 @@ Define("%dynamic-marks", DynamicMarksPrimitive)(long_t argc, FObject argv[])
     FMustBe(DynamicP(argv[0]));
 
     return(AsDynamic(argv[0])->Marks);
+}
+
+Define("%dynamic-who", DynamicWhoPrimitive)(long_t argc, FObject argv[])
+{
+    // (%dynamic-who <dynamic>)
+
+    FMustBe(argc == 1);
+    FMustBe(DynamicP(argv[0]));
+
+    return(AsDynamic(argv[0])->Who);
 }
 
 Define("%procedure->parameter", ProcedureToParameterPrimitive)(long_t argc, FObject argv[])
@@ -1563,7 +1582,9 @@ static FObject Primitives[] =
     InteractiveThunkPrimitive,
     BytesAllocatedPrimitive,
     DynamicStackPrimitive,
+    DynamicPPrimitive,
     DynamicMarksPrimitive,
+    DynamicWhoPrimitive,
     ProcedureToParameterPrimitive,
     ParameterPPrimitive,
     ParameterPrimitive,
