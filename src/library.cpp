@@ -314,7 +314,7 @@ static void LibraryExportByName(FObject lib, FObject gl, FObject nam)
     FAssert(LibraryP(lib));
     FAssert(GlobalP(gl));
     FAssert(SymbolP(nam));
-    FAssert(GlobalP(Assq(nam, AsLibrary(lib)->Exports)) == 0);
+    FAssert(Assq(nam, AsLibrary(lib)->Exports) == FalseObject);
 
     AsLibrary(lib)->Exports = MakePair(MakePair(nam, gl), AsLibrary(lib)->Exports);
 }
@@ -1160,7 +1160,8 @@ static FObject CompileExports(FObject env, FObject lst)
                     RaiseExceptionC(Syntax, "export", "identifier is undefined",
                             List(lid, form));
 
-                if (GlobalP(Assq(eid, elst)))
+                FObject ret = Assq(eid, elst);
+                if (PairP(ret) && GlobalP(First(ret)))
                     RaiseExceptionC(Syntax, "export", "identifier already exported",
                             List(eid, form));
 

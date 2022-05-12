@@ -658,7 +658,9 @@
         string->bytevector
         i/o-decoding-error?
         i/o-encoding-error?
-        i/o-encoding-error-char)
+        i/o-encoding-error-char
+        procedure-property
+        set-procedure-property!)
     (cond-expand
         (unix
             (export

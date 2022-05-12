@@ -42,12 +42,13 @@ static FObject RaiseHandler = NoValueObject;
 
 FObject MakeProcedure(FObject nam, FObject fn, FObject ln, FObject cv, long_t ac, ulong_t fl)
 {
-    FProcedure * p = (FProcedure *) MakeObject(ProcedureTag, sizeof(FProcedure), 4,
+    FProcedure * p = (FProcedure *) MakeObject(ProcedureTag, sizeof(FProcedure), 5,
             "%make-procedure");
     p->Name = SyntaxToDatum(nam);
     p->Filename = fn;
     p->LineNumber = ln;
     p->Code = cv;
+    p->Properties = EmptyListObject;
     p->ArgCount = (uint16_t) ac;
     p->Flags = (uint8_t) fl;
 
@@ -1566,7 +1567,66 @@ Define("%procedure-code", ProcedureCodePrimitive)(long_t argc, FObject argv[])
     OneArgCheck("%procedure-code", argc);
     ProcedureArgCheck("%procedure-code", argv[0]);
 
-    return(AsProcedure(argv[0])->Code);
+    if (ProcedureP(argv[0]))
+        return(AsProcedure(argv[0])->Code);
+
+    FAssert(PrimitiveP(argv[0]));
+
+    return(MakeStringC(AsPrimitive(argv[0])->Filename));
+}
+
+Define("procedure-property", ProcedurePropertyPrimitive)(long_t argc, FObject argv[])
+{
+    // (procedure-property <proc> <key> [<default>])
+
+    TwoOrThreeArgsCheck("procedure-property", argc);
+    ProcedureArgCheck("procedure-property", argv[0]);
+
+    FObject props;
+    if (ProcedureP(argv[0]))
+        props = AsProcedure(argv[0])->Properties;
+    else
+    {
+        FAssert(PrimitiveP(argv[0]));
+
+        props = AsPrimitive(argv[0])->Properties;
+    }
+
+    FObject ret = Assq(argv[1], props);
+    if (PairP(ret))
+        return(Rest(ret));
+    return(argc == 3 ? argv[2] : FalseObject);
+}
+
+Define("set-procedure-property!", SetProcedurePropertyPrimitive)(long_t argc, FObject argv[])
+{
+    // (set-procedure-property! <proc> <key> <value>)
+
+    ThreeArgsCheck("set-procedure-property!", argc);
+    ProcedureArgCheck("set-procedure-property!", argv[0]);
+
+    if (ProcedureP(argv[0]))
+    {
+        FObject ret = Assq(argv[1], AsProcedure(argv[0])->Properties);
+        if (PairP(ret))
+            SetRest(ret, argv[2]);
+        else
+            AsProcedure(argv[0])->Properties = MakePair(MakePair(argv[1], argv[2]),
+                    AsProcedure(argv[0])->Properties);
+    }
+    else
+    {
+        FAssert(PrimitiveP(argv[0]));
+
+        FObject ret = Assq(argv[1], AsPrimitive(argv[0])->Properties);
+        if (PairP(ret))
+            SetRest(ret, argv[2]);
+        else
+            AsPrimitive(argv[0])->Properties = MakePair(MakePair(argv[1], argv[2]),
+                    AsPrimitive(argv[0])->Properties);
+    }
+
+    return(NoValueObject);
 }
 
 static FObject Primitives[] =
@@ -1590,7 +1650,9 @@ static FObject Primitives[] =
     ParameterPrimitive,
     FindMarkPrimitive,
     ExecuteProcPrimitive,
-    ProcedureCodePrimitive
+    ProcedureCodePrimitive,
+    ProcedurePropertyPrimitive,
+    SetProcedurePropertyPrimitive
 };
 
 void SetupExecute()

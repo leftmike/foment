@@ -1035,6 +1035,7 @@ typedef FObject (*FPrimitiveFn)(long_t argc, FObject argv[]);
 typedef struct
 {
     FObject Name;
+    FObject Properties;
     FPrimitiveFn PrimitiveFn;
     const char * Filename;
     long_t LineNumber;
@@ -1051,7 +1052,7 @@ typedef struct FALIGN
     FObject prim ## Fn(long_t argc, FObject argv[]);\
     static FEternalPrimitive prim ## Object = { \
         EternalHeader(FPrimitive, PrimitiveTag), \
-        {prim ## Symbol, prim ## Fn, __FILE__, __LINE__}, \
+        {prim ## Symbol, EmptyListObject, prim ## Fn, __FILE__, __LINE__}, \
     }; \
     FObject prim = &prim ## Object.Primitive; \
     FObject prim ## Fn
@@ -1316,6 +1317,7 @@ typedef struct
     FObject Filename;
     FObject LineNumber;
     FObject Code;
+    FObject Properties;
     uint16_t ArgCount;
     uint8_t Flags;
 } FProcedure;

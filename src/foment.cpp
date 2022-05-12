@@ -831,7 +831,7 @@ void DefinePrimitive(FObject env, FObject lib, FObject prim)
     FAssert(PrimitiveP(prim));
     FAssert(((ulong_t) prim) % OBJECT_ALIGNMENT == 0);
     FAssert(EternalP(prim));
-    FAssert(ObjectTag(prim) == PrimitiveTag && ObjectTypes[ObjectTag(prim)].SlotCount == 1);
+    FAssert(ObjectTag(prim) == PrimitiveTag && ObjectTypes[ObjectTag(prim)].SlotCount == 2);
     FAssert(ObjectSize(AsHeader(prim)) >= sizeof(FPrimitive));
 
     LibraryExport(lib, EnvironmentSet(env, InternSymbol(AsPrimitive(prim)->Name), prim));
@@ -1371,12 +1371,12 @@ FObjectType ObjectTypes[] =
     {BytevectorTag, "bytevector", 0, WriteBytevector},
     {BinaryPortTag, "binary-port", 2, WritePortObject},
     {TextualPortTag, "textual-port", 2, WritePortObject},
-    {ProcedureTag, "procedure", 4, WriteProcedure},
+    {ProcedureTag, "procedure", 5, WriteProcedure},
     {SymbolTag, "symbol", 1, WriteSymbol},
     {IdentifierTag, "identifier", 4, WriteIdentifier},
     {RecordTypeTag, "record-type", MAXIMUM_ULONG, WriteRecordType},
     {RecordTag, "record", MAXIMUM_ULONG, WriteRecord},
-    {PrimitiveTag, "primitive", 1, WritePrimitive},
+    {PrimitiveTag, "primitive", 2, WritePrimitive},
     {ThreadTag, "thread", 3, WriteThread},
     {ExclusiveTag, "exclusive", 0, WriteExclusive},
     {ConditionTag, "condition", 0, WriteCondition},

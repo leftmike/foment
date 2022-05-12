@@ -22,6 +22,60 @@
 (check-error (assertion-violation) (let () (set!-values () (values 1))))
 
 ;;
+;; ---- Procedure Properties ----
+;;
+
+(define (proc arg) arg)
+(define (add arg1 arg2) (+ arg1 arg2))
+
+(check-equal #f (procedure-property proc 'key))
+(check-equal not-found (procedure-property proc 'key 'not-found))
+(check-equal "abcd" (proc "abcd"))
+
+(set-procedure-property! proc 'k1 1234)
+(check-equal 1234 (procedure-property proc 'k1))
+(check-equal 1234 (procedure-property proc 'k1 'not-found))
+
+(check-equal #f (procedure-property proc 'key))
+(check-equal not-found (procedure-property proc 'key 'not-found))
+(check-equal "abcd" (proc "abcd"))
+
+(set-procedure-property! proc 'key1 '(a b c d))
+(check-equal (a b c d) (procedure-property proc 'key1))
+(check-equal (a b c d) (procedure-property proc 'key1 'not-found))
+(check-equal 1234 (procedure-property proc 'k1))
+(check-equal 1234 (procedure-property proc 'k1 'not-found))
+
+(check-equal #f (procedure-property proc 'key))
+(check-equal not-found (procedure-property proc 'key 'not-found))
+(check-equal "abcd" (proc "abcd"))
+
+(check-equal #f (procedure-property + 'key))
+(check-equal not-found (procedure-property + 'key 'not-found))
+(check-equal 1234 (add 1200 34))
+(check-equal 1234 (+ 1000 200 30 4))
+
+(set-procedure-property! + 'k1 1234)
+(check-equal 1234 (procedure-property + 'k1))
+(check-equal 1234 (procedure-property + 'k1 'not-found))
+
+(check-equal #f (procedure-property + 'key))
+(check-equal not-found (procedure-property + 'key 'not-found))
+(check-equal 1234 (add 1200 34))
+(check-equal 1234 (+ 1000 200 30 4))
+
+(set-procedure-property! + 'key1 '(a b c d))
+(check-equal (a b c d) (procedure-property + 'key1))
+(check-equal (a b c d) (procedure-property + 'key1 'not-found))
+(check-equal 1234 (procedure-property + 'k1))
+(check-equal 1234 (procedure-property + 'k1 'not-found))
+
+(check-equal #f (procedure-property + 'key))
+(check-equal not-found (procedure-property + 'key 'not-found))
+(check-equal 1234 (add 1200 34))
+(check-equal 1234 (+ 1000 200 30 4))
+
+;;
 ;; ---- SRFI 157: Continuation marks ----
 ;;
 
