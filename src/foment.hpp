@@ -1037,6 +1037,9 @@ typedef struct
     FPrimitiveFn PrimitiveFn;
     const char * Filename;
     long_t LineNumber;
+#ifdef FOMENT_32BIT
+    ulong_t Unused;
+#endif // FOMENT_32BIT
 } FPrimitive;
 
 typedef struct FALIGN
