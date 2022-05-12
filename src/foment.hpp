@@ -16,7 +16,6 @@ To Do:
 
 -- IO: FAlive, EnterWait, and LeaveWait
 -- Allow GC on nested executions
--- SRFI 27: Sources of Random Bits: seed with more than 32 bits
 -- SRFI 193: Command line: normalize paths
 
 -- Benchmarks

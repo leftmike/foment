@@ -12,12 +12,12 @@ Foment
 
 typedef struct
 {
-    std::mt19937 Engine;
+    std::mt19937_64 Engine;
 } FRandomSource;
 
 static FObject MakeRandomSource()
 {
-    std::mt19937 seed(RandomSeed);
+    std::mt19937_64 seed(RandomSeed);
     FRandomSource * rs = (FRandomSource *) MakeObject(RandomSourceTag, sizeof(FRandomSource), 0,
             "make-random-source");
     rs->Engine = seed;
@@ -64,7 +64,7 @@ Define("%random-integer", RandomIntegerPrimitive)(long_t argc, FObject argv[])
     if (FixnumP(argv[1]) == 0 || AsFixnum(argv[1]) <= 0)
         RaiseExceptionC(Assertion, "%random-integer", "expected a positive fixnum", List(argv[1]));
 
-    std::uniform_int_distribution<> dist(0, AsFixnum(argv[1]) - 1);
+    std::uniform_int_distribution<long_t> dist(0, AsFixnum(argv[1]) - 1);
     return(MakeFixnum(dist(AsRandomSource(argv[0])->Engine)));
 }
 
@@ -74,7 +74,7 @@ Define("%random-real", RandomRealPrimitive)(long_t argc, FObject argv[])
     OneArgCheck("%random-real", argc);
     RandomSourceArgCheck("%random-real", argv[0]);
 
-    std::uniform_real_distribution<> dist(0.0, 1.0);
+    std::uniform_real_distribution<double64_t> dist(0.0, 1.0);
     return(MakeFlonum(dist(AsRandomSource(argv[0])->Engine)));
 }
 
@@ -107,7 +107,7 @@ Define("random-source-randomize!", RandomSourceRandomizePrimitive)(long_t argc, 
     RandomSourceArgCheck("random-source-randomize!", argv[0]);
 
     std::random_device rd;
-    std::mt19937 seed(rd());
+    std::mt19937_64 seed(rd());
     AsRandomSource(argv[0])->Engine = seed;
     return(NoValueObject);
 }
@@ -123,7 +123,7 @@ Define("random-source-pseudo-randomize!",
 
     uint64_t i = AsFixnum(argv[1]);
     uint64_t j = AsFixnum(argv[2]);
-    std::mt19937 seed((i << 16) | (j & 0xFFFF));
+    std::mt19937_64 seed((i << 32) | (j & 0xFFFFFFFF));
     AsRandomSource(argv[0])->Engine = seed;
     return(NoValueObject);
 }
