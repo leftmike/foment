@@ -470,6 +470,11 @@
         continuation-mark-set->list*
         continuation-mark-set-first
         call-with-immediate-continuation-mark)
+    (export ;; (srfi 229)
+        case-lambda/tag
+        lambda/tag
+        (rename procedure? procedure/tag?)
+        procedure-tag)
     (export
         make-buffered-port
         make-encoded-port
@@ -1113,6 +1118,25 @@
                                 (full-error 'assertion-violation '<control-process> #f
                         "<control-process>: expected status, exit-code, wait, interrupt, or kill"
                                         what)))))))
+
+        (define procedure-tag-key '(#f . #f))
+
+        (define (set-procedure-tag! proc val)
+            (set-procedure-property! proc procedure-tag-key val)
+            proc)
+
+        (define-syntax case-lambda/tag
+            (syntax-rules ()
+                ((case-lambda/tag expr (formals body1 ... body2) ...)
+                    (set-procedure-tag! (case-lambda (formals body1 ... body2) ...) expr))))
+
+        (define-syntax lambda/tag
+            (syntax-rules ()
+                ((lambda/tag expr formals body1 ... body2)
+                    (set-procedure-tag! (lambda formals body1 ... body2) expr))))
+
+        (define (procedure-tag proc)
+            (procedure-property proc procedure-tag-key))
 
         (define get-parameter-box (cons #f #f))
         (define set-parameter-box (cons #f #f))
@@ -2571,4 +2595,13 @@
         continuation-mark-set->list*
         continuation-mark-set-first
         call-with-immediate-continuation-mark)
+    )
+
+(define-library (srfi 229)
+    (import (foment base))
+    (export
+        case-lambda/tag
+        lambda/tag
+        (rename procedure? procedure/tag?)
+        procedure-tag)
     )

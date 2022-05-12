@@ -11,12 +11,12 @@ To Do:
 -- SRFI 151: Bitwise Operations
 -- SRFI 154: First-class dynamic extents
 -- SRFI 159: Combinator Formatting
--- SRFI 229: Tagged Procedures
 
 -- IO: FAlive, EnterWait, and LeaveWait
 -- Allow GC on nested executions
 -- SRFI 27: Sources of Random Bits: seed with more than 32 bits
 -- SRFI 193: Command line: normalize paths
+-- Remove random primitive; use SRFI 27 instead
 
 -- Benchmarks
 --- http://ecraven.github.io/r7rs-benchmarks/benchmark.html

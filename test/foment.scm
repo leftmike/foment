@@ -76,6 +76,33 @@
 (check-equal 1234 (+ 1000 200 30 4))
 
 ;;
+;; ---- SRFI 229: Tagged Procedures ----
+;;
+
+(import (srfi 229))
+
+(define tproc1 (lambda/tag '(a b c d) (arg) arg))
+
+(check-equal #f (procedure/tag? '(a b c d)))
+(check-equal #t (procedure/tag? tproc1))
+(check-equal 1234 (tproc1 1234))
+(check-equal (a b c d) (procedure-tag tproc1))
+
+(define tproc2
+  (case-lambda/tag
+   #(a b c d)
+   (() 'none)
+   ((arg) arg)
+   ((arg1 arg2) (list arg1 arg2))))
+
+(check-equal #t (procedure/tag? tproc2))
+(check-equal none (tproc2))
+(check-equal 1234 (tproc2 1234))
+(check-equal (12 34) (tproc2 12 34))
+(check-equal #(a b c d) (procedure-tag tproc2))
+
+(check-equal #f (procedure-tag (lambda (arg) arg)))
+
 ;; ---- SRFI 157: Continuation marks ----
 ;;
 
