@@ -831,7 +831,7 @@ void DefinePrimitive(FObject env, FObject lib, FObject prim)
     FAssert(PrimitiveP(prim));
     FAssert(((ulong_t) prim) % OBJECT_ALIGNMENT == 0);
     FAssert(EternalP(prim));
-    FAssert(ObjectTag(prim) == PrimitiveTag && ObjectTypes[ObjectTag(prim)].SlotCount == 1);
+    FAssert(ObjectTag(prim) == PrimitiveTag && ObjectTypes[ObjectTag(prim)].SlotCount == 2);
     FAssert(ObjectSize(AsHeader(prim)) >= sizeof(FPrimitive));
 
     LibraryExport(lib, EnvironmentSet(env, InternSymbol(AsPrimitive(prim)->Name), prim));
@@ -878,14 +878,6 @@ Define("library-path", LibraryPathPrimitive)(long_t argc, FObject argv[])
     ZeroArgsCheck("library-path", argc);
 
     return(LibraryPath);
-}
-
-Define("random", RandomPrimitive)(long_t argc, FObject argv[])
-{
-    OneArgCheck("random", argc);
-    NonNegativeArgCheck("random", argv[0], 0);
-
-    return(MakeFixnum(rand() % AsFixnum(argv[0])));
 }
 
 Define("no-value", NoValuePrimitive)(long_t argc, FObject argv[])
@@ -1248,7 +1240,6 @@ static FObject Primitives[] =
     RecordSetPrimitive,
     LoadedLibrariesPrimitive,
     LibraryPathPrimitive,
-    RandomPrimitive,
     NoValuePrimitive,
     ImplementationNamePrimitive,
     ImplementationVersionPrimitive,
@@ -1371,13 +1362,13 @@ FObjectType ObjectTypes[] =
     {BytevectorTag, "bytevector", 0, WriteBytevector},
     {BinaryPortTag, "binary-port", 2, WritePortObject},
     {TextualPortTag, "textual-port", 2, WritePortObject},
-    {ProcedureTag, "procedure", 4, WriteProcedure},
+    {ProcedureTag, "procedure", 5, WriteProcedure},
     {SymbolTag, "symbol", 1, WriteSymbol},
     {IdentifierTag, "identifier", 4, WriteIdentifier},
     {RecordTypeTag, "record-type", MAXIMUM_ULONG, WriteRecordType},
     {RecordTag, "record", MAXIMUM_ULONG, WriteRecord},
-    {PrimitiveTag, "primitive", 1, WritePrimitive},
-    {ThreadTag, "thread", 4, WriteThread},
+    {PrimitiveTag, "primitive", 2, WritePrimitive},
+    {ThreadTag, "thread", 3, WriteThread},
     {ExclusiveTag, "exclusive", 0, WriteExclusive},
     {ConditionTag, "condition", 0, WriteCondition},
     {HashNodeTag, "hash-node", 3, WriteHashNode},
@@ -1386,7 +1377,7 @@ FObjectType ObjectTypes[] =
     {CharSetTag, "char-set", 0, WriteCharSet},
     {SubprocessTag, "subprocess", 0, WriteSubprocess},
     {ExceptionTag, "exception", 5, WriteException},
-    {DynamicTag, "dynamic", 4, 0},
+    {DynamicTag, "dynamic", 2, 0},
     {ContinuationTag, "continuation", 4, 0},
     {CustomPortTag, "custom-port", 7, 0},
     {CodecTag, "codec", 0, WriteCodec},
@@ -1455,8 +1446,6 @@ long_t SetupFoment(FThreadState * ts)
     RegisterRoot(&FomentLibrariesVector, "foment-libraries-vector");
 
     SymbolHashTable = MakeStringHashTable(4096, HASH_TABLE_THREAD_SAFE);
-
-    ts->Parameters = MakeEqHashTable(32, 0);
 
     SetupLibrary();
 

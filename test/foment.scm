@@ -21,24 +21,183 @@
 
 (check-error (assertion-violation) (let () (set!-values () (values 1))))
 
-;; with-continuation-mark
-;; current-continuation-marks
+;;
+;; ---- Procedure Properties ----
+;;
 
-(define (tst)
+(define (proc arg) arg)
+(define (add arg1 arg2) (+ arg1 arg2))
+
+(check-equal #f (procedure-property proc 'key))
+(check-equal not-found (procedure-property proc 'key 'not-found))
+(check-equal "abcd" (proc "abcd"))
+
+(set-procedure-property! proc 'k1 1234)
+(check-equal 1234 (procedure-property proc 'k1))
+(check-equal 1234 (procedure-property proc 'k1 'not-found))
+
+(check-equal #f (procedure-property proc 'key))
+(check-equal not-found (procedure-property proc 'key 'not-found))
+(check-equal "abcd" (proc "abcd"))
+
+(set-procedure-property! proc 'key1 '(a b c d))
+(check-equal (a b c d) (procedure-property proc 'key1))
+(check-equal (a b c d) (procedure-property proc 'key1 'not-found))
+(check-equal 1234 (procedure-property proc 'k1))
+(check-equal 1234 (procedure-property proc 'k1 'not-found))
+
+(check-equal #f (procedure-property proc 'key))
+(check-equal not-found (procedure-property proc 'key 'not-found))
+(check-equal "abcd" (proc "abcd"))
+
+(check-equal #f (procedure-property + 'key))
+(check-equal not-found (procedure-property + 'key 'not-found))
+(check-equal 1234 (add 1200 34))
+(check-equal 1234 (+ 1000 200 30 4))
+
+(set-procedure-property! + 'k1 1234)
+(check-equal 1234 (procedure-property + 'k1))
+(check-equal 1234 (procedure-property + 'k1 'not-found))
+
+(check-equal #f (procedure-property + 'key))
+(check-equal not-found (procedure-property + 'key 'not-found))
+(check-equal 1234 (add 1200 34))
+(check-equal 1234 (+ 1000 200 30 4))
+
+(set-procedure-property! + 'key1 '(a b c d))
+(check-equal (a b c d) (procedure-property + 'key1))
+(check-equal (a b c d) (procedure-property + 'key1 'not-found))
+(check-equal 1234 (procedure-property + 'k1))
+(check-equal 1234 (procedure-property + 'k1 'not-found))
+
+(check-equal #f (procedure-property + 'key))
+(check-equal not-found (procedure-property + 'key 'not-found))
+(check-equal 1234 (add 1200 34))
+(check-equal 1234 (+ 1000 200 30 4))
+
+;;
+;; ---- SRFI 229: Tagged Procedures ----
+;;
+
+(import (srfi 229))
+
+(define tproc1 (lambda/tag '(a b c d) (arg) arg))
+
+(check-equal #f (procedure/tag? '(a b c d)))
+(check-equal #t (procedure/tag? tproc1))
+(check-equal 1234 (tproc1 1234))
+(check-equal (a b c d) (procedure-tag tproc1))
+
+(define tproc2
+  (case-lambda/tag
+   #(a b c d)
+   (() 'none)
+   ((arg) arg)
+   ((arg1 arg2) (list arg1 arg2))))
+
+(check-equal #t (procedure/tag? tproc2))
+(check-equal none (tproc2))
+(check-equal 1234 (tproc2 1234))
+(check-equal (12 34) (tproc2 12 34))
+(check-equal #(a b c d) (procedure-tag tproc2))
+
+(check-equal #f (procedure-tag (lambda (arg) arg)))
+
+;; ---- SRFI 157: Continuation marks ----
+;;
+
+(import (srfi 157))
+
+(define (tst mark-set-result)
     (with-continuation-mark 'a 1
-        (with-continuation-mark 'b 2
-            (let ((ret (with-continuation-mark 'c 3 (current-continuation-marks))))
+        (with-continuation-mark 'a 2
+            (let ((ret (with-continuation-mark 'a 3
+                            (mark-set-result (current-continuation-marks) 'a))))
                 ret))))
 
-(check-equal (((c . 3)) ((b . 2) (a . 1))) (let ((ret (tst))) ret))
+(check-equal (3 2) (let ((ret (tst continuation-mark-set->list))) ret))
+(check-equal 3 (let ((ret (tst continuation-mark-set-first))) ret))
+
+(define (tst2 mark-set-result key)
+    (with-continuation-mark 'a 1
+        (with-continuation-mark 'b 2
+            (with-continuation-mark 'c 3
+                (let ((ret (with-continuation-mark 'c 4
+                                (mark-set-result (current-continuation-marks) key))))
+                    ret)))))
+
+(check-equal (1) (let ((ret (tst2 continuation-mark-set->list 'a))) ret))
+(check-equal (2) (let ((ret (tst2 continuation-mark-set->list 'b))) ret))
+(check-equal (4 3) (let ((ret (tst2 continuation-mark-set->list 'c))) ret))
+(check-equal () (let ((ret (tst2 continuation-mark-set->list 'd))) ret))
+
+(check-equal 1 (let ((ret (tst2 continuation-mark-set-first 'a))) ret))
+(check-equal 2 (let ((ret (tst2 continuation-mark-set-first 'b))) ret))
+(check-equal 4 (let ((ret (tst2 continuation-mark-set-first 'c))) ret))
+(check-equal #f (let ((ret (tst2 continuation-mark-set-first 'd))) ret))
+
+(check-equal (#(#f #f 4) #(1 2 3)) (let ((ret (tst2 continuation-mark-set->list* '(a b c)))) ret))
 
 (define (count n m)
     (if (= n m)
-        (current-continuation-marks)
+        (continuation-mark-set->list (current-continuation-marks) 'key)
         (let ((r (with-continuation-mark 'key n (count (+ n 1) m))))
             r)))
 
-(check-equal (((key . 3)) ((key . 2)) ((key . 1)) ((key . 0))) (count 0 4))
+(check-equal (3 2 1 0) (count 0 4))
+
+(define (count-first n m key)
+    (if (= n m)
+        (continuation-mark-set-first (current-continuation-marks) key 'default)
+        (let ((r (with-continuation-mark 'key n (count-first (+ n 1) m key))))
+            r)))
+
+(check-equal 3 (count-first 0 4 'key))
+(check-equal default (count-first 0 4 'k))
+
+(check-equal 1
+    (with-continuation-mark 'key 1
+        (call-with-immediate-continuation-mark 'key (lambda (val) val))))
+
+(check-equal #f
+    (with-continuation-mark 'key 1
+        (call-with-immediate-continuation-mark 'k (lambda (val) val))))
+
+(check-equal default
+    (with-continuation-mark 'key 1
+        (call-with-immediate-continuation-mark 'k (lambda (val) val) 'default)))
+
+;; From the Racket Reference
+
+(define (extract-current-continuation-marks key)
+    (continuation-mark-set->list (current-continuation-marks) key))
+
+(check-equal (mark)
+    (with-continuation-mark 'key 'mark (extract-current-continuation-marks 'key)))
+
+(check-equal ((mark1) (mark2))
+    (with-continuation-mark 'key1 'mark1
+        (with-continuation-mark 'key2 'mark2
+            (list (extract-current-continuation-marks 'key1)
+                    (extract-current-continuation-marks 'key2)))))
+
+(check-equal (mark2)
+    (with-continuation-mark 'key 'mark1
+        (with-continuation-mark 'key 'mark2 ; replaces previous mark
+            (extract-current-continuation-marks 'key))))
+
+(check-equal ((mark2 mark1))
+    (with-continuation-mark 'key 'mark1
+        (list ; continuation extended to evaluate the argument
+            (with-continuation-mark 'key 'mark2
+                (extract-current-continuation-marks 'key)))))
+
+(check-equal (1)
+    (let loop ((n 1000))
+        (if (zero? n)
+            (extract-current-continuation-marks 'key)
+                (with-continuation-mark 'key n
+                    (loop (- n 1))))))
 
 ;; call-with-continuation-prompt
 ;; abort-current-continuation
@@ -107,6 +266,8 @@
 ;; srfi-39
 ;; parameterize
 
+(import (srfi 39))
+
 (define radix (make-parameter 10))
 
 (define boolean-parameter (make-parameter #f
@@ -121,6 +282,7 @@
 (check-error (assertion-violation error) (boolean-parameter 0))
 
 (check-equal 16 (parameterize ((radix 16)) (radix)))
+(check-equal 8 (parameterize ((radix 16)) (radix 8) (radix)))
 (check-equal 2 (radix))
 
 (define prompt

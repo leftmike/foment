@@ -10,9 +10,7 @@ To Do:
 -- SRFI 129: Titlecase Procedures
 -- SRFI 151: Bitwise Operations
 -- SRFI 154: First-class dynamic extents
--- SRFI 157: Continuation marks
 -- SRFI 159: Combinator Formatting
--- SRFI 229: Tagged Procedures
 
 -- IO: FAlive, EnterWait, and LeaveWait
 -- Allow GC on nested executions
@@ -1035,6 +1033,7 @@ typedef FObject (*FPrimitiveFn)(long_t argc, FObject argv[]);
 typedef struct
 {
     FObject Name;
+    FObject Properties;
     FPrimitiveFn PrimitiveFn;
     const char * Filename;
     long_t LineNumber;
@@ -1051,7 +1050,7 @@ typedef struct FALIGN
     FObject prim ## Fn(long_t argc, FObject argv[]);\
     static FEternalPrimitive prim ## Object = { \
         EternalHeader(FPrimitive, PrimitiveTag), \
-        {prim ## Symbol, prim ## Fn, __FILE__, __LINE__}, \
+        {prim ## Symbol, EmptyListObject, prim ## Fn, __FILE__, __LINE__}, \
     }; \
     FObject prim = &prim ## Object.Primitive; \
     FObject prim ## Fn
@@ -1316,6 +1315,7 @@ typedef struct
     FObject Filename;
     FObject LineNumber;
     FObject Code;
+    FObject Properties;
     uint16_t ArgCount;
     uint8_t Flags;
 } FProcedure;
@@ -1388,12 +1388,12 @@ typedef struct _FYoungSection
 #endif // FOMENT_32BIT
 } FYoungSection;
 
-#define INDEX_PARAMETERS 5
-#define INDEX_PARAMETER_CURRENT_INPUT_PORT 0
-#define INDEX_PARAMETER_CURRENT_OUTPUT_PORT 1
-#define INDEX_PARAMETER_CURRENT_ERROR_PORT 2
-#define INDEX_PARAMETER_HASH_BOUND 3
-#define INDEX_PARAMETER_HASH_SALT 4
+#define PARAMETERS 5
+#define PARAMETER_CURRENT_INPUT_PORT 0
+#define PARAMETER_CURRENT_OUTPUT_PORT 1
+#define PARAMETER_CURRENT_ERROR_PORT 2
+#define PARAMETER_HASH_BOUND 3
+#define PARAMETER_HASH_SALT 4
 
 typedef struct _FThreadState
 {
@@ -1421,8 +1421,8 @@ typedef struct _FThreadState
     long_t ArgCount;
 
     FObject DynamicStack;
-    FObject Parameters;
-    FObject IndexParameters[INDEX_PARAMETERS];
+    FObject * Parameters;
+    ulong_t ParametersLength;
 
     long_t NotifyFlag;
     FObject NotifyObject;

@@ -23,13 +23,12 @@ Foment
 
 // ---- Threads ----
 
-FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms, FObject idxprms)
+FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms)
 {
-    FThread * thrd = (FThread *) MakeObject(ThreadTag, sizeof(FThread), 4, "run-thread");
+    FThread * thrd = (FThread *) MakeObject(ThreadTag, sizeof(FThread), 3, "run-thread");
     thrd->Result = NoValueObject;
     thrd->Thunk = thnk;
     thrd->Parameters = prms;
-    thrd->IndexParameters = idxprms;
     thrd->Handle = h;
 
     return(thrd);
@@ -119,17 +118,13 @@ Define("thread?", ThreadPPrimitive)(long_t argc, FObject argv[])
     return(ThreadP(argv[0]) ? TrueObject : FalseObject);
 }
 
-static FObject CurrentIndexParameters()
+static FObject CurrentParameters()
 {
-    FObject v = MakeVector(INDEX_PARAMETERS, 0, NoValueObject);
+    FThreadState * ts = GetThreadState();
+    FObject v = MakeVector(ts->ParametersLength, 0, NoValueObject);
 
-    for (long_t idx = 0; idx < INDEX_PARAMETERS; idx++)
-    {
-        FAssert(PairP(GetThreadState()->IndexParameters[idx]));
-
-        AsVector(v)->Vector[idx] = MakePair(First(GetThreadState()->IndexParameters[idx]),
-                EmptyListObject);
-    }
+    for (ulong_t idx = 0; idx < ts->ParametersLength; idx++)
+            AsVector(v)->Vector[idx] = ts->Parameters[idx];
 
     return(v);
 }
@@ -142,14 +137,13 @@ static void FomentThread(FObject obj)
 
     try
     {
-        if (EnterThread(&ts, obj, AsThread(obj)->Parameters, AsThread(obj)->IndexParameters) == 0)
+        if (EnterThread(&ts, obj, AsThread(obj)->Parameters) == 0)
             Raise(StartThreadOutOfMemory);
 
         FAssert(ts.Thread == obj);
         FAssert(ThreadP(ts.Thread));
 
         AsThread(ts.Thread)->Parameters = NoValueObject;
-        AsThread(ts.Thread)->IndexParameters = NoValueObject;
 
         if (ProcedureP(AsThread(ts.Thread)->Thunk))
             AsThread(ts.Thread)->Result = ExecuteProc(AsThread(ts.Thread)->Thunk);
@@ -198,7 +192,7 @@ Define("run-thread", RunThreadPrimitive)(long_t argc, FObject argv[])
     OneArgCheck("run-thread", argc);
     ProcedureArgCheck("run-thread", argv[0]);
 
-    FObject thrd = MakeThread(0, argv[0], CurrentParameters(), CurrentIndexParameters());
+    FObject thrd = MakeThread(0, argv[0], CurrentParameters());
 
 #ifdef FOMENT_WINDOWS
     HANDLE h = CreateThread(0, 0, StartThread, thrd, CREATE_SUSPENDED, 0);

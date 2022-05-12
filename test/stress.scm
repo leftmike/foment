@@ -4,6 +4,10 @@
 
 (import (foment bedrock))
 
+(define rs (make-random-source))
+(define (random-integer n)
+    (%random-integer rs n))
+
 (define p (make-parameter 0))
 
 ; An implementation of a mailbox used by producer(s) and consumer(s).
@@ -17,7 +21,7 @@
 (define last-item 100)
 
 (define (producer)
-    (sleep (random 100))
+    (sleep (random-integer 100))
     (enter-exclusive lock)
     (let ((item next-item))
         (define (put item)
@@ -82,7 +86,7 @@
     (if run (stress1)))
 
 (define (stress2)
-    (sleep (random 1000))
+    (sleep (random-integer 1000))
     (condition-wake condition1)
     (if run (stress2)))
 

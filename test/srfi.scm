@@ -1541,7 +1541,7 @@
     (let ((vec (make-vector size #f)))
         (define (test-add n)
             (if (< n max)
-                (let* ((idx (random size))
+                (let* ((idx (random-integer size))
                         (key (make-key idx)))
                     (if (not (vector-ref vec idx))
                         (begin

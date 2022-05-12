@@ -101,6 +101,8 @@ static ulong_t LiveEphemerons;
 static FEphemeron ** KeyEphemeronMap;
 static ulong_t KeyEphemeronMapSize;
 
+static ulong_t NextParameterIndex = PARAMETERS;
+
 // ---- Roots ----
 
 FObject CleanupTConc = NoValueObject;
@@ -595,7 +597,7 @@ static const char * WhereFrom(FObject obj, long_t * idx)
             else
             {
                 FMustBe(*idx == 3);
-                from = "thread.index-parameters";
+                from = "thread.parameters";
             }
             *idx = -1;
             break;
@@ -861,10 +863,9 @@ static void CheckThreadState(FThreadState * ts)
     CheckRoot(ts->Proc, "thread-state.proc", -1);
     CheckRoot(ts->Frame, "thread-state.frame", -1);
     CheckRoot(ts->DynamicStack, "thread-state.dynamic-stack", -1);
-    CheckRoot(ts->Parameters, "thread-state.parameters", -1);
 
-    for (long_t idx = 0; idx < INDEX_PARAMETERS; idx++)
-        CheckRoot(ts->IndexParameters[idx], "thread-state.index-parameters", idx);
+    for (ulong_t idx = 0; idx < ts->ParametersLength; idx++)
+        CheckRoot(ts->Parameters[idx], "thread-state.parameters", idx);
 
     CheckRoot(ts->NotifyObject, "thread-state.notify-object", -1);
 }
@@ -1164,10 +1165,9 @@ static void Collect()
         LiveObject(ts->Proc);
         LiveObject(ts->Frame);
         LiveObject(ts->DynamicStack);
-        LiveObject(ts->Parameters);
 
-        for (long_t idx = 0; idx < INDEX_PARAMETERS; idx++)
-            LiveObject(ts->IndexParameters[idx]);
+        for (ulong_t idx = 0; idx < ts->ParametersLength; idx++)
+            LiveObject(ts->Parameters[idx]);
 
         LiveObject(ts->NotifyObject);
 
@@ -1393,7 +1393,7 @@ FAlive::~FAlive()
     ts->AliveList = Next;
 }
 
-long_t EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprms)
+long_t EnterThread(FThreadState * ts, FObject thrd, FObject prms)
 {
     memset(ts, 0, sizeof(FThreadState));
 
@@ -1443,19 +1443,26 @@ long_t EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprm
     ts->IP = -1;
     ts->ArgCount = -1;
     ts->DynamicStack = EmptyListObject;
-    ts->Parameters = prms;
     ts->NotifyObject = NoValueObject;
 
-    if (VectorP(idxprms))
-    {
-        FAssert(VectorLength(idxprms) == INDEX_PARAMETERS);
+    ts->ParametersLength = 64;
 
-        for (long_t idx = 0; idx < INDEX_PARAMETERS; idx++)
-            ts->IndexParameters[idx] = AsVector(idxprms)->Vector[idx];
+    FAssert(ts->ParametersLength >= PARAMETERS);
+
+    ts->Parameters = (FObject *) malloc(sizeof(FObject) * ts->ParametersLength);
+    if (ts->Parameters == 0)
+        goto Failed;
+
+    for (ulong_t idx = 0; idx < ts->ParametersLength; idx++)
+        ts->Parameters[idx] = NoValueObject;
+
+    if (VectorP(prms))
+    {
+        FAssert(VectorLength(prms) <= ts->ParametersLength);
+
+        for (ulong_t idx = 0; idx < VectorLength(prms); idx++)
+            ts->Parameters[idx] = AsVector(prms)->Vector[idx];
     }
-    else
-        for (long_t idx = 0; idx < INDEX_PARAMETERS; idx++)
-            ts->IndexParameters[idx] = NoValueObject;
 
     ts->NotifyFlag = 0;
     ts->ExceptionCount = 0;
@@ -1465,6 +1472,8 @@ long_t EnterThread(FThreadState * ts, FObject thrd, FObject prms, FObject idxprm
 Failed:
     if (ts->Stack.Base != 0)
         DeleteMemRegion(&ts->Stack);
+    if (ts->Parameters != 0)
+        free(ts->Parameters);
     return(0);
 }
 
@@ -1520,6 +1529,9 @@ ulong_t LeaveThread(FThreadState * ts)
     if (Collecting && ReadyThreads == TotalThreads)
         WakeCondition(&ReadyCondition); // Just in case a collection is pending.
     LeaveExclusive(&ThreadsExclusive);
+
+    if (ts->Parameters != 0)
+        free(ts->Parameters);
 
     return(tt);
 }
@@ -1605,9 +1617,9 @@ long_t SetupCore(FThreadState * ts)
 #endif // FOMENT_UNIX
 
     TotalThreads = 1;
-    if (EnterThread(ts, NoValueObject, NoValueObject, NoValueObject) == 0)
+    if (EnterThread(ts, NoValueObject, NoValueObject) == 0)
         return(0);
-    ts->Thread = MakeThread(h, NoValueObject, NoValueObject, NoValueObject);
+    ts->Thread = MakeThread(h, NoValueObject, NoValueObject);
 
     RegisterRoot(&CleanupTConc, "cleanup-tconc");
     CleanupTConc = MakeTConc();
@@ -1828,6 +1840,17 @@ Define("stack-used-reset!", StackUsedResetPrimitive)(long_t argc, FObject argv[]
     return(NoValueObject);
 }
 
+Define("%next-parameter-index", NextParameterIndexPrimitive)(long_t argc, FObject argv[])
+{
+    FMustBe(argc == 0);
+
+    EnterExclusive(&ThreadsExclusive);
+    FObject obj = MakeFixnum(NextParameterIndex);
+    NextParameterIndex += 1;
+    LeaveExclusive(&ThreadsExclusive);
+    return(obj);
+}
+
 static FObject Primitives[] =
 {
     InstallGuardianPrimitive,
@@ -1844,7 +1867,8 @@ static FObject Primitives[] =
     ObjectCountsPrimitive,
     ObjectCountsResetPrimitive,
     StackUsedPrimitive,
-    StackUsedResetPrimitive
+    StackUsedResetPrimitive,
+    NextParameterIndexPrimitive
 };
 
 void SetupGC()

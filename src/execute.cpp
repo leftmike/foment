@@ -42,12 +42,13 @@ static FObject RaiseHandler = NoValueObject;
 
 FObject MakeProcedure(FObject nam, FObject fn, FObject ln, FObject cv, long_t ac, ulong_t fl)
 {
-    FProcedure * p = (FProcedure *) MakeObject(ProcedureTag, sizeof(FProcedure), 4,
+    FProcedure * p = (FProcedure *) MakeObject(ProcedureTag, sizeof(FProcedure), 5,
             "%make-procedure");
     p->Name = SyntaxToDatum(nam);
     p->Filename = fn;
     p->LineNumber = ln;
     p->Code = cv;
+    p->Properties = EmptyListObject;
     p->ArgCount = (uint16_t) ac;
     p->Flags = (uint8_t) fl;
 
@@ -99,21 +100,18 @@ void WriteProcedure(FWriteContext * wctx, FObject obj)
 typedef struct
 {
     FObject Who;
-    FObject CStackPtr;
-    FObject AStackPtr;
     FObject Marks;
+    long_t CStackPtr;
+    long_t AStackPtr;
 } FDynamic;
 
-static FObject MakeDynamic(FObject who, FObject cdx, FObject adx, FObject ml)
+static FObject MakeDynamic(FObject who, FObject ml, long_t cdx, long_t adx)
 {
-    FAssert(FixnumP(cdx));
-    FAssert(FixnumP(adx));
-
-    FDynamic * dyn = (FDynamic *) MakeObject(DynamicTag, sizeof(FDynamic), 4, "make-dynamic");
+    FDynamic * dyn = (FDynamic *) MakeObject(DynamicTag, sizeof(FDynamic), 2, "make-dynamic");
     dyn->Who = who;
+    dyn->Marks = ml;
     dyn->CStackPtr = cdx;
     dyn->AStackPtr = adx;
-    dyn->Marks = ml;
 
     return(dyn);
 }
@@ -122,8 +120,8 @@ static FObject MakeDynamic(FObject dyn, FObject ml)
 {
     FAssert(DynamicP(dyn));
 
-    return(MakeDynamic(AsDynamic(dyn)->Who, AsDynamic(dyn)->CStackPtr, AsDynamic(dyn)->AStackPtr,
-            ml));
+    return(MakeDynamic(AsDynamic(dyn)->Who, ml, AsDynamic(dyn)->CStackPtr,
+            AsDynamic(dyn)->AStackPtr));
 }
 
 // ---- Continuation ----
@@ -1080,11 +1078,8 @@ TailCallPrimitive:
                 FMustBe(ProcedureP(thnk));
                 FMustBe(DynamicP(dyn));
 
-                FAssert(FixnumP(AsDynamic(dyn)->CStackPtr));
-                FAssert(FixnumP(AsDynamic(dyn)->AStackPtr));
-
-                ts->CStackPtr = AsFixnum(AsDynamic(dyn)->CStackPtr);
-                ts->AStackPtr = AsFixnum(AsDynamic(dyn)->AStackPtr);
+                ts->CStackPtr = AsDynamic(dyn)->CStackPtr;
+                ts->AStackPtr = AsDynamic(dyn)->AStackPtr;
                 ts->ArgCount = 0;
                 ts->Proc = thnk;
                 ts->IP = 0;
@@ -1117,9 +1112,7 @@ TailCallPrimitive:
 
                     FObject dyn = First(ts->DynamicStack);
 
-                    FAssert(FixnumP(AsDynamic(dyn)->CStackPtr));
-
-                    if (AsDynamic(dyn)->Who == who && AsFixnum(AsDynamic(dyn)->CStackPtr) == idx)
+                    if (AsDynamic(dyn)->Who == who && AsDynamic(dyn)->CStackPtr == idx)
                     {
                         ts->DynamicStack = MakePair(MakeDynamic(dyn,
                                 MarkListSet(AsDynamic(dyn)->Marks, key, val)),
@@ -1131,9 +1124,10 @@ TailCallPrimitive:
                     }
                 }
 
-                ts->DynamicStack = MakePair(MakeDynamic(who, MakeFixnum(ts->CStackPtr),
-                        MakeFixnum(ts->AStackPtr), MarkListSet(EmptyListObject, key, val)),
-                        ts->DynamicStack);
+                ts->DynamicStack = MakePair(
+                        MakeDynamic(who,
+                                MarkListSet(EmptyListObject, key, val), ts->CStackPtr,
+                                ts->AStackPtr), ts->DynamicStack);
 
                 ts->ArgCount = 0;
                 ts->AStack[ts->AStackPtr] = thnk;
@@ -1467,12 +1461,21 @@ Define("%dynamic-stack", DynamicStackPrimitive)(long_t argc, FObject argv[])
 
     if (argc == 1)
     {
-        FMustBe(argv[0] == EmptyListObject || PairP(argv[0]));
+        FMustBe(argv[0] == EmptyListObject || (PairP(argv[0]) && DynamicP(First(argv[0]))));
 
         ts->DynamicStack = argv[0];
     }
 
     return(ds);
+}
+
+Define("%dynamic?", DynamicPPrimitive)(long_t argc, FObject argv[])
+{
+    // (%dynamic? <obj>)
+
+    FMustBe(argc == 1);
+
+    return(DynamicP(argv[0]) ? TrueObject : FalseObject);
 }
 
 Define("%dynamic-marks", DynamicMarksPrimitive)(long_t argc, FObject argv[])
@@ -1485,13 +1488,14 @@ Define("%dynamic-marks", DynamicMarksPrimitive)(long_t argc, FObject argv[])
     return(AsDynamic(argv[0])->Marks);
 }
 
-Define("%parameters", ParametersPrimitive)(long_t argc, FObject argv[])
+Define("%dynamic-who", DynamicWhoPrimitive)(long_t argc, FObject argv[])
 {
-    // (%parameters)
+    // (%dynamic-who <dynamic>)
 
-    FMustBe(argc == 0);
+    FMustBe(argc == 1);
+    FMustBe(DynamicP(argv[0]));
 
-    return(GetThreadState()->Parameters);
+    return(AsDynamic(argv[0])->Who);
 }
 
 Define("%procedure->parameter", ProcedureToParameterPrimitive)(long_t argc, FObject argv[])
@@ -1515,24 +1519,29 @@ Define("%parameter?", ParameterPPrimitive)(long_t argc, FObject argv[])
     return(ParameterP(argv[0]) ? TrueObject : FalseObject);
 }
 
-Define("%index-parameter", IndexParameterPrimitive)(long_t argc, FObject argv[])
+Define("%parameter", ParameterPrimitive)(long_t argc, FObject argv[])
 {
-    // (%index-parameter <index>)
-    // (%index-parameter <index> <value>)
+    // (%parameter <index>)
+    // (%parameter <index> <value>)
+
+    FThreadState * ts = GetThreadState();
 
     FMustBe(argc >= 1 && argc <= 2);
-    FMustBe(FixnumP(argv[0]) && AsFixnum(argv[0]) >= 0 && AsFixnum(argv[0]) < INDEX_PARAMETERS);
+    FMustBe(FixnumP(argv[0]) && AsFixnum(argv[0]) >= 0 &&
+            (ulong_t) AsFixnum(argv[0]) < ts->ParametersLength);
 
     if (argc == 1)
     {
-        FAssert(PairP(GetThreadState()->IndexParameters[AsFixnum(argv[0])]));
+        FObject obj = ts->Parameters[AsFixnum(argv[0])];
 
-        return(GetThreadState()->IndexParameters[AsFixnum(argv[0])]);
+        FAssert(BoxP(obj) || obj == NoValueObject);
+
+        return(obj);
     }
 
-    FAssert(PairP(argv[1]));
+    FAssert(BoxP(argv[1]) || argv[1] == NoValueObject);
 
-    GetThreadState()->IndexParameters[AsFixnum(argv[0])] = argv[1];
+    ts->Parameters[AsFixnum(argv[0])] = argv[1];
     return(NoValueObject);
 }
 
@@ -1558,26 +1567,66 @@ Define("%procedure-code", ProcedureCodePrimitive)(long_t argc, FObject argv[])
     OneArgCheck("%procedure-code", argc);
     ProcedureArgCheck("%procedure-code", argv[0]);
 
-    return(AsProcedure(argv[0])->Code);
+    if (ProcedureP(argv[0]))
+        return(AsProcedure(argv[0])->Code);
+
+    FAssert(PrimitiveP(argv[0]));
+
+    return(MakeStringC(AsPrimitive(argv[0])->Filename));
 }
 
-static FObject Fold(FObject key, FObject val, void * ctx, FObject htbl)
+Define("procedure-property", ProcedurePropertyPrimitive)(long_t argc, FObject argv[])
 {
-    FAssert(ParameterP(key));
+    // (procedure-property <proc> <key> [<default>])
 
-    HashTableSet(htbl, key, PairP(val) ? MakePair(First(val), EmptyListObject) : EmptyListObject);
-    return(htbl);
+    TwoOrThreeArgsCheck("procedure-property", argc);
+    ProcedureArgCheck("procedure-property", argv[0]);
+
+    FObject props;
+    if (ProcedureP(argv[0]))
+        props = AsProcedure(argv[0])->Properties;
+    else
+    {
+        FAssert(PrimitiveP(argv[0]));
+
+        props = AsPrimitive(argv[0])->Properties;
+    }
+
+    FObject ret = Assq(argv[1], props);
+    if (PairP(ret))
+        return(Rest(ret));
+    return(argc == 3 ? argv[2] : FalseObject);
 }
 
-FObject CurrentParameters()
+Define("set-procedure-property!", SetProcedurePropertyPrimitive)(long_t argc, FObject argv[])
 {
-    FObject htbl = MakeEqHashTable(32, 0);
-    FThreadState * ts = GetThreadState();
+    // (set-procedure-property! <proc> <key> <value>)
 
-    if (HashTableP(ts->Parameters))
-        HashTableFold(ts->Parameters, Fold, 0, htbl);
+    ThreeArgsCheck("set-procedure-property!", argc);
+    ProcedureArgCheck("set-procedure-property!", argv[0]);
 
-    return(htbl);
+    if (ProcedureP(argv[0]))
+    {
+        FObject ret = Assq(argv[1], AsProcedure(argv[0])->Properties);
+        if (PairP(ret))
+            SetRest(ret, argv[2]);
+        else
+            AsProcedure(argv[0])->Properties = MakePair(MakePair(argv[1], argv[2]),
+                    AsProcedure(argv[0])->Properties);
+    }
+    else
+    {
+        FAssert(PrimitiveP(argv[0]));
+
+        FObject ret = Assq(argv[1], AsPrimitive(argv[0])->Properties);
+        if (PairP(ret))
+            SetRest(ret, argv[2]);
+        else
+            AsPrimitive(argv[0])->Properties = MakePair(MakePair(argv[1], argv[2]),
+                    AsPrimitive(argv[0])->Properties);
+    }
+
+    return(NoValueObject);
 }
 
 static FObject Primitives[] =
@@ -1593,14 +1642,17 @@ static FObject Primitives[] =
     InteractiveThunkPrimitive,
     BytesAllocatedPrimitive,
     DynamicStackPrimitive,
+    DynamicPPrimitive,
     DynamicMarksPrimitive,
-    ParametersPrimitive,
+    DynamicWhoPrimitive,
     ProcedureToParameterPrimitive,
     ParameterPPrimitive,
-    IndexParameterPrimitive,
+    ParameterPrimitive,
     FindMarkPrimitive,
     ExecuteProcPrimitive,
-    ProcedureCodePrimitive
+    ProcedureCodePrimitive,
+    ProcedurePropertyPrimitive,
+    SetProcedurePropertyPrimitive
 };
 
 void SetupExecute()

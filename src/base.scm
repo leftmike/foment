@@ -463,6 +463,18 @@
         random-source-pseudo-randomize!
         random-source-make-integers
         random-source-make-reals)
+    (export ;; (srfi 157)
+        current-continuation-marks
+        continuation-marks?
+        continuation-mark-set->list
+        continuation-mark-set->list*
+        continuation-mark-set-first
+        call-with-immediate-continuation-mark)
+    (export ;; (srfi 229)
+        case-lambda/tag
+        lambda/tag
+        (rename procedure? procedure/tag?)
+        procedure-tag)
     (export
         make-buffered-port
         make-encoded-port
@@ -478,7 +490,6 @@
         default-prompt-tag
         (rename default-prompt-tag default-continuation-prompt-tag)
         default-prompt-handler
-        current-continuation-marks
         collect
         make-guardian
         make-exclusive
@@ -534,7 +545,6 @@
         %hash-node-next
         %hash-node-next-set!
         %hash-node-hash
-        random
         no-value
         set!-values
         (rename positioning-port? port-has-port-position?)
@@ -652,7 +662,9 @@
         string->bytevector
         i/o-decoding-error?
         i/o-encoding-error?
-        i/o-encoding-error-char)
+        i/o-encoding-error-char
+        procedure-property
+        set-procedure-property!)
     (cond-expand
         (unix
             (export
@@ -1106,8 +1118,28 @@
                         "<control-process>: expected status, exit-code, wait, interrupt, or kill"
                                         what)))))))
 
-        (define push-parameter (cons #f #f))
-        (define pop-parameter (cons #f #f))
+        (define procedure-tag-key '(#f . #f))
+
+        (define (set-procedure-tag! proc val)
+            (set-procedure-property! proc procedure-tag-key val)
+            proc)
+
+        (define-syntax case-lambda/tag
+            (syntax-rules ()
+                ((case-lambda/tag expr (formals body1 ... body2) ...)
+                    (set-procedure-tag! (case-lambda (formals body1 ... body2) ...) expr))))
+
+        (define-syntax lambda/tag
+            (syntax-rules ()
+                ((lambda/tag expr formals body1 ... body2)
+                    (set-procedure-tag! (lambda formals body1 ... body2) expr))))
+
+        (define (procedure-tag proc)
+            (procedure-property proc procedure-tag-key))
+
+        (define get-parameter-box (cons #f #f))
+        (define set-parameter-box (cons #f #f))
+        (define init-parameter-box (cons #f #f))
 
         (define (make-parameter init . converter)
             (let* ((converter
@@ -1118,52 +1150,32 @@
                             (full-error 'assertion-violation 'make-parameter #f
                                     "make-parameter: expected one or two arguments"))))
                     (init (converter init)))
-                (letrec
-                    ((parameter
-                        (case-lambda
-                            (() (let ((stk (%hash-table-ref (%parameters) parameter '())))
-                                    (if (null? stk)
-                                        init
-                                        (car stk))))
-                            ((val)
-                                (if (eq? val pop-parameter)
-                                    (%hash-table-set! (%parameters) parameter
-                                            (cdr (%hash-table-ref (%parameters)
-                                            parameter '()))) ;; used by parameterize
-                                    (let ((stk (%hash-table-ref (%parameters) parameter '())))
-                                        (%hash-table-set! (%parameters) parameter
-                                                (cons (converter val)
-                                                (if (null? stk) '() (cdr stk)))))))
-                            ((val key) ;; used by parameterize
-                                (if (eq? key push-parameter)
-                                    (%hash-table-set! (%parameters) parameter
-                                            (cons (converter val)
-                                            (%hash-table-ref (%parameters) parameter '())))
-                                    (full-error 'assertion-violation '<parameter> #f
-                                            "<parameter>: expected zero or one arguments")))
-                            (val (full-error 'assertion-violation '<parameter> #f
-                                    "<parameter>: expected zero or one arguments")))))
-                    (%procedure->parameter parameter)
-                    parameter)))
+                (%make-parameter (%next-parameter-index) init converter)))
 
-        (define (make-index-parameter index init converter)
+        (define (%make-parameter index init converter)
             (let ((parameter
                     (case-lambda
-                        (() (car (%index-parameter index)))
+                        (() (if (box? (%parameter index))
+                                (unbox (%parameter index))
+                                (converter init)))
                         ((val)
-                            (if (eq? val pop-parameter)
-                                (%index-parameter index (cdr (%index-parameter index)))
-                                (%index-parameter index
-                                        (cons (converter val) (cdr (%index-parameter index))))))
+                            (if (eq? val get-parameter-box)
+                                (%parameter index)
+                                (if (box? (%parameter index))
+                                    (set-box! (%parameter index) (converter val))
+                                    (%parameter index (box (converter val))))))
                         ((val key) ;; used by parameterize
-                            (if (eq? key push-parameter)
-                                (%index-parameter index (cons (converter val)
-                                        (%index-parameter index)))
-                                (full-error 'assertion-violation '<parameter> #f
-                                        "<parameter>: expected zero or one arguments")))
+                            (if (eq? key set-parameter-box)
+                                (%parameter index val)
+                                (if (eq? key init-parameter-box)
+                                    (let ((b (box (converter val))))
+                                        (%parameter index b)
+                                        b)
+                                    (full-error 'assertion-violation '<parameter> #f
+                                            "<parameter>: expected zero or one arguments"))))
                         (val (full-error 'assertion-violation '<parameter> #f
                                 "<parameter>: expected zero or one arguments")))))
-                (%index-parameter index (list (converter init)))
+                (%parameter index (box (converter init)))
                 (%procedure->parameter parameter)
                 parameter))
 
@@ -1175,34 +1187,108 @@
                     (call-with-parameterize (list param1 param2 ...) (list value1 value2 ...)
                             (lambda () body1 body2 ...)))))
 
-        (define (before-parameterize params vals)
-            (if (not (null? params))
-                (let ((p (car params)))
-                    (if (not (%parameter? p))
-                        (full-error 'assertion-violation 'parameterize #f
-                                "parameterize: expected a parameter" p))
-                    (p (car vals) push-parameter)
-                    (before-parameterize (cdr params) (cdr vals)))))
-
-        (define (after-parameterize params)
+        (define (set-parameter-boxes params boxes)
             (if (not (null? params))
                 (begin
-                    ((car params) pop-parameter)
-                    (after-parameterize (cdr params)))))
+                    ((car params) (car boxes) set-parameter-box)
+                    (set-parameter-boxes (cdr params) (cdr boxes)))))
 
         (define (call-with-parameterize params vals thunk)
-            (before-parameterize params vals)
-            (let-values ((results (%mark-continuation 'mark 'parameterize (cons params vals)
-                        thunk)))
-                (after-parameterize params)
-                (apply values results)))
+            (define (get-boxes params)
+                (if (null? params)
+                    '()
+                    (let ((p (car params)))
+                        (if (not (%parameter? p))
+                            (full-error 'assertion-violation 'parameterize #f
+                                    "parameterize: expected a parameter" p))
+                        (cons (p get-parameter-box) (get-boxes (cdr params))))))
+            (define (init-parameterize params vals)
+                (if (null? params)
+                    '()
+                    (cons ((car params) (car vals) init-parameter-box)
+                            (init-parameterize (cdr params) (cdr vals)))))
+            (let ((old (get-boxes params))
+                    (new (init-parameterize params vals)))
+                (let-values ((results (%mark-continuation 'mark 'parameterize (list params old new)
+                                 thunk)))
+                    (set-parameter-boxes params old)
+                    (apply values results))))
 
         (define-syntax with-continuation-mark
             (syntax-rules ()
                 ((_ key val expr) (%mark-continuation 'mark key val (lambda () expr)))))
 
         (define (current-continuation-marks)
-            (reverse (cdr (reverse (map (lambda (dyn) (%dynamic-marks dyn)) (%dynamic-stack))))))
+            (%dynamic-stack))
+
+        (define (continuation-marks? obj)
+            (or (null? obj) (and (pair? obj) (%dynamic? (car obj)))))
+
+        (define (continuation-mark-set->list mark-set key)
+            (define (marks->list marks)
+                (if (not (continuation-marks? marks))
+                    (full-error 'assertion-violation 'continuation-mark-set->list #f
+                            "continuation-mark-set->list: expected a continuation mark set"
+                            mark-set))
+                (if (null? marks)
+                    '()
+                    (if (eq? (%dynamic-who (car marks)) 'mark)
+                        (let ((val (assq key (%dynamic-marks (car marks)))))
+                            (if (pair? val)
+                                (cons (cdr val) (marks->list (cdr marks)))
+                                (marks->list (cdr marks))))
+                        (marks->list (cdr marks)))))
+            (marks->list mark-set))
+
+        (define (continuation-mark-set->list* mark-set keys . default)
+            (define (marks->vector marks alist keys idx len vec)
+                (if (null? keys)
+                    (if (vector? vec)
+                        (cons vec (marks->list* marks))
+                        (marks->list* marks))
+                    (let ((val (assq (car keys) alist)))
+                        (if (pair? val)
+                            (begin
+                                (if (not (vector? vec))
+                                    (set! vec (make-vector len
+                                                    (if (pair? default) (car default) #f))))
+                                (vector-set! vec idx (cdr val))))
+                        (marks->vector marks alist (cdr keys) (+ idx 1) len vec))))
+            (define (marks->list* marks)
+                (if (not (continuation-marks? marks))
+                    (full-error 'assertion-violation 'continuation-mark-set->list* #f
+                            "continuation-mark-set->list*: expected a continuation mark set"
+                            mark-set))
+                (if (null? marks)
+                    '()
+                    (if (eq? (%dynamic-who (car marks)) 'mark)
+                        (marks->vector (cdr marks) (%dynamic-marks (car marks)) keys 0
+                                (length keys) #f)
+                        (marks->list* (cdr marks)))))
+            (marks->list* mark-set))
+
+        (define (continuation-mark-set-first mark-set key . default)
+            (define (marks-first marks)
+                (if (not (continuation-marks? marks))
+                    (full-error 'assertion-violation 'continuation-mark-set-first #f
+                            "continuation-mark-set-first: expected a continuation mark set"
+                            mark-set))
+                (if (null? marks)
+                    (if (pair? default) (car default) #f)
+                    (if (eq? (%dynamic-who (car marks)) 'mark)
+                        (let ((val (assq key (%dynamic-marks (car marks)))))
+                            (if (pair? val)
+                                (cdr val)
+                                (marks-first (cdr marks))))
+                        (marks-first (cdr marks)))))
+            (marks-first mark-set))
+
+        (define (call-with-immediate-continuation-mark key proc . default)
+            (with-continuation-mark '(#f . #f) #t
+                (let ((val (assq key (%dynamic-marks (car (%dynamic-stack))))))
+                    (if (pair? val)
+                        (proc (cdr val))
+                        (proc (if (pair? default) (car default) #f))))))
 
         (define default-prompt-tag-key (cons #f #f))
 
@@ -1222,7 +1308,7 @@
             (if (pair? ml)
                 (begin
                     (if (eq? (car (car ml)) 'parameterize)
-                        (after-parameterize (car (cdr (car ml))))
+                        (set-parameter-boxes (car (cdr (car ml))) (cadr (cdr (car ml))))
                         (if (eq? (car (car ml)) 'dynamic-wind)
                             ((cdr (cdr (car ml)))))) ; dynamic-wind after
                     (unwind-mark-list (cdr ml)))))
@@ -1231,7 +1317,7 @@
             (if (pair? ml)
                 (begin
                     (if (eq? (car (car ml)) 'parameterize)
-                        (before-parameterize (car (cdr (car ml))) (cdr (cdr (car ml))))
+                        (set-parameter-boxes (car (cdr (car ml))) (caddr (cdr (car ml))))
                         (if (eq? (car (car ml)) 'dynamic-wind)
                             ((car (cdr (car ml)))))) ; dynamic-wind before
                     (rewind-mark-list (cdr ml)))))
@@ -1488,7 +1574,7 @@
                 ))
 
         (define current-input-port
-            (make-index-parameter 0 %standard-input
+            (%make-parameter 0 %standard-input
                 (lambda (obj)
                     (if (not (and (input-port? obj) (input-port-open? obj)))
                         (full-error 'assertion-violation 'current-input-port #f
@@ -1496,7 +1582,7 @@
                     obj)))
 
         (define current-output-port
-            (make-index-parameter 1 %standard-output
+            (%make-parameter 1 %standard-output
                 (lambda (obj)
                     (if (not (and (output-port? obj) (output-port-open? obj)))
                         (full-error 'assertion-violation 'current-output-port #f
@@ -1504,7 +1590,7 @@
                     obj)))
 
         (define current-error-port
-            (make-index-parameter 2 %standard-error
+            (%make-parameter 2 %standard-error
                 (lambda (obj)
                     (if (not (and (output-port? obj) (output-port-open? obj)))
                         (full-error 'assertion-violation 'current-error-port #f
@@ -1512,10 +1598,10 @@
                     obj)))
 
         (define hash-bound-parameter
-            (make-index-parameter 3 (- (expt 2 28) 1) %check-hash-bound))
+            (%make-parameter 3 (- (expt 2 28) 1) %check-hash-bound))
 
         (define hash-salt-parameter
-            (make-index-parameter 4 16064047 %check-hash-salt))
+            (%make-parameter 4 16064047 %check-hash-salt))
 
         (define file-encoding
             (make-parameter make-encoded-port))
@@ -2490,4 +2576,31 @@
         random-source-pseudo-randomize!
         random-source-make-integers
         random-source-make-reals)
+    )
+
+(define-library (srfi 39)
+    (import (foment base))
+    (export
+        make-parameter
+        parameterize)
+    )
+
+(define-library (srfi 157)
+    (import (foment base))
+    (export
+        current-continuation-marks
+        continuation-marks?
+        continuation-mark-set->list
+        continuation-mark-set->list*
+        continuation-mark-set-first
+        call-with-immediate-continuation-mark)
+    )
+
+(define-library (srfi 229)
+    (import (foment base))
+    (export
+        case-lambda/tag
+        lambda/tag
+        (rename procedure? procedure/tag?)
+        procedure-tag)
     )
