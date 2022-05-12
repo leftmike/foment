@@ -545,7 +545,6 @@
         %hash-node-next
         %hash-node-next-set!
         %hash-node-hash
-        random
         no-value
         set!-values
         (rename positioning-port? port-has-port-position?)

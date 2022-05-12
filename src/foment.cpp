@@ -880,14 +880,6 @@ Define("library-path", LibraryPathPrimitive)(long_t argc, FObject argv[])
     return(LibraryPath);
 }
 
-Define("random", RandomPrimitive)(long_t argc, FObject argv[])
-{
-    OneArgCheck("random", argc);
-    NonNegativeArgCheck("random", argv[0], 0);
-
-    return(MakeFixnum(rand() % AsFixnum(argv[0])));
-}
-
 Define("no-value", NoValuePrimitive)(long_t argc, FObject argv[])
 {
     ZeroArgsCheck("no-value", argc);
@@ -1248,7 +1240,6 @@ static FObject Primitives[] =
     RecordSetPrimitive,
     LoadedLibrariesPrimitive,
     LibraryPathPrimitive,
-    RandomPrimitive,
     NoValuePrimitive,
     ImplementationNamePrimitive,
     ImplementationVersionPrimitive,
