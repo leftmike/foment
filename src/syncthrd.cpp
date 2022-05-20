@@ -15,9 +15,9 @@ Foment
 #include <pthread.h>
 #include <unistd.h>
 #include <errno.h>
-#include <stdio.h>
 #endif // FOMENT_UNIX
 
+#include <stdio.h>
 #include <time.h>
 #include <string.h>
 #include "foment.hpp"
@@ -496,7 +496,9 @@ static FObject MakeCurrentTime()
 {
     FTime * time = (FTime *) MakeObject(TimeTag, sizeof(FTime), 0, "make-time");
 #ifdef FOMENT_WINDOWS
-    // XXX
+    SYSTEMTIME st;
+    GetLocalTime(&st);
+    SystemTimeToFileTime(&st, &(time->filetime));
 #else // FOMENT_WINDOWS
     if (clock_gettime(CLOCK_REALTIME, &(time->timespec)) != 0)
         RaiseExceptionC(Assertion, "current-time", "clock_gettime failed",
@@ -509,8 +511,13 @@ static FObject MakeCurrentTime()
 static FObject MakeTimeSeconds(int64_t n)
 {
     FTime * time = (FTime *) MakeObject(TimeTag, sizeof(FTime), 0, "make-time");
+
 #ifdef FOMENT_WINDOWS
-    // XXX
+    LARGE_INTEGER li;
+    // Convert from seconds to 100 nano seconds (10^ - 7).
+    li.QuadPart = n * 10000000;
+    time->filetime.dwLowDateTime = li.LowPart;
+    time->filetime.dwHighDateTime = li.HighPart;
 #else // FOMENT_WINDOWS
     time->timespec.tv_sec = n;
     time->timespec.tv_nsec = 0;
@@ -526,7 +533,12 @@ void WriteTime(FWriteContext * wctx, FObject obj)
     wctx->WriteStringC("#<time: ");
 
 #ifdef FOMENT_WINDOWS
-    // XXX
+    SYSTEMTIME st;
+    FileTimeToSystemTime(&(AsTime(obj)->filetime), &st);
+    char buf[128];
+    sprintf_s(buf, sizeof(buf), "%d-%d-%d %02d:%02d:%02d", st.wMonth, st.wDay, st.wYear,
+              st.wHour, st.wMinute, st.wSecond);
+    wctx->WriteStringC(buf);
 #else // FOMENT_WINDOWS
     struct tm tm;
     char buf[128];
@@ -539,14 +551,6 @@ void WriteTime(FWriteContext * wctx, FObject obj)
 
     wctx->WriteCh('>');
 }
-
-/*
-https://docs.microsoft.com/en-us/windows/win32/api/minwinbase/ns-minwinbase-filetime
-https://stackoverflow.com/questions/9112749/converting-ularge-integer-quadpart-in-to-millisecond
-https://stackoverflow.com/questions/19709580/c-convert-filetime-to-seconds
-https://stackoverflow.com/questions/46201834/how-to-convert-milli-seconds-time-to-filetime-in-c
-https://stackoverflow.com/questions/24878395/convert-filetime-to-portable-time-unit
-*/
 
 Define("current-time", CurrentTimePrimitive)(long_t argc, FObject argv[])
 {
@@ -569,8 +573,11 @@ Define("time->seconds", TimeToSecondsPrimitive)(long_t argc, FObject argv[])
         RaiseExceptionC(Assertion, "time->seconds", "expected time", List(argv[0]));
 
 #ifdef FOMENT_WINDOWS
-    // XXX
-    return(MakeFixnum(0));
+    LARGE_INTEGER li;
+    li.LowPart = AsTime(argv[0])->filetime.dwLowDateTime;
+    li.HighPart = AsTime(argv[0])->filetime.dwHighDateTime;
+    // Convert from 100 nano seconds (10^ - 7) to seconds.
+    return(MakeIntegerFromInt64(li.QuadPart / 10000000));
 #else // FOMENT_WINDOWS
     return(MakeIntegerFromInt64(AsTime(argv[0])->timespec.tv_sec));
 #endif // FOMENT_WINDOWS
