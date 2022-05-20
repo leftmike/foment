@@ -498,15 +498,26 @@
         run-thread
         exit-thread
         emergency-exit-thread
+        thread?
+        make-thread
+        thread-name
+        thread-name-set!
+        thread-specific
+        thread-specific-set!
+        thread-start!
+        thread-yield!
+        exclusive?
         enter-exclusive
         leave-exclusive
-        condition-wait
-        thread?
-        condition-wake
-        exclusive?
-        try-exclusive
         condition?
+        condition-wait
+        condition-wake
+        try-exclusive
         condition-wake-all
+        current-time
+        time?
+        time->seconds
+        seconds->time
         with-exclusive
         sleep
         syntax
@@ -997,6 +1008,18 @@
                         (lambda () (enter-exclusive exclusive))
                         (lambda () expr1 expr2 ...)
                         (lambda () (leave-exclusive exclusive))))))
+
+        (define (run-thread thunk)
+            (%run-thread thunk #t))
+
+        (define (make-thread thunk . name)
+            (let ((thrd (%run-thread thunk #f)))
+                (if (pair? name)
+                    (thread-name-set! thrd (car name)))
+                thrd))
+
+        (define (thread-yield!)
+            (sleep 0))
 
         (define (subprocess stdout stdin stderr command . args)
             (apply values (apply %subprocess #f stdout stdin stderr command args)))

@@ -140,12 +140,21 @@ inline void DeleteCondition(OSCondition * osc)
 
 #define AsThread(obj) ((FThread *) (obj))
 
+#define THREAD_STATE_NEW 0
+#define THREAD_STATE_RUNNING 1
+#define THREAD_STATE_DONE 2
+
 typedef struct
 {
     FObject Result;
     FObject Thunk;
     FObject Parameters;
+    FObject Name;
+    FObject Specific;
     OSThreadHandle Handle;
+    OSExclusive Exclusive;
+    OSCondition Condition;
+    ulong_t State;
 } FThread;
 
 FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms);
@@ -168,6 +177,20 @@ typedef struct
 {
     OSCondition Condition;
 } FCondition;
+
+// ---- Time ----
+
+#define AsTime(obj) ((FTime *) (obj))
+#define TimeP(obj) (ObjectTag(obj) == TimeTag)
+
+typedef struct
+{
+#ifdef FOMENT_WINDOWS
+    FILETIME filetime;
+#else // FOMENT_WINDOWS
+    struct timespec timespec;
+#endif // FOMENT_WINDOWS
+} FTime;
 
 // ----------------
 

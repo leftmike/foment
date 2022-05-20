@@ -59,6 +59,9 @@
         (display " ")
         (consumer)))
 
+(define (run-thread thunk)
+    (%run-thread thunk #t))
+
 (p 1)
 (run-thread producer)
 (run-thread producer)

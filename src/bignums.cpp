@@ -339,6 +339,27 @@ double64_t BignumToDouble(FObject bn)
     return(d);
 }
 
+long_t BignumToInt64(FObject bn, int64_t * n)
+{
+    FAssert(BignumP(bn));
+
+    if (AsBignum(bn)->Used > 2)
+        return(0);
+
+    int64_t i64 = (int64_t) AsBignum(bn)->Digits[0];
+
+    if (AsBignum(bn)->Used == 2)
+    {
+        if (AsBignum(bn)->Digits[1] & 0x80000000)
+            return(0);
+
+        i64 |= ((int64_t) AsBignum(bn)->Digits[1]) << 32;
+    }
+
+    *n = i64 * AsBignum(bn)->Sign;
+    return(1);
+}
+
 static const char DigitTable[] = "0123456789abcdefghijklmnopqrstuvwxyz";
 
 char * BignumToStringC(FObject num, uint32_t rdx)
@@ -1890,6 +1911,25 @@ static void TestBignums()
 #endif // FOMENT_64BIT
     FAssert(BignumIntegerLength(MakeBignumFromDouble(666E66)) == 229);
     FAssert(BignumIntegerLength(MakeBignumFromDouble(-666E66)) == 229);
+
+    int64_t i64;
+
+    FAssert(BignumToInt64(MakeBignumFromDouble(66E66), &i64) == 0);
+    FAssert(BignumToInt64(MakeBignumFromDouble(-66E66), &i64) == 0);
+    FAssert(BignumToInt64(MakeBignumFromLong(123456789), &i64) != 0 && i64 == 123456789);
+    FAssert(BignumToInt64(MakeBignumFromLong(-123456789), &i64) != 0 && i64 == -123456789);
+#ifdef FOMENT_64BIT
+    FAssert(BignumToInt64(MakeBignumFromLong(123456789987654321L), &i64) != 0 &&
+            i64 == 123456789987654321L);
+    FAssert(BignumToInt64(MakeBignumFromLong(-123456789987654321L), &i64) != 0 &&
+            i64 == -123456789987654321L);
+    FAssert(BignumToInt64(MakeBignumFromLong(0x7FFFFFFFFFFFFFFFL), &i64) != 0 &&
+            i64 == 0x7FFFFFFFFFFFFFFFL);
+    FAssert(BignumToInt64(MakeBignumFromLong(-0x7FFFFFFFFFFFFFFFL), &i64) != 0 &&
+            i64 == -0x7FFFFFFFFFFFFFFFL);
+    FAssert(BignumToInt64(MakeBignumFromLong(0x8000000000000000L), &i64) == 0);
+    FAssert(BignumToInt64(MakeBignumFromLong(-0x8000000000000000L), &i64) == 0);
+#endif // FOMENT_64BIT
 
 #ifdef FOMENT_64BIT
     FAssert(strcmp(BignumToStringC(

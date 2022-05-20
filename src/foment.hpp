@@ -11,6 +11,10 @@ To Do:
 -- SRFI 151: Bitwise Operations
 -- SRFI 154: First-class dynamic extents
 -- SRFI 159: Combinator Formatting
+-- SRFI 195: Multiple-value boxes
+-- SRIF 207: String-notated bytevectors
+-- SRFI 208: NaN procedures
+-- SRFI 230: Atomic Operations
 
 -- IO: FAlive, EnterWait, and LeaveWait
 -- Allow GC on nested executions
@@ -236,6 +240,7 @@ typedef enum
     TemplateRepeatTag,
     SyntaxRuleTag,
     RandomSourceTag,
+    TimeTag,
     FreeTag
 } FObjectTag;
 
@@ -1219,6 +1224,7 @@ FObject ToExact(FObject n);
 
 FObject MakeIntegerFromInt64(int64_t n);
 FObject MakeIntegerFromUInt64(uint64_t n);
+long_t BignumToInt64(FObject bn, int64_t * n);
 uint32_t NumberHash(FObject obj);
 
 FObject GenericAdd(FObject z1, FObject z2);
@@ -1878,6 +1884,7 @@ void WriteGlobal(FWriteContext * wctx, FObject obj);
 void WriteLibrary(FWriteContext * wctx, FObject obj);
 void WriteLambda(FWriteContext * wctx, FObject obj);
 void WriteRandomSource(FWriteContext * wctx, FObject obj);
+void WriteTime(FWriteContext * wctx, FObject obj);
 
 #ifdef FOMENT_WINDOWS
 #define PathCh '\\'

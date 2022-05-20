@@ -14,9 +14,12 @@ Foment
 #include <stdlib.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <errno.h>
+#include <stdio.h>
 #endif // FOMENT_UNIX
 
 #include <time.h>
+#include <string.h>
 #include "foment.hpp"
 #include "execute.hpp"
 #include "syncthrd.hpp"
@@ -25,11 +28,17 @@ Foment
 
 FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms)
 {
-    FThread * thrd = (FThread *) MakeObject(ThreadTag, sizeof(FThread), 3, "run-thread");
+    FThread * thrd = (FThread *) MakeObject(ThreadTag, sizeof(FThread), 5, "run-thread");
     thrd->Result = NoValueObject;
     thrd->Thunk = thnk;
     thrd->Parameters = prms;
     thrd->Handle = h;
+    thrd->Name = FalseObject;
+    thrd->Specific = FalseObject;
+
+    InitializeExclusive(&(thrd->Exclusive));
+    InitializeCondition(&(thrd->Condition));
+    thrd->State = THREAD_STATE_NEW;
 
     return(thrd);
 }
@@ -43,6 +52,15 @@ void WriteThread(FWriteContext * wctx, FObject obj)
     FCh s[16];
     long_t sl = FixnumAsString((long_t) AsThread(obj)->Handle, s, 16);
     wctx->WriteString(s, sl);
+
+    EnterExclusive(&(AsThread(obj)->Exclusive));
+    FObject name = AsThread(obj)->Name;
+    LeaveExclusive(&(AsThread(obj)->Exclusive));
+    if (name != FalseObject)
+    {
+        wctx->WriteCh(' ');
+        wctx->Write(name);
+    }
     wctx->WriteCh('>');
 }
 
@@ -135,6 +153,11 @@ static void FomentThread(FObject obj)
 
     FAssert(ThreadP(obj));
 
+    EnterExclusive(&(AsThread(obj)->Exclusive));
+    while (AsThread(obj)->State != THREAD_STATE_RUNNING)
+        ConditionWait(&(AsThread(obj)->Condition), &(AsThread(obj)->Exclusive));
+    LeaveExclusive(&(AsThread(obj)->Exclusive));
+
     try
     {
         if (EnterThread(&ts, obj, AsThread(obj)->Parameters) == 0)
@@ -143,27 +166,32 @@ static void FomentThread(FObject obj)
         FAssert(ts.Thread == obj);
         FAssert(ThreadP(ts.Thread));
 
-        AsThread(ts.Thread)->Parameters = NoValueObject;
+        AsThread(obj)->Parameters = NoValueObject;
 
-        if (ProcedureP(AsThread(ts.Thread)->Thunk))
-            AsThread(ts.Thread)->Result = ExecuteProc(AsThread(ts.Thread)->Thunk);
+        if (ProcedureP(AsThread(obj)->Thunk))
+            AsThread(obj)->Result = ExecuteProc(AsThread(obj)->Thunk);
         else
         {
-            FAssert(PrimitiveP(AsThread(ts.Thread)->Thunk));
+            FAssert(PrimitiveP(AsThread(obj)->Thunk));
 
-            AsThread(ts.Thread)->Result =
-                    AsPrimitive(AsThread(ts.Thread)->Thunk)->PrimitiveFn(0, 0);
+            AsThread(obj)->Result =
+                    AsPrimitive(AsThread(obj)->Thunk)->PrimitiveFn(0, 0);
         }
     }
     catch (FObject exc)
     {
-        if (ExceptionP(obj) == 0)
+        if (ExceptionP(exc) == 0)
             WriteStringC(StandardOutput, "exception: ");
         Write(StandardOutput, exc, 0);
         WriteCh(StandardOutput, '\n');
 
-        AsThread(ts.Thread)->Result = exc;
+        AsThread(obj)->Result = exc;
     }
+
+    EnterExclusive(&(AsThread(obj)->Exclusive));
+    AsThread(obj)->State = THREAD_STATE_DONE;
+    WakeCondition(&(AsThread(obj)->Condition));
+    LeaveExclusive(&(AsThread(obj)->Exclusive));
 
     LeaveThread(&ts);
 }
@@ -187,12 +215,18 @@ static void * StartThread(FObject obj)
 }
 #endif // FOMENT_UNIX
 
-Define("run-thread", RunThreadPrimitive)(long_t argc, FObject argv[])
+Define("%run-thread", RunThreadPrimitive)(long_t argc, FObject argv[])
 {
-    OneArgCheck("run-thread", argc);
+    TwoArgsCheck("run-thread", argc);
     ProcedureArgCheck("run-thread", argv[0]);
+    BooleanArgCheck("run-thread", argv[1]);
 
     FObject thrd = MakeThread(0, argv[0], CurrentParameters());
+
+    if (argv[1] == FalseObject)
+        AsThread(thrd)->State = THREAD_STATE_NEW;
+    else
+        AsThread(thrd)->State = THREAD_STATE_RUNNING;
 
 #ifdef FOMENT_WINDOWS
     HANDLE h = CreateThread(0, 0, StartThread, thrd, CREATE_SUSPENDED, 0);
@@ -274,6 +308,75 @@ Define("%exit", ExitPrimitive)(long_t argc, FObject argv[])
 
     exit(-1);
     return(NoValueObject);
+}
+
+Define("thread-name", ThreadNamePrimitive)(long_t argc, FObject argv[])
+{
+    OneArgCheck("thread-name", argc);
+    ThreadArgCheck("thread-name", argv[0]);
+
+    EnterExclusive(&(AsThread(argv[0])->Exclusive));
+    FObject name = AsThread(argv[0])->Name;
+    LeaveExclusive(&(AsThread(argv[0])->Exclusive));
+
+    return(name);
+}
+
+Define("thread-name-set!", ThreadNameSetPrimitive)(long_t argc, FObject argv[])
+{
+    TwoArgsCheck("thread-name-set!", argc);
+    ThreadArgCheck("thread-name-set!", argv[0]);
+
+    EnterExclusive(&(AsThread(argv[0])->Exclusive));
+    AsThread(argv[0])->Name = argv[1];
+    LeaveExclusive(&(AsThread(argv[0])->Exclusive));
+
+    return(NoValueObject);
+}
+
+Define("thread-specific", ThreadSpecificPrimitive)(long_t argc, FObject argv[])
+{
+    OneArgCheck("thread-specific", argc);
+    ThreadArgCheck("thread-specific", argv[0]);
+
+    EnterExclusive(&(AsThread(argv[0])->Exclusive));
+    FObject obj = AsThread(argv[0])->Specific;
+    LeaveExclusive(&(AsThread(argv[0])->Exclusive));
+
+    return(obj);
+}
+
+Define("thread-specific-set!", ThreadSpecificSetPrimitive)(long_t argc, FObject argv[])
+{
+    TwoArgsCheck("thread-specific-set!", argc);
+    ThreadArgCheck("thread-specific-set!", argv[0]);
+
+    EnterExclusive(&(AsThread(argv[0])->Exclusive));
+    AsThread(argv[0])->Specific = argv[1];
+    LeaveExclusive(&(AsThread(argv[0])->Exclusive));
+
+    return(NoValueObject);
+}
+
+Define("thread-start!", ThreadStartPrimitive)(long_t argc, FObject argv[])
+{
+    OneArgCheck("thread-start!", argc);
+    ThreadArgCheck("thread-start!", argv[0]);
+
+    EnterExclusive(&(AsThread(argv[0])->Exclusive));
+    if (AsThread(argv[0])->State == THREAD_STATE_NEW)
+    {
+        AsThread(argv[0])->State = THREAD_STATE_RUNNING;
+        WakeCondition(&(AsThread(argv[0])->Condition));
+        LeaveExclusive(&(AsThread(argv[0])->Exclusive));
+    }
+    else
+    {
+        LeaveExclusive(&(AsThread(argv[0])->Exclusive));
+        RaiseExceptionC(Assertion, "thread-start!", "expected a new thread", List(argv[0]));
+    }
+
+    return(argv[0]);
 }
 
 Define("sleep", SleepPrimitive)(long_t argc, FObject argv[])
@@ -387,6 +490,103 @@ Define("condition-wake-all", ConditionWakeAllPrimitive)(long_t argc, FObject arg
 
     WakeAllCondition(&AsCondition(argv[0])->Condition);
     return(NoValueObject);
+}
+
+static FObject MakeCurrentTime()
+{
+    FTime * time = (FTime *) MakeObject(TimeTag, sizeof(FTime), 0, "make-time");
+#ifdef FOMENT_WINDOWS
+    // XXX
+#else // FOMENT_WINDOWS
+    if (clock_gettime(CLOCK_REALTIME, &(time->timespec)) != 0)
+        RaiseExceptionC(Assertion, "current-time", "clock_gettime failed",
+                List(MakeFixnum(errno)));
+#endif // FOMENT_WINDOWS
+
+    return(time);
+}
+
+static FObject MakeTimeSeconds(int64_t n)
+{
+    FTime * time = (FTime *) MakeObject(TimeTag, sizeof(FTime), 0, "make-time");
+#ifdef FOMENT_WINDOWS
+    // XXX
+#else // FOMENT_WINDOWS
+    time->timespec.tv_sec = n;
+    time->timespec.tv_nsec = 0;
+#endif // FOMENT_WINDOWS
+
+    return(time);
+}
+
+void WriteTime(FWriteContext * wctx, FObject obj)
+{
+    FAssert(TimeP(obj));
+
+    wctx->WriteStringC("#<time: ");
+
+#ifdef FOMENT_WINDOWS
+    // XXX
+#else // FOMENT_WINDOWS
+    struct tm tm;
+    char buf[128];
+    time_t tt = AsTime(obj)->timespec.tv_sec;
+    localtime_r(&tt, &tm);
+    sprintf_s(buf, sizeof(buf), "%d-%d-%d %02d:%02d:%02d", tm.tm_mon + 1, tm.tm_mday,
+              tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec);
+    wctx->WriteStringC(buf);
+#endif // FOMENT_WINDOWS
+
+    wctx->WriteCh('>');
+}
+
+/*
+https://docs.microsoft.com/en-us/windows/win32/api/minwinbase/ns-minwinbase-filetime
+https://stackoverflow.com/questions/9112749/converting-ularge-integer-quadpart-in-to-millisecond
+https://stackoverflow.com/questions/19709580/c-convert-filetime-to-seconds
+https://stackoverflow.com/questions/46201834/how-to-convert-milli-seconds-time-to-filetime-in-c
+https://stackoverflow.com/questions/24878395/convert-filetime-to-portable-time-unit
+*/
+
+Define("current-time", CurrentTimePrimitive)(long_t argc, FObject argv[])
+{
+    ZeroArgsCheck("current-second", argc);
+
+    return(MakeCurrentTime());
+}
+
+Define("time?", TimePPrimitive)(long_t argc, FObject argv[])
+{
+    OneArgCheck("time?", argc);
+
+    return(TimeP(argv[0]) ? TrueObject : FalseObject);
+}
+
+Define("time->seconds", TimeToSecondsPrimitive)(long_t argc, FObject argv[])
+{
+    OneArgCheck("time->seconds", argc);
+    if (TimeP(argv[0]) == 0)
+        RaiseExceptionC(Assertion, "time->seconds", "expected time", List(argv[0]));
+
+#ifdef FOMENT_WINDOWS
+    // XXX
+    return(MakeFixnum(0));
+#else // FOMENT_WINDOWS
+    return(MakeIntegerFromInt64(AsTime(argv[0])->timespec.tv_sec));
+#endif // FOMENT_WINDOWS
+}
+
+Define("seconds->time", SecondsToTimePrimitive)(long_t argc, FObject argv[])
+{
+    OneArgCheck("seconds->time", argc);
+
+    int64_t n;
+    if (FixnumP(argv[0]))
+        n = AsFixnum(argv[0]);
+    else if (BignumP(argv[0]) == 0 || BignumToInt64(argv[0], &n) == 0)
+        RaiseExceptionC(Assertion, "seconds->time", "expected an exact integer", List(argv[0]));
+
+    return(MakeTimeSeconds(n));
 }
 
 static void InterruptThread(FObject thrd);
@@ -581,6 +781,11 @@ static FObject Primitives[] =
     RunThreadPrimitive,
     ExitThreadPrimitive,
     ExitPrimitive,
+    ThreadNamePrimitive,
+    ThreadNameSetPrimitive,
+    ThreadSpecificPrimitive,
+    ThreadSpecificSetPrimitive,
+    ThreadStartPrimitive,
     SleepPrimitive,
     ExclusivePPrimitive,
     MakeExclusivePrimitive,
@@ -592,6 +797,10 @@ static FObject Primitives[] =
     ConditionWaitPrimitive,
     ConditionWakePrimitive,
     ConditionWakeAllPrimitive,
+    CurrentTimePrimitive,
+    TimePPrimitive,
+    TimeToSecondsPrimitive,
+    SecondsToTimePrimitive,
     SetCtrlCNotifyPrimitive
 };
 

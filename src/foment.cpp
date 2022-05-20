@@ -1368,7 +1368,7 @@ FObjectType ObjectTypes[] =
     {RecordTypeTag, "record-type", MAXIMUM_ULONG, WriteRecordType},
     {RecordTag, "record", MAXIMUM_ULONG, WriteRecord},
     {PrimitiveTag, "primitive", 2, WritePrimitive},
-    {ThreadTag, "thread", 3, WriteThread},
+    {ThreadTag, "thread", 5, WriteThread},
     {ExclusiveTag, "exclusive", 0, WriteExclusive},
     {ConditionTag, "condition", 0, WriteCondition},
     {HashNodeTag, "hash-node", 3, WriteHashNode},
@@ -1398,6 +1398,7 @@ FObjectType ObjectTypes[] =
     {TemplateRepeatTag, "template-repeat", 5, 0},
     {SyntaxRuleTag, "syntax-rule", 4, 0},
     {RandomSourceTag, "random-source", 0, WriteRandomSource},
+    {TimeTag, "time", 0, WriteTime},
     {FreeTag, "free", 0, 0}
 };
 
