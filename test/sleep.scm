@@ -17,6 +17,8 @@
 
 (check-equal #t (< s (current-seconds)))
 
+(thread-sleep! (seconds->time (- (current-seconds) 10)))
+
 (define t (current-time))
 (set! s (time->seconds t))
 

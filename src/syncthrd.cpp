@@ -379,6 +379,31 @@ Define("thread-start!", ThreadStartPrimitive)(long_t argc, FObject argv[])
     return(argv[0]);
 }
 
+#ifdef FOMENT_WINDOWS
+static DWORD TimeDelta(FObject obj)
+{
+    FAssert(TimeP(obj));
+
+    LARGE_INTEGER li;
+    li.LowPart = AsTime(obj)->filetime.dwLowDateTime;
+    li.HighPart = AsTime(obj)->filetime.dwHighDateTime;
+
+    SYSTEMTIME st;
+    GetLocalTime(&st);
+    FILETIME ft;
+    SystemTimeToFileTime(&st, &ft);
+    LARGE_INTEGER cli;
+    cli.LowPart = ft.dwLowDateTime;
+    cli.HighPart = ft.dwHighDateTime;
+
+    if (cli.QuadPart > li.QuadPart)
+        return(0);
+
+    // Convert from 100 nano seconds (10^ - 7) to milliseconds (10^ - 3).
+    return((DWORD) ((li.QuadPart - cli.QuadPart) / 10000));
+}
+#endif // FOMENT_WINDOWS
+
 Define("thread-sleep!", ThreadSleepPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("thread-sleep!", argc);
@@ -404,7 +429,13 @@ Define("thread-sleep!", ThreadSleepPrimitive)(long_t argc, FObject argv[])
     else if (TimeP(argv[0]))
     {
 #ifdef FOMENT_WINDOWS
-        // XXX
+        DWORD n = TimeDelta(argv[0]);
+        if (n > 0)
+        {
+            EnterWait();
+            Sleep(n);
+            LeaveWait();
+        }
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
