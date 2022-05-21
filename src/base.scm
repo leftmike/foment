@@ -506,6 +506,7 @@
         thread-specific-set!
         thread-start!
         thread-yield!
+        thread-sleep!
         exclusive?
         enter-exclusive
         leave-exclusive

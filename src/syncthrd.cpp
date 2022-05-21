@@ -379,6 +379,47 @@ Define("thread-start!", ThreadStartPrimitive)(long_t argc, FObject argv[])
     return(argv[0]);
 }
 
+Define("thread-sleep!", ThreadSleepPrimitive)(long_t argc, FObject argv[])
+{
+    OneArgCheck("thread-sleep!", argc);
+
+    if (NonNegativeExactIntegerP(argv[0], 0))
+    {
+#ifdef FOMENT_WINDOWS
+        DWORD n = (DWORD) AsFixnum(argv[0]);
+        EnterWait();
+        Sleep(n * 1000);
+        LeaveWait();
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+        struct timespec ts;
+        ts.tv_sec = AsFixnum(argv[0]);
+        ts.tv_nsec = 0;
+        EnterWait();
+        nanosleep(&ts, 0);
+        LeaveWait();
+#endif // FOMENT_UNIX
+    }
+    else if (TimeP(argv[0]))
+    {
+#ifdef FOMENT_WINDOWS
+        // XXX
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+        EnterWait();
+        clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &(AsTime(argv[0])->timespec), 0);
+        LeaveWait();
+#endif // FOMENT_UNIX
+    }
+    else
+        RaiseExceptionC(Assertion, "thread-sleep!",
+                "expected an exact non-negative integer or time", List(argv[0]));
+
+    return(NoValueObject);
+}
+
 Define("sleep", SleepPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("sleep", argc);
@@ -495,15 +536,18 @@ Define("condition-wake-all", ConditionWakeAllPrimitive)(long_t argc, FObject arg
 static FObject MakeCurrentTime()
 {
     FTime * time = (FTime *) MakeObject(TimeTag, sizeof(FTime), 0, "make-time");
+
 #ifdef FOMENT_WINDOWS
     SYSTEMTIME st;
     GetLocalTime(&st);
     SystemTimeToFileTime(&st, &(time->filetime));
-#else // FOMENT_WINDOWS
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
     if (clock_gettime(CLOCK_REALTIME, &(time->timespec)) != 0)
         RaiseExceptionC(Assertion, "current-time", "clock_gettime failed",
                 List(MakeFixnum(errno)));
-#endif // FOMENT_WINDOWS
+#endif // FOMENT_UNIX
 
     return(time);
 }
@@ -518,10 +562,12 @@ static FObject MakeTimeSeconds(int64_t n)
     li.QuadPart = n * 10000000;
     time->filetime.dwLowDateTime = li.LowPart;
     time->filetime.dwHighDateTime = li.HighPart;
-#else // FOMENT_WINDOWS
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
     time->timespec.tv_sec = n;
     time->timespec.tv_nsec = 0;
-#endif // FOMENT_WINDOWS
+#endif // FOMENT_UNIX
 
     return(time);
 }
@@ -539,7 +585,9 @@ void WriteTime(FWriteContext * wctx, FObject obj)
     sprintf_s(buf, sizeof(buf), "%d-%d-%d %02d:%02d:%02d", st.wMonth, st.wDay, st.wYear,
               st.wHour, st.wMinute, st.wSecond);
     wctx->WriteStringC(buf);
-#else // FOMENT_WINDOWS
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
     struct tm tm;
     char buf[128];
     time_t tt = AsTime(obj)->timespec.tv_sec;
@@ -547,7 +595,7 @@ void WriteTime(FWriteContext * wctx, FObject obj)
     sprintf_s(buf, sizeof(buf), "%d-%d-%d %02d:%02d:%02d", tm.tm_mon + 1, tm.tm_mday,
               tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec);
     wctx->WriteStringC(buf);
-#endif // FOMENT_WINDOWS
+#endif // FOMENT_UNIX
 
     wctx->WriteCh('>');
 }
@@ -578,9 +626,11 @@ Define("time->seconds", TimeToSecondsPrimitive)(long_t argc, FObject argv[])
     li.HighPart = AsTime(argv[0])->filetime.dwHighDateTime;
     // Convert from 100 nano seconds (10^ - 7) to seconds.
     return(MakeIntegerFromInt64(li.QuadPart / 10000000));
-#else // FOMENT_WINDOWS
-    return(MakeIntegerFromInt64(AsTime(argv[0])->timespec.tv_sec));
 #endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+    return(MakeIntegerFromInt64(AsTime(argv[0])->timespec.tv_sec));
+#endif // FOMENT_UNIX
 }
 
 Define("seconds->time", SecondsToTimePrimitive)(long_t argc, FObject argv[])
@@ -793,6 +843,7 @@ static FObject Primitives[] =
     ThreadSpecificPrimitive,
     ThreadSpecificSetPrimitive,
     ThreadStartPrimitive,
+    ThreadSleepPrimitive,
     SleepPrimitive,
     ExclusivePPrimitive,
     MakeExclusivePrimitive,

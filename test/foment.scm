@@ -1546,3 +1546,22 @@
     (equal?
         (gen-rs rs3-real 10)
         (gen-rs rs2-real 10)))
+
+;;
+;; ---- SRFI 18: Multithreading support ----
+;;
+
+(check-equal #t (time? (current-time)))
+(check-equal #f (time? 1234))
+(check-equal #f (time? "10-10-2010"))
+(check-equal #t (time? (seconds->time 1653067634)))
+(check-equal #f (time? (time->seconds (current-time))))
+
+(define t (current-time))
+(define s (time->seconds t))
+
+(check-equal #t (> (+ (time->seconds t) 10) (time->seconds (current-time))))
+(check-equal #t (= (time->seconds t) (time->seconds t)))
+(check-equal #t (= (time->seconds t) (time->seconds (seconds->time (time->seconds t)))))
+(check-equal #f (= s (+ 10 (time->seconds t))))
+(check-equal #f (= s (+ 10 (time->seconds (current-time)))))
