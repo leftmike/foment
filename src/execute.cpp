@@ -295,6 +295,9 @@ static FObject FindMark(FObject key, FObject dflt)
 
 static long_t PrepareHandler(FThreadState * ts, FObject hdlr, FObject key, FObject obj)
 {
+    if (ts->Terminate)
+        ThreadExit(FalseObject, THREAD_EXIT_TERMINATED);
+
     if (ProcedureP(hdlr))
     {
         FObject lst = FindMark(key, EmptyListObject);
@@ -1193,7 +1196,7 @@ FObject ExecuteProc(FObject op)
             ts->NotifyFlag = 0;
 
             if (PrepareHandler(ts, NotifyHandler, NotifyHandlerSymbol, ts->NotifyObject) == 0)
-                ThreadExit(ts->NotifyObject);
+                ThreadExit(ts->NotifyObject, THREAD_EXIT_UNCAUGHT);
         }
         catch (FUnwindNestedExecute une)
         {

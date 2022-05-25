@@ -19,7 +19,7 @@ clean: debug release
     del /Q debug\*
     del /Q release\*
 
-test: all foment-test stress-test chibi-test process-test sleep-test
+test: all foment-test stress-test chibi-test process-test threads-test
 
 test-all: all test-no-collector test-mark-sweep
 
@@ -53,9 +53,9 @@ process-test: all
     cd ..\test
     ..\windows\$(TEST_BUILD)\foment $(TEST_OPTIONS) runtests.scm process.scm
 
-sleep-test: all
+threads-test: all
     cd ..\test
-    ..\windows\$(TEST_BUILD)\foment $(TEST_OPTIONS) runtests.scm sleep.scm
+    ..\windows\$(TEST_BUILD)\foment $(TEST_OPTIONS) runtests.scm threads.scm
 
 debug:
     -mkdir debug

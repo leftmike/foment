@@ -507,6 +507,13 @@
         thread-start!
         thread-yield!
         thread-sleep!
+        thread-terminate!
+        thread-join!
+        join-timeout-exception?
+        abandoned-mutex-exception?
+        terminated-thread-exception?
+        uncaught-exception?
+        uncaught-exception-reason
         exclusive?
         enter-exclusive
         leave-exclusive
@@ -1022,6 +1029,29 @@
         (define (thread-yield!)
             (sleep 0))
 
+        (define (thread-terminate! thrd)
+            (if (not (eq? thrd (current-thread)))
+                (%thread-terminate! thrd))
+            (unwind (%dynamic-stack) '())
+            (%exit-thread #f 1))
+
+        (define (join-timeout-exception? obj)
+            (and (error-object? obj) (eq? (error-object-kind obj) 'join-timeout-exception)))
+
+        (define (abandoned-mutex-exception? obj)
+            (and (error-object? obj) (eq? (error-object-kind obj) 'abandoned-mutex-exception)))
+
+        (define (terminated-thread-exception? obj)
+            (and (error-object? obj) (eq? (error-object-kind obj) 'terminated-thread-exception)))
+
+        (define (uncaught-exception? obj)
+            (and (error-object? obj) (eq? (error-object-kind obj) 'uncaught-exception)))
+
+        (define (uncaught-exception-reason obj)
+            (if (uncaught-exception? obj)
+                (car (error-object-irritants obj))
+                #f))
+
         (define (subprocess stdout stdin stderr command . args)
             (apply values (apply %subprocess #f stdout stdin stderr command args)))
 
@@ -1439,7 +1469,10 @@
 
         (define (notify-handler obj lst)
             (%mark-continuation 'mark 'notify-handler (cdr lst)
-                    (lambda () ((car lst) obj) (exit-thread obj))))
+                    (lambda ()
+                        ((car lst) obj)
+                        (unwind (%dynamic-stack) '())
+                        (%exit-thread #f 2))))
 
         (%set-notify-handler! notify-handler)
 
@@ -1487,10 +1520,10 @@
 
         (define (exit-thread obj)
             (unwind (%dynamic-stack) '())
-            (%exit-thread obj))
+            (%exit-thread obj 0))
 
         (define (emergency-exit-thread obj)
-            (%exit-thread obj))
+            (%exit-thread obj 0))
 
         (define (make-guardian)
             (let ((tconc (let ((last (cons #f '()))) (cons last last))))

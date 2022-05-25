@@ -39,6 +39,7 @@ FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms)
     InitializeExclusive(&(thrd->Exclusive));
     InitializeCondition(&(thrd->Condition));
     thrd->State = THREAD_STATE_NEW;
+    thrd->Exit = THREAD_EXIT_NORMAL;
 
     return(thrd);
 }
@@ -147,9 +148,19 @@ static FObject CurrentParameters()
     return(v);
 }
 
+static void SetThreadDone(FThread * thrd, ulong_t exit)
+{
+    EnterExclusive(&(thrd->Exclusive));
+    thrd->State = THREAD_STATE_DONE;
+    thrd->Exit = exit;
+    WakeCondition(&(thrd->Condition));
+    LeaveExclusive(&(thrd->Exclusive));
+}
+
 static void FomentThread(FObject obj)
 {
     FThreadState ts;
+    ulong_t exit = THREAD_EXIT_NORMAL;
 
     FAssert(ThreadP(obj));
 
@@ -180,18 +191,18 @@ static void FomentThread(FObject obj)
     }
     catch (FObject exc)
     {
+        /*
         if (ExceptionP(exc) == 0)
             WriteStringC(StandardOutput, "exception: ");
         Write(StandardOutput, exc, 0);
         WriteCh(StandardOutput, '\n');
+        */
 
         AsThread(obj)->Result = exc;
+        exit = THREAD_EXIT_UNCAUGHT;
     }
 
-    EnterExclusive(&(AsThread(obj)->Exclusive));
-    AsThread(obj)->State = THREAD_STATE_DONE;
-    WakeCondition(&(AsThread(obj)->Condition));
-    LeaveExclusive(&(AsThread(obj)->Exclusive));
+    SetThreadDone(AsThread(obj), exit);
 
     LeaveThread(&ts);
 }
@@ -264,11 +275,12 @@ Define("%run-thread", RunThreadPrimitive)(long_t argc, FObject argv[])
     return(thrd);
 }
 
-void ThreadExit(FObject obj)
+void ThreadExit(FObject obj, ulong_t threadExit)
 {
     FThreadState * ts = GetThreadState();
 
     AsThread(ts->Thread)->Result = obj;
+    SetThreadDone(AsThread(ts->Thread), threadExit);
 
     if (LeaveThread(ts) == 0)
     {
@@ -290,9 +302,11 @@ void ThreadExit(FObject obj)
 
 Define("%exit-thread", ExitThreadPrimitive)(long_t argc, FObject argv[])
 {
-    FMustBe(argc == 1);
+    FMustBe(argc == 2);
+    FMustBe(FixnumP(argv[1]) && AsFixnum(argv[1]) >= THREAD_EXIT_NORMAL &&
+            AsFixnum(argv[1]) <= THREAD_EXIT_UNCAUGHT);
 
-    ThreadExit(argv[0]);
+    ThreadExit(argv[0], (ulong_t) AsFixnum(argv[1]));
     return(NoValueObject);
 }
 
@@ -449,6 +463,41 @@ Define("thread-sleep!", ThreadSleepPrimitive)(long_t argc, FObject argv[])
                 "expected an exact non-negative integer or time", List(argv[0]));
 
     return(NoValueObject);
+}
+
+static void NotifyTerminate(FObject thrd);
+Define("%thread-terminate!", ThreadTerminatePrimitive)(long_t argc, FObject argv[])
+{
+    OneArgCheck("thread-terminate!", argc);
+    ThreadArgCheck("thread-terminate!", argv[0]);
+
+    FAssert(GetThreadState()->Thread != argv[0]);
+
+    NotifyTerminate(AsThread(argv[0]));
+    // XXX: join the other thread
+    return(NoValueObject);
+}
+
+Define("thread-join!", ThreadJoinPrimitive)(long_t argc, FObject argv[])
+{
+    OneToThreeArgsCheck("thread-join!", argc);
+    ThreadArgCheck("thread-join!", argv[0]);
+
+    // XXX: handle optional timeout
+
+    FThread * thrd = AsThread(argv[0]);
+    EnterExclusive(&(thrd->Exclusive));
+    while (thrd->State != THREAD_STATE_DONE)
+        ConditionWait(&(thrd->Condition), &(thrd->Exclusive));
+    LeaveExclusive(&(thrd->Exclusive));
+
+    if (thrd->Exit == THREAD_EXIT_TERMINATED)
+        RaiseExceptionC(Assertion, "thread-join!", StringCToSymbol("terminated-thread-exception"),
+                "join thread was terminated", List(argv[0]));
+    else if (thrd->Exit == THREAD_EXIT_UNCAUGHT)
+        RaiseExceptionC(Assertion, "thread-join!", StringCToSymbol("uncaught-exception"),
+                "join thread had uncaught exception", List(thrd->Result, argv[0]));
+    return(thrd->Result);
 }
 
 Define("sleep", SleepPrimitive)(long_t argc, FObject argv[])
@@ -678,7 +727,7 @@ Define("seconds->time", SecondsToTimePrimitive)(long_t argc, FObject argv[])
 }
 
 static void InterruptThread(FObject thrd);
-void NotifyThread(FObject thrd, FObject obj)
+static void NotifyTerminate(FObject thrd)
 {
     EnterExclusive(&ThreadsExclusive);
 
@@ -688,7 +737,8 @@ void NotifyThread(FObject thrd, FObject obj)
         if (ts->Thread == thrd)
         {
             ts->NotifyFlag = 1;
-            ts->NotifyObject = obj;
+            ts->NotifyObject = FalseObject;
+            ts->Terminate = 1;
             InterruptThread(ts->Thread);
 
             break;
@@ -700,7 +750,7 @@ void NotifyThread(FObject thrd, FObject obj)
     LeaveExclusive(&ThreadsExclusive);
 }
 
-void NotifyBroadcast(FObject obj)
+static void NotifyBroadcast(FObject obj)
 {
     EnterExclusive(&ThreadsExclusive);
 
@@ -875,6 +925,8 @@ static FObject Primitives[] =
     ThreadSpecificSetPrimitive,
     ThreadStartPrimitive,
     ThreadSleepPrimitive,
+    ThreadTerminatePrimitive,
+    ThreadJoinPrimitive,
     SleepPrimitive,
     ExclusivePPrimitive,
     MakeExclusivePrimitive,

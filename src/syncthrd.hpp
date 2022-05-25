@@ -144,6 +144,10 @@ inline void DeleteCondition(OSCondition * osc)
 #define THREAD_STATE_RUNNING 1
 #define THREAD_STATE_DONE 2
 
+#define THREAD_EXIT_NORMAL 0
+#define THREAD_EXIT_TERMINATED 1
+#define THREAD_EXIT_UNCAUGHT 2
+
 typedef struct
 {
     FObject Result;
@@ -155,10 +159,11 @@ typedef struct
     OSExclusive Exclusive;
     OSCondition Condition;
     ulong_t State;
+    ulong_t Exit;
 } FThread;
 
 FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms);
-void ThreadExit(FObject obj);
+void ThreadExit(FObject obj, ulong_t exit);
 
 // ---- Exclusives ----
 

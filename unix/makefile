@@ -38,7 +38,7 @@ clean: debug release profile
 	-rm profile/*
 
 .PHONY: test
-test: all foment-test stress-test chibi-test process-test sleep-test
+test: all foment-test stress-test chibi-test process-test threads-test
 
 .PHONY: test-all
 test-all: all
@@ -68,9 +68,9 @@ chibi-test: all
 process-test: all debug/stdread debug/stdwrite debug/exitcode debug/hang
 	export PATH=../unix/debug:"$$PATH" ; cd ../test ; ../unix/$(TEST_BUILD)/foment $(TEST_OPTIONS) runtests.scm process.scm
 
-.PHONY: sleep-test
-sleep-test: all
-	cd ../test ; ../unix/$(TEST_BUILD)/foment $(TEST_OPTIONS) runtests.scm sleep.scm
+.PHONY: threads-test
+threads-test: all
+	cd ../test ; ../unix/$(TEST_BUILD)/foment $(TEST_OPTIONS) runtests.scm threads.scm
 
 debug:
 	-mkdir debug

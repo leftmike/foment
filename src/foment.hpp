@@ -1435,6 +1435,7 @@ typedef struct _FThreadState
 
     long_t NotifyFlag;
     FObject NotifyObject;
+    long_t Terminate;
 
     ulong_t ExceptionCount;
 
