@@ -53,7 +53,7 @@ static OSExclusive GCExclusive;
 OSExclusive ThreadsExclusive;
 static OSCondition ReadyCondition;
 static OSCondition DoneCondition;
-volatile ulong_t TotalThreads;
+static volatile ulong_t TotalThreads;
 static volatile ulong_t ReadyThreads;
 static volatile long_t Collecting;
 FThreadState * Threads;
@@ -1273,6 +1273,8 @@ static void Collect()
         }
         else if (BignumP(obj))
             DeleteBignum(obj);
+        else if (ThreadP(obj))
+            DeleteThread(obj);
         else
         {
             FAssert(0);
@@ -1393,6 +1395,22 @@ FAlive::~FAlive()
     ts->AliveList = Next;
 }
 
+#ifdef FOMENT_DEBUG
+static ulong_t CountThreads()
+{
+    FThreadState * ts = Threads;
+    ulong_t cnt = 0;
+
+    while (ts != 0)
+    {
+        cnt += 1;
+        ts = ts->Next;
+    }
+
+    return(cnt);
+}
+#endif // FOMENT_DEBUG
+
 long_t EnterThread(FThreadState * ts, FObject thrd, FObject prms)
 {
     memset(ts, 0, sizeof(FThreadState));
@@ -1408,7 +1426,6 @@ long_t EnterThread(FThreadState * ts, FObject thrd, FObject prms)
     SetThreadState(ts);
 
     EnterExclusive(&ThreadsExclusive);
-    FAssert(TotalThreads > 0);
 
     if (Threads == 0)
         ts->Next = 0;
@@ -1420,6 +1437,10 @@ long_t EnterThread(FThreadState * ts, FObject thrd, FObject prms)
 
     ts->Previous = 0;
     Threads = ts;
+    TotalThreads += 1;
+
+    FAssert(TotalThreads == CountThreads());
+
     LeaveExclusive(&ThreadsExclusive);
 
     ts->Thread = thrd;
@@ -1519,6 +1540,8 @@ ulong_t LeaveThread(FThreadState * ts)
         ts->Previous->Next = ts->Next;
     }
 
+    FAssert(TotalThreads == CountThreads());
+
     FAssert(ts->Stack.Base != 0);
     DeleteMemRegion(&ts->Stack);
 
@@ -1616,10 +1639,10 @@ long_t SetupCore(FThreadState * ts)
     pthread_t h = pthread_self();
 #endif // FOMENT_UNIX
 
-    TotalThreads = 1;
+    TotalThreads = 0;
     if (EnterThread(ts, NoValueObject, NoValueObject) == 0)
         return(0);
-    ts->Thread = MakeThread(h, NoValueObject, NoValueObject);
+    ts->Thread = MakeThread(h, NoValueObject);
 
     RegisterRoot(&CleanupTConc, "cleanup-tconc");
     CleanupTConc = MakeTConc();

@@ -141,8 +141,9 @@ inline void DeleteCondition(OSCondition * osc)
 #define AsThread(obj) ((FThread *) (obj))
 
 #define THREAD_STATE_NEW 0
-#define THREAD_STATE_RUNNING 1
-#define THREAD_STATE_DONE 2
+#define THREAD_STATE_READY 1
+#define THREAD_STATE_RUNNING 2
+#define THREAD_STATE_DONE 3
 
 #define THREAD_EXIT_NORMAL 0
 #define THREAD_EXIT_TERMINATED 1
@@ -152,7 +153,6 @@ typedef struct
 {
     FObject Result;
     FObject Thunk;
-    FObject Parameters;
     FObject Name;
     FObject Specific;
     OSThreadHandle Handle;
@@ -162,7 +162,8 @@ typedef struct
     ulong_t Exit;
 } FThread;
 
-FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms);
+FThread * MakeThread(OSThreadHandle h, FObject thnk);
+void DeleteThread(FObject thrd);
 void ThreadExit(FObject obj, ulong_t exit);
 
 // ---- Exclusives ----
@@ -231,7 +232,6 @@ inline void SetThreadState(FThreadState * ts)
 }
 #endif // FOMENT_UNIX
 
-extern volatile ulong_t TotalThreads;
 extern FThreadState * Threads;
 extern OSExclusive ThreadsExclusive;
 

@@ -26,12 +26,11 @@ Foment
 
 // ---- Threads ----
 
-FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms)
+FThread * MakeThread(OSThreadHandle h, FObject thnk)
 {
-    FThread * thrd = (FThread *) MakeObject(ThreadTag, sizeof(FThread), 5, "run-thread");
+    FThread * thrd = (FThread *) MakeObject(ThreadTag, sizeof(FThread), 4, "run-thread");
     thrd->Result = NoValueObject;
     thrd->Thunk = thnk;
-    thrd->Parameters = prms;
     thrd->Handle = h;
     thrd->Name = FalseObject;
     thrd->Specific = FalseObject;
@@ -42,6 +41,14 @@ FObject MakeThread(OSThreadHandle h, FObject thnk, FObject prms)
     thrd->Exit = THREAD_EXIT_NORMAL;
 
     return(thrd);
+}
+
+void DeleteThread(FObject thrd)
+{
+    FAssert(ThreadP(thrd));
+
+    DeleteExclusive(&(AsThread(thrd)->Exclusive));
+    DeleteCondition(&(AsThread(thrd)->Condition));
 }
 
 void WriteThread(FWriteContext * wctx, FObject obj)
@@ -157,36 +164,47 @@ static void SetThreadDone(FThread * thrd, ulong_t exit)
     LeaveExclusive(&(thrd->Exclusive));
 }
 
-static void FomentThread(FObject obj)
+typedef struct
 {
+    FThread * Thread;
+    FObject Parameters;
+} FStartThread;
+
+static void FomentThread(FStartThread * st)
+{
+    FThread * thrd = st->Thread;
+
+    FAssert(thrd->State == THREAD_STATE_NEW);
+
     FThreadState ts;
+    if (EnterThread(&ts, thrd, st->Parameters) == 0)
+    {
+        thrd->Result = StartThreadOutOfMemory;
+        SetThreadDone(thrd, THREAD_EXIT_UNCAUGHT);
+        return;
+    }
+
+    FAssert(ts.Thread == thrd);
+    FAssert(ThreadP(ts.Thread));
+
+    EnterExclusive(&(thrd->Exclusive));
+    thrd->State = THREAD_STATE_READY;
+    WakeCondition(&(thrd->Condition));
+
+    while (thrd->State != THREAD_STATE_RUNNING)
+        ConditionWait(&(thrd->Condition), &(thrd->Exclusive));
+    LeaveExclusive(&(thrd->Exclusive));
+
     ulong_t exit = THREAD_EXIT_NORMAL;
-
-    FAssert(ThreadP(obj));
-
-    EnterExclusive(&(AsThread(obj)->Exclusive));
-    while (AsThread(obj)->State != THREAD_STATE_RUNNING)
-        ConditionWait(&(AsThread(obj)->Condition), &(AsThread(obj)->Exclusive));
-    LeaveExclusive(&(AsThread(obj)->Exclusive));
-
     try
     {
-        if (EnterThread(&ts, obj, AsThread(obj)->Parameters) == 0)
-            Raise(StartThreadOutOfMemory);
-
-        FAssert(ts.Thread == obj);
-        FAssert(ThreadP(ts.Thread));
-
-        AsThread(obj)->Parameters = NoValueObject;
-
-        if (ProcedureP(AsThread(obj)->Thunk))
-            AsThread(obj)->Result = ExecuteProc(AsThread(obj)->Thunk);
+        if (ProcedureP(thrd->Thunk))
+            thrd->Result = ExecuteProc(thrd->Thunk);
         else
         {
-            FAssert(PrimitiveP(AsThread(obj)->Thunk));
+            FAssert(PrimitiveP(thrd->Thunk));
 
-            AsThread(obj)->Result =
-                    AsPrimitive(AsThread(obj)->Thunk)->PrimitiveFn(0, 0);
+            thrd->Result = AsPrimitive(thrd->Thunk)->PrimitiveFn(0, 0);
         }
     }
     catch (FObject exc)
@@ -198,30 +216,30 @@ static void FomentThread(FObject obj)
         WriteCh(StandardOutput, '\n');
         */
 
-        AsThread(obj)->Result = exc;
+        thrd->Result = exc;
         exit = THREAD_EXIT_UNCAUGHT;
     }
 
-    SetThreadDone(AsThread(obj), exit);
+    SetThreadDone(thrd, exit);
 
     LeaveThread(&ts);
 }
 
 #ifdef FOMENT_WINDOWS
-static DWORD WINAPI StartThread(FObject obj)
+static DWORD WINAPI StartThread(FStartThread * st)
 {
-    FomentThread(obj);
+    FomentThread(st);
     return(0);
 }
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-static void * StartThread(FObject obj)
+static void * StartThread(void * ptr)
 {
-    FAssert(ThreadP(obj));
-    AsThread(obj)->Handle = pthread_self();
+    FStartThread * st = (FStartThread *) ptr;
+    st->Thread->Handle = pthread_self();
 
-    FomentThread(obj);
+    FomentThread(st);
     return(0);
 }
 #endif // FOMENT_UNIX
@@ -232,45 +250,46 @@ Define("%run-thread", RunThreadPrimitive)(long_t argc, FObject argv[])
     ProcedureArgCheck("run-thread", argv[0]);
     BooleanArgCheck("run-thread", argv[1]);
 
-    FObject thrd = MakeThread(0, argv[0], CurrentParameters());
-
-    if (argv[1] == FalseObject)
-        AsThread(thrd)->State = THREAD_STATE_NEW;
-    else
-        AsThread(thrd)->State = THREAD_STATE_RUNNING;
+    FThread * thrd = MakeThread(0, argv[0]);
+    FStartThread st = {thrd, CurrentParameters()};
 
 #ifdef FOMENT_WINDOWS
-    HANDLE h = CreateThread(0, 0, StartThread, thrd, CREATE_SUSPENDED, 0);
+    HANDLE h = CreateThread(0, 0, StartThread, &st, CREATE_SUSPENDED, 0);
     if (h == 0)
     {
         unsigned int ec = GetLastError();
         RaiseExceptionC(Assertion, "run-thread", "CreateThread failed", List(MakeFixnum(ec)));
     }
 
-    EnterExclusive(&ThreadsExclusive);
-    TotalThreads += 1;
-    LeaveExclusive(&ThreadsExclusive);
-
-    AsThread(thrd)->Handle = h;
+    thrd->Handle = h;
     ResumeThread(h);
 #endif // FOMENT_WINDOWS
 
 #ifdef FOMENT_UNIX
-    EnterExclusive(&ThreadsExclusive);
-    TotalThreads += 1;
-    LeaveExclusive(&ThreadsExclusive);
-
     pthread_t pt;
-    int ret = pthread_create(&pt, 0, StartThread, thrd);
+    int ret = pthread_create(&pt, 0, StartThread, &st);
     if (ret != 0)
-    {
-        EnterExclusive(&ThreadsExclusive);
-        TotalThreads -= 1;
-        LeaveExclusive(&ThreadsExclusive);
-
         RaiseExceptionC(Assertion, "run-thread", "pthread_create failed", List(MakeFixnum(ret)));
-    }
 #endif // FOMENT_UNIX
+
+    EnterExclusive(&(thrd->Exclusive));
+    while (thrd->State == THREAD_STATE_NEW)
+        ConditionWait(&(thrd->Condition), &(thrd->Exclusive));
+
+    if (thrd->State == THREAD_STATE_DONE)
+    {
+        LeaveExclusive(&(thrd->Exclusive));
+        Raise(thrd->Result);
+
+        FAssert(0); // Never reached.
+    }
+
+    if (argv[1] == TrueObject && thrd->State == THREAD_STATE_READY)
+    {
+        thrd->State = THREAD_STATE_RUNNING;
+        WakeCondition(&(thrd->Condition));
+    }
+    LeaveExclusive(&(thrd->Exclusive));
 
     return(thrd);
 }
@@ -378,7 +397,10 @@ Define("thread-start!", ThreadStartPrimitive)(long_t argc, FObject argv[])
     ThreadArgCheck("thread-start!", argv[0]);
 
     EnterExclusive(&(AsThread(argv[0])->Exclusive));
-    if (AsThread(argv[0])->State == THREAD_STATE_NEW)
+
+    FAssert(AsThread(argv[0])->State != THREAD_STATE_NEW);
+
+    if (AsThread(argv[0])->State == THREAD_STATE_READY)
     {
         AsThread(argv[0])->State = THREAD_STATE_RUNNING;
         WakeCondition(&(AsThread(argv[0])->Condition));
@@ -427,7 +449,7 @@ Define("thread-sleep!", ThreadSleepPrimitive)(long_t argc, FObject argv[])
 #ifdef FOMENT_WINDOWS
         DWORD n = (DWORD) AsFixnum(argv[0]);
         EnterWait();
-        Sleep(n * 1000);
+        SleepEx(n * 1000, TRUE);
         LeaveWait();
 #endif // FOMENT_WINDOWS
 
@@ -447,7 +469,7 @@ Define("thread-sleep!", ThreadSleepPrimitive)(long_t argc, FObject argv[])
         if (n > 0)
         {
             EnterWait();
-            Sleep(n);
+            SleepEx(n, TRUE);
             LeaveWait();
         }
 #endif // FOMENT_WINDOWS
@@ -473,7 +495,7 @@ Define("%thread-terminate!", ThreadTerminatePrimitive)(long_t argc, FObject argv
 
     FAssert(GetThreadState()->Thread != argv[0]);
 
-    NotifyTerminate(AsThread(argv[0]));
+    NotifyTerminate(argv[0]);
     // XXX: join the other thread
     return(NoValueObject);
 }
@@ -508,7 +530,7 @@ Define("sleep", SleepPrimitive)(long_t argc, FObject argv[])
 #ifdef FOMENT_WINDOWS
     DWORD n = (DWORD) AsFixnum(argv[0]);
     EnterWait();
-    Sleep(n);
+    SleepEx(n, TRUE);
     LeaveWait();
 #endif // FOMENT_WINDOWS
 

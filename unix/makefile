@@ -38,7 +38,7 @@ clean: debug release profile
 	-rm profile/*
 
 .PHONY: test
-test: all foment-test stress-test chibi-test process-test threads-test
+test: all foment-test stress-test chibi-test process-test
 
 .PHONY: test-all
 test-all: all
