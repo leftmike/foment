@@ -226,9 +226,9 @@ static void FomentThread(FStartThread * st)
 }
 
 #ifdef FOMENT_WINDOWS
-static DWORD WINAPI StartThread(FStartThread * st)
+static DWORD WINAPI StartThread(LPVOID ptr)
 {
-    FomentThread(st);
+    FomentThread((FStartThread *) ptr);
     return(0);
 }
 #endif // FOMENT_WINDOWS
