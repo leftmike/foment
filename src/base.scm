@@ -492,8 +492,6 @@
         default-prompt-handler
         collect
         make-guardian
-        make-exclusive
-        make-condition
         current-thread
         run-thread
         exit-thread
@@ -515,13 +513,23 @@
         uncaught-exception?
         uncaught-exception-reason
         exclusive?
+        make-exclusive
         enter-exclusive
         leave-exclusive
+        try-exclusive
+        exclusive-name
+        exclusive-name-set!
+        exclusive-specific
+        exclusive-specific-set!
         condition?
+        make-condition
         condition-wait
         condition-wake
-        try-exclusive
         condition-wake-all
+        condition-name
+        condition-name-set!
+        condition-specific
+        condition-specific-set!
         current-time
         time?
         time->seconds
@@ -1039,8 +1047,7 @@
         (define (join-timeout-exception? obj)
             (and (error-object? obj) (eq? (error-object-kind obj) 'join-timeout-exception)))
 
-        (define (abandoned-mutex-exception? obj)
-            (and (error-object? obj) (eq? (error-object-kind obj) 'abandoned-mutex-exception)))
+        (define (abandoned-mutex-exception? obj) #f)
 
         (define (terminated-thread-exception? obj)
             (and (error-object? obj) (eq? (error-object-kind obj) 'terminated-thread-exception)))
@@ -2661,4 +2668,59 @@
         lambda/tag
         (rename procedure? procedure/tag?)
         procedure-tag)
+    )
+
+(define-library (srfi 18)
+    (import (foment base))
+    (export
+        current-thread
+        thread?
+        make-thread
+        thread-name
+        thread-specific
+        thread-specific-set!
+        thread-start!
+        thread-yield!
+        thread-sleep!
+        thread-terminate!
+        thread-join!
+        (rename exclusive? mutex?)
+        (rename make-exclusive make-mutex)
+        (rename exclusive-name mutex-name)
+        (rename exclusive-specific mutex-specific)
+        (rename exclusive-specific-set! mutex-specific-set!)
+        ;mutex-state
+        mutex-lock!
+        mutex-unlock!
+        (rename condition? condition-variable?)
+        (rename make-condition make-condition-variable)
+        (rename condition-name condition-variable-name)
+        (rename condition-specific condition-variable-specific)
+        (rename condition-specific-set! condition-variable-specific-set!)
+        (rename condition-wake condition-variable-signal!)
+        (rename condition-wake-all condition-variable-broadcast!)
+        current-time
+        time?
+        time->seconds
+        seconds->time
+        ;current-exception-handler
+        with-exception-handler
+        raise
+        join-timeout-exception?
+        abandoned-mutex-exception?
+        terminated-thread-exception?
+        uncaught-exception?
+        uncaught-exception-reason)
+    (begin
+        (define (mutex-lock! mutex . args)
+            (if (not (null? args))
+                (full-error 'implementation-restriction 'mutex-lock! #f
+                        "mutex-lock!: timeout and thread arguments not allowed" args))
+            (enter-exclusive mutex))
+        (define mutex-unlock!
+            (case-lambda
+                ((mutex) (leave-exclusive mutex))
+                ((mutex condition) (condition-wait condition mutex))
+                ((mutex condition timeout) (condition-wait condition mutex timeout))))
+        )
     )

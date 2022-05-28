@@ -3,6 +3,7 @@
 ;;;
 
 (import (foment base))
+(import (srfi 18))
 
 (define (current-seconds) (time->seconds (current-time)))
 (define s (current-seconds))

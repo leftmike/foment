@@ -174,6 +174,8 @@ void ThreadExit(FObject obj, ulong_t exit);
 
 typedef struct
 {
+    FObject Name;
+    FObject Specific;
     OSExclusive Exclusive;
 } FExclusive;
 
@@ -183,6 +185,8 @@ typedef struct
 
 typedef struct
 {
+    FObject Name;
+    FObject Specific;
     OSCondition Condition;
 } FCondition;
 

@@ -87,8 +87,10 @@ void InitializeExclusive(OSExclusive * ose)
 
 FObject MakeExclusive()
 {
-    FExclusive * e = (FExclusive *) MakeObject(ExclusiveTag, sizeof(FExclusive), 0,
+    FExclusive * e = (FExclusive *) MakeObject(ExclusiveTag, sizeof(FExclusive), 2,
             "make-exclusive");
+    e->Name = FalseObject;
+    e->Specific = FalseObject;
     InitializeExclusive(&e->Exclusive);
     InstallGuardian(e, CleanupTConc);
 
@@ -104,15 +106,22 @@ void WriteExclusive(FWriteContext * wctx, FObject obj)
     FCh s[16];
     long_t sl = FixnumAsString((long_t) &AsExclusive(obj)->Exclusive, s, 16);
     wctx->WriteString(s, sl);
+    if (AsExclusive(obj)->Name != FalseObject)
+    {
+        wctx->WriteCh(' ');
+        wctx->Write(AsExclusive(obj)->Name);
+    }
     wctx->WriteCh('>');
 }
 
 // ---- Conditions ----
 
-static FObject MakeCondition()
+static FCondition * MakeCondition()
 {
-    FCondition * c = (FCondition *) MakeObject(ConditionTag, sizeof(FCondition), 0,
+    FCondition * c = (FCondition *) MakeObject(ConditionTag, sizeof(FCondition), 2,
             "make-condition");
+    c->Name = FalseObject;
+    c->Specific = FalseObject;
     InitializeCondition(&c->Condition);
 
     return(c);
@@ -127,6 +136,11 @@ void WriteCondition(FWriteContext * wctx, FObject obj)
     FCh s[16];
     long_t sl = FixnumAsString((long_t) &AsCondition(obj)->Condition, s, 16);
     wctx->WriteString(s, sl);
+    if (AsCondition(obj)->Name != FalseObject)
+    {
+        wctx->WriteCh(' ');
+        wctx->Write(AsCondition(obj)->Name);
+    }
     wctx->WriteCh('>');
 }
 
@@ -187,6 +201,7 @@ static void FomentThread(FStartThread * st)
     FAssert(ts.Thread == thrd);
     FAssert(ThreadP(ts.Thread));
 
+    EnterWait();
     EnterExclusive(&(thrd->Exclusive));
     thrd->State = THREAD_STATE_READY;
     WakeCondition(&(thrd->Condition));
@@ -194,6 +209,7 @@ static void FomentThread(FStartThread * st)
     while (thrd->State != THREAD_STATE_RUNNING)
         ConditionWait(&(thrd->Condition), &(thrd->Exclusive));
     LeaveExclusive(&(thrd->Exclusive));
+    LeaveWait();
 
     ulong_t exit = THREAD_EXIT_NORMAL;
     try
@@ -505,10 +521,13 @@ Define("%thread-terminate!", ThreadTerminatePrimitive)(long_t argc, FObject argv
     NotifyTerminate(argv[0]);
 
     FThread * thrd = AsThread(argv[0]);
+
+    EnterWait();
     EnterExclusive(&(thrd->Exclusive));
     while (thrd->State != THREAD_STATE_DONE)
         ConditionWait(&(thrd->Condition), &(thrd->Exclusive));
     LeaveExclusive(&(thrd->Exclusive));
+    LeaveWait();
 
     return(NoValueObject);
 }
@@ -523,6 +542,7 @@ Define("thread-join!", ThreadJoinPrimitive)(long_t argc, FObject argv[])
     {
         TimeoutArgCheck("thread-join!", argv[1]);
 
+        EnterWait();
         EnterExclusive(&(thrd->Exclusive));
         while (thrd->State != THREAD_STATE_DONE)
             if (ConditionWaitTimeout(&(thrd->Condition), &(thrd->Exclusive), argv[1]) == 0)
@@ -530,6 +550,7 @@ Define("thread-join!", ThreadJoinPrimitive)(long_t argc, FObject argv[])
                 // Timed out
 
                 LeaveExclusive(&(thrd->Exclusive));
+                LeaveWait();
 
                 if (argc == 2)
                     RaiseExceptionC(Assertion, "thread-join!",
@@ -537,14 +558,18 @@ Define("thread-join!", ThreadJoinPrimitive)(long_t argc, FObject argv[])
                             "timeout waiting for join thread", List(argv[0]));
                 return(argv[2]);
             }
+
         LeaveExclusive(&(thrd->Exclusive));
+        LeaveWait();
     }
     else
     {
+        EnterWait();
         EnterExclusive(&(thrd->Exclusive));
         while (thrd->State != THREAD_STATE_DONE)
             ConditionWait(&(thrd->Condition), &(thrd->Exclusive));
         LeaveExclusive(&(thrd->Exclusive));
+        LeaveWait();
     }
 
     if (thrd->Exit == THREAD_EXIT_TERMINATED)
@@ -587,9 +612,12 @@ Define("exclusive?", ExclusivePPrimitive)(long_t argc, FObject argv[])
 
 Define("make-exclusive", MakeExclusivePrimitive)(long_t argc, FObject argv[])
 {
-    ZeroArgsCheck("make-exclusive", argc);
+    ZeroOrOneArgsCheck("make-exclusive", argc);
 
-    return(MakeExclusive());
+    FObject e = MakeExclusive();
+    if (argc == 1)
+        AsExclusive(e)->Name = argv[0];
+    return(e);
 }
 
 Define("enter-exclusive", EnterExclusivePrimitive)(long_t argc, FObject argv[])
@@ -622,6 +650,40 @@ Define("try-exclusive", TryExclusivePrimitive)(long_t argc, FObject argv[])
     return(TryExclusive(&AsExclusive(argv[0])->Exclusive) ? TrueObject : FalseObject);
 }
 
+Define("exclusive-name", ExclusiveNamePrimitive)(long_t argc, FObject argv[])
+{
+    OneArgCheck("exclusive-name", argc);
+    ExclusiveArgCheck("exclusive-name", argv[0]);
+
+    return(AsExclusive(argv[0])->Name);
+}
+
+Define("exclusive-name-set!", ExclusiveNameSetPrimitive)(long_t argc, FObject argv[])
+{
+    TwoArgsCheck("exclusive-name-set!", argc);
+    ExclusiveArgCheck("exclusive-name-set!", argv[0]);
+
+    AsExclusive(argv[0])->Name = argv[1];
+    return(NoValueObject);
+}
+
+Define("exclusive-specific", ExclusiveSpecificPrimitive)(long_t argc, FObject argv[])
+{
+    OneArgCheck("exclusive-specific", argc);
+    ExclusiveArgCheck("exclusive-specific", argv[0]);
+
+    return(AsExclusive(argv[0])->Specific);
+}
+
+Define("exclusive-specific-set!", ExclusiveSpecificSetPrimitive)(long_t argc, FObject argv[])
+{
+    TwoArgsCheck("exclusive-specific-set!", argc);
+    ExclusiveArgCheck("exclusive-specific-set!", argv[0]);
+
+    AsExclusive(argv[0])->Specific = argv[1];
+    return(NoValueObject);
+}
+
 Define("condition?", ConditionPPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("condition?", argc);
@@ -631,24 +693,39 @@ Define("condition?", ConditionPPrimitive)(long_t argc, FObject argv[])
 
 Define("make-condition", MakeConditionPrimitive)(long_t argc, FObject argv[])
 {
-    ZeroArgsCheck("make-condition", argc);
+    ZeroOrOneArgsCheck("make-condition", argc);
 
-    return(MakeCondition());
+    FCondition * c = MakeCondition();
+    if (argc == 1)
+        c->Name = argv[0];
+    return(c);
 }
 
 Define("condition-wait", ConditionWaitPrimitive)(long_t argc, FObject argv[])
 {
-    TwoArgsCheck("condition-wait", argc);
+    TwoOrThreeArgsCheck("condition-wait", argc);
     ConditionArgCheck("condition-wait", argv[0]);
     ExclusiveArgCheck("condition-wait", argv[1]);
+
+    if (argc == 3)
+        TimeoutArgCheck("condition-wait", argv[2]);
 
     OSCondition * osc = &AsCondition(argv[0])->Condition;
     OSExclusive * ose = &AsExclusive(argv[1])->Exclusive;
 
+    FObject ret = TrueObject;
+
     EnterWait();
-    ConditionWait(osc, ose);
+    if (argc == 3)
+    {
+        if (ConditionWaitTimeout(osc, ose, argv[2]) == 0)
+            ret = FalseObject;
+    }
+    else
+        ConditionWait(osc, ose);
     LeaveWait();
-    return(NoValueObject);
+
+    return(ret);
 }
 
 Define("condition-wake", ConditionWakePrimitive)(long_t argc, FObject argv[])
@@ -666,6 +743,40 @@ Define("condition-wake-all", ConditionWakeAllPrimitive)(long_t argc, FObject arg
     ConditionArgCheck("condition-wake-all", argv[0]);
 
     WakeAllCondition(&AsCondition(argv[0])->Condition);
+    return(NoValueObject);
+}
+
+Define("condition-name", ConditionNamePrimitive)(long_t argc, FObject argv[])
+{
+    OneArgCheck("condition-name", argc);
+    ConditionArgCheck("condition-name", argv[0]);
+
+    return(AsCondition(argv[0])->Name);
+}
+
+Define("condition-name-set!", ConditionNameSetPrimitive)(long_t argc, FObject argv[])
+{
+    TwoArgsCheck("condition-name-set!", argc);
+    ConditionArgCheck("condition-name-set!", argv[0]);
+
+    AsCondition(argv[0])->Name = argv[1];
+    return(NoValueObject);
+}
+
+Define("condition-specific", ConditionSpecificPrimitive)(long_t argc, FObject argv[])
+{
+    OneArgCheck("condition-specific", argc);
+    ConditionArgCheck("condition-specific", argv[0]);
+
+    return(AsCondition(argv[0])->Specific);
+}
+
+Define("condition-specific-set!", ConditionSpecificSetPrimitive)(long_t argc, FObject argv[])
+{
+    TwoArgsCheck("condition-specific-set!", argc);
+    ConditionArgCheck("condition-specific-set!", argv[0]);
+
+    AsCondition(argv[0])->Specific = argv[1];
     return(NoValueObject);
 }
 
@@ -1026,11 +1137,19 @@ static FObject Primitives[] =
     EnterExclusivePrimitive,
     LeaveExclusivePrimitive,
     TryExclusivePrimitive,
+    ExclusiveNamePrimitive,
+    ExclusiveNameSetPrimitive,
+    ExclusiveSpecificPrimitive,
+    ExclusiveSpecificSetPrimitive,
     ConditionPPrimitive,
     MakeConditionPrimitive,
     ConditionWaitPrimitive,
     ConditionWakePrimitive,
     ConditionWakeAllPrimitive,
+    ConditionNamePrimitive,
+    ConditionNameSetPrimitive,
+    ConditionSpecificPrimitive,
+    ConditionSpecificSetPrimitive,
     CurrentTimePrimitive,
     TimePPrimitive,
     TimeToSecondsPrimitive,

@@ -536,12 +536,12 @@
 (check-error (assertion-violation sleep) (sleep -1))
 
 (check-equal #t (exclusive? e))
-(check-equal #t (exclusive? (make-exclusive)))
+(check-equal #t (exclusive? (make-exclusive 'name)))
 (check-equal #f (exclusive? #t))
 (check-error (assertion-violation exclusive?) (exclusive?))
 (check-error (assertion-violation exclusive?) (exclusive? #t #t))
 
-(check-error (assertion-violation make-exclusive) (make-exclusive #t))
+(check-error (assertion-violation make-exclusive) (make-exclusive #t #t))
 
 (check-error (assertion-violation enter-exclusive) (enter-exclusive #t))
 (check-error (assertion-violation enter-exclusive) (enter-exclusive))
@@ -568,12 +568,12 @@
 (check-equal #f (try-exclusive te))
 
 (check-equal #t (condition? c))
-(check-equal #t (condition? (make-condition)))
+(check-equal #t (condition? (make-condition 'name)))
 (check-equal #f (condition? #t))
 (check-error (assertion-violation condition?) (condition?))
 (check-error (assertion-violation condition?) (condition? #t #t))
 
-(check-error (assertion-violation make-condition) (make-condition #t))
+(check-error (assertion-violation make-condition) (make-condition #t #t))
 
 (check-error (assertion-violation condition-wait) (condition-wait #t))
 (check-error (assertion-violation condition-wait) (condition-wait c #t))
