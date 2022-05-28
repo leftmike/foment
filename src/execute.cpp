@@ -1065,7 +1065,7 @@ TailCallPrimitive:
                 ts->IP = 0;
                 ts->Frame = NoValueObject;
 
-                FUnwindNestedExecute une;
+                FUnwindNestedExecute une = {0};
                 throw une;
             }
 

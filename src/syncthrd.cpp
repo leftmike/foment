@@ -672,9 +672,18 @@ Define("condition-wake-all", ConditionWakeAllPrimitive)(long_t argc, FObject arg
 #ifdef FOMENT_WINDOWS
 ulong_t ConditionWaitTimeout(OSCondition * osc, OSExclusive * ose, FObject to)
 {
-    // SleepConditionVariableCS
-    // XXX
-    return(0);
+    DWORD n;
+
+    if (TimeP(to))
+        n = TimeDelta(to);
+    else
+    {
+        FAssert(FixnumP(to));
+
+        n = (DWORD) (AsFixnum(to) * 1000);
+    }
+
+    return(SleepConditionVariableCS(osc, ose, n));
 }
 #endif // FOMENT_WINDOWS
 

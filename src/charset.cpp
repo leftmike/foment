@@ -34,7 +34,7 @@ static FObject MakeCharSet(ulong_t nr, FCharRange * r, const char * who)
 {
     FCharSet * cset = (FCharSet *) MakeObject(CharSetTag,
             sizeof(FCharSet) + sizeof(FCharRange) * (nr - 1), 0, who);
-    cset->NumRanges = nr;
+    cset->NumRanges = (uint32_t) nr;
     memcpy(cset->Ranges, r, sizeof(FCharRange) * nr);
     return(cset);
 }

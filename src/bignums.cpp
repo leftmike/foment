@@ -58,7 +58,7 @@ static FBignum * MakeBignum(ulong_t dc)
             0, "%make-bignum");
     bn->Sign = 1;
     bn->Used = 1;
-    bn->Maximum = dc;
+    bn->Maximum = (uint16_t) dc;
     memset(bn->Digits, 0, dc * sizeof(uint32_t));
 
     FAssert(MaximumDigits(bn) == dc);
