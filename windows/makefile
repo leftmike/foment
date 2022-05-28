@@ -19,7 +19,7 @@ clean: debug release
     del /Q debug\*
     del /Q release\*
 
-test: all foment-test stress-test chibi-test process-test
+test: all foment-test stress-test chibi-test process-test threads-test
 
 test-all: all test-no-collector test-mark-sweep
 

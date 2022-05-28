@@ -84,3 +84,25 @@
 (thread-terminate! thrd)
 
 (check-equal #t (eq? result (thread-join! thrd)))
+
+(define thrd (thread-start! (make-thread (lambda () (thread-sleep! 9999)))))
+
+(check-equal #t
+    (guard (obj ((join-timeout-exception? obj) #t))
+        (thread-join! thrd 1)))
+
+(check-equal #t
+    (guard (obj ((join-timeout-exception? obj) #t))
+        (thread-join! thrd (seconds->time (+ (time->seconds (current-time)) 1)))))
+
+(check-equal timed-out
+    (thread-join! thrd 1 'timed-out))
+
+(check-equal timed-out
+    (thread-join! thrd (seconds->time (+ (time->seconds (current-time)) 1)) 'timed-out))
+
+(thread-terminate! thrd)
+
+(check-equal #t
+    (guard (obj ((terminated-thread-exception? obj) #t))
+        (thread-join! thrd)))

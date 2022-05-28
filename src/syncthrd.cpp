@@ -440,29 +440,19 @@ static DWORD TimeDelta(FObject obj)
 }
 #endif // FOMENT_WINDOWS
 
+static void TimeoutArgCheck(const char * who, FObject arg)
+{
+    if (NonNegativeExactIntegerP(arg, 0) == 0 && TimeP(arg) == 0)
+        RaiseExceptionC(Assertion, who,
+                "expected an exact non-negative fixnum or time", List(arg));
+}
+
 Define("thread-sleep!", ThreadSleepPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("thread-sleep!", argc);
+    TimeoutArgCheck("thread-sleep!", argv[0]);
 
-    if (NonNegativeExactIntegerP(argv[0], 0))
-    {
-#ifdef FOMENT_WINDOWS
-        DWORD n = (DWORD) AsFixnum(argv[0]);
-        EnterWait();
-        SleepEx(n * 1000, TRUE);
-        LeaveWait();
-#endif // FOMENT_WINDOWS
-
-#ifdef FOMENT_UNIX
-        struct timespec ts;
-        ts.tv_sec = AsFixnum(argv[0]);
-        ts.tv_nsec = 0;
-        EnterWait();
-        nanosleep(&ts, 0);
-        LeaveWait();
-#endif // FOMENT_UNIX
-    }
-    else if (TimeP(argv[0]))
+    if (TimeP(argv[0]))
     {
 #ifdef FOMENT_WINDOWS
         DWORD n = TimeDelta(argv[0]);
@@ -481,8 +471,25 @@ Define("thread-sleep!", ThreadSleepPrimitive)(long_t argc, FObject argv[])
 #endif // FOMENT_UNIX
     }
     else
-        RaiseExceptionC(Assertion, "thread-sleep!",
-                "expected an exact non-negative integer or time", List(argv[0]));
+    {
+        FAssert(FixnumP(argv[0]));
+
+#ifdef FOMENT_WINDOWS
+        DWORD n = (DWORD) AsFixnum(argv[0]);
+        EnterWait();
+        SleepEx(n * 1000, TRUE);
+        LeaveWait();
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+        struct timespec ts;
+        ts.tv_sec = AsFixnum(argv[0]);
+        ts.tv_nsec = 0;
+        EnterWait();
+        nanosleep(&ts, 0);
+        LeaveWait();
+#endif // FOMENT_UNIX
+    }
 
     return(NoValueObject);
 }
@@ -510,14 +517,35 @@ Define("thread-join!", ThreadJoinPrimitive)(long_t argc, FObject argv[])
 {
     OneToThreeArgsCheck("thread-join!", argc);
     ThreadArgCheck("thread-join!", argv[0]);
-
-    // XXX: handle optional timeout
-
     FThread * thrd = AsThread(argv[0]);
-    EnterExclusive(&(thrd->Exclusive));
-    while (thrd->State != THREAD_STATE_DONE)
-        ConditionWait(&(thrd->Condition), &(thrd->Exclusive));
-    LeaveExclusive(&(thrd->Exclusive));
+
+    if (argc > 1)
+    {
+        TimeoutArgCheck("thread-join!", argv[1]);
+
+        EnterExclusive(&(thrd->Exclusive));
+        while (thrd->State != THREAD_STATE_DONE)
+            if (ConditionWaitTimeout(&(thrd->Condition), &(thrd->Exclusive), argv[1]) == 0)
+            {
+                // Timed out
+
+                LeaveExclusive(&(thrd->Exclusive));
+
+                if (argc == 2)
+                    RaiseExceptionC(Assertion, "thread-join!",
+                            StringCToSymbol("join-timeout-exception"),
+                            "timeout waiting for join thread", List(argv[0]));
+                return(argv[2]);
+            }
+        LeaveExclusive(&(thrd->Exclusive));
+    }
+    else
+    {
+        EnterExclusive(&(thrd->Exclusive));
+        while (thrd->State != THREAD_STATE_DONE)
+            ConditionWait(&(thrd->Condition), &(thrd->Exclusive));
+        LeaveExclusive(&(thrd->Exclusive));
+    }
 
     if (thrd->Exit == THREAD_EXIT_TERMINATED)
         RaiseExceptionC(Assertion, "thread-join!", StringCToSymbol("terminated-thread-exception"),
@@ -640,6 +668,35 @@ Define("condition-wake-all", ConditionWakeAllPrimitive)(long_t argc, FObject arg
     WakeAllCondition(&AsCondition(argv[0])->Condition);
     return(NoValueObject);
 }
+
+#ifdef FOMENT_WINDOWS
+ulong_t ConditionWaitTimeout(OSCondition * osc, OSExclusive * ose, FObject to)
+{
+    // SleepConditionVariableCS
+    // XXX
+    return(0);
+}
+#endif // FOMENT_WINDOWS
+
+#ifdef FOMENT_UNIX
+ulong_t ConditionWaitTimeout(OSCondition * osc, OSExclusive * ose, FObject to)
+{
+    struct timespec ts;
+
+    if (TimeP(to))
+        ts = AsTime(to)->timespec;
+    else
+    {
+        FAssert(FixnumP(to));
+
+        if (clock_gettime(CLOCK_REALTIME, &ts) != 0)
+            return(1);
+        ts.tv_sec += AsFixnum(to);
+    }
+
+    return(pthread_cond_timedwait(osc, ose, &ts) == 0);
+}
+#endif // FOMENT_UNIX
 
 static FObject MakeCurrentTime()
 {

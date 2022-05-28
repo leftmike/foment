@@ -136,6 +136,8 @@ inline void DeleteCondition(OSCondition * osc)
 
 #endif // FOMENT_UNIX
 
+ulong_t ConditionWaitTimeout(OSCondition * osc, OSExclusive * ose, FObject to);
+
 // ---- Threads ----
 
 #define AsThread(obj) ((FThread *) (obj))
