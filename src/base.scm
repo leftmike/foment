@@ -1030,10 +1030,11 @@
             (sleep 0))
 
         (define (thread-terminate! thrd)
-            (if (not (eq? thrd (current-thread)))
-                (%thread-terminate! thrd))
-            (unwind (%dynamic-stack) '())
-            (%exit-thread #f 1))
+            (if (eq? thrd (current-thread))
+                (begin
+                    (unwind (%dynamic-stack) '())
+                    (%exit-thread #f 1))
+                (%thread-terminate! thrd)))
 
         (define (join-timeout-exception? obj)
             (and (error-object? obj) (eq? (error-object-kind obj) 'join-timeout-exception)))

@@ -72,6 +72,10 @@ process-test: all debug/stdread debug/stdwrite debug/exitcode debug/hang
 threads-test: all
 	cd ../test ; ../unix/$(TEST_BUILD)/foment $(TEST_OPTIONS) runtests.scm threads.scm
 
+.PHONY: threads-test
+threads-gdb: all
+	cd ../test ; gdb --args ../unix/$(TEST_BUILD)/foment $(TEST_OPTIONS) runtests.scm threads.scm
+
 debug:
 	-mkdir debug
 

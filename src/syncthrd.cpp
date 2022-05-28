@@ -496,7 +496,13 @@ Define("%thread-terminate!", ThreadTerminatePrimitive)(long_t argc, FObject argv
     FAssert(GetThreadState()->Thread != argv[0]);
 
     NotifyTerminate(argv[0]);
-    // XXX: join the other thread
+
+    FThread * thrd = AsThread(argv[0]);
+    EnterExclusive(&(thrd->Exclusive));
+    while (thrd->State != THREAD_STATE_DONE)
+        ConditionWait(&(thrd->Condition), &(thrd->Exclusive));
+    LeaveExclusive(&(thrd->Exclusive));
+
     return(NoValueObject);
 }
 
@@ -762,7 +768,6 @@ static void NotifyTerminate(FObject thrd)
             ts->NotifyObject = FalseObject;
             ts->Terminate = 1;
             InterruptThread(ts->Thread);
-
             break;
         }
 

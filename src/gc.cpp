@@ -1425,24 +1425,6 @@ long_t EnterThread(FThreadState * ts, FObject thrd, FObject prms)
 
     SetThreadState(ts);
 
-    EnterExclusive(&ThreadsExclusive);
-
-    if (Threads == 0)
-        ts->Next = 0;
-    else
-    {
-        ts->Next = Threads;
-        Threads->Previous = ts;
-    }
-
-    ts->Previous = 0;
-    Threads = ts;
-    TotalThreads += 1;
-
-    FAssert(TotalThreads == CountThreads());
-
-    LeaveExclusive(&ThreadsExclusive);
-
     ts->Thread = thrd;
     ts->AliveList = 0;
     ts->ObjectsSinceLast = 0;
@@ -1488,6 +1470,24 @@ long_t EnterThread(FThreadState * ts, FObject thrd, FObject prms)
     ts->NotifyFlag = 0;
     ts->ExceptionCount = 0;
     ts->NestedExecute = 0;
+
+    EnterExclusive(&ThreadsExclusive);
+
+    if (Threads == 0)
+        ts->Next = 0;
+    else
+    {
+        ts->Next = Threads;
+        Threads->Previous = ts;
+    }
+
+    ts->Previous = 0;
+    Threads = ts;
+    TotalThreads += 1;
+
+    FAssert(TotalThreads == CountThreads());
+
+    LeaveExclusive(&ThreadsExclusive);
     return(1);
 
 Failed:

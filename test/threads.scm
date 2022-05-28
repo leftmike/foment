@@ -65,8 +65,22 @@
         (guard (obj ((uncaught-exception? obj) (uncaught-exception-reason obj)))
             (thread-join! thrd))))
 
+(define thrd (thread-start! (make-thread (lambda () (thread-sleep! 1) result))))
+
+(check-equal #t (eq? result (thread-join! thrd)))
+
 (define thrd (thread-start! (make-thread (lambda () (thread-sleep! 9999)))))
 
 (thread-terminate! thrd)
 
-(thread-join! thrd)
+(check-equal #t
+    (guard (obj ((terminated-thread-exception? obj) #t))
+        (thread-join! thrd)))
+
+(define thrd (thread-start! (make-thread (lambda () result))))
+
+(thread-sleep! 1)
+
+(thread-terminate! thrd)
+
+(check-equal #t (eq? result (thread-join! thrd)))
