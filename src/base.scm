@@ -534,6 +534,7 @@
         time?
         time->seconds
         seconds->time
+        current-exception-handler
         with-exclusive
         sleep
         syntax
@@ -1467,6 +1468,12 @@
                     (raise obj))
                 (%mark-continuation 'mark 'exception-handler (cdr lst)
                         (lambda () ((car lst) obj)))))
+
+        (define (current-exception-handler)
+            (let ((lst (%find-mark 'exception-handler '())))
+                (if (null? lst)
+                    #f
+                    (car lst))))
 
         (define (with-notify-handler handler thunk)
             (if (not (procedure? handler))
@@ -2689,7 +2696,7 @@
         (rename exclusive-name mutex-name)
         (rename exclusive-specific mutex-specific)
         (rename exclusive-specific-set! mutex-specific-set!)
-        ;mutex-state
+        mutex-state
         mutex-lock!
         mutex-unlock!
         (rename condition? condition-variable?)
@@ -2703,7 +2710,7 @@
         time?
         time->seconds
         seconds->time
-        ;current-exception-handler
+        current-exception-handler
         with-exception-handler
         raise
         join-timeout-exception?
@@ -2712,6 +2719,9 @@
         uncaught-exception?
         uncaught-exception-reason)
     (begin
+        (define (mutex-state mutex)
+            (full-error 'implementation-restriction 'mutex-state #f
+                    "mutex-state: not supported" mutex))
         (define (mutex-lock! mutex . args)
             (if (not (null? args))
                 (full-error 'implementation-restriction 'mutex-lock! #f

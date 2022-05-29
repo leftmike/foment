@@ -6,7 +6,6 @@ To Do:
 -- add R6RS library form
 
 -- Bytevectors: R6RS (rnrs bytevectors) as (scheme bytevector) (note singular form)
--- SRFI 18: Multithreading support
 -- SRFI 129: Titlecase Procedures
 -- SRFI 151: Bitwise Operations
 -- SRFI 154: First-class dynamic extents

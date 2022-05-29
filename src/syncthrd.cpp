@@ -211,7 +211,7 @@ static void FomentThread(FStartThread * st)
     LeaveExclusive(&(thrd->Exclusive));
     LeaveWait();
 
-    ulong_t exit = THREAD_EXIT_NORMAL;
+    ulong_t threadExit = THREAD_EXIT_NORMAL;
     try
     {
         if (ProcedureP(thrd->Thunk))
@@ -233,12 +233,17 @@ static void FomentThread(FStartThread * st)
         */
 
         thrd->Result = exc;
-        exit = THREAD_EXIT_UNCAUGHT;
+        threadExit = THREAD_EXIT_UNCAUGHT;
     }
 
-    SetThreadDone(thrd, exit);
+    SetThreadDone(thrd, threadExit);
 
-    LeaveThread(&ts);
+    if (LeaveThread(&ts) == 0)
+    {
+        FlushStandardPorts();
+
+        exit(0);
+    }
 }
 
 #ifdef FOMENT_WINDOWS
