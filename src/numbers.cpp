@@ -2894,6 +2894,53 @@ Define("bit-count", BitCountPrimitive)(long_t argc, FObject argv[])
     return(MakeFixnum(PopulationCount(n < 0 ? ~n : n)));
 }
 
+static const char LogTable256[256] =
+{
+    0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4,
+    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+    6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+    6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+    7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+    7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+    7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+    7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
+};
+
+static long_t IntegerLog2(long_t n)
+{
+    long_t log2 = 0;
+
+#ifdef FOMENT_64BIT
+    if ((n >> 32) != 0)
+    {
+        log2 += 32;
+        n = n >> 32;
+    }
+#endif // FOMENT_64BIT
+    if ((n >> 16) != 0)
+    {
+        log2 += 16;
+        n = n >> 16;
+    }
+    if ((n >> 8) != 0)
+    {
+        log2 += 8;
+        n = n >> 8;
+    }
+
+    FAssert(n >= 0 && n <= 255);
+
+    return(LogTable256[n]);
+}
+
 Define("integer-length", IntegerLengthPrimitive)(long_t argc, FObject argv[])
 {
     OneArgCheck("integer-length", argc);
@@ -2901,24 +2948,11 @@ Define("integer-length", IntegerLengthPrimitive)(long_t argc, FObject argv[])
 
     if (BignumP(argv[0]))
         return(MakeFixnum(BignumIntegerLength(argv[0])));
-    else if (AsFixnum(argv[0]) == 0)
-        return(MakeFixnum(0));
-    else if (AsFixnum(argv[0]) < 0)
-    {
-#ifdef FOMENT_32BIT
-        return(MakeFixnum(HighestBitUInt32(- AsFixnum(argv[0]))));
-#endif // FOMENT_32BIT
-#ifdef FOMENT_64BIT
-    return(MakeFixnum(HighestBitUInt64(- AsFixnum(argv[0]))));
-#endif // FOMENT_64BIT
-    }
 
-#ifdef FOMENT_32BIT
-    return(MakeFixnum(HighestBitUInt32(AsFixnum(argv[0])) + 1));
-#endif // FOMENT_32BIT
-#ifdef FOMENT_64BIT
-    return(MakeFixnum(HighestBitUInt64(AsFixnum(argv[0])) + 1));
-#endif // FOMENT_64BIT
+    long_t n = AsFixnum(argv[0]);
+    if (n < 0)
+        n = -n - 1;
+    return(MakeFixnum(IntegerLog2(n)));
 }
 
 Define("arithmetic-shift", ArithmeticShiftPrimitive)(long_t argc, FObject argv[])

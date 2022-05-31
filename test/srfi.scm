@@ -2684,7 +2684,7 @@
 (check-equal 1 (integer-length 1))
 (check-equal 0 (integer-length -1))
 (check-equal 3 (integer-length 7))
-;(check-equal 3 (integer-length -7))
+(check-equal 3 (integer-length -7))
 (check-equal 4 (integer-length 8))
 (check-equal 3 (integer-length -8))
 

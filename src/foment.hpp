@@ -7,7 +7,6 @@ To Do:
 
 -- Bytevectors: R6RS (rnrs bytevectors) as (scheme bytevector) (note singular form)
 -- SRFI 129: Titlecase Procedures
--- SRFI 151: Bitwise Operations
 -- SRFI 154: First-class dynamic extents
 -- SRFI 166: Monadic Formatting
 -- SRFI 195: Multiple-value boxes
