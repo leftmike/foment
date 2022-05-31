@@ -2903,6 +2903,15 @@ Define("integer-length", IntegerLengthPrimitive)(long_t argc, FObject argv[])
         return(MakeFixnum(BignumIntegerLength(argv[0])));
     else if (AsFixnum(argv[0]) == 0)
         return(MakeFixnum(0));
+    else if (AsFixnum(argv[0]) < 0)
+    {
+#ifdef FOMENT_32BIT
+        return(MakeFixnum(HighestBitUInt32(- AsFixnum(argv[0]))));
+#endif // FOMENT_32BIT
+#ifdef FOMENT_64BIT
+    return(MakeFixnum(HighestBitUInt64(- AsFixnum(argv[0]))));
+#endif // FOMENT_64BIT
+    }
 
 #ifdef FOMENT_32BIT
     return(MakeFixnum(HighestBitUInt32(AsFixnum(argv[0])) + 1));
@@ -2920,6 +2929,8 @@ Define("arithmetic-shift", ArithmeticShiftPrimitive)(long_t argc, FObject argv[]
 
     return(ArithmeticShift(argv[0], AsFixnum(argv[1])));
 }
+
+// ---- SRFI 151: Bitwise Operations ----
 
 static FObject Primitives[] =
 {

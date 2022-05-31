@@ -9,11 +9,9 @@ To Do:
 -- SRFI 129: Titlecase Procedures
 -- SRFI 151: Bitwise Operations
 -- SRFI 154: First-class dynamic extents
--- SRFI 159: Combinator Formatting
+-- SRFI 166: Monadic Formatting
 -- SRFI 195: Multiple-value boxes
 -- SRIF 207: String-notated bytevectors
--- SRFI 208: NaN procedures
--- SRFI 230: Atomic Operations
 
 -- IO: FAlive, EnterWait, and LeaveWait
 -- Allow GC on nested executions

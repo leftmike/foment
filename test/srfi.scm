@@ -2641,3 +2641,168 @@
                 (char-set= d (->char-set "0123456789"))
                 (char-set= i (->char-set "abcdefABCDEF"))))))
 
+;;
+;; ---- SRFI 151: Bitwise Operations
+;;
+
+(import (srfi 151))
+
+(check-equal -11 (bitwise-not 10))
+(check-equal 36 (bitwise-not -37))
+(check-equal -1 (bitwise-eqv))
+(check-equal 123 (bitwise-eqv 123))
+(check-equal -123 (bitwise-eqv -123))
+(check-equal 11 (bitwise-ior 3 10))
+(check-equal 10 (bitwise-and 11 26))
+(check-equal 9 (bitwise-xor 3 10))
+(check-equal -42 (bitwise-eqv 37 12))
+(check-equal 4 (bitwise-and 37 12))
+(check-equal -11 (bitwise-nand 11 26))
+(check-equal -28 (bitwise-nor 11 26))
+(check-equal 16 (bitwise-andc1 11 26))
+(check-equal 1 (bitwise-andc2 11 26))
+(check-equal -2 (bitwise-orc1 11 26))
+(check-equal -17 (bitwise-orc2 11 26))
+
+(check-equal 32 (arithmetic-shift 8 2))
+(check-equal 4 (arithmetic-shift 4 0))
+(check-equal 4 (arithmetic-shift 8 -1))
+(check-equal -79 (arithmetic-shift -100000000000000000000000000000000 -100))
+
+(check-equal 0 (bit-count 0))
+(check-equal 0 (bit-count -1))
+(check-equal 3 (bit-count 7))
+(check-equal 3 (bit-count 13))
+(check-equal 2 (bit-count -13))
+(check-equal 4 (bit-count 30))
+(check-equal 4 (bit-count -30))
+(check-equal 1 (bit-count (expt 2 100)))
+(check-equal 100 (bit-count (- (expt 2 100))))
+(check-equal 1 (bit-count (- (+ (expt 2 100) 1))))
+
+(check-equal 0 (integer-length 0))
+(check-equal 1 (integer-length 1))
+(check-equal 0 (integer-length -1))
+(check-equal 3 (integer-length 7))
+;(check-equal 3 (integer-length -7))
+(check-equal 4 (integer-length 8))
+(check-equal 3 (integer-length -8))
+
+(check-equal 9 (bitwise-if 3 1 8))
+(check-equal 0 (bitwise-if 3 8 1))
+(check-equal 3 (bitwise-if 1 1 2))
+(check-equal #b00110011 (bitwise-if #b00111100 #b11110000 #b00001111))
+
+(check-equal #f (bit-set? 1 1))
+(check-equal #t (bit-set? 0 1))
+(check-equal #t (bit-set? 3 10))
+(check-equal #t (bit-set? 1000000 -1))
+(check-equal #t (bit-set? 2 6))
+(check-equal #f (bit-set? 0 6))
+
+(check-equal #b1 (copy-bit 0 0 #t))
+(check-equal #b100 (copy-bit 2 0 #t))
+(check-equal #b1011 (copy-bit 2 #b1111 #f))
+
+(check-equal #b1 (bit-swap 0 2 4))
+
+(check-equal #t (any-bit-set? 3 6))
+(check-equal #f (any-bit-set? 3 12))
+(check-equal #t (every-bit-set? 4 6))
+(check-equal #f (every-bit-set? 7 6))
+
+(check-equal 0 (first-set-bit 1))
+(check-equal 1 (first-set-bit 2))
+(check-equal -1 (first-set-bit 0))
+(check-equal 3 (first-set-bit 40))
+(check-equal 2 (first-set-bit -28))
+(check-equal 99 (first-set-bit (expt  2 99)))
+(check-equal 99 (first-set-bit (expt -2 99)))
+
+(check-equal #b1010 (bit-field #b1101101010 0 4))
+(check-equal #b101101 (bit-field #b1101101010 3 9))
+(check-equal #b10110 (bit-field #b1101101010 4 9))
+(check-equal #b110110 (bit-field #b1101101010 4 10))
+(check-equal 0 (bit-field 6 0 1))
+(check-equal 3 (bit-field 6 1 3))
+(check-equal 1 (bit-field 6 2 999))
+(check-equal 1 (bit-field #x100000000000000000000000000000000 128 129))
+
+(check-equal #t (bit-field-any? #b1001001 1 6))
+(check-equal #f (bit-field-any? #b1000001 1 6))
+
+(check-equal #t (bit-field-every? #b1011110 1 5))
+(check-equal #f (bit-field-every? #b1011010 1 5))
+
+(check-equal #b100000 (bit-field-clear #b101010 1 4))
+(check-equal #b101110 (bit-field-set #b101010 1 4))
+
+(check-equal #b100100 (bit-field-replace #b101010 #b010 1 4))
+(check-equal #b111 (bit-field-replace #b110 1 0 1))
+(check-equal #b110 (bit-field-replace #b110 1 1 2))
+
+(check-equal #b1001 (bit-field-replace-same #b1111 #b0000 1 3))
+
+(check-equal #b110 (bit-field-rotate #b110 0 0 10))
+(check-equal #b110 (bit-field-rotate #b110 0 0 256))
+(check-equal 1 (bit-field-rotate #x100000000000000000000000000000000 1 0 129))
+(check-equal #b110 (bit-field-rotate #b110 1 1 2))
+(check-equal #b1010 (bit-field-rotate #b110 1 2 4))
+(check-equal #b1011 (bit-field-rotate #b0111 -1 1 4))
+
+(check-equal 6 (bit-field-reverse 6 1 3))
+(check-equal 12 (bit-field-reverse 6 1 4))
+(check-equal #x80000000 (bit-field-reverse 1 0 32))
+(check-equal #x40000000 (bit-field-reverse 1 0 31))
+(check-equal #x20000000 (bit-field-reverse 1 0 30))
+(check-equal 5 (bit-field-reverse #x140000000000000000000000000000000 0 129))
+
+(check-equal (#t #f #t #f #t #t #t) (bits->list #b1110101))
+(check-equal (#t #t #f #f #f) (bits->list 3 5))
+(check-equal (#f #t #t #f) (bits->list 6 4))
+
+(check-equal #(#t #f #t #f #t #t #t) (bits->vector #b1110101))
+
+(check-equal #b1110101 (list->bits '(#t #f #t #f #t #t #t)))
+(check-equal #b111010100 (list->bits '(#f #f #t #f #t #f #t #t #t)))
+(check-equal 6 (list->bits '(#f #t #t)))
+(check-equal 6 (list->bits '(#f #t #t #f)))
+(check-equal 12 (list->bits '(#f #f #t #t)))
+
+(check-equal #b1110101 (vector->bits '#(#t #f #t #f #t #t #t)))
+(check-equal #b111010100 (vector->bits '#(#f #f #t #f #t #f #t #t #t)))
+(check-equal 6 (vector->bits '#(#f #t #t)))
+(check-equal 6 (vector->bits '#(#f #t #t #f)))
+(check-equal 12 (vector->bits '#(#f #f #t #t)))
+
+(check-equal #b1110101 (bits #t #f #t #f #t #t #t))
+(check-equal #b111010100 (bits #f #f #t #f #t #f #t #t #t))
+
+(check-equal (#t #f #t #f #t #t #t) (bitwise-fold cons '() #b1010111))
+
+(define (bitcount n)
+    (let ((count 0))
+        (bitwise-for-each (lambda (b) (if b (set! count (+ count 1)))) n)
+        count))
+
+(check-equal 0 (bitcount 0))
+(check-equal 3 (bitcount 7))
+(check-equal 3 (bitcount 13))
+(check-equal 4 (bitcount 30))
+(check-equal 1 (bitcount (expt 2 100)))
+
+(check-equal #b101010101
+    (bitwise-unfold
+        (lambda (i) (= i 10))
+        even?
+        (lambda (i) (+ i 1))
+        0))
+
+(define g (make-bitwise-generator #b110))
+
+(check-equal #f (g))
+(check-equal #t (g))
+(check-equal #t (g))
+(check-equal #f (g))
+(check-equal #f (g))
+(check-equal #f (g))

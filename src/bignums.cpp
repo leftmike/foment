@@ -829,12 +829,8 @@ static FBignum * BignumMultiplyDigits(uint32_t * digits1, uint16_t used1, uint32
     }
 
     ret->Used = used1 + used2;
-    while (ret->Used > 1)
-    {
-        if (ret->Digits[ret->Used - 1] != 0)
-            break;
+    while (ret->Used > 1 && ret->Digits[ret->Used - 1] == 0)
         ret->Used -= 1;
-    }
 
     return(ret);
 }
@@ -1241,6 +1237,9 @@ static FBignum * BignumAnd(FBignum * bn1, FBignum * bn2)
     else
         ret->Sign = 1;
 
+    while (ret->Used > 1 && ret->Digits[ret->Used - 1] == 0)
+        ret->Used -= 1;
+
     return(ret);
 }
 
@@ -1345,6 +1344,10 @@ FObject BignumNot(FObject bn)
 
     FBignum * ret = CopyBignum(AsBignum(bn), 1);
     UpdateAddUInt32(ret, 1);
+
+    while (ret->Used > 1 && ret->Digits[ret->Used - 1] == 0)
+        ret->Used -= 1;
+
     BignumNegate(ret);
 
     FAssert(ret->Used > 0);
