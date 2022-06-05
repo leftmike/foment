@@ -476,6 +476,7 @@
         (rename procedure? procedure/tag?)
         procedure-tag)
     (export
+        numeric->string
         make-buffered-port
         make-encoded-port
         file-encoding
@@ -692,7 +693,9 @@
         i/o-encoding-error?
         i/o-encoding-error-char
         procedure-property
-        set-procedure-property!)
+        set-procedure-property!
+        %procedure->formatter
+        %formatter?)
     (cond-expand
         (unix
             (export

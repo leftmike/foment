@@ -2964,7 +2964,21 @@ Define("arithmetic-shift", ArithmeticShiftPrimitive)(long_t argc, FObject argv[]
     return(ArithmeticShift(argv[0], AsFixnum(argv[1])));
 }
 
-// ---- SRFI 151: Bitwise Operations ----
+// ---- SRFI 166: Monadic Formatting ----
+
+Define("numeric->string", NumericToStringPrimitive)(long_t argc, FObject argv[])
+{
+    SevenArgsCheck("numeric->string", argc);
+    NumberArgCheck("numeric->string", argv[0]); // num
+    FixnumArgCheck("numeric->string", argv[1]); // radix: 2 to 36
+    // precision: #f or integer
+    // sign-rule: #f, #t, or pair of two strings
+    // comma-rule: #f, integer, or list of integers
+    CharacterArgCheck("numeric->string", argv[5]); // comma-sep
+    CharacterArgCheck("numeric->string", argv[6]); // decimal-sep
+
+    return(NumberToString(argv[0], AsFixnum(argv[1])));
+}
 
 static FObject Primitives[] =
 {
@@ -3033,7 +3047,8 @@ static FObject Primitives[] =
     BitwiseNotPrimitive,
     BitCountPrimitive,
     IntegerLengthPrimitive,
-    ArithmeticShiftPrimitive
+    ArithmeticShiftPrimitive,
+    NumericToStringPrimitive
 };
 
 void SetupNumbers()

@@ -88,8 +88,37 @@ void WriteStringObject(FWriteContext * wctx, FObject obj)
         {
             FCh ch = AsString(obj)->String[idx];
             if (ch == '\\' || ch == '"')
+            {
                 wctx->WriteCh('\\');
-            wctx->WriteCh(ch);
+                wctx->WriteCh(ch);
+            }
+            else if (ch == 0x07)
+            {
+                wctx->WriteCh('\\');
+                wctx->WriteCh('a');
+            }
+            else if (ch == 0x08)
+            {
+                wctx->WriteCh('\\');
+                wctx->WriteCh('b');
+            }
+            else if (ch == 0x09)
+            {
+                wctx->WriteCh('\\');
+                wctx->WriteCh('t');
+            }
+            else if (ch == 0x0A)
+            {
+                wctx->WriteCh('\\');
+                wctx->WriteCh('n');
+            }
+            else if (ch == 0x0D)
+            {
+                wctx->WriteCh('\\');
+                wctx->WriteCh('r');
+            }
+            else
+                wctx->WriteCh(ch);
         }
 
         wctx->WriteCh('"');

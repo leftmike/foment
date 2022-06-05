@@ -778,7 +778,8 @@ TailCallPrimitive:
                 v[0] = ts->AStack[ts->AStackPtr - 1];
                 v[1] = ts->AStack[ts->AStackPtr];
                 v[2] = MakeInstruction(TailCallProcOpcode, 0);
-                FObject proc = MakeProcedure(NoValueObject, NoValueObject, NoValueObject,
+                FObject proc = MakeProcedure(AsProcedure(ts->Proc)->Name, NoValueObject, NoValueObject,
+//                FObject proc = MakeProcedure(NoValueObject, NoValueObject, NoValueObject,
                         MakeVector(3, v, NoValueObject), 0, PROCEDURE_FLAG_CLOSURE);
                 ts->AStack[ts->AStackPtr - 1] = proc;
                 break;
@@ -1450,8 +1451,6 @@ Define("%bytes-allocated", BytesAllocatedPrimitive)(long_t argc, FObject argv[])
     return(MakeFixnum(ba));
 }
 
-#define ParameterP(obj) (ProcedureP(obj) && (AsProcedure(obj)->Flags & PROCEDURE_FLAG_PARAMETER))
-
 Define("%dynamic-stack", DynamicStackPrimitive)(long_t argc, FObject argv[])
 {
     // (%dynamic-stack)
@@ -1546,6 +1545,27 @@ Define("%parameter", ParameterPrimitive)(long_t argc, FObject argv[])
 
     ts->Parameters[AsFixnum(argv[0])] = argv[1];
     return(NoValueObject);
+}
+
+Define("%procedure->formatter", ProcedureToFormatterPrimitive)(long_t argc, FObject argv[])
+{
+    // (%procedure->formatter <proc>)
+
+    OneArgCheck("%procedure->formatter", argc);
+    ProcedureArgCheck("%procedure->formatter", argv[0]);
+
+    AsProcedure(argv[0])->Flags |= PROCEDURE_FLAG_FORMATTER;
+
+    return(argv[0]);
+}
+
+Define("%formatter?", FormatterPPrimitive)(long_t argc, FObject argv[])
+{
+    // (%formatter? <obj>)
+
+    OneArgCheck("%formatter?", argc);
+
+    return(FormatterP(argv[0]) ? TrueObject : FalseObject);
 }
 
 Define("%find-mark", FindMarkPrimitive)(long_t argc, FObject argv[])
@@ -1651,6 +1671,8 @@ static FObject Primitives[] =
     ProcedureToParameterPrimitive,
     ParameterPPrimitive,
     ParameterPrimitive,
+    ProcedureToFormatterPrimitive,
+    FormatterPPrimitive,
     FindMarkPrimitive,
     ExecuteProcPrimitive,
     ProcedureCodePrimitive,
@@ -1707,32 +1729,32 @@ void SetupExecute()
     v[0] = MakeInstruction(SetArgCountOpcode, 0);
     v[1] = MakeInstruction(CallOpcode, 0);
     v[2] = MakeInstruction(ReturnFromOpcode, 0);
-    ExecuteThunk = MakeProcedure(NoValueObject, MakeStringC(__FILE__), MakeFixnum(__LINE__),
-            MakeVector(3, v, NoValueObject), 1, 0);
+    ExecuteThunk = MakeProcedure(StringCToSymbol("%execute-thunk"), MakeStringC(__FILE__),
+            MakeFixnum(__LINE__), MakeVector(3, v, NoValueObject), 1, 0);
 
     v[0] = MakeInstruction(SetArgCountOpcode, 0);
     v[1] = MakeInstruction(CallOpcode, 0);
     v[2] = MakeInstruction(ReturnFromOpcode, 0);
-    ExecuteZero = MakeProcedure(NoValueObject, MakeStringC(__FILE__), MakeFixnum(__LINE__),
-            MakeVector(3, v, NoValueObject), 1, 0);
+    ExecuteZero = MakeProcedure(StringCToSymbol("%execute-zero"), MakeStringC(__FILE__),
+            MakeFixnum(__LINE__), MakeVector(3, v, NoValueObject), 1, 0);
 
     v[0] = MakeInstruction(SetArgCountOpcode, 1);
     v[1] = MakeInstruction(CallOpcode, 0);
     v[2] = MakeInstruction(ReturnFromOpcode, 0);
-    ExecuteOne = MakeProcedure(NoValueObject, MakeStringC(__FILE__), MakeFixnum(__LINE__),
-            MakeVector(3, v, NoValueObject), 1, 0);
+    ExecuteOne = MakeProcedure(StringCToSymbol("%execute-one"), MakeStringC(__FILE__),
+            MakeFixnum(__LINE__), MakeVector(3, v, NoValueObject), 1, 0);
 
     v[0] = MakeInstruction(SetArgCountOpcode, 2);
     v[1] = MakeInstruction(CallOpcode, 0);
     v[2] = MakeInstruction(ReturnFromOpcode, 0);
-    ExecuteTwo = MakeProcedure(NoValueObject, MakeStringC(__FILE__), MakeFixnum(__LINE__),
-            MakeVector(3, v, NoValueObject), 1, 0);
+    ExecuteTwo = MakeProcedure(StringCToSymbol("%execute-two"), MakeStringC(__FILE__),
+            MakeFixnum(__LINE__), MakeVector(3, v, NoValueObject), 1, 0);
 
     v[0] = MakeInstruction(SetArgCountOpcode, 3);
     v[1] = MakeInstruction(CallOpcode, 0);
     v[2] = MakeInstruction(ReturnFromOpcode, 0);
-    ExecuteThree = MakeProcedure(NoValueObject, MakeStringC(__FILE__), MakeFixnum(__LINE__),
-            MakeVector(3, v, NoValueObject), 1, 0);
+    ExecuteThree = MakeProcedure(StringCToSymbol("%execute-three"), MakeStringC(__FILE__),
+            MakeFixnum(__LINE__), MakeVector(3, v, NoValueObject), 1, 0);
 
     // (%return <value>)
 

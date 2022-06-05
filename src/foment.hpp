@@ -1314,6 +1314,12 @@ void WriteIdentifier(FWriteContext * wctx, FObject obj);
 
 // ---- Procedures ----
 
+#define PROCEDURE_FLAG_RESTARG      0x01
+#define PROCEDURE_FLAG_CONTINUATION 0x02
+#define PROCEDURE_FLAG_PARAMETER    0x04
+#define PROCEDURE_FLAG_CLOSURE      0x08
+#define PROCEDURE_FLAG_FORMATTER    0x10
+
 typedef struct
 {
     FObject Name;
@@ -1327,14 +1333,11 @@ typedef struct
 
 #define AsProcedure(obj) ((FProcedure *) (obj))
 #define ProcedureP(obj) (ObjectTag(obj) == ProcedureTag)
+#define ParameterP(obj) (ProcedureP(obj) && (AsProcedure(obj)->Flags & PROCEDURE_FLAG_PARAMETER))
+#define FormatterP(obj) (ProcedureP(obj) && (AsProcedure(obj)->Flags & PROCEDURE_FLAG_FORMATTER))
 
 FObject MakeProcedure(FObject nam, FObject fn, FObject ln, FObject cv, long_t ac, ulong_t fl);
 void WriteProcedure(FWriteContext * wctx, FObject obj);
-
-#define PROCEDURE_FLAG_CLOSURE      0x8
-#define PROCEDURE_FLAG_PARAMETER    0x4
-#define PROCEDURE_FLAG_CONTINUATION 0x2
-#define PROCEDURE_FLAG_RESTARG      0x1
 
 // ---- Threads ----
 
