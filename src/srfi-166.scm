@@ -9,6 +9,8 @@
         maybe-escaped
         numeric
 
+        nl
+
         nothing
         each
         each-in-list
@@ -101,8 +103,25 @@
                             (else ""))
                         "")
                     (numeric num)))
+            (define (%write-list lst)
+                (cond
+                    ((null? lst) ")")
+                    ((pair? lst)
+                        (each " " (%write-object (car lst)) (fn () (%write-list (cdr lst)))))
+                    (else (each " . " (%write-object  lst) ")"))))
+            (define (%write-vector vec idx)
+                (cond
+                    ((= idx (vector-length vec)) ")")
+                    (else
+                        (each
+                            (if (> idx 0) " " nothing)
+                            (%write-object (vector-ref obj idx))
+                            (fn () (%write-vector vec (+ idx 1)))))))
             (cond
                 ((number? obj) (%write-number obj))
+                ((pair? obj)
+                    (each "(" (%write-object (car obj)) (fn () (%write-list (cdr obj)))))
+                ((vector? obj) (each "#(" (%write-vector obj 0)))
                 (else
                     (let ((port (open-output-string)))
                         (write obj port)
@@ -165,13 +184,78 @@
             (case-lambda
                 ((num)
                     (%numeric num (radix) (precision) (sign-rule) (comma-rule) (comma-sep)
-                            (decimal-sep)))))
+                            (decimal-sep)))
+                ((num radix)
+                    (%numeric num radix (precision) (sign-rule) (comma-rule) (comma-sep)
+                            (decimal-sep)))
+                ((num radix precision)
+                    (%numeric num radix precision (sign-rule) (comma-rule) (comma-sep)
+                            (decimal-sep)))
+                ((num radix precision sign-rule)
+                    (%numeric num radix precision sign-rule (comma-rule) (comma-sep)
+                            (decimal-sep)))
+                ((num radix precision sign-rule comma-rule)
+                    (%numeric num radix precision sign-rule comma-rule (comma-sep)
+                            (decimal-sep)))
+                ((num radix precision sign-rule comma-rule comma-sep)
+                    (%numeric num radix precision sign-rule comma-rule comma-sep
+                            (decimal-sep)))
+                ((num radix precision sign-rule comma-rule comma-sep decimal-sep)
+                    (%numeric num radix precision sign-rule comma-rule comma-sep
+                            decimal-sep))))
         (define (%numeric num radix precision sign-rule comma-rule comma-sep decimal-sep)
+            (define (check-comma-rule comma-rule)
+                (if (or (not comma-rule) (and (exact-integer? comma-rule) (> comma-rule 0)))
+                    #t
+                    (if (not (pair? comma-rule))
+                        #f
+                        (let ((ret #t))
+                            (for-each
+                                (lambda (n)
+                                    (if (not (and (exact-integer? n) (> n 0)))
+                                        (set! ret #f)))
+                                comma-rule)
+                            ret))))
+            ; sign-rule: #f, #t, or pair of two strings
+            (if (and (not (boolean? sign-rule))
+                    (or (not (pair? sign-rule)) (not (string? (car sign-rule)))
+                            (not (string? (cdr sign-rule)))))
+                (full-error 'assertion-violation 'numeric #f
+                        "numeric: expected sign-rule of #f, #t, or a pair of strings"
+                        sign-rule))
+            ; comma-rule: #f, integer, or list of integers
+            (if (not (check-comma-rule comma-rule))
+                (full-error 'assertion-violation 'numeric #f
+"numeric: expected comma-rule of #f, positive integer, or list of positive integers" comma-rule))
+            (if (not (char? comma-sep))
+                (full-error 'assertion-violation 'numeric #f
+                        "numeric: expected character for comma-sep" comma-sep))
             (fn ()
-                (numeric->string num radix precision sign-rule comma-rule comma-sep
-                        (if (char? decimal-sep)
-                            decimal-sep
-                            (if (char=? comma-sep #\.) #\, #\.)))))
+                (let* ((n
+                            (cond
+                                ((nan? num) num)
+                                ((infinite? num) num)
+                                ((< num 0) (- num))
+                                (else num)))
+                        (str (numeric->string n radix precision
+                            (if (char? decimal-sep)
+                                decimal-sep
+                                (if (char=? comma-sep #\.) #\, #\.)))))
+                    (cond
+                        ((nan? num) str)
+                        ((infinite? num) str)
+                        ((eqv? num -0.0)
+                            (if (pair? sign-rule)
+                                (each (car sign-rule) "0.0" (cdr sign-rule))
+                                "-0.0"))
+                        ((eq? sign-rule #f)
+                            (each (if (< num 0) "-" nothing) str))
+                        ((eq? sign-rule #t)
+                            (each (if (< num 0) "-" "+") str))
+                        (else
+                            (each (car sign-rule) str (cdr sign-rule)))))))
+
+        (define nl (displayed "\n"))
 
         (define nothing (%formatter () ""))
         (define (each . fmts)

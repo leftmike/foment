@@ -695,7 +695,7 @@ FObject StringToNumber(FCh * s, long_t sl, long_t rdx)
     return(ToInexact(n));
 }
 
-const static char Digits[] = {"0123456789abcdef"};
+static const char Digits[] = "0123456789abcdefghijklmnopqrstuvwxyz";
 
 long_t FixnumAsString(long_t n, FCh * s, long_t rdx)
 {
@@ -817,6 +817,7 @@ void WriteNumber(FWriteContext * wctx, FObject obj)
 FObject NumberToString(FObject obj, long_t rdx)
 {
     FAssert(NumberP(obj));
+    FAssert(rdx == 2 || rdx == 8 || rdx == 10 || rdx == 16);
 
     if (FixnumP(obj))
     {
@@ -854,8 +855,267 @@ FObject NumberToString(FObject obj, long_t rdx)
             return(MakeStringC(s));
         }
     }
+    else if (BignumP(obj))
+    {
+        char * s = BignumToStringC(obj, (uint32_t) rdx);
+        FObject ret = MakeStringC(s);
+        free(s);
+        return(ret);
+    }
 
-    FAssert(RatioP(obj) || ComplexP(obj) || BignumP(obj));
+    FAssert(RatioP(obj) || ComplexP(obj));
+
+    FObject port = MakeStringOutputPort();
+    FWriteContext wctx(port, 0);
+
+    wctx.Prepare(obj, SimpleWrite);
+    WriteNumberRadix(&wctx, obj, rdx);
+    return(GetOutputString(port));
+}
+
+FObject MakeNumericString(char * w, long_t wl, FCh dec_sep, char * f, long_t fl)
+{
+    FObject s = MakeStringCh(wl + fl + 1, ' ');
+
+    long_t sdx = 0;
+    for (sdx = 0; w[sdx] != 0; sdx += 1)
+        AsString(s)->String[sdx] = w[sdx];
+
+    AsString(s)->String[sdx] = dec_sep;
+    sdx += 1;
+
+    for (long_t fdx = 0; fdx < fl; fdx += 1, sdx += 1)
+        AsString(s)->String[sdx] = f[fdx];
+
+    return(s);
+}
+
+static FObject TruncateQuotient(FObject n, FObject d);
+static FObject TruncateRemainder(FObject n, FObject d);
+
+static long_t NumericNeedCarry(FObject n, FObject d, long_t rdx)
+{
+    FObject f = MakeFixnum(0);
+    FObject b = MakeFixnum(1);
+    for (;;)
+    {
+        // n *= rdx;
+        // f = f * rdx + n / d;
+        // n = n % d;
+        // b *= rdx;
+        n = GenericMultiply(n, MakeFixnum(rdx));
+        f = GenericAdd(GenericMultiply(f, MakeFixnum(rdx)), TruncateQuotient(n, d));
+        n = TruncateRemainder(n, d);
+        b = GenericMultiply(b, MakeFixnum(rdx));
+
+        long_t cmp = GenericCompare(0, GenericMultiply(f, MakeFixnum(2)), b, 0);
+        if (cmp > 0)
+            return(1);
+        else if (cmp < 0)
+            return(0);
+
+        if (GenericCompare(0, n, MakeFixnum(0), 0) == 0)
+            return(0);
+    }
+}
+
+FObject NumericToString(FObject obj, long_t rdx, long_t prec, FCh dec_sep)
+{
+    FAssert(NumberP(obj));
+    FAssert(rdx >= 2 && rdx <= 36);
+
+    if (FixnumP(obj))
+    {
+        FCh s[64];
+        long_t sl = FixnumAsString(AsFixnum(obj), s, rdx);
+
+        return(MakeString(s, sl));
+    }
+    else if (FlonumP(obj))
+    {
+        double64_t d = AsFlonum(obj);
+
+        if (isnan(d))
+            return(MakeStringC("+nan.0"));
+        else if (isfinite(d) == 0)
+            return(MakeStringC(d > 0 ? "+inf.0" : "-inf.0"));
+
+        FAssert(d >= 0.0);
+
+        if (prec == 0)
+            return(MakeStringC(BignumToStringC(MakeBignumFromDouble(round(d)), (uint32_t) rdx)));
+
+        double64_t w = Truncate(d);
+        double64_t f = d - w;
+
+        if (prec < 0)
+        {
+            char frc[32];
+            long_t fl = 0;
+
+            while (f > 0.0 || fl == 0)
+            {
+                f *= rdx;
+                double64_t wf = Truncate(f);
+                f -= wf;
+                long_t w = wf;
+
+                FAssert(w < rdx);
+
+                frc[fl] = Digits[w];
+                fl += 1;
+
+                if (fl == 16)
+                    break;
+            }
+
+            char * whl = BignumToStringC(MakeBignumFromDouble(w), (uint32_t) rdx);
+            FObject s = MakeNumericString(whl, strlen(whl), dec_sep, frc, fl);
+            free(whl);
+            return(s);
+        }
+        else
+        {
+            for (long_t pdx = 0; pdx < prec; pdx += 1)
+                f *= rdx;
+            f = round(f);
+            char * frc = BignumToStringC(MakeBignumFromDouble(f), (uint32_t) rdx);
+            long_t fl = strlen(frc);
+
+            if (fl > prec)
+            {
+                FAssert(fl - 1 == prec);
+
+                char * whl = BignumToStringC(MakeBignumFromDouble(w + 1.0), (uint32_t) rdx);
+                FObject s = MakeNumericString(whl, strlen(whl), dec_sep, frc + 1, strlen(frc) - 1);
+                free(whl);
+                free(frc);
+                return(s);
+            }
+
+            if (fl < prec)
+            {
+                char * nf = (char *) malloc(prec + 1);
+                memset(nf, '0', prec - fl);
+                memcpy(nf + prec - fl, frc, fl + 1);
+                free(frc);
+                frc = nf;
+            }
+
+            char * whl = BignumToStringC(MakeBignumFromDouble(w), (uint32_t) rdx);
+            FObject s = MakeNumericString(whl, strlen(whl), dec_sep, frc, strlen(frc));
+            free(whl);
+            free(frc);
+            return(s);
+        }
+    }
+    else if (BignumP(obj))
+    {
+        char * s = BignumToStringC(obj, (uint32_t) rdx);
+        FObject ret = MakeStringC(s);
+        free(s);
+        return(ret);
+    }
+    else if (RatioP(obj) && prec >= 0)
+    {
+
+        FObject n = AsRatio(obj)->Numerator;
+        FObject d = AsRatio(obj)->Denominator;
+        FObject w = TruncateQuotient(n, d);
+
+        n = TruncateRemainder(n, d);
+
+        FObject f = MakeFixnum(0);
+        FObject b = MakeFixnum(1);
+        for (long_t p = 0; p < prec; p += 1)
+        {
+            // n *= rdx;
+            // f = f * rdx + n / d;
+            // n = n % d;
+            // b *= rdx;
+            n = GenericMultiply(n, MakeFixnum(rdx));
+            f = GenericAdd(GenericMultiply(f, MakeFixnum(rdx)), TruncateQuotient(n, d));
+            n = TruncateRemainder(n, d);
+            b = GenericMultiply(b, MakeFixnum(rdx));
+        }
+
+        if (NumericNeedCarry(n, d, rdx))
+        {
+            if (prec == 0)
+                w = GenericAdd(w, MakeFixnum(1));
+            else
+            {
+                f = GenericAdd(f, MakeFixnum(1));
+                if (GenericCompare(0, f, b, 0) >= 0)
+                {
+                    w = GenericAdd(w, MakeFixnum(1));
+                    f = GenericSubtract(f, b);
+                }
+            }
+        }
+
+        FCh s[1024];
+        long_t sl;
+        if (BignumP(w))
+        {
+            char * bs = BignumToStringC(w, (uint32_t) rdx);
+            for (sl = 0; bs[sl] != 0; sl += 1)
+                s[sl] = bs[sl];
+            free(bs);
+        }
+        else
+        {
+            FAssert(FixnumP(w));
+
+            sl = FixnumAsString(AsFixnum(w), s, rdx);
+        }
+
+        if (prec == 0)
+            return(MakeString(s, sl));
+
+        s[sl] = dec_sep;
+        sl += 1;
+
+        if (BignumP(f))
+        {
+            char * fs = BignumToStringC(f, (uint32_t) rdx);
+            long_t fsl = strlen(fs);
+
+            FAssert(fsl <= prec);
+
+            while (prec > fsl)
+            {
+                s[sl] = '0';
+                sl += 1;
+                fsl += 1;
+            }
+
+            for (long_t fdx = 0; fs[fdx] != 0; fdx += 1, sl += 1)
+                s[sl] = fs[fdx];
+            free(fs);
+        }
+        else
+        {
+            FAssert(FixnumP(f));
+
+            long_t fsl = FixnumAsString(AsFixnum(f), s + sl, rdx);
+
+            FAssert(fsl <= prec);
+
+            while (prec > fsl)
+            {
+                s[sl] = '0';
+                sl += 1;
+                fsl += 1;
+            }
+
+            sl += FixnumAsString(AsFixnum(f), s + sl, rdx);
+        }
+
+        return(MakeString(s, sl));
+    }
+
+    FAssert(RatioP(obj) || ComplexP(obj));
 
     FObject port = MakeStringOutputPort();
     FWriteContext wctx(port, 0);
@@ -2248,19 +2508,24 @@ Define("floor-quotient", FloorQuotientPrimitive)(long_t argc, FObject argv[])
     return(FlonumP(argv[0]) || FlonumP(argv[1]) ? ToInexact(rbn) : Normalize(rbn));
 }
 
+static FObject TruncateQuotient(FObject n, FObject d)
+{
+    if (FixnumP(n) && FixnumP(d))
+        return(MakeFixnum(AsFixnum(n) / AsFixnum(d)));
+
+    FObject num = ToBignum(n);
+    FObject den = ToBignum(d);
+    FObject rbn = BignumDivide(num, den);
+    return(FlonumP(n) || FlonumP(d) ? ToInexact(rbn) : Normalize(rbn));
+}
+
 Define("truncate-quotient", TruncateQuotientPrimitive)(long_t argc, FObject argv[])
 {
     TwoArgsCheck("truncate-quotient", argc);
     IntegerArgCheck("truncate-quotient", argv[0]);
     IntegerArgCheck("truncate-quotient", argv[1]);
 
-    if (FixnumP(argv[0]) && FixnumP(argv[1]))
-        return(MakeFixnum(AsFixnum(argv[0]) / AsFixnum(argv[1])));
-
-    FObject n = ToBignum(argv[0]);
-    FObject d = ToBignum(argv[1]);
-    FObject rbn = BignumDivide(n, d);
-    return(FlonumP(argv[0]) || FlonumP(argv[1]) ? ToInexact(rbn) : Normalize(rbn));
+    return(TruncateQuotient(argv[0], argv[1]));
 }
 
 static FObject TruncateRemainder(FObject n, FObject d)
@@ -2968,16 +3233,24 @@ Define("arithmetic-shift", ArithmeticShiftPrimitive)(long_t argc, FObject argv[]
 
 Define("numeric->string", NumericToStringPrimitive)(long_t argc, FObject argv[])
 {
-    SevenArgsCheck("numeric->string", argc);
+    FourArgsCheck("numeric->string", argc);
     NumberArgCheck("numeric->string", argv[0]); // num
-    FixnumArgCheck("numeric->string", argv[1]); // radix: 2 to 36
-    // precision: #f or integer
-    // sign-rule: #f, #t, or pair of two strings
-    // comma-rule: #f, integer, or list of integers
-    CharacterArgCheck("numeric->string", argv[5]); // comma-sep
-    CharacterArgCheck("numeric->string", argv[6]); // decimal-sep
 
-    return(NumberToString(argv[0], AsFixnum(argv[1])));
+    // radix: 2 to 36
+    FixnumArgCheck("numeric->string", argv[1]);
+    if (AsFixnum(argv[1]) < 2 || AsFixnum(argv[1]) > 36)
+        RaiseExceptionC(Assertion, "numeric->string", "expected radix between 2 and 36",
+                List(argv[1]));
+
+    // precision: #f or integer
+    if (argv[2] != FalseObject && NonNegativeExactIntegerP(argv[2], 0) == 0)
+        RaiseExceptionC(Assertion, "numeric->string",
+                "expected precision of #f or a positive integer", List(argv[2]));
+
+    CharacterArgCheck("numeric->string", argv[3]); // decimal-sep
+
+    return(NumericToString(argv[0], AsFixnum(argv[1]),
+            argv[2] == FalseObject ? -1 : AsFixnum(argv[2]), AsCharacter(argv[3])));
 }
 
 static FObject Primitives[] =

@@ -360,7 +360,7 @@ long_t BignumToInt64(FObject bn, int64_t * n)
     return(1);
 }
 
-static const char DigitTable[] = "0123456789abcdefghijklmnopqrstuvwxyz";
+static const char Digits[] = "0123456789abcdefghijklmnopqrstuvwxyz";
 
 char * BignumToStringC(FObject num, uint32_t rdx)
 {
@@ -384,7 +384,7 @@ char * BignumToStringC(FObject num, uint32_t rdx)
 
         FAssert(dgt >= 0 && dgt < (ulong_t) rdx);
 
-        *s = DigitTable[dgt];
+        *s = Digits[dgt];
         s += 1;
 
         while (tbn->Used > 0 && tbn->Digits[tbn->Used - 1] == 0)

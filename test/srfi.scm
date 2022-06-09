@@ -2820,8 +2820,12 @@
 (check-equal "\"hi \\\"bob\\\"\"" (show #f (written "hi \"bob\"")))
 (check-equal "\"hello\\nworld\"" (show #f (written "hello\nworld")))
 (check-equal "#(1 2 3)" (show #f (written '#(1 2 3))))
+(check-equal "#(1)" (show #f (written '#(1))))
+(check-equal "#()" (show #f (written '#())))
 (check-equal "(1 2 3)" (show #f (written '(1 2 3))))
 (check-equal "(1 2 . 3)" (show #f (written '(1 2 . 3))))
+(check-equal "(1)" (show #f (written '(1))))
+(check-equal "()" (show #f (written '())))
 (check-equal "ABC" (show #f (upcased "abc")))
 (check-equal "ABCDEF" (show #f (upcased "abc" "def")))
 (check-equal "abcABCDEFghi"
@@ -2877,16 +2881,190 @@
 (check-equal "10" (show #f (numeric 10)))
 (check-equal "100" (show #f (numeric 100)))
 (check-equal "57005" (show #f #xDEAD))
+
+;; radix
 (check-equal "#xdead" (show #f (with ((radix 16)) #xDEAD)))
 (check-equal "#xdead1234" (show #f (with ((radix 16)) #xDEAD) 1234))
-;(check-equal "de.ad"
-;    (show #f (with ((radix 16) (precision 2)) (numeric (/ #xDEAD #x100)))))
-;(check-equal "d.ead"
-;    (show #f (with ((radix 16) (precision 3)) (numeric (/ #xDEAD #x1000)))))
-;(check-equal "0.dead"
-;    (show #f (with ((radix 16) (precision 4)) (numeric (/ #xDEAD #x10000)))))
-;(check-equal "1g"
-;    (show #f (with ((radix 17)) (numeric 33))))
+(check-equal "de.ad"
+    (show #f (with ((radix 16) (precision 2)) (numeric (/ #xDEAD #x100)))))
+(check-equal "d.ead"
+    (show #f (with ((radix 16) (precision 3)) (numeric (/ #xDEAD #x1000)))))
+(check-equal "0.dead"
+    (show #f (with ((radix 16) (precision 4)) (numeric (/ #xDEAD #x10000)))))
+(check-equal "1g"
+    (show #f (with ((radix 17)) (numeric 33))))
+
+(check-equal "(#x11 #x22 #x33)" (show #f (with ((radix 16)) '(#x11 #x22 #x33))))
+(check-equal "0" (show #f (numeric 0 2)))
+(check-equal "0" (show #f (numeric 0 10)))
+(check-equal "0" (show #f (numeric 0 36)))
+
+(check-equal "0.0" (show #f (numeric 0.0 2)))
+(check-equal "0.0" (show #f (numeric 0.0 10)))
+(check-equal "0.0" (show #f (numeric 0.0 36)))
+
+(check-equal "1" (show #f (numeric 1 2)))
+(check-equal "1" (show #f (numeric 1 10)))
+(check-equal "1" (show #f (numeric 1 36)))
+
+(check-equal "1.0" (show #f (numeric 1.0 2)))
+(check-equal "1.0" (show #f (numeric 1.0 10)))
+(check-equal "1.0" (show #f (numeric 1.0 36)))
+
+(check-equal "0" (show #f (numeric 0.0 10 0)))
+(check-equal "0" (show #f (numeric 0.0 9 0)))
+(check-equal "3/4" (show #f (numeric #e.75)))
+
+(check-equal "0.0000000000000027" (show #f (numeric 1e-23 36)))
+(check-equal "100000000000000000000000000000000000000000000000000000000000000000000000000000000.0"
+      (show #f (numeric (expt 2.0 80) 2)))
+
+;; numeric, radix=2
+(check-equal "10" (show #f (numeric 2 2)))
+(check-equal "10.0" (show #f (numeric 2.0 2)))
+(check-equal "11/10" (show #f (numeric 3/2 2)))
+(check-equal "1001" (show #f (numeric 9 2)))
+(check-equal "1001.0" (show #f (numeric 9.0 2)))
+(check-equal "1001.01" (show #f (numeric 9.25 2)))
+
+;; numeric, radix=3
+(check-equal "11" (show #f (numeric 4 3)))
+(check-equal "10.0" (show #f (numeric 3.0 3)))
+(check-equal "11/10" (show #f (numeric 4/3 3)))
+(check-equal "1001" (show #f (numeric 28 3)))
+(check-equal "1001.0" (show #f (numeric 28.0 3)))
+(check-equal "1001.01" (show #f (numeric #i253/9 3 2)))
+
+;; radix 36
+(check-equal "zzz" (show #f (numeric (- (* 36 36 36) 1) 36)))
+
+;; precision
+;(check-equal "3.14159" (show #f 3.14159))
+(check-equal "3.14" (show #f (with ((precision 2)) 3.14159)))
+(check-equal "3.14" (show #f (with ((precision 2)) 3.14)))
+(check-equal "3.00" (show #f (with ((precision 2)) 3.)))
+(check-equal "1.10" (show #f (with ((precision 2)) 1.099)))
+(check-equal "0.00" (show #f (with ((precision 2)) 1e-17)))
+(check-equal "0.0000000010" (show #f (with ((precision 10)) 1e-9)))
+(check-equal "0.0000000000" (show #f (with ((precision 10)) 1e-17)))
+(check-equal "0.000004" (show #f (with ((precision 6)) 0.000004)))
+(check-equal "0.0000040" (show #f (with ((precision 7)) 0.000004)))
+(check-equal "0.00000400" (show #f (with ((precision 8)) 0.000004)))
+(check-equal "1.00" (show #f (with ((precision 2)) .997554209949891)))
+(check-equal "1.00" (show #f (with ((precision 2)) .99755420)))
+(check-equal "1.00" (show #f (with ((precision 2)) .99755)))
+(check-equal "1.00" (show #f (with ((precision 2)) .997)))
+(check-equal "0.99" (show #f (with ((precision 2)) .99)))
+(check-equal "-15" (show #f (with ((precision 0)) -14.99995999999362)))
+
+(check-equal "+inf.0" (show #f +inf.0))
+(check-equal "-inf.0" (show #f -inf.0))
+(check-equal "+nan.0" (show #f +nan.0))
+(check-equal "+inf.0" (show #f (numeric +inf.0)))
+(check-equal "-inf.0" (show #f (numeric -inf.0)))
+(check-equal "+nan.0" (show #f (numeric +nan.0)))
+
+(check-equal "333.333333333333333333333333333333"
+    (show #f (with ((precision 30)) (numeric 1000/3))))
+(check-equal  "33.333333333333333333333333333333"
+    (show #f (with ((precision 30)) (numeric 100/3))))
+(check-equal   "3.333333333333333333333333333333"
+    (show #f (with ((precision 30)) (numeric 10/3))))
+(check-equal   "0.333333333333333333333333333333"
+    (show #f (with ((precision 30)) (numeric 1/3))))
+(check-equal   "0.033333333333333333333333333333"
+    (show #f (with ((precision 30)) (numeric 1/30))))
+(check-equal   "0.003333333333333333333333333333"
+    (show #f (with ((precision 30)) (numeric 1/300))))
+(check-equal   "0.000333333333333333333333333333"
+    (show #f (with ((precision 30)) (numeric 1/3000))))
+(check-equal   "0.666666666666666666666666666667"
+    (show #f (with ((precision 30)) (numeric 2/3))))
+(check-equal   "0.090909090909090909090909090909"
+    (show #f (with ((precision 30)) (numeric 1/11))))
+(check-equal   "1.428571428571428571428571428571"
+    (show #f (with ((precision 30)) (numeric 10/7))))
+(check-equal "0.123456789012345678901234567890"
+    (show #f (with ((precision 30))
+               (numeric (/  123456789012345678901234567890
+                            1000000000000000000000000000000)))))
+
+;(check-equal  " 333.333333333333333333333333333333"
+;    (show #f (with ((precision 30) (decimal-align 5)) (numeric 1000/3))))
+;(check-equal  "  33.333333333333333333333333333333"
+;    (show #f (with ((precision 30) (decimal-align 5)) (numeric 100/3))))
+;(check-equal  "   3.333333333333333333333333333333"
+;    (show #f (with ((precision 30) (decimal-align 5)) (numeric 10/3))))
+;(check-equal  "   0.333333333333333333333333333333"
+;    (show #f (with ((precision 30) (decimal-align 5)) (numeric 1/3))))
+
+(check-equal "11.75" (show #f (with ((precision 2)) (/ 47 4))))
+(check-equal "-11.75" (show #f (with ((precision 2)) (/ -47 4))))
+
+;; Precision:
+(check-equal "1.1250" (show #f (numeric 9/8 10 4)))
+(check-equal "1.125" (show #f (numeric 9/8 10 3)))
+(check-equal "1.12" (show #f (numeric 9/8 10 2)))
+(check-equal "1.1" (show #f (numeric 9/8 10 1)))
+(check-equal "1" (show #f (numeric 9/8 10 0)))
+
+(check-equal "1.1250" (show #f (numeric #i9/8 10 4)))
+(check-equal "1.125" (show #f (numeric #i9/8 10 3)))
+;(check-equal "1.12" (show #f (numeric #i9/8 10 2)))
+(check-equal "1.1" (show #f (numeric #i9/8 10 1)))
+(check-equal "1" (show #f (numeric #i9/8 10 0)))
+
+;; precision-show, base-4
+(check-equal "1.1230" (show #f (numeric 91/64 4 4)))
+(check-equal "1.123" (show #f (numeric 91/64 4 3)))
+(check-equal "1.13" (show #f (numeric 91/64 4 2)))
+(check-equal "1.2" (show #f (numeric 91/64 4 1)))
+(check-equal "1" (show #f (numeric 91/64 4 0)))
+
+(check-equal "1.1230" (show #f (numeric #i91/64 4 4)))
+(check-equal "1.123" (show #f (numeric #i91/64 4 3)))
+(check-equal "1.13" (show #f (numeric #i91/64 4 2)))
+(check-equal "1.2" (show #f (numeric #i91/64 4 1)))
+(check-equal "1" (show #f (numeric #i91/64 4 0)))
+
+(check-equal "1.0010" (show #f (numeric 1001/1000 10 4)))
+(check-equal "1.001" (show #f (numeric 1001/1000 10 3)))
+(check-equal "1.00" (show #f (numeric 1001/1000 10 2)))
+(check-equal "1.0" (show #f (numeric 1001/1000 10 1)))
+(check-equal "1" (show #f (numeric 1001/1000 10 0)))
+
+(check-equal "1.0190" (show #f (numeric 1019/1000 10 4)))
+(check-equal "1.019" (show #f (numeric 1019/1000 10 3)))
+(check-equal "1.02" (show #f (numeric 1019/1000 10 2)))
+(check-equal "1.0" (show #f (numeric 1019/1000 10 1)))
+(check-equal "1" (show #f (numeric 1019/1000 10 0)))
+
+(check-equal "1.9990" (show #f (numeric 1999/1000 10 4)))
+(check-equal "1.999" (show #f (numeric 1999/1000 10 3)))
+(check-equal "2.00" (show #f (numeric 1999/1000 10 2)))
+(check-equal "2.0" (show #f (numeric 1999/1000 10 1)))
+(check-equal "2" (show #f (numeric 1999/1000 10 0)))
+
+;; sign
+(check-equal "+1" (show #f (numeric 1 10 #f #t)))
+(check-equal "+1" (show #f (with ((sign-rule #t)) (numeric 1))))
+(check-equal "(1)" (show #f (with ((sign-rule '("(" . ")"))) (numeric -1))))
+(check-equal "-1" (show #f (with ((sign-rule '("-" . ""))) (numeric -1))))
+(check-equal "−1-" (show #f (with ((sign-rule '("−" . "-"))) (numeric -1))))
+(check-equal "-0.0" (show #f (with ((sign-rule #t)) (numeric -0.0))))
+(check-equal "+0.0" (show #f (with ((sign-rule #t)) (numeric +0.0))))
+
+(check-equal "+inf.0" (show #f (with ((sign-rule #f)) (numeric +inf.0))))
+(check-equal "-inf.0" (show #f (with ((sign-rule #f)) (numeric -inf.0))))
+(check-equal "+nan.0" (show #f (with ((sign-rule #f)) (numeric +nan.0))))
+
+(check-equal "+inf.0" (show #f (with ((sign-rule #t)) (numeric +inf.0))))
+(check-equal "-inf.0" (show #f (with ((sign-rule #t)) (numeric -inf.0))))
+(check-equal "+nan.0" (show #f (with ((sign-rule #t)) (numeric +nan.0))))
+
+(check-equal "+inf.0" (show #f (with ((sign-rule '("(" . ")"))) (numeric +inf.0))))
+(check-equal "-inf.0" (show #f (with ((sign-rule '("(" . ")"))) (numeric -inf.0))))
+(check-equal "+nan.0" (show #f (with ((sign-rule '("(" . ")"))) (numeric +nan.0))))
 
 #|
 (define-library (srfi 166 test)
@@ -2918,26 +3096,6 @@
 
       (test "ab" (show #f "a" nothing "b"))
 
-      ;; numbers
-
-      (test "3.14159" (show #f 3.14159))
-      (test "3.14" (show #f (with ((precision 2)) 3.14159)))
-      (test "3.14" (show #f (with ((precision 2)) 3.14)))
-      (test "3.00" (show #f (with ((precision 2)) 3.)))
-      (test "1.10" (show #f (with ((precision 2)) 1.099)))
-      (test "0.00" (show #f (with ((precision 2)) 1e-17)))
-      (test "0.0000000010" (show #f (with ((precision 10)) 1e-9)))
-      (test "0.0000000000" (show #f (with ((precision 10)) 1e-17)))
-      (test "0.000004" (show #f (with ((precision 6)) 0.000004)))
-      (test "0.0000040" (show #f (with ((precision 7)) 0.000004)))
-      (test "0.00000400" (show #f (with ((precision 8)) 0.000004)))
-      (test "1.00" (show #f (with ((precision 2)) .997554209949891)))
-      (test "1.00" (show #f (with ((precision 2)) .99755420)))
-      (test "1.00" (show #f (with ((precision 2)) .99755)))
-      (test "1.00" (show #f (with ((precision 2)) .997)))
-      (test "0.99" (show #f (with ((precision 2)) .99)))
-      (test "-15" (show #f (with ((precision 0)) -14.99995999999362)))
-
       (test "   3.14159" (show #f (with ((decimal-align 5)) (numeric 3.14159))))
       (test "  31.4159" (show #f (with ((decimal-align 5)) (numeric 31.4159))))
       (test " 314.159" (show #f (with ((decimal-align 5)) (numeric 314.159))))
@@ -2948,54 +3106,6 @@
       (test "-314.159" (show #f (with ((decimal-align 5)) (numeric -314.159))))
       (test "-3141.59" (show #f (with ((decimal-align 5)) (numeric -3141.59))))
       (test "-31415.9" (show #f (with ((decimal-align 5)) (numeric -31415.9))))
-
-      (test "+inf.0" (show #f +inf.0))
-      (test "-inf.0" (show #f -inf.0))
-      (test "+nan.0" (show #f +nan.0))
-      (test "+inf.0" (show #f (numeric +inf.0)))
-      (test "-inf.0" (show #f (numeric -inf.0)))
-      (test "+nan.0" (show #f (numeric +nan.0)))
-
-      (cond
-       ((exact? (/ 1 3)) ;; exact rationals
-        (test "333.333333333333333333333333333333"
-            (show #f (with ((precision 30)) (numeric 1000/3))))
-        (test  "33.333333333333333333333333333333"
-            (show #f (with ((precision 30)) (numeric 100/3))))
-        (test   "3.333333333333333333333333333333"
-            (show #f (with ((precision 30)) (numeric 10/3))))
-        (test   "0.333333333333333333333333333333"
-            (show #f (with ((precision 30)) (numeric 1/3))))
-        (test   "0.033333333333333333333333333333"
-            (show #f (with ((precision 30)) (numeric 1/30))))
-        (test   "0.003333333333333333333333333333"
-            (show #f (with ((precision 30)) (numeric 1/300))))
-        (test   "0.000333333333333333333333333333"
-            (show #f (with ((precision 30)) (numeric 1/3000))))
-        (test   "0.666666666666666666666666666667"
-            (show #f (with ((precision 30)) (numeric 2/3))))
-        (test   "0.090909090909090909090909090909"
-            (show #f (with ((precision 30)) (numeric 1/11))))
-        (test   "1.428571428571428571428571428571"
-            (show #f (with ((precision 30)) (numeric 10/7))))
-        (test "0.123456789012345678901234567890"
-            (show #f (with ((precision 30))
-                       (numeric (/  123456789012345678901234567890
-                                    1000000000000000000000000000000)))))
-        (test  " 333.333333333333333333333333333333"
-            (show #f (with ((precision 30) (decimal-align 5)) (numeric 1000/3))))
-        (test  "  33.333333333333333333333333333333"
-            (show #f (with ((precision 30) (decimal-align 5)) (numeric 100/3))))
-        (test  "   3.333333333333333333333333333333"
-            (show #f (with ((precision 30) (decimal-align 5)) (numeric 10/3))))
-        (test  "   0.333333333333333333333333333333"
-            (show #f (with ((precision 30) (decimal-align 5)) (numeric 1/3))))
-        ))
-
-      (test "11.75" (show #f (with ((precision 2)) (/ 47 4))))
-      (test "-11.75" (show #f (with ((precision 2)) (/ -47 4))))
-
-      (test "(#x11 #x22 #x33)" (show #f (with ((radix 16)) '(#x11 #x22 #x33))))
 
       (test "299792458" (show #f (with ((comma-rule 3)) 299792458)))
       (test "299,792,458" (show #f (with ((comma-rule 3)) (numeric 299792458))))
@@ -3011,85 +3121,6 @@
           (show #f (with ((comma-rule 3) (precision 1)) (numeric 100000))))
       (test "100,000.00"
           (show #f (with ((comma-rule 3) (precision 2)) (numeric 100000))))
-
-      ;; radix argument:
-      (test "0" (show #f (numeric 0 2)))
-      (test "0" (show #f (numeric 0 10)))
-      (test "0" (show #f (numeric 0 36)))
-
-      (test "0.0" (show #f (numeric 0.0 2)))
-      (test "0.0" (show #f (numeric 0.0 10)))
-      (test "0.0" (show #f (numeric 0.0 36)))
-
-      (test "1" (show #f (numeric 1 2)))
-      (test "1" (show #f (numeric 1 10)))
-      (test "1" (show #f (numeric 1 36)))
-
-      (test "1.0" (show #f (numeric 1.0 2)))
-      (test "1.0" (show #f (numeric 1.0 10)))
-      (test "1.0" (show #f (numeric 1.0 36)))
-
-      (test "0" (show #f (numeric 0.0 10 0)))
-      (test "0" (show #f (numeric 0.0 9 0)))
-      (test "3/4" (show #f (numeric #e.75)))
-
-      (test "0.0000000000000001" (show #f (numeric 1e-25 36)))
-      (test "100000000000000000000000000000000000000000000000000000000000000000000000000000000.0"
-            (show #f (numeric (expt 2.0 80) 2)))
-
-      ;; numeric, radix=2
-      (test "10" (show #f (numeric 2 2)))
-      (test "10.0" (show #f (numeric 2.0 2)))
-      (test "11/10" (show #f (numeric 3/2 2)))
-      (test "1001" (show #f (numeric 9 2)))
-      (test "1001.0" (show #f (numeric 9.0 2)))
-      (test "1001.01" (show #f (numeric 9.25 2)))
-
-      ;; numeric, radix=3
-      (test "11" (show #f (numeric 4 3)))
-      (test "10.0" (show #f (numeric 3.0 3)))
-      (test "11/10" (show #f (numeric 4/3 3)))
-      (test "1001" (show #f (numeric 28 3)))
-      (test "1001.0" (show #f (numeric 28.0 3)))
-      (test "1001.01" (show #f (numeric #i253/9 3 2)))
-
-      ;; radix 36
-      (test "zzz" (show #f (numeric (- (* 36 36 36) 1) 36)))
-
-      ;; Precision:
-      (test "1.1250" (show #f (numeric 9/8 10 4)))
-      (test "1.125" (show #f (numeric 9/8 10 3)))
-      (test "1.12" (show #f (numeric 9/8 10 2)))
-      (test "1.1" (show #f (numeric 9/8 10 1)))
-      (test "1" (show #f (numeric 9/8 10 0)))
-
-      (test "1.1250" (show #f (numeric #i9/8 10 4)))
-      (test "1.125" (show #f (numeric #i9/8 10 3)))
-      (test "1.12" (show #f (numeric #i9/8 10 2)))
-      (test "1.1" (show #f (numeric #i9/8 10 1)))
-      (test "1" (show #f (numeric #i9/8 10 0)))
-
-      ;; precision-show, base-4
-      (test "1.1230" (show #f (numeric 91/64 4 4)))
-      (test "1.123" (show #f (numeric 91/64 4 3)))
-      (test "1.13" (show #f (numeric 91/64 4 2)))
-      (test "1.2" (show #f (numeric 91/64 4 1)))
-      (test "1" (show #f (numeric 91/64 4 0)))
-
-      (test "1.1230" (show #f (numeric #i91/64 4 4)))
-      (test "1.123" (show #f (numeric #i91/64 4 3)))
-      (test "1.13" (show #f (numeric #i91/64 4 2)))
-      (test "1.2" (show #f (numeric #i91/64 4 1)))
-      (test "1" (show #f (numeric #i91/64 4 0)))
-
-      ;; sign
-      (test "+1" (show #f (numeric 1 10 #f #t)))
-      (test "+1" (show #f (with ((sign-rule #t)) (numeric 1))))
-      (test "(1)" (show #f (with ((sign-rule '("(" . ")"))) (numeric -1))))
-      (test "-1" (show #f (with ((sign-rule '("-" . ""))) (numeric -1))))
-      (test "−1" (show #f (with ((sign-rule '("−" . ""))) (numeric -1))))
-      (test "-0.0" (show #f (with ((sign-rule #t)) (numeric -0.0))))
-      (test "+0.0" (show #f (with ((sign-rule #t)) (numeric +0.0))))
 
       ;; comma
       (test "1,234,567" (show #f (numeric 1234567 10 #f #f 3)))
