@@ -223,13 +223,6 @@
                 (full-error 'assertion-violation 'numeric #f
                         "numeric: expected sign-rule of #f, #t, or a pair of strings"
                         sign-rule))
-            ; comma-rule: #f, integer, or list of integers
-            (if (not (check-comma-rule comma-rule))
-                (full-error 'assertion-violation 'numeric #f
-"numeric: expected comma-rule of #f, positive integer, or list of positive integers" comma-rule))
-            (if (not (char? comma-sep))
-                (full-error 'assertion-violation 'numeric #f
-                        "numeric: expected character for comma-sep" comma-sep))
             (fn ()
                 (let* ((n
                             (cond
@@ -237,7 +230,7 @@
                                 ((infinite? num) num)
                                 ((< num 0) (- num))
                                 (else num)))
-                        (str (numeric->string n radix precision
+                        (str (numeric->string n radix precision comma-rule comma-sep
                             (if (char? decimal-sep)
                                 decimal-sep
                                 (if (char=? comma-sep #\.) #\, #\.)))))

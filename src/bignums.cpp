@@ -373,7 +373,7 @@ char * BignumToStringC(FObject num, uint32_t rdx)
     FAssert(bn->Sign == 1 || bn->Sign == -1);
 
     FBignum * tbn = CopyBignum(bn);
-    char * ret = (char *) malloc(tbn->Used * sizeof(ulong_t) * 8 + 2);
+    char * ret = (char *) malloc(tbn->Used * sizeof(uint32_t) * 8 + 2);
     if (ret == 0)
         return(0);
     char * s = ret;

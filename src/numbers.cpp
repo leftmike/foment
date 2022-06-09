@@ -725,6 +725,38 @@ long_t FixnumAsString(long_t n, FCh * s, long_t rdx)
     return(sl);
 }
 
+static char * FixnumToStringC(FObject num, long_t rdx)
+{
+    FAssert(rdx <= (long_t) sizeof(Digits));
+    FAssert(FixnumP(num));
+
+    long_t n = AsFixnum(num);
+    char buf[128];
+    long_t sl = 0;
+
+    if (n == 0)
+    {
+        buf[sl] = '0';
+        sl += 1;
+    }
+
+    while (n > 0)
+    {
+        buf[sl] = Digits[n % rdx];
+        sl += 1;
+        n = n / rdx;
+    }
+
+    char * s = (char *) malloc(sl + 1);
+    if (s == 0)
+        return(0);
+
+    for (long_t sdx = 0; sdx < sl; sdx += 1)
+        s[sdx] = buf[sl - sdx - 1];
+    s[sl] = 0;
+    return(s);
+}
+
 static long_t NeedImaginaryPlusSignP(FObject n)
 {
     if (FixnumP(n))
@@ -873,20 +905,38 @@ FObject NumberToString(FObject obj, long_t rdx)
     return(GetOutputString(port));
 }
 
-FObject MakeNumericString(char * w, long_t wl, FCh dec_sep, char * f, long_t fl)
+FObject MakeNumericString(char * ws, FCh dec_sep, char * fs, long_t fl, long_t prec)
 {
-    FObject s = MakeStringCh(wl + fl + 1, ' ');
+    long_t sl = strlen(ws);
+    if (prec > 0)
+        sl += prec + 1;
+    else if (prec < 0)
+        sl += fl + 1;
+    FObject s = MakeStringCh(sl, ' ');
 
     long_t sdx = 0;
-    for (sdx = 0; w[sdx] != 0; sdx += 1)
-        AsString(s)->String[sdx] = w[sdx];
+    for (sdx = 0; ws[sdx] != 0; sdx += 1)
+        AsString(s)->String[sdx] = ws[sdx];
+
+    if (prec == 0)
+    {
+        FAssert(fs == 0);
+
+        free(ws);
+        return(s);
+    }
 
     AsString(s)->String[sdx] = dec_sep;
     sdx += 1;
 
-    for (long_t fdx = 0; fdx < fl; fdx += 1, sdx += 1)
-        AsString(s)->String[sdx] = f[fdx];
+    for (long_t fdx = fl; fdx < prec; fdx += 1, sdx += 1)
+            AsString(s)->String[sdx] = '0';
 
+    for (long_t fdx = 0; fdx < fl; fdx += 1, sdx += 1)
+        AsString(s)->String[sdx] = fs[fdx];
+
+    free(ws);
+    free(fs);
     return(s);
 }
 
@@ -919,18 +969,14 @@ static long_t NumericNeedCarry(FObject n, FObject d, long_t rdx)
     }
 }
 
-FObject NumericToString(FObject obj, long_t rdx, long_t prec, FCh dec_sep)
+FObject NumericToString(FObject obj, long_t rdx, long_t prec, FObject comma_rule, FCh comma_sep,
+    FCh dec_sep)
 {
     FAssert(NumberP(obj));
     FAssert(rdx >= 2 && rdx <= 36);
 
     if (FixnumP(obj))
-    {
-        FCh s[64];
-        long_t sl = FixnumAsString(AsFixnum(obj), s, rdx);
-
-        return(MakeString(s, sl));
-    }
+        return(MakeNumericString(FixnumToStringC(obj, rdx), 0, 0, 0, 0));
     else if (FlonumP(obj))
     {
         double64_t d = AsFlonum(obj);
@@ -943,16 +989,20 @@ FObject NumericToString(FObject obj, long_t rdx, long_t prec, FCh dec_sep)
         FAssert(d >= 0.0);
 
         if (prec == 0)
-            return(MakeStringC(BignumToStringC(MakeBignumFromDouble(round(d)), (uint32_t) rdx)));
+            return(MakeNumericString(
+                            BignumToStringC(MakeBignumFromDouble(round(d)), (uint32_t) rdx),
+                            0, 0, 0, 0));
 
         double64_t w = Truncate(d);
         double64_t f = d - w;
 
         if (prec < 0)
         {
-            char frc[32];
-            long_t fl = 0;
+            char * fs = (char *) malloc(32);
+            if (fs == 0)
+                return(NoValueObject);
 
+            long_t fl = 0;
             while (f > 0.0 || fl == 0)
             {
                 f *= rdx;
@@ -962,60 +1012,41 @@ FObject NumericToString(FObject obj, long_t rdx, long_t prec, FCh dec_sep)
 
                 FAssert(w < rdx);
 
-                frc[fl] = Digits[w];
+                fs[fl] = Digits[w];
                 fl += 1;
 
                 if (fl == 16)
                     break;
             }
+            fs[fl] = 0;
 
-            char * whl = BignumToStringC(MakeBignumFromDouble(w), (uint32_t) rdx);
-            FObject s = MakeNumericString(whl, strlen(whl), dec_sep, frc, fl);
-            free(whl);
-            return(s);
+            char * ws = BignumToStringC(MakeBignumFromDouble(w), (uint32_t) rdx);
+            return(MakeNumericString(ws, dec_sep, fs, fl, prec));
         }
         else
         {
             for (long_t pdx = 0; pdx < prec; pdx += 1)
                 f *= rdx;
             f = round(f);
-            char * frc = BignumToStringC(MakeBignumFromDouble(f), (uint32_t) rdx);
-            long_t fl = strlen(frc);
+            char * fs = BignumToStringC(MakeBignumFromDouble(f), (uint32_t) rdx);
+            long_t fl = strlen(fs);
 
             if (fl > prec)
             {
                 FAssert(fl - 1 == prec);
 
-                char * whl = BignumToStringC(MakeBignumFromDouble(w + 1.0), (uint32_t) rdx);
-                FObject s = MakeNumericString(whl, strlen(whl), dec_sep, frc + 1, strlen(frc) - 1);
-                free(whl);
-                free(frc);
-                return(s);
+                for (long_t fdx = 1; fdx <= fl; fdx += 1)
+                    fs[fdx - 1] = fs[fdx];
+                fl -= 1;
+                w += 1.0;
             }
 
-            if (fl < prec)
-            {
-                char * nf = (char *) malloc(prec + 1);
-                memset(nf, '0', prec - fl);
-                memcpy(nf + prec - fl, frc, fl + 1);
-                free(frc);
-                frc = nf;
-            }
-
-            char * whl = BignumToStringC(MakeBignumFromDouble(w), (uint32_t) rdx);
-            FObject s = MakeNumericString(whl, strlen(whl), dec_sep, frc, strlen(frc));
-            free(whl);
-            free(frc);
-            return(s);
+            char * ws = BignumToStringC(MakeBignumFromDouble(w), (uint32_t) rdx);
+            return(MakeNumericString(ws, dec_sep, fs, strlen(fs), prec));
         }
     }
     else if (BignumP(obj))
-    {
-        char * s = BignumToStringC(obj, (uint32_t) rdx);
-        FObject ret = MakeStringC(s);
-        free(s);
-        return(ret);
-    }
+        return(MakeNumericString(BignumToStringC(obj, (uint32_t) rdx), 0, 0, 0, 0));
     else if (RatioP(obj) && prec >= 0)
     {
 
@@ -1054,65 +1085,22 @@ FObject NumericToString(FObject obj, long_t rdx, long_t prec, FCh dec_sep)
             }
         }
 
-        FCh s[1024];
-        long_t sl;
+        char * ws;
         if (BignumP(w))
-        {
-            char * bs = BignumToStringC(w, (uint32_t) rdx);
-            for (sl = 0; bs[sl] != 0; sl += 1)
-                s[sl] = bs[sl];
-            free(bs);
-        }
+            ws = BignumToStringC(w, (uint32_t) rdx);
         else
-        {
-            FAssert(FixnumP(w));
-
-            sl = FixnumAsString(AsFixnum(w), s, rdx);
-        }
+            ws = FixnumToStringC(w, rdx);
 
         if (prec == 0)
-            return(MakeString(s, sl));
+            return(MakeNumericString(ws, 0, 0, 0, 0));
 
-        s[sl] = dec_sep;
-        sl += 1;
-
+        char * fs;
         if (BignumP(f))
-        {
-            char * fs = BignumToStringC(f, (uint32_t) rdx);
-            long_t fsl = strlen(fs);
-
-            FAssert(fsl <= prec);
-
-            while (prec > fsl)
-            {
-                s[sl] = '0';
-                sl += 1;
-                fsl += 1;
-            }
-
-            for (long_t fdx = 0; fs[fdx] != 0; fdx += 1, sl += 1)
-                s[sl] = fs[fdx];
-            free(fs);
-        }
+            fs = BignumToStringC(f, (uint32_t) rdx);
         else
-        {
-            FAssert(FixnumP(f));
+            fs = FixnumToStringC(f, rdx);
 
-            long_t fsl = FixnumAsString(AsFixnum(f), s + sl, rdx);
-
-            FAssert(fsl <= prec);
-
-            while (prec > fsl)
-            {
-                s[sl] = '0';
-                sl += 1;
-                fsl += 1;
-            }
-
-            sl += FixnumAsString(AsFixnum(f), s + sl, rdx);
-        }
-
-        return(MakeString(s, sl));
+        return(MakeNumericString(ws, dec_sep, fs, strlen(fs), prec));
     }
 
     FAssert(RatioP(obj) || ComplexP(obj));
@@ -3233,7 +3221,7 @@ Define("arithmetic-shift", ArithmeticShiftPrimitive)(long_t argc, FObject argv[]
 
 Define("numeric->string", NumericToStringPrimitive)(long_t argc, FObject argv[])
 {
-    FourArgsCheck("numeric->string", argc);
+    SixArgsCheck("numeric->string", argc);
     NumberArgCheck("numeric->string", argv[0]); // num
 
     // radix: 2 to 36
@@ -3247,10 +3235,29 @@ Define("numeric->string", NumericToStringPrimitive)(long_t argc, FObject argv[])
         RaiseExceptionC(Assertion, "numeric->string",
                 "expected precision of #f or a positive integer", List(argv[2]));
 
-    CharacterArgCheck("numeric->string", argv[3]); // decimal-sep
+    // comma-rule: #f, integer, or list of integers
+    if (argv[3] != FalseObject && (FixnumP(argv[3]) == 0 || AsFixnum(argv[3]) <= 0))
+    {
+        FObject lst = argv[3];
+        while (PairP(lst))
+        {
+            if (FixnumP(First(lst)) == 0 || AsFixnum(First(lst)) <= 0)
+                break;
+            lst = Rest(lst);
+        }
+
+        if (lst != EmptyListObject)
+            RaiseExceptionC(Assertion, "numeric->string",
+                    "expected comma-rule of #f, positive integer, or list of positive integers",
+                     List(argv[3]));
+    }
+
+    CharacterArgCheck("numeric->string", argv[4]); // comma-sep
+    CharacterArgCheck("numeric->string", argv[5]); // decimal-sep
 
     return(NumericToString(argv[0], AsFixnum(argv[1]),
-            argv[2] == FalseObject ? -1 : AsFixnum(argv[2]), AsCharacter(argv[3])));
+            argv[2] == FalseObject ? -1 : AsFixnum(argv[2]), argv[3], AsCharacter(argv[4]),
+            AsCharacter(argv[5])));
 }
 
 static FObject Primitives[] =
