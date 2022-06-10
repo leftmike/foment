@@ -3108,13 +3108,14 @@
 (check-equal "1,5" (show #f (numeric 1.5 10 #f #f #f #\.)))
 (check-equal "1%5" (show #f (numeric 1.5 10 #f #f #f #\. #\%)))
 
-#|
 (check-equal "1+2i" (show #f (string->number "1+2i")))
 (check-equal "1.00+2.00i"
     (show #f (with ((precision 2)) (string->number "1+2i"))))
 (check-equal "3.14+2.00i"
     (show #f (with ((precision 2)) (string->number "3.14159+2i"))))
-|#
+
+(check-equal "123/4567" (show #f 123/4567))
+(check-equal "123/4567" (show #f (numeric 123/4567)))
 
 #|
 (define-library (srfi 166 test)

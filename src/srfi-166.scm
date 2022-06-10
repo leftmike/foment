@@ -242,32 +242,36 @@
                         "numeric: expected sign-rule of #f, #t, or a pair of strings"
                         sign-rule))
             (fn ()
-                (let* ((n
-                            (cond
-                                ((nan? num) num)
-                                ((infinite? num) num)
-                                ((< num 0) (- num))
-                                (else num)))
-                        (str (numeric->string n radix precision comma-rule
-                            (if (char? comma-sep)
-                                comma-sep
-                                (if (eq? decimal-sep #\,) #\. #\,))
-                            (if (char? decimal-sep)
-                                decimal-sep
-                                (if (eq? comma-sep #\.) #\, #\.)))))
-                    (cond
-                        ((nan? num) str)
-                        ((infinite? num) str)
-                        ((eqv? num -0.0)
-                            (if (pair? sign-rule)
-                                (each (car sign-rule) "0.0" (cdr sign-rule))
-                                "-0.0"))
-                        ((eq? sign-rule #f)
-                            (each (if (< num 0) "-" nothing) str))
-                        ((eq? sign-rule #t)
-                            (each (if (< num 0) "-" "+") str))
-                        (else
-                            (each (car sign-rule) str (cdr sign-rule)))))))
+                (cond
+                    ((or (nan? num) (infinite? num)) (number->string num))
+                    ((not (real? num))
+                        (each
+                            (%numeric (real-part num) radix precision
+                                    (if (boolean? sign-rule) sign-rule #f) comma-rule comma-sep
+                                    decimal-sep)
+                            (%numeric (imag-part num) radix precision #t comma-rule comma-sep
+                                    decimal-sep)
+                            "i"))
+                    (else
+                        (let* ((n (if (< num 0) (- num) num))
+                                (str (numeric->string n radix precision comma-rule
+                                             (if (char? comma-sep)
+                                                 comma-sep
+                                                 (if (eq? decimal-sep #\,) #\. #\,))
+                                             (if (char? decimal-sep)
+                                                 decimal-sep
+                                                 (if (eq? comma-sep #\.) #\, #\.)))))
+                        (cond
+                            ((eqv? num -0.0)
+                                (if (pair? sign-rule)
+                                    (each (car sign-rule) "0.0" (cdr sign-rule))
+                                    "-0.0"))
+                            ((eq? sign-rule #f)
+                                (each (if (< num 0) "-" nothing) str))
+                            ((eq? sign-rule #t)
+                                (each (if (< num 0) "-" "+") str))
+                            (else
+                                (each (car sign-rule) str (cdr sign-rule)))))))))
 
         (define nl (displayed "\n"))
 

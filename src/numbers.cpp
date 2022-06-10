@@ -1123,11 +1123,14 @@ FObject NumericToString(FObject obj, long_t rdx, long_t prec, FObject comma_rule
     else if (BignumP(obj))
         return(MakeNumericString(BignumToStringC(obj, (uint32_t) rdx), dec_sep, 0, 0,
                 (prec > 0 ? prec : 0), comma_rule, comma_sep));
-    else if (RatioP(obj) && prec >= 0)
-    {
 
-        FObject n = AsRatio(obj)->Numerator;
-        FObject d = AsRatio(obj)->Denominator;
+    FAssert(RatioP(obj));
+
+    FObject n = AsRatio(obj)->Numerator;
+    FObject d = AsRatio(obj)->Denominator;
+
+    if (prec >= 0)
+    {
         FObject w = TruncateQuotient(n, d);
 
         n = TruncateRemainder(n, d);
@@ -1178,15 +1181,22 @@ FObject NumericToString(FObject obj, long_t rdx, long_t prec, FObject comma_rule
 
         return(MakeNumericString(ws, dec_sep, fs, strlen(fs), prec, comma_rule, comma_sep));
     }
+    else
+    {
+        char * ws;
+        if (BignumP(n))
+            ws = BignumToStringC(n, (uint32_t) rdx);
+        else
+            ws = FixnumToStringC(n, rdx);
 
-    FAssert(RatioP(obj) || ComplexP(obj));
+        char * fs;
+        if (BignumP(d))
+            fs = BignumToStringC(d, (uint32_t) rdx);
+        else
+            fs = FixnumToStringC(d, rdx);
 
-    FObject port = MakeStringOutputPort();
-    FWriteContext wctx(port, 0);
-
-    wctx.Prepare(obj, SimpleWrite);
-    WriteNumberRadix(&wctx, obj, rdx);
-    return(GetOutputString(port));
+        return(MakeNumericString(ws, '/', fs, strlen(fs), prec, FalseObject, 0));
+    }
 }
 
 static inline long_t BothNumberP(FObject z1, FObject z2)
