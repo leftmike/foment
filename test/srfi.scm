@@ -3066,6 +3066,56 @@
 (check-equal "-inf.0" (show #f (with ((sign-rule '("(" . ")"))) (numeric -inf.0))))
 (check-equal "+nan.0" (show #f (with ((sign-rule '("(" . ")"))) (numeric +nan.0))))
 
+;; comma-rule
+(check-equal "299792458" (show #f (with ((comma-rule 3)) 299792458)))
+(check-equal "299,792,458" (show #f (with ((comma-rule 3)) (numeric 299792458))))
+(check-equal "-29,97,92,458"
+    (show #f (with ((comma-rule '(3 2))) (numeric -299792458))))
+(check-equal "299.792.458"
+    (show #f (with ((comma-rule 3) (comma-sep #\.)) (numeric 299792458))))
+(check-equal "299.792.458,0"
+    (show #f (with ((comma-rule 3) (decimal-sep #\,)) (numeric 299792458.0))))
+
+(check-equal "100,000" (show #f (with ((comma-rule 3)) (numeric 100000))))
+(check-equal "100,000.0"
+    (show #f (with ((comma-rule 3) (precision 1)) (numeric 100000))))
+(check-equal "100,000.00"
+    (show #f (with ((comma-rule 3) (precision 2)) (numeric 100000))))
+;; comma
+(check-equal "1,234,567" (show #f (numeric 1234567 10 #f #f 3)))
+(check-equal "567" (show #f (numeric 567 10 #f #f 3)))
+(check-equal "1,23,45,67" (show #f (numeric 1234567 10 #f #f 2)))
+(check-equal "12,34,567" (show #f (numeric 1234567 10 #f #f '(3 2))))
+
+;; comma-sep
+(check-equal "1|234|567" (show #f (numeric 1234567 10 #f #f 3 #\|)))
+(check-equal "1&234&567" (show #f (with ((comma-sep #\&)) (numeric 1234567 10 #f #f 3))))
+(check-equal "1*234*567" (show #f (with ((comma-sep #\&)) (numeric 1234567 10 #f #f 3 #\*))))
+(check-equal "567" (show #f (numeric 567 10 #f #f 3 #\|)))
+(check-equal "1,23,45,67" (show #f (numeric 1234567 10 #f #f 2)))
+
+(check-equal "1,234,567" (show #f (numeric/comma 1234567)))
+(check-equal "1,234,567" (show #f (numeric/comma 1234567 3)))
+(check-equal "123,4567" (show #f (numeric/comma 1234567 4)))
+
+(check-equal "123,456,789" (show #f (numeric/comma 123456789)))
+(check-equal "1,23,45,67,89" (show #f (numeric/comma 123456789 2)))
+(check-equal "12,34,56,789" (show #f (numeric/comma 123456789 '(3 2))))
+
+;; decimal
+(check-equal "1_5" (show #f (with ((decimal-sep #\_)) (numeric 1.5))))
+(check-equal "1,5" (show #f (with ((comma-sep #\.)) (numeric 1.5))))
+(check-equal "1,5" (show #f (numeric 1.5 10 #f #f #f #\.)))
+(check-equal "1%5" (show #f (numeric 1.5 10 #f #f #f #\. #\%)))
+
+#|
+(check-equal "1+2i" (show #f (string->number "1+2i")))
+(check-equal "1.00+2.00i"
+    (show #f (with ((precision 2)) (string->number "1+2i"))))
+(check-equal "3.14+2.00i"
+    (show #f (with ((precision 2)) (string->number "3.14159+2i"))))
+|#
+
 #|
 (define-library (srfi 166 test)
   (export run-tests)
@@ -3107,48 +3157,6 @@
       (test "-3141.59" (show #f (with ((decimal-align 5)) (numeric -3141.59))))
       (test "-31415.9" (show #f (with ((decimal-align 5)) (numeric -31415.9))))
 
-      (test "299792458" (show #f (with ((comma-rule 3)) 299792458)))
-      (test "299,792,458" (show #f (with ((comma-rule 3)) (numeric 299792458))))
-      (test "-29,97,92,458"
-          (show #f (with ((comma-rule '(3 2))) (numeric -299792458))))
-      (test "299.792.458"
-          (show #f (with ((comma-rule 3) (comma-sep #\.)) (numeric 299792458))))
-      (test "299.792.458,0"
-          (show #f (with ((comma-rule 3) (decimal-sep #\,)) (numeric 299792458.0))))
-
-      (test "100,000" (show #f (with ((comma-rule 3)) (numeric 100000))))
-      (test "100,000.0"
-          (show #f (with ((comma-rule 3) (precision 1)) (numeric 100000))))
-      (test "100,000.00"
-          (show #f (with ((comma-rule 3) (precision 2)) (numeric 100000))))
-
-      ;; comma
-      (test "1,234,567" (show #f (numeric 1234567 10 #f #f 3)))
-      (test "567" (show #f (numeric 567 10 #f #f 3)))
-      (test "1,23,45,67" (show #f (numeric 1234567 10 #f #f 2)))
-      (test "12,34,567" (show #f (numeric 1234567 10 #f #f '(3 2))))
-
-      ;; comma-sep
-      (test "1|234|567" (show #f (numeric 1234567 10 #f #f 3 #\|)))
-      (test "1&234&567" (show #f (with ((comma-sep #\&)) (numeric 1234567 10 #f #f 3))))
-      (test "1*234*567" (show #f (with ((comma-sep #\&)) (numeric 1234567 10 #f #f 3 #\*))))
-      (test "567" (show #f (numeric 567 10 #f #f 3 #\|)))
-      (test "1,23,45,67" (show #f (numeric 1234567 10 #f #f 2)))
-
-      ;; decimal
-      (test "1_5" (show #f (with ((decimal-sep #\_)) (numeric 1.5))))
-      (test "1,5" (show #f (with ((comma-sep #\.)) (numeric 1.5))))
-      (test "1,5" (show #f (numeric 1.5 10 #f #f #f #\.)))
-      (test "1%5" (show #f (numeric 1.5 10 #f #f #f #\. #\%)))
-
-      (cond-expand
-       (complex
-        (test "1+2i" (show #f (string->number "1+2i")))
-        (test "1.00+2.00i"
-            (show #f (with ((precision 2)) (string->number "1+2i"))))
-        (test "3.14+2.00i"
-            (show #f (with ((precision 2)) (string->number "3.14159+2i"))))))
-
       (test "608" (show #f (numeric/si 608)))
       (test "608 B" (show #f (numeric/si 608 1000 " ") "B"))
       (test "4k" (show #f (numeric/si 3986)))
@@ -3172,10 +3180,6 @@
       (test "0" (show #f (numeric/si 0)))
       (test "-608" (show #f (numeric/si -608)))
       (test "-4k" (show #f (numeric/si -3986)))
-
-      (test "1,234,567" (show #f (numeric/comma 1234567)))
-      (test "1,234,567" (show #f (numeric/comma 1234567 3)))
-      (test "123,4567" (show #f (numeric/comma 1234567 4)))
 
       (test "1.23" (show #f (numeric/fitted 4 1.2345 10 2)))
       (test "1.00" (show #f (numeric/fitted 4 1 10 2)))

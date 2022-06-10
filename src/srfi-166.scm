@@ -8,6 +8,7 @@
         escaped
         maybe-escaped
         numeric
+        numeric/comma
 
         nl
 
@@ -203,6 +204,23 @@
                 ((num radix precision sign-rule comma-rule comma-sep decimal-sep)
                     (%numeric num radix precision sign-rule comma-rule comma-sep
                             decimal-sep))))
+        (define numeric/comma
+            (case-lambda
+                ((num)
+                    (%numeric num (radix) (precision) (sign-rule)
+                            (if (comma-rule) (comma-rule) 3) (comma-sep) (decimal-sep)))
+                ((num comma-rule)
+                    (%numeric num (radix) (precision) (sign-rule) comma-rule (comma-sep)
+                            (decimal-sep)))
+                ((num comma-rule radix)
+                    (%numeric num radix (precision) (sign-rule) comma-rule (comma-sep)
+                            (decimal-sep)))
+                ((num comma-rule radix precision)
+                    (%numeric num radix precision (sign-rule) comma-rule (comma-sep)
+                            (decimal-sep)))
+                ((num comma-rule radix precision sign-rule)
+                    (%numeric num radix precision sign-rule comma-rule (comma-sep)
+                            (decimal-sep)))))
         (define (%numeric num radix precision sign-rule comma-rule comma-sep decimal-sep)
             (define (check-comma-rule comma-rule)
                 (if (or (not comma-rule) (and (exact-integer? comma-rule) (> comma-rule 0)))
@@ -230,10 +248,13 @@
                                 ((infinite? num) num)
                                 ((< num 0) (- num))
                                 (else num)))
-                        (str (numeric->string n radix precision comma-rule comma-sep
+                        (str (numeric->string n radix precision comma-rule
+                            (if (char? comma-sep)
+                                comma-sep
+                                (if (eq? decimal-sep #\,) #\. #\,))
                             (if (char? decimal-sep)
                                 decimal-sep
-                                (if (char=? comma-sep #\.) #\, #\.)))))
+                                (if (eq? comma-sep #\.) #\, #\.)))))
                     (cond
                         ((nan? num) str)
                         ((infinite? num) str)
@@ -305,6 +326,6 @@
 
         (define sign-rule (make-parameter #f)) ; check for #f, #t, or pair of strings
         (define comma-rule (make-parameter #f)) ; check for #f, integer, or list of integers
-        (define comma-sep (make-parameter #\,)) ; check for character
+        (define comma-sep (make-parameter #f)) ; check for character
         )
     )

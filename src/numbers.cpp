@@ -905,9 +905,71 @@ FObject NumberToString(FObject obj, long_t rdx)
     return(GetOutputString(port));
 }
 
-FObject MakeNumericString(char * ws, FCh dec_sep, char * fs, long_t fl, long_t prec)
+static long_t MakeCommaString(char *ws, FObject comma_rule, FCh comma_sep, FCh ** cs)
 {
-    long_t sl = strlen(ws);
+    FCh * s = (FCh *) malloc(strlen(ws) * 2 * sizeof(FCh));
+    *cs = s;
+
+    long_t n;
+    if (FixnumP(comma_rule))
+        n = AsFixnum(comma_rule);
+    else
+    {
+        FAssert(PairP(comma_rule) && FixnumP(First(comma_rule)));
+
+        n = AsFixnum(First(comma_rule));
+        comma_rule = Rest(comma_rule);
+    }
+
+    FAssert(n > 0);
+
+    for (long_t dc = 0, sdx = strlen(ws) - 1; sdx >= 0; sdx -= 1)
+    {
+        *s = ws[sdx];
+        s += 1;
+        dc += 1;
+        if (dc == n && sdx > 0)
+        {
+            *s = comma_sep;
+            s += 1;
+            dc = 0;
+
+            if (PairP(comma_rule))
+            {
+                FAssert(FixnumP(First(comma_rule)));
+
+                n = AsFixnum(First(comma_rule));
+                comma_rule = Rest(comma_rule);
+            }
+        }
+    }
+
+    for (FCh * l = *cs, * r = s - 1; l < r; l++, r--)
+    {
+        FCh t = *l;
+        *l = *r;
+        *r = t;
+    }
+
+    return(s - *cs);
+}
+
+static FObject MakeNumericString(char * ws, FCh dec_sep, char * fs, long_t fl, long_t prec,
+    FObject comma_rule, FCh comma_sep)
+{
+    long_t sl;
+    FCh * cs = 0;
+    long_t csl;
+    if (comma_rule == FalseObject)
+        sl = strlen(ws);
+    else
+    {
+        csl = MakeCommaString(ws, comma_rule, comma_sep, &cs);
+        sl = csl;
+        free(ws);
+        ws = 0;
+    }
+
     if (prec > 0)
         sl += prec + 1;
     else if (prec < 0)
@@ -915,14 +977,27 @@ FObject MakeNumericString(char * ws, FCh dec_sep, char * fs, long_t fl, long_t p
     FObject s = MakeStringCh(sl, ' ');
 
     long_t sdx = 0;
-    for (sdx = 0; ws[sdx] != 0; sdx += 1)
-        AsString(s)->String[sdx] = ws[sdx];
+    if (comma_rule == FalseObject)
+    {
+        for (sdx = 0; ws[sdx] != 0; sdx += 1)
+            AsString(s)->String[sdx] = ws[sdx];
+        free(ws);
+
+        FAssert(cs == 0);
+    }
+    else
+    {
+        for (sdx = 0; sdx < csl; sdx += 1)
+            AsString(s)->String[sdx] = cs[sdx];
+        free(cs);
+
+        FAssert(ws == 0);
+    }
 
     if (prec == 0)
     {
         FAssert(fs == 0);
 
-        free(ws);
         return(s);
     }
 
@@ -934,9 +1009,8 @@ FObject MakeNumericString(char * ws, FCh dec_sep, char * fs, long_t fl, long_t p
 
     for (long_t fdx = 0; fdx < fl; fdx += 1, sdx += 1)
         AsString(s)->String[sdx] = fs[fdx];
-
-    free(ws);
     free(fs);
+
     return(s);
 }
 
@@ -976,7 +1050,8 @@ FObject NumericToString(FObject obj, long_t rdx, long_t prec, FObject comma_rule
     FAssert(rdx >= 2 && rdx <= 36);
 
     if (FixnumP(obj))
-        return(MakeNumericString(FixnumToStringC(obj, rdx), 0, 0, 0, 0));
+        return(MakeNumericString(FixnumToStringC(obj, rdx), dec_sep, 0, 0, (prec > 0 ? prec : 0),
+                comma_rule, comma_sep));
     else if (FlonumP(obj))
     {
         double64_t d = AsFlonum(obj);
@@ -991,7 +1066,7 @@ FObject NumericToString(FObject obj, long_t rdx, long_t prec, FObject comma_rule
         if (prec == 0)
             return(MakeNumericString(
                             BignumToStringC(MakeBignumFromDouble(round(d)), (uint32_t) rdx),
-                            0, 0, 0, 0));
+                            0, 0, 0, 0, comma_rule, comma_sep));
 
         double64_t w = Truncate(d);
         double64_t f = d - w;
@@ -1021,7 +1096,7 @@ FObject NumericToString(FObject obj, long_t rdx, long_t prec, FObject comma_rule
             fs[fl] = 0;
 
             char * ws = BignumToStringC(MakeBignumFromDouble(w), (uint32_t) rdx);
-            return(MakeNumericString(ws, dec_sep, fs, fl, prec));
+            return(MakeNumericString(ws, dec_sep, fs, fl, prec, comma_rule, comma_sep));
         }
         else
         {
@@ -1042,11 +1117,12 @@ FObject NumericToString(FObject obj, long_t rdx, long_t prec, FObject comma_rule
             }
 
             char * ws = BignumToStringC(MakeBignumFromDouble(w), (uint32_t) rdx);
-            return(MakeNumericString(ws, dec_sep, fs, strlen(fs), prec));
+            return(MakeNumericString(ws, dec_sep, fs, strlen(fs), prec, comma_rule, comma_sep));
         }
     }
     else if (BignumP(obj))
-        return(MakeNumericString(BignumToStringC(obj, (uint32_t) rdx), 0, 0, 0, 0));
+        return(MakeNumericString(BignumToStringC(obj, (uint32_t) rdx), dec_sep, 0, 0,
+                (prec > 0 ? prec : 0), comma_rule, comma_sep));
     else if (RatioP(obj) && prec >= 0)
     {
 
@@ -1092,7 +1168,7 @@ FObject NumericToString(FObject obj, long_t rdx, long_t prec, FObject comma_rule
             ws = FixnumToStringC(w, rdx);
 
         if (prec == 0)
-            return(MakeNumericString(ws, 0, 0, 0, 0));
+            return(MakeNumericString(ws, 0, 0, 0, 0, comma_rule, comma_sep));
 
         char * fs;
         if (BignumP(f))
@@ -1100,7 +1176,7 @@ FObject NumericToString(FObject obj, long_t rdx, long_t prec, FObject comma_rule
         else
             fs = FixnumToStringC(f, rdx);
 
-        return(MakeNumericString(ws, dec_sep, fs, strlen(fs), prec));
+        return(MakeNumericString(ws, dec_sep, fs, strlen(fs), prec, comma_rule, comma_sep));
     }
 
     FAssert(RatioP(obj) || ComplexP(obj));
