@@ -2831,6 +2831,18 @@
 (check-equal "abcABCDEFghi"
     (show #f (downcased "ABC") (upcased "abc" "def") (downcased "GHI")))
 
+(check-equal "a    b" (show #f "a" (space-to 5) "b"))
+(check-equal "ab" (show #f "a" (space-to 0) "b"))
+
+(check-equal "abc     def" (show #f "abc" (tab-to) "def"))
+(check-equal "abc  def" (show #f "abc" (tab-to 5) "def"))
+(check-equal "abcdef" (show #f "abc" (tab-to 3) "def"))
+(check-equal "abc\ndef\n" (show #f "abc" nl "def" nl))
+(check-equal "abc\ndef\n" (show #f "abc" fl "def" nl fl))
+(check-equal "abc\ndef\n" (show #f "abc" fl "def" fl fl))
+
+(check-equal "ab" (show #f "a" nothing "b"))
+
 (define ls '("abc" "def" "ghi"))
 (check-equal "abcdefghi"
     (show #f
@@ -2852,6 +2864,10 @@
 
 (check-equal "port? #t" (show #f "port? " (fn (port) (port? port))))
 (check-equal "port? #t ****" (show #f "port? " (fn ((p port)) (port? p)) " ****"))
+
+(check-equal "column: 8" (show #f "column: " (fn (col) col)))
+(check-equal "column: 8, 11"
+    (show #f "column: " (fn ((col1 col)) (each col1 ", " (fn ((col2 col)) col2)))))
 
 (check-equal "hi, bob!" (show #f (escaped "hi, bob!")))
 (check-equal "hi, \\\"bob!\\\"" (show #f (escaped "hi, \"bob!\"")))
@@ -3155,18 +3171,6 @@
       (test-begin "show")
 
       ;; basic data types
-
-      (test "a    b" (show #f "a" (space-to 5) "b"))
-      (test "ab" (show #f "a" (space-to 0) "b"))
-
-      (test "abc     def" (show #f "abc" (tab-to) "def"))
-      (test "abc  def" (show #f "abc" (tab-to 5) "def"))
-      (test "abcdef" (show #f "abc" (tab-to 3) "def"))
-      (test "abc\ndef\n" (show #f "abc" nl "def" nl))
-      (test "abc\ndef\n" (show #f "abc" fl "def" nl fl))
-      (test "abc\ndef\n" (show #f "abc" fl "def" fl fl))
-
-      (test "ab" (show #f "a" nothing "b"))
 
       (test "608" (show #f (numeric/si 608)))
       (test "608 B" (show #f (numeric/si 608 1000 " ") "B"))

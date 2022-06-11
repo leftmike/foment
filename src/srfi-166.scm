@@ -11,7 +11,9 @@
         numeric/comma
 
         nl
-
+        fl
+        space-to
+        tab-to
         nothing
         each
         each-in-list
@@ -26,9 +28,14 @@
         call-with-output
 
         port
-        output-default
+        row
+        col
+
         output
+        output-default
         writer
+
+        pad-char
 
         radix
         precision
@@ -71,7 +78,7 @@
                             (current-output-port)
                             (open-output-string)))))
                 (parameterize
-                        ((port show-port))
+                        ((port show-port) (col 0) (row 0))
                     ((each-in-list fmts))
                     (if (not dest)
                         (get-output-string show-port)))))
@@ -295,7 +302,21 @@
                                 decimal-align %decimal-sep))))))
 
         (define nl (displayed "\n"))
-
+        (define fl (fn (col) (if (= col 0) nothing "\n")))
+        (define (space-to column)
+            (fn (col)
+              (if (> column col)
+                  (make-string (- column col) #\space)
+                  nothing)))
+        (define tab-to
+            (case-lambda
+                (() (tab-to 8))
+                ((tab)
+                    (fn (col pad-char)
+                        (let ((n (truncate-remainder col tab)))
+                            (if (> n 0)
+                                (make-string (- tab n) pad-char)
+                                nothing))))))
         (define nothing (%formatter () ""))
         (define (each . fmts)
             (each-in-list fmts))
@@ -336,16 +357,37 @@
 
         (define (call-with-output formatter mapper)
             (let ((out (open-output-string)))
-                ((with ((port out) (output output-default)) formatter))
+                ((with ((port out) (output output-default) (col 0) (row 0)) formatter))
                 (fn () (mapper (get-output-string out)))))
 
-        (define port (make-parameter (current-output-port))) ; check for output-port
         (define (output-default str)
-            (write-string str (port)))
+            (write-string str (port))
+            (let ((c (col)) (r (row)))
+              (if (boolean? c)
+                  (error "boolean col"))
+              (if (boolean? r)
+                  (error "boolean row"))
+                (string-for-each
+                    (lambda (ch)
+                        (if (char=? ch #\newline)
+                            (begin
+                                (set! r (+ r 1))
+                                (set! c 0))
+                            (set! c (+ c 1))))
+                    str)
+                (col c)
+                (row r)))
+
+        (define port (make-parameter (current-output-port))) ; check for output-port
+        (define row (make-parameter #f))
+        (define col (make-parameter #f))
+
         (define output (make-parameter output-default)) ; check for procedure
         (define writer (make-parameter written-default)) ; check for procedure
 
-        (define radix (make-parameter 10)) ; converter to check for 2 to 36
+        (define pad-char (make-parameter #\space)) ; check for character
+
+        (define radix (make-parameter 10)) ; check for 2 to 36
         (define precision (make-parameter #f)) ; check for #f or integer
         (define decimal-sep (make-parameter #f)) ; check for character
         (define decimal-align (make-parameter #f)) ; check for integer
