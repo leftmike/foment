@@ -2989,14 +2989,35 @@
                (numeric (/  123456789012345678901234567890
                             1000000000000000000000000000000)))))
 
-;(check-equal  " 333.333333333333333333333333333333"
-;    (show #f (with ((precision 30) (decimal-align 5)) (numeric 1000/3))))
-;(check-equal  "  33.333333333333333333333333333333"
-;    (show #f (with ((precision 30) (decimal-align 5)) (numeric 100/3))))
-;(check-equal  "   3.333333333333333333333333333333"
-;    (show #f (with ((precision 30) (decimal-align 5)) (numeric 10/3))))
-;(check-equal  "   0.333333333333333333333333333333"
-;    (show #f (with ((precision 30) (decimal-align 5)) (numeric 1/3))))
+(check-equal  " 333.333333333333333333333333333333"
+    (show #f (with ((precision 30) (decimal-align 5)) (numeric 1000/3))))
+(check-equal  "  33.333333333333333333333333333333"
+    (show #f (with ((precision 30) (decimal-align 5)) (numeric 100/3))))
+(check-equal  "   3.333333333333333333333333333333"
+    (show #f (with ((precision 30) (decimal-align 5)) (numeric 10/3))))
+(check-equal  "   0.333333333333333333333333333333"
+    (show #f (with ((precision 30) (decimal-align 5)) (numeric 1/3))))
+
+(check-equal "   3.14159"
+    (show #f (with ((decimal-align 5) (precision 5)) (numeric 3.14159))))
+(check-equal "  31.4159"
+    (show #f (with ((decimal-align 5) (precision 4)) (numeric 31.4159))))
+(check-equal " 314.159"
+    (show #f (with ((decimal-align 5) (precision 3)) (numeric 314.159))))
+(check-equal "3141.59"
+    (show #f (with ((decimal-align 5) (precision 2)) (numeric 3141.59))))
+(check-equal "31415.9"
+    (show #f (with ((decimal-align 5) (precision 1)) (numeric 31415.9))))
+(check-equal "  -3.14159"
+    (show #f (with ((decimal-align 5) (precision 5)) (numeric -3.14159))))
+(check-equal " -31.4159"
+             (show #f (with ((decimal-align 5) (precision 4)) (numeric -31.4159))))
+(check-equal "-314.159"
+    (show #f (with ((decimal-align 5) (precision 3)) (numeric -314.159))))
+(check-equal "-3141.59"
+    (show #f (with ((decimal-align 5) (precision 2)) (numeric -3141.59))))
+(check-equal "-31415.9"
+    (show #f (with ((decimal-align 5) (precision 1)) (numeric -31415.9))))
 
 (check-equal "11.75" (show #f (with ((precision 2)) (/ 47 4))))
 (check-equal "-11.75" (show #f (with ((precision 2)) (/ -47 4))))
@@ -3146,17 +3167,6 @@
       (test "abc\ndef\n" (show #f "abc" fl "def" fl fl))
 
       (test "ab" (show #f "a" nothing "b"))
-
-      (test "   3.14159" (show #f (with ((decimal-align 5)) (numeric 3.14159))))
-      (test "  31.4159" (show #f (with ((decimal-align 5)) (numeric 31.4159))))
-      (test " 314.159" (show #f (with ((decimal-align 5)) (numeric 314.159))))
-      (test "3141.59" (show #f (with ((decimal-align 5)) (numeric 3141.59))))
-      (test "31415.9" (show #f (with ((decimal-align 5)) (numeric 31415.9))))
-      (test "  -3.14159" (show #f (with ((decimal-align 5)) (numeric -3.14159))))
-      (test " -31.4159" (show #f (with ((decimal-align 5)) (numeric -31.4159))))
-      (test "-314.159" (show #f (with ((decimal-align 5)) (numeric -314.159))))
-      (test "-3141.59" (show #f (with ((decimal-align 5)) (numeric -3141.59))))
-      (test "-31415.9" (show #f (with ((decimal-align 5)) (numeric -31415.9))))
 
       (test "608" (show #f (numeric/si 608)))
       (test "608 B" (show #f (numeric/si 608 1000 " ") "B"))

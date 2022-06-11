@@ -33,7 +33,7 @@
         radix
         precision
         decimal-sep
-
+        decimal-align
         sign-rule
         comma-rule
         comma-sep)
@@ -185,43 +185,45 @@
             (case-lambda
                 ((num)
                     (%numeric num (radix) (precision) (sign-rule) (comma-rule) (comma-sep)
-                            (decimal-sep)))
+                            (decimal-sep) (decimal-align)))
                 ((num radix)
                     (%numeric num radix (precision) (sign-rule) (comma-rule) (comma-sep)
-                            (decimal-sep)))
+                            (decimal-sep) (decimal-align)))
                 ((num radix precision)
                     (%numeric num radix precision (sign-rule) (comma-rule) (comma-sep)
-                            (decimal-sep)))
+                            (decimal-sep) (decimal-align)))
                 ((num radix precision sign-rule)
                     (%numeric num radix precision sign-rule (comma-rule) (comma-sep)
-                            (decimal-sep)))
+                            (decimal-sep) (decimal-align)))
                 ((num radix precision sign-rule comma-rule)
                     (%numeric num radix precision sign-rule comma-rule (comma-sep)
-                            (decimal-sep)))
+                            (decimal-sep) (decimal-align)))
                 ((num radix precision sign-rule comma-rule comma-sep)
                     (%numeric num radix precision sign-rule comma-rule comma-sep
-                            (decimal-sep)))
+                            (decimal-sep) (decimal-align)))
                 ((num radix precision sign-rule comma-rule comma-sep decimal-sep)
                     (%numeric num radix precision sign-rule comma-rule comma-sep
-                            decimal-sep))))
+                            decimal-sep (decimal-align)))))
         (define numeric/comma
             (case-lambda
                 ((num)
                     (%numeric num (radix) (precision) (sign-rule)
-                            (if (comma-rule) (comma-rule) 3) (comma-sep) (decimal-sep)))
+                            (if (comma-rule) (comma-rule) 3) (comma-sep) (decimal-sep)
+                            (decimal-align)))
                 ((num comma-rule)
                     (%numeric num (radix) (precision) (sign-rule) comma-rule (comma-sep)
-                            (decimal-sep)))
+                            (decimal-sep) (decimal-align)))
                 ((num comma-rule radix)
                     (%numeric num radix (precision) (sign-rule) comma-rule (comma-sep)
-                            (decimal-sep)))
+                            (decimal-sep) (decimal-align)))
                 ((num comma-rule radix precision)
                     (%numeric num radix precision (sign-rule) comma-rule (comma-sep)
-                            (decimal-sep)))
+                            (decimal-sep) (decimal-align)))
                 ((num comma-rule radix precision sign-rule)
                     (%numeric num radix precision sign-rule comma-rule (comma-sep)
-                            (decimal-sep)))))
-        (define (%numeric num radix precision sign-rule comma-rule comma-sep decimal-sep)
+                            (decimal-sep) (decimal-align)))))
+        (define (%numeric num radix precision sign-rule comma-rule comma-sep decimal-sep
+                decimal-align)
             (define (check-comma-rule comma-rule)
                 (if (or (not comma-rule) (and (exact-integer? comma-rule) (> comma-rule 0)))
                     #t
@@ -242,36 +244,55 @@
                         "numeric: expected sign-rule of #f, #t, or a pair of strings"
                         sign-rule))
             (fn ()
+                (define %comma-sep
+                    (if (char? comma-sep)
+                        comma-sep
+                        (if (eq? decimal-sep #\,) #\. #\,)))
+                (define %decimal-sep
+                    (if (char? decimal-sep)
+                        decimal-sep
+                        (if (eq? comma-sep #\.) #\, #\.)))
+                (define (align str decimal-align decimal-sep)
+                    (define (last-ch str idx ch)
+                        (if (< idx 0)
+                            idx
+                            (if (char=? (string-ref str idx) ch)
+                                idx
+                                (last-ch str (- idx 1) ch))))
+                    (if (and (integer? decimal-align) (> decimal-align 1))
+                        (let ((idx (last-ch str (- (string-length str) 1) decimal-sep))
+                                (decimal-align (- decimal-align 1)))
+                            (if (or (< idx 0) (>= idx decimal-align))
+                                str
+                                (string-append (make-string (- decimal-align idx) #\space) str)))
+                        str))
                 (cond
                     ((or (nan? num) (infinite? num)) (number->string num))
                     ((not (real? num))
                         (each
                             (%numeric (real-part num) radix precision
-                                    (if (boolean? sign-rule) sign-rule #f) comma-rule comma-sep
-                                    decimal-sep)
-                            (%numeric (imag-part num) radix precision #t comma-rule comma-sep
-                                    decimal-sep)
+                                    (if (boolean? sign-rule) sign-rule #f) comma-rule %comma-sep
+                                    %decimal-sep #f)
+                            (%numeric (imag-part num) radix precision #t comma-rule %comma-sep
+                                    %decimal-sep #f)
                             "i"))
                     (else
                         (let* ((n (if (< num 0) (- num) num))
-                                (str (numeric->string n radix precision comma-rule
-                                             (if (char? comma-sep)
-                                                 comma-sep
-                                                 (if (eq? decimal-sep #\,) #\. #\,))
-                                             (if (char? decimal-sep)
-                                                 decimal-sep
-                                                 (if (eq? comma-sep #\.) #\, #\.)))))
-                        (cond
-                            ((eqv? num -0.0)
-                                (if (pair? sign-rule)
-                                    (each (car sign-rule) "0.0" (cdr sign-rule))
-                                    "-0.0"))
-                            ((eq? sign-rule #f)
-                                (each (if (< num 0) "-" nothing) str))
-                            ((eq? sign-rule #t)
-                                (each (if (< num 0) "-" "+") str))
-                            (else
-                                (each (car sign-rule) str (cdr sign-rule)))))))))
+                                (str (numeric->string n radix precision comma-rule %comma-sep
+                                             %decimal-sep)))
+                            (align
+                                (cond
+                                    ((eqv? num -0.0)
+                                        (if (pair? sign-rule)
+                                            (string-append (car sign-rule) "0.0" (cdr sign-rule))
+                                            "-0.0"))
+                                    ((eq? sign-rule #f)
+                                        (string-append (if (< num 0) "-" "") str))
+                                    ((eq? sign-rule #t)
+                                        (string-append (if (< num 0) "-" "+") str))
+                                    (else
+                                        (string-append (car sign-rule) str (cdr sign-rule))))
+                                decimal-align %decimal-sep))))))
 
         (define nl (displayed "\n"))
 
@@ -327,7 +348,7 @@
         (define radix (make-parameter 10)) ; converter to check for 2 to 36
         (define precision (make-parameter #f)) ; check for #f or integer
         (define decimal-sep (make-parameter #f)) ; check for character
-
+        (define decimal-align (make-parameter #f)) ; check for integer
         (define sign-rule (make-parameter #f)) ; check for #f, #t, or pair of strings
         (define comma-rule (make-parameter #f)) ; check for #f, integer, or list of integers
         (define comma-sep (make-parameter #f)) ; check for character
