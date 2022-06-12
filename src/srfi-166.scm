@@ -10,7 +10,7 @@
         numeric
         numeric/comma
         numeric/si
-
+        numeric/fitted
         nl
         fl
         space-to
@@ -186,9 +186,9 @@
                     (pred ch)))
             (call-with-output fmt
                     (lambda (str)
-                      (if (string-pred need-escape 0 str)
-                          (each quote-ch (%escaped str quote-ch esc-ch renamer) quote-ch)
-                          (displayed str)))))
+                        (if (string-pred need-escape 0 str)
+                            (each quote-ch (%escaped str quote-ch esc-ch renamer) quote-ch)
+                            (displayed str)))))
         (define numeric
             (case-lambda
                 ((num)
@@ -347,7 +347,44 @@
                                             '("" "k" "M" "G" "T" "E" "P" "Z" "Y")
                                             '("" "Ki" "Mi" "Gi" "Ti" "Ei" "Pi" "Zi" "Yi"))))))
                      (each (if (< num 0) "-" "") str))))
-
+        (define numeric/fitted
+            (case-lambda
+                ((width num)
+                    (%numeric/fitted width num (radix) (precision) (sign-rule) (comma-rule)
+                            (comma-sep) (decimal-sep)))
+                ((width num radix)
+                    (%numeric/fitted width num radix (precision) (sign-rule) (comma-rule)
+                            (comma-sep) (decimal-sep)))
+                ((width num radix precision)
+                    (%numeric/fitted width num radix precision (sign-rule) (comma-rule) (comma-sep)
+                            (decimal-sep)))
+                ((width num radix precision sign-rule)
+                    (%numeric/fitted width num radix precision sign-rule (comma-rule) (comma-sep)
+                            (decimal-sep)))
+                ((width num radix precision sign-rule comma-rule)
+                    (%numeric/fitted width num radix precision sign-rule comma-rule (comma-sep)
+                            (decimal-sep)))
+                ((width num radix precision sign-rule comma-rule comma-sep)
+                    (%numeric/fitted width num radix precision sign-rule comma-rule comma-sep
+                            (decimal-sep)))
+                ((width num radix precision sign-rule comma-rule comma-sep decimal-sep)
+                    (%numeric/fitted width num radix precision sign-rule comma-rule comma-sep
+                            decimal-sep))))
+        (define (%numeric/fitted width num radix precision sign-rule comma-rule comma-sep
+                decimal-sep)
+            (call-with-output (%numeric num radix precision sign-rule comma-rule comma-sep
+                            decimal-sep (decimal-align))
+                    (lambda (str)
+                        (if (> (string-length str) width)
+                            (if (and precision (> precision 0) (< precision width))
+                                (string-append
+                                        (make-string (- width precision 1) #\#)
+                                        (if (char? decimal-sep)
+                                            (string decimal-sep)
+                                            (if (eq? comma-sep #\.) "," "."))
+                                        (make-string precision #\#))
+                                    (make-string width #\#))
+                            str))))
         (define nl (displayed "\n"))
         (define fl (fn (col) (if (= col 0) nothing "\n")))
         (define (space-to column)

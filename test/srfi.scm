@@ -3178,6 +3178,11 @@
 (check-equal "-608" (show #f (numeric/si -608)))
 (check-equal "-4k" (show #f (numeric/si -3986)))
 
+(check-equal "1.23" (show #f (numeric/fitted 4 1.2345 10 2)))
+(check-equal "1.00" (show #f (numeric/fitted 4 1 10 2)))
+(check-equal "#.##" (show #f (numeric/fitted 4 12.345 10 2)))
+(check-equal "#" (show #f (numeric/fitted 1 12.345 10 0)))
+
 #|
 (define-library (srfi 166 test)
   (export run-tests)
@@ -3193,11 +3198,6 @@
            (test str (show #f (pretty sexp)))))))
     (define (run-tests)
       (test-begin "show")
-
-      (test "1.23" (show #f (numeric/fitted 4 1.2345 10 2)))
-      (test "1.00" (show #f (numeric/fitted 4 1 10 2)))
-      (test "#.##" (show #f (numeric/fitted 4 12.345 10 2)))
-      (test "#" (show #f (numeric/fitted 1 12.345 10 0)))
 
       ;; padding/trimming
 
