@@ -3154,6 +3154,30 @@
 (check-equal "123/4567" (show #f 123/4567))
 (check-equal "123/4567" (show #f (numeric 123/4567)))
 
+(check-equal "608" (show #f (numeric/si 608)))
+(check-equal "608 B" (show #f (numeric/si 608 1000 " ") "B"))
+(check-equal "4k" (show #f (numeric/si 3986)))
+(check-equal "3.9Ki" (show #f (numeric/si 3986 1024)))
+(check-equal "4kB" (show #f (numeric/si 3986 1000) "B"))
+(check-equal "1.2M" (show #f (numeric/si 1.23e6 1000)))
+(check-equal "123k" (show #f (numeric/si 1.23e5 1000)))
+(check-equal "12.3k" (show #f (numeric/si 1.23e4 1000)))
+(check-equal "1.2k" (show #f (numeric/si 1.23e3 1000)))
+(check-equal "123" (show #f (numeric/si 1.23e2 1000)))
+(check-equal "12.3" (show #f (numeric/si 1.23e1 1000)))
+(check-equal "1.2" (show #f (numeric/si 1.23 1000)))
+(check-equal "1.2 m" (show #f (numeric/si 1.23 1000 " ") "m"))
+(check-equal "123m" (show #f (numeric/si 0.123 1000)))
+(check-equal "12.3m" (show #f (numeric/si 1.23e-2 1000)))
+(check-equal "1.2m" (show #f (numeric/si 1.23e-3 1000)))
+(check-equal "123n" (show #f (numeric/si 1.23e-7 1000)))
+(check-equal "12.3n" (show #f (numeric/si 1.23e-8 1000)))
+(check-equal "1.2n" (show #f (numeric/si 1.23e-9 1000)))
+(check-equal "1.2 nm" (show #f (numeric/si 1.23e-9 1000 " ") "m"))
+(check-equal "0" (show #f (numeric/si 0)))
+(check-equal "-608" (show #f (numeric/si -608)))
+(check-equal "-4k" (show #f (numeric/si -3986)))
+
 #|
 (define-library (srfi 166 test)
   (export run-tests)
@@ -3169,32 +3193,6 @@
            (test str (show #f (pretty sexp)))))))
     (define (run-tests)
       (test-begin "show")
-
-      ;; basic data types
-
-      (test "608" (show #f (numeric/si 608)))
-      (test "608 B" (show #f (numeric/si 608 1000 " ") "B"))
-      (test "4k" (show #f (numeric/si 3986)))
-      (test "3.9Ki" (show #f (numeric/si 3986 1024)))
-      (test "4kB" (show #f (numeric/si 3986 1000) "B"))
-      (test "1.2Mm" (show #f (numeric/si 1.23e6 1000) "m"))
-      (test "123km" (show #f (numeric/si 1.23e5 1000) "m"))
-      (test "12.3km" (show #f (numeric/si 1.23e4 1000) "m"))
-      (test "1.2km" (show #f (numeric/si 1.23e3 1000) "m"))
-      (test "123m" (show #f (numeric/si 1.23e2 1000) "m"))
-      (test "12.3m" (show #f (numeric/si 1.23e1 1000) "m"))
-      (test "1.2m" (show #f (numeric/si 1.23 1000) "m"))
-      (test "1.2 m" (show #f (numeric/si 1.23 1000 " ") "m"))
-      (test "123mm" (show #f (numeric/si 0.123 1000) "m"))
-      (test "12.3mm" (show #f (numeric/si 1.23e-2 1000) "m")) ;?
-      (test "1.2mm" (show #f (numeric/si 1.23e-3 1000) "m"))
-      (test "123µm" (show #f (numeric/si 1.23e-4 1000) "m"))  ;?
-      (test "12.3µm" (show #f (numeric/si 1.23e-5 1000) "m")) ;?
-      (test "1.2µm" (show #f (numeric/si 1.23e-6 1000) "m"))
-      (test "1.2 µm" (show #f (numeric/si 1.23e-6 1000 " ") "m"))
-      (test "0" (show #f (numeric/si 0)))
-      (test "-608" (show #f (numeric/si -608)))
-      (test "-4k" (show #f (numeric/si -3986)))
 
       (test "1.23" (show #f (numeric/fitted 4 1.2345 10 2)))
       (test "1.00" (show #f (numeric/fitted 4 1 10 2)))

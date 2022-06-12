@@ -9,6 +9,7 @@
         maybe-escaped
         numeric
         numeric/comma
+        numeric/si
 
         nl
         fl
@@ -300,6 +301,52 @@
                                     (else
                                         (string-append (car sign-rule) str (cdr sign-rule))))
                                 decimal-align %decimal-sep))))))
+        (define numeric/si
+            (case-lambda
+                ((num) (%numeric/si num 1000 ""))
+                ((num base) (%numeric/si num base ""))
+                ((num base sep) (%numeric/si num base sep))))
+        (define (%numeric/si num base sep)
+            (define (si-precision d)
+                (if (>= d 100)
+                    0
+                    (if (= 0 (modulo (round (* d 10)) 10))
+                        0
+                        1)))
+            (define (si10 n k prefixes)
+                (if (null? (cdr prefixes))
+                    (each (numeric (/ n k) 10 0) sep (car prefixes))
+                    (let ((d (/ n k)))
+                        (if (< d base)
+                            (each (numeric d 10 (si-precision d)) sep (car prefixes))
+                            (si10 n (* k base) (cdr prefixes))))))
+            (define (si-10 n k prefixes)
+                (if (null? (cdr prefixes))
+                    (each (numeric (* n k) 10 0) sep (car prefixes))
+                    (let ((d (* n k)))
+                        (if (>= d 1)
+                            (each (numeric d 10 (si-precision d)) sep (car prefixes))
+                            (si-10 n (* k base) (cdr prefixes))))))
+            (if (not (or (= base 1000) (= base 1024)))
+                (full-error 'assertion-violation 'numeric/si #f
+                        "numeric/si: expected base of 1000 or 1024" base))
+            (if (not (string? sep))
+                (full-error 'assertion-violation 'numeric/si #f
+                            "numeric/si: expected string for separator" sep))
+            (if (= num 0)
+                "0"
+                (let* ((n (if (< num 0) (- num) num))
+                        (str
+                            (if (< n 1)
+                                (si-10 n 1
+                                        (if (= base 1000)
+                                            '("" "m" "µ" "n" "p" "f" "a" "z" "y")
+                                            '("" "mi" "µi" "ni" "pi" "fi" "ai" "zi" "yi")))
+                                (si10 n 1
+                                        (if (= base 1000)
+                                            '("" "k" "M" "G" "T" "E" "P" "Z" "Y")
+                                            '("" "Ki" "Mi" "Gi" "Ti" "Ei" "Pi" "Zi" "Yi"))))))
+                     (each (if (< num 0) "-" "") str))))
 
         (define nl (displayed "\n"))
         (define fl (fn (col) (if (= col 0) nothing "\n")))
