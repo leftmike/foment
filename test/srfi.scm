@@ -3182,6 +3182,97 @@
 (check-equal "1.00" (show #f (numeric/fitted 4 1 10 2)))
 (check-equal "#.##" (show #f (numeric/fitted 4 12.345 10 2)))
 (check-equal "#" (show #f (numeric/fitted 1 12.345 10 0)))
+(check-equal "##" (show #f (with ((precision 0)) (numeric/fitted 2 123.45))))
+
+;; joining
+(check-equal "1 2 3" (show #f (joined each '(1 2 3) " ")))
+(check-equal "a, b, c" (show #f (joined displayed '(a b c) ", ")))
+(check-equal "123-456-7890" (show #f (joined displayed '("123" "456" "7890") "-")))
+(check-equal "abc3def7ghijk13lmn"
+    (show #f (joined displayed '("abc" "def" "ghijk" "lmn") (fn (col) col))))
+(check-equal "" (show #f (joined (lambda (obj) (raise obj)) '() "****")))
+(check-equal "abcd" (show #f (joined displayed '(abcd) "****")))
+(check-equal "abcdef" (show #f (joined displayed '(ab ef) "cd")))
+
+(check-equal "/usr/local/bin" (show #f (joined/prefix displayed '(usr local bin) "/")))
+(check-equal "1\n2\n3\n" (show #f (joined/suffix displayed '(1 2 3) nl)))
+
+(check-equal "" (show #f (joined/prefix displayed '() "*")))
+(check-equal "*ab" (show #f (joined/prefix displayed '(ab) "*")))
+(check-equal "*ab*cd" (show #f (joined/prefix displayed '(ab cd) "*")))
+(check-equal "*ab*cd*ef" (show #f (joined/prefix displayed '(ab cd ef) "*")))
+
+(check-equal "" (show #f (joined/suffix displayed '() "*")))
+(check-equal "ab*" (show #f (joined/suffix displayed '(ab) "*")))
+(check-equal "ab*cd*" (show #f (joined/suffix displayed '(ab cd) "*")))
+(check-equal "ab*cd*ef*" (show #f (joined/suffix displayed '(ab cd ef) "*")))
+
+(check-equal "lions, tigers, and bears"
+    (show #f
+            (joined/last displayed
+                    (lambda (last) (each "and " last))
+                    '(lions tigers bears)
+                    ", ")))
+(check-equal ""
+    (show #f (joined/last displayed (lambda (last) (each "#" last "#")) '() "*")))
+(check-equal "#ab#"
+    (show #f (joined/last displayed (lambda (last) (each "#" last "#")) '(ab) "*")))
+(check-equal "ab*#cd#"
+    (show #f (joined/last displayed (lambda (last) (each "#" last "#")) '(ab cd) "*")))
+(check-equal "ab*cd*#ef#"
+    (show #f (joined/last displayed (lambda (last) (each "#" last "#")) '(ab cd ef) "*")))
+
+(check-equal "(1 2 . 3)" (show #f "("
+        (joined/dot displayed (lambda (dot) (each ". " dot)) '(1 2 . 3) " ")
+        ")"))
+
+(check-equal ""
+    (show #f (joined/dot displayed (lambda (dot) (each "#" dot)) '() "*")))
+(check-equal "ab"
+    (show #f (joined/dot displayed (lambda (dot) (each "#" dot)) '(ab) "*")))
+(check-equal "ab*cd"
+    (show #f (joined/dot displayed (lambda (dot) (each "#" dot)) '(ab cd) "*")))
+(check-equal "ab*cd*ef"
+    (show #f (joined/dot displayed (lambda (dot) (each "#" dot)) '(ab cd ef) "*")))
+(check-equal "ab*#cd"
+    (show #f (joined/dot displayed (lambda (dot) (each "#" dot)) '(ab . cd) "*")))
+(check-equal "ab*cd*#ef"
+    (show #f (joined/dot displayed (lambda (dot) (each "#" dot)) '(ab cd . ef) "*")))
+
+(check-equal "" (show #f (joined/range displayed 0 0 " ")))
+(check-equal "0" (show #f (joined/range displayed 0 1 " ")))
+(check-equal "0 1" (show #f (joined/range displayed 0 1.5 " ")))
+(check-equal "0 1" (show #f (joined/range displayed 0 2 " ")))
+(check-equal "0 1 2" (show #f (joined/range displayed 0 2.000001 " ")))
+(check-equal "0 1 2 3 4" (show #f (joined/range displayed 0 5 " ")))
+
+#|
+(check-equal ":abc:123"
+    (show #f (joined/prefix
+              (lambda (x) (trimmed/right 3 x))
+              '("abcdef" "123456")
+              ":")))
+
+(check-equal "abc\n123\n"
+    (show #f (joined/suffix
+              (lambda (x) (trimmed/right 3 x))
+              '("abcdef" "123456")
+              nl)))
+
+(check-equal "lions, tigers, and bears"
+    (show #f (joined/last
+              each
+              (lambda (x) (each "and " x))
+              '(lions tigers bears)
+              ", ")))
+
+(check-equal "lions, tigers, or bears"
+    (show #f (joined/dot
+              each
+              (lambda (x) (each "or " x))
+              '(lions tigers . bears)
+              ", ")))
+|#
 
 #|
 (define-library (srfi 166 test)
@@ -3288,36 +3379,6 @@
           (show #f "prefix: " (fitted 5 "abcdefgh") " :suffix"))
       (test "prefix: bcdef :suffix"
           (show #f "prefix: " (fitted/both 5 "abcdefgh") " :suffix"))
-
-      ;; joining
-
-      (test "1 2 3" (show #f (joined each '(1 2 3) " ")))
-
-      (test ":abc:123"
-          (show #f (joined/prefix
-                    (lambda (x) (trimmed/right 3 x))
-                    '("abcdef" "123456")
-                    ":")))
-
-      (test "abc\n123\n"
-          (show #f (joined/suffix
-                    (lambda (x) (trimmed/right 3 x))
-                    '("abcdef" "123456")
-                    nl)))
-
-      (test "lions, tigers, and bears"
-          (show #f (joined/last
-                    each
-                    (lambda (x) (each "and " x))
-                    '(lions tigers bears)
-                    ", ")))
-
-      (test "lions, tigers, or bears"
-          (show #f (joined/dot
-                    each
-                    (lambda (x) (each "or " x))
-                    '(lions tigers . bears)
-                    ", ")))
 
       ;; shared structures
 

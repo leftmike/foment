@@ -18,7 +18,11 @@
         nothing
         each
         each-in-list
-
+        joined
+        joined/prefix
+        joined/suffix
+        joined/last
+        joined/dot
         joined/range
 
         upcased
@@ -413,18 +417,67 @@
                         (displayed fmt)
                         (fn () ((displayed fmt)) (each-in-list fmts))))
                 nothing))
-
-; From chibi scheme
-; XXX
-(define (joined/range elt-f start . o)
-  (let ((end (and (pair? o) (car o)))
-        (sep (if (and (pair? o) (pair? (cdr o))) (cadr o) "")))
-    (let lp ((i start))
-      (if (and end (>= i end))
-          nothing
-          (each (if (> i start) sep nothing)
-                (elt-f i)
-                (fn () (lp (+ i 1))))))))
+        (define joined
+            (case-lambda
+                ((mapper lst) (%joined mapper lst ""))
+                ((mapper lst sep) (%joined mapper lst sep))))
+        (define (%joined mapper lst sep)
+            (if (null? lst)
+                nothing
+                (if (null? (cdr lst))
+                    (mapper (car lst))
+                    (each (mapper (car lst)) sep (fn () (%joined mapper (cdr lst) sep))))))
+        (define joined/prefix
+            (case-lambda
+                ((mapper lst) (%joined/prefix mapper lst ""))
+                ((mapper lst sep) (%joined/prefix mapper lst sep))))
+        (define (%joined/prefix mapper lst sep)
+            (if (null? lst)
+                nothing
+                (each sep (mapper (car lst)) (fn () (%joined/prefix mapper (cdr lst) sep)))))
+        (define joined/suffix
+            (case-lambda
+                ((mapper lst) (%joined/suffix mapper lst ""))
+                ((mapper lst sep) (%joined/suffix mapper lst sep))))
+        (define (%joined/suffix mapper lst sep)
+            (if (null? lst)
+                nothing
+                (each (mapper (car lst)) sep (fn () (%joined/suffix mapper (cdr lst) sep)))))
+        (define joined/last
+            (case-lambda
+                ((mapper last lst) (%joined/last mapper last lst ""))
+                ((mapper last lst sep) (%joined/last mapper last lst sep))))
+        (define (%joined/last mapper last lst sep)
+            (if (null? lst)
+                nothing
+                (if (null? (cdr lst))
+                    (last (car lst))
+                    (each (mapper (car lst)) sep
+                            (fn () (%joined/last mapper last (cdr lst) sep))))))
+        (define joined/dot
+            (case-lambda
+                ((mapper dot lst) (%joined/dot mapper dot lst ""))
+                ((mapper dot lst sep) (%joined/dot mapper dot lst sep))))
+        (define (%joined/dot mapper dot lst sep)
+            (if (null? lst)
+                nothing
+                (if (pair? lst)
+                    (if (null? (cdr lst))
+                        (mapper (car lst))
+                        (each (mapper (car lst)) sep
+                                (fn () (%joined/dot mapper dot (cdr lst) sep))))
+                    (dot lst))))
+        (define joined/range
+            (case-lambda
+                ((mapper start) (%joined/range mapper start #f ""))
+                ((mapper start end) (%joined/range mapper start end ""))
+                ((mapper start end sep) (%joined/range mapper start end sep))))
+        (define (%joined/range mapper start end sep)
+            (if (or (not end) (< (+ start 1) end))
+                (each (mapper start) sep (fn () (%joined/range mapper (+ start 1) end sep)))
+                (if (< start end)
+                    (mapper start)
+                    nothing)))
 
         (define (with-output proc fmt)
             (fn ((original output))
