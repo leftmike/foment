@@ -3258,6 +3258,7 @@
               (lambda (x) (trimmed/right 3 x))
               '("abcdef" "123456")
               nl)))
+|#
 
 (check-equal "lions, tigers, and bears"
     (show #f (joined/last
@@ -3272,6 +3273,96 @@
               (lambda (x) (each "or " x))
               '(lions tigers . bears)
               ", ")))
+
+;; padding/trimming
+(check-equal "abc  " (show #f (padded/right 5 "abc")))
+(check-equal "  abc" (show #f (padded 5 "abc")))
+(check-equal "abcdefghi" (show #f (padded 5 "abcdefghi")))
+(check-equal " abc " (show #f (padded/both 5 "abc")))
+(check-equal " abc  " (show #f (padded/both 6 "abc")))
+(check-equal "abcde" (show #f (padded/right 5 "abcde")))
+(check-equal "abcdef" (show #f (padded/right 5 "abcdef")))
+
+#|
+(check-equal "abc" (show #f (trimmed/right 3 "abcde")))
+(check-equal "abc" (show #f (trimmed/right 3 "abcd")))
+(check-equal "abc" (show #f (trimmed/right 3 "abc")))
+(check-equal "ab" (show #f (trimmed/right 3 "ab")))
+(check-equal "a" (show #f (trimmed/right 3 "a")))
+(check-equal "abcde" (show #f (trimmed/right 5 "abcdef")))
+(check-equal "abcde" (show #f (trimmed 5 "abcde")))
+(check-equal "cde" (show #f (trimmed 3 "abcde")))
+(check-equal "bcdef" (show #f (trimmed 5 "abcdef")))
+(check-equal "bcd" (show #f (trimmed/both 3 "abcde")))
+(check-equal "abcd" (show #f (trimmed/both 4 "abcde")))
+(check-equal "abcde" (show #f (trimmed/both 5 "abcdef")))
+(check-equal "bcde" (show #f (trimmed/both 4 "abcdef")))
+(check-equal "bcdef" (show #f (trimmed/both 5 "abcdefgh")))
+(check-equal "abc" (show #f (trimmed/lazy 3 "abcde")))
+(check-equal "abc" (show #f (trimmed/lazy 3 "abc\nde")))
+
+(check-equal "prefix: abc" (show #f "prefix: " (trimmed/right 3 "abcde")))
+(check-equal "prefix: cde" (show #f "prefix: " (trimmed 3 "abcde")))
+(check-equal "prefix: bcd" (show #f "prefix: " (trimmed/both 3 "abcde")))
+(check-equal "prefix: abc" (show #f "prefix: " (trimmed/lazy 3 "abcde")))
+(check-equal "prefix: abc" (show #f "prefix: " (trimmed/lazy 3 "abc\nde")))
+
+(check-equal "abc :suffix" (show #f (trimmed/right 3 "abcde") " :suffix"))
+(check-equal "cde :suffix" (show #f (trimmed 3 "abcde") " :suffix"))
+(check-equal "bcd :suffix" (show #f (trimmed/both 3 "abcde") " :suffix"))
+(check-equal "abc :suffix" (show #f (trimmed/lazy 3 "abcde") " :suffix"))
+(check-equal "abc :suffix" (show #f (trimmed/lazy 3 "abc\nde") " :suffix"))
+
+(check-equal "abc" (show #f (trimmed/lazy 10 (trimmed/lazy 3 "abcdefghijklmnopqrstuvwxyz"))))
+(check-equal "abc" (show #f (trimmed/lazy 3 (trimmed/lazy 10 "abcdefghijklmnopqrstuvwxyz"))))
+
+(check-equal "abcde"
+    (show #f (with ((ellipsis "...")) (trimmed/right 5 "abcde"))))
+(check-equal "ab..."
+    (show #f (with ((ellipsis "...")) (trimmed/right 5 "abcdef"))))
+(check-equal "abc..."
+    (show #f (with ((ellipsis "...")) (trimmed/right 6 "abcdefg"))))
+(check-equal "abcde"
+    (show #f (with ((ellipsis "...")) (trimmed 5 "abcde"))))
+(check-equal "...ef"
+    (show #f (with ((ellipsis "...")) (trimmed 5 "abcdef"))))
+(check-equal "...efg"
+    (show #f (with ((ellipsis "...")) (trimmed 6 "abcdefg"))))
+(check-equal "abcdefg"
+    (show #f (with ((ellipsis "...")) (trimmed/both 7 "abcdefg"))))
+(check-equal "...d..."
+    (show #f (with ((ellipsis "...")) (trimmed/both 7 "abcdefgh"))))
+(check-equal "...e..."
+    (show #f (with ((ellipsis "...")) (trimmed/both 7 "abcdefghi"))))
+
+(check-equal "abc  " (show #f (fitted/right 5 "abc")))
+(check-equal "  abc" (show #f (fitted 5 "abc")))
+(check-equal " abc " (show #f (fitted/both 5 "abc")))
+(check-equal "abcde" (show #f (fitted/right 5 "abcde")))
+(check-equal "abcde" (show #f (fitted 5 "abcde")))
+(check-equal "abcde" (show #f (fitted/both 5 "abcde")))
+(check-equal "abcde" (show #f (fitted/right 5 "abcdefgh")))
+(check-equal "defgh" (show #f (fitted 5 "abcdefgh")))
+(check-equal "bcdef" (show #f (fitted/both 5 "abcdefgh")))
+
+(check-equal "prefix: abc   :suffix"
+    (show #f "prefix: " (fitted/right 5 "abc") " :suffix"))
+(check-equal "prefix:   abc :suffix"
+    (show #f "prefix: " (fitted 5 "abc") " :suffix"))
+(check-equal "prefix:  abc  :suffix"
+    (show #f "prefix: " (fitted/both 5 "abc") " :suffix"))
+(check-equal "prefix: abcde :suffix"
+    (show #f "prefix: " (fitted/right 5 "abcde") " :suffix"))
+(check-equal "prefix: abcde :suffix"
+    (show #f "prefix: " (fitted 5 "abcde") " :suffix"))
+(check-equal "prefix: abcde :suffix"
+    (show #f "prefix: " (fitted/both 5 "abcde") " :suffix"))
+(check-equal "prefix: abcde :suffix"
+    (show #f "prefix: " (fitted/right 5 "abcdefgh") " :suffix"))
+(check-equal "prefix: defgh :suffix"
+    (show #f "prefix: " (fitted 5 "abcdefgh") " :suffix"))
+(check-equal "prefix: bcdef :suffix"
+    (show #f "prefix: " (fitted/both 5 "abcdefgh") " :suffix"))
 |#
 
 #|
@@ -3289,96 +3380,6 @@
            (test str (show #f (pretty sexp)))))))
     (define (run-tests)
       (test-begin "show")
-
-      ;; padding/trimming
-
-      (test "abc  " (show #f (padded/right 5 "abc")))
-      (test "  abc" (show #f (padded 5 "abc")))
-      (test "abcdefghi" (show #f (padded 5 "abcdefghi")))
-      (test " abc " (show #f (padded/both 5 "abc")))
-      (test " abc  " (show #f (padded/both 6 "abc")))
-      (test "abcde" (show #f (padded/right 5 "abcde")))
-      (test "abcdef" (show #f (padded/right 5 "abcdef")))
-
-      (test "abc" (show #f (trimmed/right 3 "abcde")))
-      (test "abc" (show #f (trimmed/right 3 "abcd")))
-      (test "abc" (show #f (trimmed/right 3 "abc")))
-      (test "ab" (show #f (trimmed/right 3 "ab")))
-      (test "a" (show #f (trimmed/right 3 "a")))
-      (test "abcde" (show #f (trimmed/right 5 "abcdef")))
-      (test "abcde" (show #f (trimmed 5 "abcde")))
-      (test "cde" (show #f (trimmed 3 "abcde")))
-      (test "bcdef" (show #f (trimmed 5 "abcdef")))
-      (test "bcd" (show #f (trimmed/both 3 "abcde")))
-      (test "abcd" (show #f (trimmed/both 4 "abcde")))
-      (test "abcde" (show #f (trimmed/both 5 "abcdef")))
-      (test "bcde" (show #f (trimmed/both 4 "abcdef")))
-      (test "bcdef" (show #f (trimmed/both 5 "abcdefgh")))
-      (test "abc" (show #f (trimmed/lazy 3 "abcde")))
-      (test "abc" (show #f (trimmed/lazy 3 "abc\nde")))
-
-      (test "prefix: abc" (show #f "prefix: " (trimmed/right 3 "abcde")))
-      (test "prefix: cde" (show #f "prefix: " (trimmed 3 "abcde")))
-      (test "prefix: bcd" (show #f "prefix: " (trimmed/both 3 "abcde")))
-      (test "prefix: abc" (show #f "prefix: " (trimmed/lazy 3 "abcde")))
-      (test "prefix: abc" (show #f "prefix: " (trimmed/lazy 3 "abc\nde")))
-
-      (test "abc :suffix" (show #f (trimmed/right 3 "abcde") " :suffix"))
-      (test "cde :suffix" (show #f (trimmed 3 "abcde") " :suffix"))
-      (test "bcd :suffix" (show #f (trimmed/both 3 "abcde") " :suffix"))
-      (test "abc :suffix" (show #f (trimmed/lazy 3 "abcde") " :suffix"))
-      (test "abc :suffix" (show #f (trimmed/lazy 3 "abc\nde") " :suffix"))
-
-      (test "abc" (show #f (trimmed/lazy 10 (trimmed/lazy 3 "abcdefghijklmnopqrstuvwxyz"))))
-      (test "abc" (show #f (trimmed/lazy 3 (trimmed/lazy 10 "abcdefghijklmnopqrstuvwxyz"))))
-
-      (test "abcde"
-          (show #f (with ((ellipsis "...")) (trimmed/right 5 "abcde"))))
-      (test "ab..."
-          (show #f (with ((ellipsis "...")) (trimmed/right 5 "abcdef"))))
-      (test "abc..."
-          (show #f (with ((ellipsis "...")) (trimmed/right 6 "abcdefg"))))
-      (test "abcde"
-          (show #f (with ((ellipsis "...")) (trimmed 5 "abcde"))))
-      (test "...ef"
-          (show #f (with ((ellipsis "...")) (trimmed 5 "abcdef"))))
-      (test "...efg"
-          (show #f (with ((ellipsis "...")) (trimmed 6 "abcdefg"))))
-      (test "abcdefg"
-          (show #f (with ((ellipsis "...")) (trimmed/both 7 "abcdefg"))))
-      (test "...d..."
-          (show #f (with ((ellipsis "...")) (trimmed/both 7 "abcdefgh"))))
-      (test "...e..."
-          (show #f (with ((ellipsis "...")) (trimmed/both 7 "abcdefghi"))))
-
-      (test "abc  " (show #f (fitted/right 5 "abc")))
-      (test "  abc" (show #f (fitted 5 "abc")))
-      (test " abc " (show #f (fitted/both 5 "abc")))
-      (test "abcde" (show #f (fitted/right 5 "abcde")))
-      (test "abcde" (show #f (fitted 5 "abcde")))
-      (test "abcde" (show #f (fitted/both 5 "abcde")))
-      (test "abcde" (show #f (fitted/right 5 "abcdefgh")))
-      (test "defgh" (show #f (fitted 5 "abcdefgh")))
-      (test "bcdef" (show #f (fitted/both 5 "abcdefgh")))
-
-      (test "prefix: abc   :suffix"
-          (show #f "prefix: " (fitted/right 5 "abc") " :suffix"))
-      (test "prefix:   abc :suffix"
-          (show #f "prefix: " (fitted 5 "abc") " :suffix"))
-      (test "prefix:  abc  :suffix"
-          (show #f "prefix: " (fitted/both 5 "abc") " :suffix"))
-      (test "prefix: abcde :suffix"
-          (show #f "prefix: " (fitted/right 5 "abcde") " :suffix"))
-      (test "prefix: abcde :suffix"
-          (show #f "prefix: " (fitted 5 "abcde") " :suffix"))
-      (test "prefix: abcde :suffix"
-          (show #f "prefix: " (fitted/both 5 "abcde") " :suffix"))
-      (test "prefix: abcde :suffix"
-          (show #f "prefix: " (fitted/right 5 "abcdefgh") " :suffix"))
-      (test "prefix: defgh :suffix"
-          (show #f "prefix: " (fitted 5 "abcdefgh") " :suffix"))
-      (test "prefix: bcdef :suffix"
-          (show #f "prefix: " (fitted/both 5 "abcdefgh") " :suffix"))
 
       ;; shared structures
 

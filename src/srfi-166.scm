@@ -24,6 +24,9 @@
         joined/last
         joined/dot
         joined/range
+        padded
+        padded/right
+        padded/both
 
         upcased
         downcased
@@ -39,6 +42,8 @@
         output
         output-default
         writer
+        string-width
+        substring/width
 
         pad-char
 
@@ -409,8 +414,6 @@
         (define (each . fmts)
             (each-in-list fmts))
         (define (each-in-list fmts)
-;            (let ((fmts (map (lambda (fmt) (displayed fmt)) fmts)))
-;                (%formatter () (for-each (lambda (fmt) (fmt)) fmts))))
             (if (pair? fmts)
                 (let ((fmt (car fmts)) (fmts (cdr fmts)))
                     (if (null? fmts)
@@ -478,6 +481,34 @@
                 (if (< start end)
                     (mapper start)
                     nothing)))
+        (define (padded width . fmts)
+            (call-with-output (each-in-list fmts)
+                    (lambda (str)
+                        (fn (string-width pad-char)
+                            (let ((pad (- width (string-width str))))
+                                (if (> pad 0)
+                                    (each (make-string pad pad-char) str)
+                                    str))))))
+        (define (padded/right width . fmts)
+            (fn ((start col))
+                (each
+                    (each-in-list fmts)
+                    (fn ((end col) pad-char)
+                        (if (> width (- end start))
+                            (make-string (- width (- end start)) pad-char)
+                            nothing)))))
+        (define (padded/both width . fmts)
+            (call-with-output (each-in-list fmts)
+                    (lambda (str)
+                        (fn (string-width pad-char)
+                            (let* ((pad (- width (string-width str)))
+                                    (left (truncate-quotient pad 2)))
+                                (if (> pad 0)
+                                    (each
+                                            (make-string left pad-char)
+                                            str
+                                            (make-string (- pad left) pad-char))
+                                    str))))))
 
         (define (with-output proc fmt)
             (fn ((original output))
@@ -514,6 +545,11 @@
                     str)
                 (col c)
                 (row r)))
+        (define string-width-default
+            (case-lambda
+                ((str) (string-length str))
+                ((str start) (- (string-length str) start))
+                ((str start end) (- end start))))
 
         (define port (make-parameter (current-output-port))) ; check for output-port
         (define row (make-parameter #f))
@@ -521,6 +557,8 @@
 
         (define output (make-parameter output-default)) ; check for procedure
         (define writer (make-parameter written-default)) ; check for procedure
+        (define string-width (make-parameter string-width-default)) ; check for procedure
+        (define substring/width (make-parameter substring)) ; check for procedure
 
         (define pad-char (make-parameter #\space)) ; check for character
 
