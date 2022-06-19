@@ -3246,7 +3246,6 @@
 (check-equal "0 1 2" (show #f (joined/range displayed 0 2.000001 " ")))
 (check-equal "0 1 2 3 4" (show #f (joined/range displayed 0 5 " ")))
 
-#|
 (check-equal ":abc:123"
     (show #f (joined/prefix
               (lambda (x) (trimmed/right 3 x))
@@ -3258,7 +3257,6 @@
               (lambda (x) (trimmed/right 3 x))
               '("abcdef" "123456")
               nl)))
-|#
 
 (check-equal "lions, tigers, and bears"
     (show #f (joined/last
@@ -3283,7 +3281,6 @@
 (check-equal "abcde" (show #f (padded/right 5 "abcde")))
 (check-equal "abcdef" (show #f (padded/right 5 "abcdef")))
 
-#|
 (check-equal "abc" (show #f (trimmed/right 3 "abcde")))
 (check-equal "abc" (show #f (trimmed/right 3 "abcd")))
 (check-equal "abc" (show #f (trimmed/right 3 "abc")))
@@ -3300,6 +3297,7 @@
 (check-equal "bcdef" (show #f (trimmed/both 5 "abcdefgh")))
 (check-equal "abc" (show #f (trimmed/lazy 3 "abcde")))
 (check-equal "abc" (show #f (trimmed/lazy 3 "abc\nde")))
+(check-equal "abc" (show #f (trimmed/lazy 3 "a" "b" "c" "d" "e")))
 
 (check-equal "prefix: abc" (show #f "prefix: " (trimmed/right 3 "abcde")))
 (check-equal "prefix: cde" (show #f "prefix: " (trimmed 3 "abcde")))
@@ -3315,6 +3313,7 @@
 
 (check-equal "abc" (show #f (trimmed/lazy 10 (trimmed/lazy 3 "abcdefghijklmnopqrstuvwxyz"))))
 (check-equal "abc" (show #f (trimmed/lazy 3 (trimmed/lazy 10 "abcdefghijklmnopqrstuvwxyz"))))
+(check-equal "0 1 2 3 4" (show #f (trimmed/lazy 9 (joined/range displayed 0 #f " "))))
 
 (check-equal "abcde"
     (show #f (with ((ellipsis "...")) (trimmed/right 5 "abcde"))))
@@ -3363,7 +3362,6 @@
     (show #f "prefix: " (fitted 5 "abcdefgh") " :suffix"))
 (check-equal "prefix: bcdef :suffix"
     (show #f "prefix: " (fitted/both 5 "abcdefgh") " :suffix"))
-|#
 
 #|
 (define-library (srfi 166 test)

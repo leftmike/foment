@@ -27,6 +27,13 @@
         padded
         padded/right
         padded/both
+        trimmed
+        trimmed/right
+        trimmed/both
+        trimmed/lazy
+        fitted
+        fitted/right
+        fitted/both
 
         upcased
         downcased
@@ -44,9 +51,9 @@
         writer
         string-width
         substring/width
-
+        substring/preserve
         pad-char
-
+        ellipsis
         radix
         precision
         decimal-sep
@@ -509,6 +516,80 @@
                                             str
                                             (make-string (- pad left) pad-char))
                                     str))))))
+        (define (trimmed width . fmts)
+            (call-with-output (each-in-list fmts)
+                    (lambda (str)
+                        (fn (string-width ellipsis substring/preserve substring/width)
+                            (let* ((extra (- (string-width str) width))
+                                    (ellipsis (if (< (string-width ellipsis) width) ellipsis ""))
+                                    (trim (+ extra (string-width ellipsis))))
+                                (if (> extra 0)
+                                    (each
+                                        (if substring/preserve
+                                            (substring/preserve (substring/width str 0 trim))
+                                            nothing)
+                                        ellipsis
+                                        (substring/width str trim (string-width str)))
+                                    str))))))
+        (define (trimmed/right width . fmts)
+            (call-with-output (each-in-list fmts)
+                    (lambda (str)
+                        (fn (string-width ellipsis substring/preserve substring/width)
+                            (let* ((extra (- (string-width str) width))
+                                    (ellipsis (if (< (string-width ellipsis) width) ellipsis ""))
+                                    (trim (+ extra (string-width ellipsis))))
+                                (if (> extra 0)
+                                    (each
+                                        (substring/width str 0 (- (string-width str) trim))
+                                        ellipsis
+                                        (if substring/preserve
+                                            (substring/preserve (substring/width str
+                                                    (- (string-width str) trim)
+                                                    (string-width str)))
+                                            nothing))
+                                    str))))))
+        (define (trimmed/both width . fmts)
+            (call-with-output (each-in-list fmts)
+                    (lambda (str)
+                        (fn (string-width ellipsis substring/preserve substring/width)
+                            (let* ((extra (- (string-width str) width))
+                                    (ellipsis
+                                        (if (< (* 2 (string-width ellipsis)) width) ellipsis ""))
+                                    (trim (+ extra (* 2 (string-width ellipsis))))
+                                    (left (truncate-quotient trim 2))
+                                    (right (- trim left)))
+                                (if (> extra 0)
+                                    (each
+                                        (if substring/preserve
+                                            (substring/preserve (substring/width str 0 left))
+                                            nothing)
+                                        ellipsis
+                                        (substring/width str left (- (string-width str) right))
+                                        ellipsis
+                                        (if substring/preserve
+                                            (substring/preserve (substring/width str right
+                                                    (string-width str)))
+                                            nothing))
+                                    str))))))
+        (define (trimmed/lazy width . fmts)
+          (fn (string-width substring/width)
+            (call/cc (lambda (done)
+            (let ((count 0))
+              (define (output/lazy original str)
+                (if (< count width)
+                    (let ((len (string-width str)))
+                      (if (< (+ count len) width)
+                          (original str)
+                          (original (substring/width str 0 (- width count))))
+                      (set! count (+ count len)))
+                    (done nothing)))
+              (with-output output/lazy (each-in-list fmts)))))))
+        (define (fitted width . fmts)
+            (padded width (trimmed width (each-in-list fmts))))
+        (define (fitted/right width . fmts)
+            (padded/right width (trimmed/right width (each-in-list fmts))))
+        (define (fitted/both width . fmts)
+            (padded/both width (trimmed/both width (each-in-list fmts))))
 
         (define (with-output proc fmt)
             (fn ((original output))
@@ -559,9 +640,9 @@
         (define writer (make-parameter written-default)) ; check for procedure
         (define string-width (make-parameter string-width-default)) ; check for procedure
         (define substring/width (make-parameter substring)) ; check for procedure
-
+        (define substring/preserve (make-parameter #f)) ; check for #f or procedure
         (define pad-char (make-parameter #\space)) ; check for character
-
+        (define ellipsis (make-parameter "")) ; check for string
         (define radix (make-parameter 10)) ; check for 2 to 36
         (define precision (make-parameter #f)) ; check for #f or integer
         (define decimal-sep (make-parameter #f)) ; check for character
