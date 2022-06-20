@@ -39,9 +39,10 @@
         downcased
         fn
         with
-
+        with!
+        forked
         call-with-output
-
+        make-state-variable
         port
         row
         col
@@ -603,12 +604,30 @@
             (with-output
                     (lambda (output str) (output (string-downcase str)))
                     (each-in-list fmts)))
-
+        (define-syntax with!
+            (syntax-rules ()
+                ((with! (var val) ...)
+                    (begin (var val) ...))))
+        (define (forked fmt1 fmt2)
+            (each
+                (call-with-parameterize
+                        state-variables
+                        (map (lambda (var) (var)) state-variables)
+                        (fn () fmt1))
+                fmt2))
         (define (call-with-output formatter mapper)
             (let ((out (open-output-string)))
-                ((with ((port out) (output output-default) (col 0) (row 0)) formatter))
-                (fn () (mapper (get-output-string out)))))
-
+                (forked (with ((port out) (output output-default) (col 0) (row 0)) formatter)
+                (fn () (mapper (get-output-string out))))))
+        (define state-variables '())
+        (define make-state-variable
+            (case-lambda
+                ((name default) (%make-state-variable default))
+                ((name default immutable) (%make-state-variable default))))
+        (define (%make-state-variable default)
+            (let ((param (make-parameter default)))
+                (set! state-variables (cons param state-variables))
+                param))
         (define (output-default str)
             (write-string str (port))
             (let ((c (col)) (r (row)))
@@ -631,24 +650,23 @@
                 ((str) (string-length str))
                 ((str start) (- (string-length str) start))
                 ((str start end) (- end start))))
+        (define port (%make-state-variable (current-output-port))) ; check for output-port
+        (define row (%make-state-variable #f))
+        (define col (%make-state-variable #f))
 
-        (define port (make-parameter (current-output-port))) ; check for output-port
-        (define row (make-parameter #f))
-        (define col (make-parameter #f))
-
-        (define output (make-parameter output-default)) ; check for procedure
-        (define writer (make-parameter written-default)) ; check for procedure
-        (define string-width (make-parameter string-width-default)) ; check for procedure
-        (define substring/width (make-parameter substring)) ; check for procedure
-        (define substring/preserve (make-parameter #f)) ; check for #f or procedure
-        (define pad-char (make-parameter #\space)) ; check for character
-        (define ellipsis (make-parameter "")) ; check for string
-        (define radix (make-parameter 10)) ; check for 2 to 36
-        (define precision (make-parameter #f)) ; check for #f or integer
-        (define decimal-sep (make-parameter #f)) ; check for character
-        (define decimal-align (make-parameter #f)) ; check for integer
-        (define sign-rule (make-parameter #f)) ; check for #f, #t, or pair of strings
-        (define comma-rule (make-parameter #f)) ; check for #f, integer, or list of integers
-        (define comma-sep (make-parameter #f)) ; check for character
+        (define output (%make-state-variable output-default)) ; check for procedure
+        (define writer (%make-state-variable written-default)) ; check for procedure
+        (define string-width (%make-state-variable string-width-default)) ; check for procedure
+        (define substring/width (%make-state-variable substring)) ; check for procedure
+        (define substring/preserve (%make-state-variable #f)) ; check for #f or procedure
+        (define pad-char (%make-state-variable #\space)) ; check for character
+        (define ellipsis (%make-state-variable "")) ; check for string
+        (define radix (%make-state-variable 10)) ; check for 2 to 36
+        (define precision (%make-state-variable #f)) ; check for #f or integer
+        (define decimal-sep (%make-state-variable #f)) ; check for character
+        (define decimal-align (%make-state-variable #f)) ; check for integer
+        (define sign-rule (%make-state-variable #f)) ; check for #f, #t, or pair of strings
+        (define comma-rule (%make-state-variable #f)) ; check for #f, integer, or list of integers
+        (define comma-sep (%make-state-variable #f)) ; check for character
         )
     )

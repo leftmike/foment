@@ -695,7 +695,8 @@
         procedure-property
         set-procedure-property!
         %procedure->formatter
-        %formatter?)
+        %formatter?
+        call-with-parameterize)
     (cond-expand
         (unix
             (export
