@@ -35,6 +35,8 @@
         fitted/right
         fitted/both
 
+        columnar
+
         upcased
         downcased
         fn
@@ -46,7 +48,7 @@
         port
         row
         col
-
+        width
         output
         output-default
         writer
@@ -61,7 +63,9 @@
         decimal-align
         sign-rule
         comma-rule
-        comma-sep)
+        comma-sep
+
+        make-runner)
     (begin
         (define-syntax %formatter
             (syntax-rules ()
@@ -573,24 +577,150 @@
                                             nothing))
                                     str))))))
         (define (trimmed/lazy width . fmts)
-          (fn (string-width substring/width)
-            (call/cc (lambda (done)
-            (let ((count 0))
-              (define (output/lazy original str)
-                (if (< count width)
-                    (let ((len (string-width str)))
-                      (if (< (+ count len) width)
-                          (original str)
-                          (original (substring/width str 0 (- width count))))
-                      (set! count (+ count len)))
-                    (done nothing)))
-              (with-output output/lazy (each-in-list fmts)))))))
+            (fn (string-width substring/width)
+                (call/cc
+                    (lambda (done)
+                        (let ((count 0))
+                            (define (output/lazy original str)
+                                (if (< count width)
+                                    (let ((len (string-width str)))
+                                        (if (< (+ count len) width)
+                                            (original str)
+                                            (original (substring/width str 0 (- width count))))
+                                        (set! count (+ count len)))
+                                    (done nothing)))
+                            (with-output output/lazy (each-in-list fmts)))))))
         (define (fitted width . fmts)
             (padded width (trimmed width (each-in-list fmts))))
         (define (fitted/right width . fmts)
             (padded/right width (trimmed/right width (each-in-list fmts))))
         (define (fitted/both width . fmts)
             (padded/both width (trimmed/both width (each-in-list fmts))))
+
+        (define (make-runner wid fmt)
+            (let ((out (open-output-string)))
+                (call-with-parameterize
+                    state-variables
+                    (map
+                        (lambda (var)
+                            (cond
+                                ((eq? var port) out)
+                                ((eq? var output) output-default)
+                                ((eq? var col) 0)
+                                ((eq? var row) 0)
+                                ((eq? var width) wid)
+                                (else (var))))
+                        state-variables)
+                    (lambda () (fmt)))
+                (let* ((str (get-output-string out))
+                        (len (string-length str))
+                        (strt 0))
+                    (define (line idx)
+                        (cond
+                            ((> idx len) #f)
+                            ((= idx len)
+                                (let ((ret (string-copy str strt idx)))
+                                    (set! strt (+ idx 1))
+                                    ret))
+                            ((char=? (string-ref str idx) #\newline)
+                                (let ((ret (string-copy str strt idx)))
+                                    (set! strt (+ idx 1))
+                                    ret))
+                            (else (line (+ idx 1)))))
+                    (lambda () (line strt)))))
+        (define (columnar . args)
+            (define (justify-left width str last)
+                (let ((wid ((string-width) str)))
+                    (cond
+                        ((< wid width)
+                            ((output) str)
+                            (if (not last)
+                                ((output) (make-string (- width wid) (pad-char)))))
+                        (else ((output) str)))))
+            (define (justify-right width str last)
+                (let ((wid ((string-width) str)))
+                    (cond
+                        ((< wid width)
+                            ((output) (make-string (- width wid) (pad-char)))
+                            ((output) str))
+                        (else ((output) str)))))
+            (define (justify-center width str last)
+                (let ((wid ((string-width) str)))
+                    (if (< wid width)
+                        (let* ((pad (- width wid))
+                                (left (truncate-quotient pad 2)))
+                            ((output) (make-string left (pad-char)))
+                            ((output) str)
+                            (if (not last)
+                                ((output) (make-string (- pad left) (pad-char)))))
+                        ((output) str))))
+            (define (handle-args args justify justification wid widths inf infinite cols)
+                (if (null? args)
+                    (values (reverse justification) (reverse widths) (reverse infinite)
+                            (reverse cols))
+                    (let ((arg (car args)))
+                        (cond
+                            ((string? arg)
+                                (handle-args (cdr args)
+                                        justify-left (cons justify-left justification)
+                                        #f (cons ((string-width) arg) widths) #f (cons #f infinite)
+                                        (cons arg cols)))
+                            ((%formatter? arg)
+                                (handle-args (cdr args) justify-left (cons justify justification)
+                                        #f (cons wid widths) #f (cons inf infinite)
+                                        (cons arg cols)))
+                            ((eq? arg 'left)
+                                (handle-args (cdr args) justify-left justification wid widths
+                                        inf infinite cols))
+                            ((eq? arg 'right)
+                                (handle-args (cdr args) justify-right justification wid widths
+                                        inf infinite cols))
+                            ((eq? arg 'center)
+                                (handle-args (cdr args) justify-center justification wid widths
+                                        inf infinite cols))
+                            ((eq? arg 'infinite)
+                                (handle-args (cdr args) justify justification wid widths #t
+                                        infinite cols))
+                            ((and (number? arg)
+                                (or (and (exact-integer? arg) (> arg 0))
+                                    (and (> arg 0) (< arg 1))))
+                                (handle-args (cdr args) justify justification arg widths inf
+                                        infinite cols))
+                            (else
+                                (full-error 'assertion-violation 'columnar #f
+                                        "columnar: unexpected column modifier" arg))))))
+            (define (show-columns justification widths infinite cols)
+                (define (show-row justification widths strs)
+                    (if (not (null? strs))
+                        (begin
+                            ((car justification) (car widths) (car strs) (null? (cdr strs)))
+                            (show-row (cdr justification) (cdr widths) (cdr strs)))))
+                (let* ((show #f)
+                        (strs (map
+                                (lambda (inf col)
+                                    (if (string? col)
+                                        col
+                                        (let ((str (col)))
+                                            (if (and (string? str) (not inf))
+                                                (set! show #t))
+                                            str)))
+                                infinite cols)))
+                    (if show
+                        (begin
+                            (show-row justification widths strs)
+                            ((output) "\n")
+                            (show-columns justification widths infinite cols)))))
+            (fn ()
+                (let-values (((justification widths infinite cols)
+                                (handle-args args justify-left '() #f '() #f '() '())))
+                    (let ((cols (map
+                                    (lambda (wid col)
+                                        (if (string? col)
+                                            col
+                                            (make-runner wid col)))
+                                    widths cols)))
+                        (show-columns justification widths infinite cols)))
+                nothing))
 
         (define (with-output proc fmt)
             (fn ((original output))
@@ -653,7 +783,8 @@
         (define port (%make-state-variable (current-output-port))) ; check for output-port
         (define row (%make-state-variable #f))
         (define col (%make-state-variable #f))
-
+        ; XXX: calculate based on the terminal width if possible; otherwise default to 80
+        (define width (%make-state-variable 100)) ; check for integer
         (define output (%make-state-variable output-default)) ; check for procedure
         (define writer (%make-state-variable written-default)) ; check for procedure
         (define string-width (%make-state-variable string-width-default)) ; check for procedure

@@ -3363,6 +3363,48 @@
 (check-equal "prefix: bcdef :suffix"
     (show #f "prefix: " (fitted/both 5 "abcdefgh") " :suffix"))
 
+;; columnar
+
+(define (runner->list runner)
+    (let ((val (runner)))
+        (if (string? val)
+            (cons val (runner->list runner))
+            '())))
+
+(check-equal ("abc" "12" "345" "67")
+    (runner->list (make-runner 67 (each "abc" nl "12\n345" nl (fn (width) width)))))
+
+(check-equal "   abc |   def    |   ghi\n"
+    (show #f
+        (columnar 6 'right (displayed "abc") " | " 'center 8 (displayed "def")
+                " | " 'right 5 (displayed "ghi"))))
+(check-equal
+"   abc |   def    |   ghi
+  1234 |   5678   |    90
+"
+    (show #f
+        (columnar 6 'right (displayed "abc\n1234") " | " 'center 8 (displayed "def\n5678")
+                " | " 'right 5 (displayed "ghi\n90"))))
+
+(check-equal
+" abc   |      def | ghi
+ 1234  |     5678 | 90
+"
+    (show #f
+        (columnar 6 'center (displayed "abc\n1234") " | " 'right 8 (displayed "def\n5678")
+                " | " 'left 5 (displayed "ghi\n90"))))
+
+(check-equal
+"   abc |   def
+  1234 |   5678
+"
+    (show #f
+        (columnar 6 'right (displayed "abc\n1234") " | " 'center 8 (displayed "def\n5678"))))
+
+;(check-equal "\n" (show #f (columnar)))
+;(check-equal "\n" (show #f (columnar "*")))
+;(check-equal "*\n" (show #f (columnar (each "*"))))
+
 #|
 (define-library (srfi 166 test)
   (export run-tests)
@@ -3633,10 +3675,6 @@ equivalent to REVERSE."
                    (lambda (x) (each " ; " x))
                    (with ((width 36))
                      (wrapped "The fundamental list iterator.  Applies KONS to each element of LS and the result of the previous application, beginning with KNIL.  With KONS as CONS and KNIL as '(), equivalent to REVERSE."))))))
-
-      (test "\n" (show #f (columnar)))      ; degenerate case
-      (test "\n" (show #f (columnar "*")))  ; only infinite columns
-      (test "*\n" (show #f (columnar (each "*"))))
 
       (test "foo" (show #f (wrapped "foo")))
 
