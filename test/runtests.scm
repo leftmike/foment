@@ -77,6 +77,7 @@
 
 (run-tests (cdr (command-line)))
 (when (> fail-count 0)
+    (newline)
     (write (features))
     (newline)
     (write (config))

@@ -3364,7 +3364,6 @@
     (show #f "prefix: " (fitted/both 5 "abcdefgh") " :suffix"))
 
 ;; columnar
-
 (define (runner->list runner)
     (let ((val (runner)))
         (if (string? val)
@@ -3373,6 +3372,12 @@
 
 (check-equal ("abc" "12" "345" "67")
     (runner->list (make-runner 67 (each "abc" nl "12\n345" nl (fn (width) width)))))
+(check-equal ("abc  " "def  ")
+    (runner->list (make-runner 0
+            (each (padded/right 5 "abc") nl
+                    (padded/right 5 (displayed "def"))))))
+(check-equal ("123" "456")
+    (runner->list (make-runner 0 (displayed "123\n456\n"))))
 
 (check-equal "   abc |   def    |   ghi\n"
     (show #f
@@ -3401,9 +3406,67 @@
     (show #f
         (columnar 6 'right (displayed "abc\n1234") " | " 'center 8 (displayed "def\n5678"))))
 
-;(check-equal "\n" (show #f (columnar)))
-;(check-equal "\n" (show #f (columnar "*")))
-;(check-equal "*\n" (show #f (columnar (each "*"))))
+(check-equal "\n" (show #f (columnar)))
+(check-equal "\n" (show #f (columnar "*")))
+(check-equal "*\n" (show #f (columnar (each "*"))))
+
+(check-equal
+"abc     123
+def     456
+"
+    (show #f (with ((width 16)) (columnar (displayed "abc\ndef") (displayed "123\n456")))))
+
+(check-equal
+"/* abc | 123 */
+/* def | 456 */
+"
+    (show #f (with ((width 15))
+            (columnar "/* " (displayed "abc\ndef") " | " (displayed "123\n456") " */"))))
+
+(check-equal "abc\ndef\n"
+    (show #f (columnar (displayed "abc\ndef\n"))))
+(check-equal "abc123\ndef456\n"
+    (show #f (with ((width 0)) (columnar (displayed "abc\ndef\n") (displayed "123\n456\n")))))
+(check-equal "abc123\ndef456\n"
+    (show #f (with ((width 0)) (columnar (displayed "abc\ndef\n") (displayed "123\n456")))))
+(check-equal "abc123\ndef456\n"
+    (show #f (with ((width 0)) (columnar (displayed "abc\ndef") (displayed "123\n456\n")))))
+(check-equal "abc123\ndef456\n"
+    (show #f (with ((width 0)) (columnar (displayed "abc\ndef") (displayed "123\n456")))))
+(check-equal "abc123\n \ndef456\n"
+    (show #f (with ((width 1)) (columnar (displayed "abc\n\ndef") (displayed "123\n\n456")))))
+(check-equal "abc123\ndef\n 456\n"
+    (show #f (with ((width 1)) (columnar (displayed "abc\ndef") (displayed "123\n\n456")))))
+(check-equal "abc123\n 456\ndef\n"
+    (show #f (with ((width 1)) (columnar (displayed "abc\n\ndef") (displayed "123\n456")))))
+(check-equal "abc123\ndef456\nghi789\n"
+    (show #f (with ((width 0))
+            (columnar (displayed "abc\ndef\nghi\n") (displayed "123\n456\n789\n")))))
+(check-equal "abc123wuv\ndef456xyz\n"
+    (show #f (with ((width 0))
+            (columnar (displayed "abc\ndef\n") (displayed "123\n456\n")
+                    (displayed "wuv\nxyz\n")))))
+(check-equal "abc  123\ndef  456\n"
+    (show #f (with ((width 0))
+            (columnar
+                    (each (padded/right 5 "abc") nl (padded/right 5 "def"))
+                    (displayed "123\n456\n")))))
+(check-equal "ABC  123\nDEF  456\n"
+    (show #f (with ((width 0))
+            (columnar
+                    (each
+                            (upcased (padded/right 5 (displayed "abc")))
+                            nl
+                            (upcased (padded/right 5 (displayed "def"))))
+                    (displayed "123\n456\n")))))
+(check-equal "ABC  123\nDEF  456\n"
+    (show #f (with ((width 0))
+            (columnar
+                    (each
+                            (padded/right 5 (upcased (displayed "abc")))
+                            nl
+                            (padded/right 5 (upcased (displayed "def"))))
+                     (displayed "123\n456\n")))))
 
 #|
 (define-library (srfi 166 test)
@@ -3572,39 +3635,6 @@
         (test "(foo\n (a a\n    " (show #f (trimmed/lazy 15 (pretty-simply `(foo ,ca)))))
         (test "(with-x \n  (a a" (show #f (trimmed/lazy 15 (pretty-simply `(with-x ,ca)))))
         )
-
-      ;; columns
-
-      '(test "abc\ndef\n"
-          (show #f (show-columns (list displayed "abc\ndef\n"))))
-      '(test "abc123\ndef456\n"
-          (show #f (show-columns (list displayed "abc\ndef\n")
-                                 (list displayed "123\n456\n"))))
-      '(test "abc123\ndef456\n"
-          (show #f (show-columns (list displayed "abc\ndef\n")
-                                 (list displayed "123\n456"))))
-      '(test "abc123\ndef456\n"
-          (show #f (show-columns (list displayed "abc\ndef")
-                                 (list displayed "123\n456\n"))))
-      '(test "abc123\ndef456\nghi789\n"
-          (show #f (show-columns (list displayed "abc\ndef\nghi\n")
-                                 (list displayed "123\n456\n789\n"))))
-      '(test "abc123wuv\ndef456xyz\n"
-          (show #f (show-columns (list displayed "abc\ndef\n")
-                                 (list displayed "123\n456\n")
-                                 (list displayed "wuv\nxyz\n"))))
-      '(test "abc  123\ndef  456\n"
-          (show #f (show-columns (list (lambda (x) (padded/right 5 x))
-                                       "abc\ndef\n")
-                                 (list displayed "123\n456\n"))))
-      '(test "ABC  123\nDEF  456\n"
-          (show #f (show-columns (list (lambda (x) (upcased (padded/right 5 x)))
-                                       "abc\ndef\n")
-                                 (list displayed "123\n456\n"))))
-      '(test "ABC  123\nDEF  456\n"
-          (show #f (show-columns (list (lambda (x) (padded/right 5 (upcased x)))
-                                       "abc\ndef\n")
-                                 (list displayed "123\n456\n"))))
 
       (test "" (show #f (wrapped "    ")))
       (test "hello\nworld"
