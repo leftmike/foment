@@ -3378,6 +3378,40 @@
                     (padded/right 5 (displayed "def"))))))
 (check-equal ("123" "456")
     (runner->list (make-runner 0 (displayed "123\n456\n"))))
+(check-equal ("123" "" "456")
+    (runner->list (make-runner 0 (displayed "123\n\n456\n"))))
+
+(check-equal (#t "" "abc")
+    (let-values (((found first rest) (string-split "\nabc" #\newline))) (list found first rest)))
+(check-equal (#t "abc" "def")
+    (let-values (((found first rest) (string-split "abc\ndef" #\newline)))
+        (list found first rest)))
+(check-equal (#t "abc" "")
+    (let-values (((found first rest) (string-split "abc\n" #\newline))) (list found first rest)))
+(check-equal (#f "abc" "")
+    (let-values (((found first rest) (string-split "abc" #\newline))) (list found first rest)))
+(check-equal (#f "" "")
+    (let-values (((found first rest) (string-split "" #\newline))) (list found first rest)))
+(check-equal (#t "" "ab\nc")
+    (let-values (((found first rest) (string-split "\nab\nc" #\newline))) (list found first rest)))
+(check-equal (#t "abc" "d\nef\n")
+    (let-values (((found first rest) (string-split "abc\nd\nef\n" #\newline)))
+         (list found first rest)))
+(check-equal (#t "abc" "\n")
+    (let-values (((found first rest) (string-split "abc\n\n" #\newline))) (list found first rest)))
+
+(check-equal ("abc")
+    (runner->list (make-infinite-runner 67 (displayed "abc"))))
+(check-equal ("abc")
+    (runner->list (make-infinite-runner 67 (displayed "abc\n"))))
+(check-equal ("abc" "12" "345")
+    (runner->list (make-infinite-runner 67 (each "abc" nl "12\n345"))))
+(check-equal ("abc" "12" "345")
+    (runner->list (make-infinite-runner 67 (each "abc" nl "12\n345" nl))))
+(check-equal ("abc" "12" "345" "67")
+    (runner->list (make-infinite-runner 67 (each "abc" nl "12\n345" nl (fn (width) width)))))
+(check-equal ("123" "" "456")
+    (runner->list (make-infinite-runner 0 (displayed "123\n\n456"))))
 
 (check-equal "   abc |   def    |   ghi\n"
     (show #f
@@ -3467,6 +3501,13 @@ def     456
                             nl
                             (padded/right 5 (upcased (displayed "def"))))
                      (displayed "123\n456\n")))))
+
+(check-equal "   1 first line\n   2 second line\n   3 third line\n"
+    (show #f (columnar 4 'right 'infinite (line-numbers) " "
+            (displayed "first line\nsecond line\nthird line"))))
+(check-equal "   1 first line\n   2 second line\n   3 third line\n"
+    (show #f (columnar 4 'right 'infinite (line-numbers) " "
+            (displayed "first line\nsecond line\nthird line\n"))))
 
 #|
 (define-library (srfi 166 test)

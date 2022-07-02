@@ -37,6 +37,8 @@
 
         columnar
 
+        line-numbers
+
         upcased
         downcased
         fn
@@ -65,7 +67,9 @@
         comma-rule
         comma-sep
 
-        make-runner)
+        make-runner
+        string-split
+        make-infinite-runner)
     (begin
         (define-syntax %formatter
             (syntax-rules ()
@@ -597,6 +601,61 @@
         (define (fitted/both width . fmts)
             (padded/both width (trimmed/both width (each-in-list fmts))))
 
+        (define (string-split str ch)
+            (define (split idx)
+                (if (= idx (string-length str))
+                    (values #f str "")
+                    (if (char=? (string-ref str idx) ch)
+                        (values #t (string-copy str 0 idx) (string-copy str (+ idx 1)))
+                        (split (+ idx 1)))))
+            (split 0))
+        (define (make-infinite-runner wid fmt)
+            (let ((state 'init) (buf "") (return #f) (continue #f) (newlines 0))
+                (define (output-infinite str)
+                    (set! continue #f)
+                    (set! buf (string-append buf str))
+                    (set! newlines (update-row-col str))
+                    (if (> newlines 0)
+                        (call/cc
+                            (lambda (cont)
+                                (set! continue cont)
+                                (return #t)))))
+                (lambda ()
+                    (set! return #f)
+                    (if (eq? state 'init)
+                        (begin
+                            (set! state 'generate)
+                            (call/cc
+                                (lambda (cont)
+                                    (set! return cont)
+                                    (call-with-parameterize
+                                        state-variables
+                                        (map
+                                            (lambda (var)
+                                                (cond
+                                                    ((eq? var output) output-infinite)
+                                                    ((eq? var col) 0)
+                                                    ((eq? var row) 0)
+                                                    ((eq? var width) wid)
+                                                    (else (var))))
+                                            state-variables)
+                                        (lambda ()
+                                            (fmt)
+                                            (set! state 'done)
+                                            (return #f)))))))
+                    (if (and (eq? state 'generate) (= newlines 0))
+                        (call/cc
+                            (lambda (cont)
+                                (set! return cont)
+                                (continue #f))))
+                    (if (> newlines 0)
+                        (let-values (((found line rest) (string-split buf #\newline)))
+                            (set! newlines (- newlines 1))
+                            (set! buf rest)
+                            line)
+                        (let ((ret (if (equal? buf "") #f buf)))
+                            (set! buf #f)
+                            ret)))))
         (define (make-runner wid fmt)
             (let ((out (open-output-string)))
                 (call-with-parameterize
@@ -757,14 +816,21 @@
                                 (handle-args args justify-left '() #f '() #f '() '())))
                     (let* ((widths (handle-widths width widths))
                             (cols (map
-                                    (lambda (wid col)
+                                    (lambda (wid inf col)
                                         (if (string? col)
                                             col
-                                            (make-runner wid col)))
-                                    widths cols)))
+                                            (if inf
+                                                (make-infinite-runner wid col)
+                                                (make-runner wid col))))
+                                    widths infinite cols)))
                         (show-columns #t justification widths infinite cols)
                         ((output) "\n")))
                 nothing))
+
+        (define line-numbers
+            (case-lambda
+                (() (joined/range displayed 1 #f "\n"))
+                ((start) (joined/range displayed start #f "\n"))))
 
         (define (with-output proc fmt)
             (fn ((original output))
@@ -802,23 +868,26 @@
             (let ((param (make-parameter default)))
                 (set! state-variables (cons param state-variables))
                 param))
-        (define (output-default str)
-            (write-string str (port))
-            (let ((c (col)) (r (row)))
-              (if (boolean? c)
-                  (error "boolean col"))
-              (if (boolean? r)
-                  (error "boolean row"))
+        (define (update-row-col str)
+            (let ((c (col)) (r (row)) (newlines 0))
+                (if (or (boolean? c) (boolean? r))
+                    (full-error 'assertion-violation 'output-default #f
+                            "output-default: called out of show"))
                 (string-for-each
                     (lambda (ch)
                         (if (char=? ch #\newline)
                             (begin
                                 (set! r (+ r 1))
-                                (set! c 0))
+                                (set! c 0)
+                                (set! newlines (+ newlines 1)))
                             (set! c (+ c 1))))
                     str)
                 (col c)
-                (row r)))
+                (row r)
+                newlines))
+        (define (output-default str)
+            (update-row-col str)
+            (write-string str (port)))
         (define string-width-default
             (case-lambda
                 ((str) (string-length str))
