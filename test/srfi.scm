@@ -3365,10 +3365,15 @@
 
 ;; columnar
 (define (runner->list runner)
-    (let ((val (runner)))
-        (if (string? val)
-            (cons val (runner->list runner))
-            '())))
+    (define (run tail)
+        (let ((val (runner)))
+            (if (string? val)
+                (begin
+                    (set-cdr! tail (list val))
+                    (run (cdr tail))))))
+    (let ((tail (list #f)))
+        (run tail)
+        (cdr tail)))
 
 (check-equal ("abc" "12" "345" "67")
     (runner->list (make-runner 67 (each "abc" nl "12\n345" nl (fn (width) width)))))
@@ -3508,6 +3513,44 @@ def     456
 (check-equal "   1 first line\n   2 second line\n   3 third line\n"
     (show #f (columnar 4 'right 'infinite (line-numbers) " "
             (displayed "first line\nsecond line\nthird line\n"))))
+
+(check-equal
+"a   | 123
+bc  | 45
+def | 6
+"
+    (show #f (with ((width 20))
+            (tabular (each "a\nbc\ndef\n") " | " (each "123\n45\n6\n")))))
+
+(check-equal
+"|a  |123|
+|bc |45 |
+|def|6  |
+"
+    (show #f (tabular "|" (each "a\nbc\ndef\n") "|" (each "123\n45\n6\n") "|")))
+
+(check-equal
+"|a       |123|
+|bc      |45 |
+|def     |6  |
+"
+    (show #f (tabular "|" 8 (each "a\nbc\ndef\n") "|" (each "123\n45\n6\n") "|")))
+
+(check-equal
+"|       a|   123    |
+|      bc|    45    |
+|     def|    6     |
+"
+    (show #f (tabular "|" 'right 8 (each "a\nbc\ndef\n") "|"
+            10 'center (each "123\n45\n6\n") "|")))
+
+(check-equal
+"| 8 |       a|   123    |
+| 9 |      bc|    45    |
+|10 |     def|    6     |
+"
+    (show #f (tabular "|" 3 'infinite 'center (line-numbers 8) "|"
+            'right 8 (each "a\nbc\ndef\n") "|" 10 'center (each "123\n45\n6\n") "|")))
 
 #|
 (define-library (srfi 166 test)
@@ -3797,15 +3840,6 @@ equivalent to REVERSE."
 --------- goes-here.----------------------------------------------------------
 "
           (show #f (with ((pad-char #\-)) (columnar 9 (each "- Item 1:\n") " " (with ((width 20)) (wrapped "The text here is indented according to the space \"Item 1\" takes, and one does not known what goes here."))))))
-
-      (test
-          "a   | 123
-bc  | 45
-def | 6
-"
-          (show #f (with ((width 20))
-                    (tabular (each "a\nbc\ndef\n") " | "
-                             (each "123\n45\n6\n")))))
 
       ;; color
       (test "\x1B;[31mred\x1B;[39m" (show #f (as-red "red")))
