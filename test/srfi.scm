@@ -2815,6 +2815,10 @@
 
 ; Parts from Chibi Scheme and https://gitlab.com/nieper/show
 
+(check-equal "" (show #f ""))
+(check-equal "\n" (show #f "\n"))
+(check-equal "\n\n" (show #f "\n\n"))
+
 (check-equal "hi" (show #f "hi"))
 (check-equal "\"hi\"" (show #f (written "hi")))
 (check-equal "\"hi \\\"bob\\\"\"" (show #f (written "hi \"bob\"")))
@@ -3551,6 +3555,27 @@ def | 6
 "
     (show #f (tabular "|" 3 'infinite 'center (line-numbers 8) "|"
             'right 8 (each "a\nbc\ndef\n") "|" 10 'center (each "123\n45\n6\n") "|")))
+
+(check-equal
+"1234567890
+abcdefghij
+kl
+"
+    (show #f (with ((width 10)) (wrapped/char "12345" "67890abcdefghijkl"))))
+(check-equal "abc\ndef    g\nhijklmn \nopq\n"
+    (show #f (with ((width 8)) (wrapped/char "abc\ndef    ghijklmn opq"))))
+(check-equal "abcdefgh\nijklmnop\nqrstuvwx\nyz\n"
+    (show #f (with ((width 8)) (wrapped/char "abcdefghijklmnopqrstuvwxyz"))))
+(check-equal "abcdefghijklmnopqrstuvwxyz\n"
+    (show #f (with ((width 30)) (wrapped/char "abcdefghijklmnopqrstuvwxyz"))))
+(check-equal "abcdefghijklmnopqrstuvwxyz\n"
+    (show #f (with ((width 26)) (wrapped/char "abcdefghijklmnopqrstuvwxyz"))))
+(check-equal "abcdefghijklmnopqrstuvwxy\nz\n"
+    (show #f (with ((width 25)) (wrapped/char "abcdefghijklmnopqrstuvwxyz"))))
+(check-equal "\na\n" (show #f (with ((width 4)) (wrapped/char "\na\n"))))
+(check-equal "\n\n" (show #f (with ((width 4)) (wrapped/char "\n\n"))))
+(check-equal "\n" (show #f (with ((width 4)) (wrapped/char "\n"))))
+(check-equal "\n" (show #f (with ((width 4)) (wrapped/char ""))))
 
 #|
 (define-library (srfi 166 test)

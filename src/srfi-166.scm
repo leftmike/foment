@@ -38,6 +38,8 @@
         columnar
         tabular
 
+        wrapped/char
+
         line-numbers
 
         upcased
@@ -876,6 +878,22 @@
                         (show-columns #t justification widths infinite cols)
                         ((output) "\n")))
                 nothing))
+
+        (define (wrapped/char . fmts)
+            (let ((last-ch #\space))
+                (each
+                    (with-output
+                            (lambda (output str)
+                                (string-for-each
+                                    (lambda (ch)
+                                        (if (and (>= (col) (width)) (not (char=? ch #\newline)))
+                                            (output "\n"))
+                                        (output (string ch)))
+                                    str)
+                                (if (> (string-length str) 0)
+                                    (set! last-ch (string-ref str (- (string-length str) 1)))))
+                            (each-in-list fmts))
+                    (fn () (if (not (char=? last-ch #\newline)) "\n" "")))))
 
         (define line-numbers
             (case-lambda
