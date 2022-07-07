@@ -3619,7 +3619,6 @@ equivalent to REVERSE."
     (show #f (columnar 9 (each "- Item 1:\n") " "
             (with ((width 20)) (wrapped "The text here is indented according to the space \"Item 1\" takes, and one does not known what goes here.")))))
 
-#|
 (check-equal
 "- Item 1: The-text-here-is----
 --------- indented-according--
@@ -3630,7 +3629,6 @@ equivalent to REVERSE."
 "
     (show #f (with ((pad-char #\-) (width 30)) (columnar 9 (each "- Item 1:\n") " "
             (with ((width 20)) (wrapped "The text here is indented according to the space \"Item 1\" takes, and one does not known what goes here."))))))
-|#
 
 #|
 (define-library (srfi 166 test)

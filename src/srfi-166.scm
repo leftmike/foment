@@ -720,7 +720,7 @@
             (define (justify-left width str last)
                 (let ((wid ((string-width) str)))
                     (cond
-                        ((and (< wid width) (not last))
+                        ((and (< wid width) (or (not last) (not (char=? (pad-char) #\space))))
                             (string-append str (make-string (- width wid) (pad-char))))
                         (else str))))
             (define (justify-right width str last)
@@ -735,9 +735,9 @@
                         (let* ((pad (- width wid))
                                 (left (truncate-quotient pad 2)))
                             (string-append (make-string left (pad-char)) str
-                                (if (not last)
-                                    (make-string (- pad left) (pad-char))
-                                    "")))
+                                (if (and last (char=? (pad-char) #\space))
+                                    ""
+                                    (make-string (- pad left) (pad-char)))))
                         str)))
             (define (handle-args args justify justification wid widths inf infinite cols)
                 (if (null? args)
