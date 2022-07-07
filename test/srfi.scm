@@ -3577,6 +3577,61 @@ kl
 (check-equal "\n" (show #f (with ((width 4)) (wrapped/char "\n"))))
 (check-equal "\n" (show #f (with ((width 4)) (wrapped/char ""))))
 
+(check-equal ("abc" "defghi" "jklmn") (string->words "abc defghi jklmn" char-whitespace?))
+(check-equal ("abc" "defghi" "jklmn") (string->words "  abc   defghi   jklmn  " char-whitespace?))
+(check-equal ("abc" "defghi" "jklmn")
+        (string->words "\nabc \n defghi \njklmn \n " char-whitespace?))
+
+(check-equal "" (show #f (wrapped "    ")))
+(check-equal "hello\nworld" (show #f (with ((width 8)) (wrapped "hello world"))))
+;(check-equal "ｈｅｌｌｏ\nｗｏｒｌｄ"
+;    (show #f (with ((width 16)) (terminal-aware (wrapped "ｈｅｌｌｏ　ｗｏｒｌｄ")))))
+(check-equal
+"The fundamental list iterator.
+Applies KONS to each element of
+LS and the result of the previous
+application, beginning with KNIL.
+With KONS as CONS and KNIL as '(),
+equivalent to REVERSE."
+    (show #f (with ((width 36))
+            (wrapped "The fundamental list iterator.  Applies KONS to each element of LS and the result of the previous application, beginning with KNIL.  With KONS as CONS and KNIL as '(), equivalent to REVERSE."))))
+(check-equal "foo" (show #f (wrapped "foo")))
+
+(check-equal
+"- Item 1: The text here is
+          indented according
+          to the space \"Item
+          1\" takes, and one
+          does not known what
+          goes here.
+"
+    (show #f (columnar 9 (each "- Item 1:") " "
+            (with ((width 20)) (wrapped "The text here is indented according to the space \"Item 1\" takes, and one does not known what goes here.")))))
+
+(check-equal
+"- Item 1: The text here is
+          indented according
+          to the space \"Item
+          1\" takes, and one
+          does not known what
+          goes here.
+"
+    (show #f (columnar 9 (each "- Item 1:\n") " "
+            (with ((width 20)) (wrapped "The text here is indented according to the space \"Item 1\" takes, and one does not known what goes here.")))))
+
+#|
+(check-equal
+"- Item 1: The-text-here-is----
+--------- indented-according--
+--------- to-the-space-\"Item--
+--------- 1\"-takes,-and-one---
+--------- does-not-known-what-
+--------- goes-here.----------
+"
+    (show #f (with ((pad-char #\-) (width 30)) (columnar 9 (each "- Item 1:\n") " "
+            (with ((width 20)) (wrapped "The text here is indented according to the space \"Item 1\" takes, and one does not known what goes here."))))))
+|#
+
 #|
 (define-library (srfi 166 test)
   (export run-tests)
@@ -3745,13 +3800,6 @@ kl
         (test "(with-x \n  (a a" (show #f (trimmed/lazy 15 (pretty-simply `(with-x ,ca)))))
         )
 
-      (test "" (show #f (wrapped "    ")))
-      (test "hello\nworld"
-          (show #f (with ((width 8)) (wrapped "hello world"))))
-      (test "ｈｅｌｌｏ\nｗｏｒｌｄ"
-          (show #f (with ((width 16))
-                     (terminal-aware (wrapped "ｈｅｌｌｏ　ｗｏｒｌｄ")))))
-
       (test
           "The  quick
 brown  fox
@@ -3762,17 +3810,6 @@ lazy dog
           (show #f
                 (with ((width 10))
                   (justified "The quick brown fox jumped over the lazy dog"))))
-
-      (test
-          "The fundamental list iterator.
-Applies KONS to each element of
-LS and the result of the previous
-application, beginning with KNIL.
-With KONS as CONS and KNIL as '(),
-equivalent to REVERSE."
-          (show #f
-                (with ((width 36))
-                  (wrapped "The fundamental list iterator.  Applies KONS to each element of LS and the result of the previous application, beginning with KNIL.  With KONS as CONS and KNIL as '(), equivalent to REVERSE."))))
 
       (test
           "(define (fold kons knil ls)
@@ -3815,8 +3852,6 @@ equivalent to REVERSE."
                    (with ((width 36))
                      (wrapped "The fundamental list iterator.  Applies KONS to each element of LS and the result of the previous application, beginning with KNIL.  With KONS as CONS and KNIL as '(), equivalent to REVERSE."))))))
 
-      (test "foo" (show #f (wrapped "foo")))
-
       (test
            "(define (fold kons knil ls)          ; The fundamental list iterator.
   (let lp ((ls ls) (acc knil))       ; Applies KONS to each element of
@@ -3835,36 +3870,6 @@ equivalent to REVERSE."
                                             (kons (car ls) acc))))))
                        " ; "
                        (wrapped "The fundamental list iterator.  Applies KONS to each element of LS and the result of the previous application, beginning with KNIL.  With KONS as CONS and KNIL as '(), equivalent to REVERSE.")))))
-
-      (test
-          "- Item 1: The text here is
-          indented according
-          to the space \"Item
-          1\" takes, and one
-          does not known what
-          goes here.
-"
-          (show #f (columnar 9 (each "- Item 1:") " " (with ((width 20)) (wrapped "The text here is indented according to the space \"Item 1\" takes, and one does not known what goes here.")))))
-
-      (test
-          "- Item 1: The text here is
-          indented according
-          to the space \"Item
-          1\" takes, and one
-          does not known what
-          goes here.
-"
-          (show #f (columnar 9 (each "- Item 1:\n") " " (with ((width 20)) (wrapped "The text here is indented according to the space \"Item 1\" takes, and one does not known what goes here.")))))
-
-      (test
-          "- Item 1: The-text-here-is----------------------------------------------------
---------- indented-according--------------------------------------------------
---------- to-the-space-\"Item--------------------------------------------------
---------- 1\"-takes,-and-one---------------------------------------------------
---------- does-not-known-what-------------------------------------------------
---------- goes-here.----------------------------------------------------------
-"
-          (show #f (with ((pad-char #\-)) (columnar 9 (each "- Item 1:\n") " " (with ((width 20)) (wrapped "The text here is indented according to the space \"Item 1\" takes, and one does not known what goes here."))))))
 
       ;; color
       (test "\x1B;[31mred\x1B;[39m" (show #f (as-red "red")))

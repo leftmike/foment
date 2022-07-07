@@ -37,7 +37,8 @@
 
         columnar
         tabular
-
+        wrapped
+        wrapped/list
         wrapped/char
 
         line-numbers
@@ -69,10 +70,12 @@
         sign-rule
         comma-rule
         comma-sep
+        word-separator?
 
         make-runner
         string-split
-        make-infinite-runner)
+        make-infinite-runner
+        string->words)
     (begin
         (define-syntax %formatter
             (syntax-rules ()
@@ -738,8 +741,8 @@
                         str)))
             (define (handle-args args justify justification wid widths inf infinite cols)
                 (if (null? args)
-                    (values (reverse justification) (reverse widths) (reverse infinite)
-                            (reverse cols))
+                    (values (reverse! justification) (reverse! widths) (reverse! infinite)
+                            (reverse! cols))
                     (let ((arg (car args)))
                         (cond
                             ((string? arg)
@@ -878,7 +881,84 @@
                         (show-columns #t justification widths infinite cols)
                         ((output) "\n")))
                 nothing))
-
+        (define (string->words str separator?)
+            (let ((len (string-length str)))
+                (define (words idx cnt lst)
+                    (if (= idx len)
+                        (if (= 0 cnt)
+                            lst
+                            (cons (string-copy str (- idx cnt) idx) lst))
+                        (let ((ch (string-ref str idx)))
+                            (if (separator? ch)
+                                (if (= 0 cnt)
+                                    (words (+ idx 1) 0 lst)
+                                    (words (+ idx 1) 0
+                                            (cons (string-copy str (- idx cnt) idx) lst)))
+                                (words (+ idx 1) (+ cnt 1) lst)))))
+                (reverse! (words 0 0 '()))))
+        (define (wrapped . fmts)
+            (call-with-output (each-in-list fmts)
+                    (lambda (str)
+                      (fn (word-separator?)
+                          (wrapped/list (string->words str word-separator?))))))
+        (define (fmt width string-width lst)
+            (let* ((words (list->vector lst))
+                    (widths (vector-map (lambda (word) (string-width word)) words))
+                    (len (vector-length words))
+                    (counts (make-vector len #f)) ; number of words in best line
+                    (totals (make-vector len #f))) ; total cost of best format
+                (define (line-width sdx cnt)
+                    (let ((cnt (- cnt 1)))
+                        (if (= cnt 0)
+                            (vector-ref widths sdx)
+                            (+ (vector-ref widths (+ sdx cnt)) 1 (line-width sdx cnt)))))
+                (define (total-cost sdx cnt wid)
+                    (if (< (+ sdx cnt) len)
+                        (+
+                            (if (< wid width)
+                                (expt (- width wid) 3)
+                                0) ; special case for word greater than width; see below
+                            (vector-ref totals (+ sdx cnt)))
+                        0)) ; no cost for last line of the paragraph
+                (define (best-total sdx cnt best)
+                    (if (<= (+ sdx cnt) len)
+                        (let ((wid (line-width sdx cnt)))
+                            (if (< wid width)
+                                (let ((total (total-cost sdx cnt wid)))
+                                    (if (or (not best) (< total best))
+                                        (begin
+                                            (vector-set! totals sdx total)
+                                            (vector-set! counts sdx cnt)
+                                            (best-total sdx (+ cnt 1) total))
+                                        (best-total sdx (+ cnt 1) best)))))))
+                (define (best-totals sdx)
+                    (if (>= sdx 0)
+                        (let ((wid (vector-ref widths sdx)))
+                            (if (>= wid width)
+                                (begin ; word than width so takes entire line
+                                    (vector-set! totals sdx (total-cost sdx 1 wid))
+                                    (vector-set! counts sdx 1))
+                                (best-total sdx 1 #f))
+                            (best-totals (- sdx 1)))))
+                (define (result sdx)
+                    (define (line sdx cnt)
+                        (if (= cnt 0)
+                            '()
+                            (let ((cnt (- cnt 1)))
+                                (cons (vector-ref words (+ sdx cnt)) (line sdx cnt)))))
+                    (if (= sdx len)
+                        '()
+                        (let ((cnt (vector-ref counts sdx)))
+                            (cons (reverse! (line sdx cnt)) (result (+ sdx cnt))))))
+                (best-totals (- len 1))
+                (result 0)))
+        (define (wrapped/list lst)
+            (fn (width string-width pad-char)
+                (if (null? lst)
+                    nothing
+                    (joined
+                        (lambda (line) (joined displayed line pad-char))
+                        (fmt width string-width lst) "\n"))))
         (define (wrapped/char . fmts)
             (let ((last-ch #\space))
                 (each
@@ -980,5 +1060,6 @@
         (define sign-rule (%make-state-variable #f)) ; check for #f, #t, or pair of strings
         (define comma-rule (%make-state-variable #f)) ; check for #f, integer, or list of integers
         (define comma-sep (%make-state-variable #f)) ; check for character
+        (define word-separator? (%make-state-variable char-whitespace?)) ; check for procedure
         )
     )
