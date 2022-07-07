@@ -3630,6 +3630,23 @@ equivalent to REVERSE."
     (show #f (with ((pad-char #\-) (width 30)) (columnar 9 (each "- Item 1:\n") " "
             (with ((width 20)) (wrapped "The text here is indented according to the space \"Item 1\" takes, and one does not known what goes here."))))))
 
+(check-equal
+"The  quick
+brown  fox
+jumped
+over   the
+lazy dog"
+    (show #f (with ((width 10)) (justified "The quick brown fox jumped over the lazy dog"))))
+
+(check-equal
+"The--quick
+brown--fox
+jumped----
+over---the
+lazy-dog"
+    (show #f (with ((width 10) (pad-char #\-))
+            (justified "The quick brown fox jumped over the lazy dog"))))
+
 #|
 (define-library (srfi 166 test)
   (export run-tests)
@@ -3797,17 +3814,6 @@ equivalent to REVERSE."
         (test "(foo\n (a a\n    " (show #f (trimmed/lazy 15 (pretty-simply `(foo ,ca)))))
         (test "(with-x \n  (a a" (show #f (trimmed/lazy 15 (pretty-simply `(with-x ,ca)))))
         )
-
-      (test
-          "The  quick
-brown  fox
-jumped
-over   the
-lazy dog
-"
-          (show #f
-                (with ((width 10))
-                  (justified "The quick brown fox jumped over the lazy dog"))))
 
       (test
           "(define (fold kons knil ls)

@@ -40,6 +40,8 @@
         wrapped
         wrapped/list
         wrapped/char
+        justified
+        justified/list
 
         line-numbers
 
@@ -974,6 +976,39 @@
                                     (set! last-ch (string-ref str (- (string-length str) 1)))))
                             (each-in-list fmts))
                     (fn () (if (not (char=? last-ch #\newline)) "\n" "")))))
+        (define (justified . fmts)
+            (call-with-output (each-in-list fmts)
+                    (lambda (str)
+                      (fn (word-separator?)
+                          (justified/list (string->words str word-separator?))))))
+        (define (justified/list lst)
+            (define (justify-line width string-width pad-char line)
+                (define (justify div mod line)
+                    (if (null? line)
+                        '()
+                        (cons (make-string (+ div (if (> mod 0) 1 0)) pad-char)
+                                (cons (car line) (justify div (- mod 1) (cdr line))))))
+                (define (line-width line)
+                    (if (null? line)
+                        0
+                        (+ (string-width (car line)) (line-width (cdr line)))))
+                (if (= (length line) 1)
+                    (if (or (char=? pad-char #\space) (>= (string-width (car line)) width))
+                        (car line)
+                        (string-append (car line)
+                                (make-string (- width (string-width (car line))) pad-char)))
+                    (let* ((extra (- width (line-width line)))
+                            (cnt (- (length line) 1))
+                            (div (truncate-quotient extra cnt))
+                            (mod (- extra (* cnt div))))
+                        (apply string-append (cons (car line) (justify div mod (cdr line)))))))
+            (fn (width string-width pad-char)
+                (if (null? lst)
+                    nothing
+                    (joined/last
+                        (lambda (line) (displayed (justify-line width string-width pad-char line)))
+                        (lambda (line) (joined displayed line pad-char))
+                        (fmt width string-width lst) "\n"))))
 
         (define line-numbers
             (case-lambda
