@@ -3426,26 +3426,16 @@
     (show #f
         (columnar 6 'right (displayed "abc") " | " 'center 8 (displayed "def")
                 " | " 'right 5 (displayed "ghi"))))
-(check-equal
-"   abc |   def    |   ghi
-  1234 |   5678   |    90
-"
+(check-equal "   abc |   def    |   ghi\n  1234 |   5678   |    90\n"
     (show #f
         (columnar 6 'right (displayed "abc\n1234") " | " 'center 8 (displayed "def\n5678")
                 " | " 'right 5 (displayed "ghi\n90"))))
-
-(check-equal
-" abc   |      def | ghi
- 1234  |     5678 | 90
-"
+(check-equal " abc   |      def | ghi\n 1234  |     5678 | 90\n"
     (show #f
         (columnar 6 'center (displayed "abc\n1234") " | " 'right 8 (displayed "def\n5678")
                 " | " 'left 5 (displayed "ghi\n90"))))
 
-(check-equal
-"   abc |   def
-  1234 |   5678
-"
+(check-equal "   abc |   def\n  1234 |   5678\n"
     (show #f
         (columnar 6 'right (displayed "abc\n1234") " | " 'center 8 (displayed "def\n5678"))))
 
@@ -3453,16 +3443,10 @@
 (check-equal "\n" (show #f (columnar "*")))
 (check-equal "*\n" (show #f (columnar (each "*"))))
 
-(check-equal
-"abc     123
-def     456
-"
+(check-equal "abc     123\ndef     456\n"
     (show #f (with ((width 16)) (columnar (displayed "abc\ndef") (displayed "123\n456")))))
 
-(check-equal
-"/* abc | 123 */
-/* def | 456 */
-"
+(check-equal "/* abc | 123 */\n/* def | 456 */\n"
     (show #f (with ((width 15))
             (columnar "/* " (displayed "abc\ndef") " | " (displayed "123\n456") " */"))))
 
@@ -3518,49 +3502,25 @@ def     456
     (show #f (columnar 4 'right 'infinite (line-numbers) " "
             (displayed "first line\nsecond line\nthird line\n"))))
 
-(check-equal
-"a   | 123
-bc  | 45
-def | 6
-"
+(check-equal "a   | 123\nbc  | 45\ndef | 6\n"
     (show #f (with ((width 20))
             (tabular (each "a\nbc\ndef\n") " | " (each "123\n45\n6\n")))))
 
-(check-equal
-"|a  |123|
-|bc |45 |
-|def|6  |
-"
+(check-equal "|a  |123|\n|bc |45 |\n|def|6  |\n"
     (show #f (tabular "|" (each "a\nbc\ndef\n") "|" (each "123\n45\n6\n") "|")))
 
-(check-equal
-"|a       |123|
-|bc      |45 |
-|def     |6  |
-"
+(check-equal "|a       |123|\n|bc      |45 |\n|def     |6  |\n"
     (show #f (tabular "|" 8 (each "a\nbc\ndef\n") "|" (each "123\n45\n6\n") "|")))
 
-(check-equal
-"|       a|   123    |
-|      bc|    45    |
-|     def|    6     |
-"
+(check-equal "|       a|   123    |\n|      bc|    45    |\n|     def|    6     |\n"
     (show #f (tabular "|" 'right 8 (each "a\nbc\ndef\n") "|"
             10 'center (each "123\n45\n6\n") "|")))
 
-(check-equal
-"| 8 |       a|   123    |
-| 9 |      bc|    45    |
-|10 |     def|    6     |
-"
+(check-equal "| 8 |       a|   123    |\n| 9 |      bc|    45    |\n|10 |     def|    6     |\n"
     (show #f (tabular "|" 3 'infinite 'center (line-numbers 8) "|"
             'right 8 (each "a\nbc\ndef\n") "|" 10 'center (each "123\n45\n6\n") "|")))
 
-(check-equal
-"1234567890
-abcdefghij
-kl
-"
+(check-equal "1234567890\nabcdefghij\nkl\n"
     (show #f (with ((width 10)) (wrapped/char "12345" "67890abcdefghijkl"))))
 (check-equal "abc\ndef    g\nhijklmn \nopq\n"
     (show #f (with ((width 8)) (wrapped/char "abc\ndef    ghijklmn opq"))))
@@ -3586,64 +3546,28 @@ kl
 (check-equal "hello\nworld" (show #f (with ((width 8)) (wrapped "hello world"))))
 ;(check-equal "ｈｅｌｌｏ\nｗｏｒｌｄ"
 ;    (show #f (with ((width 16)) (terminal-aware (wrapped "ｈｅｌｌｏ　ｗｏｒｌｄ")))))
-(check-equal
-"The fundamental list iterator.
-Applies KONS to each element of
-LS and the result of the previous
-application, beginning with KNIL.
-With KONS as CONS and KNIL as '(),
-equivalent to REVERSE."
+
+(check-equal "The fundamental list iterator.\nApplies KONS to each element of\nLS and the result of the previous\napplication, beginning with KNIL.\nWith KONS as CONS and KNIL as '(),\nequivalent to REVERSE."
     (show #f (with ((width 36))
             (wrapped "The fundamental list iterator.  Applies KONS to each element of LS and the result of the previous application, beginning with KNIL.  With KONS as CONS and KNIL as '(), equivalent to REVERSE."))))
 (check-equal "foo" (show #f (wrapped "foo")))
 
-(check-equal
-"- Item 1: The text here is
-          indented according
-          to the space \"Item
-          1\" takes, and one
-          does not known what
-          goes here.
-"
+(check-equal "- Item 1: The text here is\n          indented according\n          to the space \"Item\n          1\" takes, and one\n          does not known what\n          goes here.\n"
     (show #f (columnar 9 (each "- Item 1:") " "
             (with ((width 20)) (wrapped "The text here is indented according to the space \"Item 1\" takes, and one does not known what goes here.")))))
 
-(check-equal
-"- Item 1: The text here is
-          indented according
-          to the space \"Item
-          1\" takes, and one
-          does not known what
-          goes here.
-"
+(check-equal "- Item 1: The text here is\n          indented according\n          to the space \"Item\n          1\" takes, and one\n          does not known what\n          goes here.\n"
     (show #f (columnar 9 (each "- Item 1:\n") " "
             (with ((width 20)) (wrapped "The text here is indented according to the space \"Item 1\" takes, and one does not known what goes here.")))))
 
-(check-equal
-"- Item 1: The-text-here-is----
---------- indented-according--
---------- to-the-space-\"Item--
---------- 1\"-takes,-and-one---
---------- does-not-known-what-
---------- goes-here.----------
-"
+(check-equal "- Item 1: The-text-here-is----\n--------- indented-according--\n--------- to-the-space-\"Item--\n--------- 1\"-takes,-and-one---\n--------- does-not-known-what-\n--------- goes-here.----------\n"
     (show #f (with ((pad-char #\-) (width 30)) (columnar 9 (each "- Item 1:\n") " "
             (with ((width 20)) (wrapped "The text here is indented according to the space \"Item 1\" takes, and one does not known what goes here."))))))
 
-(check-equal
-"The  quick
-brown  fox
-jumped
-over   the
-lazy dog"
+(check-equal "The  quick\nbrown  fox\njumped\nover   the\nlazy dog"
     (show #f (with ((width 10)) (justified "The quick brown fox jumped over the lazy dog"))))
 
-(check-equal
-"The--quick
-brown--fox
-jumped----
-over---the
-lazy-dog"
+(check-equal "The--quick\nbrown--fox\njumped----\nover---the\nlazy-dog"
     (show #f (with ((width 10) (pad-char #\-))
             (justified "The quick brown fox jumped over the lazy dog"))))
 

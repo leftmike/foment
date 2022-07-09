@@ -1083,7 +1083,7 @@ FObject NumericToString(FObject obj, long_t rdx, long_t prec, FObject comma_rule
                 f *= rdx;
                 double64_t wf = Truncate(f);
                 f -= wf;
-                long_t w = wf;
+                long_t w = (long_t) wf;
 
                 FAssert(w < rdx);
 
