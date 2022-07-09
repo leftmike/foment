@@ -42,7 +42,7 @@
         wrapped/char
         justified
         justified/list
-
+        from-file
         line-numbers
 
         upcased
@@ -1009,7 +1009,17 @@
                         (lambda (line) (displayed (justify-line width string-width pad-char line)))
                         (lambda (line) (joined displayed line pad-char))
                         (fmt width string-width lst) "\n"))))
-
+        (define (from-file filename)
+            (define (file-line file)
+                (let ((obj (read-line file)))
+                    (if (eof-object? obj)
+                        (begin
+                            (close-input-port file)
+                            nothing)
+                        (each obj "\n" (fn () (file-line file))))))
+            (fn ()
+                (let ((file (open-input-file filename)))
+                    (file-line file))))
         (define line-numbers
             (case-lambda
                 (() (joined/range displayed 1 #f "\n"))

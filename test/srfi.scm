@@ -3647,6 +3647,14 @@ lazy-dog"
     (show #f (with ((width 10) (pad-char #\-))
             (justified "The quick brown fox jumped over the lazy dog"))))
 
+(define output-166 "first line\nsecond line\nthird line")
+(call-with-output-file "output-166.txt"
+        (lambda (file) (display output-166 file)))
+(check-equal "first line\nsecond line\nthird line\n"
+    (show #f (from-file "output-166.txt")))
+(check-equal "   1 first line\n   2 second line\n   3 third line\n"
+    (show #f (columnar 4 'right 'infinite (line-numbers) " " (from-file "output-166.txt"))))
+
 #|
 (define-library (srfi 166 test)
   (export run-tests)
@@ -3922,18 +3930,6 @@ lazy-dog"
       (test "ｂ" (substring-terminal-width "ａｂｃ" 2 4))
       (test "" (substring-terminal-width "ａｂｃ" 2 3))
       (test "ａ" (substring-terminal-width "ａｂｃ" -1 2))
-
-      ;; from-file
-      ;; for reference, filesystem-test relies on creating files under /tmp
-      (let* ((tmp-file "chibi-show-test-0123456789")
-             (content-string "first line\nsecond line\nthird line"))
-        (with-output-to-file tmp-file (lambda () (write-string content-string)))
-        (test (string-append content-string "\n")
-              (show #f (from-file tmp-file)))
-        (test
-         "   1 first line\n   2 second line\n   3 third line\n"
-         (show #f (columnar 4 'right 'infinite (line-numbers) " " (from-file tmp-file))))
-        (delete-file tmp-file))
 
       (test-end))))
 |#
