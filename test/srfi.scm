@@ -3579,6 +3579,17 @@
 (check-equal "   1 first line\n   2 second line\n   3 third line\n"
     (show #f (columnar 4 'right 'infinite (line-numbers) " " (from-file "output-166.txt"))))
 
+;; color
+(check-equal "\x1B;[31mred\x1B;[39m" (show #f (as-red "red")))
+(check-equal "\x1B;[31mred\x1B;[34mblue\x1B;[31mred\x1B;[39m"
+    (show #f (as-red "red" (as-blue "blue") "red")))
+;(check-equal "\x1b;[31m1234567\x1b;[39m col: 7"
+;    (show #f (terminal-aware (as-red "1234567") (fn (col) (each " col: " col)))))
+(check-equal "\x1b;[31m\x1b;[4m\x1b;[1mabc\x1b;[22mdef\x1b;[24mghi\x1b;[39m"
+    (show #f (as-red (each (as-underline (as-bold "abc") "def") "ghi"))))
+(check-equal "\x1b;[44m\x1b;[33mabc\x1b;[39mdef\x1b;[49m"
+    (show #f (on-blue (each (as-yellow "abc") "def"))))
+
 #|
 (define-library (srfi 166 test)
   (export run-tests)
@@ -3806,17 +3817,6 @@
                                             (kons (car ls) acc))))))
                        " ; "
                        (wrapped "The fundamental list iterator.  Applies KONS to each element of LS and the result of the previous application, beginning with KNIL.  With KONS as CONS and KNIL as '(), equivalent to REVERSE.")))))
-
-      ;; color
-      (test "\x1B;[31mred\x1B;[39m" (show #f (as-red "red")))
-      (test "\x1B;[31mred\x1B;[34mblue\x1B;[31mred\x1B;[39m"
-          (show #f (as-red "red" (as-blue "blue") "red")))
-      (test "\x1b;[31m1234567\x1b;[39m col: 7"
-            (show #f (terminal-aware (as-red "1234567") (fn (col) (each " col: " col)))))
-      (test "\x1b;[31m\x1b;[4m\x1b;[1mabc\x1b;[22mdef\x1b;[24mghi\x1b;[39m"
-            (show #f (as-red (each (as-underline (as-bold "abc") "def") "ghi"))))
-      (test "\x1b;[44m\x1b;[33mabc\x1b;[39mdef\x1b;[49m"
-            (show #f (on-blue (each (as-yellow "abc") "def"))))
 
       ;; unicode
       (test "〜日本語〜"

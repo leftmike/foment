@@ -44,6 +44,29 @@
         justified/list
         from-file
         line-numbers
+        as-red
+        as-blue
+        as-green
+        as-cyan
+        as-yellow
+        as-magenta
+        as-white
+        as-black
+        as-bold
+        as-italic
+        as-underline
+        on-red
+        on-blue
+        on-green
+        on-cyan
+        on-yellow
+        on-magenta
+        on-white
+        on-black
+        as-color
+        as-true-color
+        on-color
+        on-true-color
 
         upcased
         downcased
@@ -1024,6 +1047,73 @@
             (case-lambda
                 (() (joined/range displayed 1 #f "\n"))
                 ((start) (joined/range displayed start #f "\n"))))
+        (define foreground (%make-state-variable "\x1B;[39m" #t))
+        (define background (%make-state-variable "\x1B;[49m" #t))
+        (define bold (%make-state-variable "\x1B;[22m" #t))
+        (define italic (%make-state-variable "\x1B;[23m" #t))
+        (define underline (%make-state-variable "\x1B;[24m" #t))
+        (define (with-attribute var attribute fmt)
+            (fn ((original var))
+                (with ((var attribute))
+                    (each attribute fmt original))))
+        (define (as-red . fmts)
+            (with-attribute foreground "\x1B;[31m" (each-in-list fmts)))
+        (define (as-blue . fmts)
+            (with-attribute foreground "\x1B;[34m" (each-in-list fmts)))
+        (define (as-green . fmts)
+            (with-attribute foreground "\x1B;[32m" (each-in-list fmts)))
+        (define (as-cyan . fmts)
+            (with-attribute foreground "\x1B;[36m" (each-in-list fmts)))
+        (define (as-yellow . fmts)
+            (with-attribute foreground "\x1B;[33m" (each-in-list fmts)))
+        (define (as-magenta . fmts)
+            (with-attribute foreground "\x1B;[35m" (each-in-list fmts)))
+        (define (as-white . fmts)
+            (with-attribute foreground "\x1B;[37m" (each-in-list fmts)))
+        (define (as-black . fmts)
+            (with-attribute foreground "\x1B;[30m" (each-in-list fmts)))
+        (define (as-bold . fmts)
+            (with-attribute bold "\x1B;[1m" (each-in-list fmts)))
+        (define (as-italic . fmts)
+            (with-attribute italic "\x1B;[3m" (each-in-list fmts)))
+        (define (as-underline . fmts)
+            (with-attribute underline "\x1B;[4m" (each-in-list fmts)))
+        (define (on-red . fmts)
+            (with-attribute background "\x1B;[41m" (each-in-list fmts)))
+        (define (on-blue . fmts)
+            (with-attribute background "\x1B;[44m" (each-in-list fmts)))
+        (define (on-green . fmts)
+            (with-attribute background "\x1B;[42m" (each-in-list fmts)))
+        (define (on-cyan . fmts)
+            (with-attribute background "\x1B;[46m" (each-in-list fmts)))
+        (define (on-yellow . fmts)
+            (with-attribute background "\x1B;[43m" (each-in-list fmts)))
+        (define (on-magenta . fmts)
+            (with-attribute background "\x1B;[45m" (each-in-list fmts)))
+        (define (on-white . fmts)
+            (with-attribute background "\x1B;[47m" (each-in-list fmts)))
+        (define (on-black . fmts)
+            (with-attribute background "\x1B;[40m" (each-in-list fmts)))
+        (define (as-color red green blue . fmts)
+            (with-attribute foreground
+                    (string-append "\x1B;[38;5;"
+                            (number->string (+ (* 36 red) (* 6 green) blue 16)) "m")
+                    (each-in-list fmts)))
+        (define (as-true-color red green blue . fmts)
+            (with-attribute foreground
+                    (string-append "\x1B;[38;2;" (number->string red) ";" (number->string green)
+                            ";" (number->string blue) "m")
+                    (each-in-list fmts)))
+        (define (on-color red green blue . fmts)
+            (with-attribute background
+                    (string-append "\x1B;[48;5;"
+                            (number->string (+ (* 36 red) (* 6 green) blue 16)) "m")
+                    (each-in-list fmts)))
+        (define (on-true-color red green blue . fmts)
+            (with-attribute background
+                    (string-append "\x1B;[48;2;" (number->string red) ";" (number->string green)
+                            ";" (number->string blue) "m")
+                    (each-in-list fmts)))
 
         (define (with-output proc fmt)
             (fn ((original output))
@@ -1055,11 +1145,12 @@
         (define state-variables '())
         (define make-state-variable
             (case-lambda
-                ((name default) (%make-state-variable default))
-                ((name default immutable) (%make-state-variable default))))
-        (define (%make-state-variable default)
+                ((name default) (%make-state-variable default #f))
+                ((name default immutable) (%make-state-variable default immutable))))
+        (define (%make-state-variable default immutable)
             (let ((param (make-parameter default)))
-                (set! state-variables (cons param state-variables))
+                (if (not immutable)
+                    (set! state-variables (cons param state-variables)))
                 param))
         (define (update-row-col str)
             (let ((c (col)) (r (row)) (newlines 0))
@@ -1086,25 +1177,26 @@
                 ((str) (string-length str))
                 ((str start) (- (string-length str) start))
                 ((str start end) (- end start))))
-        (define port (%make-state-variable (current-output-port))) ; check for output-port
-        (define row (%make-state-variable #f))
-        (define col (%make-state-variable #f))
+        (define port (%make-state-variable (current-output-port) #f)) ; check for output-port
+        (define row (%make-state-variable #f #f))
+        (define col (%make-state-variable #f #f))
         ; XXX: calculate based on the terminal width if possible; otherwise default to 80
-        (define width (%make-state-variable 100)) ; check for integer
-        (define output (%make-state-variable output-default)) ; check for procedure
-        (define writer (%make-state-variable written-default)) ; check for procedure
-        (define string-width (%make-state-variable string-width-default)) ; check for procedure
-        (define substring/width (%make-state-variable substring)) ; check for procedure
-        (define substring/preserve (%make-state-variable #f)) ; check for #f or procedure
-        (define pad-char (%make-state-variable #\space)) ; check for character
-        (define ellipsis (%make-state-variable "")) ; check for string
-        (define radix (%make-state-variable 10)) ; check for 2 to 36
-        (define precision (%make-state-variable #f)) ; check for #f or integer
-        (define decimal-sep (%make-state-variable #f)) ; check for character
-        (define decimal-align (%make-state-variable #f)) ; check for integer
-        (define sign-rule (%make-state-variable #f)) ; check for #f, #t, or pair of strings
-        (define comma-rule (%make-state-variable #f)) ; check for #f, integer, or list of integers
-        (define comma-sep (%make-state-variable #f)) ; check for character
-        (define word-separator? (%make-state-variable char-whitespace?)) ; check for procedure
+        (define width (%make-state-variable 100 #f)) ; check for integer
+        (define output (%make-state-variable output-default #f)) ; check for procedure
+        (define writer (%make-state-variable written-default #t)) ; check for procedure
+        (define string-width (%make-state-variable string-width-default #t)) ; check for procedure
+        (define substring/width (%make-state-variable substring #t)) ; check for procedure
+        (define substring/preserve (%make-state-variable #f #t)) ; check for #f or procedure
+        (define pad-char (%make-state-variable #\space #t)) ; check for character
+        (define ellipsis (%make-state-variable "" #t)) ; check for string
+        (define radix (%make-state-variable 10 #t)) ; check for 2 to 36
+        (define precision (%make-state-variable #f #t)) ; check for #f or integer
+        (define decimal-sep (%make-state-variable #f #t)) ; check for character
+        (define decimal-align (%make-state-variable #f #t)) ; check for integer
+        (define sign-rule (%make-state-variable #f #t)) ; check for #f, #t, or pair of strings
+        (define comma-rule (%make-state-variable #f #t)) ; check for #f, integer, or list of
+                                                         ; integers
+        (define comma-sep (%make-state-variable #f #t)) ; check for character
+        (define word-separator? (%make-state-variable char-whitespace? #t)) ; check for procedure
         )
     )
