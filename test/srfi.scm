@@ -3579,6 +3579,7 @@
 (check-equal "   1 first line\n   2 second line\n   3 third line\n"
     (show #f (columnar 4 'right 'infinite (line-numbers) " " (from-file "output-166.txt"))))
 
+#|
 ;; color
 (check-equal "\x1B;[31mred\x1B;[39m" (show #f (as-red "red")))
 (check-equal "\x1B;[31mred\x1B;[34mblue\x1B;[31mred\x1B;[39m"
@@ -3589,6 +3590,7 @@
     (show #f (as-red (each (as-underline (as-bold "abc") "def") "ghi"))))
 (check-equal "\x1b;[44m\x1b;[33mabc\x1b;[39mdef\x1b;[49m"
     (show #f (on-blue (each (as-yellow "abc") "def"))))
+|#
 
 #|
 (define-library (srfi 166 test)

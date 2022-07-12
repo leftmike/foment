@@ -44,6 +44,7 @@
         justified/list
         from-file
         line-numbers
+        #|
         as-red
         as-blue
         as-green
@@ -67,7 +68,7 @@
         as-true-color
         on-color
         on-true-color
-
+        |#
         upcased
         downcased
         fn
@@ -1056,6 +1057,7 @@
             (fn ((original var))
                 (with ((var attribute))
                     (each attribute fmt original))))
+        #|
         (define (as-red . fmts)
             (with-attribute foreground "\x1B;[31m" (each-in-list fmts)))
         (define (as-blue . fmts)
@@ -1114,7 +1116,7 @@
                     (string-append "\x1B;[48;2;" (number->string red) ";" (number->string green)
                             ";" (number->string blue) "m")
                     (each-in-list fmts)))
-
+        |#
         (define (with-output proc fmt)
             (fn ((original output))
                 (with ((output (lambda (str) (proc original str))))
