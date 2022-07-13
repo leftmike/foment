@@ -4,7 +4,8 @@
         show
         displayed
         written
-
+        written-shared
+        written-simply
         escaped
         maybe-escaped
         numeric
@@ -34,7 +35,10 @@
         fitted
         fitted/right
         fitted/both
-
+        ;pretty
+        ;pretty-shared
+        ;pretty-simply
+        ;pretty-with-color
         columnar
         tabular
         wrapped
@@ -98,6 +102,7 @@
         comma-sep
         word-separator?
 
+        ;; exported for testing
         make-runner
         string-split
         make-infinite-runner
@@ -127,7 +132,6 @@
                             (parameterize ((var tmp) ...) ((displayed fmt))) ...) nothing))
                 ((%with ((var val) . rest) (vars ...) fmt ...)
                     (%with rest ((var val tmp) vars ...) fmt ...))))
-
         (define (show dest . fmts)
             (let ((show-port
                     (if (port? dest)
@@ -147,18 +151,39 @@
                 ((char? obj) (%formatter () ((output) (string obj))))
                 (else (written obj))))
         (define (written obj)
-            (fn () ((writer) obj)))
+            (fn (writer) (writer obj)))
         (define (written-default obj)
-            (%write obj))
-        (define (%write obj)
+            (%write obj (find-shared-objects obj #f)))
+        (define (written-shared obj)
+            (%write obj (find-shared-objects obj #t)))
+        (define (written-simply obj)
+            (%write obj #f))
+        (define (find-shared-objects obj all)
+            (define (find-shared obj all shared)
+                (if (or (pair? obj) (vector? obj))
+                    (let ((cnt (%hash-table-ref shared obj 0)))
+                        (%hash-table-set! shared obj (+ cnt 1))
+                        (if (= cnt 0)
+                            (if (pair? obj)
+                                (begin
+                                    (find-shared (car obj) all shared)
+                                    (find-shared (cdr obj) all shared))
+                                (vector-for-each
+                                        (lambda (elem) (find-shared elem all shared)) obj)))
+                        (if (and (not all) (= (%hash-table-ref shared obj 0) 1))
+                            (%hash-table-delete! shared obj)))))
+            (let ((shared (make-eq-hash-table)))
+                (find-shared obj all shared)
+                shared))
+        (define (%write obj shared)
             (let ((write-radix (case (radix) ((2 8 10 16) (radix)) (else 10))))
                 (with ((radix write-radix)
                         (precision (if (= write-radix 10) (precision) #f))
                         (sign-rule #f)
                         (comma-rule #f)
                         (decimal-sep #\.))
-                    (%write-object obj))))
-        (define (%write-object obj)
+                    (%write-object obj shared (box 0)))))
+        (define (%write-object obj shared count)
             (define (%write-number num)
                 (each
                     (if (exact? num)
@@ -169,30 +194,44 @@
                             (else ""))
                         "")
                     (numeric num)))
-            (define (%write-list lst)
+            (define (shared-object? obj shared)
+                (let ((val (if shared (%hash-table-ref shared obj 0) 0)))
+                    (or (box? val) (> val 1))))
+            (define (%write-list lst shared count)
                 (cond
                     ((null? lst) ")")
-                    ((pair? lst)
-                        (each " " (%write-object (car lst)) (fn () (%write-list (cdr lst)))))
-                    (else (each " . " (%write-object  lst) ")"))))
-            (define (%write-vector vec idx)
+                    ((and (pair? lst) (not (shared-object? lst shared)))
+                        (each " " (%write-object (car lst) shared count)
+                                (fn () (%write-list (cdr lst) shared count))))
+                    (else (each " . " (%write-object lst shared count) ")"))))
+            (define (%write-vector vec idx shared count)
                 (cond
                     ((= idx (vector-length vec)) ")")
                     (else
                         (each
                             (if (> idx 0) " " nothing)
-                            (%write-object (vector-ref obj idx))
-                            (fn () (%write-vector vec (+ idx 1)))))))
-            (cond
-                ((number? obj) (%write-number obj))
-                ((pair? obj)
-                    (each "(" (%write-object (car obj)) (fn () (%write-list (cdr obj)))))
-                ((vector? obj) (each "#(" (%write-vector obj 0)))
-                (else
-                    (let ((port (open-output-string)))
-                        (write obj port)
-                        (get-output-string port)))))
-
+                            (%write-object (vector-ref obj idx) shared count)
+                            (fn () (%write-vector vec (+ idx 1) shared count))))))
+            (let ((val (if shared (%hash-table-ref shared obj 0) 0)))
+                (if (box? val)
+                    (each "#" (number->string (unbox val)) "#")
+                    (each
+                        (if (> val 1)
+                            (let ((cnt (unbox count)))
+                                (%hash-table-set! shared obj (box cnt))
+                                (set-box! count (+ cnt 1))
+                                (each "#" (number->string cnt) "="))
+                            nothing)
+                        (cond
+                            ((number? obj) (%write-number obj))
+                            ((pair? obj)
+                                (each "(" (%write-object (car obj) shared count)
+                                        (fn () (%write-list (cdr obj) shared count))))
+                            ((vector? obj) (each "#(" (%write-vector obj 0 shared count)))
+                            (else
+                                (let ((port (open-output-string)))
+                                    (write obj port)
+                                    (get-output-string port))))))))
         (define escaped
             (case-lambda
                 ((fmt) (%escaped fmt #\" #\\ #f))

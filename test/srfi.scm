@@ -3579,6 +3579,48 @@
 (check-equal "   1 first line\n   2 second line\n   3 third line\n"
     (show #f (columnar 4 'right 'infinite (line-numbers) " " (from-file "output-166.txt"))))
 
+;; shared structures
+(check-equal "#0=(1 . #0#)"
+    (show #f (written (let ((ones (list 1))) (set-cdr! ones ones) ones))))
+(check-equal "(0 . #0=(1 . #0#))"
+    (show #f (written (let ((ones (list 1)))
+                        (set-cdr! ones ones)
+                        (cons 0 ones)))))
+(check-equal "(sym . #0=(sym . #0#))"
+    (show #f (written (let ((syms (list 'sym)))
+                        (set-cdr! syms syms)
+                        (cons 'sym syms)))))
+(check-equal "(#0=(1 . #0#) #1=(2 . #1#))"
+    (show #f (written (let ((ones (list 1))
+                            (twos (list 2)))
+                        (set-cdr! ones ones)
+                        (set-cdr! twos twos)
+                        (list ones twos)))))
+(check-equal "(#0=(1 . #0#) #0#)"
+    (show #f (written (let ((ones (list 1)))
+                        (set-cdr! ones ones)
+                        (list ones ones)))))
+(check-equal "((1) (1))"
+    (show #f (written (let ((ones (list 1)))
+                        (list ones ones)))))
+
+(check-equal "(#0=(1) #0#)"
+    (show #f (written-shared (let ((ones (list 1)))
+                               (list ones ones)))))
+
+;; cycles without shared detection
+(check-equal "(1 1 1 1 1"
+    (show #f (trimmed/lazy
+              10
+              (written-simply
+               (let ((ones (list 1))) (set-cdr! ones ones) ones)))))
+
+(check-equal "(1 1 1 1 1 "
+    (show #f (trimmed/lazy
+              11
+              (written-simply
+               (let ((ones (list 1))) (set-cdr! ones ones) ones)))))
+
 #|
 ;; color
 (check-equal "\x1B;[31mred\x1B;[39m" (show #f (as-red "red")))
@@ -3607,50 +3649,6 @@
            (test str (show #f (pretty sexp)))))))
     (define (run-tests)
       (test-begin "show")
-
-      ;; shared structures
-
-      (test "#0=(1 . #0#)"
-          (show #f (written (let ((ones (list 1))) (set-cdr! ones ones) ones))))
-      (test "(0 . #0=(1 . #0#))"
-          (show #f (written (let ((ones (list 1)))
-                              (set-cdr! ones ones)
-                              (cons 0 ones)))))
-      (test "(sym . #0=(sym . #0#))"
-          (show #f (written (let ((syms (list 'sym)))
-                              (set-cdr! syms syms)
-                              (cons 'sym syms)))))
-      (test "(#0=(1 . #0#) #1=(2 . #1#))"
-          (show #f (written (let ((ones (list 1))
-                                  (twos (list 2)))
-                              (set-cdr! ones ones)
-                              (set-cdr! twos twos)
-                              (list ones twos)))))
-      (test "(#0=(1 . #0#) #0#)"
-          (show #f (written (let ((ones (list 1)))
-                              (set-cdr! ones ones)
-                              (list ones ones)))))
-      (test "((1) (1))"
-          (show #f (written (let ((ones (list 1)))
-                              (list ones ones)))))
-
-      (test "(#0=(1) #0#)"
-          (show #f (written-shared (let ((ones (list 1)))
-                                     (list ones ones)))))
-
-      ;; cycles without shared detection
-
-      (test "(1 1 1 1 1"
-          (show #f (trimmed/lazy
-                    10
-                    (written-simply
-                     (let ((ones (list 1))) (set-cdr! ones ones) ones)))))
-
-      (test "(1 1 1 1 1 "
-          (show #f (trimmed/lazy
-                    11
-                    (written-simply
-                     (let ((ones (list 1))) (set-cdr! ones ones) ones)))))
 
       ;; pretty printing
 
