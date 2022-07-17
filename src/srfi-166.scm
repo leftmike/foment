@@ -35,10 +35,10 @@
         fitted
         fitted/right
         fitted/both
-        ;pretty
-        ;pretty-shared
-        ;pretty-simply
-        ;pretty-with-color
+        pretty
+        pretty-shared
+        pretty-simply
+        (rename pretty pretty-with-color)
         columnar
         tabular
         wrapped
@@ -153,11 +153,11 @@
         (define (written obj)
             (fn (writer) (writer obj)))
         (define (written-default obj)
-            (%write obj (find-shared-objects obj #f)))
+            (%written %write obj (find-shared-objects obj #f)))
         (define (written-shared obj)
-            (%write obj (find-shared-objects obj #t)))
+            (%written %write obj (find-shared-objects obj #t)))
         (define (written-simply obj)
-            (%write obj #f))
+            (%written %write obj #f))
         (define (find-shared-objects obj all)
             (define (find-shared obj all shared)
                 (if (or (pair? obj) (vector? obj))
@@ -175,15 +175,18 @@
             (let ((shared (make-eq-hash-table)))
                 (find-shared obj all shared)
                 shared))
-        (define (%write obj shared)
+        (define (shared-object? obj shared)
+            (let ((val (if shared (%hash-table-ref shared obj 0) 0)))
+                (or (box? val) (> val 1))))
+        (define (%written write obj shared)
             (let ((write-radix (case (radix) ((2 8 10 16) (radix)) (else 10))))
                 (with ((radix write-radix)
                         (precision (if (= write-radix 10) (precision) #f))
                         (sign-rule #f)
                         (comma-rule #f)
                         (decimal-sep #\.))
-                    (%write-object obj shared (box 0)))))
-        (define (%write-object obj shared count)
+                    (write obj shared (box 0)))))
+        (define (%write obj shared count)
             (define (%write-number num)
                 (each
                     (if (exact? num)
@@ -194,23 +197,20 @@
                             (else ""))
                         "")
                     (numeric num)))
-            (define (shared-object? obj shared)
-                (let ((val (if shared (%hash-table-ref shared obj 0) 0)))
-                    (or (box? val) (> val 1))))
             (define (%write-list lst shared count)
                 (cond
                     ((null? lst) ")")
                     ((and (pair? lst) (not (shared-object? lst shared)))
-                        (each " " (%write-object (car lst) shared count)
+                        (each " " (%write (car lst) shared count)
                                 (fn () (%write-list (cdr lst) shared count))))
-                    (else (each " . " (%write-object lst shared count) ")"))))
+                    (else (each " . " (%write lst shared count) ")"))))
             (define (%write-vector vec idx shared count)
                 (cond
                     ((= idx (vector-length vec)) ")")
                     (else
                         (each
                             (if (> idx 0) " " nothing)
-                            (%write-object (vector-ref obj idx) shared count)
+                            (%write (vector-ref obj idx) shared count)
                             (fn () (%write-vector vec (+ idx 1) shared count))))))
             (let ((val (if shared (%hash-table-ref shared obj 0) 0)))
                 (if (box? val)
@@ -225,7 +225,7 @@
                         (cond
                             ((number? obj) (%write-number obj))
                             ((pair? obj)
-                                (each "(" (%write-object (car obj) shared count)
+                                (each "(" (%write (car obj) shared count)
                                         (fn () (%write-list (cdr obj) shared count))))
                             ((vector? obj) (each "#(" (%write-vector obj 0 shared count)))
                             (else
@@ -671,7 +671,14 @@
             (padded/right width (trimmed/right width (each-in-list fmts))))
         (define (fitted/both width . fmts)
             (padded/both width (trimmed/both width (each-in-list fmts))))
-
+        (define (pretty obj)
+            (%written %pretty obj (find-shared-objects obj #f)))
+        (define (pretty-shared obj)
+            (%written %pretty obj (find-shared-objects obj #t)))
+        (define (pretty-simply obj)
+            (%written %pretty obj #f))
+        (define (%pretty obj shared count)
+            (%write obj shared count))
         (define (string-split str ch)
             (define (split idx)
                 (if (= idx (string-length str))
@@ -1240,4 +1247,98 @@
         (define comma-sep (%make-state-variable #f #t)) ; check for character
         (define word-separator? (%make-state-variable char-whitespace? #t)) ; check for procedure
         )
+    )
+
+(define-library (srfi 166 base)
+    (import (srfi 166))
+    (export
+        show
+        displayed
+        written
+        written-shared
+        written-simply
+        escaped
+        maybe-escaped
+        numeric
+        numeric/comma
+        numeric/si
+        numeric/fitted
+        nl
+        fl
+        space-to
+        tab-to
+        nothing
+        each
+        each-in-list
+        joined
+        joined/prefix
+        joined/suffix
+        joined/last
+        joined/dot
+        joined/range
+        padded
+        padded/right
+        padded/both
+        trimmed
+        trimmed/right
+        trimmed/both
+        trimmed/lazy
+        fitted
+        fitted/right
+        fitted/both
+        fn
+        with
+        with!
+        forked
+        call-with-output
+        make-state-variable
+        port
+        row
+        col
+        width
+        output
+        output-default
+        writer
+        string-width
+        substring/width
+        substring/preserve
+        pad-char
+        ellipsis
+        radix
+        precision
+        decimal-sep
+        decimal-align
+        sign-rule
+        comma-rule
+        comma-sep
+        word-separator?
+        ))
+
+(define-library (srfi 166 pretty)
+    (import (srfi 166))
+    (export
+        pretty
+        pretty-shared
+        pretty-simply
+        pretty-with-color)
+    )
+
+(define-library (srfi 166 columnar)
+    (import (srfi 166))
+    (export
+        columnar
+        tabular
+        wrapped
+        wrapped/list
+        wrapped/char
+        justified
+        from-file
+        line-numbers)
+    )
+
+(define-library (srfi 166 unicode)
+    (import (srfi 166))
+    (export
+        upcased
+        downcased)
     )

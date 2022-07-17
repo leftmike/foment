@@ -30,6 +30,7 @@
 * SRFI 133: Vector Library (R7RS-compatible)
 * SRFI 151: Bitwise Operations
 * SRFI 157: Continuation marks
+* SRFI 166: Monadic Formatting
 * SRFI 176: Version flag
 * SRFI 181: Custom ports (including transcoded ports)
 * SRFI 192: Port Positioning

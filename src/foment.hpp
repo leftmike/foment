@@ -8,13 +8,13 @@ To Do:
 -- Bytevectors: R6RS (rnrs bytevectors) as (scheme bytevector) (note singular form)
 -- SRFI 129: Titlecase Procedures
 -- SRFI 154: First-class dynamic extents
--- SRFI 166: Monadic Formatting
 -- SRFI 195: Multiple-value boxes
 -- SRIF 207: String-notated bytevectors
 
 -- IO: FAlive, EnterWait, and LeaveWait
 -- Allow GC on nested executions
--- SRFI 193: Command line: normalize paths
+-- SRFI 193: normalize paths
+-- SRFI 166: pretty print
 
 -- Benchmarks
 --- http://ecraven.github.io/r7rs-benchmarks/benchmark.html
