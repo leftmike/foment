@@ -4,6 +4,7 @@ Foment
 
 */
 
+#include <stdio.h>
 #include <string.h>
 #include "foment.hpp"
 #include "unicode.hpp"
@@ -882,6 +883,347 @@ Define("string->utf8", StringToUtf8Primitive)(long_t argc, FObject argv[])
     return(ConvertStringToUtf8(AsString(argv[0])->String + strt, end - strt, 0));
 }
 
+// ---- SRFI 207: String-notated bytevectors ----
+
+Define("make-bytestring", MakeBytestringPrimitive)(long_t argc, FObject argv[])
+{
+    OneArgCheck("make-bytestring", argc);
+
+    FObject lst = argv[0];
+    long_t bsl = 0;
+
+    while (PairP(lst))
+    {
+        FObject arg = First(lst);
+        if (FixnumP(arg))
+        {
+            if (AsFixnum(arg) < 0 || AsFixnum(arg) > 255)
+                RaiseExceptionC(Assertion, "make-bytestring", BytestringErrorSymbol,
+                        "expected an integer between 0 and 155", List(arg));
+
+            bsl += 1;
+        }
+        else if (CharacterP(arg))
+        {
+            if (AsCharacter(arg) >= 128)
+                RaiseExceptionC(Assertion, "make-bytestring", BytestringErrorSymbol,
+                        "expected an ascii character", List(arg));
+
+            bsl += 1;
+        }
+        else if (BytevectorP(arg))
+            bsl += BytevectorLength(arg);
+        else if (StringP(arg))
+            bsl += StringLength(arg);
+        else
+            RaiseExceptionC(Assertion, "make-bytestring", BytestringErrorSymbol,
+                    "expected a character, integer, bytevector, or a string", List(arg));
+
+        lst = Rest(lst);
+    }
+
+    if (lst != EmptyListObject)
+        RaiseExceptionC(Assertion, "make-bytestring", "expected a valid list", List(argv[0]));
+
+    FObject bv = MakeBytevector(bsl);
+    FByte * bs = AsBytevector(bv)->Vector;
+    long_t bdx = 0;
+
+    lst = argv[0];
+    while (PairP(lst))
+    {
+        FObject arg = First(lst);
+        if (FixnumP(arg))
+        {
+            bs[bdx] = (FByte) AsFixnum(arg);
+            bdx += 1;
+        }
+        else if (CharacterP(arg))
+        {
+            bs[bdx] = (FByte) AsCharacter(arg);
+            bdx += 1;
+        }
+        else if (BytevectorP(arg))
+        {
+            memcpy(bs + bdx, AsBytevector(arg)->Vector, BytevectorLength(arg));
+            bdx += BytevectorLength(arg);
+        }
+        else if (StringP(arg))
+        {
+            long_t sl = StringLength(arg);
+            for (long_t sdx = 0; sdx < sl; sdx += 1)
+            {
+                FCh ch = AsString(arg)->String[sdx];
+                if (ch >= 128)
+                    RaiseExceptionC(Assertion, "make-bytestring", BytestringErrorSymbol,
+                            "expected a string of ascii characters", List(arg));
+                bs[bdx + sdx] = (FByte) ch;
+            }
+
+            bdx += sl;
+        }
+        else
+        {
+            FAssert(0);
+        }
+
+        lst = Rest(lst);
+    }
+
+    return(bv);
+}
+
+const char * hexdigit = "0123456789abcdef";
+
+Define("bytevector->hex-string", BytevectorToHexStringPrimitive)(long_t argc, FObject argv[])
+{
+    OneArgCheck("bytevector->hex-string", argc);
+    BytevectorArgCheck("bytevector->hex-string", argv[0]);
+
+    ulong_t vl = BytevectorLength(argv[0]);
+    FObject ret = MakeStringCh(vl * 2, 0);
+    FCh * s = AsString(ret)->String;
+    FByte * v = AsBytevector(argv[0])->Vector;
+
+    for (ulong_t vdx = 0; vdx < vl; vdx += 1)
+    {
+        s[vdx * 2] = hexdigit[(v[vdx] >> 4) & 0x0F];
+        s[vdx * 2 + 1] = hexdigit[v[vdx] & 0x0F];
+    }
+
+    return(ret);
+}
+
+static FByte ConvertHexDigit(FCh ch)
+{
+    if (ch >= '0' && ch <= '9')
+        return(ch - '0');
+    else if (ch >= 'a' && ch <= 'f')
+        return(ch - 'a' + 10);
+    else if (ch >= 'A' && ch <= 'F')
+        return(ch - 'A' + 10);
+
+    RaiseExceptionC(Assertion, "hex-string->bytevector", BytestringErrorSymbol,
+            "expected a hexidecimal digit", List(MakeCharacter(ch)));
+    return(0);
+}
+
+Define("hex-string->bytevector", HexStringToBytevectorPrimitive)(long_t argc, FObject argv[])
+{
+    OneArgCheck("hex-string->bytevector", argc);
+    StringArgCheck("hex-string->bytevector", argv[0]);
+
+    ulong_t sl = StringLength(argv[0]);
+
+    if (sl % 2 != 0)
+        RaiseExceptionC(Assertion, "hex-string->bytevector", BytestringErrorSymbol,
+                "expected a string of pairs of hexidecimal digits", List(argv[0]));
+
+    FObject ret = MakeBytevector(sl / 2, "hex-string->bytevector");
+    FCh * s = AsString(argv[0])->String;
+    FByte * v = AsBytevector(ret)->Vector;
+
+    for (ulong_t sdx = 0; sdx < sl; sdx += 2)
+        v[sdx / 2] = (ConvertHexDigit(s[sdx]) << 4) | ConvertHexDigit(s[sdx + 1]) ;
+
+    return(ret);
+}
+
+const char * base64digit = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+static FCh Base64Digit(ulong_t d, FCh digits[2])
+{
+    FAssert(d < 64);
+
+    if (d > 61)
+        return(digits[d - 62]);
+    return(base64digit[d]);
+}
+
+Define("bytevector->base64", BytevectorToBase64Primitive)(long_t argc, FObject argv[])
+{
+    OneOrTwoArgsCheck("bytevector->base64", argc);
+    BytevectorArgCheck("bytevector->base64", argv[0]);
+
+    FCh digits[2] = {'+', '/'};
+
+    if (argc == 2)
+    {
+        if (StringP(argv[1]) == 0 || StringLength(argv[1]) != 2)
+            RaiseExceptionC(Assertion, "bytevector->base64", "expected a two character string",
+                    List(argv[1]));
+
+        digits[0] = AsString(argv[1])->String[0];
+        digits[1] = AsString(argv[1])->String[1];
+    }
+
+    ulong_t vl = BytevectorLength(argv[0]);
+    FObject ret = MakeStringCh((vl / 3) * 4 + (vl % 3 == 0 ? 0 : 4), 0);
+    FCh * s = AsString(ret)->String;
+    FByte * v = AsBytevector(argv[0])->Vector;
+
+    ulong_t sdx = 0;
+    for (ulong_t vdx = 3; vdx <= vl; vdx += 3)
+    {
+        ulong_t d = (v[vdx - 3] << 16) | (v[vdx - 2] << 8) | v[vdx - 1];
+        s[sdx] = Base64Digit((d >> 18) & 0x3F, digits);
+        s[sdx + 1] = Base64Digit((d >> 12) & 0x3F, digits);
+        s[sdx + 2] = Base64Digit((d >> 6) & 0x3F, digits);
+        s[sdx + 3] = Base64Digit(d & 0x3F, digits);
+        sdx += 4;
+    }
+
+    if (vl % 3 == 1)
+    {
+        ulong_t d = v[vl - 1] << 16;
+        s[sdx] = Base64Digit((d >> 18) & 0x3F, digits);
+        s[sdx + 1] = Base64Digit((d >> 12) & 0x3F, digits);
+        s[sdx + 2] = '=';
+        s[sdx + 3] = '=';
+    } else if (vl % 3 == 2)
+    {
+        ulong_t d = (v[vl - 2] << 16) | (v[vl - 1] <<  8);
+        s[sdx] = Base64Digit((d >> 18) & 0x3F, digits);
+        s[sdx + 1] = Base64Digit((d >> 12) & 0x3F, digits);
+        s[sdx + 2] = Base64Digit((d >> 6) & 0x3F, digits);
+        s[sdx + 3] = '=';
+    }
+
+    return(ret);
+}
+
+static ulong_t SkipWhitespace(FCh * s, ulong_t sl, ulong_t sdx)
+{
+    while (sdx < sl && WhitespaceP(s[sdx]))
+        sdx += 1;
+
+    return(sdx);
+}
+
+static ulong_t ConvertBase64(FCh ch, FCh digits[2])
+{
+    if (ch == digits[0])
+        return(62);
+    else if (ch == digits[1])
+        return(63);
+    else if (ch >= 'A' && ch <= 'Z')
+        return(ch - 'A');
+    else if (ch >= 'a' && ch <= 'z')
+        return(ch - 'a' + 26);
+    else if (ch >= '0' && ch <= '9')
+        return(ch - '0' + 52);
+
+    RaiseExceptionC(Assertion, "base64->bytevector", BytestringErrorSymbol,
+            "expected a base64 digit", List(MakeCharacter(ch)));
+    return(0);
+}
+
+Define("base64->bytevector", Base64ToBytevectorPrimitive)(long_t argc, FObject argv[])
+{
+    OneOrTwoArgsCheck("base64->bytevector", argc);
+    StringArgCheck("base64->bytevector", argv[0]);
+
+    FCh digits[2] = {'+', '/'};
+
+    if (argc == 2)
+    {
+        if (StringP(argv[1]) == 0 || StringLength(argv[1]) != 2)
+            RaiseExceptionC(Assertion, "base64->bytevector", "expected a two character string",
+                    List(argv[1]));
+
+        digits[0] = AsString(argv[1])->String[0];
+        digits[1] = AsString(argv[1])->String[1];
+    }
+
+    ulong_t sl = StringLength(argv[0]);
+    FCh * s = AsString(argv[0])->String;
+    ulong_t sdx = 0;
+    FObject lst = EmptyListObject;
+    for (;;)
+    {
+        ulong_t d = 0;
+        long_t eq = 0;
+        for (long_t cnt = 0; cnt < 4; cnt += 1)
+        {
+            sdx = SkipWhitespace(s, sl, sdx);
+            if (sdx == sl)
+            {
+                if (cnt > 0)
+                    goto Failed;
+
+                return(U8ListToBytevector(ReverseListModify(lst)));
+            }
+
+            if (eq > 0 && s[sdx] != '=')
+                goto Failed;
+
+            if (cnt > 1 && s[sdx] == '=')
+            {
+                d = d << 6;
+                eq += 1;
+            }
+            else
+                d = (d << 6) | ConvertBase64(s[sdx], digits);
+            sdx += 1;
+        }
+
+        if (eq > 2)
+            goto Failed;
+        else if (eq > 0)
+        {
+            sdx = SkipWhitespace(s, sl, sdx);
+            if (sdx < sl)
+                goto Failed;
+        }
+
+        lst = MakePair(MakeFixnum((d >> 16) & 0xFF), lst);
+        if (eq < 2)
+            lst = MakePair(MakeFixnum((d >> 8) & 0xFF), lst);
+        if (eq < 1)
+            lst = MakePair(MakeFixnum(d & 0xFF), lst);
+    }
+
+Failed:
+    RaiseExceptionC(Assertion, "base64->bytevector", BytestringErrorSymbol,
+            "expected a base64 string", List(argv[0]));
+    return(NoValueObject);
+}
+
+Define("bytestring->list", BytestringToListPrimitive)(long_t argc, FObject argv[])
+{
+    OneToThreeArgsCheck("bytestring->list", argc);
+    BytevectorArgCheck("bytestring->list", argv[0]);
+
+    long_t vdx = 0;
+    long_t end = BytevectorLength(argv[0]);
+    if (argc > 1)
+    {
+        IndexArgCheck("bytestring->list", argv[1], end);
+
+        vdx = AsFixnum(argv[1]);
+    }
+    if (argc > 2)
+    {
+        EndIndexArgCheck("bytestring->list", argv[1], vdx, end);
+
+        end = AsFixnum(argv[2]);
+    }
+
+    FByte * v = AsBytevector(argv[0])->Vector;
+    FObject lst = EmptyListObject;
+    while (vdx < end)
+    {
+        if (v[vdx] >= 32 && v[vdx] <= 127)
+            lst = MakePair(MakeCharacter(v[vdx]), lst);
+        else
+            lst = MakePair(MakeFixnum(v[vdx]), lst);
+
+        vdx += 1;
+    }
+
+    return(ReverseListModify(lst));
+}
+
 static FObject Primitives[] =
 {
     VectorPPrimitive,
@@ -913,7 +1255,13 @@ static FObject Primitives[] =
     BytevectorCopyModifyPrimitive,
     BytevectorAppendPrimitive,
     Utf8ToStringPrimitive,
-    StringToUtf8Primitive
+    StringToUtf8Primitive,
+    MakeBytestringPrimitive,
+    BytevectorToHexStringPrimitive,
+    HexStringToBytevectorPrimitive,
+    BytevectorToBase64Primitive,
+    Base64ToBytevectorPrimitive,
+    BytestringToListPrimitive
 };
 
 void SetupVectors()

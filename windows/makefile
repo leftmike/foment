@@ -65,10 +65,12 @@ release:
 
 debug\base.cpp: debug\txt2cpp.exe makefile ..\src\base.scm ..\src\srfi-106.scm ..\src\srfi-60.scm\
         ..\src\srfi-1.scm ..\src\srfi-128.scm ..\src\srfi-125.scm ..\src\srfi-133.scm\
-        ..\src\srfi-14.scm ..\src\srfi-193.scm ..\src\srfi-151.scm ..\src\srfi-166.scm
+        ..\src\srfi-14.scm ..\src\srfi-193.scm ..\src\srfi-151.scm ..\src\srfi-166.scm\
+        ..\src\srfi-207.scm
     debug\txt2cpp debug\base.cpp ..\src\base.scm ..\src\srfi-106.scm ..\src\srfi-60.scm\
         ..\src\srfi-1.scm ..\src\srfi-128.scm ..\src\srfi-125.scm ..\src\srfi-133.scm\
-        ..\src\srfi-14.scm ..\src\srfi-193.scm ..\src\srfi-151.scm ..\src\srfi-166.scm
+        ..\src\srfi-14.scm ..\src\srfi-193.scm ..\src\srfi-151.scm ..\src\srfi-166.scm\
+        ..\src\srfi-207.scm
 
 debug\foment.exe: debug\foment.obj debug\gc.obj debug\syncthrd.obj debug\compile.obj debug\io.obj\
         debug\synrules.obj debug\synpass.obj debug\midpass.obj debug\genpass.obj\

@@ -1311,8 +1311,8 @@
         sign-rule
         comma-rule
         comma-sep
-        word-separator?
-        ))
+        word-separator?)
+    )
 
 (define-library (srfi 166 pretty)
     (import (srfi 166))

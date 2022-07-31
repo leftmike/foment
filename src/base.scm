@@ -696,7 +696,13 @@
         set-procedure-property!
         %procedure->formatter
         %formatter?
-        call-with-parameterize)
+        call-with-parameterize
+        make-bytestring
+        bytevector->hex-string
+        hex-string->bytevector
+        bytevector->base64
+        base64->bytevector
+        bytestring->list)
     (cond-expand
         (unix
             (export

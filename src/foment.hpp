@@ -8,8 +8,9 @@ To Do:
 -- Bytevectors: R6RS (rnrs bytevectors) as (scheme bytevector) (note singular form)
 -- SRFI 129: Titlecase Procedures
 -- SRFI 154: First-class dynamic extents
+-- SRFI 158: Generators and Accumulators
 -- SRFI 195: Multiple-value boxes
--- SRIF 207: String-notated bytevectors
+-- SRFI 207: String-notated bytevectors
 
 -- IO: FAlive, EnterWait, and LeaveWait
 -- Allow GC on nested executions
@@ -1133,6 +1134,7 @@ extern FObject StartThreadOutOfMemory;
 extern FObject ExecuteStackOverflow;
 extern FObject FileErrorSymbol;
 extern FObject PositionErrorSymbol;
+extern FObject BytestringErrorSymbol;
 extern FObject NoValuePrimitive;
 
 // ---- Flonums ----

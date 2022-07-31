@@ -25,6 +25,8 @@ Foment
 #define MAXIMUM_NUMBER 256
 #define MAXIMUM_NAME 32
 
+EternalSymbol(BytestringErrorSymbol, "bytestring-error");
+
 // ---- Datum Reference ----
 
 #define AsDatumReference(obj) ((FDatumReference *) (obj))
@@ -86,18 +88,18 @@ static long_t DotSubsequentP(FCh ch)
 #define DotObject ((FObject) -1)
 #define EolObject ((FObject *) -2)
 
-static FCh ReadStringHexChar(FObject port)
+static FCh ReadStringHexChar(FObject port, int bsf)
 {
     FAlive ap(&port);
     FCh s[16];
     long_t sl = 2;
     FCh ch;
+    FObject n;
 
     for (;;)
     {
         if (ReadCh(port, &ch) == 0)
-            RaiseExceptionC(Lexical, "read", "unexpected end-of-file reading string",
-                    List(port));
+            goto MissingSemicolon;
 
         if (ch == ';')
             break;
@@ -105,25 +107,34 @@ static FCh ReadStringHexChar(FObject port)
         s[sl] = ch;
         sl += 1;
         if (sl == sizeof(s) / sizeof(FCh))
-            RaiseExceptionC(Lexical, "read",
-                    "missing ; to terminate \\x<hex-value> in string", List(port));
+            goto MissingSemicolon;
     }
 
-    FObject n = StringToNumber(s + 2, sl - 2, 16);
+    n = StringToNumber(s + 2, sl - 2, 16);
 
     if (FixnumP(n) == 0)
     {
         s[0] = '\\';
         s[1] = 'x';
 
-        RaiseExceptionC(Lexical, "read", "expected a valid hexidecimal value for a character",
+        RaiseExceptionC(Lexical, "read", bsf ? BytestringErrorSymbol : NoValueObject,
+                "expected a valid hexidecimal value for a character",
                 List(port, MakeString(s, sl)));
     }
 
     return((FCh) AsFixnum(n));
+
+MissingSemicolon:
+    if (bsf)
+        RaiseExceptionC(Lexical, "read", BytestringErrorSymbol,
+                "missing ; to terminate \\x<hex-value> in bytestring", List(port));
+    else
+        RaiseExceptionC(Lexical, "read",
+                "missing ; to terminate \\x<hex-value> in string", List(port));
+    return(0);
 }
 
-static FObject ReadStringLiteral(FObject port, FCh tch)
+static FObject ReadStringLiteral(FObject port, FCh tch, int bsf)
 {
     FAlive ap(&port);
     FCh sb[128];
@@ -184,11 +195,16 @@ Again:
             case '\\': ch = 0x005C; break;
             case '|': ch = 0x007C; break;
             case 'x':
-                ch = ReadStringHexChar(port);
+                ch = ReadStringHexChar(port, bsf);
                 break;
             default:
-                RaiseExceptionC(Lexical, "read", "unexpected character following \\",
-                        List(port, MakeCharacter(ch)));
+                if (bsf)
+                    RaiseExceptionC(Lexical, "read", BytestringErrorSymbol,
+                            "unexpected character following \\ in bytestring",
+                            List(port, MakeCharacter(ch)));
+                else
+                    RaiseExceptionC(Lexical, "read", "unexpected character following \\ in string",
+                            List(port, MakeCharacter(ch)));
             }
         }
 
@@ -201,7 +217,8 @@ Again:
             {
                 if (s != sb)
                     free(s);
-                RaiseExceptionC(Restriction, "read", "string too long", List(port));
+                RaiseExceptionC(Restriction, "read", bsf ? "bytestring too long" :
+                        "string too long", List(port));
             }
 
             memcpy(ns, s, msl * sizeof(FCh));
@@ -220,8 +237,26 @@ Again:
 UnexpectedEof:
     if (s != sb)
         free(s);
-    RaiseExceptionC(Lexical, "read", "unexpected end-of-file reading string", List(port));
+    RaiseExceptionC(Lexical, "read", bsf ? "unexpected end-of-file reading bytestring" :
+            "unexpected end-of-file reading string", List(port));
     return(NoValueObject);
+}
+
+static FObject ReadBytestring(FObject port)
+{
+    FObject s = ReadStringLiteral(port, '"', 1);
+    long_t sl = StringLength(s);
+    FObject bv = MakeBytevector(sl);
+    for (long_t idx = 0; idx < sl; idx += 1)
+    {
+        FCh ch = AsString(s)->String[idx];
+        if (ch >= 128 )
+            RaiseExceptionC(Lexical, "read", BytestringErrorSymbol,
+                    "unexpected character in bytestring", List(MakeCharacter(ch)));
+        AsBytevector(bv)->Vector[idx] = (FByte) ch;
+    }
+
+    return(bv);
 }
 
 static FObject ReadNumber(FObject port, FCh * s, long_t sdx, long_t rdx, long_t df)
@@ -448,14 +483,16 @@ static FObject ReadSharp(FObject port, long_t eaf, long_t rlf, FObject * pdlhtbl
             RaiseExceptionC(Lexical, "read", "unexpected end-of-file reading bytevector",
                     List(port));
         if (ch != '8')
-            RaiseExceptionC(Lexical, "read", "expected #\\u8(", List(port));
+            RaiseExceptionC(Lexical, "read", "expected #u8(", List(port));
 
         if (ReadCh(port, &ch) == 0)
             RaiseExceptionC(Lexical, "read", "unexpected end-of-file reading bytevector",
                     List(port));
-        if (ch != '(')
-            RaiseExceptionC(Lexical, "read", "expected #\\u8(", List(port));
-        return(U8ListToBytevector(ReadList(port, pdlhtbl)));
+        if (ch == '(')
+            return(U8ListToBytevector(ReadList(port, pdlhtbl)));
+        else if (ch == '"')
+            return(ReadBytestring(port));
+        RaiseExceptionC(Lexical, "read", "expected #u8( or #u8\"", List(port));
     }
     else if (ch == ';')
     {
@@ -574,7 +611,7 @@ static FObject Read(FObject port, long_t eaf, long_t rlf, FObject * pdlhtbl)
                 return(ReadSharp(port, eaf, rlf, pdlhtbl));
 
             case '"':
-                return(ReadStringLiteral(port, '"'));
+                return(ReadStringLiteral(port, '"', 0));
 
             case '|':
             {
@@ -584,8 +621,8 @@ static FObject Read(FObject port, long_t eaf, long_t rlf, FObject * pdlhtbl)
                     ln = GetLineColumn(port, 0);
 
                 FObject sym = FoldcasePortP(port)
-                        ? StringToSymbol(FoldcaseString(ReadStringLiteral(port, '|')))
-                        : StringToSymbol(ReadStringLiteral(port, '|'));
+                        ? StringToSymbol(FoldcaseString(ReadStringLiteral(port, '|', 0)))
+                        : StringToSymbol(ReadStringLiteral(port, '|', 0));
                 return(WantIdentifiersPortP(port) ? MakeIdentifier(sym, GetFilename(port), ln)
                         : sym);
             }
@@ -1023,6 +1060,10 @@ static FObject Primitives[] =
 void SetupRead()
 {
     FAssert(MAXIMUM_NUMBER == MAXIMUM_IDENTIFIER);
+
+    BytestringErrorSymbol = InternSymbol(BytestringErrorSymbol);
+
+    FAssert(BytestringErrorSymbol = StringCToSymbol("bytestring-error"));
 
     for (ulong_t idx = 0; idx < sizeof(Primitives) / sizeof(FPrimitive *); idx++)
         DefinePrimitive(Bedrock, BedrockLibrary, Primitives[idx]);
