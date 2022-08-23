@@ -4004,42 +4004,57 @@
     (bytestring-error? (guard (o (else o)) (make-bytestring-generator "abc\x3BB;efg" #\m #\u))))
 (check-equal #t
     (bytestring-error? (guard (o (else o)) (make-bytestring-generator 89 90 300))))
+
+(check-equal #u8"____Zaphod" (bytestring-pad #u8"Zaphod" 10 #\_))
+(check-equal #u8(#x80 #x7f 0 0 0 0 0 0) (bytestring-pad-right #u8(#x80 #x7f) 8 0))
+(check-equal #u8"Trillian" (bytestring-trim #u8"   Trillian" (lambda (b) (= b #x20))))
+(check-equal #u8(#x80 #x7f) (bytestring-trim-both #u8(0 0 #x80 #x7f 0 0 0) zero?))
+
+(check-equal #u8"lorem" (bytestring-pad #u8"lorem" (bytevector-length #u8"lorem") #x7a))
+(check-equal "zzzlorem" (utf8->string (bytestring-pad #u8"lorem" 8 #x7a)))
+(check-equal #t
+    (equal? (bytestring-pad #u8"lorem" 8 #\z)
+            (bytestring-pad #u8"lorem" 8 (char->integer #\z))))
+(check-equal #u8"lorem"
+        (bytestring-pad-right #u8"lorem" (bytevector-length #u8"lorem") #x7a))
+(check-equal "loremzzz" (utf8->string (bytestring-pad-right #u8"lorem" 8 #x7a)))
+(check-equal #t
+    (equal? (bytestring-pad-right #u8"lorem" 8 #\z)
+            (bytestring-pad-right #u8"lorem" 8 (char->integer #\z))))
+
+(check-equal #u8"Trillian" (bytestring-trim #u8" Trillian" (lambda (b) (= b #x20))))
+(check-equal #u8(#x80 #x7f) (bytestring-trim-both #u8(0 0 #x80 #x7f 0 0 0) zero?))
+
+(define (always n) #t)
+(define (never n) #f)
+(define (eq-r? n) (= n 114))
+
+(check-equal #u8() (bytestring-trim #u8"lorem" always))
+(check-equal #u8"lorem" (bytestring-trim #u8"lorem" never) )
+(check-equal #u8(#x72 #x65 #x6d) (bytestring-trim #u8"lorem" (lambda (u8) (< u8 #x70))))
+(check-equal #u8() (bytestring-trim-right #u8"lorem" always))
+(check-equal #u8"lorem" (bytestring-trim-right #u8"lorem" never))
+(check-equal #u8(#x6c #x6f #x72) (bytestring-trim-right #u8"lorem" (lambda (u8) (< u8 #x70))))
+(check-equal #u8() (bytestring-trim-both #u8"lorem" always))
+(check-equal #u8"lorem" (bytestring-trim-both #u8"lorem" never))
+(check-equal #u8(#x72) (bytestring-trim-both #u8"lorem" (lambda (u8) (< u8 #x70))))
+
+(check-equal 2 (bytestring-index #u8(#x65 #x72 #x83 #x6f) (lambda (b) (> b #x7f))))
+(check-equal #f (bytestring-index #u8"Beeblebrox" (lambda (b) (> b #x7f))))
+(check-equal 4 (bytestring-index-right #u8"Zaphod" odd?))
+
+(check-equal 0 (bytestring-index #u8"lorem" always))
+(check-equal #f (bytestring-index #u8"lorem" never))
+(check-equal 3 (bytestring-index #u8"lorem" always 3))
+(check-equal 2 (bytestring-index #u8"lorem" eq-r?))
+
+(check-equal 4 (bytestring-index-right #u8"lorem" always))
+(check-equal #f (bytestring-index-right #u8"lorem" never))
+(check-equal 4 (bytestring-index-right #u8"lorem" always 3))
+(check-equal 2 (bytestring-index-right #u8"lorem" eq-r?))
+
 #|
 (define test-bstring (bytestring "lorem"))
-
-
-(define (check-selection)
-  (print-header "Running selection tests...")
-
-  (check (bytestring-pad #u8"lorem" (bytevector-length #u8"lorem") #x7a)
-   => #u8"lorem")
-  (check (utf8->string (bytestring-pad #u8"lorem" 8 #x7a))
-   => "zzzlorem")
-  (check (equal? (bytestring-pad #u8"lorem" 8 #\z)
-                 (bytestring-pad #u8"lorem" 8 (char->integer #\z)))
-   => #t)
-  (check (bytestring-pad-right #u8"lorem"
-                               (bytevector-length #u8"lorem")
-                               #x7a)
-   => #u8"lorem")
-  (check (utf8->string (bytestring-pad-right #u8"lorem" 8 #x7a))
-   => "loremzzz")
-  (check (equal? (bytestring-pad-right #u8"lorem" 8 #\z)
-                 (bytestring-pad-right #u8"lorem" 8 (char->integer #\z)))
-   => #t)
-
-  (check (bytestring-trim #u8"lorem" always) => #u8())
-  (check (bytestring-trim #u8"lorem" never)  => #u8"lorem")
-  (check (bytestring-trim #u8"lorem" (lambda (u8) (< u8 #x70)))
-   => #u8(#x72 #x65 #x6d))
-  (check (bytestring-trim-right #u8"lorem" always) => #u8())
-  (check (bytestring-trim-right #u8"lorem" never)  => #u8"lorem")
-  (check (bytestring-trim-right #u8"lorem" (lambda (u8) (< u8 #x70)))
-   => #u8(#x6c #x6f #x72))
-  (check (bytestring-trim-both #u8"lorem" always) => #u8())
-  (check (bytestring-trim-both #u8"lorem" never)  => #u8"lorem")
-  (check (bytestring-trim-both #u8"lorem" (lambda (u8) (< u8 #x70)))
-   => #u8(#x72)))
 
 (define (check-replacement)
   (print-header "Running bytestring-replace tests...")
@@ -4089,16 +4104,6 @@
   (define (eq-r? b) (= b #x72))
   (define (lt-r? b) (< b #x72))
   (print-header "Running search tests...")
-
-  (check (bytestring-index #u8"lorem" always)     => 0)
-  (check (bytestring-index #u8"lorem" never)      => #f)
-  (check (bytestring-index #u8"lorem" always 3)   => 3)
-  (check (bytestring-index #u8"lorem" eq-r?) => 2)
-
-  (check (bytestring-index-right #u8"lorem" always)     => 4)
-  (check (bytestring-index-right #u8"lorem" never)      => #f)
-  (check (bytestring-index-right #u8"lorem" always 3)   => 4)
-  (check (bytestring-index-right #u8"lorem" eq-r?) => 2)
 
   (check (values~>list (bytestring-span #u8"lorem" always))
    => (list #u8"lorem" (bytevector)))
