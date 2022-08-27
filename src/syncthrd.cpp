@@ -487,7 +487,25 @@ Define("thread-sleep!", ThreadSleepPrimitive)(long_t argc, FObject argv[])
 
 #ifdef FOMENT_UNIX
         EnterWait();
+#ifdef FOMENT_OSX
+        struct timespec ts;
+        uint64_t wake;
+        ts = AsTime(argv[0])->timespec;
+        wake = ts.tv_sec * 1000000000UL + ts.tv_nsec;
+        for (;;) 
+        {
+            uint64_t now, diff;
+            // Requires macOS 10.12 or later
+            now = clock_gettime_nsec_np(CLOCK_REALTIME);
+            if(now >= wake) break;
+            diff = wake - now;
+            ts.tv_sec = diff / 1000000000UL;
+            ts.tv_nsec = diff % 1000000000UL;
+            nanosleep(&ts, 0);
+        }
+#else
         clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &(AsTime(argv[0])->timespec), 0);
+#endif
         LeaveWait();
 #endif // FOMENT_UNIX
     }
