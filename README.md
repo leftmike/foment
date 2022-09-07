@@ -35,6 +35,7 @@
 * SRFI 181: Custom ports (including transcoded ports)
 * SRFI 192: Port Positioning
 * SRFI 193: Command line
+* SRFI 207: String-notated bytevectors
 * SRFI 229: Tagged Procedures
 
 See [Foment](https://github.com/leftmike/foment/wiki/Foment) for more details.

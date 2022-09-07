@@ -148,7 +148,8 @@ debug/pairs.o: ../src/pairs.cpp ../src/foment.hpp
 debug/unicode.o: ../src/unicode.cpp ../src/foment.hpp ../src/unicode.hpp ../src/unicase.hpp
 debug/chars.o: ../src/chars.cpp ../src/foment.hpp ../src/unicode.hpp
 debug/strings.o: ../src/strings.cpp ../src/foment.hpp ../src/unicode.hpp
-debug/vectors.o: ../src/vectors.cpp ../src/foment.hpp ../src/unicode.hpp
+debug/vectors.o: ../src/vectors.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
+	../src/unicode.hpp
 debug/library.o: ../src/library.cpp ../src/foment.hpp ../src/compile.hpp
 debug/execute.o: ../src/execute.cpp ../src/foment.hpp ../src/execute.hpp ../src/syncthrd.hpp
 debug/numbers.o: ../src/numbers.cpp ../src/foment.hpp ../src/unicode.hpp ../src/bignums.hpp
@@ -181,7 +182,8 @@ release/pairs.o: ../src/pairs.cpp ../src/foment.hpp
 release/unicode.o: ../src/unicode.cpp ../src/foment.hpp ../src/unicode.hpp ../src/unicase.hpp
 release/chars.o: ../src/chars.cpp ../src/foment.hpp ../src/unicode.hpp
 release/strings.o: ../src/strings.cpp ../src/foment.hpp ../src/unicode.hpp
-release/vectors.o: ../src/vectors.cpp ../src/foment.hpp ../src/unicode.hpp
+release/vectors.o: ../src/vectors.cpp ../src/foment.hpp ../src/syncthrd.hpp ../src/io.hpp\
+	../src/unicode.hpp
 release/library.o: ../src/library.cpp ../src/foment.hpp ../src/compile.hpp
 release/execute.o: ../src/execute.cpp ../src/foment.hpp ../src/execute.hpp ../src/syncthrd.hpp
 release/numbers.o: ../src/numbers.cpp ../src/foment.hpp ../src/unicode.hpp ../src/bignums.hpp

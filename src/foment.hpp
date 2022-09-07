@@ -10,7 +10,6 @@ To Do:
 -- SRFI 154: First-class dynamic extents
 -- SRFI 158: Generators and Accumulators
 -- SRFI 195: Multiple-value boxes
--- SRFI 207: String-notated bytevectors
 
 -- IO: FAlive, EnterWait, and LeaveWait
 -- Allow GC on nested executions
@@ -629,6 +628,7 @@ void FoldcasePort(FObject port, long_t fcf);
 void WantIdentifiersPort(FObject port, long_t wif);
 
 FObject Read(FObject port);
+FObject ReadBytestring(FObject port);
 
 void WriteCh(FObject port, FCh ch);
 void WriteString(FObject port, FCh * s, ulong_t sl);

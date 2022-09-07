@@ -4,9 +4,17 @@ Foment
 
 */
 
+#ifdef FOMENT_WINDOWS
+#include <windows.h>
+#endif // FOMENT_WINDOWS
+#ifdef FOMENT_UNIX
+#include <pthread.h>
+#endif // FOMENT_UNIX
 #include <stdio.h>
 #include <string.h>
 #include "foment.hpp"
+#include "syncthrd.hpp"
+#include "io.hpp"
 #include "unicode.hpp"
 
 // ---- Vectors ----
@@ -1224,6 +1232,153 @@ Define("bytestring->list", BytestringToListPrimitive)(long_t argc, FObject argv[
     return(ReverseListModify(lst));
 }
 
+static int BytevectorCompare(FObject bv1, FObject bv2)
+{
+    FAssert(BytevectorP(bv1));
+    FAssert(BytevectorP(bv2));
+
+    ulong_t bvl1 = BytevectorLength(bv1);
+    ulong_t bvl2 = BytevectorLength(bv2);
+
+    if (bvl1 < bvl2)
+    {
+        int ret = memcmp(AsBytevector(bv1)->Vector, AsBytevector(bv2)->Vector, bvl1);
+        return(ret > 0 ? 1 : -1);
+    }
+    else if (bvl1 > bvl2)
+    {
+        int ret = memcmp(AsBytevector(bv1)->Vector, AsBytevector(bv2)->Vector, bvl2);
+        return(ret < 0 ? -1 : 1);
+    }
+    return(memcmp(AsBytevector(bv1)->Vector, AsBytevector(bv2)->Vector, bvl1));
+}
+
+Define("bytevector=?", BytevectorEqualPPrimitive)(long_t argc, FObject argv[])
+{
+    TwoArgsCheck("bytevector=?", argc);
+    BytevectorArgCheck("bytevector=?", argv[0]);
+    BytevectorArgCheck("bytevector=?", argv[1]);
+
+    return(BytevectorCompare(argv[0], argv[1]) == 0 ? TrueObject : FalseObject);
+}
+
+Define("bytevector<?", BytevectorLessThanPPrimitive)(long_t argc, FObject argv[])
+{
+    TwoArgsCheck("bytevector<?", argc);
+    BytevectorArgCheck("bytevector<?", argv[0]);
+    BytevectorArgCheck("bytevector<?", argv[1]);
+
+    return(BytevectorCompare(argv[0], argv[1]) < 0 ? TrueObject : FalseObject);
+}
+
+Define("bytevector>?", BytevectorGreaterThanPPrimitive)(long_t argc, FObject argv[])
+{
+    TwoArgsCheck("bytevector>?", argc);
+    BytevectorArgCheck("bytevector>?", argv[0]);
+    BytevectorArgCheck("bytevector>?", argv[1]);
+
+    return(BytevectorCompare(argv[0], argv[1]) > 0 ? TrueObject : FalseObject);
+}
+
+Define("bytevector<=?", BytevectorLessThanEqualPPrimitive)(long_t argc, FObject argv[])
+{
+    TwoArgsCheck("bytevector<=?", argc);
+    BytevectorArgCheck("bytevector<=?", argv[0]);
+    BytevectorArgCheck("bytevector<=?", argv[1]);
+
+    return(BytevectorCompare(argv[0], argv[1]) <= 0 ? TrueObject : FalseObject);
+}
+
+Define("bytevector>=?", BytevectorGreaterThanEqualPPrimitive)(long_t argc, FObject argv[])
+{
+    TwoArgsCheck("bytevector>=?", argc);
+    BytevectorArgCheck("bytevector>=?", argv[0]);
+    BytevectorArgCheck("bytevector>=?", argv[1]);
+
+    return(BytevectorCompare(argv[0], argv[1]) >= 0 ? TrueObject : FalseObject);
+}
+
+static FCh ReadBytestringCh(FObject port)
+{
+    FCh ch;
+    if (ReadCh(port, &ch) == 0)
+        RaiseExceptionC(Lexical, "read-textual-bytestring", BytestringErrorSymbol,
+                "unexpected end-of-file reading bytestring", List(port));
+
+    return(ch);
+}
+
+Define("read-textual-bytestring", ReadTextualBytestringPrimitive)(long_t argc, FObject argv[])
+{
+    OneOrTwoArgsCheck("read-textual-bytestring", argc);
+    FObject port = (argc == 2 ? argv[1] : CurrentInputPort());
+    TextualInputPortArgCheck("read-textual-bytestring", port);
+
+    if (argv[0] == FalseObject)
+    {
+        if (ReadBytestringCh(port) != '"')
+            RaiseExceptionC(Lexical, "read-textual-bytestring", BytestringErrorSymbol,
+                    "expected \" starting bytestring", List(port));
+    }
+    else
+    {
+        if (ReadBytestringCh(port) != '#')
+            goto MissingPrefix;
+        if (ReadBytestringCh(port) != 'u')
+            goto MissingPrefix;
+        if (ReadBytestringCh(port) != '8')
+            goto MissingPrefix;
+        if (ReadBytestringCh(port) != '"')
+            goto MissingPrefix;
+    }
+
+    return(ReadBytestring(port));
+
+MissingPrefix:
+    RaiseExceptionC(Lexical, "read-textual-bytestring", BytestringErrorSymbol,
+            "expected #u8\" starting bytestring", List(port));
+    return(NoValueObject);
+}
+
+Define("write-textual-bytestring", WriteTextualBytestringPrimitive)(long_t argc, FObject argv[])
+{
+    OneOrTwoArgsCheck("write-textual-bytestring", argc);
+    BytevectorArgCheck("write-textual-bytestring", argv[0]);
+    FObject port = (argc == 2 ? argv[1] : CurrentOutputPort());
+    TextualOutputPortArgCheck("write-textual-bytestring", port);
+
+    WriteStringC(port, "#u8\"");
+    for (ulong_t idx = 0; idx < BytevectorLength(argv[0]); idx += 1)
+    {
+        FByte b = AsBytevector(argv[0])->Vector[idx];
+        switch (b)
+        {
+        case 0x07: WriteStringC(port, "\\a"); break;
+        case 0x08: WriteStringC(port, "\\b"); break;
+        case 0x09: WriteStringC(port, "\\t"); break;
+        case 0x0A: WriteStringC(port, "\\n"); break;
+        case 0x0D: WriteStringC(port, "\\r"); break;
+        case 0x22: WriteStringC(port, "\\\""); break;
+        case 0x5C: WriteStringC(port, "\\\\"); break;
+        case 0x7C: WriteStringC(port, "\\|"); break;
+        default:
+            if (b >= 0x20 && b <= 0x7E)
+                WriteCh(port, b);
+            else
+            {
+                FCh s[4];
+                long_t sl = FixnumAsString((long_t) b, s, 16);
+
+                WriteStringC(port, "\\x");
+                WriteString(port, s, sl);
+                WriteCh(port, ';');
+            }
+        }
+    }
+    WriteCh(port, '"');
+    return(NoValueObject);
+}
+
 static FObject Primitives[] =
 {
     VectorPPrimitive,
@@ -1261,7 +1416,14 @@ static FObject Primitives[] =
     HexStringToBytevectorPrimitive,
     BytevectorToBase64Primitive,
     Base64ToBytevectorPrimitive,
-    BytestringToListPrimitive
+    BytestringToListPrimitive,
+    BytevectorEqualPPrimitive,
+    BytevectorLessThanPPrimitive,
+    BytevectorGreaterThanPPrimitive,
+    BytevectorLessThanEqualPPrimitive,
+    BytevectorGreaterThanEqualPPrimitive,
+    ReadTextualBytestringPrimitive,
+    WriteTextualBytestringPrimitive
 };
 
 void SetupVectors()

@@ -3877,7 +3877,6 @@
 (check-equal #t (check-read-bytestring "#u8\"\\x100;\""))
 (check-equal #t (check-read-bytestring "#u8\"\\x0ABC\""))
 (check-equal #t (check-read-bytestring "#u8\"\\xE000;\""))
-(check-equal #t (check-read-bytestring "#u8\"\\x80;\""))
 
 (check-equal #u8(108 111 114 101 109) (bytestring "lo" #\r #x65 #u8(#x6d)))
 (check-equal #t (equal? (bytestring) (bytevector)))
@@ -3893,6 +3892,9 @@
 (check-equal #t (check-make-bytestring "abc" 256 "efg"))
 (check-equal #t (check-make-bytestring "abc" #\x80 "efg"))
 (check-equal #f (check-make-bytestring "abc" #\x10 "efg"))
+
+(check-equal #u8"lorem" (bytestring "lo" #\r #x65 #u8(#x6d)))
+(check-equal #u8() (bytestring))
 
 (check-equal #t (check-make-bytestring "\x3BB;"))
 (check-equal #t (check-make-bytestring #x100))
@@ -4039,6 +4041,49 @@
 (check-equal #u8"lorem" (bytestring-trim-both #u8"lorem" never))
 (check-equal #u8(#x72) (bytestring-trim-both #u8"lorem" (lambda (u8) (< u8 #x70))))
 
+(check-equal #u8"Vogon poetry" (bytestring-replace #u8"Vogon torture" #u8"poetry" 6 13))
+
+(check-equal #u8"lists" (bytestring-replace #u8"lorem" (bytestring "mists") 1 5 1 5))
+(check-equal #u8"loaded" (bytestring-replace #u8"lorem" (bytestring "faded") 2 5 1 5))
+(check-equal #u8"lorem"
+    (bytestring-replace (make-bytevector 5) #u8"lorem" 0 (bytevector-length #u8"lorem")))
+(check-equal #u8"food food"
+    (let ((bv1 (bytestring "food")) (bv2 (bytestring "od fo")))
+        (bytestring-replace bv1 bv2 2 2 0 5)))
+(check-equal #u8"food"
+    (let ((bv1 (bytestring "food food")))
+        (bytestring-replace bv1 (bytevector) 2 7 0 0)))
+
+(check-equal #t (bytestring=? #u8"lorem" #u8"lorem"))
+(check-equal #f (bytestring=? #u8"lore" #u8"lorem"))
+(check-equal #f (bytestring=? #u8"lorem" #u8"lore"))
+(check-equal #f (bytestring=? #u8"abcdef" #u8"ghijklmno"))
+
+(check-equal #t (bytestring<? #u8"Heart Of Gold" #u8"Heart of Gold"))
+(check-equal #f (bytestring<=? #u8(#x81 #x95) #u8(#x80 #xa0)))
+(check-equal #t (bytestring>? #u8(1 2 3) #u8(1 2)))
+
+(define short-bstring (bytestring "lore"))
+(define long-bstring (bytestring "lorem "))
+(define mixed-case-bstring (bytestring "loreM"))
+
+(check-equal #f (bytestring<? #u8"lorem" #u8"lorem"))
+(check-equal #t (bytestring<? short-bstring #u8"lorem"))
+(check-equal #t (bytestring<? mixed-case-bstring #u8"lorem"))
+(check-equal #f (bytestring>? #u8"lorem" #u8"lorem"))
+(check-equal #t (bytestring>? #u8"lorem" short-bstring))
+(check-equal #t (bytestring>? #u8"lorem" mixed-case-bstring))
+(check-equal #t (bytestring<=? #u8"lorem" #u8"lorem"))
+(check-equal #t (bytestring<=? short-bstring #u8"lorem"))
+(check-equal #t (bytestring<=? mixed-case-bstring #u8"lorem"))
+(check-equal #f (bytestring<=? #u8"lorem" mixed-case-bstring))
+(check-equal #f (bytestring<=? long-bstring #u8"lorem"))
+(check-equal #t (bytestring>=? #u8"lorem" #u8"lorem"))
+(check-equal #t (bytestring>=? #u8"lorem" short-bstring))
+(check-equal #t (bytestring>=? #u8"lorem" mixed-case-bstring))
+(check-equal #f (bytestring>=? mixed-case-bstring #u8"lorem"))
+(check-equal #f (bytestring>=? short-bstring #u8"lorem"))
+
 (check-equal 2 (bytestring-index #u8(#x65 #x72 #x83 #x6f) (lambda (b) (> b #x7f))))
 (check-equal #f (bytestring-index #u8"Beeblebrox" (lambda (b) (> b #x7f))))
 (check-equal 4 (bytestring-index-right #u8"Zaphod" odd?))
@@ -4053,173 +4098,134 @@
 (check-equal 4 (bytestring-index-right #u8"lorem" always 3))
 (check-equal 2 (bytestring-index-right #u8"lorem" eq-r?))
 
-#|
-(define test-bstring (bytestring "lorem"))
+(check-equal (#u8(#x50 #x4b) #u8(0 0 #x1 #x5))
+    (call-with-values (lambda () (bytestring-break #u8(#x50 #x4b 0 0 #x1 #x5) zero?)) list))
 
-(define (check-replacement)
-  (print-header "Running bytestring-replace tests...")
+(check-equal (#u8"ABCD" #u8"efg")
+    (call-with-values
+        (lambda () (bytestring-span #u8"ABCDefg" (lambda (b) (and (> b 40) (< b 91)))))
+        list))
 
-  (check (bytestring-replace #u8"lorem" (bytestring "mists") 1 5 1 5)
-   => (bytestring "lists"))
-  (check (bytestring-replace #u8"lorem" (bytestring "faded") 2 5 1 5)
-   => (bytestring "loaded"))
-  (check (bytestring-replace (make-bytevector 5)
-                             #u8"lorem"
-                             0
-                             (bytevector-length #u8"lorem"))
-   => #u8"lorem")
+(define (eq-r? b) (= b #x72))
+(define (lt-r? b) (< b #x72))
 
-  (let ((bv1 (bytestring "food")) (bv2 (bytestring "od fo")))
-    (check (bytestring-replace bv1 bv2 2 2 0 5) => (bytestring "food food")))
-  (let ((bv1 (bytestring "food food")))
-    (check (bytestring-replace bv1 (bytevector) 2 7 0 0)
-     => (bytestring "food")))
-)
+(check-equal (#u8"lorem" #u8())
+    (call-with-values (lambda () (bytestring-span #u8"lorem" always)) list))
+(check-equal (#u8() #u8"lorem")
+    (call-with-values (lambda () (bytestring-span #u8"lorem" never)) list))
+(check-equal (#u8"lo" #u8"rem")
+    (call-with-values (lambda () (bytestring-span #u8"lorem" lt-r?)) list))
 
-(define (check-comparison)
-  (define short-bstring (bytestring "lore"))
-  (define long-bstring (bytestring "lorem "))
-  (define mixed-case-bstring (bytestring "loreM"))
-  (print-header "Runnng comparison tests...")
+(check-equal (#u8() #u8"lorem")
+    (call-with-values (lambda () (bytestring-break #u8"lorem" always)) list))
+(check-equal (#u8"lorem" #u8())
+    (call-with-values (lambda () (bytestring-break #u8"lorem" never)) list))
+(check-equal (#u8"lo" #u8"rem")
+    (call-with-values (lambda () (bytestring-break #u8"lorem" eq-r?)) list))
 
-  (check (bytestring<? #u8"lorem" #u8"lorem")        => #f)
-  (check (bytestring<? short-bstring #u8"lorem")       => #t)
-  (check (bytestring<? mixed-case-bstring #u8"lorem")  => #t)
-  (check (bytestring>? #u8"lorem" #u8"lorem")        => #f)
-  (check (bytestring>? #u8"lorem" short-bstring)       => #t)
-  (check (bytestring>? #u8"lorem" mixed-case-bstring)  => #t)
-  (check (bytestring<=? #u8"lorem" #u8"lorem")       => #t)
-  (check (bytestring<=? short-bstring #u8"lorem")      => #t)
-  (check (bytestring<=? mixed-case-bstring #u8"lorem") => #t)
-  (check (bytestring<=? #u8"lorem" mixed-case-bstring) => #f)
-  (check (bytestring<=? long-bstring #u8"lorem")       => #f)
-  (check (bytestring>=? #u8"lorem" #u8"lorem")       => #t)
-  (check (bytestring>=? #u8"lorem" short-bstring)      => #t)
-  (check (bytestring>=? #u8"lorem" mixed-case-bstring) => #t)
-  (check (bytestring>=? mixed-case-bstring #u8"lorem") => #f)
-  (check (bytestring>=? short-bstring #u8"lorem")      => #f)
-)
+(check-equal #u8"Heart of Gold" (bytestring-join '(#u8"Heart" #u8"of" #u8"Gold") #x20))
+(check-equal #u8(0 #xef #xbb 0 #xbf) (bytestring-join '(#u8(#xef #xbb) #u8(#xbf)) 0 'prefix))
+(check-equal #t
+    (bytestring-error? (guard (o (else o)) (bytestring-join '() 0 'strict-infix))))
 
-(define (check-searching)
-  (define (eq-r? b) (= b #x72))
-  (define (lt-r? b) (< b #x72))
-  (print-header "Running search tests...")
+(define test-segments '(#u8(1) #u8(2) #u8(3)))
+(check-equal #u8(1 0 2 0 3) (bytestring-join test-segments #u8(0)))
+(check-equal #u8(0 1 0 2 0 3) (bytestring-join test-segments #u8(0) 'prefix))
+(check-equal #u8(1 0 2 0 3 0) (bytestring-join test-segments #u8(0) 'suffix))
+(check-equal #u8() (bytestring-join '() #u8(0)))
+(check-equal #u8(1 32 2 32 3) (bytestring-join test-segments #\space))
+(check-equal #u8(1 0 2 0 3) (bytestring-join test-segments 0))
+(check-equal #u8(1 65 66 2 65 66 3) (bytestring-join test-segments "AB"))
+(check-equal #u8(1 7 8 2 7 8 3) (bytestring-join test-segments #u8(7 8)))
+(check-equal #t
+    (bytestring-error? (guard (o (else o)) (bytestring-join test-segments 300))))
+(check-equal #t
+    (bytestring-error? (guard (o (else o)) (bytestring-join '() #u8(0) 'strict-infix))))
 
-  (check (values~>list (bytestring-span #u8"lorem" always))
-   => (list #u8"lorem" (bytevector)))
-  (check (values~>list (bytestring-span #u8"lorem" never))
-   => (list (bytevector) #u8"lorem"))
-  (check (values~>list (bytestring-span #u8"lorem" lt-r?))
-   => (list (bytestring "lo") (bytestring "rem")))
+(check-equal (#u8"Bee" #u8"le" #u8"rox") (bytestring-split #u8"Beeblebrox" #x62))
+(check-equal (#u8(1) #u8(2)) (bytestring-split #u8(1 0 2 0) 0 'suffix))
+(check-equal (#u8(1) #u8(2) #u8(3)) (bytestring-split #u8(1 0 2 0 3) 0 'infix))
+(check-equal (#u8(1) #u8(2) #u8(3)) (bytestring-split #u8(0 1 0 2 0 3) 0 'prefix))
+(check-equal (#u8(1) #u8(2) #u8(3)) (bytestring-split #u8(1 0 2 0 3 0) 0 'suffix))
+(check-equal (#u8() #u8() #u8()) (bytestring-split #u8(0 0) 0))
+(check-equal () (bytestring-split #u8() 0))
 
-  (check (values~>list (bytestring-break #u8"lorem" always))
-   => (list (bytevector) #u8"lorem"))
-  (check (values~>list (bytestring-break #u8"lorem" never))
-   => (list #u8"lorem" (bytevector)))
-  (check (values~>list (bytestring-break #u8"lorem" eq-r?))
-   => (list (bytestring "lo") (bytestring "rem"))))
+(define (read-bs prefix bs)
+    (call-with-port (open-input-string bs)
+            (lambda (port) (read-textual-bytestring prefix port))))
 
-(define (check-join-and-split)
-  (define test-segments '(#u8(1) #u8(2) #u8(3)))
-  (print-header "Running joining and splitting tests...")
+(check-equal #u8(#x41 #x42 #xad #xf0 #x0d #x43 #x44)
+    (read-bs #t "#u8\"AB\\xad;\\xf0;\\x0d;CD\""))
+(check-equal #u8() (read-bs #t "#u8\"\""))
+(check-equal #u8"lorem" (read-bs #t "#u8\"lorem\""))
+(check-equal #t
+    (equal?
+            (bytevector #xde #xad #xf0 #x0d)
+            (read-bs #t "#u8\"\\xde;\\xad;\\xf0;\\x0d;\"")))
+(check-equal #t
+    (equal?
+            (bytestring #\" #\\ #\alarm #\backspace #\tab #\newline #\return #\|)
+            (read-bs #t "#u8\"\\\"\\\\\\a\\b\\t\\n\\r\\\|\"")))
+(check-equal #u8"lorem" (read-bs #t "#u8\"lor\\\n\te\\   \r\n\tm\""))
+(check-equal #u8"lorem" (read-bs #f "\"lorem\""))
 
-  (check (bytestring-join test-segments #u8(0))         => #u8(1 0 2 0 3))
-  (check (bytestring-join test-segments #u8(0) 'prefix) => #u8(0 1 0 2 0 3))
-  (check (bytestring-join test-segments #u8(0) 'suffix) => #u8(1 0 2 0 3 0))
-  (check (bytestring-join '() #u8(0))                   => #u8())
-  (check (bytestring-join test-segments #\space)        => #u8(1 32 2 32 3))
-  (check (bytestring-join test-segments 0)              => #u8(1 0 2 0 3))
-  (check (bytestring-join test-segments "AB")
-   => #u8(1 65 66 2 65 66 3))
-  (check (bytestring-join test-segments #u8(7 8))       => #u8(1 7 8 2 7 8 3))
-  (check (catch-bytestring-error
-          (bytestring-join test-segments 300))          => 'bytestring-error)
-  (check (catch-bytestring-error
-          (bytestring-join test-segments "λ"))          => 'bytestring-error)
-  (check (catch-bytestring-error
-           (bytestring-join '() #u8(0) 'strict-infix))  => 'bytestring-error)
-  (check (catch-bytestring-error
-           (bytestring-join '() #u8(0) 'foofix))        => 'bytestring-error)
+(check-equal #t
+    (bytestring-error? (guard (o (else o)) (read-bs #t "#u\"lorem\""))))
+(check-equal #t
+    (bytestring-error? (guard (o (else o)) (read-bs #t "#u8lorem\""))))
+(check-equal #t
+    (bytestring-error? (guard (o (else o)) (read-bs #t "#u8\"lorem"))))
+(check-equal #t
+    (bytestring-error? (guard (o (else o)) (read-bs #t "#u8\"l\\orem\""))))
+;(check-equal #t
+;    (bytestring-error? (guard (o (else o)) (read-bs #t "#u8\"l\\    orem\""))))
+(check-equal #t
+    (bytestring-error? (guard (o (else o)) (read-bs #t "#u8\"l\\x6frem\""))))
+(check-equal #t
+    (bytestring-error? (guard (o (else o)) (read-bs #t "#u8\"l\\x6z;rem\""))))
+(check-equal #t
+    (bytestring-error? (guard (o (else o)) (read-bs #t "#u8\"\x100; equivalence\""))))
 
-  (check (bytestring-split #u8(1 0 2 0 3) 0 'infix)    => test-segments)
-  (check (bytestring-split #u8(0 1 0 2 0 3) 0 'prefix) => test-segments)
-  (check (bytestring-split #u8(1 0 2 0 3 0) 0 'suffix) => test-segments)
-  (check (bytestring-split #u8(0 0) 0)                 => '(#u8() #u8() #u8()))
-  (check (bytestring-split #u8() 0)                    => '())
-  (check (catch-bytestring-error
-           (bytestring-split #u8() 0 'foofix))         => 'bytestring-error))
+(define (write-textual-bs bs)
+    (call-with-port (open-output-string)
+            (lambda (port)
+                (write-textual-bytestring bs port)
+                (get-output-string port))))
 
-(define (check-io)
-  (print-header "Running I/O tests...")
+(check-equal "#u8\"\\tArthur\\n\"" (write-textual-bs #u8(#x9 #x41 #x72 #x74 #x68 #x75 #x72 #xa)))
+(check-equal "#u8\"\"" (write-textual-bs #u8()))
+(check-equal "#u8\"lorem\"" (write-textual-bs #u8"lorem"))
+(check-equal "#u8\"\\xde;\\xad;\\xbe;\\xef;\"" (write-textual-bs (bytevector #xde #xad #xbe #xef)))
+(check-equal "#u8\"\\\"\\\\\\a\\b\\t\\n\\r\\\|\""
+    (write-textual-bs (bytestring #\" #\\ #\alarm #\backspace #\tab #\newline #\return #\|)))
 
-  (check (%bytestring/IO "lo" #\r #x65 #u8(#x6d)) => #u8"lorem")
-  (check (%bytestring/IO) => #u8())
-  (check (catch-bytestring-error (%bytestring/IO #x100)) => 'bytestring-error)
-  (check (catch-bytestring-error (%bytestring/IO "λ")) => 'bytestring-error)
+(check-equal #t
+    (let ((lorems
+            '(#u8(124 199 173 212 209 232 249 16 198 32 123 111 130 92 64 155)
+             #u8(50 133 193 27 177 105 10 186 61 149 177 105 96 70 223 190)
+             #u8(0 117 226 155 110 0 66 216 27 129 187 81 17 210 71 152)
+             #u8(123 31 159 25 100 135 246 47 249 137 243 241 45 241 240 221)
+             #u8(207 186 70 110 118 231 79 195 153 253 93 101 126 198 70 235)
+             #u8(138 176 92 152 208 107 28 236 198 254 111 37 241 116 191 206)
+             #u8(221 254 214 90 0 155 132 92 157 246 199 224 224 142 91 114)
+             #u8(228 216 233 80 142 15 158 54 5 85 174 101 111 75 126 209)
+             #u8(191 16 83 245 45 98 72 212 148 202 135 19 213 150 141 121)
+             #u8(41 169 182 96 47 184 16 116 196 251 243 93 81 162 175 140)
+             #u8(85 49 218 138 132 11 27 11 182 27 120 71 254 169 132 166)
+             #u8(89 216 175 23 97 10 237 112 208 195 112 80 198 154 241 254)
+             #u8(187 54 6 57 250 137 129 89 188 19 225 217 168 178 174 129)
+             #u8(88 164 89 40 175 194 108 56 12 124 109 96 148 149 119 109)
+             #u8(241 66 32 115 203 71 128 154 240 111 194 137 73 44 146 3)
+             #u8(177 185 177 233 18 14 178 106 110 109 222 147 111 157 216 208))))
+        (every
+                (lambda (bvec)
+                    (equal? bvec (read-bs #t (write-textual-bs bvec))))
+                lorems)))
 
-  ;;; read-textual-bytestring
+(define (write-binary-bs . args)
+    (call-with-port (open-output-bytevector)
+            (lambda (port)
+                (apply write-binary-bytestring port args)
+                (get-output-bytevector port))))
 
-  (check (parse-SNB/prefix "#u8\"\"") => #u8())
-  (check (parse-SNB/prefix "#u8\"lorem\"") => #u8"lorem")
-  (check (parse-SNB/prefix "#u8\"\\xde;\\xad;\\xf0;\\x0d;\"")
-   => (bytevector #xde #xad #xf0 #x0d))
-  (check (parse-SNB/prefix "#u8\"\\\"\\\\\\a\\b\\t\\n\\r\\\|\"")
-   => (bytestring #\" #\\ #\alarm #\backspace #\tab #\newline #\return #\|))
-  (check (parse-SNB/prefix "#u8\"lor\\\n\te\\   \r\n\tm\"")
-   => #u8"lorem")
-  (check (parse-SNB "\"lorem\"") => #u8"lorem")
-
-  ;; Invalid SNB detection.
-  (check (catch-bytestring-error (parse-SNB/prefix "#u\"lorem\""))
-   => 'bytestring-error)
-  (check (catch-bytestring-error (parse-SNB/prefix "#u8lorem\""))
-   => 'bytestring-error)
-  (check (catch-bytestring-error (parse-SNB/prefix "#u8\"lorem"))
-   => 'bytestring-error)
-  (check (catch-bytestring-error (parse-SNB/prefix "#u8\"lorem"))
-   => 'bytestring-error)
-  (check (catch-bytestring-error (parse-SNB/prefix "#u8\"l\\orem\""))
-   => 'bytestring-error)
-  (check (catch-bytestring-error (parse-SNB/prefix "#u8\"l\\    orem\""))
-   => 'bytestring-error)
-  (check (catch-bytestring-error (parse-SNB/prefix "#u8\"l\\x6frem\""))
-   => 'bytestring-error)
-  (check (catch-bytestring-error (parse-SNB/prefix "#u8\"l\\x6z;rem\""))
-   => 'bytestring-error)
-  (check (catch-bytestring-error (parse-SNB/prefix "#u8\"α equivalence\""))
-   => 'bytestring-error)
-
-  ;;; write-textual-bytestring
-
-  (check (%bytestring->SNB #u8()) => "#u8\"\"")
-  (check (%bytestring->SNB #u8"lorem") => "#u8\"lorem\"")
-  (check (%bytestring->SNB (bytevector #xde #xad #xbe #xef))
-   => "#u8\"\\xde;\\xad;\\xbe;\\xef;\"")
-  (check (%bytestring->SNB
-          (bytestring #\" #\\ #\alarm #\backspace #\tab #\newline #\return #\|))
-   => "#u8\"\\\"\\\\\\a\\b\\t\\n\\r\\\|\"")
-
-  (let ((#u8"lorem"s
-         '(#u8(124 199 173 212 209 232 249 16 198 32 123 111 130 92 64 155)
-           #u8(50 133 193 27 177 105 10 186 61 149 177 105 96 70 223 190)
-           #u8(0 117 226 155 110 0 66 216 27 129 187 81 17 210 71 152)
-           #u8(123 31 159 25 100 135 246 47 249 137 243 241 45 241 240 221)
-           #u8(207 186 70 110 118 231 79 195 153 253 93 101 126 198 70 235)
-           #u8(138 176 92 152 208 107 28 236 198 254 111 37 241 116 191 206)
-           #u8(221 254 214 90 0 155 132 92 157 246 199 224 224 142 91 114)
-           #u8(228 216 233 80 142 15 158 54 5 85 174 101 111 75 126 209)
-           #u8(191 16 83 245 45 98 72 212 148 202 135 19 213 150 141 121)
-           #u8(41 169 182 96 47 184 16 116 196 251 243 93 81 162 175 140)
-           #u8(85 49 218 138 132 11 27 11 182 27 120 71 254 169 132 166)
-           #u8(89 216 175 23 97 10 237 112 208 195 112 80 198 154 241 254)
-           #u8(187 54 6 57 250 137 129 89 188 19 225 217 168 178 174 129)
-           #u8(88 164 89 40 175 194 108 56 12 124 109 96 148 149 119 109)
-           #u8(241 66 32 115 203 71 128 154 240 111 194 137 73 44 146 3)
-           #u8(177 185 177 233 18 14 178 106 110 109 222 147 111 157 216 208))))
-    (check
-     (every (lambda (bvec)
-              (equal? bvec (parse-SNB/prefix (%bytestring->SNB bvec))))
-            #u8"lorem"s)
-    => #t))
-)
-|#
+(check-equal #u8"Zaphod" (write-binary-bs #\Z #x61 #x70 "hod"))

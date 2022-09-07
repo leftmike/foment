@@ -702,7 +702,14 @@
         hex-string->bytevector
         bytevector->base64
         base64->bytevector
-        bytestring->list)
+        bytestring->list
+        bytevector=?
+        bytevector<?
+        bytevector>?
+        bytevector<=?
+        bytevector>=?
+        read-textual-bytestring
+        write-textual-bytestring)
     (cond-expand
         (unix
             (export

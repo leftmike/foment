@@ -237,12 +237,16 @@ Again:
 UnexpectedEof:
     if (s != sb)
         free(s);
-    RaiseExceptionC(Lexical, "read", bsf ? "unexpected end-of-file reading bytestring" :
-            "unexpected end-of-file reading string", List(port));
+    if (bsf)
+        RaiseExceptionC(Lexical, "read", BytestringErrorSymbol,
+                "unexpected end-of-file reading bytestring", List(port));
+    else
+        RaiseExceptionC(Lexical, "read", "unexpected end-of-file reading string",
+                List(port));
     return(NoValueObject);
 }
 
-static FObject ReadBytestring(FObject port)
+FObject ReadBytestring(FObject port)
 {
     FObject s = ReadStringLiteral(port, '"', 1);
     long_t sl = StringLength(s);
@@ -250,7 +254,7 @@ static FObject ReadBytestring(FObject port)
     for (long_t idx = 0; idx < sl; idx += 1)
     {
         FCh ch = AsString(s)->String[idx];
-        if (ch >= 128 )
+        if (ch >= 256)
             RaiseExceptionC(Lexical, "read", BytestringErrorSymbol,
                     "unexpected character in bytestring", List(MakeCharacter(ch)));
         AsBytevector(bv)->Vector[idx] = (FByte) ch;
