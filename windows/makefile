@@ -168,7 +168,7 @@ release\pairs.obj: ..\src\pairs.cpp ..\src\foment.hpp
 release\unicode.obj: ..\src\unicode.cpp ..\src\foment.hpp ..\src\unicode.hpp ..\src\unicase.hpp
 release\chars.obj: ..\src\chars.cpp ..\src\foment.hpp ..\src\unicode.hpp
 release\strings.obj: ..\src\strings.cpp ..\src\foment.hpp ..\src\unicode.hpp
-release\vectors.obj: ..\src\vectors.cpp ..\src\foment.hpp ..\src\syncthrdhpp ..\src\io.hpp\
+release\vectors.obj: ..\src\vectors.cpp ..\src\foment.hpp ..\src\syncthrd.hpp ..\src\io.hpp\
     ..\src\unicode.hpp
 release\library.obj: ..\src\library.cpp ..\src\foment.hpp ..\src\compile.hpp
 release\execute.obj: ..\src\execute.cpp ..\src\foment.hpp ..\src\execute.hpp ..\src\syncthrd.hpp
